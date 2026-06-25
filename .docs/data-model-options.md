@@ -20,7 +20,7 @@ Each option below is tagged with the preset(s) it fits.
 - **→ Rec: A** — workspaces tenancy is your choice; clients-as-first-class keeps scoping/indexing clean. Borrow B's `client.user_id?` link for self-serve.
 
 ## 2 · Members / staff
-- **A · Unified `memberships`** `(P1)` — `scope` (account/workspace), `scope_id`, `role`, `is_payee`. → one table, multi-workspace per user.
+- **A · Unified `staff`** `(P1)` — `scope` (account/workspace), `scope_id`, `role`, `is_payee`. → one table, multi-workspace per user.
 - **B · `account_members` + `workspace_members`** `(P2)` — explicit. → clearer, but two near-identical tables.
 - **C · role on `users`** — `users.workspace_id` + `role`. → simplest; breaks if a person works in >1 workspace.
 - **→ Rec: A** (B if you value explicitness).

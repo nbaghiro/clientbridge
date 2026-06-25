@@ -52,7 +52,7 @@ Sync Rules sketch (one bucket set per business the user belongs to; a second, ro
 bucket_definitions:
   business_core:
     parameters: |
-      SELECT business_id FROM memberships
+      SELECT business_id FROM staff
       WHERE user_id = request.user_id() AND status = 'active'
     data:
       - SELECT * FROM clients    WHERE business_id = bucket.business_id AND deleted_at IS NULL
@@ -64,7 +64,7 @@ bucket_definitions:
 
   business_financials:                 # owner/admin only
     parameters: |
-      SELECT business_id FROM memberships
+      SELECT business_id FROM staff
       WHERE user_id = request.user_id() AND role IN ('owner','admin') AND status='active'
     data:
       - SELECT * FROM payments WHERE business_id = bucket.business_id
@@ -77,7 +77,7 @@ bucket_definitions:
 | Class | Tables | On client |
 |---|---|---|
 | **Read + write** | clients · subjects · consents · notes · items · packages · subscriptions · gift_cards · sessions · bookings · availability · resources · schedules · invoices · estimates · lines · threads · messages · broadcasts · forms · form_fields · form_responses · contracts · signatures · reviews · review_requests · files(meta) | local SQLite; writes via `uploadData` |
-| **Read-only (server-authoritative)** | payments · payment_methods · payouts · payout_allocations · tax_rates · businesses(own) · memberships(own business) | synced down; client writes **rejected** by `/sync/upload` |
+| **Read-only (server-authoritative)** | payments · payment_methods · payouts · payout_allocations · tax_rates · businesses(own) · staff(own business) | synced down; client writes **rejected** by `/sync/upload` |
 | **Server-only (never synced)** | webhook_events · audit_logs† | Postgres only |
 
 †`audit_logs` may later sync read-only to power the client activity timeline. `payment_methods`/`payments` originate from Stripe/Interac or the backend — clients read, never write card data.
@@ -94,9 +94,35 @@ bucket_definitions:
 - Infra migration: `wal_level=logical` + `powersync` publication + replication slot + `powersync` role.
 - Optional `v_*_safe` **views** for column redaction; **RLS** where row visibility needs DB enforcement.
 
+## Client data access & filtering (reads)
+The on-device SQLite already holds **only the rows this user may see** — the sync rules apply the
+`business_id`/role filter server-side before data reaches the device. So the client never filters for
+**security**; it just queries its local DB:
+- **Reactive queries** drive the UI — `useQuery(sql, params)` (from `@powersync/react`) re-runs whenever
+  the local tables change (from a sync push *or* a local write). Reads are instant and offline.
+- **App-level filtering** (date ranges, status, text search) = plain `WHERE` on local SQLite.
+- **Relationships** = ordinary SQL joins across local tables (`bookings JOIN clients …`).
+- **Multi-business users** hold one bucket per business → queries add `WHERE business_id = :active`.
+- **Writes** = `db.execute("UPDATE … WHERE id = ?", …)` hits local SQLite instantly (optimistic), then
+  PowerSync queues it → `uploadData` → FastAPI (authoritative) → Postgres → streams back.
+
+## Build status
+- ✅ Client `AppSchema` (33 tables) — **generated** from models (`make gen-sync-schema`)
+- ✅ Connector (`fetchCredentials` / `uploadData`) + `db` (web WASM, mobile op-sqlite)
+- ✅ Sync rules (per-business + role buckets) · `powersync.yaml` (HS256 dev)
+- ✅ **Backend `/sync/token`** — mints the PowerSync JWT (dev-user shortcut when unauthenticated)
+- ✅ **Mobile app wired** — `PowerSyncContext` provider + connect-on-mount + live status screen
+- ✅ **`/sync/upload`** — real handler: actor → `WRITE_POLICY` role authz → type-coerce → upsert/update/soft-delete in one transaction (see [authorization.md](authorization.md); `test_sync_upload.py`)
+- ✅ **seed** dev user/business/data (`make seed` — owner = `us_dev`)
+- ✅ **PowerSync service running** (`make up`, :8704) — replication from Postgres (publication `powersync` + wal_level=logical), **bucket storage = a separate Postgres DB `powersync_storage`** (same instance, not a new engine), HS256 JWKS auth. Verified: 264 demo rows replicated; `/sync/token` → `/sync/stream` = 200. *(Storage needs `sslmode` as a structured field, not a `?sslmode=` URI param — our dev Postgres runs `ssl=off`.)*
+- ✅ **Web app wired** — `PowerSyncContext` provider + connect-on-mount + near-blank Shell
+- ✅ **Hidden debug view** (both apps) — live status + per-table local-SQLite row counts. Web: type `debug` / ⌘⇧D. Mobile: 5-tap the wordmark.
+- ✅ **RS256 + JWKS for prod** (P1.6) — `GET /sync/keys` serves the RS256 public key; set `POWERSYNC_USE_RS256=true` + point `powersync.yaml` `jwks_uri` at it (HS256 stays for dev). `/sync/token` mints from the authenticated session (dev `dev_user_id` fallback gated to `env=dev`).
+- ⬜ **auth login UI** wired into the apps · **expo-router** screens · real domain screens (`useQuery`) · deeper write-time business-rule validation
+
 ## Open items — confirm in a 1–2 day spike before full build
 1. **Sync Rules vs Sync Streams** — pick the API to build on.
 2. **`uploadData` validation/conflict hooks** for sessions/bookings/invoices (capacity, paid-state, etc.).
 3. **License / pricing** — self-host vs cloud at solo/small-business scale.
 4. **op-sqlite + SQLCipher** key management on device (where the encryption key lives).
-5. Multi-business users — `business_ids` claim (array) and bucket fan-out behaviour.
+5. Multi-business users — bucket fan-out behaviour across several businesses.
