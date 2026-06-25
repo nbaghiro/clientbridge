@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, ForeignKey, String
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,10 +38,11 @@ class User(PKMixin, TimestampMixin, Base):
     name: Mapped[str | None] = mapped_column(String)
     phone: Mapped[str | None] = mapped_column(String)
     avatar_url: Mapped[str | None] = mapped_column(String)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class Membership(PKMixin, TimestampMixin, Base):
-    __tablename__ = "memberships"
+class Staff(PKMixin, TimestampMixin, Base):
+    __tablename__ = "staff"
 
     business_id: Mapped[str] = mapped_column(
         ForeignKey("businesses.id"), index=True, nullable=False

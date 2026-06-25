@@ -18,7 +18,7 @@ from sqlalchemy.types import TypeEngine
 from clientbridge import models  # noqa: F401  -- imported for its side effect: populates metadata
 from clientbridge.core.db import Base
 
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[2]  # backend/scripts/<file> → repo root
 SYNC_RULES = ROOT / "infra" / "powersync" / "sync-rules.yaml"
 OUT = ROOT / "frontend" / "packages" / "sync" / "src" / "schema.ts"
 
@@ -60,7 +60,7 @@ def gen_table(name: str) -> str:
         if col.name != "id"
     ]
     indexes = [
-        f'            {re.sub(r"^ix_", "", idx.name or "")}: '
+        f"            {re.sub(r'^ix_', '', idx.name or '')}: "
         f"[{', '.join(repr(c.name) for c in idx.columns)}],"
         for idx in sorted(table.indexes, key=lambda i: i.name or "")
         if idx.name

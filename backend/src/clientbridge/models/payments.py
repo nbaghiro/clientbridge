@@ -23,7 +23,11 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     kind: Mapped[str] = mapped_column(String, default="payment", nullable=False)
     parent_payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id"))
     invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
-    booking_id: Mapped[str | None] = mapped_column(ForeignKey("bookings.id"))
+    # use_alter breaks the bookings→packages→payments→bookings FK cycle: this FK is added via
+    # ALTER after the tables exist, so Alembic can order CREATE TABLEs.
+    booking_id: Mapped[str | None] = mapped_column(
+        ForeignKey("bookings.id", use_alter=True, name="fk_payments_booking")
+    )
     amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     method: Mapped[str] = mapped_column(String, nullable=False)
@@ -83,11 +87,11 @@ class PayoutAllocation(PKMixin, BusinessScoped, TimestampMixin, Base):
         ),
         enum_check("payout_allocations", "basis", "rate", "percent", "fixed"),
         enum_check("payout_allocations", "status", "pending", "approved", "paid"),
-        Index("ix_payout_alloc_member", "business_id", "member_id", "status"),
+        Index("ix_payout_alloc_staff", "business_id", "staff_id", "status"),
         Index("ix_payout_alloc_source", "source_type", "source_id"),
     )
 
-    member_id: Mapped[str] = mapped_column(ForeignKey("memberships.id"), nullable=False)
+    staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
     source_type: Mapped[str] = mapped_column(String, nullable=False)
     source_id: Mapped[str] = mapped_column(String, nullable=False)
     basis: Mapped[str | None] = mapped_column(String)
