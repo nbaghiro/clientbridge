@@ -1,25 +1,36 @@
-# PowerSync service config (local dev). See docs/sync.md.
+# PowerSync service config (local dev). See .docs/sync.md.
+# Prereqs (created by `make up`): wal_level=logical, a `powersync` publication on the source DB, and
+# a separate `powersync_storage` database for bucket storage.
 replication:
   connections:
     - type: postgresql
       uri: postgresql://clientbridge:clientbridge@postgres:5432/clientbridge
-      # PowerSync consumes a logical replication slot (wal_level=logical set in docker-compose).
       sslmode: disable
 
+# Bucket storage = a SEPARATE Postgres database on the same instance (so its tables aren't picked up
+# by the source publication). sslmode is a structured field here — pgwire ignores a `?sslmode=` URI
+# query param, and our dev Postgres runs with ssl=off.
 storage:
-  type: postgresql  # store sync buckets in the same Postgres for dev (use mongodb/own DB in prod)
-  uri: postgresql://clientbridge:clientbridge@postgres:5432/clientbridge
+  type: postgresql
+  uri: postgresql://clientbridge:clientbridge@postgres:5432/powersync_storage
+  sslmode: disable
 
 port: 8080
+
 sync_rules:
   path: /config/sync-rules.yaml
 
 client_auth:
-  # Dev: HS256 shared secret matching backend JWT_SECRET.
-  # Prod: switch to RS256 + the backend JWKS endpoint (jwks_uri).
+  # Dev: a static symmetric (HS256) key matching the backend JWT secret (k = base64url of the dev
+  # secret "clientbridge-dev-secret-do-not-use-in-prod").
+  # Prod: replace the `jwks` block below with the backend's RS256 JWKS endpoint —
+  #   jwks_uri: https://api.clientbridge.ca/sync/keys
+  # and set POWERSYNC_USE_RS256=true so the backend signs PowerSync tokens with RS256.
   jwks:
-    - type: hmac
-      kid: clientbridge-dev
-      algorithm: HS256
-      secret: dev-change-me
-  audience: ["powersync"]
+    keys:
+      - kty: oct
+        alg: HS256
+        kid: clientbridge-dev
+        k: Y2xpZW50YnJpZGdlLWRldi1zZWNyZXQtZG8tbm90LXVzZS1pbi1wcm9k
+  audience:
+    - powersync
