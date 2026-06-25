@@ -9,7 +9,7 @@ Clientbridge claims the **87xx** block so it runs **simultaneously** with the ot
 |---|---|---|---|
 | **8700** | Web (Vite dev) | — | `frontend/apps/web` vite.config (strictPort) · Makefile `dev-web` |
 | **8701** | Backend API (FastAPI/uvicorn) | — | Makefile `dev-api` · `API_PORT` |
-| **8702** | Postgres | container `5432` | docker-compose · `DATABASE_URL` |
+| **8702** | Postgres (source DB + `powersync_storage`) | container `5432` | docker-compose · `DATABASE_URL` |
 | **8703** | Redis | container `6379` | docker-compose · `REDIS_URL` |
 | **8704** | PowerSync service | container `8080` | docker-compose · `POWERSYNC_URL` |
 | **8705** | MinIO — S3 API | container `9000` | docker-compose · `S3_ENDPOINT` |

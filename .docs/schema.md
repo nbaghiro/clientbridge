@@ -102,7 +102,7 @@ users                                                               -- us_  (glo
   created_at · updated_at
   idx: (email) unique
 
-memberships                                                         -- mb_
+staff                                                         -- mb_
   id text pk · business_id fk not null · user_id text null fk→users -- null while invited
   role text not null · is_payee bool default false
   payout_ref text null                                              -- staff Stripe connected acct
@@ -190,12 +190,12 @@ gift_cards                                                          -- gc_
 ## scheduling
 ```
 sessions                                                            -- ses_
-  id text pk · business_id fk not null · item_id fk→items not null · member_id fk→memberships not null
+  id text pk · business_id fk not null · item_id fk→items not null · staff_id fk→staff not null
   resource_id text null fk→resources · recurrence_id text null fk→schedules
   starts_at timestamptz not null · ends_at timestamptz not null
   capacity int default 1 · booked_count int default 0 · status text default 'scheduled'
   created_at · updated_at
-  idx: (business_id,member_id,starts_at), (business_id,starts_at), (recurrence_id)
+  idx: (business_id,staff_id,starts_at), (business_id,starts_at), (recurrence_id)
 
 bookings                                                            -- bk_   (soft-del)
   id text pk · business_id fk not null · session_id fk→sessions not null · client_id fk→clients not null
@@ -207,14 +207,14 @@ bookings                                                            -- bk_   (so
   idx: (business_id,session_id), (business_id,client_id), (business_id,status)
 
 availability                                                        -- av_
-  id text pk · business_id fk not null · member_id fk→memberships not null
+  id text pk · business_id fk not null · staff_id fk→staff not null
   type text not null                                                -- recurring | date
   weekday smallint null                                             -- 0..6 (recurring)
   date date null                                                    -- (one-off)
   start_time time null · end_time time null                         -- null = all-day
   is_available bool not null default true · note text null
   created_at · updated_at
-  idx: (business_id,member_id,type)
+  idx: (business_id,staff_id,type)
 
 resources                                                           -- rs_
   id text pk · business_id fk not null · name text not null · kind text not null
@@ -222,7 +222,7 @@ resources                                                           -- rs_
 
 schedules                                                           -- sch_  (recurrence rules)
   id text pk · business_id fk not null · item_id fk→items not null
-  member_id text null fk→memberships · client_id text null fk→clients
+  staff_id text null fk→staff · client_id text null fk→clients
   frequency text not null · interval int default 1 · byday text[] null
   count int null · until date null · start_date date not null · status text default 'active'
   created_at · updated_at
@@ -295,12 +295,12 @@ payouts                                                             -- po_  (mir
   idx: (business_id,status), (provider_ref)
 
 payout_allocations                                                  -- pal_  (staff earnings)
-  id text pk · business_id fk not null · member_id fk→memberships not null
+  id text pk · business_id fk not null · staff_id fk→staff not null
   source_type text not null · source_id text not null
   basis text · rate numeric null · amount_cents bigint not null
   status text default 'pending' · payout_id text null fk→payouts
   created_at · updated_at
-  idx: (business_id,member_id,status), (source_type,source_id), (payout_id)
+  idx: (business_id,staff_id,status), (source_type,source_id), (payout_id)
 ```
 
 ## messaging

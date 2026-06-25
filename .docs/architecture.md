@@ -20,8 +20,8 @@ clientbridge/
 ├── backend/        ── Python (uv) ──           FastAPI · SQLAlchemy · Alembic
 ├── frontend/       ── TypeScript (pnpm+turbo) ── apps/{web,mobile} · packages/{tokens,sync,api-client,config}
 ├── infra/          powersync sync-rules · Dockerfiles · seeds
-├── design/         theme-explorer (Pewter) + specs
-└── docs/           architecture · data-model · schema · sync · repo-structure
+└── .docs/          architecture · data-model · schema · sync · repo-structure · ports · code-style
+    └── design/     theme-explorer (Pewter) + specs
 ```
 Clean Python↔TS boundary; bridged only by a **generated `api-client`** (FastAPI OpenAPI → TS), the
 **Pewter `tokens`** package (web Tailwind preset + RN theme), and the **`sync`** package (PowerSync client
@@ -55,7 +55,7 @@ Domains: `identity · crm · catalog · scheduling · billing · payments · mes
 
 ## Tenancy
 `businesses` is the top entity — a provider's **business/location AND the billing entity** (multi-location via `parent_business_id`). Almost every row carries `business_id`.
-`users` are global logins; `memberships` link a user to a business with a `role` (owner/admin/staff/contractor) and also carry **pending invites** (`status=invited`). A member who gets paid is a **payee** (`is_payee`). *(No separate `accounts` table — kept lean.)*
+`users` are global logins; `staff` link a user to a business with a `role` (owner/admin/staff/contractor) and also carry **pending invites** (`status=invited`). A member who gets paid is a **payee** (`is_payee`). *(No separate `accounts` table — kept lean.)*
 
 ## Auth
 Owners/staff: **email + password + Google OAuth**. Clients **book without an account** (name/phone/email on the public page); a client may later be linked to a `user` if they self-serve. Sessions: JWT access + refresh (or server sessions — TBD in core/auth).
@@ -63,7 +63,7 @@ Owners/staff: **email + password + Google OAuth**. Clients **book without an acc
 ## Payments (Canada-first)
 - **Stripe Connect** — cards / tap-to-pay, payouts, refunds.
 - **Interac e-Transfer** — request + **auto-match** by reference code (the differentiator).
-- **EFT / PAD** — pre-authorized debit for recurring (subscriptions/memberships).
+- **EFT / PAD** — pre-authorized debit for recurring (subscriptions / recurring plans).
 - Schema models methods/payments **provider-agnostically**; provider refs stored per row.
 - **No platform-held funds / no general ledger (v1).** Stripe Connect custodies each provider's balance and **pays out to their linked bank on a schedule** (daily/weekly) we configure — the platform never transmits funds (avoids FINTRAC MSB licensing). We **record** `payments` (fee/net/status) and **mirror** Stripe `payouts` via webhook. Balances come from Stripe; "GST/HST set aside" is a computed remittance figure (Σ tax on paid invoices), not segregated cash. Revisit a ledger only if we ever hold funds or ship in-app bookkeeping.
 

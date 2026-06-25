@@ -10,14 +10,14 @@ timestamps · lightweight config in `jsonb` · per-business numbering via Postgr
 
 ## Decisions
 tenancy = **`businesses`** (business + billing; multi-location via `parent_business_id`) + `users` +
-`memberships` (invites folded in) · catalog = one `items(kind)` + split sold-instances · scheduling =
+`staff` (invites folded in) · catalog = one `items(kind)` + split sold-instances · scheduling =
 **`sessions` + `bookings`** (a session is any slot incl. 1:1) + single **`availability`** table
 (type recurring/date + `is_available`) · invoices + estimates separate sharing **polymorphic `lines`** ·
 payments lean (Stripe Connect; no ledger) · messaging = threads + messages + **`broadcasts`** ·
 forms = typed `form_fields` + jsonb answers · numbering via sequences.
 
 ## ID prefixes
-`bz_`business `us_`user `mb_`membership ·
+`bz_`business `us_`user `st_`staff ·
 `cl_`client `sj_`subject `cns_`consent `nt_`note ·
 `it_`item `pkg_`package `sub_`subscription `gc_`gift_card ·
 `ses_`session `bk_`booking `av_`availability `rs_`resource `sch_`schedule ·
@@ -35,7 +35,7 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 |---|---|
 | **businesses** | business/location + billing. `name`, `slug`, `parent_business_id?`, `timezone`, `locale` (en/fr), `province`, `gst_hst_number`, `qst_number`, `is_tax_registered`, `brand jsonb`, `plan`, `billing_email`, `stripe_customer_id`, `stripe_account_id` (Connect), `payout_schedule`, `avg_rating`, `review_count`, `status` |
 | **users** | `email` (unique), `password_hash?`, `oauth jsonb`, `name`, `phone`, `avatar_url` |
-| **memberships** | user ↔ business (staff + invites). `business_id`, `user_id?`, `role` (owner/admin/staff/contractor), `is_payee`, `payout_ref`, `default_rate`/`rate_type`, `title`, `color`, `status` (active/invited), `invite_email?`, `invite_token?` |
+| **staff** | user ↔ business (staff + invites). `business_id`, `user_id?`, `role` (owner/admin/staff/contractor), `is_payee`, `payout_ref`, `default_rate`/`rate_type`, `title`, `color`, `status` (active/invited), `invite_email?`, `invite_token?` |
 
 ## crm (4)
 | Table | Key columns |
@@ -56,11 +56,11 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 ## scheduling (5)
 | Table | Key columns |
 |---|---|
-| **sessions** | any slot (1:1 or group). `item_id`, `member_id`, `resource_id?`, `starts_at`, `ends_at`, `capacity` (1 for 1:1), `booked_count`, `recurrence_id?` (→ schedule), `status` |
+| **sessions** | any slot (1:1 or group). `item_id`, `staff_id`, `resource_id?`, `starts_at`, `ends_at`, `capacity` (1 for 1:1), `booked_count`, `recurrence_id?` (→ schedule), `status` |
 | **bookings** *(soft-del)* | client's seat in a session. `session_id`, `client_id`, `subject_id?`, `status` (pending/confirmed/completed/canceled/no_show), `source` (online/manual), `package_id?`, `invoice_id?`, `price_cents`, `deposit_required`, `confirmed_at`/`completed_at`/`canceled_at`, `custom_fields jsonb` |
-| **availability** | open/closed time, one table. `member_id`, `type` (recurring/date), `weekday?`, `date?`, `start_time?`, `end_time?` (null = all-day), `is_available` (open/closed), `note?`. *Bookable = recurring + date overrides − bookings.* |
+| **availability** | open/closed time, one table. `staff_id`, `type` (recurring/date), `weekday?`, `date?`, `start_time?`, `end_time?` (null = all-day), `is_available` (open/closed), `note?`. *Bookable = recurring + date overrides − bookings.* |
 | **resources** | rooms/equipment: `name`, `kind` (sessions carry `resource_id`) |
-| **schedules** | recurrence rule generating sessions. `item_id`, `member_id?`, `client_id?`, `frequency` (daily/weekly/monthly), `interval`, `byday`, `count?`, `until?`, `start_date`, `status` |
+| **schedules** | recurrence rule generating sessions. `item_id`, `staff_id?`, `client_id?`, `frequency` (daily/weekly/monthly), `interval`, `byday`, `count?`, `until?`, `start_date`, `status` |
 
 ## billing (4)
 | Table | Key columns |
@@ -76,7 +76,7 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 | **payments** | money-in: `client_id`, `kind` (payment/deposit/refund), `parent_payment_id?`, `invoice_id?`/`booking_id?`, `amount_cents`, `currency`, `method` (card/interac/eft/cash/other), `provider` (stripe/interac/manual), `provider_ref`, `reference_code` (Interac match), `fee_cents`, `net_cents`, `status`, `paid_at` |
 | **payment_methods** | `client_id`, `type` (card/bank_eft/interac), `brand`, `last4`, `provider`, `provider_ref`, `is_default`, `mandate_status` (PAD), `status` |
 | **payouts** | Stripe payout mirror to the provider's bank: `amount_cents`, `status`, `arrival_at`, `provider_ref`, `bank_last4` |
-| **payout_allocations** | staff earnings/split: `member_id`, `source_type` (booking/invoice_line/class_session/tip/sale), `source_id`, `basis` (rate/percent/fixed), `rate`, `amount_cents`, `status` (pending/approved/paid), `payout_id?` |
+| **payout_allocations** | staff earnings/split: `staff_id`, `source_type` (booking/invoice_line/class_session/tip/sale), `source_id`, `basis` (rate/percent/fixed), `rate`, `amount_cents`, `status` (pending/approved/paid), `payout_id?` |
 
 ## messaging (3)
 | Table | Key columns |
@@ -112,7 +112,7 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 ## Polymorphic patterns
 - **`lines.parent_type/parent_id`** → one line table for invoices + estimates.
 - **`payments`** nullable over invoice/booking + `kind`/`method`/`reference_code`; `fee_cents`/`net_cents` per payment.
-- **`items.kind`** = whole catalog · **`sessions`** = every slot · **`memberships`** = staff + invites · **`payout_allocations.source_type`** = any earning source · **`notes`/`files`/`audit_logs` parent_type** generalize the rest.
+- **`items.kind`** = whole catalog · **`sessions`** = every slot · **`staff`** = staff + invites · **`payout_allocations.source_type`** = any earning source · **`notes`/`files`/`audit_logs` parent_type** generalize the rest.
 
 ## Core relationship (get-paid loop)
 ```

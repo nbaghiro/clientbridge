@@ -25,20 +25,20 @@ PIPEDA / Québec Law 25 / CASL compliance, and full English/French bilingual UX 
 ```
 clientbridge/
 ├── README.md                              ← you are here
-├── Makefile · docker-compose.yml      ← root orchestration + local infra (87xx ports)
-├── docs/                                  ← specs (architecture · data-model · schema · sync · repo-structure · ports)
+├── Makefile · docker-compose.yml          ← root orchestration + local infra (87xx ports)
+├── .docs/                                 ← specs (architecture · data-model · schema · sync · repo-structure · ports · code-style)
+│   └── design/                            ← theme-explorer.html (Pewter) + design specs
 ├── backend/                               ← Python · FastAPI · SQLAlchemy (37 models) · Alembic
 ├── frontend/                              ← pnpm+turbo · apps/{web (Vite), mobile (Expo)} · packages/{tokens,sync,api-client,config}
-├── infra/                                 ← powersync sync-rules + service config · Dockerfiles · seeds
-└── design/                                ← theme-explorer.html (Pewter) + design specs
+└── infra/                                 ← powersync sync-rules + service config · Dockerfiles · seeds
 ```
 
-**Code layout — Polyglot split** (see [`docs/repo-structure.md`](docs/repo-structure.md)). **Scaffolded:**
+**Code layout — Polyglot split** (see [`.docs/repo-structure.md`](.docs/repo-structure.md)). **Scaffolded:**
 backend spine (core + all 37 models + async Alembic) · frontend workspace (Pewter `tokens`, PowerSync
 `sync`, `api-client`, web + mobile shells) · infra. Run with `make up` then `make dev-api` / `dev-web` /
-`dev-mobile`. Ports in [`docs/ports.md`](docs/ports.md) (87xx).
+`dev-mobile`. Ports in [`.docs/ports.md`](.docs/ports.md) (87xx).
 
-**Selected theme: Pewter** — cool silver-gray + slate-blue accent, Schibsted Grotesk, crisp 1.5px borders. Open `design/theme-explorer.html` to compare against the other five finals (Calm, Slate, Fjord, Birch, Moss).
+**Selected theme: Pewter** — cool silver-gray + slate-blue accent, Schibsted Grotesk, crisp 1.5px borders. Open `.docs/design/theme-explorer.html` to compare against the other five finals (Calm, Slate, Fjord, Birch, Moss).
 
 ## Status
 
