@@ -6,9 +6,22 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clientbridge
+          POSTGRES_PASSWORD: clientbridge
+          POSTGRES_DB: clientbridge
+        ports: ["8702:5432"]
+        options: >-
+          --health-cmd "pg_isready -U clientbridge" --health-interval 5s
+          --health-timeout 3s --health-retries 15
     defaults:
       run:
         working-directory: backend
+    env:
+      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -17,8 +30,10 @@ jobs:
       - run: uv sync
       - run: uv run ruff check .
       - run: uv run ruff format --check .
-      - run: uv run mypy src
-      - run: uv run pytest -q
+      - run: uv run mypy src scripts tests
+      - run: uv run alembic upgrade head           # build the schema
+      - run: uv run python -m scripts.seed_demo     # seed the demo (tests act as its owner)
+      - run: uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 
   frontend:
     runs-on: ubuntu-latest

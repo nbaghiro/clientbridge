@@ -10,7 +10,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "TID", "ANN", "RUF"]
 
 [lint.per-file-ignores]
 "tests/**" = ["ANN"]                # tests need not be fully annotated
-"migrations/**" = ["ANN", "E501"]   # alembic-generated
+"migrations/**" = ["ANN", "E501", "I001", "UP"]   # alembic-generated (own import/typing style)
+"**/scripts/seed_demo.py" = ["E501", "RUF001", "RUF002", "RUF003"]  # long demo copy + ×/– in real copy
 
 [format]
 quote-style = "double"

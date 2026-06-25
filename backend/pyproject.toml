@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
     "pyjwt>=2.8",
+    "cryptography>=42",
     "argon2-cffi>=23.1",
     "python-ulid>=2.2",
     "arq>=0.26",
@@ -21,7 +22,15 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6", "mypy>=1.11", "asgi-lifespan>=2"]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "pytest-cov>=5", "ruff>=0.6", "mypy>=1.11", "asgi-lifespan>=2"]
+
+[tool.coverage.run]
+branch = true
+source = ["clientbridge"]
+omit = ["*/migrations/*"]
+
+[tool.coverage.report]
+show_missing = true
 
 [build-system]
 requires = ["hatchling"]
