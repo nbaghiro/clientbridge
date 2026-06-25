@@ -1,6 +1,7 @@
 """Import every domain module so Alembic's autogenerate sees all tables."""
 
 from clientbridge.models import (
+    auth,
     billing,
     catalog,
     crm,
@@ -14,6 +15,7 @@ from clientbridge.models import (
 )
 
 __all__ = [
+    "auth",
     "billing",
     "catalog",
     "crm",

@@ -23,12 +23,12 @@ class Session(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "sessions"
     __table_args__ = (
         enum_check("sessions", "status", "scheduled", "canceled", "completed"),
-        Index("ix_sessions_member_start", "business_id", "member_id", "starts_at"),
+        Index("ix_sessions_staff_start", "business_id", "staff_id", "starts_at"),
         Index("ix_sessions_business_start", "business_id", "starts_at"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
-    member_id: Mapped[str] = mapped_column(ForeignKey("memberships.id"), nullable=False)
+    staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
     resource_id: Mapped[str | None] = mapped_column(ForeignKey("resources.id"))
     recurrence_id: Mapped[str | None] = mapped_column(ForeignKey("schedules.id"))
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -48,9 +48,12 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
         Index("ix_bookings_session", "business_id", "session_id"),
         Index("ix_bookings_client", "business_id", "client_id"),
         Index("ix_bookings_status", "business_id", "status"),
+        Index("ix_bookings_staff", "business_id", "staff_id"),
     )
 
     session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
+    # Denormalized from the session's staff — lets per-staff sync rules slice bookings directly.
+    staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))
     package_id: Mapped[str | None] = mapped_column(ForeignKey("packages.id"))
@@ -69,13 +72,15 @@ class Availability(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "availability"
     __table_args__ = (
         enum_check("availability", "type", "recurring", "date"),
-        Index("ix_availability_member", "business_id", "member_id", "type"),
+        Index("ix_availability_staff", "business_id", "staff_id", "type"),
     )
 
-    member_id: Mapped[str] = mapped_column(ForeignKey("memberships.id"), nullable=False)
+    staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False)
     weekday: Mapped[int | None] = mapped_column(SmallInteger)  # 0..6 for recurring
-    date: Mapped[date | None] = mapped_column(Date)  # one-off
+    # nullable=True is explicit: the attribute name `date` shadows the `date` type, which defeats
+    # SQLAlchemy's Optional/nullable inference.
+    date: Mapped[date | None] = mapped_column(Date, nullable=True)  # one-off
     start_time: Mapped[time | None] = mapped_column(Time)
     end_time: Mapped[time | None] = mapped_column(Time)  # null = all-day
     is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -99,7 +104,7 @@ class Schedule(PKMixin, BusinessScoped, TimestampMixin, Base):
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
-    member_id: Mapped[str | None] = mapped_column(ForeignKey("memberships.id"))
+    staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
     frequency: Mapped[str] = mapped_column(String, nullable=False)
     interval: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
