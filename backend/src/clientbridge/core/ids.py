@@ -5,7 +5,7 @@ from ulid import ULID
 PREFIXES: dict[str, str] = {
     "business": "bz",
     "user": "us",
-    "membership": "mb",
+    "staff": "st",
     "client": "cl",
     "subject": "sj",
     "consent": "cns",
@@ -40,6 +40,8 @@ PREFIXES: dict[str, str] = {
     "file": "fl",
     "audit_log": "aud",
     "webhook_event": "wh",
+    "auth_session": "ase",
+    "auth_token": "atk",
 }
 
 

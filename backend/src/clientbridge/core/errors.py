@@ -32,6 +32,11 @@ class Unauthorized(AppError):
     code = "unauthorized"
 
 
+class Conflict(AppError):
+    status_code = 409
+    code = "conflict"
+
+
 async def app_error_handler(_: Request, exc: Exception) -> JSONResponse:
     # Registered only for AppError; the signature matches Starlette's expected handler type.
     if not isinstance(exc, AppError):
