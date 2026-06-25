@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Clientbridge — Theme & Screen Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Playfair+Display:wght@400;500;600;700&family=Archivo:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Albert+Sans:wght@400;500;600;700&family=Onest:wght@400;500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}html,body{margin:0}
+  body{background:#0b0e12;color:#e7e9ec;font-family:"Hanken Grotesk",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  svg.ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+  /* ── top switcher bar ── */
+  .bar{position:sticky;top:0;z-index:60;background:#0b0e12;border-bottom:1px solid #1b212b;display:flex;align-items:center;gap:14px;padding:11px 20px;flex-wrap:wrap}
+  .bar .lead{font-family:"Fraunces",serif;font-weight:600;font-size:15px;color:#eef0f3;display:flex;align-items:center;gap:8px;margin-right:6px}
+  .bar .lead svg{width:20px;height:20px}
+  .grp{display:flex;align-items:center;gap:6px}
+  .grp .gl{font-family:"DM Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#5d6571;margin-right:4px}
+  .tab{font-size:12.5px;color:#aab2be;background:#141922;border:1px solid #232b37;padding:7px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;font-family:inherit;font-weight:500;transition:all .12s}
+  .tab:hover{border-color:#3a4453;color:#dfe4ea}
+  .tab.on{background:#eef0f3;color:#0b0e12;border-color:#eef0f3;font-weight:700}
+  .tab .sw{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .sep{width:1px;height:22px;background:#232b37;margin:0 3px}
+  .barnote{margin-left:auto;font-family:"DM Mono",monospace;font-size:11px;color:#5d6571}
+
+  /* ── stage (carries theme tokens) ── */
+  .stagewrap{padding:30px clamp(14px,3vw,40px) 70px;display:flex;justify-content:center}
+  .devrow{display:flex;gap:26px;align-items:flex-start;width:100%;max-width:1500px}
+  @media(max-width:1180px){.devrow{flex-direction:column;align-items:center}}
+  .cap{font-family:"DM Mono",monospace;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6b7480;margin:0 0 10px}
+  .desktop{flex:1 1 0;min-width:0}
+  .phoneside{flex:0 0 auto}
+
+  /* ── browser + app shell (var-driven) ── */
+  .browser{border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+  .chrome{height:40px;background:var(--side);display:flex;align-items:center;gap:7px;padding:0 14px}
+  .chrome i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.32)}
+  .chrome .url{margin-left:10px;height:24px;flex:0 1 360px;background:rgba(255,255,255,.1);border-radius:7px;display:flex;align-items:center;padding:0 12px;font-family:"DM Mono",monospace;font-size:11px;color:rgba(255,255,255,.66)}
+  .appwin{display:grid;grid-template-columns:218px 1fr;height:712px;background:var(--bg);color:var(--ink);font-family:var(--font-ui)}
+
+  .side{background:var(--side);padding:15px 12px;display:flex;flex-direction:column;gap:5px}
+  .brand{display:flex;align-items:center;gap:9px;padding:5px 8px 10px;color:#fff;font-family:var(--font-display);font-weight:var(--h2-weight);font-size:17px}
+  .ws{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);border-radius:9px;padding:9px 11px;font-size:12.5px;font-weight:600;color:#fff;margin-bottom:8px;cursor:pointer}
+  .ws .sub{color:var(--side-ink);font-weight:400;font-size:11px}
+  .navi{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;color:var(--side-ink);font-size:13.5px;font-weight:500;cursor:pointer}
+  .navi:hover{background:rgba(255,255,255,.06);color:#fff}
+  .navi.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
+  .navi .ct{margin-left:auto;font-family:var(--font-mono);font-size:10.5px;font-weight:700;background:rgba(255,255,255,.16);color:#fff;border-radius:99px;padding:1px 7px}
+  .navi.on .ct{background:rgba(0,0,0,.18);color:var(--accent-ink)}
+  .sfoot{margin-top:auto;display:flex;align-items:center;gap:10px;padding-top:13px;border-top:1px solid rgba(255,255,255,.09)}
+  .sfoot .av{width:30px;height:30px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-size:11px;font-weight:700}
+  .sfoot .nm{font-size:12px;font-weight:600;color:#fff}
+  .sfoot .rl{font-size:10.5px;color:var(--side-ink)}
+
+  .main{display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 22px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .topbar .eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  .topbar h1{font-family:var(--font-display);font-size:20px;font-weight:var(--h2-weight);letter-spacing:var(--h2-tracking);margin:2px 0 0;color:var(--ink)}
+  .tr{display:flex;align-items:center;gap:10px}
+  .search{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:8px 12px;font-size:12.5px;min-width:210px}
+  .iconbtn{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--ink-soft);cursor:pointer}
+  .lang{font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--border);border-radius:99px;padding:4px 9px}
+  .lang b{color:var(--accent-strong)}
+  .me{width:33px;height:33px;border-radius:9px;background:var(--primary);color:var(--primary-ink);display:grid;place-items:center;font-size:12px;font-weight:700}
+  .canvas{flex:1;overflow:auto;padding:22px}
+
+  .wscr{display:none}.wscr.on{display:block}
+
+  /* generic bits */
+  .eyebrow{font-family:var(--font-eyebrow);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 6px}
+  .row{display:flex;align-items:center;gap:9px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-eyebrow);font-size:11px;font-weight:600;padding:4px 9px;border-radius:calc(var(--radius)*.5);border:1px solid transparent;white-space:nowrap}
+  .b-accent{background:var(--accent-weak);color:var(--accent-strong);border-color:var(--accent-line)}
+  .b-ok{background:var(--ok-bg);color:var(--ok-fg)} .b-warn{background:var(--warn-bg);color:var(--warn-fg)} .b-danger{background:var(--dan-bg);color:var(--dan-fg)} .b-muted{background:var(--surface2);color:var(--muted);border-color:var(--border)}
+  .dot{width:6px;height:6px;border-radius:50%}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-family:var(--font-ui);font-weight:600;font-size:12.5px;border-radius:calc(var(--radius)*.6);border:1px solid transparent;padding:8px 13px;cursor:pointer}
+  .btn-primary{background:var(--accent);color:var(--accent-ink)} .btn-dark{background:var(--primary);color:var(--primary-ink)} .btn-out{background:var(--surface);color:var(--ink);border-color:var(--border)} .btn-sm{padding:6px 10px;font-size:12px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .card-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 17px;border-bottom:1px solid var(--border)}
+  .card-h h3{font-size:14.5px;margin:0;font-weight:700;color:var(--ink)} .card-h .s{font-size:12px;color:var(--muted)}
+  .av{border-radius:var(--avatar-radius);display:grid;place-items:center;font-weight:700;color:#fff;flex:none}
+  .who{display:flex;align-items:center;gap:10px}
+  .who .nm{font-weight:600;color:var(--ink);font-size:13px;line-height:1.1}
+  .who .sb{font-size:11px;color:var(--muted);margin-top:1px}
+  .amt{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+  .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pill.paid{background:var(--ok-bg);color:var(--ok-fg)} .pill.due{background:var(--warn-bg);color:var(--warn-fg)} .pill.ok{background:var(--accent-weak);color:var(--accent-strong)} .pill.unp{background:var(--dan-bg);color:var(--dan-fg)}
+  .pay{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-soft)}
+  .pin{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;font-size:9px;font-weight:800;background:#FFE600;color:#1A1A1A}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:calc(var(--radius)*.8);box-shadow:var(--shadow);padding:14px 15px}
+  .stat .l{font-size:11.5px;color:var(--muted);font-weight:500}
+  .stat .v{font-family:var(--font-mono);font-size:24px;font-weight:500;letter-spacing:-.01em;margin:6px 0 2px;color:var(--ink);font-variant-numeric:tabular-nums}
+  .stat .t{font-family:var(--font-mono);font-size:11px;color:var(--success)} .stat .t.flat{color:var(--muted)}
+  .cols{display:grid;grid-template-columns:1.55fr 1fr;gap:16px}
+
+  table.tbl{width:100%;border-collapse:collapse}
+  table.tbl thead th{text-align:left;font-family:var(--font-eyebrow);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:9px 16px;background:var(--head);border-bottom:1px solid var(--border)}
+  table.tbl th.num,table.tbl td.num{text-align:right}
+  table.tbl tbody td{padding:11px 16px;border-bottom:1px solid var(--border-soft);font-size:12.5px;color:var(--ink-soft);vertical-align:middle}
+  table.tbl tbody tr:last-child td{border-bottom:none}
+  table.tbl tbody tr:hover td{background:var(--surface2)}
+  .tm{font-family:var(--font-mono);font-size:12px;color:var(--muted);white-space:nowrap}
+  .chip{display:inline-flex;align-items:center;font-size:11px;color:var(--ink-soft);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:2px 8px}
+
+  /* calendar */
+  .calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px}
+  .seg button{border:none;background:transparent;font-family:var(--font-ui);font-weight:600;font-size:12px;color:var(--muted);padding:5px 12px;border-radius:7px;cursor:pointer}
+  .seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .cal{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface)}
+  .caldays{display:grid;grid-template-columns:48px repeat(7,1fr);background:var(--head);border-bottom:1px solid var(--border)}
+  .caldays div{padding:8px 6px;font-size:11px;font-weight:600;color:var(--muted);text-align:center;border-left:1px solid var(--border-soft)}
+  .caldays div:first-child{border-left:none}
+  .caldays b{display:block;font-family:var(--font-mono);font-size:13px;color:var(--ink);font-weight:600;margin-top:1px}
+  .caldays .tdy b{color:var(--accent-strong)}
+  .calgrid{display:grid;grid-template-columns:48px repeat(7,1fr);grid-template-rows:repeat(18,26px);position:relative;background-image:repeating-linear-gradient(var(--border-soft) 0 1px,transparent 1px 52px);background-position:0 0}
+  .calgrid .tl{grid-column:1;font-family:var(--font-mono);font-size:10px;color:var(--muted);padding:2px 6px 0 0;text-align:right;align-self:start}
+  .daybg{grid-row:1/-1;border-left:1px solid var(--border-soft)}
+  .event{margin:1px 2px;border-radius:7px;padding:4px 7px;font-size:10.5px;line-height:1.2;overflow:hidden;border-left:3px solid var(--muted);background:var(--surface2);color:var(--ink-soft);z-index:2}
+  .event b{display:block;color:var(--ink);font-weight:600;font-size:11px}
+  .event.paid{border-left-color:var(--success);background:var(--ok-bg);color:var(--ok-fg)}
+  .event.due{border-left-color:var(--warn-fg);background:var(--warn-bg);color:var(--warn-fg)}
+  .event.unp{border-left-color:var(--dan-fg);background:var(--dan-bg);color:var(--dan-fg)}
+  .event.accent{border-left-color:var(--accent);background:var(--accent-weak);color:var(--accent-strong)}
+
+  /* invoice */
+  .invwrap{display:grid;grid-template-columns:1.5fr 1fr;gap:16px}
+  .lineitem{display:flex;justify-content:space-between;padding:12px 17px;border-bottom:1px solid var(--border-soft);font-size:13px}
+  .lineitem .d{color:var(--ink)} .lineitem .m{color:var(--muted);font-size:11.5px}
+  .totals{padding:13px 17px;background:var(--surface2)}
+  .totals .tr2{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--ink-soft)}
+  .totals .tot{display:flex;justify-content:space-between;font-weight:700;font-size:15px;color:var(--ink);border-top:1px solid var(--border);margin-top:6px;padding-top:9px}
+  .pm{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border);border-radius:11px;margin-bottom:8px}
+  .pm.sel{border-color:var(--accent);background:var(--accent-weak)}
+  .pm .ico{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-weight:800;font-size:11px}
+  .tline{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--border-soft)}
+  .tline:last-child{border:none}
+  .tdot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--accent-weak);color:var(--accent-strong)}
+
+  /* inbox */
+  .inbox{display:grid;grid-template-columns:288px 1fr;gap:16px;height:556px}
+  .convlist{overflow:auto;display:flex;flex-direction:column;gap:7px;padding-right:2px}
+  .conv{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);cursor:pointer}
+  .conv.sel{border-color:var(--accent-line);box-shadow:0 0 0 1px var(--accent-line)}
+  .conv .nm{font-weight:600;font-size:13px;color:var(--ink)}
+  .conv .pre{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:158px;margin-top:2px}
+  .conv .meta{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .conv .tmtag{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+  .undot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+  .thread{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+  .thbody{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:12px;background:var(--bg)}
+  .msg{max-width:76%;padding:10px 13px;border-radius:13px;font-size:12.5px;line-height:1.5}
+  .msg .mh{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:4px}
+  .msg.in{align-self:flex-start;background:var(--surface2);border:1px solid var(--border);color:var(--ink)}
+  .msg.out{align-self:flex-end;background:var(--accent-weak);border:1px solid var(--accent-line);color:var(--ink)}
+  .composer{border-top:1px solid var(--border);padding:11px 13px;display:flex;gap:8px;align-items:center;background:var(--surface)}
+  .composer .cin{flex:1;height:38px;border:1px solid var(--border);background:var(--bg);border-radius:9px;padding:0 12px;font-size:12.5px;color:var(--muted);display:flex;align-items:center}
+
+  /* ── phone ── */
+  .phone{width:336px;border-radius:46px;background:var(--side);padding:11px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .pscreen{border-radius:36px;overflow:hidden;background:var(--bg);position:relative;height:712px;display:flex;flex-direction:column;color:var(--ink)}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:108px;height:20px;background:rgba(0,0,0,.6);border-radius:14px;z-index:9}
+  .pbar{position:absolute;top:0;left:0;right:0;height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;z-index:8;font-size:11px;font-weight:700;color:#fff}
+  .mscr{display:none;flex-direction:column;height:100%}.mscr.on{display:flex}
+  .mhead{background:var(--side);color:#fff;padding:38px 17px 17px}
+  .mhead .dt{font-size:11px;color:var(--side-ink)} .mhead h3{font-family:var(--font-display);font-size:20px;font-weight:var(--h2-weight);margin:2px 0 0;color:#fff}
+  .mtiles{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:13px}
+  .mtile{border-radius:13px;padding:11px 12px} .mtile .l{font-size:10.5px;opacity:.85} .mtile .v{font-family:var(--font-mono);font-size:18px;margin-top:3px}
+  .mtile.a{background:rgba(255,255,255,.1)} .mtile.b{background:var(--accent);color:var(--accent-ink)}
+  .mtax{margin-top:9px;background:rgba(255,255,255,.07);border-radius:12px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center}
+  .mtax .l{font-size:11px;color:var(--side-ink)} .mtax .v{font-family:var(--font-mono);font-size:13px;color:#fff}
+  .mbody{flex:1;overflow:auto;padding:13px;display:flex;flex-direction:column;gap:11px;background:var(--bg)}
+  .sect{font-family:var(--font-eyebrow);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:700;display:flex;justify-content:space-between;align-items:center}
+  .mcard{background:var(--surface);border:1px solid var(--border);border-radius:13px}
+  .mrow{display:flex;align-items:center;gap:11px;padding:11px 12px;border-bottom:1px solid var(--border-soft)}
+  .mrow:last-child{border-bottom:none}
+  .mrow .nm{font-weight:600;font-size:12.5px;color:var(--ink)} .mrow .sb{font-size:11px;color:var(--muted)}
+  .mcard .nm{color:var(--ink)} .mcard .sb{color:var(--muted)}
+  .mini{font-family:var(--font-ui);font-size:11px;font-weight:700;background:var(--accent);color:var(--accent-ink);border:none;border-radius:8px;padding:6px 10px;cursor:pointer}
+  .sdot{width:8px;height:8px;border-radius:50%;flex:none}
+  .msearch{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 12px;color:var(--muted);font-size:12.5px;margin-bottom:2px}
+  .tabbar{height:60px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;color:var(--muted)}
+  .tabbar .on{color:var(--accent-strong)}
+  .fab{width:46px;height:46px;border-radius:15px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;margin-top:-22px;box-shadow:0 8px 18px rgba(0,0,0,.25)}
+  .mtot{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;color:var(--ink-soft)}
+  .mtot.tot{font-weight:700;color:var(--ink);font-size:15px;border-top:1px solid var(--border);margin-top:5px;padding-top:8px}
+
+  /* THEME TOKENS */
+  .t-calm{--bg:#FBFAF6;--surface:#FFFFFF;--surface2:#F4F1EA;--head:#F8F5EC;--ink:#15201D;--ink-soft:#3A4843;--muted:#6B7B75;--border:#E7E2D8;--border-soft:#F0ECE0;--primary:#0E3D36;--primary-ink:#F4F1EA;--accent:#EFA23D;--accent-ink:#0B2E29;--accent-strong:#B26A12;--accent-weak:#FCEBCF;--accent-line:#F3D9A8;--success:#1F9D6B;--ok-bg:#DDF3E9;--ok-fg:#157A52;--warn-bg:#FCEBCF;--warn-fg:#8A510C;--dan-bg:#F8E0DB;--dan-fg:#A33A28;--side:#0B2E29;--side-ink:#9FBDB5;--logo:#EFA23D;--font-ui:'Hanken Grotesk',sans-serif;--font-display:'Fraunces',serif;--font-eyebrow:'Hanken Grotesk',sans-serif;--font-mono:'DM Mono',monospace;--radius:15px;--shadow:0 2px 14px rgba(11,46,41,.05);--avatar-radius:50%;--h2-size:24px;--h2-weight:600;--h2-tracking:-.01em}
+  .t-fjord{--bg:#F3F6F7;--surface:#FFFFFF;--surface2:#E8EFF1;--head:#F0F5F6;--ink:#142226;--ink-soft:#374B50;--muted:#67797E;--border:#DCE6E8;--border-soft:#E9F0F1;--primary:#123C44;--primary-ink:#EEF6F6;--accent:#0E7C8A;--accent-ink:#FFFFFF;--accent-strong:#0B5E69;--accent-weak:#DAEEF0;--accent-line:#BBE0E4;--success:#0E8A6E;--ok-bg:#DAEEE8;--ok-fg:#0B6E58;--warn-bg:#F4E8CC;--warn-fg:#8A6420;--dan-bg:#F2DFDA;--dan-fg:#A8472F;--side:#0E3138;--side-ink:#8FB7BC;--logo:#48C7D2;--font-ui:'Onest',sans-serif;--font-display:'Onest',sans-serif;--font-eyebrow:'Onest',sans-serif;--font-mono:'Geist Mono',monospace;--radius:12px;--shadow:0 2px 12px rgba(14,60,68,.06);--avatar-radius:9px;--h2-size:23px;--h2-weight:700;--h2-tracking:-.02em}
+  .t-moss{--bg:#F4F6F2;--surface:#FFFFFF;--surface2:#E9EEE3;--head:#F1F5ED;--ink:#1B231A;--ink-soft:#3F4A3A;--muted:#6E776A;--border:#E0E5D8;--border-soft:#ECF0E6;--primary:#34452C;--primary-ink:#F0F4EA;--accent:#4A6B45;--accent-ink:#FFFFFF;--accent-strong:#395536;--accent-weak:#E2EDDC;--accent-line:#C7DABF;--success:#3E8A52;--ok-bg:#E0EEDD;--ok-fg:#336540;--warn-bg:#F4E8CC;--warn-fg:#86621E;--dan-bg:#F1DFDB;--dan-fg:#A2473A;--side:#27331F;--side-ink:#AABBA0;--logo:#86C77A;--font-ui:'Albert Sans',sans-serif;--font-display:'Albert Sans',sans-serif;--font-eyebrow:'Albert Sans',sans-serif;--font-mono:'Geist Mono',monospace;--radius:10px;--shadow:0 2px 12px rgba(30,40,25,.06);--avatar-radius:8px;--h2-size:23px;--h2-weight:700;--h2-tracking:-.02em}
+  .t-pewter{--bg:#F3F4F6;--surface:#FFFFFF;--surface2:#EAECEF;--head:#F2F3F5;--ink:#191D22;--ink-soft:#3E454D;--muted:#6E757E;--border:#DBDEE3;--border-soft:#E8EAEE;--primary:#3A4654;--primary-ink:#F2F4F6;--accent:#3F5E80;--accent-ink:#FFFFFF;--accent-strong:#2E4A66;--accent-weak:#E4EAF1;--accent-line:#CCD7E3;--success:#2E7A5A;--ok-bg:#DEEDE5;--ok-fg:#256048;--warn-bg:#F3E8CC;--warn-fg:#86621E;--dan-bg:#F1DFDC;--dan-fg:#A2433A;--side:#22282F;--side-ink:#99A2AC;--logo:#8FB4E0;--font-ui:'Schibsted Grotesk',sans-serif;--font-display:'Schibsted Grotesk',sans-serif;--font-eyebrow:'Schibsted Grotesk',sans-serif;--font-mono:'Geist Mono',monospace;--radius:8px;--shadow:0 1px 2px rgba(20,25,30,.05);--avatar-radius:7px;--h2-size:22px;--h2-weight:700;--h2-tracking:-.02em}
+  .t-pewter .card,.t-pewter .stat,.t-pewter .browser,.t-pewter .cal{border-width:1.5px}
+  .t-birch{--bg:#F8F5EF;--surface:#FFFFFF;--surface2:#F0EBE1;--head:#F5F0E7;--ink:#221E18;--ink-soft:#494238;--muted:#7E7568;--border:#E7E0D2;--border-soft:#F1ECE1;--primary:#2E2A23;--primary-ink:#F4F1EA;--accent:#B5742B;--accent-ink:#FFFFFF;--accent-strong:#8E5A1E;--accent-weak:#F4E8CF;--accent-line:#E8D5AC;--success:#3E7A4E;--ok-bg:#E2EDDC;--ok-fg:#356345;--warn-bg:#F5E7CB;--warn-fg:#8A6420;--dan-bg:#F3DED4;--dan-fg:#A4492C;--side:#2A241C;--side-ink:#BBB0A0;--logo:#E8A84E;--font-ui:'Figtree',sans-serif;--font-display:'Figtree',sans-serif;--font-eyebrow:'Figtree',sans-serif;--font-mono:'DM Mono',monospace;--radius:13px;--shadow:0 2px 14px rgba(50,40,25,.06);--avatar-radius:50%;--h2-size:23px;--h2-weight:700;--h2-tracking:-.02em}
+  .t-slate{--bg:#F4F6F7;--surface:#FFFFFF;--surface2:#EBEEF0;--head:#F2F5F6;--ink:#161B1F;--ink-soft:#3E454B;--muted:#6E767D;--border:#E0E4E7;--border-soft:#EBEEF0;--primary:#1C2429;--primary-ink:#F2F5F6;--accent:#0E8A63;--accent-ink:#FFFFFF;--accent-strong:#0B6E4F;--accent-weak:#DCF1E8;--accent-line:#BCE3D4;--success:#0E8A63;--ok-bg:#DCF1E8;--ok-fg:#0B6E4F;--warn-bg:#F6E8CC;--warn-fg:#8A6420;--dan-bg:#F4DEDA;--dan-fg:#A8442F;--side:#181E22;--side-ink:#9AA4AB;--logo:#2FC48E;--font-ui:'Albert Sans',sans-serif;--font-display:'Albert Sans',sans-serif;--font-eyebrow:'Albert Sans',sans-serif;--font-mono:'Geist Mono',monospace;--radius:10px;--shadow:0 2px 12px rgba(22,27,31,.06);--avatar-radius:8px;--h2-size:23px;--h2-weight:700;--h2-tracking:-.02em}
+  .t-pewter .topbar h1{font-weight:600}
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <symbol id="i-bridge" viewBox="0 0 48 48"><circle cx="6" cy="34" r="3"/><circle cx="42" cy="34" r="3"/><path d="M6 34C18 8 30 8 42 34" stroke-width="3"/><path d="M12 27v7M19 20v14M26 18v16M33 21v13" stroke-width="1.5"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3 3-4.6 5.5-4.6S13.9 16 14.5 19"/><path d="M16 5.2a3 3 0 0 1 0 5.6M16.6 14.7c2 .5 3.4 1.9 3.9 4.3"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-4 3z"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l9 9-8 8z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 6-2.4 8-2.4 8h16.8S18 14 18 8M10 20a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-3.6-3.6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V6M6 12l6-6 6 6"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 4 14h6l-1 7 9-11h-6z"/></symbol>
+    <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h9M20 17h-9"/><circle cx="16.5" cy="7" r="2.3"/><circle cx="7.5" cy="17" r="2.3"/></symbol>
+  </defs></svg>
+
+  <!-- TOP SWITCHER -->
+  <div class="bar">
+    <div class="lead"><svg viewBox="0 0 48 48" fill="none" stroke="#EFA23D" stroke-linecap="round"><use href="#i-bridge"/></svg> Clientbridge</div>
+    <div class="grp"><span class="gl">Theme</span>
+      <button class="tab themetab" data-theme="t-calm"><span class="sw" style="background:#EFA23D"></span>Engineered Calm</button>
+      <button class="tab themetab" data-theme="t-slate"><span class="sw" style="background:#0E8A63"></span>Slate</button>
+      <button class="tab themetab on" data-theme="t-pewter"><span class="sw" style="background:#3F5E80"></span>Pewter</button>
+      <button class="tab themetab" data-theme="t-fjord"><span class="sw" style="background:#0E7C8A"></span>Fjord</button>
+      <button class="tab themetab" data-theme="t-birch"><span class="sw" style="background:#B5742B"></span>Birch</button>
+      <button class="tab themetab" data-theme="t-moss"><span class="sw" style="background:#4A6B45"></span>Moss</button>
+    </div>
+    <div class="sep"></div>
+    <div class="grp"><span class="gl">Screen</span>
+      <button class="tab scrtab on" data-scr="dashboard">Dashboard</button>
+      <button class="tab scrtab" data-scr="calendar">Calendar</button>
+      <button class="tab scrtab" data-scr="clients">Clients</button>
+      <button class="tab scrtab" data-scr="invoice">Invoice</button>
+      <button class="tab scrtab" data-scr="inbox">Inbox</button>
+    </div>
+    <span class="barnote">same data · web + mobile · switch freely</span>
+  </div>
+
+  <div class="stagewrap"><div class="devrow" id="stage">
+    <!-- DESKTOP -->
+    <div class="desktop">
+      <p class="cap">desktop · web app</p>
+      <div class="browser">
+        <div class="chrome"><i></i><i></i><i></i><span class="url" id="url">app.clientbridge.ca/today</span></div>
+        <div class="appwin">
+          <aside class="side">
+            <div class="brand"><svg viewBox="0 0 48 48" fill="none" stroke="var(--logo)" stroke-linecap="round" style="width:22px;height:22px"><use href="#i-bridge"/></svg> Clientbridge</div>
+            <div class="ws"><span>Stillwater Massage<br><span class="sub">Vancouver, BC</span></span><svg class="ic" style="width:14px;height:14px;color:var(--side-ink)"><use href="#i-set"/></svg></div>
+            <a class="navi" data-nav="dashboard"><svg class="ic"><use href="#i-grid"/></svg> Today</a>
+            <a class="navi" data-nav="calendar"><svg class="ic"><use href="#i-cal"/></svg> Calendar</a>
+            <a class="navi" data-nav="clients"><svg class="ic"><use href="#i-users"/></svg> Clients <span class="ct">428</span></a>
+            <a class="navi" data-nav="invoice"><svg class="ic"><use href="#i-doc"/></svg> Invoices <span class="ct">3</span></a>
+            <a class="navi" data-nav="inbox"><svg class="ic"><use href="#i-chat"/></svg> Inbox <span class="ct">2</span></a>
+            <a class="navi"><svg class="ic"><use href="#i-tag"/></svg> Catalog</a>
+            <div class="sfoot"><div class="av">SK</div><div><div class="nm">Sam Koh</div><div class="rl">Owner · RMT</div></div></div>
+          </aside>
+          <div class="main">
+            <header class="topbar">
+              <div><div class="eyebrow" id="tb-eye">Wednesday · June 24</div><h1 id="tb-title">Today</h1></div>
+              <div class="tr"><div class="search"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search clients, bookings…</div><div class="iconbtn"><svg class="ic"><use href="#i-bell"/></svg></div><div class="me">SK</div></div>
+            </header>
+            <div class="canvas">
+
+              <!-- DASHBOARD -->
+              <div class="wscr on" data-scr="dashboard">
+                <div class="stats">
+                  <div class="stat"><div class="l">Revenue today</div><div class="v">$640</div><div class="t"><svg class="ic" style="width:11px;height:11px;display:inline;stroke-width:2.5"><use href="#i-up"/></svg> 4 of 6 paid</div></div>
+                  <div class="stat"><div class="l">Awaiting payment</div><div class="v" style="color:var(--accent-strong)">$437</div><div class="t flat">2 inv · 1 deposit</div></div>
+                  <div class="stat"><div class="l">GST/HST · quarter</div><div class="v">$1,118</div><div class="t flat">auto-set aside · Jul 31</div></div>
+                  <div class="stat"><div class="l">Rebook rate</div><div class="v">72%</div><div class="t"><svg class="ic" style="width:11px;height:11px;display:inline;stroke-width:2.5"><use href="#i-up"/></svg> 6 pts</div></div>
+                </div>
+                <div class="cols">
+                  <section class="card">
+                    <div class="card-h"><h3>Today's schedule</h3><span class="s">6 bookings · $920</span></div>
+                    <table class="tbl"><thead><tr><th>Time</th><th>Client</th><th>Service</th><th class="num">Amount</th><th>Pay</th><th>Status</th></tr></thead><tbody id="schedrows"></tbody></table>
+                  </section>
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <section class="card">
+                      <div class="card-h"><h3>Awaiting payment</h3><span class="s">$437</span></div>
+                      <div style="padding:6px 0">
+                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#C2613F;font-size:10px">JM</div><div><div class="nm">Jordan Mackenzie</div><div class="sb">Deposit · 90-min</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$80.00</span><button class="btn btn-primary btn-sm">Request</button></div></div>
+                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#7C5AA6;font-size:10px">SR</div><div><div class="nm">Sofia Russo</div><div class="sb">Unpaid · 60-min</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$126.00</span><button class="btn btn-primary btn-sm">Request</button></div></div>
+                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#2C8B7C;font-size:10px">MC</div><div><div class="nm">Marcus Chen</div><div class="sb">INV-0146 · overdue</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$231.00</span><button class="btn btn-out btn-sm">Remind</button></div></div>
+                      </div>
+                    </section>
+                    <section class="card">
+                      <div class="card-h"><h3>Recent activity</h3><span class="s">today</span></div>
+                      <div style="padding:6px 16px 12px">
+                        <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Interac received · $126.00</div><div class="sb">from Amélie Tremblay · 9:42a</div></div></div>
+                        <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">New booking confirmed</div><div class="sb">Noah Bélanger · Hot stone · 3:30p</div></div></div>
+                        <div class="tline"><span class="tdot" style="background:var(--warn-bg);color:var(--warn-fg)">★</span><div><div class="nm" style="font-size:12.5px">5-star review</div><div class="sb">Riley Khan · "Best in the city"</div></div></div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CALENDAR -->
+              <div class="wscr" data-scr="calendar">
+                <div class="calhead">
+                  <div class="row"><button class="btn btn-out btn-sm">Today</button><h3 style="font-family:var(--font-display);font-size:18px;margin:0 6px;font-weight:var(--h2-weight)">June 22 – 28</h3></div>
+                  <div class="row"><div class="seg"><button>Day</button><button class="on">Week</button><button>Month</button></div><button class="btn btn-primary btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> New booking</button></div>
+                </div>
+                <div class="cal">
+                  <div class="caldays"><div></div><div>MON<b>22</b></div><div>TUE<b>23</b></div><div class="tdy">WED<b>24</b></div><div>THU<b>25</b></div><div>FRI<b>26</b></div><div>SAT<b>27</b></div><div>SUN<b>28</b></div></div>
+                  <div class="calgrid">
+                    <div class="tl" style="grid-row:1">9 AM</div><div class="tl" style="grid-row:3">10</div><div class="tl" style="grid-row:5">11</div><div class="tl" style="grid-row:7">12 PM</div><div class="tl" style="grid-row:9">1</div><div class="tl" style="grid-row:11">2</div><div class="tl" style="grid-row:13">3</div><div class="tl" style="grid-row:15">4</div><div class="tl" style="grid-row:17">5</div>
+                    <div class="daybg" style="grid-column:2"></div><div class="daybg" style="grid-column:3"></div><div class="daybg" style="grid-column:4"></div><div class="daybg" style="grid-column:5"></div><div class="daybg" style="grid-column:6"></div><div class="daybg" style="grid-column:7"></div><div class="daybg" style="grid-column:8"></div>
+                    <!-- Mon -->
+                    <div class="event paid" style="grid-column:2;grid-row:3/span 2"><b>Priya P.</b>Massage 60</div>
+                    <div class="event" style="grid-column:2;grid-row:13/span 3"><b>Marcus C.</b>Deep tissue 90</div>
+                    <!-- Tue -->
+                    <div class="event" style="grid-column:3;grid-row:5/span 2"><b>Lena W.</b>Hot stone 75</div>
+                    <!-- Wed (today) -->
+                    <div class="event paid" style="grid-column:4;grid-row:1/span 2"><b>Amélie T.</b>Massage 60</div>
+                    <div class="event due" style="grid-column:4;grid-row:5/span 3"><b>Jordan M.</b>Deep tissue 90</div>
+                    <div class="event accent" style="grid-column:4;grid-row:11/span 2"><b>Riley K.</b>Pkg 4/10</div>
+                    <div class="event" style="grid-column:4;grid-row:14/span 3"><b>Noah B.</b>Hot stone 75</div>
+                    <div class="event unp" style="grid-column:4;grid-row:17/span 2"><b>Sofia R.</b>Massage 60</div>
+                    <!-- Thu/Fri -->
+                    <div class="event paid" style="grid-column:5;grid-row:7/span 2"><b>Dan O.</b>Massage 60</div>
+                    <div class="event" style="grid-column:6;grid-row:9/span 3"><b>Ines F.</b>Prenatal 90</div>
+                    <div class="event paid" style="grid-column:6;grid-row:15/span 2"><b>Tomás R.</b>Massage 60</div>
+                    <div class="event accent" style="grid-column:7;grid-row:3/span 2"><b>Group</b>Mobility class</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CLIENTS -->
+              <div class="wscr" data-scr="clients">
+                <div class="row" style="justify-content:space-between;margin-bottom:14px">
+                  <div class="row"><div class="search" style="min-width:260px"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search by name, phone, tag…</div><span class="chip">VIP</span><span class="chip">Owing</span></div>
+                  <button class="btn btn-primary btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> Add client</button>
+                </div>
+                <section class="card"><table class="tbl"><thead><tr><th>Client</th><th>Phone</th><th class="num">Visits</th><th class="num">Lifetime</th><th class="num">Balance</th><th>Last seen</th><th>Consent</th></tr></thead><tbody id="clientrows"></tbody></table></section>
+              </div>
+
+              <!-- INVOICE -->
+              <div class="wscr" data-scr="invoice">
+                <div class="invwrap">
+                  <section class="card">
+                    <div class="card-h"><div><div class="eyebrow">Invoice</div><h3 style="font-size:17px">INV-2026-0148</h3></div><span class="badge b-warn"><span class="dot" style="background:var(--warn-fg)"></span>Awaiting payment</span></div>
+                    <div style="padding:14px 17px;display:flex;justify-content:space-between;font-size:12.5px"><div><div class="sb" style="color:var(--muted)">Billed to</div><div class="nm" style="margin-top:2px">Jordan Mackenzie</div><div class="sb">jordan@email.ca</div></div><div style="text-align:right"><div class="sb" style="color:var(--muted)">Issued · Due</div><div class="nm" style="margin-top:2px">Jun 24 · on receipt</div><div class="sb">GST 80012 3456 RT0001</div></div></div>
+                    <div class="lineitem"><div><div class="d">90-min Deep tissue massage</div><div class="m">Jun 24 · 11:00 AM</div></div><span class="amt">$140.00</span></div>
+                    <div class="lineitem"><div><div class="d">Hot-stone add-on</div><div class="m">Service add-on</div></div><span class="amt">$20.00</span></div>
+                    <div class="totals">
+                      <div class="tr2"><span>Subtotal</span><span class="amt">$160.00</span></div>
+                      <div class="tr2"><span>GST (5%)</span><span class="amt">$8.00</span></div>
+                      <div class="tr2"><span>PST · BC (7%)</span><span class="amt">$11.20</span></div>
+                      <div class="tot"><span>Total CAD</span><span class="amt">$179.20</span></div>
+                    </div>
+                    <div style="padding:14px 17px">
+                      <div class="eyebrow">How they'll pay</div>
+                      <div class="pm sel"><span class="ico pin" style="width:32px;height:32px">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">Auto-matched · no fee</div></div><span class="badge b-ok">Recommended</span></div>
+                      <div class="pm"><span class="ico" style="background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Card · tap</div><div class="sb">Visa · MC · Amex · 2.7%</div></div></div>
+                      <div class="pm"><span class="ico" style="background:var(--surface2);color:var(--muted)">🏦</span><div style="flex:1"><div class="nm">EFT / PAD</div><div class="sb">Pre-authorized debit</div></div></div>
+                      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px"><svg class="ic" style="width:14px;height:14px"><use href="#i-bolt"/></svg> Send payment request</button>
+                    </div>
+                  </section>
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <section class="card"><div class="card-h"><h3>Client</h3></div><div style="padding:14px 17px"><div class="who"><div class="av" style="width:38px;height:38px;background:#C2613F">JM</div><div><div class="nm" style="font-size:14px">Jordan Mackenzie</div><div class="sb">12 visits · $1,240 lifetime</div></div></div><div class="row" style="gap:6px;margin-top:11px"><span class="chip">VIP</span><span class="chip">Consent ✓ CASL</span></div></div></section>
+                    <section class="card"><div class="card-h"><h3>Activity</h3></div><div style="padding:8px 17px 14px">
+                      <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">Invoice created</div><div class="sb">Today · 9:10a</div></div></div>
+                      <div class="tline"><span class="tdot" style="background:var(--accent-weak)">↗</span><div><div class="nm" style="font-size:12.5px">Sent to client</div><div class="sb">Today · 9:11a · email + SMS</div></div></div>
+                      <div class="tline"><span class="tdot" style="background:var(--surface2);color:var(--muted)">👁</span><div><div class="nm" style="font-size:12.5px">Viewed</div><div class="sb">Today · 9:30a</div></div></div>
+                    </div></section>
+                  </div>
+                </div>
+              </div>
+
+              <!-- INBOX -->
+              <div class="wscr" data-scr="inbox">
+                <div class="row" style="justify-content:space-between;margin-bottom:14px">
+                  <div class="seg"><button class="on">All</button><button>Unread · 2</button><button>SMS</button><button>Email</button></div>
+                  <button class="btn btn-primary btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> New message</button>
+                </div>
+                <div class="inbox">
+                  <div class="convlist">
+                    <div class="conv sel"><div class="av" style="width:34px;height:34px;background:#7C5AA6">SR</div><div style="flex:1;min-width:0"><div class="nm">Sofia Russo</div><div class="pre">Could we push to 5:30 today?</div></div><div class="meta"><span class="tmtag">2m</span><span class="undot"></span></div></div>
+                    <div class="conv"><div class="av" style="width:34px;height:34px;background:#2C8B7C">NB</div><div style="flex:1;min-width:0"><div class="nm">Noah Bélanger</div><div class="pre">Do you have any evening slots?</div></div><div class="meta"><span class="tmtag">18m</span><span class="undot"></span></div></div>
+                    <div class="conv"><div class="av" style="width:34px;height:34px;background:#C2613F">JM</div><div style="flex:1;min-width:0"><div class="nm">Jordan Mackenzie</div><div class="pre">Sent the deposit ✓</div></div><div class="meta"><span class="tmtag">1h</span></div></div>
+                    <div class="conv"><div class="av" style="width:34px;height:34px;background:#1A6B5F">AT</div><div style="flex:1;min-width:0"><div class="nm">Amélie Tremblay</div><div class="pre">Thank you, see you next month!</div></div><div class="meta"><span class="tmtag">3h</span></div></div>
+                    <div class="conv"><div class="av" style="width:34px;height:34px;background:#B26A12">PP</div><div style="flex:1;min-width:0"><div class="nm">Priya Patel</div><div class="pre">Perfect, booked for Tuesday</div></div><div class="meta"><span class="tmtag">1d</span></div></div>
+                  </div>
+                  <div class="thread">
+                    <div class="card-h">
+                      <div class="who"><div class="av" style="width:36px;height:36px;background:#7C5AA6">SR</div><div><div class="nm" style="font-size:14px">Sofia Russo</div><div class="sb">SMS · (604) 555-0166</div></div></div>
+                      <div class="row"><span class="badge b-ok">✓ CASL consent</span><button class="btn btn-out btn-sm">Reschedule</button></div>
+                    </div>
+                    <div class="thbody">
+                      <div class="msg out"><div class="mh">You · Mon 8:02a · SMS</div>Hi Sofia — confirming your 60-min massage today at 5:00 PM. Reply STOP to opt out.</div>
+                      <div class="msg in"><div class="mh">Sofia · 4:41p</div>Hi! Something came up at work — could we push to 5:30 instead?</div>
+                      <div class="msg out" style="border-style:dashed"><div class="mh">Draft · suggested</div>No problem, Sofia — I've moved you to 5:30 PM today. See you then! 🌿</div>
+                    </div>
+                    <div class="composer"><div class="cin">Write a reply…</div><button class="btn btn-out btn-sm">Use suggestion</button><button class="btn btn-primary btn-sm">Send</button></div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE -->
+    <div class="phoneside">
+      <p class="cap">mobile · ios</p>
+      <div class="phone"><div class="pscreen">
+        <div class="notch"></div><div class="pbar"><span>9:41</span><span>● ● ▮</span></div>
+
+        <!-- M DASHBOARD -->
+        <div class="mscr on" data-scr="dashboard">
+          <div class="mhead"><div class="dt">Wednesday · June 24</div><h3>Today on the bridge</h3>
+            <div class="mtiles"><div class="mtile a"><div class="l">Revenue</div><div class="v">$640</div></div><div class="mtile b"><div class="l">To collect</div><div class="v">$437</div></div></div>
+            <div class="mtax"><span class="l">GST/HST set aside · quarter</span><span class="v">$1,118</span></div>
+          </div>
+          <div class="mbody">
+            <div class="sect"><span>Needs attention</span><span style="color:var(--muted)">2</span></div>
+            <div class="mcard">
+              <div class="mrow"><div class="av" style="width:30px;height:30px;background:#C2613F;font-size:11px">JM</div><div style="flex:1"><div class="nm">Jordan Mackenzie</div><div class="sb">Deposit due · 90-min</div></div><span class="amt" style="font-size:12px;margin-right:8px">$80</span><button class="mini">Request</button></div>
+              <div class="mrow"><div class="av" style="width:30px;height:30px;background:#7C5AA6;font-size:11px">SR</div><div style="flex:1"><div class="nm">Sofia Russo</div><div class="sb">Unpaid · 60-min</div></div><span class="amt" style="font-size:12px;margin-right:8px">$126</span><button class="mini">Request</button></div>
+            </div>
+            <div class="sect"><span>Schedule · 6</span><span style="color:var(--muted)">$920</span></div>
+            <div class="mcard" id="m-sched"></div>
+          </div>
+          <div class="tabbar"><span class="on"><svg class="ic" style="width:22px;height:22px"><use href="#i-grid"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-cal"/></svg></span><span class="fab"><svg class="ic" style="width:22px;height:22px;stroke-width:2.2"><use href="#i-plus"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-users"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-chat"/></svg></span></div>
+        </div>
+
+        <!-- M CALENDAR -->
+        <div class="mscr" data-scr="calendar">
+          <div class="mhead"><div class="dt">Wednesday</div><h3>June 24</h3>
+            <div class="row" style="gap:6px;margin-top:12px;overflow:auto">
+              <span class="mtile a" style="padding:7px 11px;text-align:center"><div class="l">Mon</div><div style="font-family:var(--font-mono);font-size:14px">22</div></span>
+              <span class="mtile a" style="padding:7px 11px;text-align:center"><div class="l">Tue</div><div style="font-family:var(--font-mono);font-size:14px">23</div></span>
+              <span class="mtile b" style="padding:7px 11px;text-align:center"><div class="l">Wed</div><div style="font-family:var(--font-mono);font-size:14px">24</div></span>
+              <span class="mtile a" style="padding:7px 11px;text-align:center"><div class="l">Thu</div><div style="font-family:var(--font-mono);font-size:14px">25</div></span>
+              <span class="mtile a" style="padding:7px 11px;text-align:center"><div class="l">Fri</div><div style="font-family:var(--font-mono);font-size:14px">26</div></span>
+            </div>
+          </div>
+          <div class="mbody" id="m-agenda"></div>
+          <div class="tabbar"><span><svg class="ic" style="width:22px;height:22px"><use href="#i-grid"/></svg></span><span class="on"><svg class="ic" style="width:22px;height:22px"><use href="#i-cal"/></svg></span><span class="fab"><svg class="ic" style="width:22px;height:22px;stroke-width:2.2"><use href="#i-plus"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-users"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-chat"/></svg></span></div>
+        </div>
+
+        <!-- M CLIENTS -->
+        <div class="mscr" data-scr="clients">
+          <div class="mhead"><div class="dt">428 clients</div><h3>Clients</h3></div>
+          <div class="mbody"><div class="msearch"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search clients…</div><div class="mcard" id="m-clients"></div></div>
+          <div class="tabbar"><span><svg class="ic" style="width:22px;height:22px"><use href="#i-grid"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-cal"/></svg></span><span class="fab"><svg class="ic" style="width:22px;height:22px;stroke-width:2.2"><use href="#i-plus"/></svg></span><span class="on"><svg class="ic" style="width:22px;height:22px"><use href="#i-users"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-chat"/></svg></span></div>
+        </div>
+
+        <!-- M INVOICE -->
+        <div class="mscr" data-scr="invoice">
+          <div class="mhead"><div class="dt">INV-2026-0148 · awaiting</div><h3>Get paid</h3></div>
+          <div class="mbody">
+            <div class="mcard" style="padding:13px 14px">
+              <div class="row" style="justify-content:space-between"><div class="who"><div class="av" style="width:32px;height:32px;background:#C2613F;font-size:11px">JM</div><div><div class="nm">Jordan Mackenzie</div><div class="sb">90-min Deep tissue</div></div></div><span class="pill due">Awaiting</span></div>
+              <div style="margin-top:12px">
+                <div class="mtot"><span>Subtotal</span><span class="amt">$160.00</span></div>
+                <div class="mtot"><span>GST (5%)</span><span class="amt">$8.00</span></div>
+                <div class="mtot"><span>PST · BC (7%)</span><span class="amt">$11.20</span></div>
+                <div class="mtot tot"><span>Total CAD</span><span class="amt">$179.20</span></div>
+              </div>
+            </div>
+            <div class="sect">How they'll pay</div>
+            <div class="mcard">
+              <div class="mrow" style="background:var(--accent-weak)"><span class="pin" style="width:26px;height:26px">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">No fee · auto-matched</div></div><span class="sdot" style="background:var(--accent-strong)"></span></div>
+              <div class="mrow"><span class="pin" style="width:26px;height:26px;background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Card · tap</div><div class="sb">2.7%</div></div></div>
+            </div>
+            <button class="btn btn-primary" style="justify-content:center;margin-top:2px"><svg class="ic" style="width:14px;height:14px"><use href="#i-bolt"/></svg> Send payment request</button>
+          </div>
+          <div class="tabbar"><span><svg class="ic" style="width:22px;height:22px"><use href="#i-grid"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-cal"/></svg></span><span class="fab"><svg class="ic" style="width:22px;height:22px;stroke-width:2.2"><use href="#i-plus"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-users"/></svg></span><span class="on"><svg class="ic" style="width:22px;height:22px"><use href="#i-doc"/></svg></span></div>
+        </div>
+
+        <!-- M INBOX -->
+        <div class="mscr" data-scr="inbox">
+          <div class="mhead"><div class="dt">2 unread</div><h3>Inbox</h3></div>
+          <div class="mbody">
+            <div class="msearch"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search messages…</div>
+            <div class="mcard">
+              <div class="mrow"><div class="av" style="width:34px;height:34px;background:#7C5AA6;font-size:11px">SR</div><div style="flex:1;min-width:0"><div class="nm">Sofia Russo</div><div class="sb">Could we push to 5:30 today?</div></div><span class="sdot" style="background:var(--accent)"></span></div>
+              <div class="mrow"><div class="av" style="width:34px;height:34px;background:#2C8B7C;font-size:11px">NB</div><div style="flex:1;min-width:0"><div class="nm">Noah Bélanger</div><div class="sb">Any evening slots?</div></div><span class="sdot" style="background:var(--accent)"></span></div>
+              <div class="mrow"><div class="av" style="width:34px;height:34px;background:#C2613F;font-size:11px">JM</div><div style="flex:1;min-width:0"><div class="nm">Jordan Mackenzie</div><div class="sb">Sent the deposit ✓</div></div><span class="tm" style="font-size:10px">1h</span></div>
+              <div class="mrow"><div class="av" style="width:34px;height:34px;background:#1A6B5F;font-size:11px">AT</div><div style="flex:1;min-width:0"><div class="nm">Amélie Tremblay</div><div class="sb">Thank you!</div></div><span class="tm" style="font-size:10px">3h</span></div>
+              <div class="mrow"><div class="av" style="width:34px;height:34px;background:#B26A12;font-size:11px">PP</div><div style="flex:1;min-width:0"><div class="nm">Priya Patel</div><div class="sb">Booked for Tuesday</div></div><span class="tm" style="font-size:10px">1d</span></div>
+            </div>
+          </div>
+          <div class="tabbar"><span><svg class="ic" style="width:22px;height:22px"><use href="#i-grid"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-cal"/></svg></span><span class="fab"><svg class="ic" style="width:22px;height:22px;stroke-width:2.2"><use href="#i-plus"/></svg></span><span><svg class="ic" style="width:22px;height:22px"><use href="#i-users"/></svg></span><span class="on"><svg class="ic" style="width:22px;height:22px"><use href="#i-chat"/></svg></span></div>
+        </div>
+
+      </div></div>
+    </div>
+  </div></div>
+
+<script>
+  const rows=[
+    {tm:"9:00a",in:"AT",c:"#1A6B5F",nm:"Amélie Tremblay",sb:"12th visit",sv:"60-min Massage",amt:"$126.00",pay:"interac",st:"paid",lbl:"Paid"},
+    {tm:"11:00a",in:"JM",c:"#C2613F",nm:"Jordan Mackenzie",sb:"deposit on file",sv:"90-min Deep tissue",amt:"$156.80",pay:"card",st:"due",lbl:"Deposit due"},
+    {tm:"2:00p",in:"RK",c:"#B26A12",nm:"Riley Khan",sb:"package 4/10",sv:"60-min Massage",amt:"incl.",pay:"pkg",st:"ok",lbl:"Confirmed"},
+    {tm:"3:30p",in:"NB",c:"#2C8B7C",nm:"Noah Bélanger",sb:"new client",sv:"75-min Hot stone",amt:"$147.00",pay:"interac",st:"ok",lbl:"Confirmed"},
+    {tm:"5:00p",in:"SR",c:"#7C5AA6",nm:"Sofia Russo",sb:"rebook",sv:"60-min Massage",amt:"$126.00",pay:"card",st:"unp",lbl:"Unpaid"},
+  ];
+  const clients=[
+    {in:"AT",c:"#1A6B5F",nm:"Amélie Tremblay",em:"amelie@email.ca",ph:"(604) 555-0118",v:12,lt:"$1,840",bal:"—",ls:"Today",tag:"ok"},
+    {in:"JM",c:"#C2613F",nm:"Jordan Mackenzie",em:"jordan@email.ca",ph:"(604) 555-0142",v:12,lt:"$1,240",bal:"$140.00",ls:"Today",tag:"ok"},
+    {in:"MC",c:"#2C8B7C",nm:"Marcus Chen",em:"marcus@email.ca",ph:"(778) 555-0177",v:6,lt:"$642",bal:"$231.00",ls:"8 days",tag:"over"},
+    {in:"NB",c:"#7C5AA6",nm:"Noah Bélanger",em:"noah@email.ca",ph:"(604) 555-0193",v:1,lt:"$0",bal:"—",ls:"New",tag:"new"},
+    {in:"PP",c:"#B26A12",nm:"Priya Patel",em:"priya@email.ca",ph:"(236) 555-0150",v:21,lt:"$3,120",bal:"—",ls:"3 days",tag:"ok"},
+    {in:"SR",c:"#3F6F8C",nm:"Sofia Russo",em:"sofia@email.ca",ph:"(604) 555-0166",v:4,lt:"$504",bal:"$126.00",ls:"Today",tag:"ok"},
+  ];
+  const payChip=p=>p==="interac"?`<span class="pay"><span class="pin">i</span>Interac</span>`:p==="card"?`<span class="pay"><span class="pin" style="background:var(--surface2);color:var(--muted)">▭</span>Card</span>`:`<span class="pay" style="color:var(--muted)">— Package</span>`;
+
+  document.getElementById("schedrows").innerHTML=rows.map(r=>`<tr><td><span class="tm">${r.tm}</span></td><td><div class="who"><div class="av" style="width:30px;height:30px;background:${r.c};font-size:11px">${r.in}</div><div><div class="nm">${r.nm}</div><div class="sb">${r.sb}</div></div></div></td><td>${r.sv}</td><td class="num"><span class="amt ${r.amt==='incl.'?'mut':''}" style="font-size:13px;${r.amt==='incl.'?'color:var(--muted)':''}">${r.amt}</span></td><td>${payChip(r.pay)}</td><td><span class="pill ${r.st}">${r.lbl}</span></td></tr>`).join("");
+
+  document.getElementById("clientrows").innerHTML=clients.map(c=>{
+    const cons=c.tag==="new"?`<span class="badge b-muted">Pending</span>`:`<span class="badge b-ok">✓ CASL</span>`;
+    const bal=c.bal==="—"?`<span class="amt mut" style="color:var(--muted)">—</span>`:`<span class="amt" style="color:${c.tag==='over'?'var(--dan-fg)':'var(--ink)'}">${c.bal}</span>`;
+    return `<tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:${c.c};font-size:11px">${c.in}</div><div><div class="nm">${c.nm}</div><div class="sb">${c.em}</div></div></div></td><td class="tm">${c.ph}</td><td class="num">${c.v}</td><td class="num"><span class="amt">${c.lt}</span></td><td class="num">${bal}</td><td>${c.ls}</td><td>${cons}</td></tr>`;
+  }).join("");
+
+  document.getElementById("m-sched").innerHTML=rows.slice(0,4).map(r=>{
+    const col=r.st==='paid'?'var(--success)':r.st==='due'?'var(--warn-fg)':r.st==='unp'?'var(--dan-fg)':'var(--accent-strong)';
+    return `<div class="mrow"><span class="tm" style="width:42px">${r.tm}</span><div class="av" style="width:30px;height:30px;background:${r.c};font-size:11px">${r.in}</div><div style="flex:1;min-width:0"><div class="nm">${r.nm.split(' ')[0]} ${r.nm.split(' ')[1][0]}.</div><div class="sb">${r.sv}</div></div><span class="amt" style="font-size:12px;margin-right:7px">${r.amt}</span><span class="sdot" style="background:${col}"></span></div>`;
+  }).join("");
+
+  document.getElementById("m-agenda").innerHTML=`<div class="sect">Wednesday · 6 bookings</div>`+rows.map(r=>{
+    const col=r.st==='paid'?'var(--success)':r.st==='due'?'var(--warn-fg)':r.st==='unp'?'var(--dan-fg)':'var(--accent-strong)';
+    return `<div class="mcard" style="padding:11px 12px;display:flex;align-items:center;gap:11px;border-left:3px solid ${col}"><span class="tm" style="width:46px">${r.tm}</span><div style="flex:1"><div class="nm">${r.nm}</div><div class="sb">${r.sv}</div></div><span class="pill ${r.st}" style="font-size:9.5px">${r.lbl}</span></div>`;
+  }).join("");
+
+  document.getElementById("m-clients").innerHTML=clients.map(c=>`<div class="mrow"><div class="av" style="width:32px;height:32px;background:${c.c};font-size:11px">${c.in}</div><div style="flex:1"><div class="nm">${c.nm}</div><div class="sb">${c.v} visits · ${c.lt} lifetime</div></div>${c.bal!=="—"?`<span class="amt" style="font-size:12px;color:var(--dan-fg)">${c.bal}</span>`:`<svg class="ic" style="width:15px;height:15px;color:var(--muted)"><use href="#i-tag"/></svg>`}</div>`).join("");
+
+  // switching
+  const stage=document.getElementById("stage");
+  const titles={dashboard:["Wednesday · June 24","Today","app.clientbridge.ca/today"],calendar:["June 22 – 28","Calendar","app.clientbridge.ca/calendar"],clients:["428 clients · Stillwater Massage","Clients","app.clientbridge.ca/clients"],invoice:["Invoice · INV-2026-0148","Get paid","app.clientbridge.ca/invoices/0148"],inbox:["Conversations · 2 unread","Inbox","app.clientbridge.ca/inbox"]};
+  document.querySelectorAll(".themetab").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll(".themetab").forEach(x=>x.classList.toggle("on",x===b));
+    stage.querySelector(".desktop").parentElement; // noop
+    setTheme(b.dataset.theme);
+  });
+  function setTheme(t){ ["t-calm","t-slate","t-pewter","t-fjord","t-birch","t-moss"].forEach(c=>stage.classList.remove(c)); stage.classList.add(t); }
+  stage.classList.add("t-pewter");
+  document.querySelectorAll(".scrtab").forEach(b=>b.onclick=()=>setScreen(b.dataset.scr));
+  document.querySelectorAll(".navi[data-nav]").forEach(n=>n.onclick=()=>setScreen(n.dataset.nav));
+  function setScreen(s){
+    document.querySelectorAll(".scrtab").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
+    document.querySelectorAll(".navi[data-nav]").forEach(x=>x.classList.toggle("on",x.dataset.nav===s));
+    document.querySelectorAll(".wscr").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
+    document.querySelectorAll(".mscr").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
+    const t=titles[s]; document.getElementById("tb-eye").textContent=t[0]; document.getElementById("tb-title").textContent=t[1]; document.getElementById("url").textContent=t[2];
+  }
+  setScreen("dashboard");
+</script>
+</body>
+</html>

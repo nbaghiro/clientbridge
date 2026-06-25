@@ -1,0 +1,17 @@
+line-length = 100
+indent-width = 4
+target-version = "py312"
+src = ["src"]
+
+[lint]
+# E/F=pyflakes+pycodestyle, I=isort, UP=pyupgrade, B=bugbear, SIM=simplify, TID=tidy-imports,
+# ANN=annotations (ANN401 bans `Any` in signatures), RUF=ruff-specific.
+select = ["E", "F", "I", "UP", "B", "SIM", "TID", "ANN", "RUF"]
+
+[lint.per-file-ignores]
+"tests/**" = ["ANN"]                # tests need not be fully annotated
+"migrations/**" = ["ANN", "E501"]   # alembic-generated
+
+[format]
+quote-style = "double"
+indent-style = "space"

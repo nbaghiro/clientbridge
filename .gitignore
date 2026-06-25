@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.env
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Node / TS
+node_modules/
+dist/
+.turbo/
+.expo/
+*.tsbuildinfo
+frontend/packages/api-client/openapi.json
+
+# Misc
+.DS_Store
+*.log
+.idea/
+.vscode/
