@@ -1,0 +1,168 @@
+"""Shared test fixtures (see .docs/testing.md).
+
+Integration tests run against the migrated + SEEDED dev DB. Each test runs inside a transaction
+rolled back at teardown (savepoint join + a `get_session` override), so the committed seed is the
+baseline and every write vanishes — repeatable, no residue.
+"""
+
+from collections.abc import AsyncIterator
+
+import httpx
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from clientbridge.core.db import engine, get_session
+from clientbridge.core.errors import Unauthorized
+from clientbridge.core.ids import new_id
+from clientbridge.core.security import hash_password, issue_access_token
+from clientbridge.integrations.email import Email, EmailSender, get_email_sender
+from clientbridge.integrations.oauth import OAuthProfile, get_oauth_verifier
+from clientbridge.main import app
+from clientbridge.models.crm import Client
+from clientbridge.models.identity import Business, Staff, User
+
+# Seeded baseline (committed): the demo business + two of its users.
+BIZ = "bz_birchbark"
+OWNER_USER = "us_dev"
+STAFF_USER = "us_diego"
+
+
+# ── DB: one rolled-back transaction per test ─────────────────────────────────────────────────
+@pytest.fixture
+async def db() -> AsyncIterator[AsyncSession]:
+    conn = await engine.connect()
+    trans = await conn.begin()
+    session = AsyncSession(
+        bind=conn, join_transaction_mode="create_savepoint", expire_on_commit=False
+    )
+    try:
+        yield session
+    finally:
+        await session.close()
+        await trans.rollback()
+        await conn.close()
+        await engine.dispose()  # function-scoped loop → clear the pool for the next test
+
+
+# ── Recording email fake (the boundary pattern) ──────────────────────────────────────────────
+class FakeEmailSender:
+    def __init__(self) -> None:
+        self.sent: list[Email] = []
+
+    async def send(self, email: Email) -> None:
+        self.sent.append(email)
+
+
+@pytest.fixture
+def email() -> FakeEmailSender:
+    return FakeEmailSender()
+
+
+# ── OAuth fake: id_token == the email; "invalid" → 401 (lets tests control the profile) ───────
+class FakeOAuthVerifier:
+    async def verify_google(self, id_token: str) -> OAuthProfile:
+        if id_token == "invalid":
+            raise Unauthorized("invalid google token")
+        return OAuthProfile(
+            email=id_token, email_verified=True, name="OAuth User", sub=f"google-{id_token}"
+        )
+
+
+# ── In-process HTTP client sharing the test's transaction + the fake email ───────────────────
+@pytest.fixture
+async def api(db: AsyncSession, email: FakeEmailSender) -> AsyncIterator[httpx.AsyncClient]:
+    async def _session() -> AsyncIterator[AsyncSession]:
+        yield db
+
+    def _email() -> EmailSender:
+        return email
+
+    app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[get_email_sender] = _email
+    app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+    app.dependency_overrides.clear()
+
+
+def _bearer(user_id: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {issue_access_token(user_id)}"}
+
+
+@pytest.fixture
+def as_owner(api: httpx.AsyncClient) -> httpx.AsyncClient:
+    api.headers.update(_bearer(OWNER_USER))
+    return api
+
+
+@pytest.fixture
+def as_staff(api: httpx.AsyncClient) -> httpx.AsyncClient:
+    api.headers.update(_bearer(STAFF_USER))
+    return api
+
+
+@pytest.fixture
+def unauth(api: httpx.AsyncClient) -> httpx.AsyncClient:
+    return api
+
+
+# ── Factories: valid, business-scoped rows built in the test transaction ─────────────────────
+class Factory:
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def business(self, *, province: str = "BC", name: str = "Test Studio") -> Business:
+        biz = Business(
+            id=new_id("business"),
+            name=name,
+            slug=f"test-{new_id('business')[3:13].lower()}",
+            province=province,
+            timezone="America/Vancouver",
+        )
+        self.db.add(biz)
+        await self.db.flush()
+        return biz
+
+    async def user(self, *, email: str | None = None, password: str | None = None) -> User:
+        user = User(
+            id=new_id("user"),
+            email=email or f"u-{new_id('user')[3:13].lower()}@test.ca",
+            name="Test User",
+            password_hash=hash_password(password) if password else None,
+            oauth={},
+        )
+        self.db.add(user)
+        await self.db.flush()
+        return user
+
+    async def staff(
+        self, *, business: Business, user: User | None = None, role: str = "owner"
+    ) -> Staff:
+        staff = Staff(
+            id=new_id("staff"),
+            business_id=business.id,
+            user_id=user.id if user else None,
+            role=role,
+            status="active",
+        )
+        self.db.add(staff)
+        await self.db.flush()
+        return staff
+
+    async def client(self, *, business: Business, name: str = "Test Client") -> Client:
+        client = Client(
+            id=new_id("client"),
+            business_id=business.id,
+            name=name,
+            tags=[],
+            custom_fields={},
+        )
+        self.db.add(client)
+        await self.db.flush()
+        return client
+
+
+@pytest.fixture
+def factory(db: AsyncSession) -> Factory:
+    return Factory(db)
