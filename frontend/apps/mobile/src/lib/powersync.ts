@@ -12,7 +12,12 @@ export const db = new PowerSyncDatabase({
     database: new OPSqliteOpenFactory({ dbFilename: "clientbridge.db" }),
 });
 
-/** Call after login with a function that returns the current app JWT. */
-export async function connectPowerSync(getToken: () => Promise<string>): Promise<void> {
+/**
+ * Connect to PowerSync. Pass a function returning the app JWT once auth exists; defaults to a
+ * dev no-op token (the backend's /sync/token mints a dev-user token when unauthenticated).
+ */
+export async function connectPowerSync(
+    getToken: () => Promise<string> = () => Promise.resolve(""),
+): Promise<void> {
     await db.connect(createConnector({ backendUrl, powersyncUrl, getToken }));
 }

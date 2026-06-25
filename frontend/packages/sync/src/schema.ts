@@ -3,7 +3,7 @@
 // `id` is the implicit text PK; money = integer cents; json/arrays/timestamps stored as text.
 import { column, Schema, Table } from "@powersync/common";
 
-const memberships = new Table(
+const staff = new Table(
     {
         business_id: column.text,
         user_id: column.text,
@@ -22,7 +22,7 @@ const memberships = new Table(
     },
     {
         indexes: {
-            memberships_business_id: ["business_id"],
+            staff_business_id: ["business_id"],
         },
     },
 );
@@ -232,200 +232,6 @@ const gift_cards = new Table(
     },
 );
 
-const sessions = new Table(
-    {
-        item_id: column.text,
-        member_id: column.text,
-        resource_id: column.text,
-        recurrence_id: column.text,
-        starts_at: column.text,
-        ends_at: column.text,
-        capacity: column.integer,
-        booked_count: column.integer,
-        status: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            sessions_business_id: ["business_id"],
-            sessions_business_start: ["business_id", "starts_at"],
-            sessions_member_start: ["business_id", "member_id", "starts_at"],
-        },
-    },
-);
-
-const bookings = new Table(
-    {
-        session_id: column.text,
-        client_id: column.text,
-        subject_id: column.text,
-        package_id: column.text,
-        invoice_id: column.text,
-        status: column.text,
-        source: column.text,
-        price_cents: column.integer,
-        deposit_required: column.integer,
-        confirmed_at: column.text,
-        completed_at: column.text,
-        canceled_at: column.text,
-        custom_fields: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-        deleted_at: column.text,
-    },
-    {
-        indexes: {
-            bookings_business_id: ["business_id"],
-            bookings_client: ["business_id", "client_id"],
-            bookings_session: ["business_id", "session_id"],
-            bookings_status: ["business_id", "status"],
-        },
-    },
-);
-
-const availability = new Table(
-    {
-        member_id: column.text,
-        type: column.text,
-        weekday: column.integer,
-        date: column.text,
-        start_time: column.text,
-        end_time: column.text,
-        is_available: column.integer,
-        note: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            availability_business_id: ["business_id"],
-            availability_member: ["business_id", "member_id", "type"],
-        },
-    },
-);
-
-const resources = new Table(
-    {
-        name: column.text,
-        kind: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            resources_business_id: ["business_id"],
-        },
-    },
-);
-
-const schedules = new Table(
-    {
-        item_id: column.text,
-        member_id: column.text,
-        client_id: column.text,
-        frequency: column.text,
-        interval: column.integer,
-        byday: column.text,
-        count: column.integer,
-        until: column.text,
-        start_date: column.text,
-        status: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            schedules_business_id: ["business_id"],
-            schedules_status: ["business_id", "status"],
-        },
-    },
-);
-
-const invoices = new Table(
-    {
-        client_id: column.text,
-        number: column.integer,
-        status: column.text,
-        currency: column.text,
-        subtotal_cents: column.integer,
-        tax_total_cents: column.integer,
-        total_cents: column.integer,
-        amount_paid_cents: column.integer,
-        balance_cents: column.integer,
-        issued_at: column.text,
-        due_at: column.text,
-        paid_at: column.text,
-        voided_at: column.text,
-        notes: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            invoices_business_id: ["business_id"],
-            invoices_client: ["business_id", "client_id"],
-            invoices_status: ["business_id", "status"],
-        },
-    },
-);
-
-const estimates = new Table(
-    {
-        client_id: column.text,
-        number: column.integer,
-        status: column.text,
-        subtotal_cents: column.integer,
-        tax_total_cents: column.integer,
-        total_cents: column.integer,
-        valid_until: column.text,
-        accepted_at: column.text,
-        declined_at: column.text,
-        converted_invoice_id: column.text,
-        notes: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            estimates_business_id: ["business_id"],
-            estimates_status: ["business_id", "status"],
-        },
-    },
-);
-
-const lines = new Table(
-    {
-        parent_type: column.text,
-        parent_id: column.text,
-        description: column.text,
-        item_id: column.text,
-        booking_id: column.text,
-        quantity: column.real,
-        unit_amount_cents: column.integer,
-        amount_cents: column.integer,
-        tax_rate_id: column.text,
-        tax_amount_cents: column.integer,
-        position: column.integer,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            lines_business_id: ["business_id"],
-            lines_parent: ["parent_type", "parent_id"],
-        },
-    },
-);
-
 const tax_rates = new Table(
     {
         business_id: column.text,
@@ -444,65 +250,17 @@ const tax_rates = new Table(
     },
 );
 
-const threads = new Table(
+const resources = new Table(
     {
-        client_id: column.text,
-        channel: column.text,
-        last_message_at: column.text,
-        unread_count: column.integer,
-        status: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            threads_business_id: ["business_id"],
-            threads_last_message: ["business_id", "last_message_at"],
-        },
-    },
-);
-
-const messages = new Table(
-    {
-        thread_id: column.text,
-        direction: column.text,
-        channel: column.text,
-        sender_user_id: column.text,
-        body: column.text,
-        status: column.text,
-        broadcast_id: column.text,
-        provider_ref: column.text,
-        attachments: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            messages_broadcast: ["broadcast_id"],
-            messages_business_id: ["business_id"],
-            messages_thread: ["thread_id", "created_at"],
-        },
-    },
-);
-
-const broadcasts = new Table(
-    {
-        created_by: column.text,
         name: column.text,
-        channel: column.text,
-        audience: column.text,
-        status: column.text,
-        scheduled_at: column.text,
+        kind: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
     },
     {
         indexes: {
-            broadcasts_business_id: ["business_id"],
-            broadcasts_status: ["business_id", "status"],
+            resources_business_id: ["business_id"],
         },
     },
 );
@@ -613,6 +371,366 @@ const signatures = new Table(
     },
 );
 
+const files = new Table(
+    {
+        parent_type: column.text,
+        parent_id: column.text,
+        kind: column.text,
+        s3_key: column.text,
+        content_type: column.text,
+        size: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            files_business_id: ["business_id"],
+            files_parent: ["business_id", "parent_type", "parent_id"],
+        },
+    },
+);
+
+const sessions = new Table(
+    {
+        item_id: column.text,
+        staff_id: column.text,
+        resource_id: column.text,
+        recurrence_id: column.text,
+        starts_at: column.text,
+        ends_at: column.text,
+        capacity: column.integer,
+        booked_count: column.integer,
+        status: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            sessions_business_id: ["business_id"],
+            sessions_business_start: ["business_id", "starts_at"],
+            sessions_staff_start: ["business_id", "staff_id", "starts_at"],
+        },
+    },
+);
+
+const bookings = new Table(
+    {
+        session_id: column.text,
+        staff_id: column.text,
+        client_id: column.text,
+        subject_id: column.text,
+        package_id: column.text,
+        invoice_id: column.text,
+        status: column.text,
+        source: column.text,
+        price_cents: column.integer,
+        deposit_required: column.integer,
+        confirmed_at: column.text,
+        completed_at: column.text,
+        canceled_at: column.text,
+        custom_fields: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+        deleted_at: column.text,
+    },
+    {
+        indexes: {
+            bookings_business_id: ["business_id"],
+            bookings_client: ["business_id", "client_id"],
+            bookings_session: ["business_id", "session_id"],
+            bookings_staff: ["business_id", "staff_id"],
+            bookings_status: ["business_id", "status"],
+        },
+    },
+);
+
+const availability = new Table(
+    {
+        staff_id: column.text,
+        type: column.text,
+        weekday: column.integer,
+        date: column.text,
+        start_time: column.text,
+        end_time: column.text,
+        is_available: column.integer,
+        note: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            availability_business_id: ["business_id"],
+            availability_staff: ["business_id", "staff_id", "type"],
+        },
+    },
+);
+
+const schedules = new Table(
+    {
+        item_id: column.text,
+        staff_id: column.text,
+        client_id: column.text,
+        frequency: column.text,
+        interval: column.integer,
+        byday: column.text,
+        count: column.integer,
+        until: column.text,
+        start_date: column.text,
+        status: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            schedules_business_id: ["business_id"],
+            schedules_status: ["business_id", "status"],
+        },
+    },
+);
+
+const payout_allocations = new Table(
+    {
+        staff_id: column.text,
+        source_type: column.text,
+        source_id: column.text,
+        basis: column.text,
+        rate: column.real,
+        amount_cents: column.integer,
+        status: column.text,
+        payout_id: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            payout_alloc_source: ["source_type", "source_id"],
+            payout_alloc_staff: ["business_id", "staff_id", "status"],
+            payout_allocations_business_id: ["business_id"],
+        },
+    },
+);
+
+const invoices = new Table(
+    {
+        client_id: column.text,
+        number: column.integer,
+        status: column.text,
+        currency: column.text,
+        subtotal_cents: column.integer,
+        tax_total_cents: column.integer,
+        total_cents: column.integer,
+        amount_paid_cents: column.integer,
+        balance_cents: column.integer,
+        issued_at: column.text,
+        due_at: column.text,
+        paid_at: column.text,
+        voided_at: column.text,
+        notes: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            invoices_business_id: ["business_id"],
+            invoices_client: ["business_id", "client_id"],
+            invoices_status: ["business_id", "status"],
+        },
+    },
+);
+
+const estimates = new Table(
+    {
+        client_id: column.text,
+        number: column.integer,
+        status: column.text,
+        subtotal_cents: column.integer,
+        tax_total_cents: column.integer,
+        total_cents: column.integer,
+        valid_until: column.text,
+        accepted_at: column.text,
+        declined_at: column.text,
+        converted_invoice_id: column.text,
+        notes: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            estimates_business_id: ["business_id"],
+            estimates_status: ["business_id", "status"],
+        },
+    },
+);
+
+const lines = new Table(
+    {
+        parent_type: column.text,
+        parent_id: column.text,
+        description: column.text,
+        item_id: column.text,
+        booking_id: column.text,
+        quantity: column.real,
+        unit_amount_cents: column.integer,
+        amount_cents: column.integer,
+        tax_rate_id: column.text,
+        tax_amount_cents: column.integer,
+        position: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            lines_business_id: ["business_id"],
+            lines_parent: ["parent_type", "parent_id"],
+        },
+    },
+);
+
+const payments = new Table(
+    {
+        client_id: column.text,
+        kind: column.text,
+        parent_payment_id: column.text,
+        invoice_id: column.text,
+        booking_id: column.text,
+        amount_cents: column.integer,
+        currency: column.text,
+        method: column.text,
+        provider: column.text,
+        provider_ref: column.text,
+        reference_code: column.text,
+        fee_cents: column.integer,
+        net_cents: column.integer,
+        status: column.text,
+        paid_at: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            payments_business_id: ["business_id"],
+            payments_invoice: ["invoice_id"],
+            payments_reference_code: ["reference_code"],
+            payments_status: ["business_id", "status"],
+        },
+    },
+);
+
+const payment_methods = new Table(
+    {
+        client_id: column.text,
+        type: column.text,
+        brand: column.text,
+        last4: column.text,
+        provider: column.text,
+        provider_ref: column.text,
+        is_default: column.integer,
+        mandate_status: column.text,
+        status: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            payment_methods_business_id: ["business_id"],
+            payment_methods_client: ["business_id", "client_id"],
+        },
+    },
+);
+
+const payouts = new Table(
+    {
+        amount_cents: column.integer,
+        status: column.text,
+        arrival_at: column.text,
+        provider_ref: column.text,
+        bank_last4: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            payouts_business_id: ["business_id"],
+            payouts_status: ["business_id", "status"],
+        },
+    },
+);
+
+const threads = new Table(
+    {
+        client_id: column.text,
+        channel: column.text,
+        last_message_at: column.text,
+        unread_count: column.integer,
+        status: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            threads_business_id: ["business_id"],
+            threads_last_message: ["business_id", "last_message_at"],
+        },
+    },
+);
+
+const messages = new Table(
+    {
+        thread_id: column.text,
+        direction: column.text,
+        channel: column.text,
+        sender_user_id: column.text,
+        body: column.text,
+        status: column.text,
+        broadcast_id: column.text,
+        provider_ref: column.text,
+        attachments: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            messages_broadcast: ["broadcast_id"],
+            messages_business_id: ["business_id"],
+            messages_thread: ["thread_id", "created_at"],
+        },
+    },
+);
+
+const broadcasts = new Table(
+    {
+        created_by: column.text,
+        name: column.text,
+        channel: column.text,
+        audience: column.text,
+        status: column.text,
+        scheduled_at: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            broadcasts_business_id: ["business_id"],
+            broadcasts_status: ["business_id", "status"],
+        },
+    },
+);
+
 const reviews = new Table(
     {
         client_id: column.text,
@@ -657,104 +775,27 @@ const review_requests = new Table(
     },
 );
 
-const payment_methods = new Table(
+const audit_logs = new Table(
     {
-        client_id: column.text,
-        type: column.text,
-        brand: column.text,
-        last4: column.text,
-        provider: column.text,
-        provider_ref: column.text,
-        is_default: column.integer,
-        mandate_status: column.text,
-        status: column.text,
-        business_id: column.text,
+        actor_user_id: column.text,
+        action: column.text,
+        entity_type: column.text,
+        entity_id: column.text,
+        changes: column.text,
         created_at: column.text,
-        updated_at: column.text,
+        business_id: column.text,
     },
     {
         indexes: {
-            payment_methods_business_id: ["business_id"],
-            payment_methods_client: ["business_id", "client_id"],
-        },
-    },
-);
-
-const payments = new Table(
-    {
-        client_id: column.text,
-        kind: column.text,
-        parent_payment_id: column.text,
-        invoice_id: column.text,
-        booking_id: column.text,
-        amount_cents: column.integer,
-        currency: column.text,
-        method: column.text,
-        provider: column.text,
-        provider_ref: column.text,
-        reference_code: column.text,
-        fee_cents: column.integer,
-        net_cents: column.integer,
-        status: column.text,
-        paid_at: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            payments_business_id: ["business_id"],
-            payments_invoice: ["invoice_id"],
-            payments_reference_code: ["reference_code"],
-            payments_status: ["business_id", "status"],
-        },
-    },
-);
-
-const payouts = new Table(
-    {
-        amount_cents: column.integer,
-        status: column.text,
-        arrival_at: column.text,
-        provider_ref: column.text,
-        bank_last4: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            payouts_business_id: ["business_id"],
-            payouts_status: ["business_id", "status"],
-        },
-    },
-);
-
-const payout_allocations = new Table(
-    {
-        member_id: column.text,
-        source_type: column.text,
-        source_id: column.text,
-        basis: column.text,
-        rate: column.real,
-        amount_cents: column.integer,
-        status: column.text,
-        payout_id: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            payout_alloc_member: ["business_id", "member_id", "status"],
-            payout_alloc_source: ["source_type", "source_id"],
-            payout_allocations_business_id: ["business_id"],
+            audit_created: ["business_id", "created_at"],
+            audit_entity: ["business_id", "entity_type", "entity_id"],
+            audit_logs_business_id: ["business_id"],
         },
     },
 );
 
 export const AppSchema = new Schema({
-    memberships,
+    staff,
     businesses,
     clients,
     subjects,
@@ -764,29 +805,31 @@ export const AppSchema = new Schema({
     packages,
     subscriptions,
     gift_cards,
-    sessions,
-    bookings,
-    availability,
-    resources,
-    schedules,
-    invoices,
-    estimates,
-    lines,
     tax_rates,
-    threads,
-    messages,
-    broadcasts,
+    resources,
     forms,
     form_fields,
     form_responses,
     contracts,
     signatures,
+    files,
+    sessions,
+    bookings,
+    availability,
+    schedules,
+    payout_allocations,
+    invoices,
+    estimates,
+    lines,
+    payments,
+    payment_methods,
+    payouts,
+    threads,
+    messages,
+    broadcasts,
     reviews,
     review_requests,
-    payment_methods,
-    payments,
-    payouts,
-    payout_allocations,
+    audit_logs,
 });
 
 export type Database = (typeof AppSchema)["types"];
