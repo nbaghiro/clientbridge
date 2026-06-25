@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Clientbridge — Design System & Key Screens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Hanken+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          display: ['Fraunces', 'serif'],
+          sans: ['"Hanken Grotesk"', 'sans-serif'],
+          mono: ['"DM Mono"', 'monospace'],
+        },
+        colors: {
+          pine: {
+            50:'#EFF7F5',100:'#DCEEEA',200:'#AFD8CF',300:'#7FBFB2',
+            400:'#5BB0A1',500:'#2C8B7C',600:'#1A6B5F',700:'#115048',
+            800:'#0E3D36',900:'#0B2E29',950:'#07201C'
+          },
+          honey: {
+            100:'#FCEBCF',200:'#FAD9A6',300:'#F6C674',400:'#F4B65E',
+            500:'#EFA23D',600:'#D9871F',700:'#B26A12',800:'#8A510C'
+          },
+          clay: { 200:'#F0C7B6',300:'#E6A98F',500:'#D67B57',600:'#C2613F',700:'#9E4A2C' },
+          paper: { 100:'#FBFAF6', 200:'#F4F1EA', 300:'#ECE7DC' },
+          ink: '#15201D',
+          fog: { 400:'#9AA7A1',500:'#6B7B75',600:'#4F5E58',700:'#3A4843' },
+          hair: '#E4E7E1',
+          success:'#1F9D6B', danger:'#BE4A35', warn:'#D9871F', info:'#2C8B7C'
+        },
+        boxShadow: {
+          'soft':'0 1px 2px rgba(11,46,41,.04), 0 4px 16px rgba(11,46,41,.06)',
+          'lift':'0 2px 4px rgba(11,46,41,.05), 0 12px 32px rgba(11,46,41,.10)',
+          'float':'0 8px 24px rgba(11,46,41,.10), 0 24px 64px rgba(11,46,41,.14)',
+        },
+        borderRadius:{ 'xl2':'1.25rem','xl3':'1.75rem' }
+      }
+    }
+  }
+</script>
+<style>
+  :root{
+    --pine-700:#115048; --pine-800:#0E3D36; --pine-900:#0B2E29;
+    --honey-500:#EFA23D; --clay-500:#D67B57;
+    --paper-100:#FBFAF6; --paper-200:#F4F1EA; --ink:#15201D;
+    --fog-500:#6B7B75; --hair:#E4E7E1;
+    --space-unit:4px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px;
+  }
+  html{scroll-behavior:smooth}
+  body{ background:var(--paper-100); color:var(--ink); -webkit-font-smoothing:antialiased; }
+  /* warm atmospheric background */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(900px 600px at 88% -10%, rgba(239,162,61,.10), transparent 60%),
+      radial-gradient(1100px 700px at -8% 8%, rgba(17,80,72,.07), transparent 55%);
+  }
+  /* fine grain */
+  body::after{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative; z-index:1;}
+  .tabular{font-variant-numeric:tabular-nums}
+  .ital{font-style:italic}
+  ::selection{background:var(--honey-500); color:var(--pine-900)}
+  /* scrollbar */
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-thumb{background:#cdd6d1;border-radius:9px;border:3px solid var(--paper-100)}
+  ::-webkit-scrollbar-track{background:transparent}
+  /* swatch */
+  .swatch{height:64px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.04)}
+  /* hairline grid bg for sections */
+  .blueprint{
+    background-image:linear-gradient(var(--hair) 1px,transparent 1px),linear-gradient(90deg,var(--hair) 1px,transparent 1px);
+    background-size:28px 28px; background-position:center;
+  }
+  /* device frames */
+  .browser{border-radius:18px;overflow:hidden;box-shadow:0 8px 24px rgba(11,46,41,.10),0 30px 70px rgba(11,46,41,.16);border:1px solid #e7e2d8}
+  .chrome{height:42px;background:#0E3D36;display:flex;align-items:center;gap:8px;padding:0 16px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .phone{width:300px;border-radius:42px;background:#0B2E29;padding:11px;box-shadow:0 12px 30px rgba(11,46,41,.16),0 40px 80px rgba(11,46,41,.18)}
+  .phone-screen{border-radius:33px;overflow:hidden;background:var(--paper-100);position:relative}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:120px;height:26px;background:#0B2E29;border-radius:0 0 16px 16px;z-index:30}
+  /* entrance */
+  @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .rise{animation:rise .7s cubic-bezier(.2,.7,.2,1) both}
+  .d1{animation-delay:.05s}.d2{animation-delay:.12s}.d3{animation-delay:.2s}.d4{animation-delay:.3s}.d5{animation-delay:.42s}
+  /* cable motif draw */
+  @keyframes draw{from{stroke-dashoffset:600}to{stroke-dashoffset:0}}
+  .cable{stroke-dasharray:600;animation:draw 2.4s ease forwards .3s}
+  .nav-pill{transition:all .2s ease}
+  .nav-pill:hover{color:var(--pine-900)}
+  .navlink.active{color:var(--ink);background:#fff;box-shadow:var(--tw-shadow,0 1px 2px rgba(11,46,41,.05))}
+  .lift-hover{transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s ease}
+  .lift-hover:hover{transform:translateY(-3px)}
+  details>summary{list-style:none;cursor:pointer}
+  details>summary::-webkit-details-marker{display:none}
+</style>
+</head>
+<body class="font-sans">
+<div class="wrap">
+
+<!-- ░░ TOP BAR ░░ -->
+<header class="sticky top-0 z-50 backdrop-blur-md bg-paper-100/80 border-b border-hair">
+  <div class="max-w-[1200px] mx-auto px-6 h-16 flex items-center justify-between">
+    <a href="#cover" class="flex items-center gap-2.5">
+      <!-- bridge glyph -->
+      <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <circle cx="6" cy="34" r="3" fill="#115048"/><circle cx="42" cy="34" r="3" fill="#115048"/>
+        <path d="M6 34 C18 8, 30 8, 42 34" stroke="#EFA23D" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <path d="M12 26V34M18 19.5V34M24 17V34M30 19.5V34M36 26V34" stroke="#115048" stroke-width="1.6" stroke-linecap="round" opacity=".6"/>
+      </svg>
+      <span class="font-display text-[20px] font-600 tracking-tight">Clientbridge</span>
+    </a>
+    <nav class="hidden md:flex items-center gap-1 text-[14px] text-fog-500">
+      <a href="#foundations" class="nav-pill px-3 py-1.5 rounded-lg">Foundations</a>
+      <a href="#components" class="nav-pill px-3 py-1.5 rounded-lg">Components</a>
+      <a href="#screens" class="nav-pill px-3 py-1.5 rounded-lg">Screens</a>
+    </nav>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center bg-paper-300 rounded-full p-0.5 text-[13px] font-600">
+        <button onclick="setLang('en')" id="btn-en" class="px-3 py-1 rounded-full bg-white text-ink shadow-soft">EN</button>
+        <button onclick="setLang('fr')" id="btn-fr" class="px-3 py-1 rounded-full text-fog-500">FR</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ░░ COVER ░░ -->
+<section id="cover" class="max-w-[1200px] mx-auto px-6 pt-20 pb-16 relative">
+  <div class="absolute right-0 top-0 w-[46%] h-[420px] hidden lg:block pointer-events-none">
+    <svg viewBox="0 0 560 420" fill="none" class="w-full h-full">
+      <circle cx="40" cy="330" r="6" fill="#115048"/><circle cx="520" cy="330" r="6" fill="#115048"/>
+      <path class="cable" d="M40 330 C200 60, 360 60, 520 330" stroke="#EFA23D" stroke-width="3.5" fill="none"/>
+      <g stroke="#115048" stroke-width="1.4" opacity=".5">
+        <path d="M96 246V330M152 178V330M210 138V330M270 124V330M330 134V330M390 172V330M448 240V330"/>
+      </g>
+      <line x1="40" y1="330" x2="520" y2="330" stroke="#0E3D36" stroke-width="3"/>
+    </svg>
+  </div>
+  <p class="rise d1 text-[13px] font-700 tracking-[.18em] uppercase text-pine-600 mb-5">Design System · v0.1</p>
+  <h1 class="rise d2 font-display font-600 tracking-tight leading-[.95] text-[clamp(44px,7vw,86px)] max-w-[16ch]">
+    The bridge between you<br/>and your <span class="ital text-pine-700">clients.</span>
+  </h1>
+  <p class="rise d3 mt-7 max-w-[52ch] text-[19px] leading-relaxed text-fog-600">
+    Clientbridge is a Canada-first, bilingual business operating system for solo &amp; small
+    service providers. This is its visual language — <span class="text-ink font-600">engineered calm,
+    Canadian structural warmth</span> — and the key screens it builds.
+  </p>
+  <div class="rise d4 mt-9 flex flex-wrap gap-3 items-center">
+    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pine-800 text-paper-100 text-[14px] font-600">🍁 Built for Canada</span>
+    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white text-ink text-[14px] font-600 shadow-soft border border-hair">EN · FR bilingual</span>
+    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white text-ink text-[14px] font-600 shadow-soft border border-hair">Web + Mobile tokens</span>
+  </div>
+</section>
+
+<!-- ░░ FOUNDATIONS ░░ -->
+<section id="foundations" class="max-w-[1200px] mx-auto px-6 py-14">
+  <div class="flex items-end justify-between mb-10 border-b border-hair pb-5">
+    <div>
+      <p class="text-[13px] font-700 tracking-[.18em] uppercase text-pine-600 mb-2">01 — Foundations</p>
+      <h2 class="font-display text-[40px] font-600 tracking-tight">Tokens</h2>
+    </div>
+    <p class="text-fog-500 text-[14px] max-w-[34ch] hidden sm:block">Every value is a named token, portable to Tailwind &amp; React Native. See <code class="font-mono text-pine-700">tokens.md</code>.</p>
+  </div>
+
+  <!-- COLOR -->
+  <h3 class="font-display text-[24px] font-600 mb-1">Colour</h3>
+  <p class="text-fog-500 text-[14px] mb-6 max-w-[60ch]">Pine is the structural primary (water &amp; forest — trust, not SaaS-blue). Honey is the warm human accent &amp; primary CTA. Clay adds craft warmth. Paper neutrals are warm, never cold gray.</p>
+
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+    <!-- pine -->
+    <div>
+      <div class="flex items-center justify-between mb-2"><span class="font-600 text-[15px]">Pine</span><span class="font-mono text-[12px] text-fog-500">primary</span></div>
+      <div class="grid grid-cols-5 gap-1.5">
+        <div><div class="swatch" style="background:#DCEEEA"></div><p class="font-mono text-[10px] text-fog-500 mt-1">100</p></div>
+        <div><div class="swatch" style="background:#5BB0A1"></div><p class="font-mono text-[10px] text-fog-500 mt-1">400</p></div>
+        <div><div class="swatch" style="background:#2C8B7C"></div><p class="font-mono text-[10px] text-fog-500 mt-1">500</p></div>
+        <div><div class="swatch" style="background:#115048"></div><p class="font-mono text-[10px] text-fog-500 mt-1">700</p></div>
+        <div><div class="swatch" style="background:#0B2E29"></div><p class="font-mono text-[10px] text-fog-500 mt-1">900</p></div>
+      </div>
+    </div>
+    <!-- honey -->
+    <div>
+      <div class="flex items-center justify-between mb-2"><span class="font-600 text-[15px]">Honey</span><span class="font-mono text-[12px] text-fog-500">accent · CTA</span></div>
+      <div class="grid grid-cols-5 gap-1.5">
+        <div><div class="swatch" style="background:#FCEBCF"></div><p class="font-mono text-[10px] text-fog-500 mt-1">100</p></div>
+        <div><div class="swatch" style="background:#F6C674"></div><p class="font-mono text-[10px] text-fog-500 mt-1">300</p></div>
+        <div><div class="swatch" style="background:#EFA23D"></div><p class="font-mono text-[10px] text-fog-500 mt-1">500</p></div>
+        <div><div class="swatch" style="background:#D9871F"></div><p class="font-mono text-[10px] text-fog-500 mt-1">600</p></div>
+        <div><div class="swatch" style="background:#8A510C"></div><p class="font-mono text-[10px] text-fog-500 mt-1">800</p></div>
+      </div>
+    </div>
+    <!-- clay -->
+    <div>
+      <div class="flex items-center justify-between mb-2"><span class="font-600 text-[15px]">Clay</span><span class="font-mono text-[12px] text-fog-500">warm 2°</span></div>
+      <div class="grid grid-cols-5 gap-1.5">
+        <div><div class="swatch" style="background:#F0C7B6"></div><p class="font-mono text-[10px] text-fog-500 mt-1">200</p></div>
+        <div><div class="swatch" style="background:#E6A98F"></div><p class="font-mono text-[10px] text-fog-500 mt-1">300</p></div>
+        <div><div class="swatch" style="background:#D67B57"></div><p class="font-mono text-[10px] text-fog-500 mt-1">500</p></div>
+        <div><div class="swatch" style="background:#C2613F"></div><p class="font-mono text-[10px] text-fog-500 mt-1">600</p></div>
+        <div><div class="swatch" style="background:#9E4A2C"></div><p class="font-mono text-[10px] text-fog-500 mt-1">700</p></div>
+      </div>
+    </div>
+    <!-- paper / ink -->
+    <div>
+      <div class="flex items-center justify-between mb-2"><span class="font-600 text-[15px]">Paper &amp; Ink</span><span class="font-mono text-[12px] text-fog-500">surfaces</span></div>
+      <div class="grid grid-cols-5 gap-1.5">
+        <div><div class="swatch" style="background:#FBFAF6"></div><p class="font-mono text-[10px] text-fog-500 mt-1">100</p></div>
+        <div><div class="swatch" style="background:#F4F1EA"></div><p class="font-mono text-[10px] text-fog-500 mt-1">200</p></div>
+        <div><div class="swatch" style="background:#ECE7DC"></div><p class="font-mono text-[10px] text-fog-500 mt-1">300</p></div>
+        <div><div class="swatch" style="background:#6B7B75"></div><p class="font-mono text-[10px] text-fog-500 mt-1">fog</p></div>
+        <div><div class="swatch" style="background:#15201D"></div><p class="font-mono text-[10px] text-fog-500 mt-1">ink</p></div>
+      </div>
+    </div>
+    <!-- semantic -->
+    <div>
+      <div class="flex items-center justify-between mb-2"><span class="font-600 text-[15px]">Semantic</span><span class="font-mono text-[12px] text-fog-500">status</span></div>
+      <div class="grid grid-cols-4 gap-1.5">
+        <div><div class="swatch" style="background:#1F9D6B"></div><p class="font-mono text-[10px] text-fog-500 mt-1">paid</p></div>
+        <div><div class="swatch" style="background:#D9871F"></div><p class="font-mono text-[10px] text-fog-500 mt-1">due</p></div>
+        <div><div class="swatch" style="background:#BE4A35"></div><p class="font-mono text-[10px] text-fog-500 mt-1">over</p></div>
+        <div><div class="swatch" style="background:#2C8B7C"></div><p class="font-mono text-[10px] text-fog-500 mt-1">info</p></div>
+      </div>
+    </div>
+    <!-- gradient / motif -->
+    <div>
+      <div class="flex items-center justify-between mb-2"><span class="font-600 text-[15px]">Brand fill</span><span class="font-mono text-[12px] text-fog-500">hero</span></div>
+      <div class="swatch h-[64px]" style="background:linear-gradient(120deg,#0B2E29,#115048 55%,#1A6B5F)"></div>
+      <div class="swatch h-[32px] mt-1.5" style="background:linear-gradient(120deg,#EFA23D,#F4B65E)"></div>
+    </div>
+  </div>
+
+  <!-- TYPE -->
+  <div class="mt-16 grid lg:grid-cols-2 gap-12 items-start">
+    <div>
+      <h3 class="font-display text-[24px] font-600 mb-1">Typography</h3>
+      <p class="text-fog-500 text-[14px] mb-6 max-w-[46ch]"><b class="text-ink">Fraunces</b> display (warm editorial serif, superb French diacritics) · <b class="text-ink">Hanken Grotesk</b> UI · <b class="text-ink">DM Mono</b> for money &amp; codes.</p>
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft">
+          <p class="font-mono text-[11px] text-fog-500 mb-2">display / fraunces 600 · italic</p>
+          <p class="font-display text-[44px] leading-[1] font-600 tracking-tight">Réservez. <span class="ital text-pine-700">Facturez.</span></p>
+        </div>
+        <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft">
+          <p class="font-mono text-[11px] text-fog-500 mb-2">body / hanken grotesk 400–600</p>
+          <p class="text-[16px] leading-relaxed text-fog-700">Send a deposit request, confirm the booking, and get paid by Interac e-Transfer — all in one thread. <span class="font-600 text-ink">Envoyez une demande d'acompte.</span></p>
+        </div>
+        <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft flex items-baseline justify-between">
+          <div><p class="font-mono text-[11px] text-fog-500 mb-2">mono / figures · tabular</p><p class="font-mono text-[15px] text-fog-700">INV-2026-0148 · GST/HST</p></div>
+          <p class="font-mono text-[28px] font-500 tabular text-pine-800">$1,284.50</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h3 class="font-display text-[24px] font-600 mb-1">Type scale</h3>
+      <p class="text-fog-500 text-[14px] mb-6 max-w-[46ch]">A 1.25 modular scale. Display sizes use Fraunces; everything ≤20px uses Hanken.</p>
+      <div class="bg-white rounded-xl2 border border-hair divide-y divide-hair shadow-soft overflow-hidden">
+        <div class="flex items-baseline justify-between gap-4 px-6 py-3"><span class="font-display font-600 text-[40px] tracking-tight leading-none">Display</span><span class="font-mono text-[11px] text-fog-500">40 / 700</span></div>
+        <div class="flex items-baseline justify-between gap-4 px-6 py-3"><span class="font-display font-600 text-[30px] tracking-tight leading-none">Heading</span><span class="font-mono text-[11px] text-fog-500">30 / 600</span></div>
+        <div class="flex items-baseline justify-between gap-4 px-6 py-3"><span class="font-600 text-[22px] leading-none">Subhead</span><span class="font-mono text-[11px] text-fog-500">22 / 600</span></div>
+        <div class="flex items-baseline justify-between gap-4 px-6 py-3"><span class="text-[16px] leading-none">Body — the workhorse</span><span class="font-mono text-[11px] text-fog-500">16 / 400</span></div>
+        <div class="flex items-baseline justify-between gap-4 px-6 py-3"><span class="text-[14px] text-fog-600 leading-none">Small &amp; secondary</span><span class="font-mono text-[11px] text-fog-500">14 / 400</span></div>
+        <div class="flex items-baseline justify-between gap-4 px-6 py-3"><span class="text-[12px] font-700 tracking-[.14em] uppercase text-fog-500 leading-none">Overline label</span><span class="font-mono text-[11px] text-fog-500">12 / 700</span></div>
+      </div>
+      <!-- spacing + radius -->
+      <div class="grid grid-cols-2 gap-4 mt-4">
+        <div class="bg-white rounded-xl2 border border-hair p-5 shadow-soft">
+          <p class="font-mono text-[11px] text-fog-500 mb-3">spacing · 4px base</p>
+          <div class="flex items-end gap-1.5">
+            <div class="bg-pine-400 w-2" style="height:8px"></div><div class="bg-pine-500 w-3" style="height:12px"></div>
+            <div class="bg-pine-600 w-4" style="height:16px"></div><div class="bg-pine-700 w-6" style="height:24px"></div>
+            <div class="bg-pine-800 w-8" style="height:32px"></div><div class="bg-pine-900 w-12" style="height:48px"></div>
+          </div>
+          <p class="font-mono text-[10px] text-fog-500 mt-2">2 · 3 · 4 · 6 · 8 · 12</p>
+        </div>
+        <div class="bg-white rounded-xl2 border border-hair p-5 shadow-soft">
+          <p class="font-mono text-[11px] text-fog-500 mb-3">radius &amp; elevation</p>
+          <div class="flex items-center gap-2">
+            <div class="w-9 h-9 bg-pine-100 border border-pine-200" style="border-radius:8px"></div>
+            <div class="w-9 h-9 bg-pine-100 border border-pine-200" style="border-radius:12px"></div>
+            <div class="w-9 h-9 bg-pine-100 border border-pine-200" style="border-radius:16px"></div>
+            <div class="w-9 h-9 bg-white shadow-soft rounded-xl"></div>
+            <div class="w-9 h-9 bg-white shadow-lift rounded-xl"></div>
+          </div>
+          <p class="font-mono text-[10px] text-fog-500 mt-2">sm · md · lg · soft · lift</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ░░ COMPONENTS ░░ -->
+<section id="components" class="max-w-[1200px] mx-auto px-6 py-14">
+  <div class="flex items-end justify-between mb-10 border-b border-hair pb-5">
+    <div>
+      <p class="text-[13px] font-700 tracking-[.18em] uppercase text-pine-600 mb-2">02 — Components</p>
+      <h2 class="font-display text-[40px] font-600 tracking-tight">Building blocks</h2>
+    </div>
+    <p class="text-fog-500 text-[14px] max-w-[34ch] hidden sm:block">Canada-specific primitives — tax lines, Interac &amp; EFT payment chips — sit beside the usual kit.</p>
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-5">
+    <!-- buttons -->
+    <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft">
+      <p class="font-mono text-[11px] text-fog-500 mb-4">buttons</p>
+      <div class="flex flex-wrap gap-2.5 items-center">
+        <button class="px-4 py-2.5 rounded-xl bg-honey-500 text-pine-900 font-700 text-[14px] shadow-soft hover:bg-honey-400 transition">Get paid</button>
+        <button class="px-4 py-2.5 rounded-xl bg-pine-800 text-paper-100 font-600 text-[14px] hover:bg-pine-900 transition">New booking</button>
+        <button class="px-4 py-2.5 rounded-xl bg-paper-200 text-pine-800 font-600 text-[14px] hover:bg-paper-300 transition">Secondary</button>
+        <button class="px-4 py-2.5 rounded-xl text-fog-600 font-600 text-[14px] hover:bg-paper-200 transition">Ghost</button>
+      </div>
+      <div class="flex flex-wrap gap-2.5 items-center mt-3">
+        <button class="px-3.5 py-2 rounded-lg bg-danger/10 text-danger font-600 text-[13px] hover:bg-danger/15 transition">Cancel</button>
+        <button class="px-3.5 py-2 rounded-lg border border-pine-700 text-pine-800 font-600 text-[13px] hover:bg-pine-50 transition">Outline</button>
+        <button class="w-9 h-9 rounded-lg bg-pine-800 text-paper-100 grid place-items-center hover:bg-pine-900 transition">+</button>
+      </div>
+    </div>
+
+    <!-- inputs -->
+    <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft">
+      <p class="font-mono text-[11px] text-fog-500 mb-4">inputs &amp; select</p>
+      <label class="block text-[13px] font-600 mb-1.5">Client name <span class="text-fog-400 font-400 ital">/ Nom du client</span></label>
+      <input value="Amélie Tremblay" class="w-full px-3.5 py-2.5 rounded-xl border border-hair bg-paper-100 text-[15px] focus:outline-none focus:ring-2 focus:ring-pine-400 focus:border-pine-400" />
+      <label class="block text-[13px] font-600 mb-1.5 mt-4">Service</label>
+      <div class="relative">
+        <select class="w-full appearance-none px-3.5 py-2.5 rounded-xl border border-hair bg-paper-100 text-[15px] focus:outline-none focus:ring-2 focus:ring-pine-400">
+          <option>60-min Massage · $120</option><option>Colour &amp; cut · $180</option>
+        </select>
+        <span class="absolute right-3.5 top-1/2 -translate-y-1/2 text-fog-500 pointer-events-none">▾</span>
+      </div>
+      <p class="text-[12px] text-success font-600 mt-2 flex items-center gap-1">✓ Available · Disponible</p>
+    </div>
+
+    <!-- status pills -->
+    <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft">
+      <p class="font-mono text-[11px] text-fog-500 mb-4">status</p>
+      <div class="flex flex-wrap gap-2">
+        <span class="px-2.5 py-1 rounded-full bg-pine-100 text-pine-700 text-[12px] font-700">Confirmed</span>
+        <span class="px-2.5 py-1 rounded-full bg-honey-100 text-honey-800 text-[12px] font-700">Deposit due</span>
+        <span class="px-2.5 py-1 rounded-full text-[12px] font-700" style="background:#DDF3E9;color:#157A52">Paid</span>
+        <span class="px-2.5 py-1 rounded-full text-[12px] font-700" style="background:#F8E0DB;color:#A33A28">Overdue</span>
+        <span class="px-2.5 py-1 rounded-full bg-paper-300 text-fog-600 text-[12px] font-700">Pending</span>
+        <span class="px-2.5 py-1 rounded-full bg-paper-200 text-fog-500 text-[12px] font-700 line-through">Cancelled</span>
+      </div>
+      <p class="font-mono text-[11px] text-fog-500 mb-3 mt-5">avatars</p>
+      <div class="flex -space-x-2">
+        <div class="w-9 h-9 rounded-full bg-pine-600 text-paper-100 grid place-items-center text-[13px] font-700 ring-2 ring-white">AT</div>
+        <div class="w-9 h-9 rounded-full bg-clay-500 text-paper-100 grid place-items-center text-[13px] font-700 ring-2 ring-white">JM</div>
+        <div class="w-9 h-9 rounded-full bg-honey-500 text-pine-900 grid place-items-center text-[13px] font-700 ring-2 ring-white">Rk</div>
+        <div class="w-9 h-9 rounded-full bg-paper-300 text-fog-600 grid place-items-center text-[12px] font-700 ring-2 ring-white">+5</div>
+      </div>
+    </div>
+
+    <!-- payment methods (Canada) -->
+    <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft lg:col-span-2">
+      <p class="font-mono text-[11px] text-fog-500 mb-4">payment methods · <span class="text-pine-700">Canada-native</span></p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <label class="flex items-center gap-3 p-3.5 rounded-xl border-2 border-pine-500 bg-pine-50 cursor-pointer">
+          <span class="w-9 h-9 rounded-lg grid place-items-center font-800 text-[13px]" style="background:#FFE600;color:#1A1A1A">i⟁</span>
+          <span class="flex-1"><span class="block font-700 text-[14px]">Interac e-Transfer</span><span class="block text-[12px] text-fog-500">Auto-matched · no fee</span></span>
+          <span class="w-5 h-5 rounded-full bg-pine-600 grid place-items-center text-white text-[11px]">✓</span>
+        </label>
+        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-hair hover:border-pine-300 cursor-pointer transition">
+          <span class="w-9 h-9 rounded-lg bg-paper-200 grid place-items-center">💳</span>
+          <span class="flex-1"><span class="block font-700 text-[14px]">Card · tap</span><span class="block text-[12px] text-fog-500">Visa · MC · Amex · 2.7%</span></span>
+        </label>
+        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-hair hover:border-pine-300 cursor-pointer transition">
+          <span class="w-9 h-9 rounded-lg bg-paper-200 grid place-items-center">🏦</span>
+          <span class="flex-1"><span class="block font-700 text-[14px]">EFT / PAD</span><span class="block text-[12px] text-fog-500">Pre-authorized debit · recurring</span></span>
+        </label>
+        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-hair hover:border-pine-300 cursor-pointer transition">
+          <span class="w-9 h-9 rounded-lg bg-paper-200 grid place-items-center"></span>
+          <span class="flex-1"><span class="block font-700 text-[14px]">Apple&nbsp;Pay</span><span class="block text-[12px] text-fog-500">One-tap checkout</span></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- tax line -->
+    <div class="bg-white rounded-xl2 border border-hair p-6 shadow-soft">
+      <p class="font-mono text-[11px] text-fog-500 mb-4">tax line · GST/HST/QST</p>
+      <div class="space-y-2 text-[14px]">
+        <div class="flex justify-between"><span class="text-fog-600">Subtotal</span><span class="font-mono tabular">$120.00</span></div>
+        <div class="flex justify-between"><span class="text-fog-600">GST (5%) <span class="font-mono text-[11px] text-fog-400">· 80012 3456 RT</span></span><span class="font-mono tabular">$6.00</span></div>
+        <div class="flex justify-between"><span class="text-fog-600">QST (9.975%)</span><span class="font-mono tabular">$11.97</span></div>
+        <div class="flex justify-between pt-2 border-t border-hair font-700"><span>Total <span class="font-400 text-fog-500 text-[12px]">CAD</span></span><span class="font-mono tabular text-pine-800">$137.97</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- richer rows: booking card + client row -->
+  <div class="grid lg:grid-cols-2 gap-5 mt-5">
+    <div class="bg-white rounded-xl2 border border-hair p-2 shadow-soft">
+      <p class="font-mono text-[11px] text-fog-500 m-4 mb-3">booking card</p>
+      <div class="flex items-center gap-4 p-4 rounded-xl hover:bg-paper-100 transition">
+        <div class="text-center w-12 shrink-0">
+          <p class="font-display text-[22px] font-600 leading-none text-pine-800">14</p>
+          <p class="text-[11px] font-700 uppercase tracking-wide text-fog-500">Wed</p>
+        </div>
+        <div class="w-px self-stretch bg-hair"></div>
+        <div class="w-10 h-10 rounded-full bg-pine-600 text-paper-100 grid place-items-center text-[13px] font-700 shrink-0">AT</div>
+        <div class="flex-1 min-w-0">
+          <p class="font-600 text-[15px] truncate">Amélie Tremblay</p>
+          <p class="text-[13px] text-fog-500 truncate">60-min Massage · 2:00–3:00 PM</p>
+        </div>
+        <span class="px-2.5 py-1 rounded-full bg-honey-100 text-honey-800 text-[12px] font-700 shrink-0">Deposit due</span>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl2 border border-hair p-2 shadow-soft">
+      <p class="font-mono text-[11px] text-fog-500 m-4 mb-3">client row · the bridge</p>
+      <div class="flex items-center gap-4 p-4 rounded-xl hover:bg-paper-100 transition">
+        <div class="w-10 h-10 rounded-full bg-clay-500 text-paper-100 grid place-items-center text-[13px] font-700 shrink-0">JM</div>
+        <div class="flex-1 min-w-0">
+          <p class="font-600 text-[15px] truncate">Jordan Mackenzie</p>
+          <p class="text-[13px] text-fog-500 truncate">12 visits · last seen 8 days ago</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="font-mono text-[15px] font-500 tabular text-pine-800">$1,240</p>
+          <p class="text-[11px] text-fog-500">lifetime</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ░░ KEY SCREENS ░░ -->
+<section id="screens" class="max-w-[1200px] mx-auto px-6 py-14">
+  <div class="flex items-end justify-between mb-10 border-b border-hair pb-5">
+    <div>
+      <p class="text-[13px] font-700 tracking-[.18em] uppercase text-pine-600 mb-2">03 — Key screens</p>
+      <h2 class="font-display text-[40px] font-600 tracking-tight">The product</h2>
+    </div>
+    <p class="text-fog-500 text-[14px] max-w-[34ch] hidden sm:block">Five core surfaces, one system. Desktop app shell + native mobile.</p>
+  </div>
+
+  <!-- SCREEN 1 — DASHBOARD (desktop) -->
+  <p class="font-mono text-[12px] text-pine-700 mb-3">screen 01 · dashboard — "today on the bridge"</p>
+  <div class="browser mb-14">
+    <div class="chrome"><span class="dot" style="background:#F4B65E"></span><span class="dot" style="background:#5BB0A1"></span><span class="dot" style="background:#E6A98F"></span>
+      <div class="ml-3 flex-1 max-w-[340px] h-6 rounded-md bg-pine-900/40 flex items-center px-3 text-[11px] text-paper-200 font-mono">app.clientbridge.ca/today</div>
+    </div>
+    <div class="bg-paper-100 grid" style="grid-template-columns:230px 1fr">
+      <!-- sidebar -->
+      <aside class="bg-pine-900 text-paper-200 p-4 hidden md:flex flex-col gap-1">
+        <div class="flex items-center gap-2.5 px-2 py-3 mb-2">
+          <svg width="24" height="24" viewBox="0 0 48 48" fill="none"><circle cx="6" cy="34" r="3" fill="#EFA23D"/><circle cx="42" cy="34" r="3" fill="#EFA23D"/><path d="M6 34 C18 8, 30 8, 42 34" stroke="#F4F1EA" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+          <span class="font-display text-[17px] font-600 text-paper-100">Clientbridge</span>
+        </div>
+        <a class="px-3 py-2.5 rounded-lg bg-pine-700 text-paper-100 font-600 text-[14px] flex items-center gap-3"><span>◧</span> <span data-en="Today" data-fr="Aujourd'hui">Today</span></a>
+        <a class="px-3 py-2.5 rounded-lg text-paper-200/80 hover:bg-pine-800 text-[14px] flex items-center gap-3"><span>▦</span> <span data-en="Calendar" data-fr="Agenda">Calendar</span></a>
+        <a class="px-3 py-2.5 rounded-lg text-paper-200/80 hover:bg-pine-800 text-[14px] flex items-center gap-3"><span>⌘</span> <span data-en="Clients" data-fr="Clients">Clients</span></a>
+        <a class="px-3 py-2.5 rounded-lg text-paper-200/80 hover:bg-pine-800 text-[14px] flex items-center gap-3"><span>$</span> <span data-en="Invoices" data-fr="Factures">Invoices</span></a>
+        <a class="px-3 py-2.5 rounded-lg text-paper-200/80 hover:bg-pine-800 text-[14px] flex items-center gap-3"><span>✉</span> <span data-en="Inbox" data-fr="Messages">Inbox</span></a>
+        <a class="px-3 py-2.5 rounded-lg text-paper-200/80 hover:bg-pine-800 text-[14px] flex items-center gap-3"><span>◷</span> <span data-en="Catalog" data-fr="Catalogue">Catalog</span></a>
+        <div class="mt-auto flex items-center gap-2.5 px-2 py-2 rounded-lg bg-pine-800">
+          <div class="w-8 h-8 rounded-full bg-honey-500 text-pine-900 grid place-items-center text-[12px] font-700">SK</div>
+          <div class="text-[12px]"><p class="text-paper-100 font-600">Sam Koh</p><p class="text-paper-200/60">Stillwater Massage</p></div>
+        </div>
+      </aside>
+      <!-- main -->
+      <main class="p-7">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <p class="text-[13px] text-fog-500" data-en="Wednesday, June 24" data-fr="Mercredi 24 juin">Wednesday, June 24</p>
+            <h3 class="font-display text-[30px] font-600 tracking-tight" data-en="Good morning, Sam" data-fr="Bonjour, Sam">Good morning, Sam</h3>
+          </div>
+          <div class="flex gap-2.5">
+            <button class="px-4 py-2.5 rounded-xl bg-paper-200 text-pine-800 font-600 text-[14px]" data-en="New booking" data-fr="Réservation">New booking</button>
+            <button class="px-4 py-2.5 rounded-xl bg-honey-500 text-pine-900 font-700 text-[14px] shadow-soft" data-en="Get paid" data-fr="Encaisser">Get paid</button>
+          </div>
+        </div>
+        <!-- stat row -->
+        <div class="grid grid-cols-3 gap-4 mb-6">
+          <div class="bg-white rounded-xl2 border border-hair p-5 shadow-soft">
+            <p class="text-[12px] font-700 uppercase tracking-wide text-fog-500" data-en="Today's revenue" data-fr="Revenu du jour">Today's revenue</p>
+            <p class="font-mono text-[28px] font-500 tabular text-pine-800 mt-1">$640<span class="text-[15px] text-fog-500">.00</span></p>
+            <p class="text-[12px] text-success font-600 mt-1">▲ 4 of 6 paid</p>
+          </div>
+          <div class="bg-white rounded-xl2 border border-hair p-5 shadow-soft">
+            <p class="text-[12px] font-700 uppercase tracking-wide text-fog-500" data-en="Awaiting payment" data-fr="En attente">Awaiting payment</p>
+            <p class="font-mono text-[28px] font-500 tabular text-honey-700 mt-1">$280<span class="text-[15px] text-fog-500">.00</span></p>
+            <p class="text-[12px] text-fog-500 font-600 mt-1">2 invoices · 1 deposit</p>
+          </div>
+          <div class="bg-pine-800 text-paper-100 rounded-xl2 p-5 shadow-soft relative overflow-hidden">
+            <svg viewBox="0 0 200 60" class="absolute right-0 bottom-0 w-28 opacity-40"><path d="M0 50 C40 10,80 10,120 50 S180 10,200 50" stroke="#EFA23D" stroke-width="2" fill="none"/></svg>
+            <p class="text-[12px] font-700 uppercase tracking-wide text-pine-200" data-en="GST/HST set aside" data-fr="TPS/TVQ réservée">GST/HST set aside</p>
+            <p class="font-mono text-[28px] font-500 tabular mt-1">$1,118<span class="text-[15px] text-pine-200">.40</span></p>
+            <p class="text-[12px] text-pine-200 font-600 mt-1" data-en="Auto · remit Jul 31" data-fr="Auto · verser 31 juil">Auto · remit Jul 31</p>
+          </div>
+        </div>
+        <!-- today schedule -->
+        <div class="bg-white rounded-xl2 border border-hair shadow-soft overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-3.5 border-b border-hair">
+            <p class="font-600 text-[15px]" data-en="Today's schedule" data-fr="Horaire du jour">Today's schedule</p>
+            <p class="text-[13px] text-fog-500">6 bookings</p>
+          </div>
+          <div class="divide-y divide-hair">
+            <div class="flex items-center gap-4 px-5 py-3.5 hover:bg-paper-100 transition">
+              <p class="font-mono text-[13px] text-fog-500 w-16 tabular">9:00 AM</p>
+              <div class="w-9 h-9 rounded-full bg-pine-600 text-paper-100 grid place-items-center text-[12px] font-700">AT</div>
+              <div class="flex-1"><p class="font-600 text-[14px]">Amélie Tremblay</p><p class="text-[12px] text-fog-500">60-min Massage</p></div>
+              <span class="px-2.5 py-1 rounded-full text-[12px] font-700" style="background:#DDF3E9;color:#157A52">Paid</span>
+            </div>
+            <div class="flex items-center gap-4 px-5 py-3.5 hover:bg-paper-100 transition">
+              <p class="font-mono text-[13px] text-fog-500 w-16 tabular">11:00 AM</p>
+              <div class="w-9 h-9 rounded-full bg-clay-500 text-paper-100 grid place-items-center text-[12px] font-700">JM</div>
+              <div class="flex-1"><p class="font-600 text-[14px]">Jordan Mackenzie</p><p class="text-[12px] text-fog-500">90-min Deep tissue</p></div>
+              <span class="px-2.5 py-1 rounded-full bg-honey-100 text-honey-800 text-[12px] font-700">Deposit due</span>
+            </div>
+            <div class="flex items-center gap-4 px-5 py-3.5 hover:bg-paper-100 transition">
+              <p class="font-mono text-[13px] text-fog-500 w-16 tabular">2:00 PM</p>
+              <div class="w-9 h-9 rounded-full bg-honey-500 text-pine-900 grid place-items-center text-[12px] font-700">RK</div>
+              <div class="flex-1"><p class="font-600 text-[14px]">Riley Khan</p><p class="text-[12px] text-fog-500">60-min Massage · <span class="text-pine-700">Package 4/10</span></p></div>
+              <span class="px-2.5 py-1 rounded-full bg-pine-100 text-pine-700 text-[12px] font-700">Confirmed</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- SCREEN 2 + 3 side by side: Client hub + Invoice -->
+  <div class="grid lg:grid-cols-2 gap-6 mb-14">
+    <!-- CLIENT HUB -->
+    <div>
+      <p class="font-mono text-[12px] text-pine-700 mb-3">screen 02 · client hub — "the bridge"</p>
+      <div class="browser h-full">
+        <div class="chrome"><span class="dot" style="background:#F4B65E"></span><span class="dot" style="background:#5BB0A1"></span><span class="dot" style="background:#E6A98F"></span></div>
+        <div class="bg-paper-100 p-6">
+          <!-- client header -->
+          <div class="flex items-start gap-4 mb-5">
+            <div class="w-14 h-14 rounded-2xl bg-clay-500 text-paper-100 grid place-items-center text-[18px] font-700">JM</div>
+            <div class="flex-1">
+              <h3 class="font-display text-[24px] font-600 leading-tight">Jordan Mackenzie</h3>
+              <p class="text-[13px] text-fog-500">jordan@email.ca · (604) 555-0142</p>
+              <div class="flex gap-1.5 mt-2">
+                <span class="px-2 py-0.5 rounded-md bg-pine-100 text-pine-700 text-[11px] font-700">VIP</span>
+                <span class="px-2 py-0.5 rounded-md bg-paper-300 text-fog-600 text-[11px] font-700">Consent ✓ CASL</span>
+              </div>
+            </div>
+          </div>
+          <!-- the bridge metric strip -->
+          <div class="grid grid-cols-3 gap-3 mb-5">
+            <div class="bg-white rounded-xl border border-hair p-3.5 text-center shadow-soft"><p class="font-mono text-[20px] font-500 text-pine-800 tabular">12</p><p class="text-[11px] text-fog-500 font-600">visits</p></div>
+            <div class="bg-white rounded-xl border border-hair p-3.5 text-center shadow-soft"><p class="font-mono text-[20px] font-500 text-pine-800 tabular">$1,240</p><p class="text-[11px] text-fog-500 font-600">lifetime</p></div>
+            <div class="bg-white rounded-xl border border-hair p-3.5 text-center shadow-soft"><p class="font-mono text-[20px] font-500 text-honey-700 tabular">$140</p><p class="text-[11px] text-fog-500 font-600">owing</p></div>
+          </div>
+          <!-- tabs -->
+          <div class="flex gap-1 mb-4 text-[13px] font-600 border-b border-hair">
+            <span class="px-3 py-2 border-b-2 border-pine-700 text-ink">Timeline</span>
+            <span class="px-3 py-2 text-fog-500">Bookings</span>
+            <span class="px-3 py-2 text-fog-500">Payments</span>
+            <span class="px-3 py-2 text-fog-500">Notes</span>
+          </div>
+          <!-- timeline -->
+          <div class="space-y-3">
+            <div class="flex gap-3"><div class="w-7 h-7 rounded-full bg-pine-100 text-pine-700 grid place-items-center text-[12px] shrink-0">$</div>
+              <div class="flex-1"><p class="text-[13px] font-600">Invoice INV-0148 sent · $140</p><p class="text-[12px] text-fog-500">Today · awaiting Interac e-Transfer</p></div></div>
+            <div class="flex gap-3"><div class="w-7 h-7 rounded-full bg-paper-300 text-fog-600 grid place-items-center text-[12px] shrink-0">▦</div>
+              <div class="flex-1"><p class="text-[13px] font-600">Booked — 90-min Deep tissue</p><p class="text-[12px] text-fog-500">Jun 24, 11:00 AM</p></div></div>
+            <div class="flex gap-3"><div class="w-7 h-7 rounded-full grid place-items-center text-[12px] shrink-0" style="background:#DDF3E9;color:#157A52">✓</div>
+              <div class="flex-1"><p class="text-[13px] font-600">Paid $120 · Card</p><p class="text-[12px] text-fog-500">Jun 10</p></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVOICE / GET PAID -->
+    <div>
+      <p class="font-mono text-[12px] text-pine-700 mb-3">screen 03 · invoice — get paid (GST/HST)</p>
+      <div class="browser h-full">
+        <div class="chrome"><span class="dot" style="background:#F4B65E"></span><span class="dot" style="background:#5BB0A1"></span><span class="dot" style="background:#E6A98F"></span></div>
+        <div class="bg-paper-100 p-6">
+          <div class="flex items-center justify-between mb-5">
+            <div><h3 class="font-display text-[22px] font-600">Invoice INV-2026-0148</h3><p class="text-[13px] text-fog-500">To Jordan Mackenzie · Due on receipt</p></div>
+            <span class="px-3 py-1.5 rounded-full bg-honey-100 text-honey-800 text-[12px] font-700">Awaiting payment</span>
+          </div>
+          <div class="bg-white rounded-xl2 border border-hair shadow-soft overflow-hidden mb-4">
+            <div class="px-5 py-3 flex justify-between text-[14px] hover:bg-paper-100"><span>90-min Deep tissue massage</span><span class="font-mono tabular">$140.00</span></div>
+            <div class="px-5 py-3 border-t border-hair space-y-1.5 bg-paper-100/60">
+              <div class="flex justify-between text-[13px]"><span class="text-fog-600">Subtotal</span><span class="font-mono tabular">$140.00</span></div>
+              <div class="flex justify-between text-[13px]"><span class="text-fog-600">GST (5%)</span><span class="font-mono tabular">$7.00</span></div>
+              <div class="flex justify-between text-[13px]"><span class="text-fog-600">PST · BC (7%)</span><span class="font-mono tabular">$9.80</span></div>
+              <div class="flex justify-between pt-2 border-t border-hair font-700 text-[15px]"><span>Total CAD</span><span class="font-mono tabular text-pine-800">$156.80</span></div>
+            </div>
+          </div>
+          <p class="text-[12px] font-700 uppercase tracking-wide text-fog-500 mb-2">How they'll pay</p>
+          <div class="space-y-2.5">
+            <div class="flex items-center gap-3 p-3 rounded-xl border-2 border-pine-500 bg-pine-50">
+              <span class="w-8 h-8 rounded-lg grid place-items-center font-800 text-[12px]" style="background:#FFE600;color:#1A1A1A">i⟁</span>
+              <span class="flex-1 font-700 text-[14px]">Interac e-Transfer</span>
+              <span class="text-[12px] text-success font-700">No fee</span>
+            </div>
+            <button class="w-full px-4 py-3 rounded-xl bg-honey-500 text-pine-900 font-700 text-[15px] shadow-soft hover:bg-honey-400 transition">Send payment request →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MOBILE PAIR -->
+  <p class="font-mono text-[12px] text-pine-700 mb-4">screen 04 + 05 · mobile — home &amp; public booking page</p>
+  <div class="flex flex-wrap gap-10 justify-center blueprint rounded-xl3 border border-hair p-10">
+    <!-- mobile home -->
+    <div class="phone">
+      <div class="phone-screen" style="height:600px">
+        <div class="notch"></div>
+        <div class="bg-pine-900 text-paper-100 px-5 pt-9 pb-6">
+          <p class="text-[12px] text-pine-200" data-en="Wednesday" data-fr="Mercredi">Wednesday</p>
+          <h3 class="font-display text-[22px] font-600">Today on the bridge</h3>
+          <div class="grid grid-cols-2 gap-2.5 mt-4">
+            <div class="bg-pine-800 rounded-xl p-3"><p class="text-[11px] text-pine-200" data-en="Revenue" data-fr="Revenu">Revenue</p><p class="font-mono text-[19px] tabular">$640</p></div>
+            <div class="bg-honey-500 text-pine-900 rounded-xl p-3"><p class="text-[11px] font-600" data-en="To collect" data-fr="À encaisser">To collect</p><p class="font-mono text-[19px] tabular font-600">$280</p></div>
+          </div>
+        </div>
+        <div class="p-4 space-y-2.5">
+          <div class="flex items-center gap-3 bg-white rounded-xl border border-hair p-3 shadow-soft">
+            <p class="font-mono text-[12px] text-fog-500 w-12 tabular">9:00</p>
+            <div class="w-8 h-8 rounded-full bg-pine-600 text-paper-100 grid place-items-center text-[11px] font-700">AT</div>
+            <div class="flex-1 min-w-0"><p class="font-600 text-[13px] truncate">Amélie T.</p><p class="text-[11px] text-fog-500">Massage 60</p></div>
+            <span class="w-2 h-2 rounded-full" style="background:#1F9D6B"></span>
+          </div>
+          <div class="flex items-center gap-3 bg-white rounded-xl border border-hair p-3 shadow-soft">
+            <p class="font-mono text-[12px] text-fog-500 w-12 tabular">11:00</p>
+            <div class="w-8 h-8 rounded-full bg-clay-500 text-paper-100 grid place-items-center text-[11px] font-700">JM</div>
+            <div class="flex-1 min-w-0"><p class="font-600 text-[13px] truncate">Jordan M.</p><p class="text-[11px] text-fog-500">Deep tissue 90</p></div>
+            <span class="w-2 h-2 rounded-full bg-honey-500"></span>
+          </div>
+          <div class="flex items-center gap-3 bg-white rounded-xl border border-hair p-3 shadow-soft">
+            <p class="font-mono text-[12px] text-fog-500 w-12 tabular">2:00</p>
+            <div class="w-8 h-8 rounded-full bg-honey-500 text-pine-900 grid place-items-center text-[11px] font-700">RK</div>
+            <div class="flex-1 min-w-0"><p class="font-600 text-[13px] truncate">Riley K.</p><p class="text-[11px] text-fog-500">Package 4/10</p></div>
+            <span class="w-2 h-2 rounded-full bg-pine-500"></span>
+          </div>
+        </div>
+        <!-- tab bar -->
+        <div class="absolute bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-hair flex justify-around py-3 text-[19px]">
+          <span class="text-pine-700">◧</span><span class="text-fog-400">▦</span>
+          <span class="w-10 h-10 -mt-5 rounded-full bg-honey-500 text-pine-900 grid place-items-center shadow-lift text-[22px]">+</span>
+          <span class="text-fog-400">⌘</span><span class="text-fog-400">✉</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- public booking page -->
+    <div class="phone">
+      <div class="phone-screen" style="height:600px">
+        <div class="notch"></div>
+        <div class="h-[120px]" style="background:linear-gradient(120deg,#0B2E29,#115048 60%,#1A6B5F)"></div>
+        <div class="px-5 -mt-10">
+          <div class="w-20 h-20 rounded-2xl bg-honey-500 text-pine-900 grid place-items-center font-display text-[28px] font-700 shadow-lift ring-4 ring-paper-100">S</div>
+          <h3 class="font-display text-[22px] font-600 mt-3">Stillwater Massage</h3>
+          <p class="text-[13px] text-fog-500">Vancouver, BC · ★ 4.9 (212)</p>
+          <div class="flex gap-1.5 mt-2">
+            <span class="px-2 py-0.5 rounded-md bg-pine-100 text-pine-700 text-[11px] font-700" data-en="Book online" data-fr="Réserver">Book online</span>
+            <span class="px-2 py-0.5 rounded-md bg-paper-300 text-fog-600 text-[11px] font-700">EN · FR</span>
+          </div>
+          <p class="text-[12px] font-700 uppercase tracking-wide text-fog-500 mt-5 mb-2" data-en="Choose a service" data-fr="Choisir un service">Choose a service</p>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between p-3 rounded-xl border-2 border-pine-500 bg-pine-50">
+              <div><p class="font-600 text-[13px]">60-min Massage</p><p class="text-[11px] text-fog-500">60 min</p></div>
+              <p class="font-mono text-[14px] tabular text-pine-800">$120</p>
+            </div>
+            <div class="flex items-center justify-between p-3 rounded-xl border border-hair bg-white">
+              <div><p class="font-600 text-[13px]">90-min Deep tissue</p><p class="text-[11px] text-fog-500">90 min</p></div>
+              <p class="font-mono text-[14px] tabular text-pine-800">$170</p>
+            </div>
+          </div>
+          <button class="w-full mt-4 px-4 py-3 rounded-xl bg-honey-500 text-pine-900 font-700 text-[15px] shadow-soft" data-en="Choose a time →" data-fr="Choisir l'heure →">Choose a time →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ░░ FOOTER ░░ -->
+<footer class="max-w-[1200px] mx-auto px-6 py-12 mt-6 border-t border-hair">
+  <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center gap-2.5">
+      <svg width="26" height="26" viewBox="0 0 48 48" fill="none"><circle cx="6" cy="34" r="3" fill="#115048"/><circle cx="42" cy="34" r="3" fill="#115048"/><path d="M6 34 C18 8, 30 8, 42 34" stroke="#EFA23D" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      <span class="font-display text-[17px] font-600">Clientbridge</span>
+    </div>
+    <p class="text-[13px] text-fog-500 font-mono">design system v0.1 · 🍁 built for Canada · EN · FR</p>
+  </div>
+</footer>
+
+</div>
+
+<script>
+  function setLang(l){
+    document.querySelectorAll('[data-en]').forEach(function(el){
+      var t = el.getAttribute('data-'+l); if(t!==null) el.textContent = t;
+    });
+    var en=document.getElementById('btn-en'), fr=document.getElementById('btn-fr');
+    if(l==='fr'){ fr.className='px-3 py-1 rounded-full bg-white text-ink shadow-soft'; en.className='px-3 py-1 rounded-full text-fog-500'; }
+    else { en.className='px-3 py-1 rounded-full bg-white text-ink shadow-soft'; fr.className='px-3 py-1 rounded-full text-fog-500'; }
+    document.documentElement.lang=l;
+  }
+</script>
+</body>
+</html>

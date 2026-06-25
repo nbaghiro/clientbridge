@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4"]
+    environment:
+      POSTGRES_USER: clientbridge
+      POSTGRES_PASSWORD: clientbridge
+      POSTGRES_DB: clientbridge
+    ports: ["8702:5432"]   # host 8702 → pg 5432 (Clientbridge 87xx block)
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+
+  powersync:
+    image: journeyapps/powersync-service:latest
+    depends_on: [postgres]
+    ports: ["8704:8080"]   # host 8704 → powersync 8080
+    volumes: ["./infra/powersync:/config"]
+    command: ["start", "-r", "unified", "--config", "/config/powersync.yaml"]
+
+  redis:
+    image: redis:7
+    ports: ["8703:6379"]   # host 8703 → redis 6379
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports: ["8705:9000", "8706:9001"]   # host 8705 → S3 API, 8706 → console
+    volumes: ["miniodata:/data"]
+
+volumes:
+  pgdata: {}
+  miniodata: {}

@@ -1,0 +1,50 @@
+# PowerSync Sync Rules — partial replication partitioned by business_id + role (JWT claims).
+# See docs/sync.md. Reads only; writes go through FastAPI /sync/upload.
+
+bucket_definitions:
+  # Everything the app needs offline, scoped to each business the user is an active member of.
+  business_core:
+    parameters: |
+      SELECT business_id FROM memberships
+      WHERE user_id = request.user_id() AND status = 'active'
+    data:
+      - SELECT * FROM businesses      WHERE id = bucket.business_id
+      - SELECT * FROM memberships     WHERE business_id = bucket.business_id
+      - SELECT * FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM subjects        WHERE business_id = bucket.business_id
+      - SELECT * FROM consents        WHERE business_id = bucket.business_id
+      - SELECT * FROM notes           WHERE business_id = bucket.business_id
+      - SELECT * FROM items           WHERE business_id = bucket.business_id
+      - SELECT * FROM packages        WHERE business_id = bucket.business_id
+      - SELECT * FROM subscriptions   WHERE business_id = bucket.business_id
+      - SELECT * FROM gift_cards      WHERE business_id = bucket.business_id
+      - SELECT * FROM sessions        WHERE business_id = bucket.business_id
+      - SELECT * FROM bookings        WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM availability    WHERE business_id = bucket.business_id
+      - SELECT * FROM resources       WHERE business_id = bucket.business_id
+      - SELECT * FROM schedules       WHERE business_id = bucket.business_id
+      - SELECT * FROM invoices        WHERE business_id = bucket.business_id
+      - SELECT * FROM estimates       WHERE business_id = bucket.business_id
+      - SELECT * FROM lines           WHERE business_id = bucket.business_id
+      - SELECT * FROM tax_rates       WHERE business_id = bucket.business_id OR business_id IS NULL
+      - SELECT * FROM threads         WHERE business_id = bucket.business_id
+      - SELECT * FROM messages        WHERE business_id = bucket.business_id
+      - SELECT * FROM broadcasts      WHERE business_id = bucket.business_id
+      - SELECT * FROM forms           WHERE business_id = bucket.business_id
+      - SELECT * FROM form_fields     WHERE business_id = bucket.business_id
+      - SELECT * FROM form_responses  WHERE business_id = bucket.business_id
+      - SELECT * FROM contracts       WHERE business_id = bucket.business_id
+      - SELECT * FROM signatures      WHERE business_id = bucket.business_id
+      - SELECT * FROM reviews         WHERE business_id = bucket.business_id
+      - SELECT * FROM review_requests WHERE business_id = bucket.business_id
+      - SELECT * FROM payment_methods WHERE business_id = bucket.business_id
+
+  # Financial tables — only owners/admins sync these.
+  business_financials:
+    parameters: |
+      SELECT business_id FROM memberships
+      WHERE user_id = request.user_id() AND status = 'active' AND role IN ('owner', 'admin')
+    data:
+      - SELECT * FROM payments           WHERE business_id = bucket.business_id
+      - SELECT * FROM payouts            WHERE business_id = bucket.business_id
+      - SELECT * FROM payout_allocations WHERE business_id = bucket.business_id

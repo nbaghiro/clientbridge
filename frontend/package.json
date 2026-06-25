@@ -1,0 +1,22 @@
+{
+  "name": "clientbridge-frontend",
+  "private": true,
+  "packageManager": "pnpm@9.7.0",
+  "prettier": "@clientbridge/config/prettier",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "eslint .",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,css,md,json}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json}\"",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "@clientbridge/config": "workspace:*",
+    "eslint": "^9.10.0",
+    "prettier": "^3.3.3",
+    "turbo": "^2.1.0",
+    "typescript": "^5.6.2"
+  }
+}
