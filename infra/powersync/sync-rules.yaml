@@ -1,15 +1,16 @@
-# PowerSync Sync Rules — partial replication partitioned by business_id + role (JWT claims).
-# See docs/sync.md. Reads only; writes go through FastAPI /sync/upload.
+# PowerSync Sync Rules = our row-level read authorization (the sync stream bypasses Postgres RLS).
+# Employee model: staff see their OWN calendar + the shared client book; owner/admin see everything.
+# See .docs/authorization.md. Writes are authorized separately in FastAPI /sync/upload.
 
 bucket_definitions:
-  # Everything the app needs offline, scoped to each business the user is an active member of.
-  business_core:
+  # 1) SHARED — reference data + the client book. Every active team member reads this.
+  business_shared:
     parameters: |
-      SELECT business_id FROM memberships
+      SELECT business_id FROM staff
       WHERE user_id = request.user_id() AND status = 'active'
     data:
       - SELECT * FROM businesses      WHERE id = bucket.business_id
-      - SELECT * FROM memberships     WHERE business_id = bucket.business_id
+      - SELECT * FROM staff     WHERE business_id = bucket.business_id
       - SELECT * FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM subjects        WHERE business_id = bucket.business_id
       - SELECT * FROM consents        WHERE business_id = bucket.business_id
@@ -18,33 +19,57 @@ bucket_definitions:
       - SELECT * FROM packages        WHERE business_id = bucket.business_id
       - SELECT * FROM subscriptions   WHERE business_id = bucket.business_id
       - SELECT * FROM gift_cards      WHERE business_id = bucket.business_id
-      - SELECT * FROM sessions        WHERE business_id = bucket.business_id
-      - SELECT * FROM bookings        WHERE business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM availability    WHERE business_id = bucket.business_id
+      - SELECT * FROM tax_rates       WHERE business_id = bucket.business_id
       - SELECT * FROM resources       WHERE business_id = bucket.business_id
-      - SELECT * FROM schedules       WHERE business_id = bucket.business_id
-      - SELECT * FROM invoices        WHERE business_id = bucket.business_id
-      - SELECT * FROM estimates       WHERE business_id = bucket.business_id
-      - SELECT * FROM lines           WHERE business_id = bucket.business_id
-      - SELECT * FROM tax_rates       WHERE business_id = bucket.business_id OR business_id IS NULL
-      - SELECT * FROM threads         WHERE business_id = bucket.business_id
-      - SELECT * FROM messages        WHERE business_id = bucket.business_id
-      - SELECT * FROM broadcasts      WHERE business_id = bucket.business_id
       - SELECT * FROM forms           WHERE business_id = bucket.business_id
       - SELECT * FROM form_fields     WHERE business_id = bucket.business_id
       - SELECT * FROM form_responses  WHERE business_id = bucket.business_id
       - SELECT * FROM contracts       WHERE business_id = bucket.business_id
       - SELECT * FROM signatures      WHERE business_id = bucket.business_id
-      - SELECT * FROM reviews         WHERE business_id = bucket.business_id
-      - SELECT * FROM review_requests WHERE business_id = bucket.business_id
-      - SELECT * FROM payment_methods WHERE business_id = bucket.business_id
+      - SELECT * FROM files           WHERE business_id = bucket.business_id
 
-  # Financial tables — only owners/admins sync these.
-  business_financials:
+  # 2) STAFF-SELF — a staff member's OWN work + earnings, keyed to their staff row.
+  #    (staff_id is denormalized onto bookings so it can be sliced here directly.)
+  staff_self:
     parameters: |
-      SELECT business_id FROM memberships
-      WHERE user_id = request.user_id() AND status = 'active' AND role IN ('owner', 'admin')
+      SELECT id AS staff_id, business_id FROM staff
+      WHERE user_id = request.user_id() AND status = 'active'
     data:
+      - SELECT * FROM sessions           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM bookings           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM availability       WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM schedules          WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM payout_allocations WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+
+  # 3) BUSINESS-FULL — owner/admin only: ALL members' work, financials, inbox, and the activity log.
+  #    This is how an owner sees the activities of every worker.
+  business_full:
+    # Two parameter queries (owner, admin) — PowerSync parameter queries don't accept `IN (list)`;
+    # their union = the businesses where the user is an owner OR admin.
+    parameters:
+      - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'owner'
+      - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'admin'
+    data:
+      - SELECT * FROM sessions           WHERE business_id = bucket.business_id
+      - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM availability       WHERE business_id = bucket.business_id
+      - SELECT * FROM schedules          WHERE business_id = bucket.business_id
+      - SELECT * FROM invoices           WHERE business_id = bucket.business_id
+      - SELECT * FROM estimates          WHERE business_id = bucket.business_id
+      - SELECT * FROM lines              WHERE business_id = bucket.business_id
       - SELECT * FROM payments           WHERE business_id = bucket.business_id
+      - SELECT * FROM payment_methods    WHERE business_id = bucket.business_id
       - SELECT * FROM payouts            WHERE business_id = bucket.business_id
       - SELECT * FROM payout_allocations WHERE business_id = bucket.business_id
+      - SELECT * FROM threads            WHERE business_id = bucket.business_id
+      - SELECT * FROM messages           WHERE business_id = bucket.business_id
+      - SELECT * FROM broadcasts         WHERE business_id = bucket.business_id
+      - SELECT * FROM reviews            WHERE business_id = bucket.business_id
+      - SELECT * FROM review_requests    WHERE business_id = bucket.business_id
+      - SELECT * FROM audit_logs         WHERE business_id = bucket.business_id
+
+  # 4) GLOBAL — system reference data with no tenant (the GST/PST/QST rate table). A parameterless
+  #    bucket syncs to every authenticated user. (Per-business tax_rates ride in business_shared.)
+  global_reference:
+    data:
+      - SELECT * FROM tax_rates WHERE business_id IS NULL

@@ -8,13 +8,24 @@ services:
       POSTGRES_DB: clientbridge
     ports: ["8702:5432"]   # host 8702 → pg 5432 (Clientbridge 87xx block)
     volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clientbridge -d clientbridge"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
 
+  # Self-hosted PowerSync. Replicates the clientbridge DB's WAL; bucket storage lives in a SEPARATE
+  # database on the same Postgres (powersync_storage) — both created by `make up`.
   powersync:
     image: journeyapps/powersync-service:latest
-    depends_on: [postgres]
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports: ["8704:8080"]   # host 8704 → powersync 8080
     volumes: ["./infra/powersync:/config"]
-    command: ["start", "-r", "unified", "--config", "/config/powersync.yaml"]
+    environment:
+      POWERSYNC_CONFIG_PATH: /config/powersync.yaml
+    command: ["start", "-r", "unified"]
 
   redis:
     image: redis:7
