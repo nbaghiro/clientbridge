@@ -1,7 +1,11 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
+from clientbridge.api.router import api_router
+from clientbridge.api.v1 import auth as auth_api
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import AppError, app_error_handler
+from clientbridge.sync import router as sync_router
 
 
 def create_app() -> FastAPI:
@@ -9,13 +13,22 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Clientbridge API", version="0.1.0")
     app.add_exception_handler(AppError, app_error_handler)
 
+    # Dev: web (8700) + Expo clients call /sync/token and /sync/upload cross-origin.
+    if settings.env == "dev":
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origin_regex=r"http://localhost:\d+",
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
     @app.get("/health")
     async def health() -> dict[str, object]:
         return {"status": "ok", "env": settings.env}
 
-    # Routers are mounted here as domains land:
-    # from clientbridge.api.router import api_router
-    # app.include_router(api_router, prefix="/v1")
+    app.include_router(auth_api.router)
+    app.include_router(sync_router)
+    app.include_router(api_router)  # /v1/* domain routers
     return app
 
 
