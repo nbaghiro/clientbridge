@@ -18,6 +18,7 @@ from sqlalchemy import text
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
+from clientbridge.core.security import hash_password
 from clientbridge.models.billing import Estimate, Invoice, Line, TaxRate
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client, Consent, Note, Subject
@@ -31,6 +32,7 @@ from clientbridge.models.scheduling import Availability, Booking, Resource, Sche
 
 NOW = datetime.now(tz=UTC)
 BIZ = "bz_birchbark"
+DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 rows: list[object] = []
 
 
@@ -82,6 +84,7 @@ def seed_identity() -> tuple[str, str]:
             name="Hannah Wong",
             phone="+12505550110",
             avatar_url=face("hannah"),
+            password_hash=hash_password(DEMO_PASSWORD),
             oauth={},
         )
     )
@@ -92,6 +95,7 @@ def seed_identity() -> tuple[str, str]:
             name="Diego Ramirez",
             phone="+12505550111",
             avatar_url=face("diego"),
+            password_hash=hash_password(DEMO_PASSWORD),
             oauth={},
         )
     )
@@ -102,6 +106,7 @@ def seed_identity() -> tuple[str, str]:
             name="Priya Patel",
             phone="+12505550112",
             avatar_url=face("priya"),
+            password_hash=hash_password(DEMO_PASSWORD),
             oauth={},
         )
     )

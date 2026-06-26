@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.config import get_settings
 from clientbridge.core.db import get_session
 from clientbridge.core.errors import AppError, Forbidden, Unauthorized
 from clientbridge.core.security import decode_jwt
@@ -32,15 +31,12 @@ Claims = Annotated[dict[str, object], Depends(current_claims)]
 
 
 async def current_user_id(authorization: str = Header(default="")) -> str:
-    """Resolve the acting user. In dev, an unauthenticated call falls back to `dev_user_id`."""
-    token = (
-        authorization.removeprefix("Bearer ").strip() if authorization.startswith("Bearer ") else ""
-    )
-    if token:
-        return str(decode_jwt(token)["sub"])
-    if get_settings().env == "dev":
-        return get_settings().dev_user_id
-    raise Unauthorized("missing bearer token")
+    if not authorization.startswith("Bearer "):
+        raise Unauthorized("missing bearer token")
+    try:
+        return str(decode_jwt(authorization.removeprefix("Bearer ").strip())["sub"])
+    except Exception as e:
+        raise Unauthorized("invalid token") from e
 
 
 CurrentUserId = Annotated[str, Depends(current_user_id)]

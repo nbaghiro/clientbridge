@@ -24,14 +24,16 @@ async def test_register_duplicate_email_409(api: httpx.AsyncClient, factory: Fac
 
 
 # ── login ─────────────────────────────────────────────────────────────────────────────────
-async def test_login_dev_passwordless(api: httpx.AsyncClient) -> None:
-    res = await api.post("/auth/login", json={"email": "hannah@birchbarkpets.ca"})
+async def test_login_seeded_user(api: httpx.AsyncClient) -> None:
+    res = await api.post(
+        "/auth/login", json={"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
+    )
     assert res.status_code == 200
     assert res.json()["access_token"]
 
 
 async def test_login_unknown_email_401(api: httpx.AsyncClient) -> None:
-    res = await api.post("/auth/login", json={"email": "nobody@nowhere.ca"})
+    res = await api.post("/auth/login", json={"email": "nobody@nowhere.ca", "password": "x"})
     assert res.status_code == 401
 
 
