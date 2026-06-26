@@ -40,6 +40,7 @@ PREFIXES: dict[str, str] = {
     "file": "fl",
     "audit_log": "aud",
     "webhook_event": "wh",
+    "idempotency_key": "idk",
     "auth_session": "ase",
     "auth_token": "atk",
 }
