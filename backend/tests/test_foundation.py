@@ -52,9 +52,9 @@ async def test_auth_clients_resolve_principal(
         assert res.json()["total"] > 0
 
 
-async def test_unauth_dev_shortcut(unauth: httpx.AsyncClient) -> None:
+async def test_unauth_rejected(unauth: httpx.AsyncClient) -> None:
     res = await unauth.get("/v1/clients", params={"limit": 1})
-    assert res.status_code == 200
+    assert res.status_code == 401
 
 
 async def test_fake_email_records(email: FakeEmailSender) -> None:

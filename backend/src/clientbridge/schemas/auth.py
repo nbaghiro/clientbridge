@@ -9,7 +9,7 @@ class RegisterBody(BaseModel):
 
 class LoginBody(BaseModel):
     email: str
-    password: str | None = None  # dev: seeded users log in by email alone
+    password: str
 
 
 class RefreshBody(BaseModel):

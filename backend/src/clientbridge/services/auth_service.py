@@ -75,15 +75,13 @@ class AuthService:
         await self.db.commit()
         return user
 
-    async def authenticate(self, email: str, password: str | None) -> User:
+    async def authenticate(self, email: str, password: str) -> User:
         user = (await self.db.execute(select(User).where(User.email == email))).scalar_one_or_none()
-        if user is None:
-            raise Unauthorized("invalid email or password")
-        if user.password_hash is None:
-            if get_settings().env != "dev":
-                raise Unauthorized("password not set for this account")
-            # dev passwordless login — fall through
-        elif password is None or not verify_password(password, user.password_hash):
+        if (
+            user is None
+            or user.password_hash is None
+            or not verify_password(password, user.password_hash)
+        ):
             raise Unauthorized("invalid email or password")
         return user
 

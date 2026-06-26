@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 BIZ = "bz_birchbark"
 
 
-async def test_list_is_business_scoped(api: httpx.AsyncClient) -> None:
-    res = await api.get("/v1/clients", params={"limit": 5})
+async def test_list_is_business_scoped(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.get("/v1/clients", params={"limit": 5})
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["total"] > 0
@@ -16,27 +16,27 @@ async def test_list_is_business_scoped(api: httpx.AsyncClient) -> None:
     assert all(c["business_id"] == BIZ for c in body["items"])
 
 
-async def test_create_get_update_delete(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    res = await api.post("/v1/clients", json={"name": "Test Client", "email": "t@example.com"})
+async def test_create_get_update_delete(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    res = await as_owner.post("/v1/clients", json={"name": "Test Client", "email": "t@example.com"})
     assert res.status_code == 201, res.text
     created = res.json()
     cid = created["id"]
     assert cid.startswith("cl_")
     assert created["business_id"] == BIZ
 
-    res = await api.get(f"/v1/clients/{cid}")
+    res = await as_owner.get(f"/v1/clients/{cid}")
     assert res.status_code == 200
     assert res.json()["name"] == "Test Client"
 
-    res = await api.patch(f"/v1/clients/{cid}", json={"name": "Renamed"})
+    res = await as_owner.patch(f"/v1/clients/{cid}", json={"name": "Renamed"})
     assert res.status_code == 200
     assert res.json()["name"] == "Renamed"
 
-    res = await api.delete(f"/v1/clients/{cid}")
+    res = await as_owner.delete(f"/v1/clients/{cid}")
     assert res.status_code == 204
 
     # soft delete: gone from scoped reads, but the row survives with deleted_at set
-    res = await api.get(f"/v1/clients/{cid}")
+    res = await as_owner.get(f"/v1/clients/{cid}")
     assert res.status_code == 404
     deleted_at = (
         await db.execute(text("SELECT deleted_at FROM clients WHERE id = :i"), {"i": cid})
@@ -44,6 +44,6 @@ async def test_create_get_update_delete(api: httpx.AsyncClient, db: AsyncSession
     assert deleted_at is not None
 
 
-async def test_get_missing_returns_404(api: httpx.AsyncClient) -> None:
-    res = await api.get("/v1/clients/cl_does_not_exist")
+async def test_get_missing_returns_404(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.get("/v1/clients/cl_does_not_exist")
     assert res.status_code == 404
