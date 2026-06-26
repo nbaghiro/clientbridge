@@ -12,7 +12,8 @@ export interface ApiClientOptions {
 export function createApi(opts: ApiClientOptions) {
     const headers = async (): Promise<Record<string, string>> => {
         const h: Record<string, string> = { "Content-Type": "application/json" };
-        if (opts.getToken) h.Authorization = `Bearer ${await opts.getToken()}`;
+        const token = opts.getToken ? await opts.getToken() : "";
+        if (token) h.Authorization = `Bearer ${token}`;
         return h;
     };
 

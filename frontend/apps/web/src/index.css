@@ -1,4 +1,4 @@
-@import "@clientbridge/tokens/pewter.css";
+@import "@clientbridge/tokens/themes.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,4 +15,163 @@ body {
     color: var(--ink);
     font-family: "Schibsted Grotesk", sans-serif;
     -webkit-font-smoothing: antialiased;
+}
+
+.brand-aside {
+    background:
+        radial-gradient(120% 80% at 18% 8%, rgba(255, 255, 255, 0.06), transparent 60%),
+        linear-gradient(150deg, var(--accent) 0%, #2a3a4f 55%, #1b232e 100%);
+}
+
+/* Brand-panel backdrops — all dimmed. Variant chosen via ?bg= (see BrandBackdrop.tsx). */
+.bd-glow {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bd-drift 22s ease-in-out infinite;
+}
+@keyframes bd-drift {
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(30px, -24px);
+    }
+}
+
+.bd-ring {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bd-ripple 8s ease-out infinite;
+    animation-fill-mode: backwards;
+}
+@keyframes bd-ripple {
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+    14% {
+        opacity: 0.12;
+    }
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+.bd-node {
+    animation: bd-twinkle 5s ease-in-out infinite;
+    animation-fill-mode: backwards;
+}
+@keyframes bd-twinkle {
+    0%,
+    100% {
+        opacity: 0.1;
+    }
+    50% {
+        opacity: 0.32;
+    }
+}
+
+.bd-hub {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bd-pulse 4s ease-in-out infinite;
+}
+@keyframes bd-pulse {
+    0%,
+    100% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+.bd-blob-a {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bd-blob-a 24s ease-in-out infinite;
+}
+@keyframes bd-blob-a {
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(50px, 40px);
+    }
+}
+.bd-blob-b {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bd-blob-b 30s ease-in-out infinite;
+}
+@keyframes bd-blob-b {
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(-44px, -36px);
+    }
+}
+.bd-blob-c {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bd-blob-c 27s ease-in-out infinite;
+}
+@keyframes bd-blob-c {
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(30px, -44px);
+    }
+}
+
+.bd-drift {
+    animation: bd-griddrift 40s linear infinite;
+}
+@keyframes bd-griddrift {
+    0% {
+        transform: translate(0, 0);
+    }
+    100% {
+        transform: translate(34px, 34px);
+    }
+}
+
+.bd-breathe {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: bd-breathe 9s ease-in-out infinite;
+}
+@keyframes bd-breathe {
+    0%,
+    100% {
+        stroke-opacity: 0.04;
+        transform: scale(0.96);
+    }
+    50% {
+        stroke-opacity: 0.12;
+        transform: scale(1.04);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bd-glow,
+    .bd-ring,
+    .bd-node,
+    .bd-hub,
+    .bd-blob-a,
+    .bd-blob-b,
+    .bd-blob-c,
+    .bd-drift,
+    .bd-breathe {
+        animation: none;
+    }
 }

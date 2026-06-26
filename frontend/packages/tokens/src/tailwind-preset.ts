@@ -1,6 +1,6 @@
 // Tailwind preset wiring the Pewter CSS variables into utility classes.
 // Web apps: `import { clientbridgePreset } from "@clientbridge/tokens/tailwind-preset"` and add
-// it to `presets`, plus `import "@clientbridge/tokens/pewter.css"` once at the root.
+// it to `presets`, plus `import "@clientbridge/tokens/themes.css"` once at the root.
 import type { Config } from "tailwindcss";
 
 export const clientbridgePreset = {
