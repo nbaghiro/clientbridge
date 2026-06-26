@@ -26,5 +26,5 @@ Clientbridge claims the **87xx** block so it runs **simultaneously** with the ot
 | **flowmaestro** | 3000 web · 3001 api · 4000 · 5173/5174 marketing · 5555 docs · 5432 pg · 6379 redis · 7233 temporal |
 | **nbaghiro** | 3100 server · 5283 client |
 | **branchpad** | 17600 renderer · 17601 hmr (Electron) |
-| **galleo** | none found |
+| **galleo** | 8600 studio (Vite) · 8601 api · 8602 pg · 8603 redis · 8604/8605 minio · 8606 preview — 86xx block (8600 active, rest reserved) |
 | **PocketSuite** | 3000 · 25000 · redis (default) |
