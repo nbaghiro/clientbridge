@@ -1,8 +1,9 @@
 """Server-authoritative write path for PowerSync.
 
 The client's `uploadData()` POSTs its local write queue here. For each op we (1) resolve the acting
-user, (2) authorize it against the `staff` role policy (see .docs/authorization.md), (3) coerce the
-client's SQLite types back to Postgres types, and (4) apply it — all in one transaction.
+user, (2) authorize against the `staff` role policy (see .docs/authorization.md), (3) enforce the
+write rules the schema can't (no cross-tenant moves; server-owned fields; locked rows), (4) coerce
+the client's SQLite types back to Postgres, and (5) apply — all in one transaction.
 """
 
 import json
@@ -69,6 +70,60 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "review_requests": ("admin", False),
 }
 
+# Timestamps + tenancy the server owns; never settable by a client write.
+SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
+
+# Per-table fields only a command may write — numbering, money, lifecycle, capacity counters. A sync
+# op that includes one is rejected: that mutation belongs on a POST command, not the write queue.
+COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
+    "sessions": frozenset({"booked_count", "status"}),
+    "bookings": frozenset(
+        {
+            "status",
+            "source",
+            "price_cents",
+            "invoice_id",
+            "confirmed_at",
+            "completed_at",
+            "canceled_at",
+        }
+    ),
+    "invoices": frozenset(
+        {
+            "number",
+            "status",
+            "subtotal_cents",
+            "tax_total_cents",
+            "total_cents",
+            "amount_paid_cents",
+            "balance_cents",
+            "issued_at",
+            "paid_at",
+            "voided_at",
+        }
+    ),
+    "estimates": frozenset(
+        {
+            "number",
+            "status",
+            "subtotal_cents",
+            "tax_total_cents",
+            "total_cents",
+            "accepted_at",
+            "declined_at",
+            "converted_invoice_id",
+        }
+    ),
+    "lines": frozenset({"amount_cents", "tax_amount_cents"}),
+}
+
+# Rows already in a terminal/locked state can't be edited or deleted via sync (only commands).
+LOCKED_STATES: dict[str, frozenset[str]] = {
+    "invoices": frozenset({"paid", "void"}),
+    "estimates": frozenset({"accepted"}),
+    "bookings": frozenset({"completed", "canceled", "no_show"}),
+}
+
 
 def _coerce(table: Table, data: dict[str, object]) -> dict[str, object]:
     """Map PowerSync's client values (text/integer/real) back to the Postgres column types."""
@@ -93,6 +148,13 @@ def _coerce(table: Table, data: dict[str, object]) -> dict[str, object]:
     return out
 
 
+def _reject_owned_fields(table_name: str, data: dict[str, object]) -> None:
+    """Reject a write touching server-owned fields (timestamps + per-table command-only columns)."""
+    owned = (SYSTEM_FIELDS | COMMAND_ONLY_FIELDS.get(table_name, frozenset())) & data.keys()
+    if owned:
+        raise Forbidden(f"{table_name}: {sorted(owned)} are server-owned — use a command")
+
+
 @router.post("/upload")
 async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -> dict[str, int]:
     staff_rows = (
@@ -109,22 +171,36 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
             raise Forbidden(f"table '{op.type}' is not writable via sync")
         min_tier, own_only = policy
         has_staff = "staff_id" in table.columns
+        has_status = "status" in table.columns
+        data = op.data or {}
 
-        # business + staff ownership of the target row
+        # Existing row's tenancy + state (required for PATCH/DELETE; optional for PUT).
+        cols = [table.columns["business_id"]]
+        if has_staff:
+            cols.append(table.columns["staff_id"])
+        if has_status:
+            cols.append(table.columns["status"])
+        existing = (
+            (await db.execute(select(*cols).where(table.columns["id"] == op.id))).mappings().first()
+        )
+
         if op.op == "PUT":
-            data = op.data or {}
-            row_business = data.get("business_id")
-            row_staff = data.get("staff_id")
-        else:
-            cols = [table.columns["business_id"]] + (
-                [table.columns["staff_id"]] if has_staff else []
+            row_business = (
+                existing["business_id"] if existing is not None else data.get("business_id")
             )
-            existing = (await db.execute(select(*cols).where(table.columns["id"] == op.id))).first()
+            row_staff = existing["staff_id"] if existing is not None else data.get("staff_id")
+        else:
             if existing is None:
                 raise Forbidden("row not found")
-            row_business = existing[0]
-            row_staff = existing[1] if has_staff else None
+            row_business = existing["business_id"]
+            row_staff = existing["staff_id"] if has_staff else None
 
+        # No cross-tenant move: a write can't relocate a row to another business.
+        new_business = data.get("business_id")
+        if isinstance(new_business, str) and new_business != row_business:
+            raise Forbidden("cannot change business_id")
+
+        # role + ownership authz
         staff = by_business.get(row_business) if isinstance(row_business, str) else None
         if staff is None:
             raise Forbidden("not a member of that business")
@@ -134,9 +210,17 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
         if own_only and not is_admin and row_staff != staff.id:
             raise Forbidden(f"staff may only modify their own {op.type}")
 
-        # apply
+        # locked rows are immutable via sync; server-owned fields can't be set
+        if existing is not None and has_status:
+            current = existing["status"]
+            if isinstance(current, str) and current in LOCKED_STATES.get(op.type, frozenset()):
+                raise Forbidden(f"{op.type} in '{current}' state is immutable via sync")
+        if op.op in ("PUT", "PATCH"):
+            _reject_owned_fields(op.type, data)
+
+        # apply (op.id is authoritative)
         if op.op == "PUT":
-            values = {"id": op.id, **_coerce(table, op.data or {})}
+            values = {**_coerce(table, data), "id": op.id}
             changed = {k: v for k, v in values.items() if k != "id"}
             stmt = pg_insert(table).values(**values)
             await db.execute(
@@ -146,9 +230,7 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
             )
         elif op.op == "PATCH":
             await db.execute(
-                update(table)
-                .where(table.columns["id"] == op.id)
-                .values(**_coerce(table, op.data or {}))
+                update(table).where(table.columns["id"] == op.id).values(**_coerce(table, data))
             )
         elif op.op == "DELETE":
             if "deleted_at" in table.columns:  # soft-delete so it propagates
