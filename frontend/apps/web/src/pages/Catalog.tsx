@@ -42,10 +42,10 @@ export function Catalog() {
     }, [items, q]);
 
     return (
-        <div className="mx-auto max-w-5xl px-8 py-8">
+        <div>
             <header className="flex items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-2xl font-bold">Catalog</h1>
+                    <h1 className="font-display text-2xl font-bold">Catalog &amp; services</h1>
                     <p className="mt-0.5 text-sm text-muted">{items.length} items</p>
                 </div>
                 <button

@@ -2,23 +2,27 @@ import { NavLink, Outlet } from "react-router-dom";
 
 import {
     IconCalendar,
-    IconCatalog,
     IconClients,
     IconInbox,
-    IconInvoices,
     IconLogout,
+    IconSettings,
     IconToday,
     Logo,
 } from "./icons";
 
 const NAV = [
-    { to: "/today", label: "Today", Icon: IconToday },
+    { to: "/home", label: "Home", Icon: IconToday },
     { to: "/calendar", label: "Calendar", Icon: IconCalendar },
     { to: "/clients", label: "Clients", Icon: IconClients },
-    { to: "/invoices", label: "Invoices", Icon: IconInvoices },
     { to: "/inbox", label: "Inbox", Icon: IconInbox },
-    { to: "/catalog", label: "Catalog", Icon: IconCatalog },
 ];
+
+const linkClass = ({ isActive }: { isActive: boolean }): string =>
+    `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
+        isActive
+            ? "bg-accent-weak font-semibold text-accent"
+            : "font-medium text-ink-soft hover:bg-bg"
+    }`;
 
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
     return (
@@ -33,24 +37,18 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
 
                 <nav className="flex-1 space-y-1 px-3 py-4">
                     {NAV.map(({ to, label, Icon }) => (
-                        <NavLink
-                            key={to}
-                            to={to}
-                            className={({ isActive }) =>
-                                `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
-                                    isActive
-                                        ? "bg-accent-weak font-semibold text-accent"
-                                        : "font-medium text-ink-soft hover:bg-bg"
-                                }`
-                            }
-                        >
+                        <NavLink key={to} to={to} className={linkClass}>
                             <Icon className="h-[18px] w-[18px]" />
                             {label}
                         </NavLink>
                     ))}
                 </nav>
 
-                <div className="border-t border-line p-3">
+                <div className="space-y-1 border-t border-line p-3">
+                    <NavLink to="/settings" className={linkClass}>
+                        <IconSettings className="h-[18px] w-[18px]" />
+                        Settings
+                    </NavLink>
                     <button
                         type="button"
                         onClick={onSignOut}

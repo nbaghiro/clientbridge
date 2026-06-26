@@ -10,6 +10,8 @@ import { connectPowerSync, db, signOut } from "./lib/powersync";
 import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
 import { Placeholder } from "./pages/Placeholder";
+import { SettingsLayout } from "./pages/Settings";
+import { TaxSettings } from "./pages/TaxSettings";
 
 export function App() {
     const [authed, setAuthed] = useState(isAuthenticated());
@@ -40,12 +42,22 @@ export function App() {
                 <Routes>
                     <Route element={<AppShell onSignOut={() => void onSignOut()} />}>
                         <Route index element={<Navigate to="/clients" replace />} />
-                        <Route path="today" element={<Placeholder title="Today" />} />
+                        <Route path="home" element={<Placeholder title="Home" />} />
                         <Route path="calendar" element={<Placeholder title="Calendar" />} />
                         <Route path="clients" element={<Clients />} />
-                        <Route path="invoices" element={<Placeholder title="Invoices" />} />
                         <Route path="inbox" element={<Placeholder title="Inbox" />} />
-                        <Route path="catalog" element={<Catalog />} />
+                        <Route path="invoices" element={<Placeholder title="Invoices" />} />
+                        <Route path="settings" element={<SettingsLayout />}>
+                            <Route index element={<Navigate to="/settings/catalog" replace />} />
+                            <Route path="account" element={<Placeholder title="Account" />} />
+                            <Route path="catalog" element={<Catalog />} />
+                            <Route path="taxes" element={<TaxSettings />} />
+                            <Route path="scheduling" element={<Placeholder title="Scheduling" />} />
+                            <Route
+                                path="booking"
+                                element={<Placeholder title="Booking & forms" />}
+                            />
+                        </Route>
                         <Route path="*" element={<Navigate to="/clients" replace />} />
                     </Route>
                 </Routes>
