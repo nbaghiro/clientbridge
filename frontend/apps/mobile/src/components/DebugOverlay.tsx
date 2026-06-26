@@ -1,5 +1,4 @@
-// Hidden debug view (mobile). Opened by the secret 5-tap gesture on the Home wordmark. Shows the
-// live PowerSync connection + exactly what rows this device holds locally.
+// Hidden debug view (mobile) — opened by the 5-tap wordmark gesture. Shows live PowerSync + local rows.
 import { theme } from "@clientbridge/tokens/theme";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 

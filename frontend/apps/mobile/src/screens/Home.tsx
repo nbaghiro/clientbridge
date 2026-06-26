@@ -1,6 +1,4 @@
-// Barebones home screen — proves the sync engine is wired by showing live PowerSync status.
-// `useStatus()` re-renders whenever the connection / sync state changes.
-// Secret: tap the CLIENTBRIDGE wordmark 5× quickly to open the hidden client-state debug view.
+// Barebones home screen — live PowerSync status. Tap the wordmark 5× to open the debug view.
 import { theme } from "@clientbridge/tokens/theme";
 import { useStatus } from "@powersync/react";
 import { StatusBar } from "expo-status-bar";
@@ -8,6 +6,7 @@ import { useRef, useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { DebugOverlay } from "../components/DebugOverlay";
+import { Logo } from "../components/icons";
 
 export function HomeScreen() {
     const status = useStatus();
@@ -29,7 +28,8 @@ export function HomeScreen() {
         <SafeAreaView style={styles.screen}>
             <StatusBar style="dark" />
             <View style={styles.card}>
-                <Pressable onPress={onSecretTap}>
+                <Pressable onPress={onSecretTap} style={styles.brand}>
+                    <Logo size={18} color={theme.colors.accent} />
                     <Text style={styles.eyebrow}>CLIENTBRIDGE</Text>
                 </Pressable>
                 <Text style={styles.title}>The bridge between you and your clients.</Text>
@@ -53,7 +53,7 @@ export function HomeScreen() {
                 <Text style={styles.body}>
                     {lastSynced
                         ? `Last synced at ${lastSynced.toLocaleTimeString()}`
-                        : "Waiting for first sync… (start the backend + `make up`)"}
+                        : "Waiting for first sync…"}
                 </Text>
             </View>
             <DebugOverlay
@@ -80,6 +80,7 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
         padding: 24,
     },
+    brand: { flexDirection: "row", alignItems: "center", gap: 7 },
     eyebrow: { color: theme.colors.accent, fontWeight: "600", fontSize: 12, letterSpacing: 1 },
     title: { color: theme.colors.ink, fontWeight: "700", fontSize: 22, marginTop: 6 },
     statusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },

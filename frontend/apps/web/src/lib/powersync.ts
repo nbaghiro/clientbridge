@@ -19,4 +19,9 @@ export async function connectPowerSync(
     await db.connect(createConnector({ backendUrl, powersyncUrl, getToken }));
 }
 
+/** Disconnect and wipe the local DB — used on sign-out so the next user starts clean. */
+export async function signOut(): Promise<void> {
+    await db.disconnectAndClear();
+}
+
 export { backendUrl, powersyncUrl };

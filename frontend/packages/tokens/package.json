@@ -8,7 +8,7 @@
     ".": "./src/index.ts",
     "./tailwind-preset": "./src/tailwind-preset.ts",
     "./theme": "./src/theme.ts",
-    "./pewter.css": "./src/pewter.css"
+    "./themes.css": "./src/themes.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
