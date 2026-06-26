@@ -1,4 +1,78 @@
-import Svg, { Circle, Path } from "react-native-svg";
+import type { ReactNode } from "react";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
+
+interface IconProps {
+    size?: number | undefined;
+    color?: string | undefined;
+}
+
+function NavIcon({ size = 22, color = "#000", children }: IconProps & { children: ReactNode }) {
+    return (
+        <Svg
+            width={size}
+            height={size}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={color}
+            strokeWidth={1.9}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ width: size, height: size }}
+        >
+            {children}
+        </Svg>
+    );
+}
+
+export function IconToday({ size, color }: IconProps) {
+    return (
+        <NavIcon size={size} color={color}>
+            <Rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <Rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <Rect x="14" y="14" width="7" height="7" rx="1.5" />
+            <Rect x="3" y="14" width="7" height="7" rx="1.5" />
+        </NavIcon>
+    );
+}
+export function IconCalendar({ size, color }: IconProps) {
+    return (
+        <NavIcon size={size} color={color}>
+            <Rect x="3" y="4" width="18" height="18" rx="2" />
+            <Path d="M16 2v4M8 2v4M3 10h18" />
+        </NavIcon>
+    );
+}
+export function IconClients({ size, color }: IconProps) {
+    return (
+        <NavIcon size={size} color={color}>
+            <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+            <Circle cx="9" cy="7" r="4" />
+            <Path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+        </NavIcon>
+    );
+}
+export function IconInbox({ size, color }: IconProps) {
+    return (
+        <NavIcon size={size} color={color}>
+            <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </NavIcon>
+    );
+}
+export function IconPlus({ size, color }: IconProps) {
+    return (
+        <NavIcon size={size} color={color}>
+            <Path d="M12 5v14M5 12h14" />
+        </NavIcon>
+    );
+}
+export function IconSearch({ size, color }: IconProps) {
+    return (
+        <NavIcon size={size} color={color}>
+            <Circle cx="11" cy="11" r="8" />
+            <Path d="m21 21-4.3-4.3" />
+        </NavIcon>
+    );
+}
 
 export function Logo({ size = 32, color = "#3f5e80" }: { size?: number; color?: string }) {
     return (
