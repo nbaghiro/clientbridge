@@ -18,7 +18,12 @@ export interface ConnectorOptions {
 }
 
 export function createConnector(opts: ConnectorOptions): PowerSyncBackendConnector {
-    const auth = async () => ({ Authorization: `Bearer ${await opts.getToken()}` });
+    // Only send Authorization when we actually have a token — a bare "Bearer" confuses the server,
+    // and in dev the backend falls back to the dev user when no auth header is present.
+    const auth = async (): Promise<Record<string, string>> => {
+        const token = await opts.getToken();
+        return token ? { Authorization: `Bearer ${token}` } : {};
+    };
 
     return {
         async fetchCredentials(): Promise<PowerSyncCredentials> {

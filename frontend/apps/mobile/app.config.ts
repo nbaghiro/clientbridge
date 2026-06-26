@@ -7,7 +7,11 @@ const config: ExpoConfig = {
     scheme: "clientbridge",
     version: "0.1.0",
     orientation: "portrait",
-    ios: { supportsTablet: true, bundleIdentifier: "ca.clientbridge.app" },
+    ios: {
+        supportsTablet: true,
+        bundleIdentifier: "ca.clientbridge.app",
+        infoPlist: { NSAppTransportSecurity: { NSAllowsLocalNetworking: true } },
+    },
     android: { package: "ca.clientbridge.app" },
     extra: {
         apiUrl: process.env.API_URL ?? "http://localhost:8701",
