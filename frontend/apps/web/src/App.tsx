@@ -7,6 +7,7 @@ import { DebugPanel } from "./components/DebugPanel";
 import { Login } from "./components/Login";
 import { clearTokens, getAccessToken, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
+import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
 import { Placeholder } from "./pages/Placeholder";
 
@@ -44,7 +45,7 @@ export function App() {
                         <Route path="clients" element={<Clients />} />
                         <Route path="invoices" element={<Placeholder title="Invoices" />} />
                         <Route path="inbox" element={<Placeholder title="Inbox" />} />
-                        <Route path="catalog" element={<Placeholder title="Catalog" />} />
+                        <Route path="catalog" element={<Catalog />} />
                         <Route path="*" element={<Navigate to="/clients" replace />} />
                     </Route>
                 </Routes>
