@@ -272,6 +272,63 @@ export interface paths {
         patch: operations["update_client_v1_clients__client_id__patch"];
         trace?: never;
     };
+    "/v1/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Items */
+        get: operations["list_items_v1_items_get"];
+        put?: never;
+        /** Create Item */
+        post: operations["create_item_v1_items_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/items/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Item */
+        get: operations["get_item_v1_items__item_id__get"];
+        put?: never;
+        post?: never;
+        /** Deactivate Item */
+        delete: operations["deactivate_item_v1_items__item_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Item */
+        patch: operations["update_item_v1_items__item_id__patch"];
+        trace?: never;
+    };
+    "/v1/tax-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tax Rates
+         * @description The rates applicable to the business's province — global defaults + any business override.
+         */
+        get: operations["list_tax_rates_v1_tax_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/onboarding": {
         parameters: {
             query?: never;
@@ -442,12 +499,137 @@ export interface components {
             /** Invite Token */
             invite_token: string;
         };
+        /** ItemCreate */
+        ItemCreate: {
+            /**
+             * Kind
+             * @default service
+             */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Price Cents
+             * @default 0
+             */
+            price_cents: number;
+            /**
+             * Currency
+             * @default CAD
+             */
+            currency: string;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Capacity */
+            capacity?: number | null;
+            /** Tax Rate Id */
+            tax_rate_id?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Color */
+            color?: string | null;
+            /**
+             * Online Bookable
+             * @default true
+             */
+            online_bookable: boolean;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** ItemOut */
+        ItemOut: {
+            /**
+             * Kind
+             * @default service
+             */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Price Cents
+             * @default 0
+             */
+            price_cents: number;
+            /**
+             * Currency
+             * @default CAD
+             */
+            currency: string;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Capacity */
+            capacity?: number | null;
+            /** Tax Rate Id */
+            tax_rate_id?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Color */
+            color?: string | null;
+            /**
+             * Online Bookable
+             * @default true
+             */
+            online_bookable: boolean;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ItemUpdate */
+        ItemUpdate: {
+            /** Kind */
+            kind?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Price Cents */
+            price_cents?: number | null;
+            /** Currency */
+            currency?: string | null;
+            /** Duration Min */
+            duration_min?: number | null;
+            /** Capacity */
+            capacity?: number | null;
+            /** Tax Rate Id */
+            tax_rate_id?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Color */
+            color?: string | null;
+            /** Online Bookable */
+            online_bookable?: boolean | null;
+            /** Active */
+            active?: boolean | null;
+        };
         /** LoginBody */
         LoginBody: {
             /** Email */
             email: string;
             /** Password */
-            password?: string | null;
+            password: string;
         };
         /** OAuthGoogleBody */
         OAuthGoogleBody: {
@@ -481,6 +663,17 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Page[ItemOut] */
+        Page_ItemOut_: {
+            /** Items */
+            items: components["schemas"]["ItemOut"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /** RefreshBody */
         RefreshBody: {
             /** Refresh Token */
@@ -501,6 +694,19 @@ export interface components {
             token: string;
             /** New Password */
             new_password: string;
+        };
+        /** TaxRateOut */
+        TaxRateOut: {
+            /** Id */
+            id: string;
+            /** Jurisdiction */
+            jurisdiction: string;
+            /** Province */
+            province: string;
+            /** Rate Bps */
+            rate_bps: number;
+            /** Name */
+            name: string;
         };
         /** TokenPair */
         TokenPair: {
@@ -1130,6 +1336,213 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_items_v1_items_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_ItemOut_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_item_v1_items_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_item_v1_items__item_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deactivate_item_v1_items__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_item_v1_items__item_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tax_rates_v1_tax_rates_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxRateOut"][];
                 };
             };
             /** @description Validation Error */
