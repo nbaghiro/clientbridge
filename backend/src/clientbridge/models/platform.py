@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -54,3 +54,16 @@ class WebhookEvent(PKMixin, TimestampMixin, Base):
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class IdempotencyKey(PKMixin, BusinessScoped, TimestampMixin, Base):
+    """Command replay guard: a repeated (business, scope, key) returns the stored response."""
+
+    __tablename__ = "idempotency_keys"
+    __table_args__ = (
+        UniqueConstraint("business_id", "scope", "key", name="uq_idempotency_scope_key"),
+    )
+
+    scope: Mapped[str] = mapped_column(String, nullable=False)
+    key: Mapped[str] = mapped_column(String, nullable=False)
+    response: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
