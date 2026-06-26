@@ -9,7 +9,9 @@ Sequenced by dependency; every phase ends with green tests and leaves the backen
 - **Sync:** self-hosted PowerSync running (Postgres bucket storage); `infra/powersync/sync-rules.yaml` (3 role buckets + global); `/sync/token` (mints PS JWT, dev shortcut); `/sync/upload` (real write path — `WRITE_POLICY` role authz + client→PG type coercion + upsert/patch/soft-delete).
 - **API:** `/auth/login` (passwordless **dev only**), `/health`, dev CORS.
 - **CI:** ruff · mypy · pytest (+ Postgres service, migrate, seed) · schema-drift gate.
-- **Empty so far:** `services/`, `repositories/`, `schemas/`, `integrations/`, `tasks/`, and all domain routers.
+- **Built since (Phases 0–2 ✅):** `repositories/base` + `services/base` + the clients vertical; full auth
+  (login/register, sessions, invites, reset/verify, OAuth, JWKS); the `command()` helper (idempotency +
+  audit + atomic txn) and `/sync/upload` hardening. Still empty: `tasks/` and most domain routers.
 
 ## The 5 backend surfaces (the core architecture)
 Every backend capability lives on exactly one surface. **Choosing the surface is the main design decision per feature.**
@@ -43,7 +45,7 @@ Every backend capability lives on exactly one surface. **Choosing the surface is
 
 ## Phases
 
-### Phase 0 — Spine (repo / service / schema layers + test harness)
+### Phase 0 — Spine (repo / service / schema layers + test harness) ✅ done
 The plumbing every domain reuses. No user-facing feature, but unblocks all of them.
 - `repositories/base.py` — `BaseRepository`: `business_id` scoping, soft-delete filter, get/list/paginate/create/update/delete.
 - `services/base.py` + the **clients vertical** end-to-end (repo → service → `api/v1/clients.py`: list/get/create/update) as the reference pattern.
@@ -51,7 +53,7 @@ The plumbing every domain reuses. No user-facing feature, but unblocks all of th
 - `conftest.py`: seeded-business fixture + factory helpers + assertion helpers.
 - **Exit:** clients vertical works over REST with tests; pattern documented for all later domains.
 
-### Phase 1 — Auth, Identity, Onboarding  *(test-first — see [testing.md](testing.md))*
+### Phase 1 — Auth, Identity, Onboarding ✅ done  *(test-first — see [testing.md](testing.md))*
 Retire the dev shortcut; real multi-tenant identity. **Tests are the feedback loop**, so the test
 *foundation* ships first (P1.0). Decisions locked 2026-06-25: **transactional-rollback isolation**,
 **stateful `auth_sessions`** refresh tokens, **Google OAuth deferred to the last task**.
@@ -67,7 +69,7 @@ families) · one-time tokens (reset/verify) · `users.email_verified_at`.
 - **OAuth (last):** Google sign-in via the `OAuthVerifier` adapter.
 - **Exit:** real login on web/mobile; invited staff join; PowerSync authenticates via JWKS; every task clears the 4-part test matrix and CI coverage gate holds.
 
-### Phase 2 — Command layer + write-path hardening
+### Phase 2 — Command layer + write-path hardening ✅ done
 Stand up surface #3 and tighten surface #2.
 - `command()` helper: auth + idempotency key + transaction + audit-log, used by every POST action.
 - Harden `/sync/upload` with per-table business rules (immutable fields, capacity/paid-state guards, ownership) the schema alone can't enforce.
