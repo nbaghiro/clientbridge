@@ -47,3 +47,16 @@ async def test_sync_token_minted_from_session(api: httpx.AsyncClient, factory: F
     s = get_settings()
     claims = jwt.decode(ps, s.jwt_secret, algorithms=["HS256"], audience=s.powersync_audience)
     assert claims["sub"] == user.id
+
+
+async def test_sync_token_tolerates_empty_bearer(api: httpx.AsyncClient) -> None:
+    # the browser sends "Bearer " with an empty token, which the HTTP layer trims to "Bearer"
+    for header in ("Bearer", "Bearer ", "bearer "):
+        res = await api.get("/sync/token", headers={"Authorization": header})
+        assert res.status_code == 200, header
+        assert res.json()["token"]
+
+
+async def test_sync_token_rejects_malformed_token(api: httpx.AsyncClient) -> None:
+    res = await api.get("/sync/token", headers={"Authorization": "Bearer not-a-jwt"})
+    assert res.status_code == 401

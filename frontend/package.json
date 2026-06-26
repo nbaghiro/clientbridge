@@ -18,5 +18,11 @@
     "prettier": "^3.3.3",
     "turbo": "^2.1.0",
     "typescript": "^5.6.2"
+  },
+  "pnpm": {
+    "patchedDependencies": {
+      "@op-engineering/op-sqlite@11.4.9": "patches/@op-engineering__op-sqlite@11.4.9.patch",
+      "@powersync/op-sqlite@0.5.6": "patches/@powersync__op-sqlite@0.5.6.patch"
+    }
   }
 }

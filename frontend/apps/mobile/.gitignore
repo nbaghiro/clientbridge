@@ -1,0 +1,3 @@
+# Native projects — regenerated via `expo prebuild` (CNG); the op-sqlite core patch + app.config drive them
+/ios/
+/android/

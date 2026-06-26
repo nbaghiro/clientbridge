@@ -1,0 +1,13 @@
+diff --git a/powersync-op-sqlite.podspec b/powersync-op-sqlite.podspec
+index 5d39a71f04e6aa601ee49ac8d56ebdd8a86cab2d..4159d326f204716a04945009ba77d4c99a875424 100644
+--- a/powersync-op-sqlite.podspec
++++ b/powersync-op-sqlite.podspec
+@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
+ 
+   s.dependency "React-callinvoker"
+   s.dependency "React"
+-  s.dependency "powersync-sqlite-core", "~> 0.3.14"
++  s.dependency "powersync-sqlite-core", "~> 0.4.10"
+   if defined?(install_modules_dependencies())
+     install_modules_dependencies(s)
+   else

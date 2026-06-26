@@ -8,7 +8,6 @@ import { HomeScreen } from "./src/screens/Home";
 
 export function App() {
     useEffect(() => {
-        // Fire-and-forget: PowerSync retries/streams in the background; reads work offline immediately.
         void connectPowerSync();
     }, []);
 

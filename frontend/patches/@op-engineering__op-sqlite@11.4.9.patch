@@ -1,0 +1,21 @@
+diff --git a/op-sqlite.podspec b/op-sqlite.podspec
+index b8568b91ae3f578512a9687e71801182e3457b5e..e32be2c8f5a0676e62fef458899ab58b23f3fc8c 100644
+--- a/op-sqlite.podspec
++++ b/op-sqlite.podspec
+@@ -11,10 +11,13 @@ folly_compiler_flags = '-DFOLLY_NO_CONFIG -DFOLLY_MOBILE=1 -DFOLLY_USE_LIBCPP=1
+ fabric_enabled = ENV['RCT_NEW_ARCH_ENABLED'] == '1'
+ 
+ parent_folder_name = File.basename(__dir__)
+-app_package = nil
+-# When installed on user node_modules lives inside node_modules/@op-engineering/op-sqlite
++app_package = {}
++# When installed on user node_modules lives inside node_modules/@op-engineering/op-sqlite.
++# In a pnpm workspace the real path is under .pnpm, so "../../../package.json" may not exist —
++# fall back to an empty config (we set no custom op-sqlite extensions).
+ if is_user_app
+-  app_package = JSON.parse(File.read(File.join(__dir__, "..", "..", "..", "package.json")))
++  user_package_json = File.join(__dir__, "..", "..", "..", "package.json")
++  app_package = File.exist?(user_package_json) ? JSON.parse(File.read(user_package_json)) : {}
+ # When running on the example app
+ else
+   app_package = JSON.parse(File.read(File.join(__dir__, "example", "package.json")))
