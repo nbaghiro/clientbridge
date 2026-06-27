@@ -27,7 +27,7 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    number: Mapped[int | None] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
@@ -51,7 +51,7 @@ class Estimate(PKMixin, BusinessScoped, TimestampMixin, Base):
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    number: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    number: Mapped[int | None] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)

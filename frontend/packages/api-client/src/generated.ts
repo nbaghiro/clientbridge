@@ -343,6 +343,176 @@ export interface paths {
         patch: operations["patch_booking_v1_bookings__booking_id__patch"];
         trace?: never;
     };
+    "/v1/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Invoice */
+        post: operations["create_invoice_v1_invoices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Invoice */
+        patch: operations["update_invoice_v1_invoices__invoice_id__patch"];
+        trace?: never;
+    };
+    "/v1/invoices/{invoice_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Invoice */
+        post: operations["send_invoice_v1_invoices__invoice_id__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invoices/{invoice_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Invoice */
+        post: operations["void_invoice_v1_invoices__invoice_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Estimate */
+        post: operations["create_estimate_v1_estimates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/estimates/{estimate_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Estimate */
+        patch: operations["update_estimate_v1_estimates__estimate_id__patch"];
+        trace?: never;
+    };
+    "/v1/estimates/{estimate_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Estimate */
+        post: operations["send_estimate_v1_estimates__estimate_id__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/estimates/{estimate_id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept Estimate */
+        post: operations["accept_estimate_v1_estimates__estimate_id__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/estimates/{estimate_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Decline Estimate */
+        post: operations["decline_estimate_v1_estimates__estimate_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/estimates/{estimate_id}/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Convert Estimate */
+        post: operations["convert_estimate_v1_estimates__estimate_id__convert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tax-rates": {
         parameters: {
             query?: never;
@@ -553,6 +723,57 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** EstimateCreate */
+        EstimateCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Lines */
+            lines?: components["schemas"]["LineInput"][];
+            /** Notes */
+            notes?: string | null;
+            /** Valid Until */
+            valid_until?: string | null;
+        };
+        /** EstimateOut */
+        EstimateOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Number */
+            number: number | null;
+            /** Status */
+            status: string;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /** Valid Until */
+            valid_until: string | null;
+            /** Accepted At */
+            accepted_at: string | null;
+            /** Declined At */
+            declined_at: string | null;
+            /** Converted Invoice Id */
+            converted_invoice_id: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
+        };
+        /** EstimateUpdate */
+        EstimateUpdate: {
+            /** Lines */
+            lines?: components["schemas"]["LineInput"][] | null;
+            /** Notes */
+            notes?: string | null;
+            /** Valid Until */
+            valid_until?: string | null;
+        };
         /** ForgotPasswordBody */
         ForgotPasswordBody: {
             /** Email */
@@ -585,6 +806,63 @@ export interface components {
             status: string;
             /** Invite Token */
             invite_token: string;
+        };
+        /** InvoiceCreate */
+        InvoiceCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Lines */
+            lines?: components["schemas"]["LineInput"][];
+            /** Notes */
+            notes?: string | null;
+            /** Due At */
+            due_at?: string | null;
+        };
+        /** InvoiceOut */
+        InvoiceOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Number */
+            number: number | null;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /** Amount Paid Cents */
+            amount_paid_cents: number;
+            /** Balance Cents */
+            balance_cents: number;
+            /** Issued At */
+            issued_at: string | null;
+            /** Due At */
+            due_at: string | null;
+            /** Paid At */
+            paid_at: string | null;
+            /** Voided At */
+            voided_at: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
+        };
+        /** InvoiceUpdate */
+        InvoiceUpdate: {
+            /** Lines */
+            lines?: components["schemas"]["LineInput"][] | null;
+            /** Notes */
+            notes?: string | null;
+            /** Due At */
+            due_at?: string | null;
         };
         /** ItemCreate */
         ItemCreate: {
@@ -712,6 +990,46 @@ export interface components {
             online_bookable?: boolean | null;
             /** Active */
             active?: boolean | null;
+        };
+        /** LineInput */
+        LineInput: {
+            /** Description */
+            description: string;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
+            /**
+             * Unit Amount Cents
+             * @default 0
+             */
+            unit_amount_cents: number;
+            /** Item Id */
+            item_id?: string | null;
+            /** Booking Id */
+            booking_id?: string | null;
+        };
+        /** LineOut */
+        LineOut: {
+            /** Id */
+            id: string;
+            /** Description */
+            description: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Amount Cents */
+            unit_amount_cents: number;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Tax Amount Cents */
+            tax_amount_cents: number;
+            /** Item Id */
+            item_id: string | null;
+            /** Booking Id */
+            booking_id: string | null;
+            /** Position */
+            position: number;
         };
         /** LoginBody */
         LoginBody: {
@@ -1675,6 +1993,361 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invoice_v1_invoices_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_invoice_v1_invoices__invoice_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_invoice_v1_invoices__invoice_id__send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    void_invoice_v1_invoices__invoice_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_estimate_v1_estimates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstimateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_estimate_v1_estimates__estimate_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                estimate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstimateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_estimate_v1_estimates__estimate_id__send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                estimate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_estimate_v1_estimates__estimate_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                estimate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_estimate_v1_estimates__estimate_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                estimate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstimateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_estimate_v1_estimates__estimate_id__convert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                estimate_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
                 };
             };
             /** @description Validation Error */

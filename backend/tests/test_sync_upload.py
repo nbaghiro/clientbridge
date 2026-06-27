@@ -7,8 +7,6 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.billing import Invoice
-
 BIZ = "bz_birchbark"
 
 
@@ -115,8 +113,8 @@ async def test_admin_table_ok_for_owner(as_owner: httpx.AsyncClient, db: AsyncSe
     assert await _scalar(db, "SELECT name FROM resources WHERE id='rs_test_upload'") == "Room 1"
 
 
-async def test_rejects_command_only_field(as_owner: httpx.AsyncClient) -> None:
-    # invoice numbering/status/money are command-only — a sync write may not set them.
+async def test_command_only_table_rejected(as_owner: httpx.AsyncClient) -> None:
+    # invoices are fully command-driven (numbering/totals/tax/lifecycle) — not sync-writable at all.
     res = await as_owner.post(
         "/sync/upload",
         json={
@@ -125,12 +123,7 @@ async def test_rejects_command_only_field(as_owner: httpx.AsyncClient) -> None:
                     "op": "PUT",
                     "type": "invoices",
                     "id": "inv_x",
-                    "data": {
-                        "business_id": BIZ,
-                        "client_id": "cl_amelie",
-                        "number": 1,
-                        "status": "paid",
-                    },
+                    "data": {"business_id": BIZ, "client_id": "cl_amelie"},
                 }
             ]
         },
@@ -168,23 +161,6 @@ async def test_rejects_server_timestamps(as_owner: httpx.AsyncClient) -> None:
                     "data": {"created_at": "2020-01-01T00:00:00+00:00"},
                 }
             ]
-        },
-    )
-    assert res.status_code == 403
-
-
-async def test_locked_invoice_is_immutable(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    # a paid invoice can't be edited via sync — even a benign field — only via a command
-    db.add(
-        Invoice(
-            id="inv_locked", business_id=BIZ, client_id="cl_amelie", number=990001, status="paid"
-        )
-    )
-    await db.flush()
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [{"op": "PATCH", "type": "invoices", "id": "inv_locked", "data": {"notes": "x"}}]
         },
     )
     assert res.status_code == 403
