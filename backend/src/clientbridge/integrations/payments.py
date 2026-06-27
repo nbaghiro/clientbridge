@@ -27,6 +27,18 @@ class GatewayEvent:
     data: dict[str, object]
 
 
+@dataclass(frozen=True)
+class PaymentIntentResult:
+    id: str
+    client_secret: str
+
+
+@dataclass(frozen=True)
+class RefundResult:
+    id: str
+    status: str
+
+
 class WebhookVerificationError(Exception):
     """A webhook payload's signature could not be verified."""
 
@@ -38,6 +50,23 @@ class PaymentGateway(Protocol):
     ) -> str: ...
     async def get_account(self, account_id: str) -> ConnectAccount: ...
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent: ...
+
+    # Direct charges on the connected account: the client is a Customer there, the platform takes
+    # an application fee.
+    async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str: ...
+    async def create_payment_intent(
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        customer_id: str,
+        application_fee_cents: int,
+        metadata: dict[str, str],
+    ) -> PaymentIntentResult: ...
+    async def refund(
+        self, account_id: str, *, payment_intent_id: str, amount_cents: int
+    ) -> RefundResult: ...
 
 
 class StripeGateway:
@@ -79,6 +108,44 @@ class StripeGateway:
             charges_enabled=bool(account.charges_enabled),
             details_submitted=bool(account.details_submitted),
         )
+
+    async def create_customer(  # pragma: no cover
+        self, account_id: str, *, name: str, email: str | None
+    ) -> str:
+        customer = await stripe.Customer.create_async(
+            name=name,
+            email=email,  # type: ignore[arg-type]  # optional at Stripe; stub types it str
+            stripe_account=account_id,
+        )
+        return str(customer.id)
+
+    async def create_payment_intent(  # pragma: no cover
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        customer_id: str,
+        application_fee_cents: int,
+        metadata: dict[str, str],
+    ) -> PaymentIntentResult:
+        intent = await stripe.PaymentIntent.create_async(
+            amount=amount_cents,
+            currency=currency.lower(),
+            customer=customer_id,
+            application_fee_amount=application_fee_cents,
+            metadata=metadata,
+            stripe_account=account_id,
+        )
+        return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
+
+    async def refund(  # pragma: no cover
+        self, account_id: str, *, payment_intent_id: str, amount_cents: int
+    ) -> RefundResult:
+        refund = await stripe.Refund.create_async(
+            payment_intent=payment_intent_id, amount=amount_cents, stripe_account=account_id
+        )
+        return RefundResult(id=str(refund.id), status=str(refund.status))
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:  # pragma: no cover
         try:

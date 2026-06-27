@@ -22,6 +22,8 @@ from clientbridge.integrations.payments import (
     ConnectAccount,
     GatewayEvent,
     PaymentGateway,
+    PaymentIntentResult,
+    RefundResult,
     WebhookVerificationError,
     get_payment_gateway,
 )
@@ -103,6 +105,30 @@ class FakePaymentGateway:
         return GatewayEvent(
             id=str(body["id"]), type=str(body["type"]), data=dict(body["data"]["object"])
         )
+
+    async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
+        self._seq += 1
+        return f"cus_fake{self._seq}"
+
+    async def create_payment_intent(
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        customer_id: str,
+        application_fee_cents: int,
+        metadata: dict[str, str],
+    ) -> PaymentIntentResult:
+        self._seq += 1
+        pid = f"pi_fake{self._seq}"
+        return PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
+
+    async def refund(
+        self, account_id: str, *, payment_intent_id: str, amount_cents: int
+    ) -> RefundResult:
+        self._seq += 1
+        return RefundResult(id=f"re_fake{self._seq}", status="succeeded")
 
 
 @pytest.fixture
