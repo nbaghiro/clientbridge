@@ -2,12 +2,23 @@
 
 from fastapi import APIRouter
 
-from clientbridge.api.v1 import bookings, catalog, clients, onboarding, staff, tax
+from clientbridge.api.v1 import (
+    bookings,
+    catalog,
+    clients,
+    estimates,
+    invoices,
+    onboarding,
+    staff,
+    tax,
+)
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(clients.router)
 api_router.include_router(catalog.router)
 api_router.include_router(bookings.router)
+api_router.include_router(invoices.router)
+api_router.include_router(estimates.router)
 api_router.include_router(tax.router)
 api_router.include_router(onboarding.router)
 api_router.include_router(staff.router)

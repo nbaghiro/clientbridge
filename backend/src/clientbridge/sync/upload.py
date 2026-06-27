@@ -60,9 +60,9 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "forms": ("admin", False),
     "form_fields": ("admin", False),
     "contracts": ("admin", False),
-    "invoices": ("admin", False),
-    "estimates": ("admin", False),
-    "lines": ("admin", False),
+    # invoices + estimates + lines are NOT sync-writable: numbering, money totals, tax, and the
+    # status lifecycle are all server-computed, so every mutation goes through the billing commands
+    # (POST/PATCH /v1/invoices, /v1/estimates).
     "payment_methods": ("admin", False),
     "payout_allocations": ("admin", False),
     "broadcasts": ("admin", False),
@@ -75,41 +75,9 @@ SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 
 # Per-table fields only a command may write — numbering, money, lifecycle, capacity counters. A sync
 # op that includes one is rejected: that mutation belongs on a POST command, not the write queue.
-COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
-    "invoices": frozenset(
-        {
-            "number",
-            "status",
-            "subtotal_cents",
-            "tax_total_cents",
-            "total_cents",
-            "amount_paid_cents",
-            "balance_cents",
-            "issued_at",
-            "paid_at",
-            "voided_at",
-        }
-    ),
-    "estimates": frozenset(
-        {
-            "number",
-            "status",
-            "subtotal_cents",
-            "tax_total_cents",
-            "total_cents",
-            "accepted_at",
-            "declined_at",
-            "converted_invoice_id",
-        }
-    ),
-    "lines": frozenset({"amount_cents", "tax_amount_cents"}),
-}
-
-# Rows already in a terminal/locked state can't be edited or deleted via sync (only commands).
-LOCKED_STATES: dict[str, frozenset[str]] = {
-    "invoices": frozenset({"paid", "void"}),
-    "estimates": frozenset({"accepted"}),
-}
+# (Empty today — the fully command-driven tables aren't in WRITE_POLICY at all; kept for future
+# tables that are partly sync-writable.)
+COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {}
 
 
 def _coerce(table: Table, data: dict[str, object]) -> dict[str, object]:
@@ -158,15 +126,12 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
             raise Forbidden(f"table '{op.type}' is not writable via sync")
         min_tier, own_only = policy
         has_staff = "staff_id" in table.columns
-        has_status = "status" in table.columns
         data = op.data or {}
 
-        # Existing row's tenancy + state (required for PATCH/DELETE; optional for PUT).
+        # Existing row's tenancy (required for PATCH/DELETE; optional for PUT).
         cols = [table.columns["business_id"]]
         if has_staff:
             cols.append(table.columns["staff_id"])
-        if has_status:
-            cols.append(table.columns["status"])
         existing = (
             (await db.execute(select(*cols).where(table.columns["id"] == op.id))).mappings().first()
         )
@@ -197,11 +162,7 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
         if own_only and not is_admin and row_staff != staff.id:
             raise Forbidden(f"staff may only modify their own {op.type}")
 
-        # locked rows are immutable via sync; server-owned fields can't be set
-        if existing is not None and has_status:
-            current = existing["status"]
-            if isinstance(current, str) and current in LOCKED_STATES.get(op.type, frozenset()):
-                raise Forbidden(f"{op.type} in '{current}' state is immutable via sync")
+        # server-owned fields (timestamps, numbering, money) can't be set via a sync write
         if op.op in ("PUT", "PATCH"):
             _reject_owned_fields(op.type, data)
 
