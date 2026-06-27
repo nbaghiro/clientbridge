@@ -1,6 +1,7 @@
 export * from "./util/api";
 export * from "./util/datetime";
 export * from "./util/format";
+export * from "./util/intent";
 export * from "./hooks/useClientState";
 export * from "./domain/clients";
 export * from "./domain/catalog";

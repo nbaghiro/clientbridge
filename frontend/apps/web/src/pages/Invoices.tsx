@@ -1,25 +1,23 @@
 import {
-    type CalendarIntent,
+    type DocActionKey,
     type EstimateRow,
+    type Intent,
     type InvoiceRow,
-    type LineInput,
-    acceptEstimate,
-    convertEstimate,
     createEstimate,
     createInvoice,
-    declineEstimate,
+    estimateActions,
     estimateStatusIntent,
     filterEstimates,
     filterInvoices,
     formatMoney,
+    invoiceActions,
     invoiceStatusIntent,
-    sendEstimate,
-    sendInvoice,
+    lineSubtotalCents,
+    toLineInputs,
     useClients,
     useEstimates,
     useInvoices,
     useLines,
-    voidInvoice,
 } from "@clientbridge/app-core";
 import { type FormEvent, useMemo, useState } from "react";
 
@@ -28,7 +26,7 @@ import { api } from "../lib/api";
 
 type Tab = "invoices" | "estimates";
 
-const INTENT_BADGE: Record<CalendarIntent, string> = {
+const INTENT_BADGE: Record<Intent, string> = {
     accent: "bg-accent-weak text-accent-strong",
     success: "bg-ok-bg text-ok-fg",
     warning: "bg-warn-bg text-warn-fg",
@@ -36,7 +34,15 @@ const INTENT_BADGE: Record<CalendarIntent, string> = {
     neutral: "bg-bg text-muted",
 };
 
-function StatusPill({ status, intent }: { status: string; intent: CalendarIntent }) {
+const ACTION_LABELS: Record<DocActionKey, string> = {
+    send: "Send",
+    void: "Void",
+    accept: "Accept",
+    decline: "Decline",
+    convert: "Convert to invoice",
+};
+
+function StatusPill({ status, intent }: { status: string; intent: Intent }) {
     return (
         <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${INTENT_BADGE[intent]}`}
@@ -224,23 +230,11 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
         setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
     };
 
-    const toInputs = (): LineInput[] =>
-        lines
-            .filter((l) => l.description.trim().length > 0)
-            .map((l) => ({
-                description: l.description.trim(),
-                quantity: Number(l.quantity) || 0,
-                unit_amount_cents: Math.round((Number(l.unit) || 0) * 100),
-            }));
-
-    const subtotal = toInputs().reduce(
-        (s, l) => s + Math.round(l.quantity * l.unit_amount_cents),
-        0,
-    );
+    const subtotal = lineSubtotalCents(toLineInputs(lines));
 
     const submit = async (e: FormEvent): Promise<void> => {
         e.preventDefault();
-        const payload = toInputs();
+        const payload = toLineInputs(lines);
         if (clientId.length === 0 || payload.length === 0) {
             setError("Pick a client and add at least one line.");
             return;
@@ -410,25 +404,9 @@ function DetailModal({
         }
     };
 
-    const actions: { label: string; run: () => Promise<unknown> }[] = [];
-    if (isInvoice) {
-        if (row.status === "draft")
-            actions.push({ label: "Send", run: () => sendInvoice(api, row.id) });
-        if (row.status !== "void" && row.status !== "paid")
-            actions.push({ label: "Void", run: () => voidInvoice(api, row.id) });
-    } else {
-        if (row.status === "draft")
-            actions.push({ label: "Send", run: () => sendEstimate(api, row.id) });
-        if (row.status === "sent") {
-            actions.push({ label: "Accept", run: () => acceptEstimate(api, row.id) });
-            actions.push({ label: "Decline", run: () => declineEstimate(api, row.id) });
-        }
-        if (
-            (row.status === "sent" || row.status === "accepted") &&
-            (row as EstimateRow).converted_invoice_id === null
-        )
-            actions.push({ label: "Convert to invoice", run: () => convertEstimate(api, row.id) });
-    }
+    const actions = isInvoice
+        ? invoiceActions(api, row as InvoiceRow)
+        : estimateActions(api, row as EstimateRow);
 
     return (
         <Overlay>
@@ -485,13 +463,13 @@ function DetailModal({
                     </button>
                     {actions.map((a) => (
                         <button
-                            key={a.label}
+                            key={a.key}
                             type="button"
                             disabled={busy}
                             onClick={() => void act(a.run)}
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {a.label}
+                            {ACTION_LABELS[a.key]}
                         </button>
                     ))}
                 </div>

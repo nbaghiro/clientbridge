@@ -13,9 +13,8 @@ import {
     startOfMonth,
     startOfWeek,
 } from "../util/datetime";
+import type { Intent } from "../util/intent";
 import { type StaffRow, useStaff } from "./staff";
-
-// ─────────────────────────────── Types ───────────────────────────────
 
 export interface CalendarEvent {
     id: string;
@@ -47,12 +46,8 @@ export type CalendarView = "day" | "week" | "month" | "agenda" | "staff";
 export const eventLabel = (e: CalendarEvent): string =>
     e.subtitle.length > 0 ? e.subtitle : e.title;
 
-// ───────────────────── Status → visual intent ────────────────────────
 // The status → intent decision is shared; each platform maps the intent to its own tokens.
-
-export type CalendarIntent = "accent" | "success" | "warning" | "danger" | "neutral";
-
-export function statusIntent(status: string): CalendarIntent {
+export function statusIntent(status: string): Intent {
     switch (status) {
         case "confirmed":
             return "accent";
@@ -66,8 +61,6 @@ export function statusIntent(status: string): CalendarIntent {
             return "neutral";
     }
 }
-
-// ─────────────────────── Calendar-grid builders ──────────────────────
 
 export function dayColumns(anchor: Date, count: number): Date[] {
     const start = startOfDay(anchor);
@@ -98,8 +91,6 @@ export function formatRangeLabel(cols: Date[], locale = "en-CA"): string {
         : last.toLocaleDateString(locale, { month: "short", day: "numeric" });
     return `${a} – ${b}, ${first.getFullYear()}`;
 }
-
-// ──────────────── Layout (time-grid geometry + overlap) ───────────────
 
 export interface LayoutOptions {
     dayStart: Date;
@@ -228,8 +219,6 @@ export function dragToStart(
     return new Date(originalStart.getTime() + deltaMin * 60_000);
 }
 
-// ─────────────────── Events (the synced calendar data) ────────────────
-
 interface Row {
     session_id: string;
     booking_id: string | null;
@@ -288,8 +277,6 @@ export function useCalendarEvents(
     const { data } = useQuery<Row>(sql, params);
     return useMemo(() => data.map(toEvent), [data]);
 }
-
-// ─────────────────────────── Booking mutations ───────────────────────
 
 export interface BookingResult {
     id: string;
@@ -350,8 +337,6 @@ export function rescheduleByDrag(
     if (newStart.getTime() === event.start.getTime()) return;
     void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
 }
-
-// ────────────────────── New-booking form hook ────────────────────────
 
 export interface BookingFormState {
     clients: ClientRow[];
