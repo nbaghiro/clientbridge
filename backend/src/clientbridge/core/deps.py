@@ -11,11 +11,13 @@ from clientbridge.core.errors import AppError, Forbidden, Unauthorized
 from clientbridge.core.security import decode_jwt
 from clientbridge.integrations.email import EmailSender, get_email_sender
 from clientbridge.integrations.oauth import OAuthVerifier, get_oauth_verifier
+from clientbridge.integrations.payments import PaymentGateway, get_payment_gateway
 from clientbridge.models.identity import Staff, User
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
 EmailDep = Annotated[EmailSender, Depends(get_email_sender)]
 OAuthVerifierDep = Annotated[OAuthVerifier, Depends(get_oauth_verifier)]
+GatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
 
 
 async def current_claims(authorization: str = Header(default="")) -> dict[str, object]:

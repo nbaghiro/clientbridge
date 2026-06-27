@@ -24,6 +24,9 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
     lifetime_value_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
+    stripe_customer_id: Mapped[str | None] = mapped_column(
+        String
+    )  # Customer on the connected account
 
 
 class Subject(PKMixin, BusinessScoped, TimestampMixin, Base):

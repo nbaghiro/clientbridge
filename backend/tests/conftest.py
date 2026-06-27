@@ -5,6 +5,7 @@ rolled back at teardown (savepoint join + a `get_session` override), so the comm
 baseline and every write vanishes — repeatable, no residue.
 """
 
+import json
 from collections.abc import AsyncIterator
 
 import httpx
@@ -17,6 +18,13 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.security import hash_password, issue_access_token
 from clientbridge.integrations.email import Email, EmailSender, get_email_sender
 from clientbridge.integrations.oauth import OAuthProfile, get_oauth_verifier
+from clientbridge.integrations.payments import (
+    ConnectAccount,
+    GatewayEvent,
+    PaymentGateway,
+    WebhookVerificationError,
+    get_payment_gateway,
+)
 from clientbridge.main import app
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
@@ -68,18 +76,58 @@ class FakeOAuthVerifier:
         )
 
 
-# ── In-process HTTP client sharing the test's transaction + the fake email ───────────────────
+# ── Payment-gateway fake: a webhook verifies only with signature "good"; payload IS the event ──
+class FakePaymentGateway:
+    def __init__(self) -> None:
+        self.created_accounts: list[str] = []
+        self._seq = 0
+
+    async def create_connected_account(self, *, business_name: str, email: str | None) -> str:
+        self._seq += 1
+        acct = f"acct_fake{self._seq}"
+        self.created_accounts.append(acct)
+        return acct
+
+    async def create_account_link(
+        self, account_id: str, *, refresh_url: str, return_url: str
+    ) -> str:
+        return f"https://connect.stripe.test/{account_id}"
+
+    async def get_account(self, account_id: str) -> ConnectAccount:
+        return ConnectAccount(id=account_id, charges_enabled=False, details_submitted=False)
+
+    def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:
+        if signature != "good":
+            raise WebhookVerificationError("bad signature")
+        body = json.loads(payload)
+        return GatewayEvent(
+            id=str(body["id"]), type=str(body["type"]), data=dict(body["data"]["object"])
+        )
+
+
 @pytest.fixture
-async def api(db: AsyncSession, email: FakeEmailSender) -> AsyncIterator[httpx.AsyncClient]:
+def gateway() -> FakePaymentGateway:
+    return FakePaymentGateway()
+
+
+# ── In-process HTTP client sharing the test's transaction + the boundary fakes ───────────────
+@pytest.fixture
+async def api(
+    db: AsyncSession, email: FakeEmailSender, gateway: FakePaymentGateway
+) -> AsyncIterator[httpx.AsyncClient]:
     async def _session() -> AsyncIterator[AsyncSession]:
         yield db
 
     def _email() -> EmailSender:
         return email
 
+    def _gateway() -> PaymentGateway:
+        return gateway
+
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[get_email_sender] = _email
     app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
+    app.dependency_overrides[get_payment_gateway] = _gateway
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

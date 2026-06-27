@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     powersync_private_key_pem: str = ""  # prod RSA private key (PEM); empty → ephemeral (dev/test)
     google_client_id: str = ""  # OAuth audience for verifying Google id_tokens
 
+    # Stripe Connect — platform account + custom connected accounts. Empty in dev/test → the fake
+    # gateway is used; prod sets the live/test keys.
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_connect_country: str = "CA"
+    web_base_url: str = "http://localhost:8601"  # onboarding return/refresh targets
+    platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
+
     # Dev-only: /sync/token mints a token for this user when the request is unauthenticated,
     # so the client apps can connect before real auth exists.
     dev_user_id: str = "us_dev"
