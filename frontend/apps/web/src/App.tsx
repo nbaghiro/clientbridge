@@ -12,6 +12,7 @@ import { Calendar } from "./pages/Calendar";
 import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
 import { Invoices } from "./pages/Invoices";
+import { PaymentsSettings } from "./pages/PaymentsSettings";
 import { Placeholder } from "./pages/Placeholder";
 import { SettingsLayout } from "./pages/Settings";
 import { TaxSettings } from "./pages/TaxSettings";
@@ -61,6 +62,7 @@ export function App() {
                             <Route path="account" element={<Placeholder title="Account" />} />
                             <Route path="catalog" element={<Catalog />} />
                             <Route path="taxes" element={<TaxSettings />} />
+                            <Route path="payments" element={<PaymentsSettings />} />
                             <Route path="scheduling" element={<Placeholder title="Scheduling" />} />
                             <Route
                                 path="booking"
