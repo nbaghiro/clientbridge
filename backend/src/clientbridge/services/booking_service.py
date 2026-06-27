@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Conflict, Forbidden, NotFound
+from clientbridge.core.errors import AppError, Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
@@ -42,6 +42,8 @@ class BookingService:
     async def create(self, data: BookingCreate, idempotency_key: str | None) -> BookingOut:
         self._assert_can_act_as(data.staff_id)
         item = await self._item(data.item_id)
+        if item.duration_min is None or item.duration_min <= 0:
+            raise AppError("that service has no duration and can't be booked", status_code=422)
         await self._client(data.client_id)
         await self._staff(data.staff_id)
 
@@ -165,7 +167,11 @@ class BookingService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                select(Client).where(Client.id == client_id, Client.business_id == self.biz)
+                select(Client).where(
+                    Client.id == client_id,
+                    Client.business_id == self.biz,
+                    Client.deleted_at.is_(None),
+                )
             )
         ).scalar_one_or_none()
         if row is None:
