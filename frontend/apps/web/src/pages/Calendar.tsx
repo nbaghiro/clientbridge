@@ -1,6 +1,7 @@
 import {
     type CalendarEvent,
     type CalendarView,
+    type StaffRow,
     addDays,
     createBooking,
     dateKey,
@@ -43,8 +44,17 @@ const VIEWS: { key: CalendarView; label: string }[] = [
     { key: "day", label: "Day" },
     { key: "week", label: "Week" },
     { key: "month", label: "Month" },
+    { key: "staff", label: "Staff" },
     { key: "agenda", label: "Agenda" },
 ];
+
+interface Lane {
+    key: string;
+    header: ReactNode;
+    dayStart: Date;
+    events: CalendarEvent[];
+    isToday: boolean;
+}
 
 const STATUS_CLASS: Record<string, string> = {
     confirmed: "border-accent bg-accent-weak text-accent-strong",
@@ -77,7 +87,7 @@ function rangeOf(columns: Date[]): { start: Date; end: Date } {
 }
 
 function shift(view: CalendarView, anchor: Date, dir: 1 | -1): Date {
-    if (view === "day") return addDays(anchor, dir);
+    if (view === "day" || view === "staff") return addDays(anchor, dir);
     if (view === "month") return startOfMonth(addDays(startOfMonth(anchor), dir * 32));
     if (view === "agenda") return addDays(anchor, dir * 14);
     return addDays(anchor, dir * 7);
@@ -90,14 +100,37 @@ export function Calendar() {
     const [detail, setDetail] = useState<CalendarEvent | null>(null);
 
     const isMonth = view === "month";
+    const isStaff = view === "staff";
+    const now = new Date();
     const matrix = monthMatrix(anchor);
-    const columns = isMonth ? matrix.flat() : viewColumns(view, anchor);
-    const { start, end } = rangeOf(isMonth ? matrix.flat() : columns);
+    const dateCols = isStaff ? [] : isMonth ? matrix.flat() : viewColumns(view, anchor);
+    const { start, end } = isStaff
+        ? { start: startOfDay(anchor), end: addDays(startOfDay(anchor), 1) }
+        : rangeOf(isMonth ? matrix.flat() : dateCols);
     const events = useCalendarEvents(start, end);
+    const staff = useStaff();
 
-    const label = isMonth
-        ? anchor.toLocaleDateString("en-CA", { month: "long", year: "numeric" })
-        : formatRangeLabel(columns);
+    const lanes: Lane[] = isStaff
+        ? staff.map((s) => ({
+              key: s.id,
+              header: <StaffHeader staff={s} />,
+              dayStart: startOfDay(anchor),
+              events: events.filter((e) => e.staffId === s.id),
+              isToday: sameDay(anchor, now),
+          }))
+        : dateCols.map((day) => ({
+              key: day.toISOString(),
+              header: <DayHeader day={day} now={now} />,
+              dayStart: startOfDay(day),
+              events,
+              isToday: sameDay(day, now),
+          }));
+
+    const label = isStaff
+        ? anchor.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })
+        : isMonth
+          ? anchor.toLocaleDateString("en-CA", { month: "long", year: "numeric" })
+          : formatRangeLabel(dateCols);
 
     return (
         <div className="flex h-full flex-col p-6">
@@ -164,7 +197,7 @@ export function Calendar() {
                 </header>
 
                 {view === "agenda" ? (
-                    <AgendaView columns={columns} events={events} onEventClick={setDetail} />
+                    <AgendaView columns={dateCols} events={events} onEventClick={setDetail} />
                 ) : isMonth ? (
                     <MonthView
                         matrix={matrix}
@@ -173,7 +206,7 @@ export function Calendar() {
                         onEventClick={setDetail}
                     />
                 ) : (
-                    <TimeGrid columns={columns} events={events} onEventClick={setDetail} />
+                    <TimeGrid lanes={lanes} allEvents={events} onEventClick={setDetail} />
                 )}
 
                 {booking ? (
@@ -197,20 +230,47 @@ export function Calendar() {
     );
 }
 
+function DayHeader({ day, now }: { day: Date; now: Date }) {
+    const today = sameDay(day, now);
+    return (
+        <>
+            <div className="text-xs font-medium uppercase text-muted">{formatWeekday(day)}</div>
+            <div className={`text-lg font-semibold ${today ? "text-accent" : "text-ink"}`}>
+                {day.getDate()}
+            </div>
+        </>
+    );
+}
+
+function StaffHeader({ staff }: { staff: StaffRow }) {
+    return (
+        <div className="flex items-center justify-center gap-1.5 px-1">
+            {staff.color !== null ? (
+                <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: staff.color }}
+                />
+            ) : null}
+            <span className="truncate text-sm font-medium text-ink">{staffLabel(staff)}</span>
+        </div>
+    );
+}
+
 function TimeGrid({
-    columns,
-    events,
+    lanes,
+    allEvents,
     onEventClick,
 }: {
-    columns: Date[];
-    events: CalendarEvent[];
+    lanes: Lane[];
+    allEvents: CalendarEvent[];
     onEventClick: (e: CalendarEvent) => void;
 }) {
-    const { startHour, endHour } = dayBounds(events);
+    const { startHour, endHour } = dayBounds(allEvents);
     const offsetPx = startHour * 60 * PX_PER_MIN;
     const gridHeight = (endHour - startHour) * HOUR_PX;
     const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
     const now = new Date();
+    const nowTop = (now.getHours() * 60 + now.getMinutes()) * PX_PER_MIN - offsetPx;
 
     const reschedule = (event: CalendarEvent, deltaY: number): void => {
         if (event.bookingId === null) return;
@@ -223,24 +283,14 @@ function TimeGrid({
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex border-b border-line pr-[6px]">
                 <div className="w-14 shrink-0" />
-                {columns.map((day) => {
-                    const today = sameDay(day, now);
-                    return (
-                        <div
-                            key={day.toISOString()}
-                            className="flex-1 border-l border-line py-2 text-center"
-                        >
-                            <div className="text-xs font-medium uppercase text-muted">
-                                {formatWeekday(day)}
-                            </div>
-                            <div
-                                className={`text-lg font-semibold ${today ? "text-accent" : "text-ink"}`}
-                            >
-                                {day.getDate()}
-                            </div>
-                        </div>
-                    );
-                })}
+                {lanes.map((lane) => (
+                    <div
+                        key={lane.key}
+                        className="min-w-0 flex-1 border-l border-line py-2 text-center"
+                    >
+                        {lane.header}
+                    </div>
+                ))}
             </div>
 
             <div className="flex min-h-0 flex-1 overflow-auto">
@@ -255,17 +305,15 @@ function TimeGrid({
                         </div>
                     ))}
                 </div>
-                {columns.map((day) => {
-                    const positioned = layoutDay(events, {
-                        dayStart: startOfDay(day),
+                {lanes.map((lane) => {
+                    const positioned = layoutDay(lane.events, {
+                        dayStart: lane.dayStart,
                         pxPerMin: PX_PER_MIN,
                     });
-                    const showNow = sameDay(day, now);
-                    const nowTop = (now.getHours() * 60 + now.getMinutes()) * PX_PER_MIN - offsetPx;
                     return (
                         <div
-                            key={day.toISOString()}
-                            className="relative flex-1 border-l border-line"
+                            key={lane.key}
+                            className="relative min-w-0 flex-1 border-l border-line"
                             style={{ height: gridHeight }}
                         >
                             {hours.map((h, i) => (
@@ -287,7 +335,7 @@ function TimeGrid({
                                     onReschedule={reschedule}
                                 />
                             ))}
-                            {showNow && nowTop >= 0 && nowTop <= gridHeight ? (
+                            {lane.isToday && nowTop >= 0 && nowTop <= gridHeight ? (
                                 <div
                                     className="absolute inset-x-0 z-10 border-t-2 border-danger"
                                     style={{ top: nowTop }}
