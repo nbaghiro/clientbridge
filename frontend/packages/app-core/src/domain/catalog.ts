@@ -1,7 +1,7 @@
 import { useQuery } from "@powersync/react";
 
-import type { ApiLike } from "./api";
-import { blankToNull } from "./format";
+import type { ApiLike } from "../util/api";
+import { blankToNull } from "../util/format";
 
 export interface ItemRow {
     id: string;
