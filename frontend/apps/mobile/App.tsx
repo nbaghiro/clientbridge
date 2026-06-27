@@ -11,11 +11,12 @@ import { TabBar } from "./src/components/TabBar";
 import { getAccessToken, getTokens } from "./src/lib/auth";
 import { connectPowerSync, db } from "./src/lib/powersync";
 import type { RootStackParamList } from "./src/navigation";
+import { CalendarScreen } from "./src/screens/Calendar";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
 import { HomeScreen } from "./src/screens/Home";
 import { LoginScreen } from "./src/screens/Login";
-import { CalendarScreen, ComingSoon, InboxScreen } from "./src/screens/Placeholder";
+import { ComingSoon, InboxScreen } from "./src/screens/Placeholder";
 import { SettingsScreen } from "./src/screens/Settings";
 import { TaxesScreen } from "./src/screens/Taxes";
 
