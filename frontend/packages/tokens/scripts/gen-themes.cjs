@@ -7,7 +7,14 @@ const ROOT = path.resolve(__dirname, "../../../..");
 const SRC = path.resolve(__dirname, "../src");
 const html = fs.readFileSync(`${ROOT}/.docs/design/theme-explorer.html`, "utf8");
 
-const NAMES = { pewter: "Pewter", slate: "Slate", calm: "Calm", fjord: "Fjord", birch: "Birch", moss: "Moss" };
+const NAMES = {
+    pewter: "Pewter",
+    slate: "Slate",
+    calm: "Calm",
+    fjord: "Fjord",
+    birch: "Birch",
+    moss: "Moss",
+};
 const ORDER = ["pewter", "slate", "calm", "fjord", "birch", "moss"];
 
 const re = /\.t-([a-z]+)\s*\{([^}]+)\}/g;
@@ -26,7 +33,8 @@ const firstFont = (v) => (v || "").split(",")[0].replace(/['"]/g, "").trim();
 const px = (v) => parseInt((v || "0").replace(/[^0-9]/g, ""), 10);
 const avatar = (v) => (v && v.includes("%") ? 999 : px(v));
 
-let css = "/* AUTO-GENERATED from .docs/design/theme-explorer.html. :root = Pewter; set [data-theme] to switch. */\n\n";
+let css =
+    "/* AUTO-GENERATED from .docs/design/theme-explorer.html. :root = Pewter; set [data-theme] to switch. */\n\n";
 for (const key of ORDER) {
     const v = raw[key];
     if (!v) continue;
@@ -41,15 +49,38 @@ const themeObj = (v) => {
     const c = (k) => v[`--${k}`];
     return {
         color: {
-            bg: c("bg"), surface: c("surface"), surface2: c("surface2"), head: c("head"),
-            ink: c("ink"), inkSoft: c("ink-soft"), muted: c("muted"), border: c("border"),
-            borderSoft: c("border-soft"), primary: c("primary"), primaryInk: c("primary-ink"),
-            accent: c("accent"), accentInk: c("accent-ink"), accentStrong: c("accent-strong"),
-            accentWeak: c("accent-weak"), accentLine: c("accent-line"), success: c("success"),
-            okBg: c("ok-bg"), okFg: c("ok-fg"), warnBg: c("warn-bg"), warnFg: c("warn-fg"),
-            danBg: c("dan-bg"), danFg: c("dan-fg"), side: c("side"), sideInk: c("side-ink"), logo: c("logo"),
+            bg: c("bg"),
+            surface: c("surface"),
+            surface2: c("surface2"),
+            head: c("head"),
+            ink: c("ink"),
+            inkSoft: c("ink-soft"),
+            muted: c("muted"),
+            border: c("border"),
+            borderSoft: c("border-soft"),
+            primary: c("primary"),
+            primaryInk: c("primary-ink"),
+            accent: c("accent"),
+            accentInk: c("accent-ink"),
+            accentStrong: c("accent-strong"),
+            accentWeak: c("accent-weak"),
+            accentLine: c("accent-line"),
+            success: c("success"),
+            okBg: c("ok-bg"),
+            okFg: c("ok-fg"),
+            warnBg: c("warn-bg"),
+            warnFg: c("warn-fg"),
+            danBg: c("dan-bg"),
+            danFg: c("dan-fg"),
+            side: c("side"),
+            sideInk: c("side-ink"),
+            logo: c("logo"),
         },
-        font: { ui: firstFont(c("font-ui")), display: firstFont(c("font-display")), mono: firstFont(c("font-mono")) },
+        font: {
+            ui: firstFont(c("font-ui")),
+            display: firstFont(c("font-display")),
+            mono: firstFont(c("font-mono")),
+        },
         radius: { base: px(c("radius")), avatar: avatar(c("avatar-radius")) },
         borderWidth: 1.5,
         shadow: c("shadow"),

@@ -1,26 +1,9 @@
-import { useEffect, useState } from "react";
+import { useTaxRates } from "@clientbridge/app-core";
 
 import { api } from "../lib/api";
 
-interface TaxRate {
-    id: string;
-    jurisdiction: string;
-    province: string;
-    rate_bps: number;
-    name: string;
-}
-
 export function TaxSettings() {
-    const [rates, setRates] = useState<TaxRate[] | null>(null);
-
-    useEffect(() => {
-        void api
-            .get<TaxRate[]>("/v1/tax-rates")
-            .then(setRates)
-            .catch(() => {
-                setRates([]);
-            });
-    }, []);
+    const rates = useTaxRates(api);
 
     return (
         <div>

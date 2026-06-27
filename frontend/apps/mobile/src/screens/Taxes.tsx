@@ -1,28 +1,11 @@
+import { useTaxRates } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 
-interface TaxRate {
-    id: string;
-    jurisdiction: string;
-    province: string;
-    rate_bps: number;
-    name: string;
-}
-
 export function TaxesScreen() {
-    const [rates, setRates] = useState<TaxRate[] | null>(null);
-
-    useEffect(() => {
-        void api
-            .get<TaxRate[]>("/v1/tax-rates")
-            .then(setRates)
-            .catch(() => {
-                setRates([]);
-            });
-    }, []);
+    const rates = useTaxRates(api);
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>

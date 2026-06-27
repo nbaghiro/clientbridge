@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
@@ -246,6 +246,28 @@ export function toLineInputs(drafts: DraftLine[]): LineInput[] {
 
 export function lineSubtotalCents(lines: LineInput[]): number {
     return lines.reduce((s, l) => s + Math.round(l.quantity * l.unit_amount_cents), 0);
+}
+
+export interface TaxRate {
+    id: string;
+    jurisdiction: string;
+    province: string;
+    rate_bps: number;
+    name: string;
+}
+
+/** Province tax rates (REST today; the abstraction is the single place to move to sync later). */
+export function useTaxRates(api: ApiLike): TaxRate[] | null {
+    const [rates, setRates] = useState<TaxRate[] | null>(null);
+    useEffect(() => {
+        void api
+            .get<TaxRate[]>("/v1/tax-rates")
+            .then(setRates)
+            .catch(() => {
+                setRates([]);
+            });
+    }, [api]);
+    return rates;
 }
 
 export interface KeyedLine extends DraftLine {
