@@ -73,10 +73,8 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
 # Timestamps + tenancy the server owns; never settable by a client write.
 SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 
-# Per-table fields only a command may write — numbering, money, lifecycle, capacity counters. A sync
-# op that includes one is rejected: that mutation belongs on a POST command, not the write queue.
-# (Empty today — the fully command-driven tables aren't in WRITE_POLICY at all; kept for future
-# tables that are partly sync-writable.)
+# Per-table fields only a command may write (numbering, money, counters); a sync op that sets one is
+# rejected. Empty today; kept for tables that become partly sync-writable.
 COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {}
 
 

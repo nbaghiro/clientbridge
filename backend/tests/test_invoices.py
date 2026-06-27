@@ -2,6 +2,8 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from tests.conftest import Factory, FakeEmailSender
@@ -124,3 +126,42 @@ async def test_idempotent_create_replays(as_owner: httpx.AsyncClient, db: AsyncS
     assert first.status_code == 201
     assert second.status_code == 201
     assert first.json()["id"] == second.json()["id"]
+
+
+async def test_negative_amount_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    cid = await _client_id(db)
+    bad = {"description": "Refund", "quantity": 1, "unit_amount_cents": -500}
+    res = await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [bad]})
+    assert res.status_code == 422
+
+
+async def test_staff_cannot_send_invoice(as_staff: httpx.AsyncClient) -> None:
+    # _assert_admin gates before any lookup, so a bogus id still 403s for staff
+    res = await as_staff.post("/v1/invoices/inv_x/send")
+    assert res.status_code == 403
+
+
+async def test_cannot_send_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    cid = await _client_id(db)
+    inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
+    await as_owner.post(f"/v1/invoices/{inv['id']}/void")
+    res = await as_owner.post(f"/v1/invoices/{inv['id']}/send")
+    assert res.status_code == 409
+
+
+async def test_cannot_void_another_business_invoice(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business(name="Rival Co")
+    foreign_client = await factory.client(business=other)
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=other.id,
+        client_id=foreign_client.id,
+        status="draft",
+        currency="CAD",
+    )
+    db.add(inv)
+    await db.flush()
+    res = await as_owner.post(f"/v1/invoices/{inv.id}/void")
+    assert res.status_code == 404
