@@ -74,8 +74,10 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
 SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 
 # Per-table fields only a command may write (numbering, money, counters); a sync op that sets one is
-# rejected. Empty today; kept for tables that become partly sync-writable.
-COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {}
+# rejected.
+COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
+    "clients": frozenset({"stripe_customer_id"}),  # set by the payments command, never by a client
+}
 
 
 def _coerce(table: Table, data: dict[str, object]) -> dict[str, object]:
