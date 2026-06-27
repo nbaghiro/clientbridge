@@ -14,9 +14,10 @@ backend phases) and follows the same data-dependency order; here we add the web/
 ## The within-slice rhythm (the pattern slice 1 established)
 1. **Backend** — model (if new) → migration → service/command → `api/v1` router + DTOs → tests → `make gen-api`.
 2. **Sync** — add the table(s) to `infra/powersync/sync-rules.yaml` → `make gen-sync-schema`.
-3. **Web** — page(s) under `apps/web/src/pages` + components; read via `useQuery` (local PowerSync), write via the typed api-client → syncs back.
-4. **Mobile** — screen(s) under `apps/mobile/src/screens`; same read/write pattern.
+3. **Web** — page(s) under `apps/web/src/pages` + components; read via `useQuery` (local PowerSync), write via the typed api-client → syncs back. **Put UI-agnostic logic (row types, query hooks, mutations, formatters) in `@clientbridge/app-core`, not in the screen.**
+4. **Mobile** — screen(s) under `apps/mobile/src/screens`; same read/write pattern, importing the same `@clientbridge/app-core`; only the markup differs.
 5. **Verify + commit** (lint/tsc/tests green; screenshot mobile; reload web).
+6. **Audit at the slice/phase boundary** — before starting the next slice, review the changeset against the principles (layering · the 5 surfaces · role gates vs `WRITE_POLICY` · the 4-part test matrix · web↔mobile duplication · stray comments) and fix High/Medium findings then. See `CLAUDE.md` → "Milestone audit". (The Catalog & Tax audit caught an unguarded REST write + a router doing raw queries.)
 
 Every slice clears the 4-part test matrix (happy · each 4xx · security invariants · idempotency/edge)
 and keeps the 90% branch-coverage gate. Read local, write via command/sync — the server is the source

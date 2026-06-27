@@ -37,6 +37,14 @@ mobile) · `infra/` · `.docs/`.
 - Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **mypy strict** (no `Any`).
   Frontend: eslint strictTypeChecked + tsc strict + prettier (4-space · double · 100).
 - Gate: `ruff check . && ruff format --check . && mypy src scripts tests && pytest --cov…`.
+- **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
+  changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
+  router → service → repo; no raw queries in routers/services); the **5 surfaces** (sync-write vs
+  command) chosen correctly; **role gates** match `WRITE_POLICY` + the **4-part test matrix** is cleared
+  (happy · each 4xx · security/tenant-isolation · idempotency); **web↔mobile duplication** (share the
+  UI-agnostic data layer via `@clientbridge/app-core`, keep only rendering platform-specific); stray
+  comments. The Catalog & Tax audit (2026-06-26) caught an unguarded REST write + a router running raw
+  queries — exactly the class of thing this pass exists to catch.
 - **Comments: sparing — the default is no comment.** We are not fans of extensive commenting; prefer self-documenting code (clear names) over prose. Add a comment *only* for a non-obvious *why* or an invariant, and keep it to one line. Never narrate *what* the code does, restate types, summarize a function the name already conveys, or write multi-clause block/file-header comments on routine code.
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
