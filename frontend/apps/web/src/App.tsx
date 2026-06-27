@@ -7,6 +7,7 @@ import { DebugPanel } from "./components/DebugPanel";
 import { Login } from "./components/Login";
 import { clearTokens, getAccessToken, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
+import { Calendar } from "./pages/Calendar";
 import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
 import { Placeholder } from "./pages/Placeholder";
@@ -43,7 +44,7 @@ export function App() {
                     <Route element={<AppShell onSignOut={() => void onSignOut()} />}>
                         <Route index element={<Navigate to="/clients" replace />} />
                         <Route path="home" element={<Placeholder title="Home" />} />
-                        <Route path="calendar" element={<Placeholder title="Calendar" />} />
+                        <Route path="calendar" element={<Calendar />} />
                         <Route path="clients" element={<Clients />} />
                         <Route path="inbox" element={<Placeholder title="Inbox" />} />
                         <Route path="invoices" element={<Placeholder title="Invoices" />} />
