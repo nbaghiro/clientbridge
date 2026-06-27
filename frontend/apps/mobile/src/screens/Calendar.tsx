@@ -1,13 +1,16 @@
 import {
     type CalendarEvent,
+    type PositionedEvent,
     addDays,
     dateKey,
     dayBounds,
+    dragToStart,
     formatHour,
     formatTime,
     formatWeekday,
     groupByDay,
     layoutDay,
+    rescheduleBooking,
     sameDay,
     setBookingStatus,
     startOfDay,
@@ -15,8 +18,17 @@ import {
     weekColumns,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import {
+    Animated,
+    Modal,
+    PanResponder,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "../lib/api";
@@ -203,6 +215,13 @@ function DayGrid({
     const showNow = sameDay(anchor, now);
     const nowTop = (now.getHours() * 60 + now.getMinutes()) * PX_PER_MIN - offsetPx;
 
+    const reschedule = (event: CalendarEvent, deltaY: number): void => {
+        if (event.bookingId === null) return;
+        const newStart = dragToStart(event.start, deltaY, PX_PER_MIN);
+        if (newStart.getTime() === event.start.getTime()) return;
+        void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
+    };
+
     return (
         <ScrollView contentContainerStyle={{ flexDirection: "row", paddingBottom: 24 }}>
             <View style={{ width: GUTTER }}>
@@ -216,52 +235,107 @@ function DayGrid({
                 {hours.map((h, i) => (
                     <View key={h} style={[styles.hourLine, { top: i * HOUR_PX }]} />
                 ))}
-                {positioned.map((pe) => {
-                    const sc = statusColors(pe.event.status);
-                    return (
-                        <View
-                            key={pe.event.id}
-                            style={{
-                                position: "absolute",
-                                top: pe.topPx - offsetPx,
-                                height: pe.heightPx,
-                                left: `${pe.leftPct}%`,
-                                width: `${pe.widthPct}%`,
-                                paddingHorizontal: 2,
-                            }}
-                        >
-                            <Pressable
-                                onPress={() => {
-                                    onEventPress(pe.event);
-                                }}
-                                style={[
-                                    styles.event,
-                                    { backgroundColor: sc.bg, borderLeftColor: sc.border },
-                                ]}
-                            >
-                                <Text
-                                    style={[styles.eventTitle, { color: sc.fg }]}
-                                    numberOfLines={1}
-                                >
-                                    {eventLabel(pe.event)}
-                                </Text>
-                                {pe.heightPx > 32 ? (
-                                    <Text
-                                        style={[styles.eventSub, { color: sc.fg }]}
-                                        numberOfLines={1}
-                                    >
-                                        {formatTime(pe.event.start)} · {pe.event.title}
-                                    </Text>
-                                ) : null}
-                            </Pressable>
-                        </View>
-                    );
-                })}
+                {positioned.map((pe) => (
+                    <DraggableEvent
+                        key={pe.event.id}
+                        pe={pe}
+                        offsetPx={offsetPx}
+                        onTap={onEventPress}
+                        onReschedule={reschedule}
+                    />
+                ))}
                 {showNow && nowTop >= 0 && nowTop <= gridHeight ? (
                     <View style={[styles.nowLine, { top: nowTop }]} />
                 ) : null}
             </View>
         </ScrollView>
+    );
+}
+
+function DraggableEvent({
+    pe,
+    offsetPx,
+    onTap,
+    onReschedule,
+}: {
+    pe: PositionedEvent;
+    offsetPx: number;
+    onTap: (e: CalendarEvent) => void;
+    onReschedule: (e: CalendarEvent, deltaY: number) => void;
+}) {
+    const { event, topPx, heightPx, leftPct, widthPct } = pe;
+    const sc = statusColors(event.status);
+    const pan = useRef(new Animated.Value(0)).current;
+    const startedAt = useRef(0);
+    const [dragging, setDragging] = useState(false);
+    // Keep the latest props for the responder, which is created once.
+    const latest = useRef({ event, onReschedule });
+    latest.current = { event, onReschedule };
+    const snapStep = 5 * PX_PER_MIN;
+
+    const responder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => {
+                startedAt.current = Date.now();
+                return false;
+            },
+            // Grab only after a long-press (so a quick scroll stays with the ScrollView).
+            onMoveShouldSetPanResponderCapture: (_e, g) =>
+                latest.current.event.bookingId !== null &&
+                Date.now() - startedAt.current > 250 &&
+                Math.abs(g.dy) > 4,
+            onPanResponderGrant: () => {
+                setDragging(true);
+            },
+            onPanResponderMove: (_e, g) => {
+                pan.setValue(Math.round(g.dy / snapStep) * snapStep);
+            },
+            onPanResponderRelease: (_e, g) => {
+                setDragging(false);
+                pan.setValue(0);
+                latest.current.onReschedule(latest.current.event, g.dy);
+            },
+            onPanResponderTerminate: () => {
+                setDragging(false);
+                pan.setValue(0);
+            },
+        }),
+    ).current;
+
+    return (
+        <Animated.View
+            {...responder.panHandlers}
+            style={{
+                position: "absolute",
+                top: topPx - offsetPx,
+                height: heightPx,
+                left: `${leftPct}%`,
+                width: `${widthPct}%`,
+                paddingHorizontal: 2,
+                transform: [{ translateY: pan }],
+                zIndex: dragging ? 10 : 1,
+            }}
+        >
+            <Pressable
+                onPress={() => {
+                    onTap(event);
+                }}
+                style={[
+                    styles.event,
+                    { backgroundColor: sc.bg, borderLeftColor: sc.border },
+                    dragging && styles.eventDragging,
+                ]}
+            >
+                <Text style={[styles.eventTitle, { color: sc.fg }]} numberOfLines={1}>
+                    {eventLabel(event)}
+                </Text>
+                {heightPx > 32 ? (
+                    <Text style={[styles.eventSub, { color: sc.fg }]} numberOfLines={1}>
+                        {formatTime(event.start)} · {event.title}
+                    </Text>
+                ) : null}
+            </Pressable>
+        </Animated.View>
     );
 }
 
@@ -378,6 +452,13 @@ const styles = StyleSheet.create({
         paddingHorizontal: 6,
         paddingVertical: 3,
         overflow: "hidden",
+    },
+    eventDragging: {
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 6,
     },
     eventTitle: { fontSize: 12, fontWeight: "600" },
     eventSub: { fontSize: 11, opacity: 0.8, marginTop: 1 },
