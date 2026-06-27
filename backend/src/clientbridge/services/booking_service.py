@@ -15,6 +15,7 @@ from clientbridge.models.scheduling import Booking, Session
 from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch
 
 _OVERLAP = "that staff member is already booked at that time"
+_TERMINAL = frozenset({"completed", "canceled", "no_show"})
 
 
 def _to_out(booking: Booking, session: Session) -> BookingOut:
@@ -99,6 +100,13 @@ class BookingService:
         self._assert_can_act_as(booking.staff_id)
         session = await self._session(booking.session_id)
 
+        # A terminal booking is frozen — only an idempotent re-set of the same status is allowed.
+        if booking.status in _TERMINAL and (
+            data.starts_at is not None
+            or (data.status is not None and data.status != booking.status)
+        ):
+            raise Conflict(f"a {booking.status} booking can't be modified")
+
         async def run(cmd: Command) -> BookingOut:
             if data.starts_at is not None:
                 duration = session.ends_at - session.starts_at
@@ -157,7 +165,11 @@ class BookingService:
     async def _item(self, item_id: str) -> Item:
         row = (
             await self.db.execute(
-                select(Item).where(Item.id == item_id, Item.business_id == self.biz)
+                select(Item).where(
+                    Item.id == item_id,
+                    Item.business_id == self.biz,
+                    Item.active.is_(True),
+                )
             )
         ).scalar_one_or_none()
         if row is None:
@@ -181,7 +193,11 @@ class BookingService:
     async def _staff(self, staff_id: str) -> Staff:
         row = (
             await self.db.execute(
-                select(Staff).where(Staff.id == staff_id, Staff.business_id == self.biz)
+                select(Staff).where(
+                    Staff.id == staff_id,
+                    Staff.business_id == self.biz,
+                    Staff.status == "active",
+                )
             )
         ).scalar_one_or_none()
         if row is None:

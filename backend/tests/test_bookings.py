@@ -170,3 +170,40 @@ async def test_zero_duration_item_is_422(as_owner: httpx.AsyncClient, db: AsyncS
         "/v1/bookings", json=_body(client_id, product.id, "2027-04-06T10:00:00Z")
     )
     assert res.status_code == 422
+
+
+async def test_inactive_item_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    client_id, _ = await _client_and_item(db)
+    retired = Item(
+        id=new_id("item"),
+        business_id="bz_birchbark",
+        kind="service",
+        name="Retired Service",
+        price_cents=5000,
+        currency="CAD",
+        duration_min=60,
+        active=False,
+    )
+    db.add(retired)
+    await db.flush()
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, retired.id, "2027-05-01T10:00:00Z")
+    )
+    assert res.status_code == 404
+
+
+async def test_cannot_modify_terminal_booking(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    client_id, item_id = await _client_and_item(db)
+    bid = (
+        await as_owner.post("/v1/bookings", json=_body(client_id, item_id, "2027-05-02T10:00:00Z"))
+    ).json()["id"]
+    await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+    moved = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-05-02T14:00:00Z"})
+    assert moved.status_code == 409
+
+
+async def test_patch_unknown_booking_404(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch("/v1/bookings/bk_nope", json={"status": "canceled"})
+    assert res.status_code == 404

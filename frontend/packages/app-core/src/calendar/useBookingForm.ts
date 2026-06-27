@@ -41,7 +41,8 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
             clientId.length === 0 ||
             itemId.length === 0 ||
             effStaff.length === 0 ||
-            startsAt === null
+            startsAt === null ||
+            Number.isNaN(startsAt.getTime())
         ) {
             setError("Pick a client, service, and time.");
             return;
@@ -52,9 +53,11 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
             await createBooking(api, { clientId, itemId, staffId: effStaff, startsAt });
             setClientId("");
             setItemId("");
+            setError(null);
             onCreated();
         } catch {
             setError("Could not book — that time may already be taken.");
+        } finally {
             setBusy(false);
         }
     };
