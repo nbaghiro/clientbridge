@@ -31,6 +31,7 @@ import {
     type FormEvent,
     type PointerEvent as ReactPointerEvent,
     type ReactNode,
+    useLayoutEffect,
     useRef,
     useState,
 } from "react";
@@ -38,7 +39,7 @@ import {
 import { api } from "../lib/api";
 
 const HOUR_PX = 48;
-const PX_PER_MIN = HOUR_PX / 60;
+const MIN_HOUR_PX = 44;
 
 const VIEWS: { key: CalendarView; label: string }[] = [
     { key: "day", label: "Day" },
@@ -266,15 +267,33 @@ function TimeGrid({
     onEventClick: (e: CalendarEvent) => void;
 }) {
     const { startHour, endHour } = dayBounds(allEvents);
-    const offsetPx = startHour * 60 * PX_PER_MIN;
-    const gridHeight = (endHour - startHour) * HOUR_PX;
-    const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
+    const numHours = endHour - startHour;
+    const hours = Array.from({ length: numHours }, (_, i) => startHour + i);
+    const bodyRef = useRef<HTMLDivElement>(null);
+    const [bodyH, setBodyH] = useState(0);
+    useLayoutEffect(() => {
+        const el = bodyRef.current;
+        if (el === null) return;
+        const measure = (): void => {
+            setBodyH(el.clientHeight);
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(el);
+        return () => {
+            ro.disconnect();
+        };
+    }, []);
+    const hourPx = bodyH > 0 ? Math.max(MIN_HOUR_PX, bodyH / numHours) : HOUR_PX;
+    const pxPerMin = hourPx / 60;
+    const offsetPx = startHour * 60 * pxPerMin;
+    const gridHeight = numHours * hourPx;
     const now = new Date();
-    const nowTop = (now.getHours() * 60 + now.getMinutes()) * PX_PER_MIN - offsetPx;
+    const nowTop = (now.getHours() * 60 + now.getMinutes()) * pxPerMin - offsetPx;
 
     const reschedule = (event: CalendarEvent, deltaY: number): void => {
         if (event.bookingId === null) return;
-        const newStart = dragToStart(event.start, deltaY, PX_PER_MIN);
+        const newStart = dragToStart(event.start, deltaY, pxPerMin);
         if (newStart.getTime() === event.start.getTime()) return;
         void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
     };
@@ -293,12 +312,12 @@ function TimeGrid({
                 ))}
             </div>
 
-            <div className="flex min-h-0 flex-1 overflow-auto">
+            <div ref={bodyRef} className="flex min-h-0 flex-1 overflow-auto">
                 <div className="w-14 shrink-0">
                     {hours.map((h) => (
                         <div
                             key={h}
-                            style={{ height: HOUR_PX }}
+                            style={{ height: hourPx }}
                             className="relative -top-2 pr-2 text-right text-xs text-muted"
                         >
                             {formatHour(h)}
@@ -308,7 +327,7 @@ function TimeGrid({
                 {lanes.map((lane) => {
                     const positioned = layoutDay(lane.events, {
                         dayStart: lane.dayStart,
-                        pxPerMin: PX_PER_MIN,
+                        pxPerMin,
                     });
                     return (
                         <div
@@ -320,7 +339,7 @@ function TimeGrid({
                                 <div
                                     key={h}
                                     className="absolute inset-x-0 border-t border-line/60"
-                                    style={{ top: i * HOUR_PX }}
+                                    style={{ top: i * hourPx }}
                                 />
                             ))}
                             {positioned.map((pe) => (
@@ -328,7 +347,7 @@ function TimeGrid({
                                     key={pe.event.id}
                                     pe={pe}
                                     offsetPx={offsetPx}
-                                    pxPerMin={PX_PER_MIN}
+                                    pxPerMin={pxPerMin}
                                     onClick={() => {
                                         onEventClick(pe.event);
                                     }}
