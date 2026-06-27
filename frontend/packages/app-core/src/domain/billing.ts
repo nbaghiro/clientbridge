@@ -1,5 +1,7 @@
 import { useQuery } from "@powersync/react";
+import { useState } from "react";
 
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/intent";
@@ -244,4 +246,86 @@ export function toLineInputs(drafts: DraftLine[]): LineInput[] {
 
 export function lineSubtotalCents(lines: LineInput[]): number {
     return lines.reduce((s, l) => s + Math.round(l.quantity * l.unit_amount_cents), 0);
+}
+
+export interface KeyedLine extends DraftLine {
+    key: string;
+}
+
+let lineSeq = 0;
+const blankLine = (): KeyedLine => ({
+    key: `l${(lineSeq += 1)}`,
+    description: "",
+    quantity: "1",
+    unit: "",
+});
+
+export interface DocForm {
+    clientId: string;
+    setClientId: (v: string) => void;
+    lines: KeyedLine[];
+    setLine: (key: string, patch: Partial<DraftLine>) => void;
+    addLine: () => void;
+    removeLine: (key: string) => void;
+    notes: string;
+    setNotes: (v: string) => void;
+    subtotalCents: number;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+}
+
+/** Shared invoice/estimate builder: client + keyed draft lines + notes + validation + submit.
+ *  The platform owns only the row/select widgets. */
+export function useDocForm(
+    api: ApiLike,
+    kind: "invoice" | "estimate",
+    onCreated: () => void,
+): DocForm {
+    const [clientId, setClientId] = useState("");
+    const [lines, setLines] = useState<KeyedLine[]>([blankLine()]);
+    const [notes, setNotes] = useState("");
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const setLine = (key: string, patch: Partial<DraftLine>): void => {
+        setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+    };
+    const addLine = (): void => {
+        setLines((ls) => [...ls, blankLine()]);
+    };
+    const removeLine = (key: string): void => {
+        setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : ls));
+    };
+
+    const subtotalCents = lineSubtotalCents(toLineInputs(lines));
+
+    const submit = (): void => {
+        const payload = toLineInputs(lines);
+        if (clientId.length === 0 || payload.length === 0) {
+            setError("Pick a client and add at least one line.");
+            return;
+        }
+        void run(
+            () =>
+                kind === "invoice"
+                    ? createInvoice(api, clientId, payload, notes)
+                    : createEstimate(api, clientId, payload, notes),
+            { onSuccess: onCreated, errorMessage: "Could not save — please try again." },
+        );
+    };
+
+    return {
+        clientId,
+        setClientId,
+        lines,
+        setLine,
+        addLine,
+        removeLine,
+        notes,
+        setNotes,
+        subtotalCents,
+        busy,
+        error,
+        submit,
+    };
 }

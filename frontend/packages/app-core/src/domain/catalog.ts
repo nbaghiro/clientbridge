@@ -1,5 +1,7 @@
 import { useQuery } from "@powersync/react";
+import { useState } from "react";
 
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 
@@ -56,4 +58,73 @@ export function createItem(api: ApiLike, input: ItemInput): Promise<{ id: string
         duration_min: input.durationMin ? Number(input.durationMin) : null,
         category: blankToNull(input.category),
     });
+}
+
+export interface ItemForm {
+    kind: string;
+    setKind: (v: string) => void;
+    name: string;
+    setName: (v: string) => void;
+    price: string;
+    setPrice: (v: string) => void;
+    duration: string;
+    setDuration: (v: string) => void;
+    category: string;
+    setCategory: (v: string) => void;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+}
+
+/** Shared add-item form: field state + validation + submit; the platform owns only the inputs. */
+export function useItemForm(api: ApiLike, onCreated: () => void): ItemForm {
+    const [kind, setKind] = useState("service");
+    const [name, setName] = useState("");
+    const [price, setPrice] = useState("");
+    const [duration, setDuration] = useState("");
+    const [category, setCategory] = useState("");
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const submit = (): void => {
+        if (name.trim().length === 0) {
+            setError("Name is required");
+            return;
+        }
+        void run(
+            () =>
+                createItem(api, {
+                    kind,
+                    name,
+                    priceDollars: price,
+                    durationMin: duration,
+                    category,
+                }),
+            {
+                onSuccess: () => {
+                    setName("");
+                    setPrice("");
+                    setDuration("");
+                    setCategory("");
+                    onCreated();
+                },
+                errorMessage: "Could not add item",
+            },
+        );
+    };
+
+    return {
+        kind,
+        setKind,
+        name,
+        setName,
+        price,
+        setPrice,
+        duration,
+        setDuration,
+        category,
+        setCategory,
+        busy,
+        error,
+        submit,
+    };
 }
