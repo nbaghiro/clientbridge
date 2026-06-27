@@ -34,7 +34,7 @@ function statusColors(status: string): { bg: string; fg: string; border: string 
         case "no_show":
             return { bg: c.danBg, fg: c.danFg, border: c.danFg };
         case "confirmed":
-            return { bg: c.accentWeak, fg: c.accentInk, border: c.accent };
+            return { bg: c.accentWeak, fg: c.accentStrong, border: c.accent };
         default:
             return { bg: c.surface, fg: c.ink, border: c.border };
     }

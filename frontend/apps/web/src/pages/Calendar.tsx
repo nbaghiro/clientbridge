@@ -31,7 +31,7 @@ const VIEWS: { key: CalendarView; label: string }[] = [
 ];
 
 const STATUS_CLASS: Record<string, string> = {
-    confirmed: "border-accent bg-accent-weak text-accent-ink",
+    confirmed: "border-accent bg-accent-weak text-accent-strong",
     completed: "border-ok bg-ok-bg text-ok-fg",
     pending: "border-warn bg-warn-bg text-warn-fg",
     no_show: "border-danger bg-surface text-danger",
