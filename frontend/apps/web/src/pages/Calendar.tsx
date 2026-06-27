@@ -1,9 +1,9 @@
 import {
     type CalendarEvent,
+    type CalendarIntent,
     type CalendarView,
     type StaffRow,
     addDays,
-    createBooking,
     dateKey,
     dayBounds,
     dayColumns,
@@ -14,6 +14,7 @@ import {
     formatWeekday,
     groupByDay,
     layoutDay,
+    minutesSinceMidnight,
     monthMatrix,
     rescheduleByDrag,
     sameDay,
@@ -21,9 +22,9 @@ import {
     staffLabel,
     startOfDay,
     startOfMonth,
+    statusIntent,
+    useBookingForm,
     useCalendarEvents,
-    useCatalogItems,
-    useClients,
     useStaff,
     weekColumns,
 } from "@clientbridge/app-core";
@@ -57,21 +58,23 @@ interface Lane {
     isToday: boolean;
 }
 
-const STATUS_CLASS: Record<string, string> = {
-    confirmed: "border-accent bg-accent-weak text-accent-strong",
-    completed: "border-ok bg-ok-bg text-ok-fg",
-    pending: "border-warn bg-warn-bg text-warn-fg",
-    no_show: "border-danger bg-surface text-danger",
+const INTENT_CLASS: Record<CalendarIntent, string> = {
+    accent: "border-accent bg-accent-weak text-accent-strong",
+    success: "border-ok bg-ok-bg text-ok-fg",
+    warning: "border-warn bg-warn-bg text-warn-fg",
+    danger: "border-danger bg-surface text-danger",
+    neutral: "border-line bg-surface text-ink",
 };
-const statusClass = (s: string): string => STATUS_CLASS[s] ?? "border-line bg-surface text-ink";
+const statusClass = (s: string): string => INTENT_CLASS[statusIntent(s)];
 
-const STATUS_DOT: Record<string, string> = {
-    confirmed: "bg-accent",
-    completed: "bg-ok",
-    pending: "bg-warn",
-    no_show: "bg-danger",
+const INTENT_DOT: Record<CalendarIntent, string> = {
+    accent: "bg-accent",
+    success: "bg-ok",
+    warning: "bg-warn",
+    danger: "bg-danger",
+    neutral: "bg-line",
 };
-const dotClass = (s: string): string => STATUS_DOT[s] ?? "bg-line";
+const dotClass = (s: string): string => INTENT_DOT[statusIntent(s)];
 
 function viewColumns(view: CalendarView, anchor: Date): Date[] {
     if (view === "day") return [startOfDay(anchor)];
@@ -287,7 +290,7 @@ function TimeGrid({
     const offsetPx = startHour * 60 * pxPerMin;
     const gridHeight = numHours * hourPx;
     const now = new Date();
-    const nowTop = (now.getHours() * 60 + now.getMinutes()) * pxPerMin - offsetPx;
+    const nowTop = minutesSinceMidnight(now) * pxPerMin - offsetPx;
 
     const reschedule = (event: CalendarEvent, deltaY: number): void => {
         rescheduleByDrag(api, event, deltaY, pxPerMin);
@@ -604,61 +607,30 @@ const fieldClass =
     "mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none";
 
 function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => void }) {
-    const clients = useClients();
-    const items = useCatalogItems();
-    const staff = useStaff();
-    const [clientId, setClientId] = useState("");
-    const [itemId, setItemId] = useState("");
-    const [staffId, setStaffId] = useState("");
+    const form = useBookingForm(api, onClose);
     const [date, setDate] = useState(() => dateKey(anchor));
     const [time, setTime] = useState("09:00");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    const effStaff = staffId.length > 0 ? staffId : (staff.at(0)?.id ?? "");
-
-    const submit = async (e: FormEvent): Promise<void> => {
+    const submit = (e: FormEvent): void => {
         e.preventDefault();
-        if (clientId.length === 0 || itemId.length === 0 || effStaff.length === 0) {
-            setError("Pick a client, service, and staff member.");
-            return;
-        }
-        setBusy(true);
-        setError(null);
-        try {
-            await createBooking(api, {
-                clientId,
-                itemId,
-                staffId: effStaff,
-                startsAt: new Date(`${date}T${time}`),
-            });
-            onClose();
-        } catch {
-            setError("Could not book — that time may already be taken.");
-            setBusy(false);
-        }
+        void form.submit(new Date(`${date}T${time}`));
     };
 
     return (
         <Overlay onClose={onClose}>
-            <form
-                onSubmit={(e) => {
-                    void submit(e);
-                }}
-                className="space-y-3"
-            >
+            <form onSubmit={submit} className="space-y-3">
                 <h2 className="text-lg font-semibold text-ink">New booking</h2>
                 <label className="block">
                     <span className="text-sm text-muted">Client</span>
                     <select
-                        value={clientId}
+                        value={form.clientId}
                         onChange={(e) => {
-                            setClientId(e.target.value);
+                            form.setClientId(e.target.value);
                         }}
                         className={fieldClass}
                     >
                         <option value="">Select a client</option>
-                        {clients.map((cl) => (
+                        {form.clients.map((cl) => (
                             <option key={cl.id} value={cl.id}>
                                 {cl.name}
                             </option>
@@ -668,31 +640,31 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                 <label className="block">
                     <span className="text-sm text-muted">Service</span>
                     <select
-                        value={itemId}
+                        value={form.itemId}
                         onChange={(e) => {
-                            setItemId(e.target.value);
+                            form.setItemId(e.target.value);
                         }}
                         className={fieldClass}
                     >
                         <option value="">Select a service</option>
-                        {items.map((it) => (
+                        {form.items.map((it) => (
                             <option key={it.id} value={it.id}>
                                 {it.name}
                             </option>
                         ))}
                     </select>
                 </label>
-                {staff.length > 1 ? (
+                {form.staff.length > 1 ? (
                     <label className="block">
                         <span className="text-sm text-muted">Staff</span>
                         <select
-                            value={effStaff}
+                            value={form.effStaff}
                             onChange={(e) => {
-                                setStaffId(e.target.value);
+                                form.setStaffId(e.target.value);
                             }}
                             className={fieldClass}
                         >
-                            {staff.map((s) => (
+                            {form.staff.map((s) => (
                                 <option key={s.id} value={s.id}>
                                     {staffLabel(s)}
                                 </option>
@@ -724,7 +696,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         />
                     </label>
                 </div>
-                {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+                {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
                 <div className="flex justify-end gap-2 pt-1">
                     <button
                         type="button"
@@ -735,10 +707,10 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                     </button>
                     <button
                         type="submit"
-                        disabled={busy}
+                        disabled={form.busy}
                         className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong disabled:opacity-50"
                     >
-                        {busy ? "Booking…" : "Book"}
+                        {form.busy ? "Booking…" : "Book"}
                     </button>
                 </div>
             </form>
@@ -746,13 +718,14 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
     );
 }
 
-const DETAIL_BADGE: Record<string, string> = {
-    confirmed: "bg-accent-weak text-accent-strong",
-    completed: "bg-ok-bg text-ok-fg",
-    pending: "bg-warn-bg text-warn-fg",
-    canceled: "bg-bg text-muted",
-    no_show: "bg-surface text-danger",
+const INTENT_BADGE: Record<CalendarIntent, string> = {
+    accent: "bg-accent-weak text-accent-strong",
+    success: "bg-ok-bg text-ok-fg",
+    warning: "bg-warn-bg text-warn-fg",
+    danger: "bg-surface text-danger",
+    neutral: "bg-bg text-muted",
 };
+const badgeClass = (s: string): string => INTENT_BADGE[statusIntent(s)];
 
 function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
     const [busy, setBusy] = useState(false);
@@ -780,7 +753,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                         ) : null}
                     </div>
                     <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${DETAIL_BADGE[event.status] ?? "bg-bg text-ink"}`}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(event.status)}`}
                     >
                         {event.status}
                     </span>

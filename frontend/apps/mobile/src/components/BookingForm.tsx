@@ -1,10 +1,4 @@
-import {
-    createBooking,
-    staffLabel,
-    useCatalogItems,
-    useClients,
-    useStaff,
-} from "@clientbridge/app-core";
+import { staffLabel, useBookingForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -36,47 +30,19 @@ const TIMES = Array.from({ length: 24 }, (_, i) => {
 });
 
 export function BookingForm({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    const clients = useClients();
-    const items = useCatalogItems();
-    const staff = useStaff();
+    const form = useBookingForm(api, onClose);
     const days = nextDays(14);
-
-    const [clientId, setClientId] = useState("");
-    const [itemId, setItemId] = useState("");
-    const [staffId, setStaffId] = useState("");
     const [dayIdx, setDayIdx] = useState(0);
     const [timeIdx, setTimeIdx] = useState<number | null>(null);
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    const effStaff = staffId.length > 0 ? staffId : (staff.at(0)?.id ?? "");
-
-    const submit = async (): Promise<void> => {
+    const submit = (): void => {
         const time = timeIdx !== null ? TIMES[timeIdx] : undefined;
         const day = days[dayIdx];
-        if (
-            clientId.length === 0 ||
-            itemId.length === 0 ||
-            effStaff.length === 0 ||
-            !time ||
-            !day
-        ) {
-            setError("Pick a client, service, and time.");
-            return;
-        }
-        setBusy(true);
-        setError(null);
-        const startsAt = new Date(day.getFullYear(), day.getMonth(), day.getDate(), time.h, time.m);
-        try {
-            await createBooking(api, { clientId, itemId, staffId: effStaff, startsAt });
-            setClientId("");
-            setItemId("");
-            setTimeIdx(null);
-            onClose();
-        } catch {
-            setError("Could not book — that time may already be taken.");
-            setBusy(false);
-        }
+        const startsAt =
+            time && day
+                ? new Date(day.getFullYear(), day.getMonth(), day.getDate(), time.h, time.m)
+                : null;
+        void form.submit(startsAt);
     };
 
     return (
@@ -86,38 +52,38 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                     <Text style={styles.title}>New booking</Text>
                     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
                         <Section label="Client">
-                            {clients.map((cl) => (
+                            {form.clients.map((cl) => (
                                 <Chip
                                     key={cl.id}
                                     label={cl.name}
-                                    on={clientId === cl.id}
+                                    on={form.clientId === cl.id}
                                     onPress={() => {
-                                        setClientId(cl.id);
+                                        form.setClientId(cl.id);
                                     }}
                                 />
                             ))}
                         </Section>
                         <Section label="Service">
-                            {items.map((it) => (
+                            {form.items.map((it) => (
                                 <Chip
                                     key={it.id}
                                     label={it.name}
-                                    on={itemId === it.id}
+                                    on={form.itemId === it.id}
                                     onPress={() => {
-                                        setItemId(it.id);
+                                        form.setItemId(it.id);
                                     }}
                                 />
                             ))}
                         </Section>
-                        {staff.length > 1 ? (
+                        {form.staff.length > 1 ? (
                             <Section label="Staff">
-                                {staff.map((s) => (
+                                {form.staff.map((s) => (
                                     <Chip
                                         key={s.id}
                                         label={staffLabel(s)}
-                                        on={effStaff === s.id}
+                                        on={form.effStaff === s.id}
                                         onPress={() => {
-                                            setStaffId(s.id);
+                                            form.setStaffId(s.id);
                                         }}
                                     />
                                 ))}
@@ -148,19 +114,17 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                             ))}
                         </Section>
                     </ScrollView>
-                    {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+                    {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
                     <View style={styles.actions}>
                         <Pressable onPress={onClose} style={styles.cancelBtn}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </Pressable>
                         <Pressable
-                            onPress={() => {
-                                void submit();
-                            }}
-                            disabled={busy}
-                            style={[styles.bookBtn, busy && styles.dim]}
+                            onPress={submit}
+                            disabled={form.busy}
+                            style={[styles.bookBtn, form.busy && styles.dim]}
                         >
-                            <Text style={styles.bookText}>{busy ? "Booking…" : "Book"}</Text>
+                            <Text style={styles.bookText}>{form.busy ? "Booking…" : "Book"}</Text>
                         </Pressable>
                     </View>
                 </View>
