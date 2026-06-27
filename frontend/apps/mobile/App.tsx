@@ -16,6 +16,7 @@ import { CalendarScreen } from "./src/screens/Calendar";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
 import { HomeScreen } from "./src/screens/Home";
+import { InvoicesScreen } from "./src/screens/Invoices";
 import { LoginScreen } from "./src/screens/Login";
 import { ComingSoon, InboxScreen } from "./src/screens/Placeholder";
 import { SettingsScreen } from "./src/screens/Settings";
@@ -139,7 +140,7 @@ function Root() {
                         />
                         <RootStack.Screen
                             name="Invoices"
-                            component={ComingSoon}
+                            component={InvoicesScreen}
                             options={{ title: "Invoices" }}
                         />
                     </RootStack.Group>

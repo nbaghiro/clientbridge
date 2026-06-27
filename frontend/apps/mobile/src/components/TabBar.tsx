@@ -93,10 +93,15 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             <IconCalendar size={20} color={theme.colors.accent} />
                             <Text style={styles.menuText}>New booking</Text>
                         </Pressable>
-                        <View style={[styles.menuRow, styles.menuDisabled]}>
-                            <IconInbox size={20} color={theme.colors.muted} />
-                            <Text style={styles.menuTextDisabled}>New invoice · soon</Text>
-                        </View>
+                        <Pressable
+                            style={styles.menuRow}
+                            onPress={() => {
+                                go("Invoices");
+                            }}
+                        >
+                            <IconInbox size={20} color={theme.colors.accent} />
+                            <Text style={styles.menuText}>Invoices</Text>
+                        </Pressable>
                     </View>
                 </Pressable>
             </Modal>

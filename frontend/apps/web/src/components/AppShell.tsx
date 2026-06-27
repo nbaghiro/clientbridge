@@ -4,6 +4,7 @@ import {
     IconCalendar,
     IconClients,
     IconInbox,
+    IconInvoices,
     IconLogout,
     IconSettings,
     IconToday,
@@ -14,6 +15,7 @@ const NAV = [
     { to: "/home", label: "Home", Icon: IconToday },
     { to: "/calendar", label: "Calendar", Icon: IconCalendar },
     { to: "/clients", label: "Clients", Icon: IconClients },
+    { to: "/invoices", label: "Invoices", Icon: IconInvoices },
     { to: "/inbox", label: "Inbox", Icon: IconInbox },
 ];
 
