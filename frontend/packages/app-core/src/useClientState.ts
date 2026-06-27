@@ -1,14 +1,16 @@
-import { countsQuery, type TableCount } from "@clientbridge/sync";
+import { type TableCount, countsQuery } from "@clientbridge/sync";
 import { usePowerSync, useStatus } from "@powersync/react";
 import { useCallback, useEffect, useState } from "react";
 
-/** Live view of what this device holds: connection status + per-table row counts from local SQLite. */
-export function useClientState(pollMs = 1500): {
+export interface ClientState {
     status: ReturnType<typeof useStatus>;
     tables: TableCount[];
     totalRows: number;
     refresh: () => Promise<void>;
-} {
+}
+
+/** Live view of what this device holds: connection status + per-table row counts from local SQLite. */
+export function useClientState(pollMs = 1500): ClientState {
     const db = usePowerSync();
     const status = useStatus();
     const [tables, setTables] = useState<TableCount[]>([]);
@@ -24,9 +26,9 @@ export function useClientState(pollMs = 1500): {
 
     useEffect(() => {
         void refresh();
-        const id = window.setInterval(() => void refresh(), pollMs);
+        const id = setInterval(() => void refresh(), pollMs);
         return () => {
-            window.clearInterval(id);
+            clearInterval(id);
         };
     }, [refresh, pollMs, status.lastSyncedAt]);
 

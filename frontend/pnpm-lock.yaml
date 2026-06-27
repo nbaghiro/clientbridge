@@ -204,6 +204,9 @@ importers:
 
   packages/app-core:
     dependencies:
+      '@clientbridge/sync':
+        specifier: workspace:*
+        version: link:../sync
       '@powersync/react':
         specifier: ^1.5.0
         version: 1.10.0(@powersync/common@1.57.0)(react@18.3.1)
