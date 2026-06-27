@@ -3,6 +3,7 @@
 // The write path for synced data goes through PowerSync (@clientbridge/sync); this client is for
 // non-synced/RPC calls (auth, public booking, file uploads, reports, admin actions).
 export type { paths, components } from "./generated";
+export * from "./session";
 
 export interface ApiClientOptions {
     baseUrl: string;

@@ -1,11 +1,12 @@
 import { PowerSyncContext } from "@powersync/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
 import { Login } from "./components/Login";
-import { clearTokens, getAccessToken, isAuthenticated } from "./lib/auth";
+import { api, onSignedOut } from "./lib/api";
+import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
 import { Calendar } from "./pages/Calendar";
 import { Catalog } from "./pages/Catalog";
@@ -17,8 +18,20 @@ import { TaxSettings } from "./pages/TaxSettings";
 export function App() {
     const [authed, setAuthed] = useState(isAuthenticated());
 
+    const handleSignOut = useCallback(async (): Promise<void> => {
+        clearTokens();
+        await signOut();
+        setAuthed(false);
+    }, []);
+
     useEffect(() => {
-        if (authed) void connectPowerSync(() => Promise.resolve(getAccessToken()));
+        onSignedOut(() => {
+            void handleSignOut();
+        });
+    }, [handleSignOut]);
+
+    useEffect(() => {
+        if (authed) void connectPowerSync(api.authFetch);
     }, [authed]);
 
     if (!authed) {
@@ -31,17 +44,11 @@ export function App() {
         );
     }
 
-    const onSignOut = async (): Promise<void> => {
-        clearTokens();
-        await signOut();
-        setAuthed(false);
-    };
-
     return (
         <PowerSyncContext.Provider value={db}>
             <BrowserRouter>
                 <Routes>
-                    <Route element={<AppShell onSignOut={() => void onSignOut()} />}>
+                    <Route element={<AppShell onSignOut={() => void handleSignOut()} />}>
                         <Route index element={<Navigate to="/clients" replace />} />
                         <Route path="home" element={<Placeholder title="Home" />} />
                         <Route path="calendar" element={<Calendar />} />

@@ -1,6 +1,6 @@
-import type { components } from "@clientbridge/api-client";
+import type { TokenPair } from "@clientbridge/api-client";
 
-export type TokenPair = components["schemas"]["TokenPair"];
+export type { TokenPair };
 
 const KEY = "cb_tokens";
 
@@ -15,10 +15,6 @@ export function setTokens(tokens: TokenPair): void {
 
 export function clearTokens(): void {
     localStorage.removeItem(KEY);
-}
-
-export function getAccessToken(): string {
-    return getTokens()?.access_token ?? "";
 }
 
 export function isAuthenticated(): boolean {

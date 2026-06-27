@@ -1,6 +1,7 @@
 import { usePowerSync } from "@powersync/react";
 import { useCallback, useEffect, useState } from "react";
 
+import { api } from "../lib/api";
 import { connectPowerSync, powersyncUrl } from "../lib/powersync";
 import { useClientState } from "../lib/useClientState";
 
@@ -87,7 +88,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
 
     const reconnect = async (): Promise<void> => {
         await db.disconnect();
-        await connectPowerSync();
+        await connectPowerSync(api.authFetch);
     };
 
     const testWrite = async (): Promise<void> => {
