@@ -15,6 +15,8 @@ export interface SessionOptions {
     store: SessionStore;
     /** Called once the session is unrecoverable (refresh failed) — the app should show login. */
     onSignedOut: () => void;
+    /** Optional cross-context lock for the refresh (web: Web Locks; mobile: omit, single instance). */
+    lock?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 export interface Session {
@@ -28,47 +30,61 @@ export interface Session {
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export function createSession(opts: SessionOptions): Session {
+    const runLocked = opts.lock ?? (<T>(fn: () => Promise<T>) => fn());
     let pending: Promise<boolean> | null = null;
 
-    const refresh = async (): Promise<boolean> => {
+    // POST /auth/refresh. Signs out ONLY on a definitive 401/403; a network error or 5xx keeps the
+    // tokens so the request can retry later (a transient blip must not log everyone out + wipe data).
+    const doRefresh = async (): Promise<boolean> => {
         const tokens = await opts.store.get();
         if (tokens === null) return false; // not logged in (e.g. a failed login) — nothing to refresh
+        let res: Response;
         try {
-            const res = await fetch(`${opts.baseUrl}/auth/refresh`, {
+            res = await fetch(`${opts.baseUrl}/auth/refresh`, {
                 method: "POST",
                 headers: JSON_HEADERS,
                 body: JSON.stringify({ refresh_token: tokens.refresh_token }),
             });
-            if (!res.ok) throw new Error(String(res.status));
+        } catch {
+            return false; // network blip — keep tokens
+        }
+        if (res.ok) {
             await opts.store.set((await res.json()) as TokenPair);
             return true;
-        } catch {
+        }
+        if (res.status === 401 || res.status === 403) {
             await opts.store.clear();
             opts.onSignedOut();
-            return false;
         }
+        return false;
     };
 
-    // One in-flight refresh at a time; concurrent 401s await the same attempt.
-    const recover = (): Promise<boolean> => {
-        pending ??= refresh().finally(() => {
+    // Single-flight (in-context) + cross-context serialized (the lock). `staleToken` is the access
+    // token whose request 401'd; if another tab/context already rotated, skip the refresh and retry —
+    // this prevents two contexts replaying the same refresh token (which revokes the whole family).
+    const recover = (staleToken: string): Promise<boolean> => {
+        pending ??= runLocked(async () => {
+            const current = (await opts.store.get())?.access_token ?? "";
+            if (current !== "" && current !== staleToken) return true;
+            return doRefresh();
+        }).finally(() => {
             pending = null;
         });
         return pending;
     };
 
     const authFetch = async (path: string, init: RequestInit = {}): Promise<Response> => {
-        const send = async (): Promise<Response> => {
+        const send = async (): Promise<{ res: Response; token: string }> => {
             const token = (await opts.store.get())?.access_token ?? "";
             const headers: Record<string, string> = {
                 ...(init.headers as Record<string, string> | undefined),
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),
             };
-            return fetch(`${opts.baseUrl}${path}`, { ...init, headers });
+            return { res: await fetch(`${opts.baseUrl}${path}`, { ...init, headers }), token };
         };
-        let res = await send();
-        if (res.status === 401 && (await recover())) res = await send();
-        return res;
+        const first = await send();
+        if (first.res.status === 401 && (await recover(first.token))) return (await send()).res;
+        return first.res;
     };
 
     const json = async <T>(path: string, init?: RequestInit): Promise<T> => {
