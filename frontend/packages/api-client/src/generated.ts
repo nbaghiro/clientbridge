@@ -564,6 +564,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/invoice/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay Invoice */
+        post: operations["pay_invoice_v1_payments_invoice__invoice_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/{payment_id}/refund": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refund Payment */
+        post: operations["refund_payment_v1_payments__payment_id__refund_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tax-rates": {
         parameters: {
             query?: never;
@@ -1146,10 +1180,26 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** PayIntentOut */
+        PayIntentOut: {
+            /** Payment Id */
+            payment_id: string;
+            /** Client Secret */
+            client_secret: string;
+            /** Amount Cents */
+            amount_cents: number;
+        };
         /** RefreshBody */
         RefreshBody: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /** RefundOut */
+        RefundOut: {
+            /** Refund Id */
+            refund_id: string;
+            /** Status */
+            status: string;
         };
         /** RegisterBody */
         RegisterBody: {
@@ -2509,6 +2559,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_invoice_v1_payments_invoice__invoice_id__post: {
+        parameters: {
+            query?: {
+                amount_cents?: number | null;
+            };
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayIntentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refund_payment_v1_payments__payment_id__refund_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundOut"];
                 };
             };
             /** @description Validation Error */

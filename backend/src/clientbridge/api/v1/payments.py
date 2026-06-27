@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, GatewayDep
-from clientbridge.schemas.payments import ConnectStatus, OnboardingLink
+from clientbridge.schemas.payments import ConnectStatus, OnboardingLink, PayIntentOut, RefundOut
 from clientbridge.services.payment_service import PaymentService
 
 router = APIRouter(prefix="/connect", tags=["connect"])
@@ -24,3 +24,27 @@ async def connect_status(
     principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
 ) -> ConnectStatus:
     return await PaymentService(db, principal, gateway).status()
+
+
+pay_router = APIRouter(prefix="/payments", tags=["payments"])
+
+
+@pay_router.post("/invoice/{invoice_id}", response_model=PayIntentOut)
+async def pay_invoice(
+    invoice_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    amount_cents: int | None = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> PayIntentOut:
+    return await PaymentService(db, principal, gateway).pay_invoice(
+        invoice_id, amount_cents, idempotency_key
+    )
+
+
+@pay_router.post("/{payment_id}/refund", response_model=RefundOut)
+async def refund_payment(
+    payment_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> RefundOut:
+    return await PaymentService(db, principal, gateway).refund_payment(payment_id)

@@ -6,11 +6,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Forbidden, NotFound
+from clientbridge.core.errors import Conflict, Forbidden, NotFound
+from clientbridge.core.ids import new_id
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
+from clientbridge.models.billing import Invoice
+from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
+from clientbridge.models.payments import Payment
 from clientbridge.models.platform import WebhookEvent
-from clientbridge.schemas.payments import ConnectStatus, OnboardingLink
+from clientbridge.schemas.payments import ConnectStatus, OnboardingLink, PayIntentOut, RefundOut
 
 
 class PaymentService:
@@ -57,6 +61,111 @@ class PaymentService:
             charges_enabled=business.stripe_charges_enabled,
         )
 
+    async def pay_invoice(
+        self, invoice_id: str, amount_cents: int | None, idempotency_key: str | None
+    ) -> PayIntentOut:
+        self._assert_admin()
+        business = await self._business()
+        if not business.stripe_charges_enabled or business.stripe_account_id is None:
+            raise Conflict("connect your Stripe account before taking payments")
+        account_id = business.stripe_account_id
+        invoice = await self._invoice(invoice_id)
+        if invoice.status in ("paid", "void"):
+            raise Conflict(f"a {invoice.status} invoice can't be charged")
+        if invoice.balance_cents <= 0:
+            raise Conflict("nothing left to pay on this invoice")
+        amount = invoice.balance_cents if amount_cents is None else amount_cents
+        if amount <= 0 or amount > invoice.balance_cents:
+            raise Conflict("invalid payment amount")
+        client = await self._client(invoice.client_id)
+        fee_bps = get_settings().platform_fee_bps
+
+        async def run(cmd: Command) -> PayIntentOut:
+            if client.stripe_customer_id is None:
+                client.stripe_customer_id = await self.gateway.create_customer(
+                    account_id, name=client.name, email=client.email
+                )
+                await self.db.flush()
+            intent = await self.gateway.create_payment_intent(
+                account_id,
+                amount_cents=amount,
+                currency=invoice.currency,
+                customer_id=client.stripe_customer_id,
+                application_fee_cents=amount * fee_bps // 10000,
+                metadata={"invoice_id": invoice.id, "business_id": self.biz},
+            )
+            payment = Payment(
+                id=new_id("payment"),
+                business_id=self.biz,
+                client_id=client.id,
+                kind="payment",
+                invoice_id=invoice.id,
+                amount_cents=amount,
+                currency=invoice.currency,
+                method="card",
+                provider="stripe",
+                provider_ref=intent.id,
+                status="pending",
+            )
+            self.db.add(payment)
+            await self.db.flush()
+            cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
+            return PayIntentOut(
+                payment_id=payment.id, client_secret=intent.client_secret, amount_cents=amount
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment.intent",
+            run=run,
+            response_model=PayIntentOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def refund_payment(self, payment_id: str) -> RefundOut:
+        self._assert_admin()
+        business = await self._business()
+        payment = await self._payment(payment_id)
+        if payment.kind == "refund":
+            raise Conflict("a refund can't be refunded")
+        if payment.status != "succeeded":
+            raise Conflict("only a succeeded payment can be refunded")
+        if business.stripe_account_id is None or payment.provider_ref is None:
+            raise Conflict("payment has no connected charge to refund")
+        account_id = business.stripe_account_id
+        provider_ref = payment.provider_ref
+
+        async def run(cmd: Command) -> RefundOut:
+            result = await self.gateway.refund(
+                account_id, payment_intent_id=provider_ref, amount_cents=payment.amount_cents
+            )
+            refund = Payment(
+                id=new_id("payment"),
+                business_id=self.biz,
+                client_id=payment.client_id,
+                kind="refund",
+                parent_payment_id=payment.id,
+                invoice_id=payment.invoice_id,
+                amount_cents=payment.amount_cents,
+                currency=payment.currency,
+                method=payment.method,
+                provider="stripe",
+                provider_ref=result.id,
+                status="succeeded",
+                paid_at=datetime.now(UTC),
+            )
+            self.db.add(refund)
+            await self.db.flush()
+            if payment.invoice_id is not None:
+                await _reconcile_invoice(self.db, payment.invoice_id)
+            cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
+            return RefundOut(refund_id=refund.id, status=result.status)
+
+        return await run_command(
+            self.db, self.principal, action="payment.refund", run=run, response_model=RefundOut
+        )
+
     def _assert_admin(self) -> None:
         if self.principal.role not in ("owner", "admin"):
             raise Forbidden("only an owner or admin can manage payments")
@@ -65,6 +174,40 @@ class PaymentService:
         row = await self.db.get(Business, self.biz)
         if row is None:
             raise NotFound("business not found")
+        return row
+
+    async def _invoice(self, invoice_id: str) -> Invoice:
+        row = (
+            await self.db.execute(
+                select(Invoice).where(Invoice.id == invoice_id, Invoice.business_id == self.biz)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("invoice not found")
+        return row
+
+    async def _client(self, client_id: str) -> Client:
+        row = (
+            await self.db.execute(
+                select(Client).where(
+                    Client.id == client_id,
+                    Client.business_id == self.biz,
+                    Client.deleted_at.is_(None),
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("client not found")
+        return row
+
+    async def _payment(self, payment_id: str) -> Payment:
+        row = (
+            await self.db.execute(
+                select(Payment).where(Payment.id == payment_id, Payment.business_id == self.biz)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("payment not found")
         return row
 
 
@@ -100,3 +243,63 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> None:
                 .where(Business.stripe_account_id == account_id)
                 .values(stripe_charges_enabled=bool(event.data.get("charges_enabled")))
             )
+    elif event.type == "payment_intent.succeeded":
+        fee = event.data.get("application_fee_amount")
+        await _settle_payment(
+            db, str(event.data.get("id")), fee_cents=int(fee) if isinstance(fee, int) else 0
+        )
+    elif event.type == "payment_intent.payment_failed":
+        await _fail_payment(db, str(event.data.get("id")))
+
+
+async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -> None:
+    payment = (
+        await db.execute(
+            select(Payment).where(Payment.provider_ref == intent_id, Payment.provider == "stripe")
+        )
+    ).scalar_one_or_none()
+    if payment is None or payment.status != "pending":
+        return
+    payment.status = "succeeded"
+    payment.paid_at = datetime.now(UTC)
+    payment.fee_cents = fee_cents
+    payment.net_cents = payment.amount_cents - fee_cents
+    await db.flush()
+    if payment.invoice_id is not None:
+        await _reconcile_invoice(db, payment.invoice_id)
+
+
+async def _fail_payment(db: AsyncSession, intent_id: str) -> None:
+    payment = (
+        await db.execute(
+            select(Payment).where(Payment.provider_ref == intent_id, Payment.provider == "stripe")
+        )
+    ).scalar_one_or_none()
+    if payment is not None and payment.status == "pending":
+        payment.status = "failed"
+        await db.flush()
+
+
+async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:
+    """Recompute amount_paid / balance / status from the invoice's succeeded payments + refunds."""
+    invoice = await db.get(Invoice, invoice_id)
+    if invoice is None:
+        return
+    rows = (
+        (await db.execute(select(Payment).where(Payment.invoice_id == invoice_id))).scalars().all()
+    )
+    paid = sum(
+        p.amount_cents for p in rows if p.status == "succeeded" and p.kind in ("payment", "deposit")
+    ) - sum(p.amount_cents for p in rows if p.status == "succeeded" and p.kind == "refund")
+    invoice.amount_paid_cents = paid
+    invoice.balance_cents = invoice.total_cents - paid
+    if paid <= 0:
+        if invoice.status in ("paid", "partial"):
+            invoice.status = "sent"  # fully refunded back to owing
+            invoice.paid_at = None
+    elif invoice.balance_cents <= 0:
+        invoice.status = "paid"
+        invoice.paid_at = datetime.now(UTC)
+    else:
+        invoice.status = "partial"
+    await db.flush()
