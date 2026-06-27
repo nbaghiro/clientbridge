@@ -1,5 +1,12 @@
+import {
+    type ClientRow,
+    createClient,
+    filterClients,
+    formatMoney,
+    initials,
+    useClients,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useQuery } from "@powersync/react";
 import { type ComponentProps, useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -16,43 +23,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { IconPlus, IconSearch } from "../components/icons";
 import { api } from "../lib/api";
 
-interface ClientRow {
-    id: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    status: string;
-    lifetime_value_cents: number | null;
-}
-
-const money = (cents: number | null): string =>
-    `$${((cents ?? 0) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}`;
-
-const initials = (name: string): string =>
-    name
-        .split(" ")
-        .map((w) => w[0] ?? "")
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
-
 export function ClientsScreen() {
-    const { data: clients } = useQuery<ClientRow>(
-        "SELECT id, name, email, phone, status, lifetime_value_cents FROM clients ORDER BY name COLLATE NOCASE",
-    );
+    const clients = useClients();
     const [q, setQ] = useState("");
     const [adding, setAdding] = useState(false);
 
-    const filtered = useMemo(() => {
-        const t = q.trim().toLowerCase();
-        if (!t) return clients;
-        return clients.filter(
-            (c) =>
-                c.name.toLowerCase().includes(t) ||
-                (c.email ?? "").toLowerCase().includes(t) ||
-                (c.phone ?? "").includes(t),
-        );
-    }, [clients, q]);
+    const filtered = useMemo(() => filterClients(clients, q), [clients, q]);
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -122,7 +98,7 @@ function ClientRowView({ c }: { c: ClientRow }) {
                 </Text>
             </View>
             <View style={styles.rowRight}>
-                <Text style={styles.rowValue}>{money(c.lifetime_value_cents)}</Text>
+                <Text style={styles.rowValue}>{formatMoney(c.lifetime_value_cents)}</Text>
                 <View style={[styles.badge, ok ? styles.badgeOk : styles.badgeWarn]}>
                     <Text
                         style={[styles.badgeText, ok ? styles.badgeTextOk : styles.badgeTextWarn]}
@@ -163,11 +139,7 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
         setBusy(true);
         setError(null);
         try {
-            await api.post<{ id: string }>("/v1/clients", {
-                name: name.trim(),
-                email: email.trim() || null,
-                phone: phone.trim() || null,
-            });
+            await createClient(api, { name, email, phone });
             setName("");
             setEmail("");
             setPhone("");

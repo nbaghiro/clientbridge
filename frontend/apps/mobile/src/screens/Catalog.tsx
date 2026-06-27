@@ -1,5 +1,12 @@
+import {
+    ITEM_KINDS,
+    KIND_LABEL,
+    createItem,
+    filterItems,
+    formatMoney,
+    useCatalogItems,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useQuery } from "@powersync/react";
 import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
@@ -15,42 +22,12 @@ import {
 import { IconPlus, IconSearch } from "../components/icons";
 import { api } from "../lib/api";
 
-interface ItemRow {
-    id: string;
-    kind: string;
-    name: string;
-    category: string | null;
-    price_cents: number | null;
-    duration_min: number | null;
-    active: number;
-}
-
-const KIND_LABEL: Record<string, string> = {
-    service: "Service",
-    product: "Product",
-    class: "Class",
-    package: "Package",
-    subscription: "Subscription",
-    gift: "Gift card",
-};
-
-const money = (cents: number | null): string =>
-    `$${((cents ?? 0) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}`;
-
 export function CatalogScreen() {
-    const { data: items } = useQuery<ItemRow>(
-        "SELECT id, kind, name, category, price_cents, duration_min, active FROM items ORDER BY active DESC, name COLLATE NOCASE",
-    );
+    const items = useCatalogItems();
     const [q, setQ] = useState("");
     const [adding, setAdding] = useState(false);
 
-    const filtered = useMemo(() => {
-        const t = q.trim().toLowerCase();
-        if (!t) return items;
-        return items.filter(
-            (i) => i.name.toLowerCase().includes(t) || (i.category ?? "").toLowerCase().includes(t),
-        );
-    }, [items, q]);
+    const filtered = useMemo(() => filterItems(items, q), [items, q]);
 
     return (
         <View style={styles.screen}>
@@ -91,7 +68,7 @@ export function CatalogScreen() {
                                 {item.duration_min ? ` · ${String(item.duration_min)} min` : ""}
                             </Text>
                         </View>
-                        <Text style={styles.rowPrice}>{money(item.price_cents)}</Text>
+                        <Text style={styles.rowPrice}>{formatMoney(item.price_cents)}</Text>
                     </View>
                 )}
                 ListEmptyComponent={
@@ -111,8 +88,6 @@ export function CatalogScreen() {
     );
 }
 
-const KINDS = ["service", "product", "class"] as const;
-
 function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const [kind, setKind] = useState<string>("service");
     const [name, setName] = useState("");
@@ -129,12 +104,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
         setBusy(true);
         setError(null);
         try {
-            await api.post<{ id: string }>("/v1/items", {
-                kind,
-                name: name.trim(),
-                price_cents: Math.round((Number(price) || 0) * 100),
-                duration_min: duration ? Number(duration) : null,
-            });
+            await createItem(api, { kind, name, priceDollars: price, durationMin: duration });
             setName("");
             setPrice("");
             setDuration("");
@@ -152,7 +122,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                 <View style={styles.modal}>
                     <Text style={styles.modalTitle}>Add item</Text>
                     <View style={styles.kindRow}>
-                        {KINDS.map((k) => (
+                        {ITEM_KINDS.map((k) => (
                             <Pressable
                                 key={k}
                                 style={[styles.kindChip, kind === k ? styles.kindChipOn : null]}

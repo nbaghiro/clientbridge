@@ -1,46 +1,21 @@
-import { useQuery } from "@powersync/react";
+import {
+    createClient,
+    filterClients,
+    formatMoney,
+    initials,
+    useClients,
+} from "@clientbridge/app-core";
 import { type FormEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { api } from "../lib/api";
 
-interface ClientRow {
-    id: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    status: string;
-    lifetime_value_cents: number | null;
-}
-
-const money = (cents: number | null): string =>
-    `$${((cents ?? 0) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}`;
-
-const initials = (name: string): string =>
-    name
-        .split(" ")
-        .map((w) => w[0] ?? "")
-        .slice(0, 2)
-        .join("")
-        .toUpperCase();
-
 export function Clients() {
-    const { data: clients } = useQuery<ClientRow>(
-        "SELECT id, name, email, phone, status, lifetime_value_cents FROM clients ORDER BY name COLLATE NOCASE",
-    );
+    const clients = useClients();
     const [q, setQ] = useState("");
     const [adding, setAdding] = useState(false);
 
-    const filtered = useMemo(() => {
-        const t = q.trim().toLowerCase();
-        if (!t) return clients;
-        return clients.filter(
-            (c) =>
-                c.name.toLowerCase().includes(t) ||
-                (c.email ?? "").toLowerCase().includes(t) ||
-                (c.phone ?? "").includes(t),
-        );
-    }, [clients, q]);
+    const filtered = useMemo(() => filterClients(clients, q), [clients, q]);
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
@@ -106,7 +81,7 @@ export function Clients() {
                                     <StatusBadge status={c.status} />
                                 </td>
                                 <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
-                                    {money(c.lifetime_value_cents)}
+                                    {formatMoney(c.lifetime_value_cents)}
                                 </td>
                             </tr>
                         ))}
@@ -164,11 +139,7 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
         setBusy(true);
         setError(null);
         try {
-            await api.post<{ id: string }>("/v1/clients", {
-                name: name.trim(),
-                email: email.trim() || null,
-                phone: phone.trim() || null,
-            });
+            await createClient(api, { name, email, phone });
             onClose();
         } catch {
             setError("Could not add client");

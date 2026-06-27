@@ -1,0 +1,57 @@
+import { useQuery } from "@powersync/react";
+
+import type { ApiLike } from "./api";
+
+export interface ItemRow {
+    id: string;
+    kind: string;
+    name: string;
+    category: string | null;
+    price_cents: number | null;
+    duration_min: number | null;
+    active: number;
+}
+
+export const KIND_LABEL: Record<string, string> = {
+    service: "Service",
+    product: "Product",
+    class: "Class",
+    package: "Package",
+    subscription: "Subscription",
+    gift: "Gift card",
+};
+
+export const ITEM_KINDS = ["service", "product", "class"] as const;
+
+const ITEMS_SQL =
+    "SELECT id, kind, name, category, price_cents, duration_min, active FROM items ORDER BY active DESC, name COLLATE NOCASE";
+
+export function useCatalogItems(): ItemRow[] {
+    return useQuery<ItemRow>(ITEMS_SQL).data;
+}
+
+export function filterItems(rows: ItemRow[], q: string): ItemRow[] {
+    const t = q.trim().toLowerCase();
+    if (!t) return rows;
+    return rows.filter(
+        (i) => i.name.toLowerCase().includes(t) || (i.category ?? "").toLowerCase().includes(t),
+    );
+}
+
+export interface ItemInput {
+    kind: string;
+    name: string;
+    priceDollars?: string | number;
+    durationMin?: string | number | null;
+    category?: string | null;
+}
+
+export function createItem(api: ApiLike, input: ItemInput): Promise<{ id: string }> {
+    return api.post<{ id: string }>("/v1/items", {
+        kind: input.kind,
+        name: input.name.trim(),
+        price_cents: Math.round((Number(input.priceDollars) || 0) * 100),
+        duration_min: input.durationMin ? Number(input.durationMin) : null,
+        category: input.category?.trim() || null,
+    });
+}
