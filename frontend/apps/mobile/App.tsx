@@ -18,6 +18,7 @@ import { ClientsScreen } from "./src/screens/Clients";
 import { HomeScreen } from "./src/screens/Home";
 import { InvoicesScreen } from "./src/screens/Invoices";
 import { LoginScreen } from "./src/screens/Login";
+import { PaymentsScreen } from "./src/screens/PaymentsSettings";
 import { ComingSoon, InboxScreen } from "./src/screens/Placeholder";
 import { SettingsScreen } from "./src/screens/Settings";
 import { TaxesScreen } from "./src/screens/Taxes";
@@ -127,6 +128,11 @@ function Root() {
                             name="Taxes"
                             component={TaxesScreen}
                             options={{ title: "Taxes" }}
+                        />
+                        <RootStack.Screen
+                            name="Payments"
+                            component={PaymentsScreen}
+                            options={{ title: "Payments" }}
                         />
                         <RootStack.Screen
                             name="Scheduling"

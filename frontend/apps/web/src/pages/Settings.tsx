@@ -4,6 +4,7 @@ const SECTIONS = [
     { to: "/settings/account", label: "Account" },
     { to: "/settings/catalog", label: "Catalog & services" },
     { to: "/settings/taxes", label: "Taxes" },
+    { to: "/settings/payments", label: "Payments" },
     { to: "/settings/scheduling", label: "Scheduling" },
     { to: "/settings/booking", label: "Booking & forms" },
 ];

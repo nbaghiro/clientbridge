@@ -7,6 +7,7 @@ export type RootStackParamList = {
     Account: undefined;
     Catalog: undefined;
     Taxes: undefined;
+    Payments: undefined;
     Scheduling: undefined;
     Booking: undefined;
     Invoices: undefined;

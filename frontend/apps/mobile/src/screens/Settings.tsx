@@ -12,6 +12,7 @@ const SECTIONS: { label: string; screen: keyof RootStackParamList }[] = [
     { label: "Account", screen: "Account" },
     { label: "Catalog & services", screen: "Catalog" },
     { label: "Taxes", screen: "Taxes" },
+    { label: "Payments", screen: "Payments" },
     { label: "Scheduling", screen: "Scheduling" },
     { label: "Booking & forms", screen: "Booking" },
 ];
