@@ -8,10 +8,7 @@ export interface LayoutOptions {
     gapPx?: number;
 }
 
-/**
- * Position a day's events on a time grid. Overlapping events chain into a group, then each group is
- * split into equal-width columns (first-fit) so nothing visually overlaps.
- */
+// Overlapping events chain into a group, then split into first-fit columns so none visually overlap.
 export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): PositionedEvent[] {
     const { dayStart, pxPerMin, minHeightPx = 18, gapPx = 1 } = opts;
     const dayEnd = addDays(dayStart, 1);
@@ -27,7 +24,7 @@ export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): Positio
 
     const flush = (): void => {
         if (group.length === 0) return;
-        const colEnds: number[] = []; // last event's end (ms) per column
+        const colEnds: number[] = [];
         const colOf = new Map<string, number>();
         for (const e of group) {
             const startMs = e.start.getTime();
@@ -121,7 +118,6 @@ export function snapMinutes(min: number, step = 5): number {
     return Math.round(min / step) * step;
 }
 
-/** New start after dragging an event by `deltaPx` vertically, snapped to `step` minutes. */
 export function dragToStart(
     originalStart: Date,
     deltaPx: number,

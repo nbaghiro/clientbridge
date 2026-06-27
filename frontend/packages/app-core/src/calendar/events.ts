@@ -4,6 +4,9 @@ import { useMemo } from "react";
 import { parseTimestamp } from "./datetime";
 import type { CalendarEvent } from "./types";
 
+export const eventLabel = (e: CalendarEvent): string =>
+    e.subtitle.length > 0 ? e.subtitle : e.title;
+
 interface Row {
     session_id: string;
     booking_id: string | null;

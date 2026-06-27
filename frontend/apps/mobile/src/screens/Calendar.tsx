@@ -4,13 +4,13 @@ import {
     addDays,
     dateKey,
     dayBounds,
-    dragToStart,
+    eventLabel,
     formatHour,
     formatTime,
     formatWeekday,
     groupByDay,
     layoutDay,
-    rescheduleBooking,
+    rescheduleByDrag,
     sameDay,
     setBookingStatus,
     startOfDay,
@@ -54,8 +54,6 @@ function statusColors(status: string): { bg: string; fg: string; border: string 
             return { bg: c.surface, fg: c.ink, border: c.border };
     }
 }
-
-const eventLabel = (e: CalendarEvent): string => (e.subtitle.length > 0 ? e.subtitle : e.title);
 
 export function CalendarScreen() {
     const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
@@ -216,10 +214,7 @@ function DayGrid({
     const nowTop = (now.getHours() * 60 + now.getMinutes()) * PX_PER_MIN - offsetPx;
 
     const reschedule = (event: CalendarEvent, deltaY: number): void => {
-        if (event.bookingId === null) return;
-        const newStart = dragToStart(event.start, deltaY, PX_PER_MIN);
-        if (newStart.getTime() === event.start.getTime()) return;
-        void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
+        rescheduleByDrag(api, event, deltaY, PX_PER_MIN);
     };
 
     return (

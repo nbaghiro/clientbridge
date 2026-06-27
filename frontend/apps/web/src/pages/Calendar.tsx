@@ -7,7 +7,7 @@ import {
     dateKey,
     dayBounds,
     dayColumns,
-    dragToStart,
+    eventLabel,
     formatHour,
     formatRangeLabel,
     formatTime,
@@ -15,7 +15,7 @@ import {
     groupByDay,
     layoutDay,
     monthMatrix,
-    rescheduleBooking,
+    rescheduleByDrag,
     sameDay,
     setBookingStatus,
     staffLabel,
@@ -73,12 +73,10 @@ const STATUS_DOT: Record<string, string> = {
 };
 const dotClass = (s: string): string => STATUS_DOT[s] ?? "bg-line";
 
-const eventLabel = (e: CalendarEvent): string => (e.subtitle.length > 0 ? e.subtitle : e.title);
-
 function viewColumns(view: CalendarView, anchor: Date): Date[] {
     if (view === "day") return [startOfDay(anchor)];
     if (view === "week") return weekColumns(anchor);
-    return dayColumns(anchor, 14); // agenda
+    return dayColumns(anchor, 14);
 }
 
 function rangeOf(columns: Date[]): { start: Date; end: Date } {
@@ -292,10 +290,7 @@ function TimeGrid({
     const nowTop = (now.getHours() * 60 + now.getMinutes()) * pxPerMin - offsetPx;
 
     const reschedule = (event: CalendarEvent, deltaY: number): void => {
-        if (event.bookingId === null) return;
-        const newStart = dragToStart(event.start, deltaY, pxPerMin);
-        if (newStart.getTime() === event.start.getTime()) return;
-        void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
+        rescheduleByDrag(api, event, deltaY, pxPerMin);
     };
 
     return (
