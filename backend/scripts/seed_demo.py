@@ -30,16 +30,18 @@ from clientbridge.models.platform import AuditLog, File, WebhookEvent
 from clientbridge.models.reviews import Review, ReviewRequest
 from clientbridge.models.scheduling import Availability, Booking, Resource, Schedule, Session
 
-NOW = datetime.now(tz=UTC)
+NOW = datetime.now().astimezone()  # local-tz aware, so demo hours land in the viewer's local day
 BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 rows: list[object] = []
 
 
 def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
-    """A timestamp relative to now, so the demo always has recent/upcoming activity."""
-    return (NOW + timedelta(days=days_offset)).replace(
-        hour=hour, minute=minute, second=0, microsecond=0
+    """A local business-hour timestamp relative to now, stored as UTC, so demo times read sensibly."""
+    return (
+        (NOW + timedelta(days=days_offset))
+        .replace(hour=hour, minute=minute, second=0, microsecond=0)
+        .astimezone(UTC)
     )
 
 
