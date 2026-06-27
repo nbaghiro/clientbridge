@@ -2,6 +2,7 @@ import {
     type CalendarEvent,
     type CalendarView,
     addDays,
+    createBooking,
     dateKey,
     dayBounds,
     dayColumns,
@@ -13,12 +14,19 @@ import {
     layoutDay,
     monthMatrix,
     sameDay,
+    setBookingStatus,
+    staffLabel,
     startOfDay,
     startOfMonth,
     useCalendarEvents,
+    useCatalogItems,
+    useClients,
+    useStaff,
     weekColumns,
 } from "@clientbridge/app-core";
-import { useState } from "react";
+import { type FormEvent, type ReactNode, useState } from "react";
+
+import { api } from "../lib/api";
 
 const HOUR_PX = 48;
 const PX_PER_MIN = HOUR_PX / 60;
@@ -70,6 +78,8 @@ function shift(view: CalendarView, anchor: Date, dir: 1 | -1): Date {
 export function Calendar() {
     const [view, setView] = useState<CalendarView>("week");
     const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
+    const [booking, setBooking] = useState(false);
+    const [detail, setDetail] = useState<CalendarEvent | null>(null);
 
     const isMonth = view === "month";
     const matrix = monthMatrix(anchor);
@@ -133,24 +143,59 @@ export function Calendar() {
                             </button>
                         ))}
                     </div>
-                    <button className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong">
+                    <button
+                        onClick={() => {
+                            setBooking(true);
+                        }}
+                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong"
+                    >
                         + New booking
                     </button>
                 </div>
             </header>
 
             {view === "agenda" ? (
-                <AgendaView columns={columns} events={events} />
+                <AgendaView columns={columns} events={events} onEventClick={setDetail} />
             ) : isMonth ? (
-                <MonthView matrix={matrix} anchor={anchor} events={events} />
+                <MonthView
+                    matrix={matrix}
+                    anchor={anchor}
+                    events={events}
+                    onEventClick={setDetail}
+                />
             ) : (
-                <TimeGrid columns={columns} events={events} />
+                <TimeGrid columns={columns} events={events} onEventClick={setDetail} />
             )}
+
+            {booking ? (
+                <AddBookingModal
+                    anchor={anchor}
+                    onClose={() => {
+                        setBooking(false);
+                    }}
+                />
+            ) : null}
+            {detail ? (
+                <EventDetail
+                    event={detail}
+                    onClose={() => {
+                        setDetail(null);
+                    }}
+                />
+            ) : null}
         </div>
     );
 }
 
-function TimeGrid({ columns, events }: { columns: Date[]; events: CalendarEvent[] }) {
+function TimeGrid({
+    columns,
+    events,
+    onEventClick,
+}: {
+    columns: Date[];
+    events: CalendarEvent[];
+    onEventClick: (e: CalendarEvent) => void;
+}) {
     const { startHour, endHour } = dayBounds(events);
     const offsetPx = startHour * 60 * PX_PER_MIN;
     const gridHeight = (endHour - startHour) * HOUR_PX;
@@ -214,7 +259,14 @@ function TimeGrid({ columns, events }: { columns: Date[]; events: CalendarEvent[
                                 />
                             ))}
                             {positioned.map((pe) => (
-                                <EventBlock key={pe.event.id} pe={pe} offsetPx={offsetPx} />
+                                <EventBlock
+                                    key={pe.event.id}
+                                    pe={pe}
+                                    offsetPx={offsetPx}
+                                    onClick={() => {
+                                        onEventClick(pe.event);
+                                    }}
+                                />
                             ))}
                             {showNow && nowTop >= 0 && nowTop <= gridHeight ? (
                                 <div
@@ -233,14 +285,18 @@ function TimeGrid({ columns, events }: { columns: Date[]; events: CalendarEvent[
 function EventBlock({
     pe,
     offsetPx,
+    onClick,
 }: {
     pe: ReturnType<typeof layoutDay>[number];
     offsetPx: number;
+    onClick: () => void;
 }) {
     const { event, topPx, heightPx, leftPct, widthPct } = pe;
     return (
-        <div
-            className={`absolute overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-xs ${statusClass(event.status)}`}
+        <button
+            type="button"
+            onClick={onClick}
+            className={`absolute overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs ${statusClass(event.status)}`}
             style={{
                 top: topPx - offsetPx,
                 height: heightPx,
@@ -255,7 +311,7 @@ function EventBlock({
                     {formatTime(event.start)} · {event.title}
                 </div>
             ) : null}
-        </div>
+        </button>
     );
 }
 
@@ -263,10 +319,12 @@ function MonthView({
     matrix,
     anchor,
     events,
+    onEventClick,
 }: {
     matrix: Date[][];
     anchor: Date;
     events: CalendarEvent[];
+    onEventClick: (e: CalendarEvent) => void;
 }) {
     const byDay = groupByDay(events);
     const now = new Date();
@@ -306,12 +364,16 @@ function MonthView({
                             </div>
                             <div className="space-y-0.5">
                                 {dayEvents.slice(0, 3).map((e) => (
-                                    <div
+                                    <button
+                                        type="button"
                                         key={e.id}
-                                        className={`truncate rounded border-l-2 px-1 text-[11px] ${statusClass(e.status)}`}
+                                        onClick={() => {
+                                            onEventClick(e);
+                                        }}
+                                        className={`block w-full truncate rounded border-l-2 px-1 text-left text-[11px] ${statusClass(e.status)}`}
                                     >
                                         {formatTime(e.start)} {eventLabel(e)}
-                                    </div>
+                                    </button>
                                 ))}
                                 {dayEvents.length > 3 ? (
                                     <div className="px-1 text-[11px] text-muted">
@@ -327,7 +389,15 @@ function MonthView({
     );
 }
 
-function AgendaView({ columns, events }: { columns: Date[]; events: CalendarEvent[] }) {
+function AgendaView({
+    columns,
+    events,
+    onEventClick,
+}: {
+    columns: Date[];
+    events: CalendarEvent[];
+    onEventClick: (e: CalendarEvent) => void;
+}) {
     const byDay = groupByDay(events);
     const now = new Date();
     return (
@@ -349,7 +419,14 @@ function AgendaView({ columns, events }: { columns: Date[]; events: CalendarEven
                             {dayEvents
                                 .sort((a, b) => a.start.getTime() - b.start.getTime())
                                 .map((e) => (
-                                    <div key={e.id} className="flex items-center gap-3 py-1">
+                                    <button
+                                        type="button"
+                                        key={e.id}
+                                        onClick={() => {
+                                            onEventClick(e);
+                                        }}
+                                        className="flex w-full items-center gap-3 rounded-md py-1 text-left hover:bg-bg"
+                                    >
                                         <div className="w-20 shrink-0 text-sm text-muted">
                                             {formatTime(e.start)}
                                         </div>
@@ -360,7 +437,7 @@ function AgendaView({ columns, events }: { columns: Date[]; events: CalendarEven
                                             {eventLabel(e)}
                                         </div>
                                         <div className="text-sm text-muted">{e.title}</div>
-                                    </div>
+                                    </button>
                                 ))}
                         </div>
                     </div>
@@ -386,5 +463,238 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
                 strokeLinejoin="round"
             />
         </svg>
+    );
+}
+
+function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+    return (
+        <div
+            onClick={onClose}
+            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        >
+            <div
+                onClick={(e) => {
+                    e.stopPropagation();
+                }}
+                className="w-full max-w-md rounded-xl border border-line bg-surface p-5 shadow-lg"
+            >
+                {children}
+            </div>
+        </div>
+    );
+}
+
+const fieldClass =
+    "mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none";
+
+function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => void }) {
+    const clients = useClients();
+    const items = useCatalogItems();
+    const staff = useStaff();
+    const [clientId, setClientId] = useState("");
+    const [itemId, setItemId] = useState("");
+    const [staffId, setStaffId] = useState("");
+    const [date, setDate] = useState(() => dateKey(anchor));
+    const [time, setTime] = useState("09:00");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const effStaff = staffId.length > 0 ? staffId : (staff.at(0)?.id ?? "");
+
+    const submit = async (e: FormEvent): Promise<void> => {
+        e.preventDefault();
+        if (clientId.length === 0 || itemId.length === 0 || effStaff.length === 0) {
+            setError("Pick a client, service, and staff member.");
+            return;
+        }
+        setBusy(true);
+        setError(null);
+        try {
+            await createBooking(api, {
+                clientId,
+                itemId,
+                staffId: effStaff,
+                startsAt: new Date(`${date}T${time}`),
+            });
+            onClose();
+        } catch {
+            setError("Could not book — that time may already be taken.");
+            setBusy(false);
+        }
+    };
+
+    return (
+        <Overlay onClose={onClose}>
+            <form
+                onSubmit={(e) => {
+                    void submit(e);
+                }}
+                className="space-y-3"
+            >
+                <h2 className="text-lg font-semibold text-ink">New booking</h2>
+                <label className="block">
+                    <span className="text-sm text-muted">Client</span>
+                    <select
+                        value={clientId}
+                        onChange={(e) => {
+                            setClientId(e.target.value);
+                        }}
+                        className={fieldClass}
+                    >
+                        <option value="">Select a client</option>
+                        {clients.map((cl) => (
+                            <option key={cl.id} value={cl.id}>
+                                {cl.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                <label className="block">
+                    <span className="text-sm text-muted">Service</span>
+                    <select
+                        value={itemId}
+                        onChange={(e) => {
+                            setItemId(e.target.value);
+                        }}
+                        className={fieldClass}
+                    >
+                        <option value="">Select a service</option>
+                        {items.map((it) => (
+                            <option key={it.id} value={it.id}>
+                                {it.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+                {staff.length > 1 ? (
+                    <label className="block">
+                        <span className="text-sm text-muted">Staff</span>
+                        <select
+                            value={effStaff}
+                            onChange={(e) => {
+                                setStaffId(e.target.value);
+                            }}
+                            className={fieldClass}
+                        >
+                            {staff.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {staffLabel(s)}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                ) : null}
+                <div className="flex gap-2">
+                    <label className="block flex-1">
+                        <span className="text-sm text-muted">Date</span>
+                        <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => {
+                                setDate(e.target.value);
+                            }}
+                            className={fieldClass}
+                        />
+                    </label>
+                    <label className="block flex-1">
+                        <span className="text-sm text-muted">Time</span>
+                        <input
+                            type="time"
+                            value={time}
+                            onChange={(e) => {
+                                setTime(e.target.value);
+                            }}
+                            className={fieldClass}
+                        />
+                    </label>
+                </div>
+                {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+                <div className="flex justify-end gap-2 pt-1">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:text-ink"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={busy}
+                        className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong disabled:opacity-50"
+                    >
+                        {busy ? "Booking…" : "Book"}
+                    </button>
+                </div>
+            </form>
+        </Overlay>
+    );
+}
+
+const DETAIL_BADGE: Record<string, string> = {
+    confirmed: "bg-accent-weak text-accent-strong",
+    completed: "bg-ok-bg text-ok-fg",
+    pending: "bg-warn-bg text-warn-fg",
+    canceled: "bg-bg text-muted",
+    no_show: "bg-surface text-danger",
+};
+
+function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+    const [busy, setBusy] = useState(false);
+    const cancel = async (): Promise<void> => {
+        if (event.bookingId === null) {
+            onClose();
+            return;
+        }
+        setBusy(true);
+        try {
+            await setBookingStatus(api, event.bookingId, "canceled");
+            onClose();
+        } catch {
+            setBusy(false);
+        }
+    };
+    return (
+        <Overlay onClose={onClose}>
+            <div className="space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 className="text-lg font-semibold text-ink">{event.title}</h2>
+                        {event.subtitle.length > 0 ? (
+                            <p className="text-sm text-muted">{event.subtitle}</p>
+                        ) : null}
+                    </div>
+                    <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${DETAIL_BADGE[event.status] ?? "bg-bg text-ink"}`}
+                    >
+                        {event.status}
+                    </span>
+                </div>
+                <p className="text-sm text-ink">
+                    {formatTime(event.start)} – {formatTime(event.end)}
+                </p>
+                <div className="flex justify-end gap-2 pt-1">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:text-ink"
+                    >
+                        Close
+                    </button>
+                    {event.bookingId !== null && event.status !== "canceled" ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void cancel();
+                            }}
+                            disabled={busy}
+                            className="rounded-lg border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger hover:text-surface disabled:opacity-50"
+                        >
+                            {busy ? "Canceling…" : "Cancel booking"}
+                        </button>
+                    ) : null}
+                </div>
+            </div>
+        </Overlay>
     );
 }
