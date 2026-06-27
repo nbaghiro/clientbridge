@@ -4,6 +4,7 @@ import { type ReactElement, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BookingForm } from "./BookingForm";
 import { IconCalendar, IconClients, IconInbox, IconPlus, IconToday } from "./icons";
 
 function tabIcon(name: string, color: string): ReactElement {
@@ -16,6 +17,7 @@ function tabIcon(name: string, color: string): ReactElement {
 export function TabBar({ state, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
     const [menu, setMenu] = useState(false);
+    const [booking, setBooking] = useState(false);
 
     const go = (tab: string): void => {
         setMenu(false);
@@ -81,10 +83,16 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             <IconClients size={20} color={theme.colors.accent} />
                             <Text style={styles.menuText}>New client</Text>
                         </Pressable>
-                        <View style={[styles.menuRow, styles.menuDisabled]}>
-                            <IconCalendar size={20} color={theme.colors.muted} />
-                            <Text style={styles.menuTextDisabled}>New booking · soon</Text>
-                        </View>
+                        <Pressable
+                            style={styles.menuRow}
+                            onPress={() => {
+                                setMenu(false);
+                                setBooking(true);
+                            }}
+                        >
+                            <IconCalendar size={20} color={theme.colors.accent} />
+                            <Text style={styles.menuText}>New booking</Text>
+                        </Pressable>
                         <View style={[styles.menuRow, styles.menuDisabled]}>
                             <IconInbox size={20} color={theme.colors.muted} />
                             <Text style={styles.menuTextDisabled}>New invoice · soon</Text>
@@ -92,6 +100,13 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     </View>
                 </Pressable>
             </Modal>
+
+            <BookingForm
+                visible={booking}
+                onClose={() => {
+                    setBooking(false);
+                }}
+            />
         </View>
     );
 }
