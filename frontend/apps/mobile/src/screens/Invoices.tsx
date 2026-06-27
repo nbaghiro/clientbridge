@@ -1,7 +1,6 @@
 import {
     type DocActionKey,
     type EstimateRow,
-    type Intent,
     type InvoiceRow,
     estimateActions,
     estimateStatusIntent,
@@ -29,18 +28,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSearch } from "../components/icons";
+import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 
 const c = theme.colors;
 type Tab = "invoices" | "estimates";
-
-const INTENT_COLORS: Record<Intent, { bg: string; fg: string }> = {
-    accent: { bg: c.accentWeak, fg: c.accentStrong },
-    success: { bg: c.okBg, fg: c.okFg },
-    warning: { bg: c.warnBg, fg: c.warnFg },
-    danger: { bg: c.danBg, fg: c.danFg },
-    neutral: { bg: c.bg, fg: c.muted },
-};
 
 const ACTION_LABELS: Record<DocActionKey, string> = {
     send: "Send",
@@ -49,15 +41,6 @@ const ACTION_LABELS: Record<DocActionKey, string> = {
     decline: "Decline",
     convert: "Convert",
 };
-
-function StatusBadge({ status, intent }: { status: string; intent: Intent }) {
-    const tone = INTENT_COLORS[intent];
-    return (
-        <View style={[styles.badge, { backgroundColor: tone.bg }]}>
-            <Text style={[styles.badgeText, { color: tone.fg }]}>{status}</Text>
-        </View>
-    );
-}
 
 export function InvoicesScreen() {
     const invoices = useInvoices();
@@ -300,8 +283,6 @@ const styles = StyleSheet.create({
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     rowRight: { alignItems: "flex-end", gap: 4 },
     rowValue: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-    badgeText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
     empty: { color: c.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
     backdrop: { flex: 1, backgroundColor: "rgba(20,25,30,0.4)", justifyContent: "flex-end" },
     sheet: {

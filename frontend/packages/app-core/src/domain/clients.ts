@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
+import type { Intent } from "../util/intent";
 
 // Local-replica row shape: the columns the SELECT guarantees.
 export interface ClientRow {
@@ -29,6 +30,10 @@ export function filterClients(rows: ClientRow[], q: string): ClientRow[] {
             (c.email ?? "").toLowerCase().includes(t) ||
             (c.phone ?? "").includes(t),
     );
+}
+
+export function clientStatusIntent(status: string): Intent {
+    return status === "active" ? "success" : "warning";
 }
 
 export interface ClientInput {
