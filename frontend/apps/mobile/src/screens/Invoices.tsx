@@ -9,12 +9,14 @@ import {
     formatMoney,
     invoiceActions,
     invoiceStatusIntent,
+    useAsyncAction,
     useEstimates,
     useInvoices,
     useLines,
+    useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -46,14 +48,15 @@ export function InvoicesScreen() {
     const invoices = useInvoices();
     const estimates = useEstimates();
     const [tab, setTab] = useState<Tab>("invoices");
-    const [q, setQ] = useState("");
     const [openId, setOpenId] = useState<string | null>(null);
-
-    const rows = useMemo<(InvoiceRow | EstimateRow)[]>(
-        () => (tab === "invoices" ? filterInvoices(invoices, q) : filterEstimates(estimates, q)),
-        [tab, invoices, estimates, q],
+    const { q, setQ, filtered } = useSearch<InvoiceRow | EstimateRow>(
+        tab === "invoices" ? invoices : estimates,
+        (tab === "invoices" ? filterInvoices : filterEstimates) as (
+            rows: (InvoiceRow | EstimateRow)[],
+            q: string,
+        ) => (InvoiceRow | EstimateRow)[],
     );
-    const open = rows.find((r) => r.id === openId) ?? null;
+    const open = filtered.find((r) => r.id === openId) ?? null;
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -91,7 +94,7 @@ export function InvoicesScreen() {
             </View>
 
             <FlatList
-                data={rows}
+                data={filtered}
                 keyExtractor={(r) => r.id}
                 contentContainerStyle={styles.list}
                 renderItem={({ item }) => (
@@ -150,17 +153,7 @@ function DetailModal({
     onClose: () => void;
 }) {
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
-    const [busy, setBusy] = useState(false);
-
-    const act = async (fn: () => Promise<unknown>): Promise<void> => {
-        setBusy(true);
-        try {
-            await fn();
-            onClose();
-        } catch {
-            setBusy(false);
-        }
-    };
+    const { busy, run } = useAsyncAction();
 
     const actions =
         row === null
@@ -217,7 +210,7 @@ function DetailModal({
                                         key={a.key}
                                         style={styles.save}
                                         disabled={busy}
-                                        onPress={() => void act(a.run)}
+                                        onPress={() => void run(a.run, { onSuccess: onClose })}
                                     >
                                         {busy ? (
                                             <ActivityIndicator color="#fff" />

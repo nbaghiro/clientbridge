@@ -1,13 +1,14 @@
 import {
     ITEM_KINDS,
     KIND_LABEL,
-    createItem,
     filterItems,
     formatMoney,
     useCatalogItems,
+    useItemForm,
+    useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -24,10 +25,8 @@ import { api } from "../lib/api";
 
 export function CatalogScreen() {
     const items = useCatalogItems();
-    const [q, setQ] = useState("");
+    const { q, setQ, filtered } = useSearch(items, filterItems);
     const [adding, setAdding] = useState(false);
-
-    const filtered = useMemo(() => filterItems(items, q), [items, q]);
 
     return (
         <View style={styles.screen}>
@@ -89,32 +88,7 @@ export function CatalogScreen() {
 }
 
 function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    const [kind, setKind] = useState<string>("service");
-    const [name, setName] = useState("");
-    const [price, setPrice] = useState("");
-    const [duration, setDuration] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const submit = async (): Promise<void> => {
-        if (!name.trim()) {
-            setError("Name is required");
-            return;
-        }
-        setBusy(true);
-        setError(null);
-        try {
-            await createItem(api, { kind, name, priceDollars: price, durationMin: duration });
-            setName("");
-            setPrice("");
-            setDuration("");
-            setBusy(false);
-            onClose();
-        } catch {
-            setError("Could not add item");
-            setBusy(false);
-        }
-    };
+    const form = useItemForm(api, onClose);
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -125,13 +99,19 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                         {ITEM_KINDS.map((k) => (
                             <Pressable
                                 key={k}
-                                style={[styles.kindChip, kind === k ? styles.kindChipOn : null]}
+                                style={[
+                                    styles.kindChip,
+                                    form.kind === k ? styles.kindChipOn : null,
+                                ]}
                                 onPress={() => {
-                                    setKind(k);
+                                    form.setKind(k);
                                 }}
                             >
                                 <Text
-                                    style={[styles.kindText, kind === k ? styles.kindTextOn : null]}
+                                    style={[
+                                        styles.kindText,
+                                        form.kind === k ? styles.kindTextOn : null,
+                                    ]}
                                 >
                                     {KIND_LABEL[k]}
                                 </Text>
@@ -140,8 +120,8 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                     </View>
                     <TextInput
                         style={styles.input}
-                        value={name}
-                        onChangeText={setName}
+                        value={form.name}
+                        onChangeText={form.setName}
                         placeholder="Name"
                         placeholderTextColor={theme.colors.muted}
                         autoFocus
@@ -149,32 +129,28 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                     <View style={styles.twoCol}>
                         <TextInput
                             style={[styles.input, styles.col]}
-                            value={price}
-                            onChangeText={setPrice}
+                            value={form.price}
+                            onChangeText={form.setPrice}
                             placeholder="Price ($)"
                             placeholderTextColor={theme.colors.muted}
                             keyboardType="decimal-pad"
                         />
                         <TextInput
                             style={[styles.input, styles.col]}
-                            value={duration}
-                            onChangeText={setDuration}
+                            value={form.duration}
+                            onChangeText={form.setDuration}
                             placeholder="Duration (min)"
                             placeholderTextColor={theme.colors.muted}
                             keyboardType="number-pad"
                         />
                     </View>
-                    {error ? <Text style={styles.error}>{error}</Text> : null}
+                    {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
                     <View style={styles.actions}>
                         <Pressable style={styles.cancel} onPress={onClose}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </Pressable>
-                        <Pressable
-                            style={styles.save}
-                            onPress={() => void submit()}
-                            disabled={busy}
-                        >
-                            {busy ? (
+                        <Pressable style={styles.save} onPress={form.submit} disabled={form.busy}>
+                            {form.busy ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
                                 <Text style={styles.saveText}>Add item</Text>
