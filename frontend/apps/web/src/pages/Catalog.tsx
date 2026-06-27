@@ -1,22 +1,21 @@
 import {
     ITEM_KINDS,
     KIND_LABEL,
-    createItem,
     filterItems,
     formatMoney,
     useCatalogItems,
+    useItemForm,
+    useSearch,
 } from "@clientbridge/app-core";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { api } from "../lib/api";
 
 export function Catalog() {
     const items = useCatalogItems();
-    const [q, setQ] = useState("");
+    const { q, setQ, filtered } = useSearch(items, filterItems);
     const [adding, setAdding] = useState(false);
-
-    const filtered = useMemo(() => filterItems(items, q), [items, q]);
 
     return (
         <div>
@@ -111,35 +110,10 @@ export function Catalog() {
 }
 
 function AddItemModal({ onClose }: { onClose: () => void }) {
-    const [kind, setKind] = useState<string>("service");
-    const [name, setName] = useState("");
-    const [price, setPrice] = useState("");
-    const [duration, setDuration] = useState("");
-    const [category, setCategory] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const submit = async (e: FormEvent): Promise<void> => {
+    const form = useItemForm(api, onClose);
+    const submit = (e: FormEvent): void => {
         e.preventDefault();
-        if (!name.trim()) {
-            setError("Name is required");
-            return;
-        }
-        setBusy(true);
-        setError(null);
-        try {
-            await createItem(api, {
-                kind,
-                name,
-                priceDollars: price,
-                durationMin: duration,
-                category,
-            });
-            onClose();
-        } catch {
-            setError("Could not add item");
-            setBusy(false);
-        }
+        form.submit();
     };
 
     const field =
@@ -151,7 +125,7 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
             style={{ backgroundColor: "rgba(20,25,30,0.35)" }}
         >
             <form
-                onSubmit={(e) => void submit(e)}
+                onSubmit={submit}
                 className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"
             >
                 <h2 className="font-display text-lg font-bold text-ink">Add item</h2>
@@ -159,9 +133,9 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                         Type
                         <select
-                            value={kind}
+                            value={form.kind}
                             onChange={(e) => {
-                                setKind(e.target.value);
+                                form.setKind(e.target.value);
                             }}
                             className={field}
                         >
@@ -175,9 +149,9 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                         Name
                         <input
-                            value={name}
+                            value={form.name}
                             onChange={(e) => {
-                                setName(e.target.value);
+                                form.setName(e.target.value);
                             }}
                             autoFocus
                             className={field}
@@ -187,9 +161,9 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                         <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
                             Price ($)
                             <input
-                                value={price}
+                                value={form.price}
                                 onChange={(e) => {
-                                    setPrice(e.target.value);
+                                    form.setPrice(e.target.value);
                                 }}
                                 inputMode="decimal"
                                 placeholder="0.00"
@@ -199,9 +173,9 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                         <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
                             Duration (min)
                             <input
-                                value={duration}
+                                value={form.duration}
                                 onChange={(e) => {
-                                    setDuration(e.target.value);
+                                    form.setDuration(e.target.value);
                                 }}
                                 inputMode="numeric"
                                 placeholder="—"
@@ -212,14 +186,14 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                         Category
                         <input
-                            value={category}
+                            value={form.category}
                             onChange={(e) => {
-                                setCategory(e.target.value);
+                                form.setCategory(e.target.value);
                             }}
                             className={field}
                         />
                     </label>
-                    {error ? <p className="text-sm text-danger-fg">{error}</p> : null}
+                    {form.error ? <p className="text-sm text-danger-fg">{form.error}</p> : null}
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
                     <button
@@ -231,10 +205,10 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                     </button>
                     <button
                         type="submit"
-                        disabled={busy}
+                        disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {busy ? "Adding…" : "Add item"}
+                        {form.busy ? "Adding…" : "Add item"}
                     </button>
                 </div>
             </form>

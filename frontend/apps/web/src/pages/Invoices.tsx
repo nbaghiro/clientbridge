@@ -2,8 +2,6 @@ import {
     type DocActionKey,
     type EstimateRow,
     type InvoiceRow,
-    createEstimate,
-    createInvoice,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
@@ -11,14 +9,15 @@ import {
     formatMoney,
     invoiceActions,
     invoiceStatusIntent,
-    lineSubtotalCents,
-    toLineInputs,
+    useAsyncAction,
     useClients,
+    useDocForm,
     useEstimates,
     useInvoices,
     useLines,
+    useSearch,
 } from "@clientbridge/app-core";
-import { type FormEvent, useMemo, useState } from "react";
+import { useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { StatusPill } from "../components/StatusPill";
@@ -38,13 +37,14 @@ export function Invoices() {
     const invoices = useInvoices();
     const estimates = useEstimates();
     const [tab, setTab] = useState<Tab>("invoices");
-    const [q, setQ] = useState("");
     const [creating, setCreating] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
-
-    const rows = useMemo(
-        () => (tab === "invoices" ? filterInvoices(invoices, q) : filterEstimates(estimates, q)),
-        [tab, invoices, estimates, q],
+    const { q, setQ, filtered } = useSearch<InvoiceRow | EstimateRow>(
+        tab === "invoices" ? invoices : estimates,
+        (tab === "invoices" ? filterInvoices : filterEstimates) as (
+            rows: (InvoiceRow | EstimateRow)[],
+            q: string,
+        ) => (InvoiceRow | EstimateRow)[],
     );
 
     const noun = tab === "invoices" ? "invoice" : "estimate";
@@ -109,7 +109,7 @@ export function Invoices() {
                         </tr>
                     </thead>
                     <tbody>
-                        {rows.map((r) => (
+                        {filtered.map((r) => (
                             <tr
                                 key={r.id}
                                 onClick={() => {
@@ -136,7 +136,7 @@ export function Invoices() {
                                 </td>
                             </tr>
                         ))}
-                        {rows.length === 0 ? (
+                        {filtered.length === 0 ? (
                             <tr>
                                 <td
                                     colSpan={4}
@@ -161,7 +161,7 @@ export function Invoices() {
             {openId !== null ? (
                 <DetailModal
                     kind={tab}
-                    row={rows.find((r) => r.id === openId) ?? null}
+                    row={filtered.find((r) => r.id === openId) ?? null}
                     onClose={() => {
                         setOpenId(null);
                     }}
@@ -182,61 +182,20 @@ function Overlay({ children }: { children: React.ReactNode }) {
     );
 }
 
-interface DraftLine {
-    key: string;
-    description: string;
-    quantity: string;
-    unit: string;
-}
-
-let lineSeq = 0;
-const blankLine = (): DraftLine => ({
-    key: `l${(lineSeq += 1)}`,
-    description: "",
-    quantity: "1",
-    unit: "",
-});
-
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
 
 function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
     const clients = useClients();
-    const [clientId, setClientId] = useState("");
-    const [lines, setLines] = useState<DraftLine[]>([blankLine()]);
-    const [notes, setNotes] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const setLine = (key: string, patch: Partial<DraftLine>): void => {
-        setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
-    };
-
-    const subtotal = lineSubtotalCents(toLineInputs(lines));
-
-    const submit = async (e: FormEvent): Promise<void> => {
-        e.preventDefault();
-        const payload = toLineInputs(lines);
-        if (clientId.length === 0 || payload.length === 0) {
-            setError("Pick a client and add at least one line.");
-            return;
-        }
-        setBusy(true);
-        setError(null);
-        try {
-            if (kind === "invoices") await createInvoice(api, clientId, payload, notes);
-            else await createEstimate(api, clientId, payload, notes);
-            onClose();
-        } catch {
-            setError("Could not save — please try again.");
-            setBusy(false);
-        }
-    };
+    const form = useDocForm(api, kind === "invoices" ? "invoice" : "estimate", onClose);
 
     return (
         <Overlay>
             <form
-                onSubmit={(e) => void submit(e)}
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    form.submit();
+                }}
                 className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card"
             >
                 <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold text-ink">
@@ -246,9 +205,9 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                         Client
                         <select
-                            value={clientId}
+                            value={form.clientId}
                             onChange={(e) => {
-                                setClientId(e.target.value);
+                                form.setClientId(e.target.value);
                             }}
                             className={field}
                         >
@@ -268,12 +227,12 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                             <span className="w-20 text-right">Price</span>
                             <span className="w-5" />
                         </div>
-                        {lines.map((l) => (
+                        {form.lines.map((l) => (
                             <div key={l.key} className="flex items-center gap-2">
                                 <input
                                     value={l.description}
                                     onChange={(e) => {
-                                        setLine(l.key, { description: e.target.value });
+                                        form.setLine(l.key, { description: e.target.value });
                                     }}
                                     placeholder="Service or item"
                                     className={`${field} flex-1`}
@@ -281,7 +240,7 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                                 <input
                                     value={l.quantity}
                                     onChange={(e) => {
-                                        setLine(l.key, { quantity: e.target.value });
+                                        form.setLine(l.key, { quantity: e.target.value });
                                     }}
                                     inputMode="decimal"
                                     className={`${field} w-12 text-center`}
@@ -289,7 +248,7 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                                 <input
                                     value={l.unit}
                                     onChange={(e) => {
-                                        setLine(l.key, { unit: e.target.value });
+                                        form.setLine(l.key, { unit: e.target.value });
                                     }}
                                     inputMode="decimal"
                                     placeholder="0.00"
@@ -298,9 +257,7 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        setLines((ls) =>
-                                            ls.length > 1 ? ls.filter((x) => x.key !== l.key) : ls,
-                                        );
+                                        form.removeLine(l.key);
                                     }}
                                     className="w-5 text-muted transition hover:text-danger"
                                     aria-label="Remove line"
@@ -312,7 +269,7 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                         <button
                             type="button"
                             onClick={() => {
-                                setLines((ls) => [...ls, blankLine()]);
+                                form.addLine();
                             }}
                             className="text-sm font-medium text-accent transition hover:opacity-80"
                         >
@@ -323,20 +280,22 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                         Notes
                         <textarea
-                            value={notes}
+                            value={form.notes}
                             onChange={(e) => {
-                                setNotes(e.target.value);
+                                form.setNotes(e.target.value);
                             }}
                             rows={2}
                             className={field}
                         />
                     </label>
-                    {error ? <p className="text-sm text-danger">{error}</p> : null}
+                    {form.error ? <p className="text-sm text-danger">{form.error}</p> : null}
                 </div>
                 <div className="flex items-center justify-between border-t border-line px-6 py-4">
                     <span className="text-sm text-muted">
                         Subtotal{" "}
-                        <span className="font-semibold text-ink">{formatMoney(subtotal)}</span>
+                        <span className="font-semibold text-ink">
+                            {formatMoney(form.subtotalCents)}
+                        </span>
                         <span className="text-xs"> + tax</span>
                     </span>
                     <div className="flex gap-2">
@@ -349,10 +308,10 @@ function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
                         </button>
                         <button
                             type="submit"
-                            disabled={busy}
+                            disabled={form.busy}
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {busy ? "Saving…" : "Save draft"}
+                            {form.busy ? "Saving…" : "Save draft"}
                         </button>
                     </div>
                 </div>
@@ -371,20 +330,10 @@ function DetailModal({
     onClose: () => void;
 }) {
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
-    const [busy, setBusy] = useState(false);
+    const { busy, run } = useAsyncAction();
 
     if (row === null) return null;
     const isInvoice = kind === "invoices";
-
-    const act = async (fn: () => Promise<unknown>): Promise<void> => {
-        setBusy(true);
-        try {
-            await fn();
-            onClose();
-        } catch {
-            setBusy(false);
-        }
-    };
 
     const actions = isInvoice
         ? invoiceActions(api, row as InvoiceRow)
@@ -448,7 +397,7 @@ function DetailModal({
                             key={a.key}
                             type="button"
                             disabled={busy}
-                            onClick={() => void act(a.run)}
+                            onClick={() => void run(a.run, { onSuccess: onClose })}
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
                             {ACTION_LABELS[a.key]}

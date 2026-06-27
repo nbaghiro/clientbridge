@@ -1,14 +1,15 @@
 import {
     type ClientRow,
     clientStatusIntent,
-    createClient,
     filterClients,
     formatMoney,
     initials,
+    useClientForm,
     useClients,
+    useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { type ComponentProps, useMemo, useState } from "react";
+import { type ComponentProps, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -27,10 +28,8 @@ import { api } from "../lib/api";
 
 export function ClientsScreen() {
     const clients = useClients();
-    const [q, setQ] = useState("");
+    const { q, setQ, filtered } = useSearch(clients, filterClients);
     const [adding, setAdding] = useState(false);
-
-    const filtered = useMemo(() => filterClients(clients, q), [clients, q]);
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -120,57 +119,40 @@ function ModalField({ label, ...props }: { label: string } & ComponentProps<type
 }
 
 function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const submit = async (): Promise<void> => {
-        if (!name.trim()) {
-            setError("Name is required");
-            return;
-        }
-        setBusy(true);
-        setError(null);
-        try {
-            await createClient(api, { name, email, phone });
-            setName("");
-            setEmail("");
-            setPhone("");
-            setBusy(false);
-            onClose();
-        } catch {
-            setError("Could not add client");
-            setBusy(false);
-        }
-    };
+    const form = useClientForm(api, onClose);
 
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.backdrop}>
                 <View style={styles.modal}>
                     <Text style={styles.modalTitle}>Add client</Text>
-                    <ModalField label="Name" value={name} onChangeText={setName} autoFocus />
+                    <ModalField
+                        label="Name"
+                        value={form.name}
+                        onChangeText={form.setName}
+                        autoFocus
+                    />
                     <ModalField
                         label="Email"
-                        value={email}
-                        onChangeText={setEmail}
+                        value={form.email}
+                        onChangeText={form.setEmail}
                         keyboardType="email-address"
                         autoCapitalize="none"
                     />
-                    <ModalField label="Phone" value={phone} onChangeText={setPhone} />
-                    {error ? <Text style={styles.error}>{error}</Text> : null}
+                    <ModalField label="Phone" value={form.phone} onChangeText={form.setPhone} />
+                    {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
                     <View style={styles.modalActions}>
                         <Pressable style={styles.cancel} onPress={onClose}>
                             <Text style={styles.cancelText}>Cancel</Text>
                         </Pressable>
                         <Pressable
                             style={styles.save}
-                            onPress={() => void submit()}
-                            disabled={busy}
+                            onPress={() => {
+                                form.submit();
+                            }}
+                            disabled={form.busy}
                         >
-                            {busy ? (
+                            {form.busy ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
                                 <Text style={styles.saveText}>Add client</Text>

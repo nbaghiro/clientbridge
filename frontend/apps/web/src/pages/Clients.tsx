@@ -1,12 +1,13 @@
 import {
     clientStatusIntent,
-    createClient,
     filterClients,
     formatMoney,
     initials,
+    useClientForm,
     useClients,
+    useSearch,
 } from "@clientbridge/app-core";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { StatusPill } from "../components/StatusPill";
@@ -14,10 +15,8 @@ import { api } from "../lib/api";
 
 export function Clients() {
     const clients = useClients();
-    const [q, setQ] = useState("");
+    const { q, setQ, filtered } = useSearch(clients, filterClients);
     const [adding, setAdding] = useState(false);
-
-    const filtered = useMemo(() => filterClients(clients, q), [clients, q]);
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
@@ -116,27 +115,10 @@ export function Clients() {
 }
 
 function AddClientModal({ onClose }: { onClose: () => void }) {
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const submit = async (e: FormEvent): Promise<void> => {
+    const form = useClientForm(api, onClose);
+    const submit = (e: FormEvent): void => {
         e.preventDefault();
-        if (!name.trim()) {
-            setError("Name is required");
-            return;
-        }
-        setBusy(true);
-        setError(null);
-        try {
-            await createClient(api, { name, email, phone });
-            onClose();
-        } catch {
-            setError("Could not add client");
-            setBusy(false);
-        }
+        form.submit();
     };
 
     const field =
@@ -148,7 +130,7 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
             style={{ backgroundColor: "rgba(20,25,30,0.35)" }}
         >
             <form
-                onSubmit={(e) => void submit(e)}
+                onSubmit={submit}
                 className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"
             >
                 <h2 className="font-display text-lg font-bold text-ink">Add client</h2>
@@ -156,9 +138,9 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                         Name
                         <input
-                            value={name}
+                            value={form.name}
                             onChange={(e) => {
-                                setName(e.target.value);
+                                form.setName(e.target.value);
                             }}
                             autoFocus
                             className={field}
@@ -168,9 +150,9 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                         Email
                         <input
                             type="email"
-                            value={email}
+                            value={form.email}
                             onChange={(e) => {
-                                setEmail(e.target.value);
+                                form.setEmail(e.target.value);
                             }}
                             className={field}
                         />
@@ -178,14 +160,14 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                         Phone
                         <input
-                            value={phone}
+                            value={form.phone}
                             onChange={(e) => {
-                                setPhone(e.target.value);
+                                form.setPhone(e.target.value);
                             }}
                             className={field}
                         />
                     </label>
-                    {error ? <p className="text-sm text-danger-fg">{error}</p> : null}
+                    {form.error ? <p className="text-sm text-danger-fg">{form.error}</p> : null}
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
                     <button
@@ -197,10 +179,10 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                     </button>
                     <button
                         type="submit"
-                        disabled={busy}
+                        disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {busy ? "Adding…" : "Add client"}
+                        {form.busy ? "Adding…" : "Add client"}
                     </button>
                 </div>
             </form>
