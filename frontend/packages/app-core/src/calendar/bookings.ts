@@ -1,4 +1,6 @@
 import type { ApiLike } from "../api";
+import { dragToStart } from "./layout";
+import type { CalendarEvent } from "./types";
 
 export interface BookingResult {
     id: string;
@@ -44,4 +46,18 @@ export function setBookingStatus(
     status: BookingStatus,
 ): Promise<BookingResult> {
     return api.patch<BookingResult>(`/v1/bookings/${bookingId}`, { status });
+}
+
+// Drag-drop reschedule: snap the vertical delta to a new start and PATCH it (fire-and-forget; a
+// rejected move just leaves the booking where it was once sync reconciles).
+export function rescheduleByDrag(
+    api: ApiLike,
+    event: CalendarEvent,
+    deltaPx: number,
+    pxPerMin: number,
+): void {
+    if (event.bookingId === null) return;
+    const newStart = dragToStart(event.start, deltaPx, pxPerMin);
+    if (newStart.getTime() === event.start.getTime()) return;
+    void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
 }
