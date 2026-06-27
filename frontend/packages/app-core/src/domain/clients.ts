@@ -1,5 +1,7 @@
 import { useQuery } from "@powersync/react";
+import { useState } from "react";
 
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/intent";
@@ -48,4 +50,42 @@ export function createClient(api: ApiLike, input: ClientInput): Promise<{ id: st
         email: blankToNull(input.email),
         phone: blankToNull(input.phone),
     });
+}
+
+export interface ClientForm {
+    name: string;
+    setName: (v: string) => void;
+    email: string;
+    setEmail: (v: string) => void;
+    phone: string;
+    setPhone: (v: string) => void;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+}
+
+/** Shared add-client form: field state + validation + submit; the platform owns only the inputs. */
+export function useClientForm(api: ApiLike, onCreated: () => void): ClientForm {
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const submit = (): void => {
+        if (name.trim().length === 0) {
+            setError("Name is required");
+            return;
+        }
+        void run(() => createClient(api, { name, email, phone }), {
+            onSuccess: () => {
+                setName("");
+                setEmail("");
+                setPhone("");
+                onCreated();
+            },
+            errorMessage: "Could not add client",
+        });
+    };
+
+    return { name, setName, email, setEmail, phone, setPhone, busy, error, submit };
 }
