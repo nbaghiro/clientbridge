@@ -54,3 +54,32 @@ async def test_tax_rates_list(as_owner: httpx.AsyncClient) -> None:
     assert len(rates) >= 1
     assert {r["jurisdiction"] for r in rates} <= {"GST", "HST", "PST", "QST"}
     assert all(r["rate_bps"] > 0 for r in rates)
+
+
+async def test_staff_cannot_write_catalog(as_staff: httpx.AsyncClient) -> None:
+    res = await as_staff.post(
+        "/v1/items", json={"kind": "service", "name": "x", "price_cents": 100}
+    )
+    assert res.status_code == 403
+
+
+async def test_unauth_cannot_list_items(unauth: httpx.AsyncClient) -> None:
+    res = await unauth.get("/v1/items")
+    assert res.status_code == 401
+
+
+async def test_invalid_kind_is_422(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post("/v1/items", json={"kind": "widget", "name": "x"})
+    assert res.status_code == 422
+
+
+async def test_negative_price_is_422(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post(
+        "/v1/items", json={"kind": "service", "name": "x", "price_cents": -100}
+    )
+    assert res.status_code == 422
+
+
+async def test_empty_name_is_422(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post("/v1/items", json={"kind": "service", "name": "", "price_cents": 0})
+    assert res.status_code == 422

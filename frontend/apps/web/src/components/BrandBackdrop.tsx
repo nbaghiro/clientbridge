@@ -39,7 +39,6 @@ export function BrandBackdrop({ variant }: { variant: BackdropVariant }) {
     return <Whisper />;
 }
 
-// whisper — the original signal/constellation, dimmed right down
 function Whisper() {
     return (
         <Frame>
@@ -93,7 +92,6 @@ function Whisper() {
     );
 }
 
-// aurora — soft drifting colour blobs, no hard edges
 function Aurora() {
     return (
         <Frame>
@@ -118,7 +116,6 @@ function Aurora() {
     );
 }
 
-// grid — a barely-there dot grid that slowly drifts
 function Grid() {
     return (
         <Frame>
@@ -144,7 +141,6 @@ function Grid() {
     );
 }
 
-// pulse — a few concentric rings that breathe in unison, very faint
 function Pulse() {
     return (
         <Frame>

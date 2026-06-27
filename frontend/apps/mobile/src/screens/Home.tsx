@@ -1,4 +1,3 @@
-// Home/Today — header (gear → Settings), live PowerSync status, Invoices link. Tap wordmark 5× = debug.
 import { theme } from "@clientbridge/tokens/theme";
 import { useStatus } from "@powersync/react";
 import { useNavigation } from "@react-navigation/native";

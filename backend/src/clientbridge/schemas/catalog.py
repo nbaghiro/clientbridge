@@ -1,16 +1,19 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+ItemKind = Literal["service", "class", "product", "package", "subscription", "gift"]
 
 
 class ItemBase(BaseModel):
-    kind: str = "service"
-    name: str
+    kind: ItemKind = "service"
+    name: str = Field(min_length=1)
     description: str | None = None
-    price_cents: int = 0
-    currency: str = "CAD"
-    duration_min: int | None = None
-    capacity: int | None = None
+    price_cents: int = Field(default=0, ge=0)
+    currency: str = Field(default="CAD", min_length=3, max_length=3)
+    duration_min: int | None = Field(default=None, ge=0)
+    capacity: int | None = Field(default=None, ge=0)
     tax_rate_id: str | None = None
     category: str | None = None
     color: str | None = None
@@ -23,13 +26,13 @@ class ItemCreate(ItemBase):
 
 
 class ItemUpdate(BaseModel):
-    kind: str | None = None
-    name: str | None = None
+    kind: ItemKind | None = None
+    name: str | None = Field(default=None, min_length=1)
     description: str | None = None
-    price_cents: int | None = None
-    currency: str | None = None
-    duration_min: int | None = None
-    capacity: int | None = None
+    price_cents: int | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    duration_min: int | None = Field(default=None, ge=0)
+    capacity: int | None = Field(default=None, ge=0)
     tax_rate_id: str | None = None
     category: str | None = None
     color: str | None = None
