@@ -92,97 +92,99 @@ export function Calendar() {
         : formatRangeLabel(columns);
 
     return (
-        <div className="flex h-full flex-col">
-            <header className="flex items-center justify-between gap-4 px-6 py-4">
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => {
-                            setAnchor(startOfDay(new Date()));
-                        }}
-                        className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg"
-                    >
-                        Today
-                    </button>
-                    <div className="flex items-center">
+        <div className="flex h-full flex-col p-6">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+                <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => {
-                                setAnchor((a) => shift(view, a, -1));
+                                setAnchor(startOfDay(new Date()));
                             }}
-                            className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
-                            aria-label="Previous"
+                            className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg"
                         >
-                            <Chevron dir="left" />
+                            Today
                         </button>
-                        <button
-                            onClick={() => {
-                                setAnchor((a) => shift(view, a, 1));
-                            }}
-                            className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
-                            aria-label="Next"
-                        >
-                            <Chevron dir="right" />
-                        </button>
-                    </div>
-                    <h1 className="text-lg font-semibold text-ink">{label}</h1>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex rounded-lg border border-line p-0.5">
-                        {VIEWS.map((v) => (
+                        <div className="flex items-center">
                             <button
-                                key={v.key}
                                 onClick={() => {
-                                    setView(v.key);
+                                    setAnchor((a) => shift(view, a, -1));
                                 }}
-                                className={`rounded-md px-3 py-1 text-sm font-medium ${
-                                    view === v.key
-                                        ? "bg-accent text-accent-ink"
-                                        : "text-muted hover:text-ink"
-                                }`}
+                                className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
+                                aria-label="Previous"
                             >
-                                {v.label}
+                                <Chevron dir="left" />
                             </button>
-                        ))}
+                            <button
+                                onClick={() => {
+                                    setAnchor((a) => shift(view, a, 1));
+                                }}
+                                className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
+                                aria-label="Next"
+                            >
+                                <Chevron dir="right" />
+                            </button>
+                        </div>
+                        <h1 className="text-lg font-semibold text-ink">{label}</h1>
                     </div>
-                    <button
-                        onClick={() => {
-                            setBooking(true);
+                    <div className="flex items-center gap-2">
+                        <div className="flex rounded-lg border border-line p-0.5">
+                            {VIEWS.map((v) => (
+                                <button
+                                    key={v.key}
+                                    onClick={() => {
+                                        setView(v.key);
+                                    }}
+                                    className={`rounded-md px-3 py-1 text-sm font-medium ${
+                                        view === v.key
+                                            ? "bg-accent text-accent-ink"
+                                            : "text-muted hover:text-ink"
+                                    }`}
+                                >
+                                    {v.label}
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => {
+                                setBooking(true);
+                            }}
+                            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong"
+                        >
+                            + New booking
+                        </button>
+                    </div>
+                </header>
+
+                {view === "agenda" ? (
+                    <AgendaView columns={columns} events={events} onEventClick={setDetail} />
+                ) : isMonth ? (
+                    <MonthView
+                        matrix={matrix}
+                        anchor={anchor}
+                        events={events}
+                        onEventClick={setDetail}
+                    />
+                ) : (
+                    <TimeGrid columns={columns} events={events} onEventClick={setDetail} />
+                )}
+
+                {booking ? (
+                    <AddBookingModal
+                        anchor={anchor}
+                        onClose={() => {
+                            setBooking(false);
                         }}
-                        className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong"
-                    >
-                        + New booking
-                    </button>
-                </div>
-            </header>
-
-            {view === "agenda" ? (
-                <AgendaView columns={columns} events={events} onEventClick={setDetail} />
-            ) : isMonth ? (
-                <MonthView
-                    matrix={matrix}
-                    anchor={anchor}
-                    events={events}
-                    onEventClick={setDetail}
-                />
-            ) : (
-                <TimeGrid columns={columns} events={events} onEventClick={setDetail} />
-            )}
-
-            {booking ? (
-                <AddBookingModal
-                    anchor={anchor}
-                    onClose={() => {
-                        setBooking(false);
-                    }}
-                />
-            ) : null}
-            {detail ? (
-                <EventDetail
-                    event={detail}
-                    onClose={() => {
-                        setDetail(null);
-                    }}
-                />
-            ) : null}
+                    />
+                ) : null}
+                {detail ? (
+                    <EventDetail
+                        event={detail}
+                        onClose={() => {
+                            setDetail(null);
+                        }}
+                    />
+                ) : null}
+            </div>
         </div>
     );
 }
