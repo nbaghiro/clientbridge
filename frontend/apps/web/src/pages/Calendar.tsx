@@ -6,6 +6,7 @@ import {
     dateKey,
     dayBounds,
     dayColumns,
+    dragToStart,
     formatHour,
     formatRangeLabel,
     formatTime,
@@ -13,6 +14,7 @@ import {
     groupByDay,
     layoutDay,
     monthMatrix,
+    rescheduleBooking,
     sameDay,
     setBookingStatus,
     staffLabel,
@@ -24,7 +26,13 @@ import {
     useStaff,
     weekColumns,
 } from "@clientbridge/app-core";
-import { type FormEvent, type ReactNode, useState } from "react";
+import {
+    type FormEvent,
+    type PointerEvent as ReactPointerEvent,
+    type ReactNode,
+    useRef,
+    useState,
+} from "react";
 
 import { api } from "../lib/api";
 
@@ -204,6 +212,13 @@ function TimeGrid({
     const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
     const now = new Date();
 
+    const reschedule = (event: CalendarEvent, deltaY: number): void => {
+        if (event.bookingId === null) return;
+        const newStart = dragToStart(event.start, deltaY, PX_PER_MIN);
+        if (newStart.getTime() === event.start.getTime()) return;
+        void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
+    };
+
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex border-b border-line pr-[6px]">
@@ -265,9 +280,11 @@ function TimeGrid({
                                     key={pe.event.id}
                                     pe={pe}
                                     offsetPx={offsetPx}
+                                    pxPerMin={PX_PER_MIN}
                                     onClick={() => {
                                         onEventClick(pe.event);
                                     }}
+                                    onReschedule={reschedule}
                                 />
                             ))}
                             {showNow && nowTop >= 0 && nowTop <= gridHeight ? (
@@ -287,23 +304,57 @@ function TimeGrid({
 function EventBlock({
     pe,
     offsetPx,
+    pxPerMin,
     onClick,
+    onReschedule,
 }: {
     pe: ReturnType<typeof layoutDay>[number];
     offsetPx: number;
+    pxPerMin: number;
     onClick: () => void;
+    onReschedule: (event: CalendarEvent, deltaY: number) => void;
 }) {
     const { event, topPx, heightPx, leftPct, widthPct } = pe;
+    const [dy, setDy] = useState(0);
+    const drag = useRef<{ y: number; moved: boolean } | null>(null);
+    const canDrag = event.bookingId !== null;
+    const snapStep = 5 * pxPerMin;
+    const snappedDy = Math.round(dy / snapStep) * snapStep;
+
+    const down = (e: ReactPointerEvent): void => {
+        if (!canDrag) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { y: e.clientY, moved: false };
+    };
+    const move = (e: ReactPointerEvent): void => {
+        if (drag.current === null) return;
+        const d = e.clientY - drag.current.y;
+        if (Math.abs(d) > 3) drag.current.moved = true;
+        setDy(d);
+    };
+    const up = (e: ReactPointerEvent): void => {
+        const d = drag.current;
+        drag.current = null;
+        setDy(0);
+        if (d?.moved === true) onReschedule(event, e.clientY - d.y);
+        else onClick();
+    };
+
     return (
         <button
             type="button"
-            onClick={onClick}
-            className={`absolute overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs ${statusClass(event.status)}`}
+            onPointerDown={down}
+            onPointerMove={move}
+            onPointerUp={up}
+            className={`absolute overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs ${snappedDy !== 0 ? "z-20 opacity-90 shadow-md" : ""} ${statusClass(event.status)}`}
             style={{
                 top: topPx - offsetPx,
                 height: heightPx,
                 left: `calc(${leftPct}% + 2px)`,
                 width: `calc(${widthPct}% - 4px)`,
+                transform: `translateY(${snappedDy}px)`,
+                cursor: canDrag ? "grab" : "pointer",
+                touchAction: "none",
             }}
             title={`${formatTime(event.start)} · ${event.title}${event.subtitle ? ` · ${event.subtitle}` : ""}`}
         >
