@@ -2,7 +2,7 @@ import { theme } from "@clientbridge/tokens/theme";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-function PlaceholderScreen({ title }: { title: string }) {
+function TabPlaceholder({ title }: { title: string }) {
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <View style={styles.center}>
@@ -14,10 +14,19 @@ function PlaceholderScreen({ title }: { title: string }) {
 }
 
 export function CalendarScreen() {
-    return <PlaceholderScreen title="Calendar" />;
+    return <TabPlaceholder title="Calendar" />;
 }
 export function InboxScreen() {
-    return <PlaceholderScreen title="Inbox" />;
+    return <TabPlaceholder title="Inbox" />;
+}
+
+// Pushed stack screens already get a native header with the title, so just center a note.
+export function ComingSoon() {
+    return (
+        <View style={[styles.screen, styles.center]}>
+            <Text style={styles.sub}>Coming soon.</Text>
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
