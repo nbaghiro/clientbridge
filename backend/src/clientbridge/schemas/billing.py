@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field
 
 class LineInput(BaseModel):
     description: str
-    quantity: float = 1.0
-    unit_amount_cents: int = 0
+    quantity: float = Field(1.0, gt=0)
+    unit_amount_cents: int = Field(0, ge=0)
     item_id: str | None = None
     booking_id: str | None = None
 

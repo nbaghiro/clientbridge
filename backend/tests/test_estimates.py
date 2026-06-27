@@ -130,3 +130,25 @@ async def test_idempotent_create_replays(as_owner: httpx.AsyncClient, db: AsyncS
     assert first.status_code == 201
     assert second.status_code == 201
     assert first.json()["id"] == second.json()["id"]
+
+
+async def test_unknown_estimate_404(as_owner: httpx.AsyncClient) -> None:
+    assert (await as_owner.post("/v1/estimates/est_nope/accept")).status_code == 404
+    assert (await as_owner.post("/v1/estimates/est_nope/convert")).status_code == 404
+
+
+async def test_cannot_send_accepted_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await _client_id(db, with_email=True)
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    await as_owner.post(f"/v1/estimates/{est['id']}/accept")
+    res = await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    assert res.status_code == 409
+
+
+async def test_staff_cannot_convert(as_staff: httpx.AsyncClient) -> None:
+    # _assert_admin gates before any lookup, so a bogus id still 403s for staff
+    res = await as_staff.post("/v1/estimates/est_x/convert")
+    assert res.status_code == 403

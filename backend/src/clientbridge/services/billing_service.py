@@ -1,6 +1,8 @@
 from datetime import UTC, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -32,8 +34,6 @@ class BillingService:
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
-
-    # ── Invoices ──────────────────────────────────────────────────────────
 
     async def create_invoice(self, data: InvoiceCreate, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
@@ -109,7 +109,12 @@ class BillingService:
                 cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
-            await self.db.flush()
+            try:
+                await (
+                    self.db.flush()
+                )  # the unique (business_id, number) backstops a concurrent send
+            except IntegrityError as exc:
+                raise Conflict("that number was just assigned — please retry") from exc
             await self._email_doc(
                 email_sender, client, "Invoice", invoice.number, invoice.total_cents
             )
@@ -135,8 +140,6 @@ class BillingService:
         return await run_command(
             self.db, self.principal, action="invoice.void", run=run, response_model=InvoiceOut
         )
-
-    # ── Estimates ─────────────────────────────────────────────────────────
 
     async def create_estimate(
         self, data: EstimateCreate, idempotency_key: str | None
@@ -209,7 +212,12 @@ class BillingService:
                 cmd.record("estimate.send", entity_type="estimate", entity_id=estimate.id)
             else:
                 cmd.record("estimate.resend", entity_type="estimate", entity_id=estimate.id)
-            await self.db.flush()
+            try:
+                await (
+                    self.db.flush()
+                )  # the unique (business_id, number) backstops a concurrent send
+            except IntegrityError as exc:
+                raise Conflict("that number was just assigned — please retry") from exc
             await self._email_doc(
                 email_sender, client, "Estimate", estimate.number, estimate.total_cents
             )
@@ -296,8 +304,6 @@ class BillingService:
             response_model=EstimateOut,
         )
 
-    # ── Shared helpers ────────────────────────────────────────────────────
-
     def _assert_admin(self) -> None:
         if self.principal.role not in ("owner", "admin"):
             raise Forbidden("only an owner or admin can manage billing")
@@ -338,6 +344,9 @@ class BillingService:
         )
         lines: list[Line] = []
         for i, inp in enumerate(inputs):
+            amount = (Decimal(str(inp.quantity)) * inp.unit_amount_cents).quantize(
+                Decimal(1), rounding=ROUND_HALF_UP
+            )
             line = Line(
                 id=new_id("line"),
                 business_id=self.biz,
@@ -348,7 +357,7 @@ class BillingService:
                 booking_id=inp.booking_id,
                 quantity=inp.quantity,
                 unit_amount_cents=inp.unit_amount_cents,
-                amount_cents=round(inp.quantity * inp.unit_amount_cents),
+                amount_cents=int(amount),
                 position=i,
             )
             self.db.add(line)
