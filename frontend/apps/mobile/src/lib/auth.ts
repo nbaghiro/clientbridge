@@ -1,7 +1,7 @@
-import type { components } from "@clientbridge/api-client";
+import type { TokenPair } from "@clientbridge/api-client";
 import * as SecureStore from "expo-secure-store";
 
-export type TokenPair = components["schemas"]["TokenPair"];
+export type { TokenPair };
 
 const KEY = "cb_tokens";
 
@@ -16,8 +16,4 @@ export async function setTokens(tokens: TokenPair): Promise<void> {
 
 export async function clearTokens(): Promise<void> {
     await SecureStore.deleteItemAsync(KEY);
-}
-
-export async function getAccessToken(): Promise<string> {
-    return (await getTokens())?.access_token ?? "";
 }

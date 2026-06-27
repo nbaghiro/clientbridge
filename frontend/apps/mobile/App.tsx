@@ -3,13 +3,14 @@ import { PowerSyncContext } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { TabBar } from "./src/components/TabBar";
-import { getAccessToken, getTokens } from "./src/lib/auth";
-import { connectPowerSync, db } from "./src/lib/powersync";
+import { api, onSignedOut } from "./src/lib/api";
+import { clearTokens, getTokens } from "./src/lib/auth";
+import { connectPowerSync, db, signOut } from "./src/lib/powersync";
 import type { RootStackParamList } from "./src/navigation";
 import { CalendarScreen } from "./src/screens/Calendar";
 import { CatalogScreen } from "./src/screens/Catalog";
@@ -54,6 +55,18 @@ export function App() {
 function Root() {
     const [authed, setAuthed] = useState<boolean | null>(null);
 
+    const handleSignOut = useCallback(async (): Promise<void> => {
+        await clearTokens();
+        await signOut();
+        setAuthed(false);
+    }, []);
+
+    useEffect(() => {
+        onSignedOut(() => {
+            void handleSignOut();
+        });
+    }, [handleSignOut]);
+
     useEffect(() => {
         void getTokens().then((t) => {
             setAuthed(t !== null);
@@ -61,7 +74,7 @@ function Root() {
     }, []);
 
     useEffect(() => {
-        if (authed) void connectPowerSync(getAccessToken);
+        if (authed) void connectPowerSync(api.authFetch);
     }, [authed]);
 
     if (authed === null) {

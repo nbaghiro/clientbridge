@@ -3,8 +3,7 @@ import { OPSqliteOpenFactory } from "@powersync/op-sqlite";
 import { PowerSyncDatabase } from "@powersync/react-native";
 import Constants from "expo-constants";
 
-const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string; powersyncUrl?: string };
-const backendUrl = extra.apiUrl ?? "http://localhost:8701";
+const extra = (Constants.expoConfig?.extra ?? {}) as { powersyncUrl?: string };
 const powersyncUrl = extra.powersyncUrl ?? "http://localhost:8704";
 
 export const db = new PowerSyncDatabase({
@@ -12,12 +11,14 @@ export const db = new PowerSyncDatabase({
     database: new OPSqliteOpenFactory({ dbFilename: "clientbridge.db" }),
 });
 
-/**
- * Connect to PowerSync. Pass a function returning the app JWT once auth exists; defaults to a
- * dev no-op token (the backend's /sync/token mints a dev-user token when unauthenticated).
- */
-export async function connectPowerSync(
-    getToken: () => Promise<string> = () => Promise.resolve(""),
-): Promise<void> {
-    await db.connect(createConnector({ backendUrl, powersyncUrl, getToken }));
+type AuthFetch = (path: string, init?: RequestInit) => Promise<Response>;
+
+/** Connect to PowerSync using the session's authenticated fetch (handles token refresh + sign-out). */
+export async function connectPowerSync(authFetch: AuthFetch): Promise<void> {
+    await db.connect(createConnector({ powersyncUrl, authFetch }));
+}
+
+/** Disconnect and wipe the local DB — used on sign-out so the next user starts clean. */
+export async function signOut(): Promise<void> {
+    await db.disconnectAndClear();
 }
