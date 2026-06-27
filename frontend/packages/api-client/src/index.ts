@@ -32,5 +32,14 @@ export function createApi(opts: ApiClientOptions) {
             if (!res.ok) throw new Error(`POST ${path} → ${res.status}`);
             return (await res.json()) as T;
         },
+        async patch<T>(path: string, body: unknown): Promise<T> {
+            const res = await fetch(`${opts.baseUrl}${path}`, {
+                method: "PATCH",
+                headers: await headers(),
+                body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error(`PATCH ${path} → ${res.status}`);
+            return (await res.json()) as T;
+        },
     };
 }
