@@ -13,9 +13,6 @@ function TabPlaceholder({ title }: { title: string }) {
     );
 }
 
-export function CalendarScreen() {
-    return <TabPlaceholder title="Calendar" />;
-}
 export function InboxScreen() {
     return <TabPlaceholder title="Inbox" />;
 }
