@@ -1,4 +1,3 @@
-// App root: gates on auth, then wires PowerSync + nav (tabs inside a stack for pushed screens).
 import { theme } from "@clientbridge/tokens/theme";
 import { PowerSyncContext } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";

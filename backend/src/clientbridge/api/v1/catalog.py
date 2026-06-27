@@ -1,11 +1,16 @@
-from fastapi import APIRouter
+from typing import Annotated
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession
+from fastapi import APIRouter, Depends
+
+from clientbridge.core.deps import CurrentPrincipal, DbSession, Principal, require_role
 from clientbridge.core.pagination import Page, PageQuery
 from clientbridge.schemas.catalog import ItemCreate, ItemOut, ItemUpdate
 from clientbridge.services.catalog_service import CatalogService
 
 router = APIRouter(prefix="/items", tags=["catalog"])
+
+# Catalog edits are admin-managed — keep in lockstep with WRITE_POLICY["items"] in sync/upload.py.
+WriteAccess = Annotated[Principal, Depends(require_role("owner", "admin"))]
 
 
 @router.get("", response_model=Page[ItemOut])
@@ -20,7 +25,7 @@ async def list_items(principal: CurrentPrincipal, db: DbSession, page: PageQuery
 
 
 @router.post("", response_model=ItemOut, status_code=201)
-async def create_item(body: ItemCreate, principal: CurrentPrincipal, db: DbSession) -> ItemOut:
+async def create_item(body: ItemCreate, principal: WriteAccess, db: DbSession) -> ItemOut:
     item = await CatalogService(db, principal).create(body)
     return ItemOut.model_validate(item)
 
@@ -33,12 +38,12 @@ async def get_item(item_id: str, principal: CurrentPrincipal, db: DbSession) -> 
 
 @router.patch("/{item_id}", response_model=ItemOut)
 async def update_item(
-    item_id: str, body: ItemUpdate, principal: CurrentPrincipal, db: DbSession
+    item_id: str, body: ItemUpdate, principal: WriteAccess, db: DbSession
 ) -> ItemOut:
     item = await CatalogService(db, principal).update(item_id, body)
     return ItemOut.model_validate(item)
 
 
 @router.delete("/{item_id}", status_code=204)
-async def deactivate_item(item_id: str, principal: CurrentPrincipal, db: DbSession) -> None:
+async def deactivate_item(item_id: str, principal: WriteAccess, db: DbSession) -> None:
     await CatalogService(db, principal).deactivate(item_id)

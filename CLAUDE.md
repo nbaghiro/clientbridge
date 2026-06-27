@@ -37,7 +37,7 @@ mobile) · `infra/` · `.docs/`.
 - Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **mypy strict** (no `Any`).
   Frontend: eslint strictTypeChecked + tsc strict + prettier (4-space · double · 100).
 - Gate: `ruff check . && ruff format --check . && mypy src scripts tests && pytest --cov…`.
-- **Comments: sparing.** A line on a non-obvious *why* or an invariant — don't narrate *what* the code does, restate types, or write extensive multi-clause block comments on routine code.
+- **Comments: sparing — the default is no comment.** We are not fans of extensive commenting; prefer self-documenting code (clear names) over prose. Add a comment *only* for a non-obvious *why* or an invariant, and keep it to one line. Never narrate *what* the code does, restate types, summarize a function the name already conveys, or write multi-clause block/file-header comments on routine code.
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
   after model/sync-rule changes (CI has a drift gate).
