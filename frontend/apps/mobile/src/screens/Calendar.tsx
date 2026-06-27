@@ -9,14 +9,17 @@ import {
     groupByDay,
     layoutDay,
     sameDay,
+    setBookingStatus,
     startOfDay,
     useCalendarEvents,
     weekColumns,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { api } from "../lib/api";
 
 const c = theme.colors;
 const HOUR_PX = 56;
@@ -45,6 +48,7 @@ const eventLabel = (e: CalendarEvent): string => (e.subtitle.length > 0 ? e.subt
 export function CalendarScreen() {
     const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
     const [view, setView] = useState<View2>("agenda");
+    const [detail, setDetail] = useState<CalendarEvent | null>(null);
 
     const week = weekColumns(anchor);
     const rangeStart = week[0] ?? startOfDay(anchor);
@@ -125,15 +129,29 @@ export function CalendarScreen() {
             </View>
 
             {view === "agenda" ? (
-                <AgendaList events={dayEvents} />
+                <AgendaList events={dayEvents} onEventPress={setDetail} />
             ) : (
-                <DayGrid anchor={anchor} events={events} now={now} />
+                <DayGrid anchor={anchor} events={events} now={now} onEventPress={setDetail} />
             )}
+            {detail !== null ? (
+                <EventDetailSheet
+                    event={detail}
+                    onClose={() => {
+                        setDetail(null);
+                    }}
+                />
+            ) : null}
         </SafeAreaView>
     );
 }
 
-function AgendaList({ events }: { events: CalendarEvent[] }) {
+function AgendaList({
+    events,
+    onEventPress,
+}: {
+    events: CalendarEvent[];
+    onEventPress: (e: CalendarEvent) => void;
+}) {
     if (events.length === 0) {
         return (
             <View style={styles.empty}>
@@ -146,21 +164,37 @@ function AgendaList({ events }: { events: CalendarEvent[] }) {
             {events.map((e) => {
                 const sc = statusColors(e.status);
                 return (
-                    <View key={e.id} style={styles.agendaRow}>
+                    <Pressable
+                        key={e.id}
+                        onPress={() => {
+                            onEventPress(e);
+                        }}
+                        style={styles.agendaRow}
+                    >
                         <Text style={styles.agendaTime}>{formatTime(e.start)}</Text>
                         <View style={[styles.dot, { backgroundColor: sc.border }]} />
                         <View style={styles.agendaBody}>
                             <Text style={styles.agendaTitle}>{eventLabel(e)}</Text>
                             <Text style={styles.agendaSub}>{e.title}</Text>
                         </View>
-                    </View>
+                    </Pressable>
                 );
             })}
         </ScrollView>
     );
 }
 
-function DayGrid({ anchor, events, now }: { anchor: Date; events: CalendarEvent[]; now: Date }) {
+function DayGrid({
+    anchor,
+    events,
+    now,
+    onEventPress,
+}: {
+    anchor: Date;
+    events: CalendarEvent[];
+    now: Date;
+    onEventPress: (e: CalendarEvent) => void;
+}) {
     const { startHour, endHour } = dayBounds(events);
     const offsetPx = startHour * 60 * PX_PER_MIN;
     const gridHeight = (endHour - startHour) * HOUR_PX;
@@ -196,7 +230,10 @@ function DayGrid({ anchor, events, now }: { anchor: Date; events: CalendarEvent[
                                 paddingHorizontal: 2,
                             }}
                         >
-                            <View
+                            <Pressable
+                                onPress={() => {
+                                    onEventPress(pe.event);
+                                }}
                                 style={[
                                     styles.event,
                                     { backgroundColor: sc.bg, borderLeftColor: sc.border },
@@ -216,7 +253,7 @@ function DayGrid({ anchor, events, now }: { anchor: Date; events: CalendarEvent[
                                         {formatTime(pe.event.start)} · {pe.event.title}
                                     </Text>
                                 ) : null}
-                            </View>
+                            </Pressable>
                         </View>
                     );
                 })}
@@ -225,6 +262,59 @@ function DayGrid({ anchor, events, now }: { anchor: Date; events: CalendarEvent[
                 ) : null}
             </View>
         </ScrollView>
+    );
+}
+
+function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+    const [busy, setBusy] = useState(false);
+    const cancel = async (): Promise<void> => {
+        if (event.bookingId === null) {
+            onClose();
+            return;
+        }
+        setBusy(true);
+        try {
+            await setBookingStatus(api, event.bookingId, "canceled");
+            onClose();
+        } catch {
+            setBusy(false);
+        }
+    };
+    const sc = statusColors(event.status);
+    return (
+        <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+            <Pressable style={styles.detailBackdrop} onPress={onClose}>
+                <View style={styles.detailSheet} onStartShouldSetResponder={() => true}>
+                    <View style={styles.detailHead}>
+                        <View style={styles.agendaBody}>
+                            <Text style={styles.detailTitle}>{event.title}</Text>
+                            {event.subtitle.length > 0 ? (
+                                <Text style={styles.detailSub}>{event.subtitle}</Text>
+                            ) : null}
+                        </View>
+                        <View style={[styles.badge, { backgroundColor: sc.bg }]}>
+                            <Text style={[styles.badgeText, { color: sc.fg }]}>{event.status}</Text>
+                        </View>
+                    </View>
+                    <Text style={styles.detailTime}>
+                        {formatTime(event.start)} – {formatTime(event.end)}
+                    </Text>
+                    {event.bookingId !== null && event.status !== "canceled" ? (
+                        <Pressable
+                            onPress={() => {
+                                void cancel();
+                            }}
+                            disabled={busy}
+                            style={[styles.cancelBooking, busy && styles.dim]}
+                        >
+                            <Text style={styles.cancelBookingText}>
+                                {busy ? "Canceling…" : "Cancel booking"}
+                            </Text>
+                        </Pressable>
+                    ) : null}
+                </View>
+            </Pressable>
+        </Modal>
     );
 }
 
@@ -292,4 +382,29 @@ const styles = StyleSheet.create({
     eventTitle: { fontSize: 12, fontWeight: "600" },
     eventSub: { fontSize: 11, opacity: 0.8, marginTop: 1 },
     nowLine: { position: "absolute", left: 0, right: 0, height: 2, backgroundColor: c.danFg },
+    detailBackdrop: { flex: 1, backgroundColor: "rgba(20,25,30,0.4)", justifyContent: "flex-end" },
+    detailSheet: {
+        backgroundColor: c.bg,
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
+        paddingHorizontal: 20,
+        paddingTop: 18,
+        paddingBottom: 36,
+    },
+    detailHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    detailTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
+    detailSub: { color: c.muted, fontSize: 14, marginTop: 2 },
+    detailTime: { color: c.ink, fontSize: 14, marginTop: 10 },
+    badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+    badgeText: { fontSize: 12, fontWeight: "600" },
+    cancelBooking: {
+        marginTop: 18,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: c.danFg,
+        borderRadius: 10,
+        paddingVertical: 12,
+        alignItems: "center",
+    },
+    cancelBookingText: { color: c.danFg, fontSize: 15, fontWeight: "600" },
+    dim: { opacity: 0.5 },
 });
