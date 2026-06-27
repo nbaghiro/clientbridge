@@ -6,3 +6,4 @@ export * from "./domain/clients";
 export * from "./domain/catalog";
 export * from "./domain/staff";
 export * from "./domain/calendar";
+export * from "./domain/billing";
