@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react";
 
 import type { ApiLike } from "./api";
+import { blankToNull } from "./format";
 
 export interface ItemRow {
     id: string;
@@ -47,11 +48,12 @@ export interface ItemInput {
 }
 
 export function createItem(api: ApiLike, input: ItemInput): Promise<{ id: string }> {
+    const dollars = Number(input.priceDollars);
     return api.post<{ id: string }>("/v1/items", {
         kind: input.kind,
         name: input.name.trim(),
-        price_cents: Math.round((Number(input.priceDollars) || 0) * 100),
+        price_cents: Math.round((Number.isFinite(dollars) ? dollars : 0) * 100),
         duration_min: input.durationMin ? Number(input.durationMin) : null,
-        category: input.category?.trim() || null,
+        category: blankToNull(input.category),
     });
 }

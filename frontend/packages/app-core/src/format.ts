@@ -8,3 +8,8 @@ export const initials = (name: string): string =>
         .slice(0, 2)
         .join("")
         .toUpperCase();
+
+export function blankToNull(value: string | null | undefined): string | null {
+    const trimmed = value?.trim() ?? "";
+    return trimmed.length > 0 ? trimmed : null;
+}

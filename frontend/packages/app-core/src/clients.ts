@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react";
 
 import type { ApiLike } from "./api";
+import { blankToNull } from "./format";
 
 // Local-replica row shape (PowerSync stores booleans as 0/1; columns the SELECT guarantees).
 export interface ClientRow {
@@ -39,7 +40,7 @@ export interface ClientInput {
 export function createClient(api: ApiLike, input: ClientInput): Promise<{ id: string }> {
     return api.post<{ id: string }>("/v1/clients", {
         name: input.name.trim(),
-        email: input.email?.trim() || null,
-        phone: input.phone?.trim() || null,
+        email: blankToNull(input.email),
+        phone: blankToNull(input.phone),
     });
 }
