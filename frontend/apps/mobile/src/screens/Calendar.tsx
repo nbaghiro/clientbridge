@@ -1,5 +1,6 @@
 import {
     type CalendarEvent,
+    type CalendarIntent,
     type PositionedEvent,
     addDays,
     dateKey,
@@ -10,10 +11,12 @@ import {
     formatWeekday,
     groupByDay,
     layoutDay,
+    minutesSinceMidnight,
     rescheduleByDrag,
     sameDay,
     setBookingStatus,
     startOfDay,
+    statusIntent,
     useCalendarEvents,
     weekColumns,
 } from "@clientbridge/app-core";
@@ -40,19 +43,15 @@ const GUTTER = 52;
 
 type View2 = "agenda" | "day";
 
+const INTENT_COLORS: Record<CalendarIntent, { bg: string; fg: string; border: string }> = {
+    accent: { bg: c.accentWeak, fg: c.accentStrong, border: c.accent },
+    success: { bg: c.okBg, fg: c.okFg, border: c.okFg },
+    warning: { bg: c.warnBg, fg: c.warnFg, border: c.warnFg },
+    danger: { bg: c.danBg, fg: c.danFg, border: c.danFg },
+    neutral: { bg: c.surface, fg: c.ink, border: c.border },
+};
 function statusColors(status: string): { bg: string; fg: string; border: string } {
-    switch (status) {
-        case "completed":
-            return { bg: c.okBg, fg: c.okFg, border: c.okFg };
-        case "pending":
-            return { bg: c.warnBg, fg: c.warnFg, border: c.warnFg };
-        case "no_show":
-            return { bg: c.danBg, fg: c.danFg, border: c.danFg };
-        case "confirmed":
-            return { bg: c.accentWeak, fg: c.accentStrong, border: c.accent };
-        default:
-            return { bg: c.surface, fg: c.ink, border: c.border };
-    }
+    return INTENT_COLORS[statusIntent(status)];
 }
 
 export function CalendarScreen() {
@@ -211,7 +210,7 @@ function DayGrid({
     const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
     const positioned = layoutDay(events, { dayStart: startOfDay(anchor), pxPerMin: PX_PER_MIN });
     const showNow = sameDay(anchor, now);
-    const nowTop = (now.getHours() * 60 + now.getMinutes()) * PX_PER_MIN - offsetPx;
+    const nowTop = minutesSinceMidnight(now) * PX_PER_MIN - offsetPx;
 
     const reschedule = (event: CalendarEvent, deltaY: number): void => {
         rescheduleByDrag(api, event, deltaY, PX_PER_MIN);
