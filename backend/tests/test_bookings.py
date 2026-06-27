@@ -2,8 +2,10 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
+from tests.conftest import Factory
 
 ST_OWNER = "st_owner"
 
@@ -96,3 +98,75 @@ async def test_idempotent_create_replays(as_owner: httpx.AsyncClient, db: AsyncS
     assert first.status_code == 201
     assert second.status_code == 201
     assert first.json()["id"] == second.json()["id"]
+
+
+async def test_unknown_item_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    client_id, _ = await _client_and_item(db)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, "it_nope", "2027-04-04T10:00:00Z")
+    )
+    assert res.status_code == 404
+
+
+async def test_unknown_staff_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    client_id, item_id = await _client_and_item(db)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-04-05T10:00:00Z", "st_nope")
+    )
+    assert res.status_code == 404
+
+
+async def test_cannot_book_another_business_client(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business(name="Rival Co")
+    foreign = await factory.client(business=other)
+    await db.flush()
+    _, item_id = await _client_and_item(db)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(foreign.id, item_id, "2027-04-03T10:00:00Z")
+    )
+    assert res.status_code == 404
+
+
+async def test_reschedule_into_conflict_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    client_id, item_id = await _client_and_item(db)
+    first = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-04-01T10:00:00Z")
+    )
+    await as_owner.post("/v1/bookings", json=_body(client_id, item_id, "2027-04-01T14:00:00Z"))
+    moved = await as_owner.patch(
+        f"/v1/bookings/{first.json()['id']}", json={"starts_at": "2027-04-01T14:00:00Z"}
+    )
+    assert moved.status_code == 409
+
+
+async def test_double_cancel_is_idempotent(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    client_id, item_id = await _client_and_item(db)
+    bid = (
+        await as_owner.post("/v1/bookings", json=_body(client_id, item_id, "2027-04-02T10:00:00Z"))
+    ).json()["id"]
+    first = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+    second = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["status"] == "canceled"
+
+
+async def test_zero_duration_item_is_422(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    client_id, _ = await _client_and_item(db)
+    product = Item(
+        id=new_id("item"),
+        business_id="bz_birchbark",
+        kind="product",
+        name="Shampoo",
+        price_cents=1500,
+        currency="CAD",
+        duration_min=None,
+    )
+    db.add(product)
+    await db.flush()
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, product.id, "2027-04-06T10:00:00Z")
+    )
+    assert res.status_code == 422

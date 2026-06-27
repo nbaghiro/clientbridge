@@ -48,8 +48,8 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "signatures": ("team", False),
     "threads": ("team", False),
     "messages": ("team", False),
-    "sessions": ("team", True),
-    "bookings": ("team", True),
+    # sessions + bookings are NOT sync-writable: every mutation goes through the booking command
+    # (POST/PATCH /v1/bookings) so the atomic conflict check + exclusion constraint always hold.
     "availability": ("team", True),
     "schedules": ("team", True),
     "items": ("admin", False),
@@ -76,18 +76,6 @@ SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 # Per-table fields only a command may write — numbering, money, lifecycle, capacity counters. A sync
 # op that includes one is rejected: that mutation belongs on a POST command, not the write queue.
 COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
-    "sessions": frozenset({"booked_count", "status"}),
-    "bookings": frozenset(
-        {
-            "status",
-            "source",
-            "price_cents",
-            "invoice_id",
-            "confirmed_at",
-            "completed_at",
-            "canceled_at",
-        }
-    ),
     "invoices": frozenset(
         {
             "number",
@@ -121,7 +109,6 @@ COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
 LOCKED_STATES: dict[str, frozenset[str]] = {
     "invoices": frozenset({"paid", "void"}),
     "estimates": frozenset({"accepted"}),
-    "bookings": frozenset({"completed", "canceled", "no_show"}),
 }
 
 
