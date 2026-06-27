@@ -1,3 +1,4 @@
+// Generic date utilities shared across the app (not calendar-specific).
 const MS_PER_MIN = 60_000;
 
 /** PowerSync stores Postgres timestamptz as text ("2026-06-26 10:00:00+00"); parse it as UTC-safe. */
@@ -51,22 +52,6 @@ export function dateKey(d: Date): string {
     return `${d.getFullYear()}-${m}-${day}`;
 }
 
-export function dayColumns(anchor: Date, count: number): Date[] {
-    const start = startOfDay(anchor);
-    return Array.from({ length: count }, (_, i) => addDays(start, i));
-}
-
-export function weekColumns(anchor: Date, weekStartsOn = 1): Date[] {
-    return dayColumns(startOfWeek(anchor, weekStartsOn), 7);
-}
-
-export function monthMatrix(anchor: Date, weekStartsOn = 1): Date[][] {
-    const first = startOfWeek(startOfMonth(anchor), weekStartsOn);
-    return Array.from({ length: 6 }, (_, w) =>
-        Array.from({ length: 7 }, (_, d) => addDays(first, w * 7 + d)),
-    );
-}
-
 export function formatTime(d: Date, locale = "en-CA"): string {
     return d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
@@ -81,18 +66,4 @@ export function formatWeekday(d: Date, locale = "en-CA"): string {
 
 export function formatMonthDay(d: Date, locale = "en-CA"): string {
     return d.toLocaleDateString(locale, { month: "long", day: "numeric" });
-}
-
-export function formatRangeLabel(cols: Date[], locale = "en-CA"): string {
-    const first = cols.at(0);
-    const last = cols.at(-1);
-    if (!first || !last) return "";
-    if (cols.length === 1) {
-        return first.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" });
-    }
-    const a = first.toLocaleDateString(locale, { month: "short", day: "numeric" });
-    const b = isSameMonth(first, last)
-        ? `${last.getDate()}`
-        : last.toLocaleDateString(locale, { month: "short", day: "numeric" });
-    return `${a} – ${b}, ${first.getFullYear()}`;
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "../lib/api";
 import { connectPowerSync, powersyncUrl } from "../lib/powersync";
-import { useClientState } from "../lib/useClientState";
+import { useClientState } from "@clientbridge/app-core";
 
 // Hidden developer overlay. Open by typing "debug" anywhere, or ⌘/Ctrl+Shift+D. Esc closes.
 export function DebugPanel() {

@@ -2,7 +2,7 @@
 import { theme } from "@clientbridge/tokens/theme";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { useClientState } from "../lib/useClientState";
+import { useClientState } from "@clientbridge/app-core";
 
 export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const { status, tables, totalRows } = useClientState();
