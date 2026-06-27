@@ -12,6 +12,7 @@
   "dependencies": {
     "@azure/core-asynciterator-polyfill": "^1.0.2",
     "@clientbridge/api-client": "workspace:*",
+    "@clientbridge/app-core": "workspace:*",
     "@clientbridge/sync": "workspace:*",
     "@clientbridge/tokens": "workspace:*",
     "@op-engineering/op-sqlite": "^11.0.0",

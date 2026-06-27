@@ -1,45 +1,22 @@
-import { useQuery } from "@powersync/react";
+import {
+    ITEM_KINDS,
+    KIND_LABEL,
+    createItem,
+    filterItems,
+    formatMoney,
+    useCatalogItems,
+} from "@clientbridge/app-core";
 import { type FormEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { api } from "../lib/api";
 
-interface ItemRow {
-    id: string;
-    kind: string;
-    name: string;
-    category: string | null;
-    price_cents: number | null;
-    duration_min: number | null;
-    active: number; // sqlite boolean → 0/1
-}
-
-const KIND_LABEL: Record<string, string> = {
-    service: "Service",
-    product: "Product",
-    class: "Class",
-    package: "Package",
-    subscription: "Subscription",
-    gift: "Gift card",
-};
-
-const money = (cents: number | null): string =>
-    `$${((cents ?? 0) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}`;
-
 export function Catalog() {
-    const { data: items } = useQuery<ItemRow>(
-        "SELECT id, kind, name, category, price_cents, duration_min, active FROM items ORDER BY active DESC, name COLLATE NOCASE",
-    );
+    const items = useCatalogItems();
     const [q, setQ] = useState("");
     const [adding, setAdding] = useState(false);
 
-    const filtered = useMemo(() => {
-        const t = q.trim().toLowerCase();
-        if (!t) return items;
-        return items.filter(
-            (i) => i.name.toLowerCase().includes(t) || (i.category ?? "").toLowerCase().includes(t),
-        );
-    }, [items, q]);
+    const filtered = useMemo(() => filterItems(items, q), [items, q]);
 
     return (
         <div>
@@ -104,7 +81,7 @@ export function Catalog() {
                                     {i.duration_min ? `${String(i.duration_min)} min` : "—"}
                                 </td>
                                 <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
-                                    {money(i.price_cents)}
+                                    {formatMoney(i.price_cents)}
                                 </td>
                             </tr>
                         ))}
@@ -133,8 +110,6 @@ export function Catalog() {
     );
 }
 
-const KINDS = ["service", "product", "class"] as const;
-
 function AddItemModal({ onClose }: { onClose: () => void }) {
     const [kind, setKind] = useState<string>("service");
     const [name, setName] = useState("");
@@ -153,12 +128,12 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
         setBusy(true);
         setError(null);
         try {
-            await api.post<{ id: string }>("/v1/items", {
+            await createItem(api, {
                 kind,
-                name: name.trim(),
-                price_cents: Math.round((Number(price) || 0) * 100),
-                duration_min: duration ? Number(duration) : null,
-                category: category.trim() || null,
+                name,
+                priceDollars: price,
+                durationMin: duration,
+                category,
             });
             onClose();
         } catch {
@@ -190,7 +165,7 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                             }}
                             className={field}
                         >
-                            {KINDS.map((k) => (
+                            {ITEM_KINDS.map((k) => (
                                 <option key={k} value={k}>
                                     {KIND_LABEL[k]}
                                 </option>

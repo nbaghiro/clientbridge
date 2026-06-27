@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@clientbridge/api-client": "workspace:*",
+    "@clientbridge/app-core": "workspace:*",
     "@clientbridge/sync": "workspace:*",
     "@clientbridge/tokens": "workspace:*",
     "@journeyapps/wa-sqlite": "^1.0.0",

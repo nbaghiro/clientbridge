@@ -40,6 +40,9 @@ importers:
       '@clientbridge/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@clientbridge/app-core':
+        specifier: workspace:*
+        version: link:../../packages/app-core
       '@clientbridge/sync':
         specifier: workspace:*
         version: link:../../packages/sync
@@ -137,6 +140,9 @@ importers:
       '@clientbridge/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@clientbridge/app-core':
+        specifier: workspace:*
+        version: link:../../packages/app-core
       '@clientbridge/sync':
         specifier: workspace:*
         version: link:../../packages/sync
@@ -195,6 +201,15 @@ importers:
       openapi-typescript:
         specifier: ^7.4.0
         version: 7.13.0(typescript@5.9.3)
+
+  packages/app-core:
+    dependencies:
+      '@powersync/react':
+        specifier: ^1.5.0
+        version: 1.10.0(@powersync/common@1.57.0)(react@18.3.1)
+      react:
+        specifier: '>=18'
+        version: 18.3.1
 
   packages/config:
     dependencies:
