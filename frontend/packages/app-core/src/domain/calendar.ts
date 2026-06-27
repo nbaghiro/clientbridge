@@ -1,7 +1,7 @@
 import { useQuery } from "@powersync/react";
 import { useMemo, useState } from "react";
 
-import type { ApiLike } from "./api";
+import type { ApiLike } from "../util/api";
 import { type ItemRow, useCatalogItems } from "./catalog";
 import { type ClientRow, useClients } from "./clients";
 import {
@@ -12,7 +12,7 @@ import {
     startOfDay,
     startOfMonth,
     startOfWeek,
-} from "./datetime";
+} from "../util/datetime";
 import { type StaffRow, useStaff } from "./staff";
 
 // ─────────────────────────────── Types ───────────────────────────────
