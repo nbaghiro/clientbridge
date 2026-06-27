@@ -4,6 +4,7 @@ export * from "./util/format";
 export * from "./util/intent";
 export * from "./hooks/useAsyncAction";
 export * from "./hooks/useClientState";
+export * from "./hooks/useLogin";
 export * from "./hooks/useSearch";
 export * from "./domain/clients";
 export * from "./domain/catalog";

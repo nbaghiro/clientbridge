@@ -1,52 +1,18 @@
-import { type FormEvent, useState } from "react";
+import { useLogin } from "@clientbridge/app-core";
+import { type FormEvent } from "react";
 
 import { api } from "../lib/api";
-import { type TokenPair, setTokens } from "../lib/auth";
+import { setTokens } from "../lib/auth";
 import { BrandBackdrop, resolveVariant } from "./BrandBackdrop";
 import { GoogleIcon, Logo } from "./icons";
-
-type Mode = "signin" | "signup";
 
 const backdrop = resolveVariant(new URLSearchParams(window.location.search).get("bg"));
 
 export function Login({ onSuccess }: { onSuccess: () => void }) {
-    const [mode, setMode] = useState<Mode>("signin");
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("hannah@birchbarkpets.ca");
-    const [password, setPassword] = useState("demo1234");
-    const [error, setError] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
-
-    const submit = async (e: FormEvent): Promise<void> => {
-        e.preventDefault();
-        setBusy(true);
-        setError(null);
-        try {
-            const tokens =
-                mode === "signin"
-                    ? await api.post<TokenPair>("/auth/login", { email, password })
-                    : await api.post<TokenPair>("/auth/register", { email, password, name });
-            setTokens(tokens);
-            onSuccess();
-        } catch {
-            setError(
-                mode === "signin"
-                    ? "Invalid email or password"
-                    : "Could not create that account — try another email",
-            );
-            setBusy(false);
-        }
-    };
-
-    const onGoogle = (): void => {
-        // Real Google sign-in needs a configured OAuth client (POST /auth/oauth/google with an id_token).
-        setError("Google sign-in isn’t configured in this environment yet — use email & password.");
-    };
-
-    const flip = (): void => {
-        setMode(mode === "signin" ? "signup" : "signin");
-        setError(null);
-    };
+    const login = useLogin(api, setTokens, onSuccess, {
+        defaultEmail: "hannah@birchbarkpets.ca",
+        defaultPassword: "demo1234",
+    });
 
     const field =
         "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-none transition placeholder:text-muted focus:border-accent";
@@ -96,22 +62,28 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                     </div>
 
                     <h1 className="font-display text-2xl font-bold text-ink">
-                        {mode === "signin" ? "Sign in" : "Create your account"}
+                        {login.mode === "signin" ? "Sign in" : "Create your account"}
                     </h1>
                     <p className="mt-1 text-sm text-muted">
-                        {mode === "signin"
+                        {login.mode === "signin"
                             ? "Welcome back."
                             : "Start running your practice in minutes."}
                     </p>
 
-                    <form onSubmit={(e) => void submit(e)} className="mt-6 flex flex-col gap-4">
-                        {mode === "signup" ? (
+                    <form
+                        onSubmit={(e: FormEvent) => {
+                            e.preventDefault();
+                            login.submit();
+                        }}
+                        className="mt-6 flex flex-col gap-4"
+                    >
+                        {login.mode === "signup" ? (
                             <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
                                 Name
                                 <input
-                                    value={name}
+                                    value={login.name}
                                     onChange={(e) => {
-                                        setName(e.target.value);
+                                        login.setName(e.target.value);
                                     }}
                                     placeholder="Hannah Bauer"
                                     autoComplete="name"
@@ -124,9 +96,9 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                             Email
                             <input
                                 type="email"
-                                value={email}
+                                value={login.email}
                                 onChange={(e) => {
-                                    setEmail(e.target.value);
+                                    login.setEmail(e.target.value);
                                 }}
                                 placeholder="you@example.com"
                                 autoComplete="email"
@@ -138,30 +110,32 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                             Password
                             <input
                                 type="password"
-                                value={password}
+                                value={login.password}
                                 onChange={(e) => {
-                                    setPassword(e.target.value);
+                                    login.setPassword(e.target.value);
                                 }}
                                 placeholder="••••••••"
                                 autoComplete={
-                                    mode === "signin" ? "current-password" : "new-password"
+                                    login.mode === "signin" ? "current-password" : "new-password"
                                 }
                                 className={field}
                             />
                         </label>
 
-                        {error ? <p className="text-sm text-danger-fg">{error}</p> : null}
+                        {login.error ? (
+                            <p className="text-sm text-danger-fg">{login.error}</p>
+                        ) : null}
 
                         <button
                             type="submit"
-                            disabled={busy}
+                            disabled={login.busy}
                             className="mt-1 rounded-md bg-accent px-4 py-2.5 font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {busy
-                                ? mode === "signin"
+                            {login.busy
+                                ? login.mode === "signin"
                                     ? "Signing in…"
                                     : "Creating account…"
-                                : mode === "signin"
+                                : login.mode === "signin"
                                   ? "Sign in"
                                   : "Create account"}
                         </button>
@@ -175,7 +149,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 
                     <button
                         type="button"
-                        onClick={onGoogle}
+                        onClick={login.googleUnavailable}
                         className="flex w-full items-center justify-center gap-2.5 rounded-md border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-bg"
                     >
                         <GoogleIcon className="h-5 w-5" />
@@ -183,13 +157,15 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                     </button>
 
                     <p className="mt-6 text-center text-sm text-muted">
-                        {mode === "signin" ? "New to Clientbridge?" : "Already have an account?"}{" "}
+                        {login.mode === "signin"
+                            ? "New to Clientbridge?"
+                            : "Already have an account?"}{" "}
                         <button
                             type="button"
-                            onClick={flip}
+                            onClick={login.flip}
                             className="font-semibold text-accent hover:underline"
                         >
-                            {mode === "signin" ? "Create an account" : "Sign in"}
+                            {login.mode === "signin" ? "Create an account" : "Sign in"}
                         </button>
                     </p>
                 </div>

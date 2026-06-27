@@ -25,6 +25,11 @@ mobile) · `infra/` · `.docs/`.
   prod implements it, tests override with a recording fake.
 - Server-only tables (`auth_*`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema.
 
+## Frontend — share the view-model, render per-platform
+- Web (React/Vite/Tailwind) + mobile (Expo RN) share everything UI-agnostic via `@clientbridge/app-core`; only rendering, navigation, and platform APIs differ.
+- **Every feature's view-model is an app-core hook** — the form (`useXForm`: field state + validation + submit, built on the `useAsyncAction` primitive), the list (`useSearch`), the lifecycle actions, and the status→`Intent` decision. A new screen is thin rendering over a shared hook, never re-implemented glue (mirror `useBookingForm` / `useClientForm` / `useDocForm`).
+- Reads = `useQuery` over the local replica (SQL lives in app-core); writes = shared fns taking `ApiLike` (each app builds its concrete `api` from `createSession`). The only platform seams are the **SQLite driver, the token store, and rendering**. Design tokens come from `@clientbridge/tokens` (one source → Tailwind preset + RN theme); per-platform token maps key off the neutral `Intent` type. No cross-platform UI framework (it would rewrite the idiomatic web UI to dedupe the cheapest layer).
+
 ## Testing — the feedback loop (`.docs/testing.md`)
 - **Integration-first**: `httpx` → real app → real Postgres. Unit-test pure logic only. Don't mock our code.
 - **Transactional rollback per test** (`tests/conftest.py`): the seed is the baseline; every write rolls back.

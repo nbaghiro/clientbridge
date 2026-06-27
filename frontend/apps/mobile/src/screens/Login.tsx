@@ -1,6 +1,7 @@
+import { useLogin } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { StatusBar } from "expo-status-bar";
-import { type ComponentProps, useState } from "react";
+import { type ComponentProps } from "react";
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -16,48 +17,15 @@ import {
 
 import { GoogleIcon, Logo } from "../components/icons";
 import { api } from "../lib/api";
-import { type TokenPair, setTokens } from "../lib/auth";
-
-type Mode = "signin" | "signup";
+import { setTokens } from "../lib/auth";
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
-    const [mode, setMode] = useState<Mode>("signin");
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("hannah@birchbarkpets.ca");
-    const [password, setPassword] = useState("demo1234");
-    const [error, setError] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
+    const login = useLogin(api, setTokens, onSuccess, {
+        defaultEmail: "hannah@birchbarkpets.ca",
+        defaultPassword: "demo1234",
+    });
 
-    const submit = async (): Promise<void> => {
-        setBusy(true);
-        setError(null);
-        try {
-            const tokens =
-                mode === "signin"
-                    ? await api.post<TokenPair>("/auth/login", { email, password })
-                    : await api.post<TokenPair>("/auth/register", { email, password, name });
-            await setTokens(tokens);
-            onSuccess();
-        } catch {
-            setError(
-                mode === "signin"
-                    ? "Invalid email or password"
-                    : "Could not create that account — try another email",
-            );
-            setBusy(false);
-        }
-    };
-
-    const onGoogle = (): void => {
-        setError("Google sign-in isn’t configured in this build yet — use email & password.");
-    };
-
-    const flip = (): void => {
-        setMode(mode === "signin" ? "signup" : "signin");
-        setError(null);
-    };
-
-    const signin = mode === "signin";
+    const signin = login.mode === "signin";
 
     return (
         <SafeAreaView style={styles.screen}>
@@ -87,16 +55,16 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                         {signin ? null : (
                             <Field
                                 label="Name"
-                                value={name}
-                                onChangeText={setName}
+                                value={login.name}
+                                onChangeText={login.setName}
                                 placeholder="Hannah Bauer"
                                 autoComplete="name"
                             />
                         )}
                         <Field
                             label="Email"
-                            value={email}
-                            onChangeText={setEmail}
+                            value={login.email}
+                            onChangeText={login.setEmail}
                             placeholder="you@example.com"
                             autoCapitalize="none"
                             keyboardType="email-address"
@@ -104,25 +72,29 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                         />
                         <Field
                             label="Password"
-                            value={password}
-                            onChangeText={setPassword}
+                            value={login.password}
+                            onChangeText={login.setPassword}
                             placeholder="••••••••"
                             secureTextEntry
                             autoComplete={signin ? "current-password" : "new-password"}
-                            onSubmitEditing={() => void submit()}
+                            onSubmitEditing={() => {
+                                login.submit();
+                            }}
                         />
 
-                        {error ? <Text style={styles.error}>{error}</Text> : null}
+                        {login.error ? <Text style={styles.error}>{login.error}</Text> : null}
 
                         <Pressable
                             style={({ pressed }) => [
                                 styles.submit,
-                                (busy || pressed) && styles.dim,
+                                (login.busy || pressed) && styles.dim,
                             ]}
-                            onPress={() => void submit()}
-                            disabled={busy}
+                            onPress={() => {
+                                login.submit();
+                            }}
+                            disabled={login.busy}
                         >
-                            {busy ? (
+                            {login.busy ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
                                 <Text style={styles.submitText}>
@@ -137,7 +109,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                             <View style={styles.line} />
                         </View>
 
-                        <Pressable style={styles.google} onPress={onGoogle}>
+                        <Pressable style={styles.google} onPress={login.googleUnavailable}>
                             <GoogleIcon size={20} />
                             <Text style={styles.googleText}>Continue with Google</Text>
                         </Pressable>
@@ -147,7 +119,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                         <Text style={styles.toggleText}>
                             {signin ? "New to Clientbridge?" : "Already have an account?"}
                         </Text>
-                        <Pressable onPress={flip} hitSlop={8}>
+                        <Pressable onPress={login.flip} hitSlop={8}>
                             <Text style={styles.toggleLink}>
                                 {signin ? "Create an account" : "Sign in"}
                             </Text>
