@@ -3,7 +3,7 @@ import { useQuery } from "@powersync/react";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 
-// Local-replica row shape (PowerSync stores booleans as 0/1; columns the SELECT guarantees).
+// Local-replica row shape: the columns the SELECT guarantees.
 export interface ClientRow {
     id: string;
     name: string;

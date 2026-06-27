@@ -1,6 +1,6 @@
 import {
     type CalendarEvent,
-    type CalendarIntent,
+    type Intent,
     type PositionedEvent,
     addDays,
     dateKey,
@@ -43,7 +43,7 @@ const GUTTER = 52;
 
 type View2 = "agenda" | "day";
 
-const INTENT_COLORS: Record<CalendarIntent, { bg: string; fg: string; border: string }> = {
+const INTENT_COLORS: Record<Intent, { bg: string; fg: string; border: string }> = {
     accent: { bg: c.accentWeak, fg: c.accentStrong, border: c.accent },
     success: { bg: c.okBg, fg: c.okFg, border: c.okFg },
     warning: { bg: c.warnBg, fg: c.warnFg, border: c.warnFg },

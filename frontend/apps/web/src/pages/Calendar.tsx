@@ -1,6 +1,6 @@
 import {
     type CalendarEvent,
-    type CalendarIntent,
+    type Intent,
     type CalendarView,
     type StaffRow,
     addDays,
@@ -58,7 +58,7 @@ interface Lane {
     isToday: boolean;
 }
 
-const INTENT_CLASS: Record<CalendarIntent, string> = {
+const INTENT_CLASS: Record<Intent, string> = {
     accent: "border-accent bg-accent-weak text-accent-strong",
     success: "border-ok bg-ok-bg text-ok-fg",
     warning: "border-warn bg-warn-bg text-warn-fg",
@@ -67,7 +67,7 @@ const INTENT_CLASS: Record<CalendarIntent, string> = {
 };
 const statusClass = (s: string): string => INTENT_CLASS[statusIntent(s)];
 
-const INTENT_DOT: Record<CalendarIntent, string> = {
+const INTENT_DOT: Record<Intent, string> = {
     accent: "bg-accent",
     success: "bg-ok",
     warning: "bg-warn",
@@ -718,7 +718,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
     );
 }
 
-const INTENT_BADGE: Record<CalendarIntent, string> = {
+const INTENT_BADGE: Record<Intent, string> = {
     accent: "bg-accent-weak text-accent-strong",
     success: "bg-ok-bg text-ok-fg",
     warning: "bg-warn-bg text-warn-fg",

@@ -2,9 +2,7 @@ import { useQuery } from "@powersync/react";
 
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
-import type { CalendarIntent } from "./calendar";
-
-// ─────────────────────────────── Rows ─────────────────────────────────
+import type { Intent } from "../util/intent";
 
 export interface InvoiceRow {
     id: string;
@@ -40,8 +38,6 @@ export interface LineRow {
     tax_amount_cents: number;
     position: number;
 }
-
-// ─────────────────────────────── Reads ────────────────────────────────
 
 const INVOICES_SQL = `
 SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status,
@@ -96,7 +92,7 @@ export function filterEstimates(rows: EstimateRow[], q: string): EstimateRow[] {
 }
 
 // The status → visual-intent decision is shared; each platform maps the intent to its own tokens.
-export function invoiceStatusIntent(status: string): CalendarIntent {
+export function invoiceStatusIntent(status: string): Intent {
     switch (status) {
         case "paid":
             return "success";
@@ -111,7 +107,7 @@ export function invoiceStatusIntent(status: string): CalendarIntent {
     }
 }
 
-export function estimateStatusIntent(status: string): CalendarIntent {
+export function estimateStatusIntent(status: string): Intent {
     switch (status) {
         case "accepted":
             return "success";
@@ -123,8 +119,6 @@ export function estimateStatusIntent(status: string): CalendarIntent {
             return "neutral"; // draft, expired
     }
 }
-
-// ──────────────────────── Mutations (command-only) ────────────────────
 
 export interface LineInput {
     description: string;
@@ -202,4 +196,52 @@ export function declineEstimate(api: ApiLike, id: string): Promise<DocResult> {
 
 export function convertEstimate(api: ApiLike, id: string): Promise<DocResult> {
     return api.post<DocResult>(`/v1/estimates/${id}/convert`, {});
+}
+
+export type DocActionKey = "send" | "void" | "accept" | "decline" | "convert";
+
+export interface DocAction {
+    key: DocActionKey;
+    run: () => Promise<DocResult>;
+}
+
+// The status → available-action state machine is shared; each platform maps the key to a label.
+export function invoiceActions(api: ApiLike, row: InvoiceRow): DocAction[] {
+    const out: DocAction[] = [];
+    if (row.status === "draft") out.push({ key: "send", run: () => sendInvoice(api, row.id) });
+    if (row.status !== "void" && row.status !== "paid")
+        out.push({ key: "void", run: () => voidInvoice(api, row.id) });
+    return out;
+}
+
+export function estimateActions(api: ApiLike, row: EstimateRow): DocAction[] {
+    const out: DocAction[] = [];
+    if (row.status === "draft") out.push({ key: "send", run: () => sendEstimate(api, row.id) });
+    if (row.status === "sent") {
+        out.push({ key: "accept", run: () => acceptEstimate(api, row.id) });
+        out.push({ key: "decline", run: () => declineEstimate(api, row.id) });
+    }
+    if ((row.status === "sent" || row.status === "accepted") && row.converted_invoice_id === null)
+        out.push({ key: "convert", run: () => convertEstimate(api, row.id) });
+    return out;
+}
+
+export interface DraftLine {
+    description: string;
+    quantity: string;
+    unit: string;
+}
+
+export function toLineInputs(drafts: DraftLine[]): LineInput[] {
+    return drafts
+        .filter((l) => l.description.trim().length > 0)
+        .map((l) => ({
+            description: l.description.trim(),
+            quantity: Number(l.quantity) || 0,
+            unit_amount_cents: Math.round((Number(l.unit) || 0) * 100),
+        }));
+}
+
+export function lineSubtotalCents(lines: LineInput[]): number {
+    return lines.reduce((s, l) => s + Math.round(l.quantity * l.unit_amount_cents), 0);
 }

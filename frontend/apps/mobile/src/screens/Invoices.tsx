@@ -1,21 +1,18 @@
 import {
-    type CalendarIntent,
+    type DocActionKey,
     type EstimateRow,
+    type Intent,
     type InvoiceRow,
-    acceptEstimate,
-    convertEstimate,
-    declineEstimate,
+    estimateActions,
     estimateStatusIntent,
     filterEstimates,
     filterInvoices,
     formatMoney,
+    invoiceActions,
     invoiceStatusIntent,
-    sendEstimate,
-    sendInvoice,
     useEstimates,
     useInvoices,
     useLines,
-    voidInvoice,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useMemo, useState } from "react";
@@ -37,7 +34,7 @@ import { api } from "../lib/api";
 const c = theme.colors;
 type Tab = "invoices" | "estimates";
 
-const INTENT_COLORS: Record<CalendarIntent, { bg: string; fg: string }> = {
+const INTENT_COLORS: Record<Intent, { bg: string; fg: string }> = {
     accent: { bg: c.accentWeak, fg: c.accentStrong },
     success: { bg: c.okBg, fg: c.okFg },
     warning: { bg: c.warnBg, fg: c.warnFg },
@@ -45,7 +42,15 @@ const INTENT_COLORS: Record<CalendarIntent, { bg: string; fg: string }> = {
     neutral: { bg: c.bg, fg: c.muted },
 };
 
-function StatusBadge({ status, intent }: { status: string; intent: CalendarIntent }) {
+const ACTION_LABELS: Record<DocActionKey, string> = {
+    send: "Send",
+    void: "Void",
+    accept: "Accept",
+    decline: "Decline",
+    convert: "Convert",
+};
+
+function StatusBadge({ status, intent }: { status: string; intent: Intent }) {
     const tone = INTENT_COLORS[intent];
     return (
         <View style={[styles.badge, { backgroundColor: tone.bg }]}>
@@ -174,27 +179,12 @@ function DetailModal({
         }
     };
 
-    const actions: { label: string; run: () => Promise<unknown> }[] = [];
-    if (row !== null) {
-        if (kind === "invoices") {
-            if (row.status === "draft")
-                actions.push({ label: "Send", run: () => sendInvoice(api, row.id) });
-            if (row.status !== "void" && row.status !== "paid")
-                actions.push({ label: "Void", run: () => voidInvoice(api, row.id) });
-        } else {
-            if (row.status === "draft")
-                actions.push({ label: "Send", run: () => sendEstimate(api, row.id) });
-            if (row.status === "sent") {
-                actions.push({ label: "Accept", run: () => acceptEstimate(api, row.id) });
-                actions.push({ label: "Decline", run: () => declineEstimate(api, row.id) });
-            }
-            if (
-                (row.status === "sent" || row.status === "accepted") &&
-                (row as EstimateRow).converted_invoice_id === null
-            )
-                actions.push({ label: "Convert", run: () => convertEstimate(api, row.id) });
-        }
-    }
+    const actions =
+        row === null
+            ? []
+            : kind === "invoices"
+              ? invoiceActions(api, row as InvoiceRow)
+              : estimateActions(api, row as EstimateRow);
 
     return (
         <Modal visible={row !== null} transparent animationType="slide" onRequestClose={onClose}>
@@ -241,7 +231,7 @@ function DetailModal({
                                 </Pressable>
                                 {actions.map((a) => (
                                     <Pressable
-                                        key={a.label}
+                                        key={a.key}
                                         style={styles.save}
                                         disabled={busy}
                                         onPress={() => void act(a.run)}
@@ -249,7 +239,9 @@ function DetailModal({
                                         {busy ? (
                                             <ActivityIndicator color="#fff" />
                                         ) : (
-                                            <Text style={styles.saveText}>{a.label}</Text>
+                                            <Text style={styles.saveText}>
+                                                {ACTION_LABELS[a.key]}
+                                            </Text>
                                         )}
                                     </Pressable>
                                 ))}
