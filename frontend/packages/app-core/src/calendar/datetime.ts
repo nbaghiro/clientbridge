@@ -91,11 +91,8 @@ export function formatRangeLabel(cols: Date[], locale = "en-CA"): string {
         return first.toLocaleDateString(locale, { month: "long", day: "numeric", year: "numeric" });
     }
     const a = first.toLocaleDateString(locale, { month: "short", day: "numeric" });
-    const b = last.toLocaleDateString(
-        locale,
-        isSameMonth(first, last)
-            ? { day: "numeric", year: "numeric" }
-            : { month: "short", day: "numeric", year: "numeric" },
-    );
-    return `${a} – ${b}`;
+    const b = isSameMonth(first, last)
+        ? `${last.getDate()}`
+        : last.toLocaleDateString(locale, { month: "short", day: "numeric" });
+    return `${a} – ${b}, ${first.getFullYear()}`;
 }
