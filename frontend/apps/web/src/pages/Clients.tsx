@@ -1,4 +1,5 @@
 import {
+    clientStatusIntent,
     createClient,
     filterClients,
     formatMoney,
@@ -8,6 +9,7 @@ import {
 import { type FormEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
+import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 
 export function Clients() {
@@ -78,7 +80,10 @@ export function Clients() {
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">{c.phone ?? "—"}</td>
                                 <td className="px-4 py-3">
-                                    <StatusBadge status={c.status} />
+                                    <StatusPill
+                                        status={c.status}
+                                        intent={clientStatusIntent(c.status)}
+                                    />
                                 </td>
                                 <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
                                     {formatMoney(c.lifetime_value_cents)}
@@ -107,19 +112,6 @@ export function Clients() {
                 />
             ) : null}
         </div>
-    );
-}
-
-function StatusBadge({ status }: { status: string }) {
-    const ok = status === "active";
-    return (
-        <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                ok ? "bg-ok-bg text-ok-fg" : "bg-warn-bg text-warn-fg"
-            }`}
-        >
-            {status}
-        </span>
     );
 }
 

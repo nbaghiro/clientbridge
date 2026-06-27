@@ -1,5 +1,6 @@
 import {
     type ClientRow,
+    clientStatusIntent,
     createClient,
     filterClients,
     formatMoney,
@@ -21,6 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconPlus, IconSearch } from "../components/icons";
+import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 
 export function ClientsScreen() {
@@ -83,7 +85,6 @@ export function ClientsScreen() {
 }
 
 function ClientRowView({ c }: { c: ClientRow }) {
-    const ok = c.status === "active";
     return (
         <View style={styles.row}>
             <View style={styles.avatar}>
@@ -99,13 +100,7 @@ function ClientRowView({ c }: { c: ClientRow }) {
             </View>
             <View style={styles.rowRight}>
                 <Text style={styles.rowValue}>{formatMoney(c.lifetime_value_cents)}</Text>
-                <View style={[styles.badge, ok ? styles.badgeOk : styles.badgeWarn]}>
-                    <Text
-                        style={[styles.badgeText, ok ? styles.badgeTextOk : styles.badgeTextWarn]}
-                    >
-                        {c.status}
-                    </Text>
-                </View>
+                <StatusBadge status={c.status} intent={clientStatusIntent(c.status)} />
             </View>
         </View>
     );
@@ -246,12 +241,6 @@ const styles = StyleSheet.create({
     rowSub: { color: theme.colors.muted, fontSize: 13, marginTop: 1 },
     rowRight: { alignItems: "flex-end", gap: 4 },
     rowValue: { color: theme.colors.ink, fontSize: 14, fontWeight: "600" },
-    badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-    badgeOk: { backgroundColor: theme.colors.okBg },
-    badgeWarn: { backgroundColor: theme.colors.warnBg },
-    badgeText: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
-    badgeTextOk: { color: theme.colors.okFg },
-    badgeTextWarn: { color: theme.colors.warnFg },
     empty: { color: theme.colors.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
     backdrop: {
         flex: 1,
