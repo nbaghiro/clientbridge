@@ -1,7 +1,7 @@
 import { theme } from "@clientbridge/tokens/theme";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import type { ReactElement } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { type ReactElement, useState } from "react";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconCalendar, IconClients, IconInbox, IconPlus, IconToday } from "./icons";
@@ -15,6 +15,13 @@ function tabIcon(name: string, color: string): ReactElement {
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
+    const [menu, setMenu] = useState(false);
+
+    const go = (tab: string): void => {
+        setMenu(false);
+        navigation.navigate(tab);
+    };
+
     return (
         <View style={[styles.bar, { paddingBottom: insets.bottom + 6 }]}>
             {state.routes.map((route, i) => {
@@ -39,7 +46,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             key="fab"
                             style={styles.fab}
                             onPress={() => {
-                                navigation.navigate("Clients");
+                                setMenu(true);
                             }}
                         >
                             <IconPlus size={26} color="#fff" />
@@ -48,6 +55,43 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                 }
                 return tab;
             })}
+
+            <Modal
+                visible={menu}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setMenu(false);
+                }}
+            >
+                <Pressable
+                    style={styles.backdrop}
+                    onPress={() => {
+                        setMenu(false);
+                    }}
+                >
+                    <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+                        <Text style={styles.sheetTitle}>Create</Text>
+                        <Pressable
+                            style={styles.menuRow}
+                            onPress={() => {
+                                go("Clients");
+                            }}
+                        >
+                            <IconClients size={20} color={theme.colors.accent} />
+                            <Text style={styles.menuText}>New client</Text>
+                        </Pressable>
+                        <View style={[styles.menuRow, styles.menuDisabled]}>
+                            <IconCalendar size={20} color={theme.colors.muted} />
+                            <Text style={styles.menuTextDisabled}>New booking · soon</Text>
+                        </View>
+                        <View style={[styles.menuRow, styles.menuDisabled]}>
+                            <IconInbox size={20} color={theme.colors.muted} />
+                            <Text style={styles.menuTextDisabled}>New invoice · soon</Text>
+                        </View>
+                    </View>
+                </Pressable>
+            </Modal>
         </View>
     );
 }
@@ -77,4 +121,26 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
     },
+    backdrop: { flex: 1, backgroundColor: "rgba(20,25,30,0.4)", justifyContent: "flex-end" },
+    sheet: {
+        backgroundColor: theme.colors.surface,
+        borderTopLeftRadius: 18,
+        borderTopRightRadius: 18,
+        paddingHorizontal: 20,
+        paddingTop: 18,
+        paddingBottom: 36,
+        gap: 4,
+    },
+    sheetTitle: {
+        color: theme.colors.muted,
+        fontSize: 12,
+        fontWeight: "700",
+        letterSpacing: 0.5,
+        textTransform: "uppercase",
+        marginBottom: 8,
+    },
+    menuRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 13 },
+    menuText: { color: theme.colors.ink, fontSize: 16, fontWeight: "600" },
+    menuDisabled: { opacity: 0.5 },
+    menuTextDisabled: { color: theme.colors.muted, fontSize: 16, fontWeight: "500" },
 });
