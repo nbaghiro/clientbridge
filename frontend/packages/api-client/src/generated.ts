@@ -309,6 +309,40 @@ export interface paths {
         patch: operations["update_item_v1_items__item_id__patch"];
         trace?: never;
     };
+    "/v1/bookings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Booking */
+        post: operations["create_booking_v1_bookings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Booking */
+        patch: operations["patch_booking_v1_bookings__booking_id__patch"];
+        trace?: never;
+    };
     "/v1/tax-rates": {
         parameters: {
             query?: never;
@@ -316,10 +350,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * List Tax Rates
-         * @description The rates applicable to the business's province — global defaults + any business override.
-         */
+        /** List Tax Rates */
         get: operations["list_tax_rates_v1_tax_rates_get"];
         put?: never;
         post?: never;
@@ -375,6 +406,62 @@ export interface components {
             name?: string | null;
             /** Password */
             password: string;
+        };
+        /** BookingCreate */
+        BookingCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Subject Id */
+            subject_id?: string | null;
+        };
+        /** BookingOut */
+        BookingOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Session Id */
+            session_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /** Item Id */
+            item_id: string;
+            /** Status */
+            status: string;
+            /** Source */
+            source: string;
+            /** Price Cents */
+            price_cents: number;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
+        /** BookingPatch */
+        BookingPatch: {
+            /** Starts At */
+            starts_at?: string | null;
+            /** Status */
+            status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
         };
         /** BusinessOut */
         BusinessOut: {
@@ -504,8 +591,9 @@ export interface components {
             /**
              * Kind
              * @default service
+             * @enum {string}
              */
-            kind: string;
+            kind: "service" | "class" | "product" | "package" | "subscription" | "gift";
             /** Name */
             name: string;
             /** Description */
@@ -546,8 +634,9 @@ export interface components {
             /**
              * Kind
              * @default service
+             * @enum {string}
              */
-            kind: string;
+            kind: "service" | "class" | "product" | "package" | "subscription" | "gift";
             /** Name */
             name: string;
             /** Description */
@@ -600,7 +689,7 @@ export interface components {
         /** ItemUpdate */
         ItemUpdate: {
             /** Kind */
-            kind?: string | null;
+            kind?: ("service" | "class" | "product" | "package" | "subscription" | "gift") | null;
             /** Name */
             name?: string | null;
             /** Description */
@@ -1511,6 +1600,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_booking_v1_bookings_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_booking_v1_bookings__booking_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
                 };
             };
             /** @description Validation Error */
