@@ -123,3 +123,28 @@ async def test_cannot_pay_a_paid_invoice(api: httpx.AsyncClient, db: AsyncSessio
     )
     await db.flush()
     assert (await api.post(f"/pay/{token}/interac")).status_code == 409
+
+
+async def test_card_double_submit_is_idempotent(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_pub", stripe_charges_enabled=True)
+    )
+    inv_id, token = await _sent_invoice(db)
+    first = (await api.post(f"/pay/{token}/card")).json()
+    second = (await api.post(f"/pay/{token}/card")).json()
+    assert first["client_secret"] == second["client_secret"]  # one intent, reused
+    rows = (await db.execute(select(Payment).where(Payment.invoice_id == inv_id))).scalars().all()
+    assert len(rows) == 1  # no duplicate pending row
+
+
+async def test_interac_double_submit_reuses_reference(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id, token = await _sent_invoice(db)
+    first = (await api.post(f"/pay/{token}/interac")).json()
+    second = (await api.post(f"/pay/{token}/interac")).json()
+    assert first["reference_code"] == second["reference_code"]  # same open request
+    rows = (await db.execute(select(Payment).where(Payment.invoice_id == inv_id))).scalars().all()
+    assert len(rows) == 1

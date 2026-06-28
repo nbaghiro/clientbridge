@@ -16,7 +16,7 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("payments", "status", "pending", "succeeded", "failed", "refunded", "canceled"),
         Index("ix_payments_status", "business_id", "status"),
         Index("ix_payments_invoice", "invoice_id"),
-        Index("ix_payments_reference_code", "reference_code"),
+        Index("ix_payments_reference_code", "reference_code", unique=True),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
