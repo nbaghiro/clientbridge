@@ -40,6 +40,7 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(String)
+    pay_token: Mapped[str | None] = mapped_column(String, unique=True)  # public pay-link key
 
 
 class Estimate(PKMixin, BusinessScoped, TimestampMixin, Base):

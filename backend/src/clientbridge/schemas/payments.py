@@ -36,3 +36,19 @@ class InteracWebhookBody(BaseModel):
 
 class RemittanceSummary(BaseModel):
     tax_collected_cents: int  # Σ tax on paid invoices — the GST/HST to set aside for CRA
+
+
+class PublicInvoice(BaseModel):
+    number: int | None
+    business_name: str
+    currency: str
+    total_cents: int
+    balance_cents: int
+    status: str
+    accepts_card: bool
+    interac_email: str | None
+
+
+class PublicCardIntent(BaseModel):
+    client_secret: str
+    stripe_account_id: str

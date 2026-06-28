@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from clientbridge.api.public import router as public_router
 from clientbridge.api.router import api_router
 from clientbridge.api.v1 import auth as auth_api
 from clientbridge.api.webhooks import router as webhooks_router
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_api.router)
     app.include_router(sync_router)
     app.include_router(webhooks_router)  # surface #4 (signature-verified, unauthenticated)
+    app.include_router(public_router)  # surface #4 (pay-link token, unauthenticated)
     app.include_router(api_router)  # /v1/* domain routers
     return app
 
