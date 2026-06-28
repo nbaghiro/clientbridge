@@ -77,6 +77,24 @@ async def test_rejects_server_only_table(as_owner: httpx.AsyncClient) -> None:
     assert res.status_code == 403
 
 
+async def test_rejects_minting_a_gift_card(as_owner: httpx.AsyncClient) -> None:
+    # gift_cards balance is server-authoritative — a client can't mint store credit via sync
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "gift_cards",
+                    "id": "gc_x",
+                    "data": {"business_id": BIZ, "code": "FREE", "balance_cents": 100000},
+                }
+            ]
+        },
+    )
+    assert res.status_code == 403
+
+
 async def test_rejects_foreign_business(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post(
         "/sync/upload",

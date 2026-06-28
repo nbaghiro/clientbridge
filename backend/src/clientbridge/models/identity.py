@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,6 +10,10 @@ from clientbridge.models.base import PKMixin, TimestampMixin
 
 class Business(PKMixin, TimestampMixin, Base):
     __tablename__ = "businesses"
+    __table_args__ = (
+        # webhooks resolve the business by connected account; unique = one business per account
+        Index("ix_businesses_stripe_account", "stripe_account_id", unique=True),
+    )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     slug: Mapped[str] = mapped_column(String, unique=True, nullable=False)
