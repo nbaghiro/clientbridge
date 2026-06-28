@@ -1,6 +1,8 @@
+import secrets
 from datetime import UTC, datetime
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -15,7 +17,13 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import WebhookEvent
-from clientbridge.schemas.payments import ConnectStatus, OnboardingLink, PayIntentOut, RefundOut
+from clientbridge.schemas.payments import (
+    ConnectStatus,
+    InteracRequest,
+    OnboardingLink,
+    PayIntentOut,
+    RefundOut,
+)
 
 
 class PaymentService:
@@ -167,6 +175,58 @@ class PaymentService:
             self.db, self.principal, action="payment.refund", run=run, response_model=RefundOut
         )
 
+    async def request_interac(
+        self, invoice_id: str, amount_cents: int | None, idempotency_key: str | None
+    ) -> InteracRequest:
+        self._assert_admin()
+        business = await self._business()
+        invoice = await self._invoice(invoice_id)
+        if invoice.status in ("paid", "void"):
+            raise Conflict(f"a {invoice.status} invoice can't be charged")
+        if invoice.balance_cents <= 0:
+            raise Conflict("nothing left to pay on this invoice")
+        amount = invoice.balance_cents if amount_cents is None else amount_cents
+        if amount <= 0 or amount > invoice.balance_cents:
+            raise Conflict("invalid payment amount")
+        await self._client(invoice.client_id)
+
+        async def run(cmd: Command) -> InteracRequest:
+            code = secrets.token_hex(4).upper()  # 8-char human-typeable auto-match key
+            payment = Payment(
+                id=new_id("payment"),
+                business_id=self.biz,
+                client_id=invoice.client_id,
+                kind="payment",
+                invoice_id=invoice.id,
+                amount_cents=amount,
+                currency=invoice.currency,
+                method="interac",
+                provider="interac",
+                reference_code=code,
+                status="pending",
+            )
+            self.db.add(payment)
+            try:
+                await self.db.flush()  # reference_code is unique — a collision is a rare retry
+            except IntegrityError as exc:
+                raise Conflict("reference code collision — please retry") from exc
+            cmd.record("payment.interac_request", entity_type="payment", entity_id=payment.id)
+            return InteracRequest(
+                payment_id=payment.id,
+                reference_code=code,
+                send_to=business.billing_email,
+                amount_cents=amount,
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment.interac_request",
+            run=run,
+            response_model=InteracRequest,
+            idempotency_key=idempotency_key,
+        )
+
     def _assert_admin(self) -> None:
         if self.principal.role not in ("owner", "admin"):
             raise Forbidden("only an owner or admin can manage payments")
@@ -296,3 +356,53 @@ async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:
     else:
         invoice.status = "partial"
     await db.flush()
+
+
+async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int) -> bool:
+    """Match an inbound e-Transfer to its pending payment by reference code (no fee — the wedge).
+    reference_code is globally unique, so the lookup needs no tenant scope."""
+    payment = (
+        await db.execute(
+            select(Payment).where(
+                Payment.reference_code == reference_code,
+                Payment.provider == "interac",
+                Payment.status == "pending",
+            )
+        )
+    ).scalar_one_or_none()
+    if payment is None or amount_cents < payment.amount_cents:
+        return False
+    payment.status = "succeeded"
+    payment.paid_at = datetime.now(UTC)
+    payment.net_cents = payment.amount_cents
+    await db.flush()
+    if payment.invoice_id is not None:
+        await _reconcile_invoice(db, payment.invoice_id)
+    return True
+
+
+async def process_interac_event(db: AsyncSession, reference_code: str, amount_cents: int) -> str:
+    """Webhook entry (surface #4): dedup by reference, auto-match, record the event."""
+    event_id = f"interac_{reference_code}"
+    seen = (
+        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == event_id))
+    ).scalar_one_or_none()
+    if seen is not None:
+        return "duplicate"
+    matched = await match_interac(db, reference_code, amount_cents)
+    db.add(
+        WebhookEvent(
+            id=event_id,
+            provider="interac",
+            type="etransfer.received",
+            payload={
+                "reference_code": reference_code,
+                "amount_cents": amount_cents,
+                "matched": matched,
+            },
+            status="processed",
+            processed_at=datetime.now(UTC),
+        )
+    )
+    await db.commit()
+    return "matched" if matched else "unmatched"
