@@ -10,6 +10,7 @@ from clientbridge.schemas.payments import (
     PayIntentOut,
     RefundOut,
     RemittanceSummary,
+    SetupIntentOut,
 )
 from clientbridge.services.payment_service import PaymentService
 
@@ -43,11 +44,19 @@ async def pay_invoice(
     db: DbSession,
     gateway: GatewayDep,
     amount_cents: int | None = None,
+    payment_method_id: str | None = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> PayIntentOut:
     return await PaymentService(db, principal, gateway).pay_invoice(
-        invoice_id, amount_cents, idempotency_key
+        invoice_id, amount_cents, idempotency_key, payment_method_id
     )
+
+
+@pay_router.post("/setup-intent/{client_id}", response_model=SetupIntentOut)
+async def setup_card(
+    client_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> SetupIntentOut:
+    return await PaymentService(db, principal, gateway).start_card_setup(client_id)
 
 
 @pay_router.post("/{payment_id}/refund", response_model=RefundOut)
