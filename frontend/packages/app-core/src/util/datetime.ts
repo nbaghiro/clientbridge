@@ -52,6 +52,23 @@ export function dateKey(d: Date): string {
     return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/** Short relative time for activity feeds: "just now", "5m", "3h", "2d", else a short date. */
+export function formatRelativeTime(
+    value: string,
+    now: Date = new Date(),
+    locale = "en-CA",
+): string {
+    const then = parseTimestamp(value);
+    const mins = Math.floor((now.getTime() - then.getTime()) / MS_PER_MIN);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    return then.toLocaleDateString(locale, { month: "short", day: "numeric" });
+}
+
 export function formatTime(d: Date, locale = "en-CA"): string {
     return d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }

@@ -112,7 +112,7 @@ export function useInvoicePayments(invoiceId: string): PaymentRow[] {
 }
 
 /** A refund row (a negative entry against a prior payment), vs an original charge. */
-export function isRefundRow(payment: PaymentRow): boolean {
+export function isRefundRow(payment: { kind: string }): boolean {
     return payment.kind === "refund";
 }
 
