@@ -853,6 +853,8 @@ export interface components {
             source: string;
             /** Price Cents */
             price_cents: number;
+            /** Deposit Amount Cents */
+            deposit_amount_cents: number;
             /**
              * Starts At
              * Format: date-time
@@ -976,6 +978,8 @@ export interface components {
             awaiting_payment_cents: number;
             /** Gst Hst Set Aside Cents */
             gst_hst_set_aside_cents: number;
+            /** Gst Hst Filing Due */
+            gst_hst_filing_due: string | null;
         };
         /** DeviceOut */
         DeviceOut: {
@@ -2978,6 +2982,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
                 authorization?: string;
             };

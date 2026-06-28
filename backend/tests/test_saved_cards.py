@@ -150,3 +150,89 @@ async def test_pay_with_unknown_saved_card_404(
     await db.flush()
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=pm_nope")
     assert res.status_code == 404
+
+
+async def test_cannot_use_another_clients_saved_card(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    two = (
+        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(2)))
+        .scalars()
+        .all()
+    )
+    assert len(two) == 2
+    invoice_client, other_client = two[0], two[1]
+    other_pm = PaymentMethod(
+        id=new_id("payment_method"),
+        business_id=BIZ,
+        client_id=other_client,
+        type="card",
+        provider="stripe",
+        provider_ref="pm_other",
+        status="active",
+    )
+    db.add(other_pm)
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=invoice_client,
+        number=9750,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=4000,
+        tax_total_cents=0,
+        total_cents=4000,
+        balance_cents=4000,
+    )
+    db.add(inv)
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={other_pm.id}")
+    assert res.status_code == 404  # the saved card belongs to a different client
+
+
+def _pm_attached(event_id: str, account: str, customer: str, pm_id: str) -> str:
+    return json.dumps(
+        {
+            "id": event_id,
+            "type": "payment_method.attached",
+            "account": account,
+            "data": {"object": {"id": pm_id, "customer": customer, "card": {}}},
+        }
+    )
+
+
+async def test_payment_method_attached_is_deduped(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable(db, account="acct_dedup")
+    cid = await _client_id(db)
+    await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_dd"))
+    await db.flush()
+    for evt in ("evt_a", "evt_b"):  # same pm delivered twice
+        await api.post(
+            "/webhooks/stripe",
+            content=_pm_attached(evt, "acct_dedup", "cus_dd", "pm_dup"),
+            headers=GOOD,
+        )
+    rows = (
+        (await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_dup")))
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1
+
+
+async def test_payment_method_attached_unknown_account_noop(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    res = await api.post(
+        "/webhooks/stripe",
+        content=_pm_attached("evt_u", "acct_nobody", "cus_x", "pm_orphan"),
+        headers=GOOD,
+    )
+    assert res.status_code == 200
+    rows = (
+        (await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_orphan")))
+        .scalars()
+        .all()
+    )
+    assert rows == []

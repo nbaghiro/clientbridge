@@ -19,6 +19,15 @@ _OVERLAP = "that staff member is already booked at that time"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 
 
+def _deposit_cents(item: Item) -> int:
+    """The deposit owed for a booking of this item: fixed cents, or a percent of its price."""
+    if item.deposit_type == "none" or item.deposit_value is None:
+        return 0
+    if item.deposit_type == "fixed":
+        return int(item.deposit_value)
+    return round(item.price_cents * float(item.deposit_value) / 100)
+
+
 def _to_out(booking: Booking, session: Session) -> BookingOut:
     return BookingOut(
         id=booking.id,
@@ -30,6 +39,7 @@ def _to_out(booking: Booking, session: Session) -> BookingOut:
         status=booking.status,
         source=booking.source,
         price_cents=booking.price_cents,
+        deposit_amount_cents=booking.deposit_amount_cents,
         starts_at=session.starts_at,
         ends_at=session.ends_at,
     )
@@ -81,6 +91,7 @@ class BookingService:
                 source="manual",
                 price_cents=item.price_cents,
                 deposit_required=item.deposit_type != "none",
+                deposit_amount_cents=_deposit_cents(item),
                 confirmed_at=datetime.now(UTC),
             )
             self.db.add(booking)

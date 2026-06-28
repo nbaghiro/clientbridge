@@ -28,5 +28,6 @@ class BookingOut(BaseModel):
     status: str
     source: str
     price_cents: int
+    deposit_amount_cents: int
     starts_at: datetime
     ends_at: datetime

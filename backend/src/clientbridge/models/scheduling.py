@@ -62,6 +62,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     source: Mapped[str] = mapped_column(String, default="manual", nullable=False)
     price_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     deposit_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    deposit_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
