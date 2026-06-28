@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""  # shared secret for the inbound e-Transfer auto-match webhook
 
+    # Outreach channels — empty → the no-op Console sender (tests use recording fakes); set creds in
+    # prod to swap in real Twilio/Expo. SMS + email reach clients, push reaches staff devices.
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_sms_from: str = ""
+    expo_access_token: str = ""  # optional; Expo push accepts device tokens without it
+
     # Dev-only: /sync/token mints a token for this user when the request is unauthenticated,
     # so the client apps can connect before real auth exists.
     dev_user_id: str = "us_dev"

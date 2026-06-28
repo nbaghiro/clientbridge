@@ -29,6 +29,8 @@ from clientbridge.integrations.payments import (
     WebhookVerificationError,
     get_payment_gateway,
 )
+from clientbridge.integrations.push import Push, get_push_sender
+from clientbridge.integrations.sms import Sms, get_sms_sender
 from clientbridge.main import app
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
@@ -68,6 +70,32 @@ class FakeEmailSender:
 @pytest.fixture
 def email() -> FakeEmailSender:
     return FakeEmailSender()
+
+
+class FakeSmsSender:
+    def __init__(self) -> None:
+        self.sent: list[Sms] = []
+
+    async def send(self, sms: Sms) -> None:
+        self.sent.append(sms)
+
+
+class FakePushSender:
+    def __init__(self) -> None:
+        self.sent: list[Push] = []
+
+    async def send(self, push: Push) -> None:
+        self.sent.append(push)
+
+
+@pytest.fixture
+def sms() -> FakeSmsSender:
+    return FakeSmsSender()
+
+
+@pytest.fixture
+def push() -> FakePushSender:
+    return FakePushSender()
 
 
 # ── OAuth fake: id_token == the email; "invalid" → 401 (lets tests control the profile) ───────
@@ -151,7 +179,11 @@ def gateway() -> FakePaymentGateway:
 # ── In-process HTTP client sharing the test's transaction + the boundary fakes ───────────────
 @pytest.fixture
 async def api(
-    db: AsyncSession, email: FakeEmailSender, gateway: FakePaymentGateway
+    db: AsyncSession,
+    email: FakeEmailSender,
+    gateway: FakePaymentGateway,
+    sms: FakeSmsSender,
+    push: FakePushSender,
 ) -> AsyncIterator[httpx.AsyncClient]:
     async def _session() -> AsyncIterator[AsyncSession]:
         yield db
@@ -166,6 +198,8 @@ async def api(
     app.dependency_overrides[get_email_sender] = _email
     app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
     app.dependency_overrides[get_payment_gateway] = _gateway
+    app.dependency_overrides[get_sms_sender] = lambda: sms
+    app.dependency_overrides[get_push_sender] = lambda: push
     app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     transport = httpx.ASGITransport(app=app)
