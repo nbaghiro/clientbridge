@@ -80,6 +80,7 @@ class BookingService:
                 status="confirmed",
                 source="manual",
                 price_cents=item.price_cents,
+                deposit_required=item.deposit_type != "none",
                 confirmed_at=datetime.now(UTC),
             )
             self.db.add(booking)
