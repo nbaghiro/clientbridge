@@ -2,6 +2,7 @@ import {
     type DocActionKey,
     type EstimateRow,
     type InvoiceRow,
+    type PaymentRow,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
@@ -9,8 +10,14 @@ import {
     formatMoney,
     invoiceActions,
     invoiceStatusIntent,
+    isPayable,
+    isRefundable,
+    payLinkUrl,
+    paymentStatusIntent,
+    refundPayment,
     useAsyncAction,
     useEstimates,
+    useInvoicePayments,
     useInvoices,
     useLines,
     useSearch,
@@ -19,9 +26,12 @@ import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Modal,
     Pressable,
+    ScrollView,
+    Share,
     StyleSheet,
     Text,
     TextInput,
@@ -32,6 +42,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSearch } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
+import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
 type Tab = "invoices" | "estimates";
@@ -153,14 +164,18 @@ function DetailModal({
     onClose: () => void;
 }) {
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
-    const { busy, run } = useAsyncAction();
+    const { busy, error, run } = useAsyncAction();
 
+    const isInvoice = kind === "invoices";
+    const invoice = isInvoice ? (row as InvoiceRow | null) : null;
     const actions =
         row === null
             ? []
-            : kind === "invoices"
+            : isInvoice
               ? invoiceActions(api, row as InvoiceRow)
               : estimateActions(api, row as EstimateRow);
+    const payToken = invoice?.pay_token ?? null;
+    const canPay = invoice !== null && isPayable(invoice);
 
     return (
         <Modal visible={row !== null} transparent animationType="slide" onRequestClose={onClose}>
@@ -171,7 +186,7 @@ function DetailModal({
                             <View style={styles.sheetHead}>
                                 <View>
                                     <Text style={styles.sheetTitle}>
-                                        {kind === "invoices" ? "Invoice" : "Estimate"}{" "}
+                                        {isInvoice ? "Invoice" : "Estimate"}{" "}
                                         {row.number !== null ? `#${row.number}` : "(draft)"}
                                     </Text>
                                     <Text style={styles.rowSub}>{row.client_name ?? "—"}</Text>
@@ -179,28 +194,37 @@ function DetailModal({
                                 <StatusBadge
                                     status={row.status}
                                     intent={
-                                        kind === "invoices"
+                                        isInvoice
                                             ? invoiceStatusIntent(row.status)
                                             : estimateStatusIntent(row.status)
                                     }
                                 />
                             </View>
-                            {lines.map((l) => (
-                                <View key={l.id} style={styles.lineRow}>
-                                    <Text style={styles.lineDesc} numberOfLines={1}>
-                                        {l.description}
-                                    </Text>
-                                    <Text style={styles.lineAmt}>
-                                        {formatMoney(l.amount_cents)}
+                            <ScrollView style={styles.sheetBody}>
+                                {lines.map((l) => (
+                                    <View key={l.id} style={styles.lineRow}>
+                                        <Text style={styles.lineDesc} numberOfLines={1}>
+                                            {l.description}
+                                        </Text>
+                                        <Text style={styles.lineAmt}>
+                                            {formatMoney(l.amount_cents)}
+                                        </Text>
+                                    </View>
+                                ))}
+                                <View style={styles.totalRow}>
+                                    <Text style={styles.totalLabel}>Total</Text>
+                                    <Text style={styles.totalValue}>
+                                        {formatMoney(row.total_cents)}
                                     </Text>
                                 </View>
-                            ))}
-                            <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Total</Text>
-                                <Text style={styles.totalValue}>
-                                    {formatMoney(row.total_cents)}
-                                </Text>
-                            </View>
+                                {canPay && payToken !== null ? (
+                                    <PayLinkRow token={payToken} />
+                                ) : null}
+                                {invoice !== null ? (
+                                    <PaymentsSection invoiceId={invoice.id} />
+                                ) : null}
+                            </ScrollView>
+                            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
                             <View style={styles.actions}>
                                 <Pressable style={styles.cancel} onPress={onClose}>
                                     <Text style={styles.cancelText}>Close</Text>
@@ -210,7 +234,14 @@ function DetailModal({
                                         key={a.key}
                                         style={styles.save}
                                         disabled={busy}
-                                        onPress={() => void run(a.run, { onSuccess: onClose })}
+                                        onPress={() =>
+                                            void run(a.run, {
+                                                onSuccess: onClose,
+                                                errorMessage: `Couldn't ${ACTION_LABELS[
+                                                    a.key
+                                                ].toLowerCase()} — please try again.`,
+                                            })
+                                        }
                                     >
                                         {busy ? (
                                             <ActivityIndicator color={c.accentInk} />
@@ -227,6 +258,78 @@ function DetailModal({
                 </View>
             </View>
         </Modal>
+    );
+}
+
+function PayLinkRow({ token }: { token: string }) {
+    const url = payLinkUrl(publicWebUrl, token);
+    const share = (): void => {
+        void Share.share({ message: url });
+    };
+    return (
+        <View style={styles.payLink}>
+            <Text style={styles.sectionLabel}>Pay link</Text>
+            <View style={styles.payLinkRow}>
+                <Text style={styles.payLinkUrl} numberOfLines={1}>
+                    {url}
+                </Text>
+                <Pressable style={styles.shareBtn} onPress={share}>
+                    <Text style={styles.shareText}>Share</Text>
+                </Pressable>
+            </View>
+        </View>
+    );
+}
+
+function PaymentsSection({ invoiceId }: { invoiceId: string }) {
+    const payments = useInvoicePayments(invoiceId);
+    if (payments.length === 0) return null;
+    return (
+        <View style={styles.payments}>
+            <Text style={styles.sectionLabel}>Payments</Text>
+            {payments.map((p) => (
+                <PaymentRowItem key={p.id} payment={p} payments={payments} />
+            ))}
+        </View>
+    );
+}
+
+function PaymentRowItem({ payment, payments }: { payment: PaymentRow; payments: PaymentRow[] }) {
+    const { busy, error, run } = useAsyncAction();
+    const isRefund = payment.kind === "refund";
+    const showRefund = isRefundable(payment, payments);
+
+    const refund = (): void => {
+        Alert.alert("Refund payment", "Refund this payment? This can't be undone.", [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Refund",
+                style: "destructive",
+                onPress: () =>
+                    void run(() => refundPayment(api, payment.id), {
+                        errorMessage: "Couldn't refund this payment. Please try again.",
+                    }),
+            },
+        ]);
+    };
+
+    return (
+        <View style={styles.payment}>
+            <View style={styles.paymentMain}>
+                <Text style={[styles.paymentAmount, isRefund && styles.paymentRefund]}>
+                    {isRefund ? "−" : ""}
+                    {formatMoney(payment.amount_cents)} {payment.currency.toUpperCase()}
+                </Text>
+                <Text style={styles.paymentMethod}>{isRefund ? "Refund" : payment.method}</Text>
+                <StatusBadge status={payment.status} intent={paymentStatusIntent(payment.status)} />
+                {showRefund ? (
+                    <Pressable style={styles.refundBtn} disabled={busy} onPress={refund}>
+                        <Text style={styles.refundText}>{busy ? "…" : "Refund"}</Text>
+                    </Pressable>
+                ) : null}
+            </View>
+            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
     );
 }
 
@@ -292,6 +395,57 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
+    sheetBody: { maxHeight: "70%" },
+    sectionLabel: {
+        color: c.muted,
+        fontSize: 11,
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
+    },
+    errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
+    payLink: { marginTop: 16 },
+    payLinkRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginTop: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderColor: c.border,
+        borderWidth: 1,
+        borderRadius: theme.radius,
+        backgroundColor: c.bg,
+    },
+    payLinkUrl: { flex: 1, color: c.inkSoft, fontSize: 13 },
+    shareBtn: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: theme.radius,
+        borderColor: c.border,
+        borderWidth: 1,
+    },
+    shareText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
+    payments: { marginTop: 16 },
+    payment: {
+        marginTop: 6,
+        paddingVertical: 8,
+        borderTopColor: c.border,
+        borderTopWidth: StyleSheet.hairlineWidth,
+    },
+    paymentMain: { flexDirection: "row", alignItems: "center", gap: 8 },
+    paymentAmount: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
+    paymentRefund: { color: c.danFg },
+    paymentMethod: { color: c.muted, fontSize: 13, textTransform: "capitalize" },
+    refundBtn: {
+        marginLeft: "auto",
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: theme.radius,
+        borderColor: c.border,
+        borderWidth: 1,
+    },
+    refundText: { color: c.inkSoft, fontSize: 12, fontWeight: "600" },
     lineRow: {
         flexDirection: "row",
         justifyContent: "space-between",

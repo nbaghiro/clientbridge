@@ -11,10 +11,13 @@ import {
     invoiceActions,
     invoiceStatusIntent,
     isPayable,
+    isRefundable,
+    payLinkUrl,
     paymentStatusIntent,
     refundPayment,
     useAsyncAction,
     useClients,
+    useCurrentRole,
     useDocForm,
     useEstimates,
     useInvoicePayments,
@@ -27,6 +30,7 @@ import { useState } from "react";
 import { IconPlus, IconSearch } from "../components/icons";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
+import { getTokens } from "../lib/auth";
 
 type Tab = "invoices" | "estimates";
 
@@ -332,10 +336,12 @@ function DetailModal({
     onClose: () => void;
 }) {
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
-    const { busy, run } = useAsyncAction();
+    const { busy, error, run } = useAsyncAction();
+    const role = useCurrentRole(getTokens()?.access_token ?? null);
 
     if (row === null) return null;
     const isInvoice = kind === "invoices";
+    const canRefund = role === "owner" || role === "admin";
 
     const actions = isInvoice
         ? invoiceActions(api, row as InvoiceRow)
@@ -389,8 +395,13 @@ function DetailModal({
                         </span>
                     </div>
                     {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
-                    {isInvoice ? <PaymentsSection invoiceId={row.id} /> : null}
+                    {isInvoice ? (
+                        <PaymentsSection invoiceId={row.id} canRefund={canRefund} />
+                    ) : null}
                 </div>
+                {error !== null ? (
+                    <p className="border-t border-line px-6 pt-3 text-sm text-danger">{error}</p>
+                ) : null}
                 <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
                     <button
                         type="button"
@@ -404,7 +415,12 @@ function DetailModal({
                             key={a.key}
                             type="button"
                             disabled={busy}
-                            onClick={() => void run(a.run, { onSuccess: onClose })}
+                            onClick={() =>
+                                void run(a.run, {
+                                    onSuccess: onClose,
+                                    errorMessage: `Couldn't ${ACTION_LABELS[a.key].toLowerCase()} — please try again.`,
+                                })
+                            }
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
                             {ACTION_LABELS[a.key]}
@@ -417,7 +433,7 @@ function DetailModal({
 }
 
 function PayLink({ token }: { token: string }) {
-    const url = `${window.location.origin}/pay/${token}`;
+    const url = payLinkUrl(window.location.origin, token);
     const [copied, setCopied] = useState(false);
 
     const copy = (): void => {
@@ -446,7 +462,7 @@ function PayLink({ token }: { token: string }) {
     );
 }
 
-function PaymentsSection({ invoiceId }: { invoiceId: string }) {
+function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefund: boolean }) {
     const payments = useInvoicePayments(invoiceId);
     if (payments.length === 0) return null;
 
@@ -455,34 +471,67 @@ function PaymentsSection({ invoiceId }: { invoiceId: string }) {
             <p className="text-xs uppercase tracking-wide text-muted">Payments</p>
             <div className="mt-1.5 divide-y divide-line-soft rounded-md border border-line">
                 {payments.map((p) => (
-                    <PaymentRowItem key={p.id} payment={p} />
+                    <PaymentRowItem
+                        key={p.id}
+                        payment={p}
+                        payments={payments}
+                        canRefund={canRefund}
+                    />
                 ))}
             </div>
         </div>
     );
 }
 
-function PaymentRowItem({ payment }: { payment: PaymentRow }) {
-    const { busy, run } = useAsyncAction();
-    const refundable = payment.status === "succeeded" && payment.kind !== "refund";
+function PaymentRowItem({
+    payment,
+    payments,
+    canRefund,
+}: {
+    payment: PaymentRow;
+    payments: PaymentRow[];
+    canRefund: boolean;
+}) {
+    const { busy, error, run } = useAsyncAction();
+    const isRefund = payment.kind === "refund";
+    const showRefund = canRefund && isRefundable(payment, payments);
+
+    const refund = (): void => {
+        if (!window.confirm("Refund this payment? This can't be undone.")) return;
+        void run(() => refundPayment(api, payment.id), {
+            errorMessage: "Couldn't refund this payment. Please try again.",
+        });
+    };
 
     return (
-        <div className="flex items-center gap-3 px-3 py-2 text-sm">
-            <span className="font-medium tabular-nums text-ink">
-                {formatMoney(payment.amount_cents)} {payment.currency.toUpperCase()}
-            </span>
-            <span className="capitalize text-muted">{payment.method}</span>
-            <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
-            {refundable ? (
-                <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void run(() => refundPayment(api, payment.id))}
-                    className="ml-auto shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+        <div className="px-3 py-2 text-sm">
+            <div className="flex items-center gap-3">
+                <span
+                    className={`font-medium tabular-nums ${isRefund ? "text-danger" : "text-ink"}`}
                 >
-                    {busy ? "Refunding…" : "Refund"}
-                </button>
-            ) : null}
+                    {isRefund ? "−" : ""}
+                    {formatMoney(payment.amount_cents)} {payment.currency.toUpperCase()}
+                </span>
+                {isRefund ? (
+                    <span className="rounded-full bg-bg px-2 py-0.5 text-xs font-medium text-muted">
+                        Refund
+                    </span>
+                ) : (
+                    <span className="capitalize text-muted">{payment.method}</span>
+                )}
+                <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
+                {showRefund ? (
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={refund}
+                        className="ml-auto shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                    >
+                        {busy ? "Refunding…" : "Refund"}
+                    </button>
+                ) : null}
+            </div>
+            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
         </div>
     );
 }

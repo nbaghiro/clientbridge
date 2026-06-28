@@ -16,6 +16,7 @@ const config: ExpoConfig = {
     extra: {
         apiUrl: process.env.API_URL ?? "http://localhost:8701",
         powersyncUrl: process.env.POWERSYNC_URL ?? "http://localhost:8704",
+        publicWebUrl: process.env.PUBLIC_WEB_URL ?? "https://app.clientbridge.ca",
     },
 };
 

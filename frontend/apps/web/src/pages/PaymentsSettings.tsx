@@ -3,7 +3,7 @@ import { useConnectOnboarding } from "@clientbridge/app-core";
 import { api } from "../lib/api";
 
 export function PaymentsSettings() {
-    const { phase, busy, error, ctaLabel, connect } = useConnectOnboarding(api, (url) => {
+    const { phase, busy, error, ctaLabel, connect, refresh } = useConnectOnboarding(api, (url) => {
         window.location.href = url;
     });
 
@@ -18,9 +18,18 @@ export function PaymentsSettings() {
                 {phase === "loading" ? (
                     <p className="text-sm text-muted">Loading…</p>
                 ) : phase === "error" ? (
-                    <p className="text-sm text-danger">
-                        We couldn’t load your payment status. Please try again.
-                    </p>
+                    <>
+                        <p className="text-sm text-danger">
+                            We couldn’t load your payment status. Please try again.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={refresh}
+                            className="mt-4 rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
+                        >
+                            Try again
+                        </button>
+                    </>
                 ) : phase === "enabled" ? (
                     <>
                         <p className="text-sm font-medium text-ink">
