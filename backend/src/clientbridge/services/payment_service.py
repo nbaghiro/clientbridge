@@ -74,12 +74,9 @@ class PaymentService:
 
     async def remittance_summary(self) -> RemittanceSummary:
         self._assert_admin()
+        paid = scoped(Invoice, self.biz).where(Invoice.status == "paid").subquery()
         total = (
-            await self.db.execute(
-                select(func.coalesce(func.sum(Invoice.tax_total_cents), 0)).where(
-                    Invoice.business_id == self.biz, Invoice.status == "paid"
-                )
-            )
+            await self.db.execute(select(func.coalesce(func.sum(paid.c.tax_total_cents), 0)))
         ).scalar_one()
         return RemittanceSummary(tax_collected_cents=int(total))
 
@@ -92,12 +89,9 @@ class PaymentService:
             raise Conflict("connect your Stripe account before taking payments")
         account_id = business.stripe_account_id
         invoice = await self._invoice(invoice_id)
-        if invoice.status in ("paid", "void"):
-            raise Conflict(f"a {invoice.status} invoice can't be charged")
-        if invoice.balance_cents <= 0:
-            raise Conflict("nothing left to pay on this invoice")
-        amount = invoice.balance_cents if amount_cents is None else amount_cents
-        if amount <= 0 or amount > invoice.balance_cents:
+        balance = assert_payable(invoice)
+        amount = balance if amount_cents is None else amount_cents
+        if amount <= 0 or amount > balance:
             raise Conflict("invalid payment amount")
         client = await self._client(invoice.client_id)
         fee_bps = get_settings().platform_fee_bps
@@ -176,12 +170,9 @@ class PaymentService:
         self._assert_admin()
         business = await self._business()
         invoice = await self._invoice(invoice_id)
-        if invoice.status in ("paid", "void"):
-            raise Conflict(f"a {invoice.status} invoice can't be charged")
-        if invoice.balance_cents <= 0:
-            raise Conflict("nothing left to pay on this invoice")
-        amount = invoice.balance_cents if amount_cents is None else amount_cents
-        if amount <= 0 or amount > invoice.balance_cents:
+        balance = assert_payable(invoice)
+        amount = balance if amount_cents is None else amount_cents
+        if amount <= 0 or amount > balance:
             raise Conflict("invalid payment amount")
         await self._client(invoice.client_id)
 
@@ -243,6 +234,16 @@ class PaymentService:
         return row
 
 
+def assert_payable(invoice: Invoice) -> int:
+    """Validate an invoice can take a payment; return the outstanding balance. Shared by the authed
+    command path and the public pay-link surface so the rule can't drift between them."""
+    if invoice.status in ("paid", "void"):
+        raise Conflict(f"a {invoice.status} invoice can't be charged")
+    if invoice.balance_cents <= 0:
+        raise Conflict("nothing left to pay on this invoice")
+    return invoice.balance_cents
+
+
 async def open_card_payment(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -268,7 +269,14 @@ async def open_card_payment(
         customer_id=client.stripe_customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"invoice_id": invoice.id, "business_id": business_id},
+        # one intent per (invoice, amount) — a retry returns the same intent, not a new charge
+        idempotency_key=f"card_{invoice.id}_{amount}",
     )
+    existing = (
+        await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
+    ).scalar_one_or_none()
+    if existing is not None:  # a retry hit the same intent — don't mint a second pending row
+        return existing, intent.client_secret
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,

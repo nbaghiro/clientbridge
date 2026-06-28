@@ -64,6 +64,7 @@ class PaymentGateway(Protocol):
         customer_id: str,
         application_fee_cents: int,
         metadata: dict[str, str],
+        idempotency_key: str,
     ) -> PaymentIntentResult: ...
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int
@@ -129,6 +130,7 @@ class StripeGateway:
         customer_id: str,
         application_fee_cents: int,
         metadata: dict[str, str],
+        idempotency_key: str,
     ) -> PaymentIntentResult:
         intent = await stripe.PaymentIntent.create_async(
             amount=amount_cents,
@@ -137,6 +139,7 @@ class StripeGateway:
             application_fee_amount=application_fee_cents,
             metadata=metadata,
             stripe_account=account_id,
+            idempotency_key=idempotency_key,
         )
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 

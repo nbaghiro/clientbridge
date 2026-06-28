@@ -84,6 +84,7 @@ class FakePaymentGateway:
     def __init__(self) -> None:
         self.created_accounts: list[str] = []
         self._seq = 0
+        self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
 
     async def create_connected_account(self, *, business_name: str, email: str | None) -> str:
         self._seq += 1
@@ -124,10 +125,15 @@ class FakePaymentGateway:
         customer_id: str,
         application_fee_cents: int,
         metadata: dict[str, str],
+        idempotency_key: str,
     ) -> PaymentIntentResult:
+        if idempotency_key in self._intents:
+            return self._intents[idempotency_key]
         self._seq += 1
         pid = f"pi_fake{self._seq}"
-        return PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
+        result = PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
+        self._intents[idempotency_key] = result
+        return result
 
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int
