@@ -2,7 +2,10 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
+from clientbridge.core.ratelimit import RateLimiter, public_pay_rate_limit
+from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
@@ -148,3 +151,16 @@ async def test_interac_double_submit_reuses_reference(
     assert first["reference_code"] == second["reference_code"]  # same open request
     rows = (await db.execute(select(Payment).where(Payment.invoice_id == inv_id))).scalars().all()
     assert len(rows) == 1
+
+
+async def test_public_pay_is_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    rl = RateLimiter(limit=1, window_s=60.0)
+
+    def limited() -> None:
+        if not rl.check("x", 0.0):
+            raise TooManyRequests("slow down")
+
+    app.dependency_overrides[public_pay_rate_limit] = limited
+    _, token = await _sent_invoice(db)
+    assert (await api.post(f"/pay/{token}/interac")).status_code == 200
+    assert (await api.post(f"/pay/{token}/interac")).status_code == 429

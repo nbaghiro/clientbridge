@@ -37,6 +37,11 @@ class Conflict(AppError):
     code = "conflict"
 
 
+class TooManyRequests(AppError):
+    status_code = 429
+    code = "too_many_requests"
+
+
 async def app_error_handler(_: Request, exc: Exception) -> JSONResponse:
     # Registered only for AppError; the signature matches Starlette's expected handler type.
     if not isinstance(exc, AppError):
