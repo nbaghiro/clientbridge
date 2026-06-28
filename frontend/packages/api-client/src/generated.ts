@@ -252,6 +252,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks/interac": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Interac Webhook */
+        post: operations["interac_webhook_webhooks_interac_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clients": {
         parameters: {
             query?: never;
@@ -598,6 +615,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/invoice/{invoice_id}/interac": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Interac */
+        post: operations["request_interac_v1_payments_invoice__invoice_id__interac_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tax-rates": {
         parameters: {
             query?: never;
@@ -875,6 +909,24 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** InteracRequest */
+        InteracRequest: {
+            /** Payment Id */
+            payment_id: string;
+            /** Reference Code */
+            reference_code: string;
+            /** Send To */
+            send_to: string | null;
+            /** Amount Cents */
+            amount_cents: number;
+        };
+        /** InteracWebhookBody */
+        InteracWebhookBody: {
+            /** Reference Code */
+            reference_code: string;
+            /** Amount Cents */
+            amount_cents: number;
         };
         /** InviteBody */
         InviteBody: {
@@ -1706,6 +1758,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    interac_webhook_webhooks_interac_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Interac-Secret"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InteracWebhookBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -2630,6 +2717,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_interac_v1_payments_invoice__invoice_id__interac_post: {
+        parameters: {
+            query?: {
+                amount_cents?: number | null;
+            };
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InteracRequest"];
                 };
             };
             /** @description Validation Error */
