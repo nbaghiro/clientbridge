@@ -26,6 +26,7 @@ from clientbridge.integrations.payments import (
     PaymentGateway,
     PaymentIntentResult,
     RefundResult,
+    SetupIntentResult,
     WebhookVerificationError,
     get_payment_gateway,
 )
@@ -145,6 +146,11 @@ class FakePaymentGateway:
         self._seq += 1
         return f"cus_fake{self._seq}"
 
+    async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
+        self._seq += 1
+        sid = f"seti_fake{self._seq}"
+        return SetupIntentResult(id=sid, client_secret=f"{sid}_secret")
+
     async def create_payment_intent(
         self,
         account_id: str,
@@ -155,6 +161,7 @@ class FakePaymentGateway:
         application_fee_cents: int,
         metadata: dict[str, str],
         idempotency_key: str,
+        payment_method: str | None = None,
     ) -> PaymentIntentResult:
         if idempotency_key in self._intents:
             return self._intents[idempotency_key]

@@ -35,6 +35,12 @@ class PaymentIntentResult:
 
 
 @dataclass(frozen=True)
+class SetupIntentResult:
+    id: str
+    client_secret: str
+
+
+@dataclass(frozen=True)
 class RefundResult:
     id: str
     status: str
@@ -55,6 +61,10 @@ class PaymentGateway(Protocol):
     # Direct charges on the connected account: the client is a Customer there, the platform takes
     # an application fee.
     async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str: ...
+    async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
+        """Save a card for later off-session use, without charging now."""
+        ...
+
     async def create_payment_intent(
         self,
         account_id: str,
@@ -65,6 +75,7 @@ class PaymentGateway(Protocol):
         application_fee_cents: int,
         metadata: dict[str, str],
         idempotency_key: str,
+        payment_method: str | None = None,
     ) -> PaymentIntentResult: ...
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
@@ -121,6 +132,14 @@ class StripeGateway:
         )
         return str(customer.id)
 
+    async def create_setup_intent(  # pragma: no cover
+        self, account_id: str, *, customer_id: str
+    ) -> SetupIntentResult:
+        intent = await stripe.SetupIntent.create_async(
+            customer=customer_id, usage="off_session", stripe_account=account_id
+        )
+        return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
+
     async def create_payment_intent(  # pragma: no cover
         self,
         account_id: str,
@@ -131,7 +150,14 @@ class StripeGateway:
         application_fee_cents: int,
         metadata: dict[str, str],
         idempotency_key: str,
+        payment_method: str | None = None,
     ) -> PaymentIntentResult:
+        # a saved payment_method → charge it off-session now; else return a client_secret to confirm
+        extra: dict[str, object] = (
+            {"payment_method": payment_method, "confirm": True, "off_session": True}
+            if payment_method
+            else {}
+        )
         intent = await stripe.PaymentIntent.create_async(
             amount=amount_cents,
             currency=currency.lower(),
@@ -140,6 +166,7 @@ class StripeGateway:
             metadata=metadata,
             stripe_account=account_id,
             idempotency_key=idempotency_key,
+            **extra,  # type: ignore[arg-type]  # Stripe kwargs are loosely typed
         )
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 

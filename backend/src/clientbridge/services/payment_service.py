@@ -15,7 +15,7 @@ from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
-from clientbridge.models.payments import Payment, Payout, PayoutAllocation
+from clientbridge.models.payments import Payment, PaymentMethod, Payout, PayoutAllocation
 from clientbridge.models.platform import WebhookEvent
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.payments import (
@@ -25,6 +25,7 @@ from clientbridge.schemas.payments import (
     PayIntentOut,
     RefundOut,
     RemittanceSummary,
+    SetupIntentOut,
 )
 
 
@@ -81,7 +82,11 @@ class PaymentService:
         return RemittanceSummary(tax_collected_cents=int(total))
 
     async def pay_invoice(
-        self, invoice_id: str, amount_cents: int | None, idempotency_key: str | None
+        self,
+        invoice_id: str,
+        amount_cents: int | None,
+        idempotency_key: str | None,
+        payment_method_id: str | None = None,
     ) -> PayIntentOut:
         self._assert_admin()
         business = await self._business()
@@ -95,6 +100,7 @@ class PaymentService:
             raise Conflict("invalid payment amount")
         client = await self._client(invoice.client_id)
         fee_bps = get_settings().platform_fee_bps
+        pm_ref = await self._saved_method_ref(payment_method_id, invoice.client_id)
 
         async def run(cmd: Command) -> PayIntentOut:
             payment, client_secret = await open_card_payment(
@@ -106,6 +112,7 @@ class PaymentService:
                 client=client,
                 amount=amount,
                 fee_bps=fee_bps,
+                payment_method=pm_ref,
             )
             cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
             return PayIntentOut(
@@ -120,6 +127,38 @@ class PaymentService:
             response_model=PayIntentOut,
             idempotency_key=idempotency_key,
         )
+
+    async def start_card_setup(self, client_id: str) -> SetupIntentOut:
+        """A SetupIntent to save a client's card for later off-session charges (no charge now)."""
+        self._assert_admin()
+        business = await self._business()
+        if business.stripe_account_id is None:
+            raise Conflict("connect your Stripe account before saving cards")
+        client = await self._client(client_id)
+        customer_id = await ensure_customer(
+            self.db, self.gateway, business.stripe_account_id, client
+        )
+        intent = await self.gateway.create_setup_intent(
+            business.stripe_account_id, customer_id=customer_id
+        )
+        await self.db.commit()
+        return SetupIntentOut(
+            client_secret=intent.client_secret, stripe_account_id=business.stripe_account_id
+        )
+
+    async def _saved_method_ref(self, payment_method_id: str | None, client_id: str) -> str | None:
+        if payment_method_id is None:
+            return None
+        pm = (
+            await self.db.execute(
+                scoped(PaymentMethod, self.biz).where(
+                    PaymentMethod.id == payment_method_id, PaymentMethod.client_id == client_id
+                )
+            )
+        ).scalar_one_or_none()
+        if pm is None or pm.provider_ref is None:
+            raise NotFound("saved card not found")
+        return pm.provider_ref
 
     async def refund_payment(self, payment_id: str) -> RefundOut:
         self._assert_admin()
@@ -277,6 +316,30 @@ async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
         raise Conflict("this invoice already has a payment in progress")
 
 
+async def ensure_customer(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str, client: Client
+) -> str:
+    """The client's Stripe Customer id, created once. Locks the client row so two concurrent
+    first-charges don't both create a Customer (populate_existing re-reads under the lock)."""
+    if client.stripe_customer_id is not None:
+        return client.stripe_customer_id
+    locked = (
+        await db.execute(
+            select(Client)
+            .where(Client.id == client.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+    if locked.stripe_customer_id is None:
+        locked.stripe_customer_id = await gateway.create_customer(
+            account_id, name=locked.name, email=locked.email
+        )
+        await db.flush()
+    assert locked.stripe_customer_id is not None
+    return locked.stripe_customer_id
+
+
 async def open_card_payment(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -287,34 +350,22 @@ async def open_card_payment(
     client: Client,
     amount: int,
     fee_bps: int,
+    payment_method: str | None = None,
 ) -> tuple[Payment, str]:
     """Create the direct-charge PaymentIntent (+ app fee, ensuring the client is a Customer) and a
-    pending card Payment. Returns the payment + the intent client_secret. The caller commits."""
-    if client.stripe_customer_id is None:
-        # lock the client row so two concurrent first-charges don't each create a Stripe Customer;
-        # populate_existing overwrites the identity-mapped instance with the freshly-locked values
-        client = (
-            await db.execute(
-                select(Client)
-                .where(Client.id == client.id)
-                .with_for_update()
-                .execution_options(populate_existing=True)
-            )
-        ).scalar_one()
-        if client.stripe_customer_id is None:
-            client.stripe_customer_id = await gateway.create_customer(
-                account_id, name=client.name, email=client.email
-            )
-            await db.flush()
+    pending card Payment. A saved `payment_method` charges off-session now; otherwise the returned
+    client_secret is confirmed by the frontend. The caller commits."""
+    customer_id = await ensure_customer(db, gateway, account_id, client)
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
         currency=invoice.currency,
-        customer_id=client.stripe_customer_id,
+        customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"invoice_id": invoice.id, "business_id": business_id},
         # one intent per (invoice, amount) — a retry returns the same intent, not a new charge
         idempotency_key=f"card_{invoice.id}_{amount}",
+        payment_method=payment_method,
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
@@ -417,6 +468,8 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> str | None:
         await _fail_payment(db, str(event.data.get("id")), status="canceled")
     elif event.type == "payout.paid":
         await _record_payout(db, event.account, event.data)
+    elif event.type == "payment_method.attached":
+        await _record_payment_method(db, event.account, event.data)
     return None
 
 
@@ -510,6 +563,55 @@ async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[st
                 arrival_at=arrival_at,
             )
         )
+    await db.flush()
+
+
+async def _record_payment_method(
+    db: AsyncSession, account_id: str | None, data: dict[str, object]
+) -> None:
+    """Record a saved card (from a SetupIntent) for reuse: maps the connected account → business and
+    the Stripe customer → client; deduped by provider_ref."""
+    if account_id is None:
+        return
+    biz = (
+        await db.execute(select(Business.id).where(Business.stripe_account_id == account_id))
+    ).scalar_one_or_none()
+    customer = data.get("customer")
+    if biz is None or not isinstance(customer, str):
+        return
+    client = (
+        await db.execute(
+            select(Client).where(Client.business_id == biz, Client.stripe_customer_id == customer)
+        )
+    ).scalar_one_or_none()
+    if client is None:
+        return
+    pm_id = str(data.get("id"))
+    seen = (
+        await db.execute(
+            select(PaymentMethod.id).where(
+                PaymentMethod.business_id == biz, PaymentMethod.provider_ref == pm_id
+            )
+        )
+    ).scalar_one_or_none()
+    if seen is not None:
+        return
+    card = data.get("card")
+    brand = card.get("brand") if isinstance(card, dict) else None
+    last4 = card.get("last4") if isinstance(card, dict) else None
+    db.add(
+        PaymentMethod(
+            id=new_id("payment_method"),
+            business_id=biz,
+            client_id=client.id,
+            type="card",
+            brand=brand if isinstance(brand, str) else None,
+            last4=last4 if isinstance(last4, str) else None,
+            provider="stripe",
+            provider_ref=pm_id,
+            status="active",
+        )
+    )
     await db.flush()
 
 

@@ -17,6 +17,11 @@ class PayIntentOut(BaseModel):
     amount_cents: int
 
 
+class SetupIntentOut(BaseModel):
+    client_secret: str
+    stripe_account_id: str
+
+
 class RefundOut(BaseModel):
     refund_id: str
     status: str

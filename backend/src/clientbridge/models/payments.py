@@ -50,6 +50,7 @@ class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("payment_methods", "type", "card", "bank_eft", "interac"),
         enum_check("payment_methods", "mandate_status", "none", "pending", "active", "revoked"),
         Index("ix_payment_methods_client", "business_id", "client_id"),
+        Index("ix_payment_methods_provider", "business_id", "provider_ref", unique=True),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
