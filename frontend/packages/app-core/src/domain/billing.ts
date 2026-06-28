@@ -16,6 +16,7 @@ export interface InvoiceRow {
     balance_cents: number | null;
     issued_at: string | null;
     due_at: string | null;
+    pay_token: string | null;
     created_at: string;
 }
 
@@ -43,7 +44,7 @@ export interface LineRow {
 
 const INVOICES_SQL = `
 SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status,
-       i.total_cents, i.balance_cents, i.issued_at, i.due_at, i.created_at
+       i.total_cents, i.balance_cents, i.issued_at, i.due_at, i.pay_token, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id
 ORDER BY i.created_at DESC`;
