@@ -339,6 +339,9 @@ function DetailModal({
         ? invoiceActions(api, row as InvoiceRow)
         : estimateActions(api, row as EstimateRow);
 
+    const payToken = isInvoice ? (row as InvoiceRow).pay_token : null;
+    const canPay = row.status !== "draft" && row.status !== "void";
+
     return (
         <Overlay>
             <div className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card">
@@ -383,6 +386,7 @@ function DetailModal({
                             </span>
                         </span>
                     </div>
+                    {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
                 </div>
                 <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
                     <button
@@ -406,5 +410,35 @@ function DetailModal({
                 </div>
             </div>
         </Overlay>
+    );
+}
+
+function PayLink({ token }: { token: string }) {
+    const url = `${window.location.origin}/pay/${token}`;
+    const [copied, setCopied] = useState(false);
+
+    const copy = (): void => {
+        void navigator.clipboard.writeText(url).then(() => {
+            setCopied(true);
+            window.setTimeout(() => {
+                setCopied(false);
+            }, 1500);
+        });
+    };
+
+    return (
+        <div className="mt-4 rounded-md border border-line bg-bg px-3 py-2.5">
+            <p className="text-xs uppercase tracking-wide text-muted">Pay link</p>
+            <div className="mt-1.5 flex items-center gap-2">
+                <span className="flex-1 truncate text-sm text-ink-soft">{url}</span>
+                <button
+                    type="button"
+                    onClick={copy}
+                    className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-surface"
+                >
+                    {copied ? "Copied" : "Copy"}
+                </button>
+            </div>
+        </div>
     );
 }

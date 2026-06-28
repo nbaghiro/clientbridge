@@ -14,6 +14,7 @@ import { Clients } from "./pages/Clients";
 import { Invoices } from "./pages/Invoices";
 import { PaymentsSettings } from "./pages/PaymentsSettings";
 import { Placeholder } from "./pages/Placeholder";
+import { PublicPay } from "./pages/PublicPay";
 import { SettingsLayout } from "./pages/Settings";
 import { TaxSettings } from "./pages/TaxSettings";
 
@@ -36,44 +37,55 @@ export function App() {
         if (authed) void connectPowerSync(api.authFetch);
     }, [authed]);
 
-    if (!authed) {
-        return (
-            <Login
-                onSuccess={() => {
-                    setAuthed(true);
-                }}
-            />
-        );
-    }
-
     return (
         <PowerSyncContext.Provider value={db}>
             <BrowserRouter>
                 <Routes>
-                    <Route element={<AppShell onSignOut={() => void handleSignOut()} />}>
-                        <Route index element={<Navigate to="/clients" replace />} />
-                        <Route path="home" element={<Placeholder title="Home" />} />
-                        <Route path="calendar" element={<Calendar />} />
-                        <Route path="clients" element={<Clients />} />
-                        <Route path="inbox" element={<Placeholder title="Inbox" />} />
-                        <Route path="invoices" element={<Invoices />} />
-                        <Route path="settings" element={<SettingsLayout />}>
-                            <Route index element={<Navigate to="/settings/catalog" replace />} />
-                            <Route path="account" element={<Placeholder title="Account" />} />
-                            <Route path="catalog" element={<Catalog />} />
-                            <Route path="taxes" element={<TaxSettings />} />
-                            <Route path="payments" element={<PaymentsSettings />} />
-                            <Route path="scheduling" element={<Placeholder title="Scheduling" />} />
-                            <Route
-                                path="booking"
-                                element={<Placeholder title="Booking & forms" />}
-                            />
+                    {/* Public pay-link page — renders regardless of auth (the URL token is the credential). */}
+                    <Route path="/pay/:token" element={<PublicPay />} />
+                    {authed ? (
+                        <Route element={<AppShell onSignOut={() => void handleSignOut()} />}>
+                            <Route index element={<Navigate to="/clients" replace />} />
+                            <Route path="home" element={<Placeholder title="Home" />} />
+                            <Route path="calendar" element={<Calendar />} />
+                            <Route path="clients" element={<Clients />} />
+                            <Route path="inbox" element={<Placeholder title="Inbox" />} />
+                            <Route path="invoices" element={<Invoices />} />
+                            <Route path="settings" element={<SettingsLayout />}>
+                                <Route
+                                    index
+                                    element={<Navigate to="/settings/catalog" replace />}
+                                />
+                                <Route path="account" element={<Placeholder title="Account" />} />
+                                <Route path="catalog" element={<Catalog />} />
+                                <Route path="taxes" element={<TaxSettings />} />
+                                <Route path="payments" element={<PaymentsSettings />} />
+                                <Route
+                                    path="scheduling"
+                                    element={<Placeholder title="Scheduling" />}
+                                />
+                                <Route
+                                    path="booking"
+                                    element={<Placeholder title="Booking & forms" />}
+                                />
+                            </Route>
+                            <Route path="*" element={<Navigate to="/clients" replace />} />
                         </Route>
-                        <Route path="*" element={<Navigate to="/clients" replace />} />
-                    </Route>
+                    ) : (
+                        <Route
+                            path="*"
+                            element={
+                                <Login
+                                    onSuccess={() => {
+                                        setAuthed(true);
+                                    }}
+                                />
+                            }
+                        />
+                    )}
                 </Routes>
             </BrowserRouter>
-            <DebugPanel />
+            {authed ? <DebugPanel /> : null}
         </PowerSyncContext.Provider>
     );
 }
