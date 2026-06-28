@@ -45,10 +45,11 @@ async def pay_invoice(
     gateway: GatewayDep,
     amount_cents: int | None = None,
     payment_method_id: str | None = None,
+    deposit: bool = False,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> PayIntentOut:
     return await PaymentService(db, principal, gateway).pay_invoice(
-        invoice_id, amount_cents, idempotency_key, payment_method_id
+        invoice_id, amount_cents, idempotency_key, payment_method_id, deposit
     )
 
 
@@ -80,8 +81,9 @@ async def request_interac(
     db: DbSession,
     gateway: GatewayDep,
     amount_cents: int | None = None,
+    deposit: bool = False,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InteracRequest:
     return await PaymentService(db, principal, gateway).request_interac(
-        invoice_id, amount_cents, idempotency_key
+        invoice_id, amount_cents, idempotency_key, deposit
     )

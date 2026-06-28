@@ -87,6 +87,7 @@ class PaymentService:
         amount_cents: int | None,
         idempotency_key: str | None,
         payment_method_id: str | None = None,
+        deposit: bool = False,
     ) -> PayIntentOut:
         self._assert_admin()
         business = await self._business()
@@ -113,6 +114,7 @@ class PaymentService:
                 amount=amount,
                 fee_bps=fee_bps,
                 payment_method=pm_ref,
+                kind="deposit" if deposit else "payment",
             )
             cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
             return PayIntentOut(
@@ -219,7 +221,11 @@ class PaymentService:
         )
 
     async def request_interac(
-        self, invoice_id: str, amount_cents: int | None, idempotency_key: str | None
+        self,
+        invoice_id: str,
+        amount_cents: int | None,
+        idempotency_key: str | None,
+        deposit: bool = False,
     ) -> InteracRequest:
         self._assert_admin()
         business = await self._business()
@@ -232,7 +238,11 @@ class PaymentService:
 
         async def run(cmd: Command) -> InteracRequest:
             payment = await open_interac_payment(
-                self.db, business_id=self.biz, invoice=invoice, amount=amount
+                self.db,
+                business_id=self.biz,
+                invoice=invoice,
+                amount=amount,
+                kind="deposit" if deposit else "payment",
             )
             cmd.record("payment.interac_request", entity_type="payment", entity_id=payment.id)
             return InteracRequest(
@@ -351,10 +361,11 @@ async def open_card_payment(
     amount: int,
     fee_bps: int,
     payment_method: str | None = None,
+    kind: str = "payment",
 ) -> tuple[Payment, str]:
     """Create the direct-charge PaymentIntent (+ app fee, ensuring the client is a Customer) and a
-    pending card Payment. A saved `payment_method` charges off-session now; otherwise the returned
-    client_secret is confirmed by the frontend. The caller commits."""
+    pending card Payment (kind "payment" or "deposit"). A saved `payment_method` charges off-session
+    now; otherwise the returned client_secret is confirmed by the frontend. The caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
     intent = await gateway.create_payment_intent(
         account_id,
@@ -363,8 +374,8 @@ async def open_card_payment(
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"invoice_id": invoice.id, "business_id": business_id},
-        # one intent per (invoice, amount) — a retry returns the same intent, not a new charge
-        idempotency_key=f"card_{invoice.id}_{amount}",
+        # one intent per (invoice, amount, kind) — a retry returns the same intent, not a new charge
+        idempotency_key=f"{kind}_{invoice.id}_{amount}",
         payment_method=payment_method,
     )
     existing = (
@@ -377,7 +388,7 @@ async def open_card_payment(
         id=new_id("payment"),
         business_id=business_id,
         client_id=client.id,
-        kind="payment",
+        kind=kind,
         invoice_id=invoice.id,
         amount_cents=amount,
         currency=invoice.currency,
@@ -395,7 +406,7 @@ async def open_card_payment(
 
 
 async def open_interac_payment(
-    db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int
+    db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int, kind: str = "payment"
 ) -> Payment:
     """A pending Interac Payment with a unique auto-match reference code (caller commits)."""
     await _assert_room(db, invoice, amount)
@@ -403,7 +414,7 @@ async def open_interac_payment(
         id=new_id("payment"),
         business_id=business_id,
         client_id=invoice.client_id,
-        kind="payment",
+        kind=kind,
         invoice_id=invoice.id,
         amount_cents=amount,
         currency=invoice.currency,

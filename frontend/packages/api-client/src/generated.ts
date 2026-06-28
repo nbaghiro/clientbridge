@@ -2940,6 +2940,7 @@ export interface operations {
             query?: {
                 amount_cents?: number | null;
                 payment_method_id?: string | null;
+                deposit?: boolean;
             };
             header?: {
                 "Idempotency-Key"?: string | null;
@@ -3077,6 +3078,7 @@ export interface operations {
         parameters: {
             query?: {
                 amount_cents?: number | null;
+                deposit?: boolean;
             };
             header?: {
                 "Idempotency-Key"?: string | null;
