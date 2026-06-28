@@ -11,6 +11,7 @@ import { TabBar } from "./src/components/TabBar";
 import { api, onSignedOut } from "./src/lib/api";
 import { clearTokens, getTokens } from "./src/lib/auth";
 import { connectPowerSync, db, signOut } from "./src/lib/powersync";
+import { registerForPush } from "./src/lib/push";
 import type { RootStackParamList } from "./src/navigation";
 import { CalendarScreen } from "./src/screens/Calendar";
 import { CatalogScreen } from "./src/screens/Catalog";
@@ -76,7 +77,10 @@ function Root() {
     }, []);
 
     useEffect(() => {
-        if (authed) void connectPowerSync(api.authFetch);
+        if (authed) {
+            void connectPowerSync(api.authFetch);
+            void registerForPush();
+        }
     }, [authed]);
 
     if (authed === null) {
