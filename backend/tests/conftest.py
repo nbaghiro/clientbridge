@@ -136,7 +136,7 @@ class FakePaymentGateway:
         return result
 
     async def refund(
-        self, account_id: str, *, payment_intent_id: str, amount_cents: int
+        self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult:
         self._seq += 1
         return RefundResult(id=f"re_fake{self._seq}", status="succeeded")

@@ -17,6 +17,10 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("ix_payments_status", "business_id", "status"),
         Index("ix_payments_invoice", "invoice_id"),
         Index("ix_payments_reference_code", "reference_code", unique=True),
+        Index("ix_payments_provider_ref", "provider_ref", unique=True),  # one row per Stripe object
+        Index(
+            "ix_payments_refund_parent", "parent_payment_id", unique=True
+        ),  # one refund per payment
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
@@ -64,6 +68,7 @@ class Payout(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("payouts", "status", "pending", "in_transit", "paid", "failed", "canceled"),
         Index("ix_payouts_status", "business_id", "status"),
+        Index("ix_payouts_provider_ref", "business_id", "provider_ref", unique=True),
     )
 
     amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
@@ -88,7 +93,7 @@ class PayoutAllocation(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("payout_allocations", "basis", "rate", "percent", "fixed"),
         enum_check("payout_allocations", "status", "pending", "approved", "paid"),
         Index("ix_payout_alloc_staff", "business_id", "staff_id", "status"),
-        Index("ix_payout_alloc_source", "source_type", "source_id"),
+        Index("ix_payout_alloc_source", "source_type", "source_id", "staff_id", unique=True),
     )
 
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)

@@ -67,7 +67,7 @@ class PaymentGateway(Protocol):
         idempotency_key: str,
     ) -> PaymentIntentResult: ...
     async def refund(
-        self, account_id: str, *, payment_intent_id: str, amount_cents: int
+        self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult: ...
 
 
@@ -144,10 +144,13 @@ class StripeGateway:
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
     async def refund(  # pragma: no cover
-        self, account_id: str, *, payment_intent_id: str, amount_cents: int
+        self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult:
         refund = await stripe.Refund.create_async(
-            payment_intent=payment_intent_id, amount=amount_cents, stripe_account=account_id
+            payment_intent=payment_intent_id,
+            amount=amount_cents,
+            stripe_account=account_id,
+            idempotency_key=idempotency_key,
         )
         return RefundResult(id=str(refund.id), status=str(refund.status))
 

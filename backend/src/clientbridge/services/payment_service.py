@@ -131,12 +131,24 @@ class PaymentService:
             raise Conflict("only a succeeded payment can be refunded")
         if business.stripe_account_id is None or payment.provider_ref is None:
             raise Conflict("payment has no connected charge to refund")
+        prior = (
+            await self.db.execute(
+                select(Payment.id).where(
+                    Payment.parent_payment_id == payment.id, Payment.kind == "refund"
+                )
+            )
+        ).scalar_one_or_none()
+        if prior is not None:
+            raise Conflict("this payment was already refunded")
         account_id = business.stripe_account_id
         provider_ref = payment.provider_ref
 
         async def run(cmd: Command) -> RefundOut:
             result = await self.gateway.refund(
-                account_id, payment_intent_id=provider_ref, amount_cents=payment.amount_cents
+                account_id,
+                payment_intent_id=provider_ref,
+                amount_cents=payment.amount_cents,
+                idempotency_key=f"refund_{payment.id}",
             )
             refund = Payment(
                 id=new_id("payment"),
@@ -154,7 +166,10 @@ class PaymentService:
                 paid_at=datetime.now(UTC),
             )
             self.db.add(refund)
-            await self.db.flush()
+            try:
+                await self.db.flush()  # one-refund-per-payment unique guards a concurrent double
+            except IntegrityError as exc:
+                raise Conflict("this payment was already refunded") from exc
             if payment.invoice_id is not None:
                 await _reconcile_invoice(self.db, payment.invoice_id)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
@@ -244,6 +259,22 @@ def assert_payable(invoice: Invoice) -> int:
     return invoice.balance_cents
 
 
+async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
+    """Reject a new charge that, with payments already pending on this invoice, would overpay it —
+    so a customer paying by two methods/tabs can't drive the balance negative."""
+    pending = (
+        await db.execute(
+            select(func.coalesce(func.sum(Payment.amount_cents), 0)).where(
+                Payment.invoice_id == invoice.id,
+                Payment.status == "pending",
+                Payment.kind.in_(("payment", "deposit")),
+            )
+        )
+    ).scalar_one()
+    if amount > invoice.balance_cents - int(pending):
+        raise Conflict("this invoice already has a payment in progress")
+
+
 async def open_card_payment(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -277,6 +308,7 @@ async def open_card_payment(
     ).scalar_one_or_none()
     if existing is not None:  # a retry hit the same intent — don't mint a second pending row
         return existing, intent.client_secret
+    await _assert_room(db, invoice, amount)
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -291,7 +323,10 @@ async def open_card_payment(
         status="pending",
     )
     db.add(payment)
-    await db.flush()
+    try:
+        await db.flush()  # the unique provider_ref guards a concurrent insert of the same intent
+    except IntegrityError as exc:
+        raise Conflict("payment is being set up — please retry") from exc
     return payment, intent.client_secret
 
 
@@ -299,6 +334,7 @@ async def open_interac_payment(
     db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int
 ) -> Payment:
     """A pending Interac Payment with a unique auto-match reference code (caller commits)."""
+    await _assert_room(db, invoice, amount)
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -413,6 +449,7 @@ async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:
         invoice.paid_at = datetime.now(UTC)
     else:
         invoice.status = "partial"
+        invoice.paid_at = None  # a partial refund un-pays the invoice
     await db.flush()
     if invoice.status == "paid":
         await _ensure_allocations(db, invoice)
