@@ -1,13 +1,48 @@
-import { formatMoneyWithCurrency, useDashboardSummary } from "@clientbridge/app-core";
+import {
+    activityLabel,
+    canManagePayments,
+    formatMoneyWithCurrency,
+    formatMonthDay,
+    formatRelativeTime,
+    isRefundRow,
+    parseTimestamp,
+    paymentStatusIntent,
+    useCurrentRole,
+    useDashboardSummary,
+    useRecentActivity,
+    useRecentPayouts,
+    type ActivityRow,
+    type PayoutRow,
+} from "@clientbridge/app-core";
 
+import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
+import { getTokens } from "../lib/auth";
 
 export function Today() {
-    const summary = useDashboardSummary(api);
+    const role = useCurrentRole(getTokens()?.access_token ?? null);
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
             <h1 className="font-display text-2xl font-bold text-ink">Today</h1>
+            {canManagePayments(role) ? (
+                <MoneyView />
+            ) : (
+                <p className="mt-0.5 text-sm text-muted">
+                    Your schedule and clients are in the tabs above.
+                </p>
+            )}
+        </div>
+    );
+}
+
+function MoneyView() {
+    const summary = useDashboardSummary(api);
+    const activity = useRecentActivity();
+    const payouts = useRecentPayouts();
+
+    return (
+        <>
             <p className="mt-0.5 text-sm text-muted">Your money at a glance.</p>
 
             {summary === "error" ? (
@@ -32,6 +67,76 @@ export function Today() {
                     />
                 </div>
             )}
+
+            <section className="mt-8">
+                <h2 className="font-display text-lg font-semibold text-ink">Recent activity</h2>
+                {activity.length === 0 ? (
+                    <p className="mt-2 text-sm text-muted">No payments yet.</p>
+                ) : (
+                    <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
+                        {activity.map((row) => (
+                            <ActivityItem key={row.id} row={row} />
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            <section className="mt-8">
+                <h2 className="font-display text-lg font-semibold text-ink">Payouts</h2>
+                {payouts.length === 0 ? (
+                    <p className="mt-2 text-sm text-muted">No payouts yet.</p>
+                ) : (
+                    <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
+                        {payouts.map((row) => (
+                            <PayoutItem key={row.id} row={row} />
+                        ))}
+                    </div>
+                )}
+            </section>
+        </>
+    );
+}
+
+function ActivityItem({ row }: { row: ActivityRow }) {
+    const refund = isRefundRow(row);
+    return (
+        <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
+            <div className="min-w-0">
+                <p className="font-medium text-ink">{activityLabel(row)}</p>
+                {row.client_name !== null ? (
+                    <p className="truncate text-xs text-muted">{row.client_name}</p>
+                ) : null}
+            </div>
+            <span
+                className={`ml-auto shrink-0 font-medium tabular-nums ${
+                    refund ? "text-danger" : "text-ink"
+                }`}
+            >
+                {refund ? "−" : ""}
+                {formatMoneyWithCurrency(row.amount_cents, row.currency)}
+            </span>
+            <span className="w-12 shrink-0 text-right text-xs text-muted">
+                {formatRelativeTime(row.created_at)}
+            </span>
+        </div>
+    );
+}
+
+function PayoutItem({ row }: { row: PayoutRow }) {
+    return (
+        <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
+            <span className="font-medium tabular-nums text-ink">
+                {formatMoneyWithCurrency(row.amount_cents, "CAD")}
+            </span>
+            <StatusPill status={row.status} intent={paymentStatusIntent(row.status)} />
+            {row.bank_last4 !== null ? (
+                <span className="text-xs text-muted">to ····{row.bank_last4}</span>
+            ) : null}
+            {row.arrival_at !== null ? (
+                <span className="ml-auto shrink-0 text-xs text-muted">
+                    {formatMonthDay(parseTimestamp(row.arrival_at))}
+                </span>
+            ) : null}
         </div>
     );
 }
