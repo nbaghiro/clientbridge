@@ -95,6 +95,7 @@ export function refundPayment(
 export interface PaymentRow {
     id: string;
     kind: string;
+    parent_payment_id: string | null;
     amount_cents: number;
     currency: string;
     status: string;
@@ -103,11 +104,21 @@ export interface PaymentRow {
 }
 
 const INVOICE_PAYMENTS_SQL = `
-SELECT id, kind, amount_cents, currency, status, method, created_at
+SELECT id, kind, parent_payment_id, amount_cents, currency, status, method, created_at
 FROM payments WHERE invoice_id = ? ORDER BY created_at`;
 
 export function useInvoicePayments(invoiceId: string): PaymentRow[] {
     return useQuery<PaymentRow>(INVOICE_PAYMENTS_SQL, [invoiceId]).data;
+}
+
+/** Refundable only once: a succeeded non-refund payment with no sibling refund yet (matches the
+ *  backend's one-refund-per-payment 409 — so the button disappears after a refund posts). */
+export function isRefundable(payment: PaymentRow, allPayments: PaymentRow[]): boolean {
+    return (
+        payment.status === "succeeded" &&
+        payment.kind !== "refund" &&
+        !allPayments.some((p) => p.parent_payment_id === payment.id)
+    );
 }
 
 export function paymentStatusIntent(status: string): Intent {
@@ -139,4 +150,10 @@ export type PayMethod = "interac" | "card";
 /** Ranked pay methods for the public page: Interac first (no fee), card only when enabled. */
 export function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
     return invoice.accepts_card ? ["interac", "card"] : ["interac"];
+}
+
+/** Public pay-page URL for an invoice token. `base` is the public-web origin each app supplies
+ *  (web `window.location.origin`; mobile a configured URL). */
+export function payLinkUrl(base: string, token: string): string {
+    return `${base.replace(/\/+$/, "")}/pay/${token}`;
 }

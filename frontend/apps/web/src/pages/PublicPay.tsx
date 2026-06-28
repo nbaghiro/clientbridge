@@ -24,6 +24,8 @@ import {
 const formatAmount = (cents: number, currency: string): string =>
     `${formatMoney(cents)} ${currency.toUpperCase()}`;
 
+const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
 export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();
 
@@ -94,6 +96,10 @@ export function PublicPay() {
     };
 
     const runCard = (): void => {
+        if (!PUBLISHABLE_KEY) {
+            action.setError("Card payments aren't configured. Please use Interac e-Transfer.");
+            return;
+        }
         void action.run(
             async () => {
                 setCard(await payCard(token));
@@ -124,8 +130,10 @@ export function PublicPay() {
                 ) : null}
             </div>
 
-            <h2 className="mt-6 text-sm font-semibold text-ink">Choose how to pay</h2>
-            <div className="mt-3 space-y-2">
+            <h2 className="mt-6 text-sm font-semibold text-ink" id="pay-method-label">
+                Choose how to pay
+            </h2>
+            <div role="radiogroup" aria-labelledby="pay-method-label" className="mt-3 space-y-2">
                 {methods.map((m) =>
                     m === "interac" ? (
                         <MethodOption
@@ -135,6 +143,7 @@ export function PublicPay() {
                             selected={method === "interac"}
                             onSelect={() => {
                                 setMethod("interac");
+                                action.setError(null);
                             }}
                         />
                     ) : (
@@ -144,6 +153,7 @@ export function PublicPay() {
                             selected={method === "card"}
                             onSelect={() => {
                                 setMethod("card");
+                                action.setError(null);
                             }}
                         />
                     ),
@@ -209,7 +219,8 @@ function MethodOption({
     return (
         <button
             type="button"
-            aria-pressed={selected}
+            role="radio"
+            aria-checked={selected}
             onClick={onSelect}
             className={`flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition ${
                 selected
@@ -281,8 +292,6 @@ function InteracInstructions({ result, currency }: { result: InteracRequest; cur
         </div>
     );
 }
-
-const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 function CardPay({
     clientSecret,
