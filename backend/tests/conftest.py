@@ -16,6 +16,7 @@ from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import get_interac_secret
 from clientbridge.core.errors import Unauthorized
 from clientbridge.core.ids import new_id
+from clientbridge.core.ratelimit import public_pay_rate_limit
 from clientbridge.core.security import hash_password, issue_access_token
 from clientbridge.integrations.email import Email, EmailSender, get_email_sender
 from clientbridge.integrations.oauth import OAuthProfile, get_oauth_verifier
@@ -166,6 +167,7 @@ async def api(
     app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
     app.dependency_overrides[get_payment_gateway] = _gateway
     app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
+    app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

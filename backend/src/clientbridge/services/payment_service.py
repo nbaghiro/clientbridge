@@ -289,10 +289,15 @@ async def open_card_payment(
     """Create the direct-charge PaymentIntent (+ app fee, ensuring the client is a Customer) and a
     pending card Payment. Returns the payment + the intent client_secret. The caller commits."""
     if client.stripe_customer_id is None:
-        client.stripe_customer_id = await gateway.create_customer(
-            account_id, name=client.name, email=client.email
-        )
-        await db.flush()
+        # lock the client row so two concurrent first-charges don't each create a Stripe Customer
+        client = (
+            await db.execute(select(Client).where(Client.id == client.id).with_for_update())
+        ).scalar_one()
+        if client.stripe_customer_id is None:
+            client.stripe_customer_id = await gateway.create_customer(
+                account_id, name=client.name, email=client.email
+            )
+            await db.flush()
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
