@@ -37,8 +37,8 @@ class UploadBody(BaseModel):
 # table -> (min_tier, own_only). tier "team" = any active staff; "admin" = owner/admin only.
 # own_only: a non-admin staff may only touch rows assigned to them (staff_id == theirs).
 # Tables absent here are NOT writable via sync (server-authoritative): payments, payouts,
-# payout_allocations, payment_methods, tax_rates, businesses, staff, users, audit_logs,
-# webhook_events.
+# payout_allocations, payment_methods, packages, subscriptions, gift_cards, tax_rates, businesses,
+# staff, users, audit_logs, webhook_events.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),
     "subjects": ("team", False),
@@ -54,9 +54,9 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "availability": ("team", True),
     "schedules": ("team", True),
     "items": ("admin", False),
-    "packages": ("admin", False),
-    "subscriptions": ("admin", False),
-    "gift_cards": ("admin", False),
+    # packages / subscriptions / gift_cards are NOT sync-writable: balances, consumption counters,
+    # gateway refs, and billing status are server-authoritative (purchase/redeem commands +
+    # webhooks), so a client can't mint store credit or self-grant an active subscription.
     "resources": ("admin", False),
     "forms": ("admin", False),
     "form_fields": ("admin", False),

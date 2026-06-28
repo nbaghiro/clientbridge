@@ -27,27 +27,34 @@ const staff = new Table(
     },
 );
 
-const businesses = new Table({
-    name: column.text,
-    slug: column.text,
-    parent_business_id: column.text,
-    locale: column.text,
-    timezone: column.text,
-    province: column.text,
-    gst_hst_number: column.text,
-    qst_number: column.text,
-    is_tax_registered: column.integer,
-    brand: column.text,
-    plan: column.text,
-    billing_email: column.text,
-    stripe_customer_id: column.text,
-    stripe_account_id: column.text,
-    stripe_charges_enabled: column.integer,
-    payout_schedule: column.text,
-    status: column.text,
-    created_at: column.text,
-    updated_at: column.text,
-});
+const businesses = new Table(
+    {
+        name: column.text,
+        slug: column.text,
+        parent_business_id: column.text,
+        locale: column.text,
+        timezone: column.text,
+        province: column.text,
+        gst_hst_number: column.text,
+        qst_number: column.text,
+        is_tax_registered: column.integer,
+        brand: column.text,
+        plan: column.text,
+        billing_email: column.text,
+        stripe_customer_id: column.text,
+        stripe_account_id: column.text,
+        stripe_charges_enabled: column.integer,
+        payout_schedule: column.text,
+        status: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            businesses_stripe_account: ["stripe_account_id"],
+        },
+    },
+);
 
 const clients = new Table(
     {
@@ -511,7 +518,7 @@ const payout_allocations = new Table(
     },
     {
         indexes: {
-            payout_alloc_source: ["source_type", "source_id"],
+            payout_alloc_source: ["source_type", "source_id", "staff_id"],
             payout_alloc_staff: ["business_id", "staff_id", "status"],
             payout_allocations_business_id: ["business_id"],
         },
@@ -623,7 +630,9 @@ const payments = new Table(
         indexes: {
             payments_business_id: ["business_id"],
             payments_invoice: ["invoice_id"],
+            payments_provider_ref: ["provider_ref"],
             payments_reference_code: ["reference_code"],
+            payments_refund_parent: ["parent_payment_id"],
             payments_status: ["business_id", "status"],
         },
     },
@@ -666,6 +675,7 @@ const payouts = new Table(
     {
         indexes: {
             payouts_business_id: ["business_id"],
+            payouts_provider_ref: ["business_id", "provider_ref"],
             payouts_status: ["business_id", "status"],
         },
     },

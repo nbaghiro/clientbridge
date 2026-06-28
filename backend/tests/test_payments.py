@@ -170,6 +170,22 @@ async def test_failed_webhook_marks_payment_failed(
     assert inv.status == "sent"  # unchanged
 
 
+async def test_canceled_intent_frees_room(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable_payments(db)
+    inv_id = await _invoice(db)
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    await as_owner.post(
+        "/webhooks/stripe",
+        content=_pi_event("evt_c1", pi_id, kind="payment_intent.canceled"),
+        headers={"Stripe-Signature": "good"},
+    )
+    pmt = (await db.execute(select(Payment).where(Payment.id == pay["payment_id"]))).scalar_one()
+    assert pmt.status == "canceled"
+    # the pending row no longer reserves the balance → the invoice can be charged again
+    assert (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).status_code == 200
+
+
 async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await db.execute(
         update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)

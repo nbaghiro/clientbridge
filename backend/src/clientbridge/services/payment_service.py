@@ -261,7 +261,9 @@ def assert_payable(invoice: Invoice) -> int:
 
 async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
     """Reject a new charge that, with payments already pending on this invoice, would overpay it —
-    so a customer paying by two methods/tabs can't drive the balance negative."""
+    so a customer paying by two methods/tabs can't drive the balance negative. Locks the invoice row
+    so concurrent partial charges see each other's pending rows instead of both reading zero."""
+    await db.execute(select(Invoice.id).where(Invoice.id == invoice.id).with_for_update())
     pending = (
         await db.execute(
             select(func.coalesce(func.sum(Payment.amount_cents), 0)).where(
@@ -289,9 +291,15 @@ async def open_card_payment(
     """Create the direct-charge PaymentIntent (+ app fee, ensuring the client is a Customer) and a
     pending card Payment. Returns the payment + the intent client_secret. The caller commits."""
     if client.stripe_customer_id is None:
-        # lock the client row so two concurrent first-charges don't each create a Stripe Customer
+        # lock the client row so two concurrent first-charges don't each create a Stripe Customer;
+        # populate_existing overwrites the identity-mapped instance with the freshly-locked values
         client = (
-            await db.execute(select(Client).where(Client.id == client.id).with_for_update())
+            await db.execute(
+                select(Client)
+                .where(Client.id == client.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
         ).scalar_one()
         if client.stripe_customer_id is None:
             client.stripe_customer_id = await gateway.create_customer(
@@ -380,7 +388,11 @@ async def process_stripe_event(
     await _dispatch(db, event)
     record.status = "processed"
     record.processed_at = datetime.now(UTC)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:  # a concurrent delivery won the race on a unique key — already applied
+        await db.rollback()
+        return "duplicate"
     return "processed"
 
 
@@ -400,6 +412,8 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> None:
         )
     elif event.type == "payment_intent.payment_failed":
         await _fail_payment(db, str(event.data.get("id")))
+    elif event.type == "payment_intent.canceled":
+        await _fail_payment(db, str(event.data.get("id")), status="canceled")
     elif event.type == "payout.paid":
         await _record_payout(db, event.account, event.data)
 
@@ -421,14 +435,14 @@ async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -
         await _reconcile_invoice(db, payment.invoice_id)
 
 
-async def _fail_payment(db: AsyncSession, intent_id: str) -> None:
+async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "failed") -> None:
     payment = (
         await db.execute(
             select(Payment).where(Payment.provider_ref == intent_id, Payment.provider == "stripe")
         )
     ).scalar_one_or_none()
     if payment is not None and payment.status == "pending":
-        payment.status = "failed"
+        payment.status = status  # a canceled intent frees the invoice's pending room to retry
         await db.flush()
 
 
@@ -517,13 +531,19 @@ async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
         if booking_id is None:
             continue
         seen = (
-            await db.execute(
-                select(PayoutAllocation.id).where(
-                    PayoutAllocation.source_type == "booking",
-                    PayoutAllocation.source_id == booking_id,
+            (
+                await db.execute(
+                    select(PayoutAllocation.id)
+                    .where(
+                        PayoutAllocation.source_type == "booking",
+                        PayoutAllocation.source_id == booking_id,
+                    )
+                    .limit(1)
                 )
             )
-        ).scalar_one_or_none()
+            .scalars()
+            .first()
+        )
         if seen is not None:
             continue
         booking = await db.get(Booking, booking_id)
@@ -599,5 +619,9 @@ async def process_interac_event(db: AsyncSession, reference_code: str, amount_ce
             processed_at=datetime.now(UTC),
         )
     )
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:  # a concurrent delivery won the race on the event id — already applied
+        await db.rollback()
+        return "duplicate"
     return "matched" if matched else "unmatched"
