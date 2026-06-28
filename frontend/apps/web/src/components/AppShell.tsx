@@ -12,7 +12,7 @@ import {
 } from "./icons";
 
 const NAV = [
-    { to: "/home", label: "Home", Icon: IconToday },
+    { to: "/home", label: "Today", Icon: IconToday },
     { to: "/calendar", label: "Calendar", Icon: IconCalendar },
     { to: "/clients", label: "Clients", Icon: IconClients },
     { to: "/invoices", label: "Invoices", Icon: IconInvoices },
