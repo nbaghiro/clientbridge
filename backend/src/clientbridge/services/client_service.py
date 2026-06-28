@@ -1,29 +1,30 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.scoping import scoped, scoped_count, scoped_page
 from clientbridge.models.crm import Client
-from clientbridge.repositories.crm import ClientRepository
 from clientbridge.schemas.crm import ClientCreate, ClientUpdate
 from clientbridge.services.base import BaseService
 
 
 class ClientService(BaseService):
-    def __init__(self, db: AsyncSession, principal: Principal) -> None:
-        super().__init__(db, principal)
-        self.repo = ClientRepository(db, principal.business_id)
-
     async def list(self, *, limit: int, offset: int) -> tuple[Sequence[Client], int]:
-        items = await self.repo.list(limit=limit, offset=offset)
-        total = await self.repo.count()
-        return items, total
+        biz = self.principal.business_id
+        items = await scoped_page(
+            self.db, Client, biz, limit=limit, offset=offset, soft_delete=True
+        )
+        return items, await scoped_count(self.db, Client, biz, soft_delete=True)
 
     async def get(self, client_id: str) -> Client:
-        client = await self.repo.get(client_id)
+        client = (
+            await self.db.execute(
+                scoped(Client, self.principal.business_id, soft_delete=True).where(
+                    Client.id == client_id
+                )
+            )
+        ).scalar_one_or_none()
         if client is None:
             raise NotFound("client not found")
         return client
@@ -40,7 +41,9 @@ class ClientService(BaseService):
             status=data.status,
             custom_fields=data.custom_fields,
         )
-        await self.repo.add(client)
+        self.db.add(client)
+        await self.db.flush()
+        await self.db.refresh(client)
         await self.db.commit()
         return client
 

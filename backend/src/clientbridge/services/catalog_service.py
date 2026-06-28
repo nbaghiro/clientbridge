@@ -1,28 +1,25 @@
 from collections.abc import Sequence
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.scoping import scoped, scoped_count, scoped_page
 from clientbridge.models.catalog import Item
-from clientbridge.repositories.catalog import ItemRepository
 from clientbridge.schemas.catalog import ItemCreate, ItemUpdate
 from clientbridge.services.base import BaseService
 
 
 class CatalogService(BaseService):
-    def __init__(self, db: AsyncSession, principal: Principal) -> None:
-        super().__init__(db, principal)
-        self.repo = ItemRepository(db, principal.business_id)
-
     async def list(self, *, limit: int, offset: int) -> tuple[Sequence[Item], int]:
-        items = await self.repo.list(limit=limit, offset=offset)
-        total = await self.repo.count()
-        return items, total
+        biz = self.principal.business_id
+        items = await scoped_page(self.db, Item, biz, limit=limit, offset=offset)
+        return items, await scoped_count(self.db, Item, biz)
 
     async def get(self, item_id: str) -> Item:
-        item = await self.repo.get(item_id)
+        item = (
+            await self.db.execute(
+                scoped(Item, self.principal.business_id).where(Item.id == item_id)
+            )
+        ).scalar_one_or_none()
         if item is None:
             raise NotFound("item not found")
         return item
@@ -45,7 +42,9 @@ class CatalogService(BaseService):
             online_bookable=data.online_bookable,
             active=data.active,
         )
-        await self.repo.add(item)
+        self.db.add(item)
+        await self.db.flush()
+        await self.db.refresh(item)
         await self.db.commit()
         return item
 

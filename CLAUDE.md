@@ -12,11 +12,11 @@ mobile) · `infra/` · `.docs/`.
 
 ## Backend — layer-first, domain-as-filename
 - Flow: `api/v1` (thin router + DTO, **never queries**) → `services` (logic, owns the
-  transaction/commit) → `models`. Two service shapes: **CRUD** (clients, catalog) use a
-  `Repository` (the base repo enforces `business_id` + soft-delete); **command** services (booking,
-  billing, payment) use `run_command` + scope every tenant query through
-  `core/scoping.scoped(Model, business_id, soft_delete=…)` — the one place the tenant filter lives;
-  never hand-write a `business_id` filter.
+  transaction/commit) → `models`. Services own their queries and **always scope tenancy through
+  `core/scoping.scoped(Model, business_id, soft_delete=…)`** (with `scoped_page`/`scoped_count` for
+  list endpoints) — the one place the `business_id` (+ soft-delete) filter lives; never hand-write a
+  `business_id` filter. Money / uniqueness / cross-tenant mutations additionally go through
+  `run_command` (atomic + audited + idempotency-replay).
 - **5 surfaces** — every capability is exactly one (see `.docs/backend-plan.md`): sync-read (PowerSync
   rules) · sync-write (`/sync/upload` + `WRITE_POLICY`) · command/RPC (FastAPI `POST`) · webhook/public ·
   job. A **server-only invariant** (uniqueness/numbering, capacity, money, secrets, cross-tenant) → a
@@ -48,8 +48,9 @@ mobile) · `infra/` · `.docs/`.
 - Gate: `ruff check . && ruff format --check . && mypy src scripts tests && pytest --cov…`.
 - **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
-  router → service; routers never query; CRUD via a `Repository`, command services scope via
-  `scoped()` — never a hand-written `business_id` filter); the **5 surfaces** (sync-write vs
+  router → service; routers never query; every tenant query goes through
+  `scoped()`/`scoped_page`/`scoped_count` — never a hand-written `business_id` filter); the **5
+  surfaces** (sync-write vs
   command) chosen correctly; **role gates** match `WRITE_POLICY` + the **4-part test matrix** is cleared
   (happy · each 4xx · security/tenant-isolation · idempotency); **web↔mobile duplication** (share the
   UI-agnostic data layer via `@clientbridge/app-core`, keep only rendering platform-specific); stray
