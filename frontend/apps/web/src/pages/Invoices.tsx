@@ -3,14 +3,17 @@ import {
     type EstimateRow,
     type InvoiceRow,
     type PaymentRow,
+    canManagePayments,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
     filterInvoices,
     formatMoney,
+    formatMoneyWithCurrency,
     invoiceActions,
     invoiceStatusIntent,
     isPayable,
+    isRefundRow,
     isRefundable,
     payLinkUrl,
     paymentStatusIntent,
@@ -341,7 +344,7 @@ function DetailModal({
 
     if (row === null) return null;
     const isInvoice = kind === "invoices";
-    const canRefund = role === "owner" || role === "admin";
+    const canRefund = canManagePayments(role);
 
     const actions = isInvoice
         ? invoiceActions(api, row as InvoiceRow)
@@ -493,7 +496,7 @@ function PaymentRowItem({
     canRefund: boolean;
 }) {
     const { busy, error, run } = useAsyncAction();
-    const isRefund = payment.kind === "refund";
+    const isRefund = isRefundRow(payment);
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
@@ -510,7 +513,7 @@ function PaymentRowItem({
                     className={`font-medium tabular-nums ${isRefund ? "text-danger" : "text-ink"}`}
                 >
                     {isRefund ? "−" : ""}
-                    {formatMoney(payment.amount_cents)} {payment.currency.toUpperCase()}
+                    {formatMoneyWithCurrency(payment.amount_cents, payment.currency)}
                 </span>
                 {isRefund ? (
                     <span className="rounded-full bg-bg px-2 py-0.5 text-xs font-medium text-muted">

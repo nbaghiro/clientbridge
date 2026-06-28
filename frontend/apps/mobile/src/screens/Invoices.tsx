@@ -8,9 +8,11 @@ import {
     filterEstimates,
     filterInvoices,
     formatMoney,
+    formatMoneyWithCurrency,
     invoiceActions,
     invoiceStatusIntent,
     isPayable,
+    isRefundRow,
     isRefundable,
     payLinkUrl,
     paymentStatusIntent,
@@ -296,7 +298,7 @@ function PaymentsSection({ invoiceId }: { invoiceId: string }) {
 
 function PaymentRowItem({ payment, payments }: { payment: PaymentRow; payments: PaymentRow[] }) {
     const { busy, error, run } = useAsyncAction();
-    const isRefund = payment.kind === "refund";
+    const isRefund = isRefundRow(payment);
     const showRefund = isRefundable(payment, payments);
 
     const refund = (): void => {
@@ -318,7 +320,7 @@ function PaymentRowItem({ payment, payments }: { payment: PaymentRow; payments: 
             <View style={styles.paymentMain}>
                 <Text style={[styles.paymentAmount, isRefund && styles.paymentRefund]}>
                     {isRefund ? "−" : ""}
-                    {formatMoney(payment.amount_cents)} {payment.currency.toUpperCase()}
+                    {formatMoneyWithCurrency(payment.amount_cents, payment.currency)}
                 </Text>
                 <Text style={styles.paymentMethod}>{isRefund ? "Refund" : payment.method}</Text>
                 <StatusBadge status={payment.status} intent={paymentStatusIntent(payment.status)} />
