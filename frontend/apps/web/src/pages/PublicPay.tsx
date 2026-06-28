@@ -1,6 +1,6 @@
 import {
     type PayMethod,
-    formatMoney,
+    formatMoneyWithCurrency,
     invoiceStatusIntent,
     payMethods,
     useAsyncAction,
@@ -20,9 +20,6 @@ import {
     payCard,
     payInterac,
 } from "../lib/publicPay";
-
-const formatAmount = (cents: number, currency: string): string =>
-    `${formatMoney(cents)} ${currency.toUpperCase()}`;
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
@@ -121,11 +118,11 @@ export function PublicPay() {
             <div className="mt-6 rounded-lg border border-line bg-bg px-5 py-4">
                 <p className="text-xs uppercase tracking-wide text-muted">Balance due</p>
                 <p className="mt-1 font-display text-4xl font-bold tabular-nums text-ink">
-                    {formatAmount(invoice.balance_cents, invoice.currency)}
+                    {formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
                 </p>
                 {invoice.balance_cents !== invoice.total_cents ? (
                     <p className="mt-1 text-xs text-muted">
-                        of {formatAmount(invoice.total_cents, invoice.currency)} total
+                        of {formatMoneyWithCurrency(invoice.total_cents, invoice.currency)} total
                     </p>
                 ) : null}
             </div>
@@ -173,7 +170,10 @@ export function PublicPay() {
                     <CardPay
                         clientSecret={card.client_secret}
                         stripeAccount={card.stripe_account_id}
-                        amountLabel={formatAmount(invoice.balance_cents, invoice.currency)}
+                        amountLabel={formatMoneyWithCurrency(
+                            invoice.balance_cents,
+                            invoice.currency,
+                        )}
                         onPaid={() => {
                             setPaid(true);
                         }}
@@ -275,15 +275,15 @@ function InteracInstructions({ result, currency }: { result: InteracRequest; cur
             {result.send_to !== null ? (
                 <p className="mt-2 leading-relaxed">
                     Send an Interac e-Transfer of{" "}
-                    <strong>{formatAmount(result.amount_cents, currency)}</strong> to{" "}
+                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong> to{" "}
                     <strong>{result.send_to}</strong> and put{" "}
                     <strong>{result.reference_code}</strong> in the message.
                 </p>
             ) : (
                 <p className="mt-2 leading-relaxed">
                     The business will share their e-Transfer email with you. Send{" "}
-                    <strong>{formatAmount(result.amount_cents, currency)}</strong> and put{" "}
-                    <strong>{result.reference_code}</strong> in the message.
+                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong> and
+                    put <strong>{result.reference_code}</strong> in the message.
                 </p>
             )}
             <p className="mt-3 text-xs text-muted">

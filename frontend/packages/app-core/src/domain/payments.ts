@@ -111,14 +111,24 @@ export function useInvoicePayments(invoiceId: string): PaymentRow[] {
     return useQuery<PaymentRow>(INVOICE_PAYMENTS_SQL, [invoiceId]).data;
 }
 
+/** A refund row (a negative entry against a prior payment), vs an original charge. */
+export function isRefundRow(payment: PaymentRow): boolean {
+    return payment.kind === "refund";
+}
+
 /** Refundable only once: a succeeded non-refund payment with no sibling refund yet (matches the
  *  backend's one-refund-per-payment 409 — so the button disappears after a refund posts). */
 export function isRefundable(payment: PaymentRow, allPayments: PaymentRow[]): boolean {
     return (
         payment.status === "succeeded" &&
-        payment.kind !== "refund" &&
+        !isRefundRow(payment) &&
         !allPayments.some((p) => p.parent_payment_id === payment.id)
     );
+}
+
+/** Only owners and admins may issue refunds (matches the backend's payment role gate). */
+export function canManagePayments(role: string | null): boolean {
+    return role === "owner" || role === "admin";
 }
 
 export function paymentStatusIntent(status: string): Intent {
