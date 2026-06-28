@@ -17,6 +17,7 @@ import { Placeholder } from "./pages/Placeholder";
 import { PublicPay } from "./pages/PublicPay";
 import { SettingsLayout } from "./pages/Settings";
 import { TaxSettings } from "./pages/TaxSettings";
+import { Today } from "./pages/Today";
 
 export function App() {
     const [authed, setAuthed] = useState(isAuthenticated());
@@ -45,8 +46,8 @@ export function App() {
                     <Route path="/pay/:token" element={<PublicPay />} />
                     {authed ? (
                         <Route element={<AppShell onSignOut={() => void handleSignOut()} />}>
-                            <Route index element={<Navigate to="/clients" replace />} />
-                            <Route path="home" element={<Placeholder title="Home" />} />
+                            <Route index element={<Navigate to="/home" replace />} />
+                            <Route path="home" element={<Today />} />
                             <Route path="calendar" element={<Calendar />} />
                             <Route path="clients" element={<Clients />} />
                             <Route path="inbox" element={<Placeholder title="Inbox" />} />
