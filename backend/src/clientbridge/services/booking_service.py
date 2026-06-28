@@ -8,6 +8,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError, Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.scoping import scoped
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Staff
@@ -165,11 +166,7 @@ class BookingService:
     async def _item(self, item_id: str) -> Item:
         row = (
             await self.db.execute(
-                select(Item).where(
-                    Item.id == item_id,
-                    Item.business_id == self.biz,
-                    Item.active.is_(True),
-                )
+                scoped(Item, self.biz).where(Item.id == item_id, Item.active.is_(True))
             )
         ).scalar_one_or_none()
         if row is None:
@@ -179,11 +176,7 @@ class BookingService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                select(Client).where(
-                    Client.id == client_id,
-                    Client.business_id == self.biz,
-                    Client.deleted_at.is_(None),
-                )
+                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
             )
         ).scalar_one_or_none()
         if row is None:
@@ -193,11 +186,7 @@ class BookingService:
     async def _staff(self, staff_id: str) -> Staff:
         row = (
             await self.db.execute(
-                select(Staff).where(
-                    Staff.id == staff_id,
-                    Staff.business_id == self.biz,
-                    Staff.status == "active",
-                )
+                scoped(Staff, self.biz).where(Staff.id == staff_id, Staff.status == "active")
             )
         ).scalar_one_or_none()
         if row is None:
@@ -207,11 +196,7 @@ class BookingService:
     async def _booking(self, booking_id: str) -> Booking:
         row = (
             await self.db.execute(
-                select(Booking).where(
-                    Booking.id == booking_id,
-                    Booking.business_id == self.biz,
-                    Booking.deleted_at.is_(None),
-                )
+                scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)
             )
         ).scalar_one_or_none()
         if row is None:
@@ -220,9 +205,7 @@ class BookingService:
 
     async def _session(self, session_id: str) -> Session:
         row = (
-            await self.db.execute(
-                select(Session).where(Session.id == session_id, Session.business_id == self.biz)
-            )
+            await self.db.execute(scoped(Session, self.biz).where(Session.id == session_id))
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("session not found")

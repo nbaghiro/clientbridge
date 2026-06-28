@@ -8,6 +8,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
@@ -178,9 +179,7 @@ class PaymentService:
 
     async def _invoice(self, invoice_id: str) -> Invoice:
         row = (
-            await self.db.execute(
-                select(Invoice).where(Invoice.id == invoice_id, Invoice.business_id == self.biz)
-            )
+            await self.db.execute(scoped(Invoice, self.biz).where(Invoice.id == invoice_id))
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("invoice not found")
@@ -189,11 +188,7 @@ class PaymentService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                select(Client).where(
-                    Client.id == client_id,
-                    Client.business_id == self.biz,
-                    Client.deleted_at.is_(None),
-                )
+                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
             )
         ).scalar_one_or_none()
         if row is None:
@@ -202,9 +197,7 @@ class PaymentService:
 
     async def _payment(self, payment_id: str) -> Payment:
         row = (
-            await self.db.execute(
-                select(Payment).where(Payment.id == payment_id, Payment.business_id == self.biz)
-            )
+            await self.db.execute(scoped(Payment, self.biz).where(Payment.id == payment_id))
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("payment not found")
