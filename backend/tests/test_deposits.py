@@ -1,3 +1,5 @@
+import json
+
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -128,3 +130,37 @@ async def test_interac_deposit_is_marked_kind_deposit(
         await db.execute(select(Payment).where(Payment.id == res.json()["payment_id"]))
     ).scalar_one()
     assert pay.kind == "deposit" and pay.method == "interac"
+
+
+async def test_deposit_amount_computed_from_item(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid, iid = await _client_and_item(db)
+    await db.execute(
+        update(Item)
+        .where(Item.id == iid)
+        .values(price_cents=5000, deposit_type="percent", deposit_value=20)
+    )
+    await db.flush()
+    res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-03T10:00:00Z"))
+    assert res.status_code == 201, res.text
+    assert res.json()["deposit_amount_cents"] == 1000  # 20% of $50
+
+
+async def test_deposit_settles_invoice_to_partial(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    inv_id = await _invoice(db, total=10000)
+    pay = (
+        await as_owner.post(f"/v1/payments/invoice/{inv_id}?amount_cents=2500&deposit=true")
+    ).json()
+    pi = (
+        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
+    ).scalar_one()
+    event = json.dumps(
+        {"id": "evt_dep", "type": "payment_intent.succeeded", "data": {"object": {"id": pi}}}
+    )
+    await as_owner.post("/webhooks/stripe", content=event, headers={"Stripe-Signature": "good"})
+    inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
+    assert inv.status == "partial" and inv.amount_paid_cents == 2500

@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
@@ -16,6 +16,19 @@ from clientbridge.schemas.dashboard import DashboardSummary
 _OUTSTANDING = ("sent", "partial", "overdue")
 
 
+def _next_gst_filing(today: date) -> date:
+    """Next CRA GST/HST remittance due date — quarterly filers remit one month after each quarter
+    end (Apr 30 · Jul 31 · Oct 31 · Jan 31). A sensible default until filing frequency is stored."""
+    due = [
+        date(today.year, 1, 31),
+        date(today.year, 4, 30),
+        date(today.year, 7, 31),
+        date(today.year, 10, 31),
+        date(today.year + 1, 1, 31),
+    ]
+    return next(d for d in due if d >= today)
+
+
 class DashboardService:
     """Read-only money aggregates for the Today dashboard (owner/admin — gated at the route)."""
 
@@ -27,15 +40,15 @@ class DashboardService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        day_start = datetime.now(ZoneInfo(business.timezone)).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        now = datetime.now(ZoneInfo(business.timezone))
+        day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         received = await self._payments_since(day_start, ("payment", "deposit"))
         refunded = await self._payments_since(day_start, ("refund",))
         return DashboardSummary(
             today_revenue_cents=received - refunded,
             awaiting_payment_cents=await self._invoice_sum("balance_cents", _OUTSTANDING),
             gst_hst_set_aside_cents=await self._invoice_sum("tax_total_cents", ("paid",)),
+            gst_hst_filing_due=_next_gst_filing(now.date()) if business.is_tax_registered else None,
         )
 
     async def _payments_since(self, day_start: datetime, kinds: Sequence[str]) -> int:

@@ -130,22 +130,30 @@ class PaymentService:
             idempotency_key=idempotency_key,
         )
 
-    async def start_card_setup(self, client_id: str) -> SetupIntentOut:
+    async def start_card_setup(
+        self, client_id: str, idempotency_key: str | None = None
+    ) -> SetupIntentOut:
         """A SetupIntent to save a client's card for later off-session charges (no charge now)."""
         self._assert_admin()
         business = await self._business()
         if business.stripe_account_id is None:
             raise Conflict("connect your Stripe account before saving cards")
+        account_id = business.stripe_account_id
         client = await self._client(client_id)
-        customer_id = await ensure_customer(
-            self.db, self.gateway, business.stripe_account_id, client
-        )
-        intent = await self.gateway.create_setup_intent(
-            business.stripe_account_id, customer_id=customer_id
-        )
-        await self.db.commit()
-        return SetupIntentOut(
-            client_secret=intent.client_secret, stripe_account_id=business.stripe_account_id
+
+        async def run(cmd: Command) -> SetupIntentOut:
+            customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
+            intent = await self.gateway.create_setup_intent(account_id, customer_id=customer_id)
+            cmd.record("payment.setup_intent", entity_type="client", entity_id=client.id)
+            return SetupIntentOut(client_secret=intent.client_secret, stripe_account_id=account_id)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment.setup_intent",
+            run=run,
+            response_model=SetupIntentOut,
+            idempotency_key=idempotency_key,
         )
 
     async def _saved_method_ref(self, payment_method_id: str | None, client_id: str) -> str | None:
@@ -367,6 +375,11 @@ async def open_card_payment(
     pending card Payment (kind "payment" or "deposit"). A saved `payment_method` charges off-session
     now; otherwise the returned client_secret is confirmed by the frontend. The caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
+    if payment_method is not None:
+        # a saved method charges synchronously below — reserve room (locks the invoice) FIRST so a
+        # concurrent partial can't also charge. (The authed path is the only off-session caller and
+        # is run_command-idempotent, so this can't wrongly reject a retry.)
+        await _assert_room(db, invoice, amount)
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
@@ -383,7 +396,10 @@ async def open_card_payment(
     ).scalar_one_or_none()
     if existing is not None:  # a retry hit the same intent — don't mint a second pending row
         return existing, intent.client_secret
-    await _assert_room(db, invoice, amount)
+    if (
+        payment_method is None
+    ):  # interactive: room is checked after the dedup (charge isn't yet made)
+        await _assert_room(db, invoice, amount)
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -592,7 +608,7 @@ async def _record_payment_method(
         return
     client = (
         await db.execute(
-            select(Client).where(Client.business_id == biz, Client.stripe_customer_id == customer)
+            scoped(Client, biz, soft_delete=True).where(Client.stripe_customer_id == customer)
         )
     ).scalar_one_or_none()
     if client is None:
