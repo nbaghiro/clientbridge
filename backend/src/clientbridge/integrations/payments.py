@@ -25,6 +25,7 @@ class GatewayEvent:
     id: str
     type: str
     data: dict[str, object]
+    account: str | None = None  # the connected account a Connect event came from
 
 
 @dataclass(frozen=True)
@@ -155,10 +156,12 @@ class StripeGateway:
         except Exception as exc:
             raise WebhookVerificationError(str(exc)) from exc
         obj = dict(event["data"]["object"])
+        account = event.get("account")
         return GatewayEvent(
             id=str(event["id"]),
             type=str(event["type"]),
             data={str(k): v for k, v in obj.items()},
+            account=str(account) if account else None,
         )
 
 

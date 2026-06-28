@@ -9,6 +9,7 @@ from clientbridge.schemas.payments import (
     OnboardingLink,
     PayIntentOut,
     RefundOut,
+    RemittanceSummary,
 )
 from clientbridge.services.payment_service import PaymentService
 
@@ -54,6 +55,13 @@ async def refund_payment(
     payment_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
 ) -> RefundOut:
     return await PaymentService(db, principal, gateway).refund_payment(payment_id)
+
+
+@pay_router.get("/remittance", response_model=RemittanceSummary)
+async def remittance(
+    principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> RemittanceSummary:
+    return await PaymentService(db, principal, gateway).remittance_summary()
 
 
 @pay_router.post("/invoice/{invoice_id}/interac", response_model=InteracRequest)

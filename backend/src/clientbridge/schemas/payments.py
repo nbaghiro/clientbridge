@@ -32,3 +32,7 @@ class InteracRequest(BaseModel):
 class InteracWebhookBody(BaseModel):
     reference_code: str
     amount_cents: int
+
+
+class RemittanceSummary(BaseModel):
+    tax_collected_cents: int  # Σ tax on paid invoices — the GST/HST to set aside for CRA

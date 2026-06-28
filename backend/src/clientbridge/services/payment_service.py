@@ -1,7 +1,7 @@
 import secrets
 from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,17 +12,19 @@ from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
-from clientbridge.models.payments import Payment
+from clientbridge.models.identity import Business, Staff
+from clientbridge.models.payments import Payment, Payout, PayoutAllocation
 from clientbridge.models.platform import WebhookEvent
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.payments import (
     ConnectStatus,
     InteracRequest,
     OnboardingLink,
     PayIntentOut,
     RefundOut,
+    RemittanceSummary,
 )
 
 
@@ -69,6 +71,17 @@ class PaymentService:
             connected=business.stripe_account_id is not None,
             charges_enabled=business.stripe_charges_enabled,
         )
+
+    async def remittance_summary(self) -> RemittanceSummary:
+        self._assert_admin()
+        total = (
+            await self.db.execute(
+                select(func.coalesce(func.sum(Invoice.tax_total_cents), 0)).where(
+                    Invoice.business_id == self.biz, Invoice.status == "paid"
+                )
+            )
+        ).scalar_one()
+        return RemittanceSummary(tax_collected_cents=int(total))
 
     async def pay_invoice(
         self, invoice_id: str, amount_cents: int | None, idempotency_key: str | None
@@ -303,6 +316,8 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> None:
         )
     elif event.type == "payment_intent.payment_failed":
         await _fail_payment(db, str(event.data.get("id")))
+    elif event.type == "payout.paid":
+        await _record_payout(db, event.account, event.data)
 
 
 async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -> None:
@@ -355,6 +370,101 @@ async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:
         invoice.paid_at = datetime.now(UTC)
     else:
         invoice.status = "partial"
+    await db.flush()
+    if invoice.status == "paid":
+        await _ensure_allocations(db, invoice)
+
+
+async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[str, object]) -> None:
+    """Mirror a Stripe payout (on the connected account) into our `payouts` table."""
+    if account_id is None:
+        return
+    biz = (
+        await db.execute(select(Business.id).where(Business.stripe_account_id == account_id))
+    ).scalar_one_or_none()
+    if biz is None:
+        return
+    payout_id = str(data.get("id"))
+    amount = data.get("amount")
+    arrival = data.get("arrival_date")
+    arrival_at = datetime.fromtimestamp(arrival, tz=UTC) if isinstance(arrival, int) else None
+    existing = (
+        await db.execute(
+            select(Payout).where(Payout.provider_ref == payout_id, Payout.business_id == biz)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.status = "paid"
+        if arrival_at is not None:
+            existing.arrival_at = arrival_at
+    else:
+        db.add(
+            Payout(
+                id=new_id("payout"),
+                business_id=biz,
+                amount_cents=amount if isinstance(amount, int) else 0,
+                status="paid",
+                provider_ref=payout_id,
+                arrival_at=arrival_at,
+            )
+        )
+    await db.flush()
+
+
+async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
+    """On a fully-paid invoice, record a pending payout split for each payee staff on its booking
+    lines (percent of the line). Idempotent — skips bookings already allocated."""
+    lines = (
+        (
+            await db.execute(
+                select(Line).where(
+                    Line.parent_type == "invoice",
+                    Line.parent_id == invoice.id,
+                    Line.booking_id.isnot(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for line in lines:
+        booking_id = line.booking_id
+        if booking_id is None:
+            continue
+        seen = (
+            await db.execute(
+                select(PayoutAllocation.id).where(
+                    PayoutAllocation.source_type == "booking",
+                    PayoutAllocation.source_id == booking_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if seen is not None:
+            continue
+        booking = await db.get(Booking, booking_id)
+        if booking is None or booking.staff_id is None:
+            continue
+        staff = await db.get(Staff, booking.staff_id)
+        if (
+            staff is None
+            or not staff.is_payee
+            or staff.rate_type != "percent"
+            or staff.default_rate is None
+        ):
+            continue
+        db.add(
+            PayoutAllocation(
+                id=new_id("payout_allocation"),
+                business_id=invoice.business_id,
+                staff_id=staff.id,
+                source_type="booking",
+                source_id=booking_id,
+                basis="percent",
+                rate=staff.default_rate,
+                amount_cents=round(line.amount_cents * staff.default_rate / 100),
+                status="pending",
+            )
+        )
     await db.flush()
 
 
