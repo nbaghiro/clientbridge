@@ -39,6 +39,7 @@ PREFIXES: dict[str, str] = {
     "review_request": "rvr",
     "file": "fl",
     "audit_log": "aud",
+    "device_token": "dvt",
     "webhook_event": "wh",
     "idempotency_key": "idk",
     "auth_session": "ase",

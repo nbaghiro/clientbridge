@@ -56,6 +56,21 @@ class WebhookEvent(PKMixin, TimestampMixin, Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class DeviceToken(PKMixin, BusinessScoped, TimestampMixin, Base):
+    """A staff member's Expo push token, registered by the mobile app — the push outreach target."""
+
+    __tablename__ = "device_tokens"
+    __table_args__ = (
+        enum_check("device_tokens", "platform", "ios", "android", "web"),
+        Index("ix_device_tokens_token", "token", unique=True),
+        Index("ix_device_tokens_business", "business_id"),
+    )
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    token: Mapped[str] = mapped_column(String, nullable=False)
+    platform: Mapped[str] = mapped_column(String, nullable=False)
+
+
 class IdempotencyKey(PKMixin, BusinessScoped, TimestampMixin, Base):
     """Command replay guard: a repeated (business, scope, key) returns the stored response."""
 

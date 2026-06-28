@@ -7,6 +7,7 @@ from clientbridge.api.v1 import (
     catalog,
     clients,
     dashboard,
+    devices,
     estimates,
     invoices,
     onboarding,
@@ -27,3 +28,4 @@ api_router.include_router(tax.router)
 api_router.include_router(onboarding.router)
 api_router.include_router(staff.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(devices.router)

@@ -371,32 +371,33 @@ async def open_interac_payment(
 
 async def process_stripe_event(
     db: AsyncSession, gateway: PaymentGateway, payload: bytes, signature: str
-) -> str:
+) -> str | None:
     """Verify + dedup + dispatch a Stripe webhook (surface #4). Raises WebhookVerificationError on a
     bad signature. A repeated event id is a no-op; on a dispatch error nothing commits, so Stripe
-    retries and reprocesses."""
+    retries. Returns the id of a payment that settled this delivery (for the caller to notify on,
+    post-commit), else None."""
     event = gateway.verify_webhook(payload, signature)
     seen = (
         await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == event.id))
     ).scalar_one_or_none()
     if seen is not None:
-        return "duplicate"
+        return None
     record = WebhookEvent(
         id=event.id, provider="stripe", type=event.type, payload=event.data, status="pending"
     )
     db.add(record)
-    await _dispatch(db, event)
+    settled = await _dispatch(db, event)
     record.status = "processed"
     record.processed_at = datetime.now(UTC)
     try:
         await db.commit()
     except IntegrityError:  # a concurrent delivery won the race on a unique key — already applied
         await db.rollback()
-        return "duplicate"
-    return "processed"
+        return None
+    return settled
 
 
-async def _dispatch(db: AsyncSession, event: GatewayEvent) -> None:
+async def _dispatch(db: AsyncSession, event: GatewayEvent) -> str | None:
     if event.type == "account.updated":
         account_id = event.data.get("id")
         if isinstance(account_id, str):
@@ -407,7 +408,7 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> None:
             )
     elif event.type == "payment_intent.succeeded":
         fee = event.data.get("application_fee_amount")
-        await _settle_payment(
+        return await _settle_payment(
             db, str(event.data.get("id")), fee_cents=int(fee) if isinstance(fee, int) else 0
         )
     elif event.type == "payment_intent.payment_failed":
@@ -416,16 +417,17 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> None:
         await _fail_payment(db, str(event.data.get("id")), status="canceled")
     elif event.type == "payout.paid":
         await _record_payout(db, event.account, event.data)
+    return None
 
 
-async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -> None:
+async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -> str | None:
     payment = (
         await db.execute(
             select(Payment).where(Payment.provider_ref == intent_id, Payment.provider == "stripe")
         )
     ).scalar_one_or_none()
     if payment is None or payment.status != "pending":
-        return
+        return None
     payment.status = "succeeded"
     payment.paid_at = datetime.now(UTC)
     payment.fee_cents = fee_cents
@@ -433,6 +435,7 @@ async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -
     await db.flush()
     if payment.invoice_id is not None:
         await _reconcile_invoice(db, payment.invoice_id)
+    return payment.id
 
 
 async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "failed") -> None:
@@ -573,9 +576,10 @@ async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
     await db.flush()
 
 
-async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int) -> bool:
+async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int) -> str | None:
     """Match an inbound e-Transfer to its pending payment by reference code (no fee — the wedge).
-    reference_code is globally unique, so the lookup needs no tenant scope."""
+    reference_code is globally unique, so the lookup needs no tenant scope. Returns the matched
+    payment id, else None."""
     payment = (
         await db.execute(
             select(Payment).where(
@@ -586,25 +590,28 @@ async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int
         )
     ).scalar_one_or_none()
     if payment is None or amount_cents < payment.amount_cents:
-        return False
+        return None
     payment.status = "succeeded"
     payment.paid_at = datetime.now(UTC)
     payment.net_cents = payment.amount_cents
     await db.flush()
     if payment.invoice_id is not None:
         await _reconcile_invoice(db, payment.invoice_id)
-    return True
+    return payment.id
 
 
-async def process_interac_event(db: AsyncSession, reference_code: str, amount_cents: int) -> str:
-    """Webhook entry (surface #4): dedup by reference, auto-match, record the event."""
+async def process_interac_event(
+    db: AsyncSession, reference_code: str, amount_cents: int
+) -> str | None:
+    """Webhook entry (surface #4): dedup by reference, auto-match, record the event. Returns the
+    matched payment id (for the caller to notify on, post-commit), else None."""
     event_id = f"interac_{reference_code}"
     seen = (
         await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == event_id))
     ).scalar_one_or_none()
     if seen is not None:
-        return "duplicate"
-    matched = await match_interac(db, reference_code, amount_cents)
+        return None
+    matched_id = await match_interac(db, reference_code, amount_cents)
     db.add(
         WebhookEvent(
             id=event_id,
@@ -613,7 +620,7 @@ async def process_interac_event(db: AsyncSession, reference_code: str, amount_ce
             payload={
                 "reference_code": reference_code,
                 "amount_cents": amount_cents,
-                "matched": matched,
+                "matched": matched_id is not None,
             },
             status="processed",
             processed_at=datetime.now(UTC),
@@ -623,5 +630,5 @@ async def process_interac_event(db: AsyncSession, reference_code: str, amount_ce
         await db.commit()
     except IntegrityError:  # a concurrent delivery won the race on the event id — already applied
         await db.rollback()
-        return "duplicate"
-    return "matched" if matched else "unmatched"
+        return None
+    return matched_id
