@@ -15,7 +15,6 @@ from clientbridge.integrations.email import Email, EmailSender
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
-from clientbridge.repositories.tax import TaxRateRepository
 from clientbridge.schemas.billing import (
     EstimateCreate,
     EstimateOut,
@@ -26,6 +25,7 @@ from clientbridge.schemas.billing import (
     LineInput,
     LineOut,
 )
+from clientbridge.services.tax_rates import rates_for_business
 from clientbridge.services.tax_service import TaxComponent, TaxLine, compute_tax
 
 _DUE_DAYS = 30
@@ -326,7 +326,7 @@ class BillingService:
             parent.balance_cents = result.total_cents - parent.amount_paid_cents
 
     async def _tax_components(self) -> list[TaxComponent]:
-        rates = await TaxRateRepository(self.db).for_business(self.biz)
+        rates = await rates_for_business(self.db, self.biz)
         return [TaxComponent(jurisdiction=r.jurisdiction, rate_bps=r.rate_bps) for r in rates]
 
     async def _is_registered(self) -> bool:
