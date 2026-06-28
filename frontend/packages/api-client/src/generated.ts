@@ -615,6 +615,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/remittance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Remittance */
+        get: operations["remittance_v1_payments_remittance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/invoice/{invoice_id}/interac": {
         parameters: {
             query?: never;
@@ -1261,6 +1278,11 @@ export interface components {
             password: string;
             /** Name */
             name?: string | null;
+        };
+        /** RemittanceSummary */
+        RemittanceSummary: {
+            /** Tax Collected Cents */
+            tax_collected_cents: number;
         };
         /** ResetPasswordBody */
         ResetPasswordBody: {
@@ -2717,6 +2739,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remittance_v1_payments_remittance_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemittanceSummary"];
                 };
             };
             /** @description Validation Error */

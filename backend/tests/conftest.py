@@ -103,8 +103,12 @@ class FakePaymentGateway:
         if signature != "good":
             raise WebhookVerificationError("bad signature")
         body = json.loads(payload)
+        account = body.get("account")
         return GatewayEvent(
-            id=str(body["id"]), type=str(body["type"]), data=dict(body["data"]["object"])
+            id=str(body["id"]),
+            type=str(body["type"]),
+            data=dict(body["data"]["object"]),
+            account=str(account) if account is not None else None,
         )
 
     async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str:
