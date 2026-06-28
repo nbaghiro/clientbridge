@@ -103,37 +103,19 @@ class PaymentService:
         fee_bps = get_settings().platform_fee_bps
 
         async def run(cmd: Command) -> PayIntentOut:
-            if client.stripe_customer_id is None:
-                client.stripe_customer_id = await self.gateway.create_customer(
-                    account_id, name=client.name, email=client.email
-                )
-                await self.db.flush()
-            intent = await self.gateway.create_payment_intent(
-                account_id,
-                amount_cents=amount,
-                currency=invoice.currency,
-                customer_id=client.stripe_customer_id,
-                application_fee_cents=amount * fee_bps // 10000,
-                metadata={"invoice_id": invoice.id, "business_id": self.biz},
-            )
-            payment = Payment(
-                id=new_id("payment"),
+            payment, client_secret = await open_card_payment(
+                self.db,
+                self.gateway,
+                account_id=account_id,
                 business_id=self.biz,
-                client_id=client.id,
-                kind="payment",
-                invoice_id=invoice.id,
-                amount_cents=amount,
-                currency=invoice.currency,
-                method="card",
-                provider="stripe",
-                provider_ref=intent.id,
-                status="pending",
+                invoice=invoice,
+                client=client,
+                amount=amount,
+                fee_bps=fee_bps,
             )
-            self.db.add(payment)
-            await self.db.flush()
             cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
             return PayIntentOut(
-                payment_id=payment.id, client_secret=intent.client_secret, amount_cents=amount
+                payment_id=payment.id, client_secret=client_secret, amount_cents=amount
             )
 
         return await run_command(
@@ -204,29 +186,13 @@ class PaymentService:
         await self._client(invoice.client_id)
 
         async def run(cmd: Command) -> InteracRequest:
-            code = secrets.token_hex(4).upper()  # 8-char human-typeable auto-match key
-            payment = Payment(
-                id=new_id("payment"),
-                business_id=self.biz,
-                client_id=invoice.client_id,
-                kind="payment",
-                invoice_id=invoice.id,
-                amount_cents=amount,
-                currency=invoice.currency,
-                method="interac",
-                provider="interac",
-                reference_code=code,
-                status="pending",
+            payment = await open_interac_payment(
+                self.db, business_id=self.biz, invoice=invoice, amount=amount
             )
-            self.db.add(payment)
-            try:
-                await self.db.flush()  # reference_code is unique — a collision is a rare retry
-            except IntegrityError as exc:
-                raise Conflict("reference code collision — please retry") from exc
             cmd.record("payment.interac_request", entity_type="payment", entity_id=payment.id)
             return InteracRequest(
                 payment_id=payment.id,
-                reference_code=code,
+                reference_code=payment.reference_code or "",
                 send_to=business.billing_email,
                 amount_cents=amount,
             )
@@ -275,6 +241,75 @@ class PaymentService:
         if row is None:
             raise NotFound("payment not found")
         return row
+
+
+async def open_card_payment(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    *,
+    account_id: str,
+    business_id: str,
+    invoice: Invoice,
+    client: Client,
+    amount: int,
+    fee_bps: int,
+) -> tuple[Payment, str]:
+    """Create the direct-charge PaymentIntent (+ app fee, ensuring the client is a Customer) and a
+    pending card Payment. Returns the payment + the intent client_secret. The caller commits."""
+    if client.stripe_customer_id is None:
+        client.stripe_customer_id = await gateway.create_customer(
+            account_id, name=client.name, email=client.email
+        )
+        await db.flush()
+    intent = await gateway.create_payment_intent(
+        account_id,
+        amount_cents=amount,
+        currency=invoice.currency,
+        customer_id=client.stripe_customer_id,
+        application_fee_cents=amount * fee_bps // 10000,
+        metadata={"invoice_id": invoice.id, "business_id": business_id},
+    )
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=business_id,
+        client_id=client.id,
+        kind="payment",
+        invoice_id=invoice.id,
+        amount_cents=amount,
+        currency=invoice.currency,
+        method="card",
+        provider="stripe",
+        provider_ref=intent.id,
+        status="pending",
+    )
+    db.add(payment)
+    await db.flush()
+    return payment, intent.client_secret
+
+
+async def open_interac_payment(
+    db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int
+) -> Payment:
+    """A pending Interac Payment with a unique auto-match reference code (caller commits)."""
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=business_id,
+        client_id=invoice.client_id,
+        kind="payment",
+        invoice_id=invoice.id,
+        amount_cents=amount,
+        currency=invoice.currency,
+        method="interac",
+        provider="interac",
+        reference_code=secrets.token_hex(4).upper(),
+        status="pending",
+    )
+    db.add(payment)
+    try:
+        await db.flush()  # reference_code is unique — a collision is a rare retry
+    except IntegrityError as exc:
+        raise Conflict("reference code collision — please retry") from exc
+    return payment
 
 
 async def process_stripe_event(

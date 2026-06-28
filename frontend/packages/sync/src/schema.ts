@@ -534,6 +534,7 @@ const invoices = new Table(
         paid_at: column.text,
         voided_at: column.text,
         notes: column.text,
+        pay_token: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,

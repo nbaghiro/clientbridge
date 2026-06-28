@@ -269,6 +269,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pay/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Invoice */
+        get: operations["public_invoice_pay__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pay/{token}/card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Pay Card */
+        post: operations["public_pay_card_pay__token__card_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pay/{token}/interac": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Pay Interac */
+        post: operations["public_pay_interac_pay__token__interac_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clients": {
         parameters: {
             query?: never;
@@ -1013,6 +1064,8 @@ export interface components {
             voided_at: string | null;
             /** Notes */
             notes: string | null;
+            /** Pay Token */
+            pay_token: string | null;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
@@ -1257,6 +1310,32 @@ export interface components {
             client_secret: string;
             /** Amount Cents */
             amount_cents: number;
+        };
+        /** PublicCardIntent */
+        PublicCardIntent: {
+            /** Client Secret */
+            client_secret: string;
+            /** Stripe Account Id */
+            stripe_account_id: string;
+        };
+        /** PublicInvoice */
+        PublicInvoice: {
+            /** Number */
+            number: number | null;
+            /** Business Name */
+            business_name: string;
+            /** Currency */
+            currency: string;
+            /** Total Cents */
+            total_cents: number;
+            /** Balance Cents */
+            balance_cents: number;
+            /** Status */
+            status: string;
+            /** Accepts Card */
+            accepts_card: boolean;
+            /** Interac Email */
+            interac_email: string | null;
         };
         /** RefreshBody */
         RefreshBody: {
@@ -1823,6 +1902,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_invoice_pay__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicInvoice"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_pay_card_pay__token__card_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCardIntent"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_pay_interac_pay__token__interac_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InteracRequest"];
                 };
             };
             /** @description Validation Error */

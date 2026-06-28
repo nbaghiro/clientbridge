@@ -1,3 +1,4 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -105,6 +106,7 @@ class BillingService:
                 invoice.number = await self._next_number(Invoice)
                 invoice.status = "sent"
                 invoice.issued_at = now
+                invoice.pay_token = secrets.token_urlsafe(16)  # public pay-link key
                 if invoice.due_at is None:
                     invoice.due_at = now + timedelta(days=_DUE_DAYS)
                 cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
@@ -432,6 +434,7 @@ class BillingService:
             paid_at=invoice.paid_at,
             voided_at=invoice.voided_at,
             notes=invoice.notes,
+            pay_token=invoice.pay_token,
             lines=[self._line_out(ln) for ln in lines],
         )
 

@@ -53,6 +53,7 @@ class InvoiceOut(BaseModel):
     paid_at: datetime | None
     voided_at: datetime | None
     notes: str | None
+    pay_token: str | None
     lines: list[LineOut]
 
 
