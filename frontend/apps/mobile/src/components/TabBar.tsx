@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
     },
-    backdrop: { flex: 1, backgroundColor: "rgba(20,25,30,0.4)", justifyContent: "flex-end" },
+    backdrop: { flex: 1, backgroundColor: theme.colors.scrim, justifyContent: "flex-end" },
     sheet: {
         backgroundColor: theme.colors.surface,
         borderTopLeftRadius: 18,

@@ -1,4 +1,10 @@
-import { formatMoney, invoiceStatusIntent } from "@clientbridge/app-core";
+import {
+    type PayMethod,
+    formatMoney,
+    invoiceStatusIntent,
+    payMethods,
+    useAsyncAction,
+} from "@clientbridge/app-core";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
@@ -15,8 +21,6 @@ import {
     payInterac,
 } from "../lib/publicPay";
 
-type Method = "interac" | "card";
-
 const formatAmount = (cents: number, currency: string): string =>
     `${formatMoney(cents)} ${currency.toUpperCase()}`;
 
@@ -28,12 +32,11 @@ export function PublicPay() {
     const [notFound, setNotFound] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
 
-    const [method, setMethod] = useState<Method>("interac");
+    const [method, setMethod] = useState<PayMethod>("interac");
     const [interac, setInterac] = useState<InteracRequest | null>(null);
     const [card, setCard] = useState<PublicCardIntent | null>(null);
     const [paid, setPaid] = useState(false);
-    const [actionBusy, setActionBusy] = useState(false);
-    const [actionError, setActionError] = useState<string | null>(null);
+    const action = useAsyncAction();
 
     useEffect(() => {
         let live = true;
@@ -79,30 +82,24 @@ export function PublicPay() {
     if (paid || invoice.status === "paid")
         return <PaidState businessName={invoice.business_name} />;
 
+    const methods = payMethods(invoice);
+
     const runInterac = (): void => {
-        setActionBusy(true);
-        setActionError(null);
-        payInterac(token)
-            .then(setInterac)
-            .catch(() => {
-                setActionError("We couldn't start the Interac payment. Please try again.");
-            })
-            .finally(() => {
-                setActionBusy(false);
-            });
+        void action.run(
+            async () => {
+                setInterac(await payInterac(token));
+            },
+            { errorMessage: "We couldn't start the Interac payment. Please try again." },
+        );
     };
 
     const runCard = (): void => {
-        setActionBusy(true);
-        setActionError(null);
-        payCard(token)
-            .then(setCard)
-            .catch(() => {
-                setActionError("We couldn't start the card payment. Please try again.");
-            })
-            .finally(() => {
-                setActionBusy(false);
-            });
+        void action.run(
+            async () => {
+                setCard(await payCard(token));
+            },
+            { errorMessage: "We couldn't start the card payment. Please try again." },
+        );
     };
 
     return (
@@ -129,23 +126,28 @@ export function PublicPay() {
 
             <h2 className="mt-6 text-sm font-semibold text-ink">Choose how to pay</h2>
             <div className="mt-3 space-y-2">
-                <MethodOption
-                    label="Interac e-Transfer"
-                    badge="Recommended · no fee"
-                    selected={method === "interac"}
-                    onSelect={() => {
-                        setMethod("interac");
-                    }}
-                />
-                {invoice.accepts_card ? (
-                    <MethodOption
-                        label="Credit or debit card"
-                        selected={method === "card"}
-                        onSelect={() => {
-                            setMethod("card");
-                        }}
-                    />
-                ) : null}
+                {methods.map((m) =>
+                    m === "interac" ? (
+                        <MethodOption
+                            key={m}
+                            label="Interac e-Transfer"
+                            badge="Recommended · no fee"
+                            selected={method === "interac"}
+                            onSelect={() => {
+                                setMethod("interac");
+                            }}
+                        />
+                    ) : (
+                        <MethodOption
+                            key={m}
+                            label="Credit or debit card"
+                            selected={method === "card"}
+                            onSelect={() => {
+                                setMethod("card");
+                            }}
+                        />
+                    ),
+                )}
             </div>
 
             <div className="mt-5">
@@ -153,7 +155,7 @@ export function PublicPay() {
                     interac ? (
                         <InteracInstructions result={interac} currency={invoice.currency} />
                     ) : (
-                        <PrimaryButton onClick={runInterac} busy={actionBusy}>
+                        <PrimaryButton onClick={runInterac} busy={action.busy}>
                             Pay by Interac
                         </PrimaryButton>
                     )
@@ -167,11 +169,13 @@ export function PublicPay() {
                         }}
                     />
                 ) : (
-                    <PrimaryButton onClick={runCard} busy={actionBusy}>
+                    <PrimaryButton onClick={runCard} busy={action.busy}>
                         Pay by card
                     </PrimaryButton>
                 )}
-                {actionError ? <p className="mt-3 text-sm text-danger-fg">{actionError}</p> : null}
+                {action.error ? (
+                    <p className="mt-3 text-sm text-danger-fg">{action.error}</p>
+                ) : null}
             </div>
         </Frame>
     );
@@ -314,28 +318,22 @@ function CardPay({
 function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => void }) {
     const stripe = useStripe();
     const elements = useElements();
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { busy, error, setError, run } = useAsyncAction();
 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
         if (!stripe || !elements) return;
-        setBusy(true);
-        setError(null);
-        stripe
-            .confirmPayment({ elements, redirect: "if_required" })
-            .then((result) => {
+        void run(
+            async () => {
+                const result = await stripe.confirmPayment({ elements, redirect: "if_required" });
                 if (result.error) {
                     setError(result.error.message ?? "Payment failed. Please try again.");
-                    setBusy(false);
                     return;
                 }
                 onPaid();
-            })
-            .catch(() => {
-                setError("Payment failed. Please try again.");
-                setBusy(false);
-            });
+            },
+            { errorMessage: "Payment failed. Please try again." },
+        );
     };
 
     return (

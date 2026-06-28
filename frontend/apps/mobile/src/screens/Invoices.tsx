@@ -213,7 +213,7 @@ function DetailModal({
                                         onPress={() => void run(a.run, { onSuccess: onClose })}
                                     >
                                         {busy ? (
-                                            <ActivityIndicator color="#fff" />
+                                            <ActivityIndicator color={c.accentInk} />
                                         ) : (
                                             <Text style={styles.saveText}>
                                                 {ACTION_LABELS[a.key]}
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     tab: { flex: 1, alignItems: "center", paddingVertical: 7, borderRadius: theme.radius - 2 },
     tabOn: { backgroundColor: c.accent },
     tabText: { color: c.muted, fontSize: 14, fontWeight: "600", textTransform: "capitalize" },
-    tabTextOn: { color: "#fff" },
+    tabTextOn: { color: c.accentInk },
     searchWrap: {
         flexDirection: "row",
         alignItems: "center",
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     rowRight: { alignItems: "flex-end", gap: 4 },
     rowValue: { color: c.ink, fontSize: 15, fontWeight: "600" },
     empty: { color: c.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
-    backdrop: { flex: 1, backgroundColor: "rgba(20,25,30,0.4)", justifyContent: "flex-end" },
+    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
     sheet: {
         backgroundColor: c.surface,
         borderTopLeftRadius: 18,
@@ -315,5 +315,5 @@ const styles = StyleSheet.create({
         minWidth: 84,
         alignItems: "center",
     },
-    saveText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
 });

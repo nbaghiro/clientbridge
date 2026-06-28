@@ -1,24 +1,11 @@
-import { startOnboarding, useConnectStatus } from "@clientbridge/app-core";
-import { useState } from "react";
+import { useConnectOnboarding } from "@clientbridge/app-core";
 
 import { api } from "../lib/api";
 
 export function PaymentsSettings() {
-    const status = useConnectStatus(api);
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    async function connect(): Promise<void> {
-        setBusy(true);
-        setError(null);
-        try {
-            const { url } = await startOnboarding(api);
-            window.location.href = url;
-        } catch {
-            setError("Couldn't start Stripe onboarding. Please try again.");
-            setBusy(false);
-        }
-    }
+    const { phase, busy, error, ctaLabel, connect } = useConnectOnboarding(api, (url) => {
+        window.location.href = url;
+    });
 
     return (
         <div>
@@ -28,45 +15,37 @@ export function PaymentsSettings() {
             </p>
 
             <div className="mt-6 rounded-lg border border-line bg-surface p-6">
-                {status === null ? (
+                {phase === "loading" ? (
                     <p className="text-sm text-muted">Loading…</p>
-                ) : status.charges_enabled ? (
+                ) : phase === "error" ? (
+                    <p className="text-sm text-danger">
+                        We couldn’t load your payment status. Please try again.
+                    </p>
+                ) : phase === "enabled" ? (
                     <>
                         <p className="text-sm font-medium text-ink">
                             Payments enabled — you can take card payments.
                         </p>
                         <p className="mt-1 text-sm text-muted">Connected to Stripe.</p>
                     </>
-                ) : status.connected ? (
-                    <>
-                        <p className="text-sm font-medium text-ink">
-                            Onboarding in progress — finish your Stripe setup.
-                        </p>
-                        <button
-                            type="button"
-                            onClick={() => void connect()}
-                            disabled={busy}
-                            className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-60"
-                        >
-                            {busy ? "Opening…" : "Continue setup"}
-                        </button>
-                    </>
                 ) : (
                     <>
                         <p className="text-sm font-medium text-ink">
-                            Connect Stripe to take card payments and get paid out.
+                            {phase === "in_progress"
+                                ? "Onboarding in progress — finish your Stripe setup."
+                                : "Connect Stripe to take card payments and get paid out."}
                         </p>
                         <button
                             type="button"
-                            onClick={() => void connect()}
+                            onClick={connect}
                             disabled={busy}
                             className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-60"
                         >
-                            {busy ? "Opening…" : "Connect Stripe"}
+                            {busy ? "Opening…" : ctaLabel}
                         </button>
                     </>
                 )}
-                {error !== null && <p className="mt-3 text-sm text-danger-fg">{error}</p>}
+                {error !== null && <p className="mt-3 text-sm text-danger">{error}</p>}
             </div>
         </div>
     );

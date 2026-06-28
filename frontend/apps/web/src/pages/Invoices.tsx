@@ -2,6 +2,7 @@ import {
     type DocActionKey,
     type EstimateRow,
     type InvoiceRow,
+    type PaymentRow,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
@@ -9,10 +10,14 @@ import {
     formatMoney,
     invoiceActions,
     invoiceStatusIntent,
+    isPayable,
+    paymentStatusIntent,
+    refundPayment,
     useAsyncAction,
     useClients,
     useDocForm,
     useEstimates,
+    useInvoicePayments,
     useInvoices,
     useLines,
     useSearch,
@@ -173,10 +178,7 @@ export function Invoices() {
 
 function Overlay({ children }: { children: React.ReactNode }) {
     return (
-        <div
-            className="fixed inset-0 z-20 flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(20,25,30,0.35)" }}
-        >
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
             {children}
         </div>
     );
@@ -340,7 +342,7 @@ function DetailModal({
         : estimateActions(api, row as EstimateRow);
 
     const payToken = isInvoice ? (row as InvoiceRow).pay_token : null;
-    const canPay = row.status !== "draft" && row.status !== "void";
+    const canPay = isInvoice && isPayable(row as InvoiceRow);
 
     return (
         <Overlay>
@@ -387,6 +389,7 @@ function DetailModal({
                         </span>
                     </div>
                     {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
+                    {isInvoice ? <PaymentsSection invoiceId={row.id} /> : null}
                 </div>
                 <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
                     <button
@@ -439,6 +442,47 @@ function PayLink({ token }: { token: string }) {
                     {copied ? "Copied" : "Copy"}
                 </button>
             </div>
+        </div>
+    );
+}
+
+function PaymentsSection({ invoiceId }: { invoiceId: string }) {
+    const payments = useInvoicePayments(invoiceId);
+    if (payments.length === 0) return null;
+
+    return (
+        <div className="mt-4">
+            <p className="text-xs uppercase tracking-wide text-muted">Payments</p>
+            <div className="mt-1.5 divide-y divide-line-soft rounded-md border border-line">
+                {payments.map((p) => (
+                    <PaymentRowItem key={p.id} payment={p} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function PaymentRowItem({ payment }: { payment: PaymentRow }) {
+    const { busy, run } = useAsyncAction();
+    const refundable = payment.status === "succeeded" && payment.kind !== "refund";
+
+    return (
+        <div className="flex items-center gap-3 px-3 py-2 text-sm">
+            <span className="font-medium tabular-nums text-ink">
+                {formatMoney(payment.amount_cents)} {payment.currency.toUpperCase()}
+            </span>
+            <span className="capitalize text-muted">{payment.method}</span>
+            <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
+            {refundable ? (
+                <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => refundPayment(api, payment.id))}
+                    className="ml-auto shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                >
+                    {busy ? "Refunding…" : "Refund"}
+                </button>
+            ) : null}
         </div>
     );
 }

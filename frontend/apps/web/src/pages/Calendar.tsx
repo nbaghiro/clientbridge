@@ -588,8 +588,7 @@ function Overlay({ children, onClose }: { children: ReactNode; onClose: () => vo
     return (
         <div
             onClick={onClose}
-            style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
         >
             <div
                 onClick={(e) => {

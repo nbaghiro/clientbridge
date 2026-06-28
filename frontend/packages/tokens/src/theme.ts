@@ -6,7 +6,7 @@ export const DEFAULT_THEME: ThemeKey = "pewter";
 const t = themes[DEFAULT_THEME];
 
 export const theme = {
-    colors: t.color,
+    colors: { ...t.color, scrim: "rgba(20,25,30,0.35)" },
     fonts: t.font,
     radius: t.radius.base,
     avatarRadius: t.radius.avatar,

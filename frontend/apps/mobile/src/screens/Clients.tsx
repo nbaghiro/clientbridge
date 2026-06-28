@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     empty: { color: theme.colors.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
     backdrop: {
         flex: 1,
-        backgroundColor: "rgba(20,25,30,0.4)",
+        backgroundColor: theme.colors.scrim,
         alignItems: "center",
         justifyContent: "center",
         padding: 24,
