@@ -127,6 +127,31 @@ async def test_refund_reverts_invoice(as_owner: httpx.AsyncClient, db: AsyncSess
     assert inv.balance_cents == 11200
 
 
+async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable_payments(db)
+    inv_id = await _invoice(db)
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    await as_owner.post(
+        "/webhooks/stripe", content=_pi_event("evt_dr", pi_id), headers={"Stripe-Signature": "good"}
+    )
+    assert (await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")).status_code == 200
+    again = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
+    assert again.status_code == 409  # already refunded — no second real refund
+
+
+async def test_pending_payment_blocks_overpay(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable_payments(db)
+    inv_id = await _invoice(db)
+    assert (
+        await as_owner.post(f"/v1/payments/invoice/{inv_id}")
+    ).status_code == 200  # full balance
+    # a second method while the first is still pending would overpay → rejected
+    assert (await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")).status_code == 409
+
+
 async def test_failed_webhook_marks_payment_failed(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

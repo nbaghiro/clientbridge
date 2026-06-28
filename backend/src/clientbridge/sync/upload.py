@@ -36,8 +36,9 @@ class UploadBody(BaseModel):
 
 # table -> (min_tier, own_only). tier "team" = any active staff; "admin" = owner/admin only.
 # own_only: a non-admin staff may only touch rows assigned to them (staff_id == theirs).
-# Tables absent here are NOT writable via sync (server-authoritative): payments, payouts, tax_rates,
-# businesses, staff, users, audit_logs, webhook_events.
+# Tables absent here are NOT writable via sync (server-authoritative): payments, payouts,
+# payout_allocations, payment_methods, tax_rates, businesses, staff, users, audit_logs,
+# webhook_events.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),
     "subjects": ("team", False),
@@ -63,8 +64,8 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     # invoices + estimates + lines are NOT sync-writable: numbering, money totals, tax, and the
     # status lifecycle are all server-computed, so every mutation goes through the billing commands
     # (POST/PATCH /v1/invoices, /v1/estimates).
-    "payment_methods": ("admin", False),
-    "payout_allocations": ("admin", False),
+    # payment_methods + payout_allocations are NOT sync-writable: the gateway/mandate fields and the
+    # computed split amounts/status are server-authoritative (Stripe webhooks + the payout job).
     "broadcasts": ("admin", False),
     "reviews": ("admin", False),
     "review_requests": ("admin", False),
