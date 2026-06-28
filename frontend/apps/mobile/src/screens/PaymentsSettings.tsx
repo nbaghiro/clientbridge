@@ -1,6 +1,7 @@
-import { startOnboarding, useConnectStatus } from "@clientbridge/app-core";
+import { useConnectOnboarding } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -14,22 +15,15 @@ import {
 import { api } from "../lib/api";
 
 export function PaymentsScreen() {
-    const status = useConnectStatus(api);
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { phase, busy, error, ctaLabel, connect, refresh } = useConnectOnboarding(api, (url) => {
+        void Linking.openURL(url);
+    });
 
-    async function connect(): Promise<void> {
-        setBusy(true);
-        setError(null);
-        try {
-            const { url } = await startOnboarding(api);
-            await Linking.openURL(url);
-        } catch {
-            setError("Couldn't start Stripe onboarding. Please try again.");
-        } finally {
-            setBusy(false);
-        }
-    }
+    useFocusEffect(
+        useCallback(() => {
+            refresh();
+        }, [refresh]),
+    );
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -37,36 +31,27 @@ export function PaymentsScreen() {
                 Take card payments through Stripe and get paid out to your bank.
             </Text>
             <View style={styles.group}>
-                {status === null ? (
+                {phase === "loading" ? (
                     <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
-                ) : status.charges_enabled ? (
+                ) : phase === "error" ? (
+                    <Text style={styles.error}>
+                        We couldn’t load your payment status. Please try again.
+                    </Text>
+                ) : phase === "enabled" ? (
                     <>
                         <Text style={styles.title}>
                             Payments enabled — you can take card payments.
                         </Text>
                         <Text style={styles.muted}>Connected to Stripe.</Text>
                     </>
-                ) : status.connected ? (
-                    <>
-                        <Text style={styles.title}>
-                            Onboarding in progress — finish your Stripe setup.
-                        </Text>
-                        <ConnectButton
-                            busy={busy}
-                            label="Continue setup"
-                            onPress={() => void connect()}
-                        />
-                    </>
                 ) : (
                     <>
                         <Text style={styles.title}>
-                            Connect Stripe to take card payments and get paid out.
+                            {phase === "in_progress"
+                                ? "Onboarding in progress — finish your Stripe setup."
+                                : "Connect Stripe to take card payments and get paid out."}
                         </Text>
-                        <ConnectButton
-                            busy={busy}
-                            label="Connect Stripe"
-                            onPress={() => void connect()}
-                        />
+                        <ConnectButton busy={busy} label={ctaLabel} onPress={connect} />
                     </>
                 )}
                 {error !== null && <Text style={styles.error}>{error}</Text>}

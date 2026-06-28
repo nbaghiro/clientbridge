@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/intent";
 
@@ -9,15 +10,16 @@ export interface ConnectStatus {
     charges_enabled: boolean;
 }
 
-/** Provider's Stripe Connect status (REST). Bump `reloadKey` to refetch (e.g. after onboarding). */
-export function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | null {
-    const [status, setStatus] = useState<ConnectStatus | null>(null);
+/** Provider's Stripe Connect status (REST). `null` = loading, `"error"` = the fetch failed.
+ *  Bump `reloadKey` to refetch (e.g. after onboarding). */
+export function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
+    const [status, setStatus] = useState<ConnectStatus | "error" | null>(null);
     useEffect(() => {
         void api
             .get<ConnectStatus>("/v1/connect/status")
             .then(setStatus)
             .catch(() => {
-                setStatus(null);
+                setStatus("error");
             });
     }, [api, reloadKey]);
     return status;
@@ -32,21 +34,55 @@ export function startOnboarding(api: ApiLike): Promise<OnboardingLink> {
     return api.post<OnboardingLink>("/v1/connect/onboard", {});
 }
 
-export interface PayIntent {
-    payment_id: string;
-    client_secret: string;
-    amount_cents: number;
+export type ConnectPhase = "loading" | "error" | "not_connected" | "in_progress" | "enabled";
+
+export interface ConnectOnboarding {
+    phase: ConnectPhase;
+    busy: boolean;
+    error: string | null;
+    ctaLabel: string;
+    connect: () => void;
+    refresh: () => void;
 }
 
-/** Create a PaymentIntent for an invoice (full balance, or `amountCents` for a partial/deposit).
- *  The returned client_secret is confirmed by the platform's Stripe Elements / Terminal flow. */
-export function payInvoice(
+/** Shared Stripe Connect onboarding view-model: the load phase + the connect action + error copy.
+ *  `openUrl` is injected per platform (web `location.href`, mobile `Linking.openURL`). */
+export function useConnectOnboarding(
     api: ApiLike,
-    invoiceId: string,
-    amountCents?: number,
-): Promise<PayIntent> {
-    const q = amountCents !== undefined ? `?amount_cents=${amountCents}` : "";
-    return api.post<PayIntent>(`/v1/payments/invoice/${invoiceId}${q}`, {});
+    openUrl: (url: string) => void,
+): ConnectOnboarding {
+    const [reloadKey, setReloadKey] = useState(0);
+    const status = useConnectStatus(api, reloadKey);
+    const { busy, error, run } = useAsyncAction();
+
+    const phase: ConnectPhase =
+        status === null
+            ? "loading"
+            : status === "error"
+              ? "error"
+              : status.charges_enabled
+                ? "enabled"
+                : status.connected
+                  ? "in_progress"
+                  : "not_connected";
+
+    const ctaLabel = phase === "in_progress" ? "Continue setup" : "Connect Stripe";
+
+    const connect = (): void => {
+        void run(
+            async () => {
+                const { url } = await startOnboarding(api);
+                openUrl(url);
+            },
+            { errorMessage: "Couldn't start Stripe onboarding. Please try again." },
+        );
+    };
+
+    const refresh = useCallback((): void => {
+        setReloadKey((k) => k + 1);
+    }, []);
+
+    return { phase, busy, error, ctaLabel, connect, refresh };
 }
 
 export function refundPayment(
@@ -60,13 +96,14 @@ export interface PaymentRow {
     id: string;
     kind: string;
     amount_cents: number;
+    currency: string;
     status: string;
     method: string;
     created_at: string;
 }
 
 const INVOICE_PAYMENTS_SQL = `
-SELECT id, kind, amount_cents, status, method, created_at
+SELECT id, kind, amount_cents, currency, status, method, created_at
 FROM payments WHERE invoice_id = ? ORDER BY created_at`;
 
 export function useInvoicePayments(invoiceId: string): PaymentRow[] {
@@ -85,4 +122,21 @@ export function paymentStatusIntent(status: string): Intent {
         default:
             return "neutral"; // refunded
     }
+}
+
+/** An invoice can be paid when it's been issued and still owes a balance. */
+export function isPayable(row: { status: string; balance_cents: number | null }): boolean {
+    return (
+        row.status !== "draft" &&
+        row.status !== "void" &&
+        row.status !== "paid" &&
+        (row.balance_cents ?? 0) > 0
+    );
+}
+
+export type PayMethod = "interac" | "card";
+
+/** Ranked pay methods for the public page: Interac first (no fee), card only when enabled. */
+export function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
+    return invoice.accepts_card ? ["interac", "card"] : ["interac"];
 }

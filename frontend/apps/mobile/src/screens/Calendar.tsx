@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     eventTitle: { fontSize: 12, fontWeight: "600" },
     eventSub: { fontSize: 11, opacity: 0.8, marginTop: 1 },
     nowLine: { position: "absolute", left: 0, right: 0, height: 2, backgroundColor: c.danFg },
-    detailBackdrop: { flex: 1, backgroundColor: "rgba(20,25,30,0.4)", justifyContent: "flex-end" },
+    detailBackdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
     detailSheet: {
         backgroundColor: c.bg,
         borderTopLeftRadius: 18,

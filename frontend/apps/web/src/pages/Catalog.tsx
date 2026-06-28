@@ -120,10 +120,7 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
         "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
 
     return (
-        <div
-            className="fixed inset-0 z-20 flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(20,25,30,0.35)" }}
-        >
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
             <form
                 onSubmit={submit}
                 className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"

@@ -157,7 +157,7 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 }
 
 const styles = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: "rgba(20,25,30,0.4)", justifyContent: "flex-end" },
+    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
     sheet: {
         backgroundColor: c.bg,
         borderTopLeftRadius: 18,
