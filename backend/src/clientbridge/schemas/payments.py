@@ -20,3 +20,15 @@ class PayIntentOut(BaseModel):
 class RefundOut(BaseModel):
     refund_id: str
     status: str
+
+
+class InteracRequest(BaseModel):
+    payment_id: str
+    reference_code: str
+    send_to: str | None
+    amount_cents: int
+
+
+class InteracWebhookBody(BaseModel):
+    reference_code: str
+    amount_cents: int

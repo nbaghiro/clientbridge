@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.config import get_settings
 from clientbridge.core.db import get_session
 from clientbridge.core.errors import AppError, Forbidden, Unauthorized
 from clientbridge.core.security import decode_jwt
@@ -18,6 +19,13 @@ DbSession = Annotated[AsyncSession, Depends(get_session)]
 EmailDep = Annotated[EmailSender, Depends(get_email_sender)]
 OAuthVerifierDep = Annotated[OAuthVerifier, Depends(get_oauth_verifier)]
 GatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
+
+
+def get_interac_secret() -> str:
+    return get_settings().interac_webhook_secret
+
+
+InteracSecretDep = Annotated[str, Depends(get_interac_secret)]
 
 
 async def current_claims(authorization: str = Header(default="")) -> dict[str, object]:

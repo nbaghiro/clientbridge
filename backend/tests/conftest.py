@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import engine, get_session
+from clientbridge.core.deps import get_interac_secret
 from clientbridge.core.errors import Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.security import hash_password, issue_access_token
@@ -154,6 +155,7 @@ async def api(
     app.dependency_overrides[get_email_sender] = _email
     app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
     app.dependency_overrides[get_payment_gateway] = _gateway
+    app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     stripe_connect_country: str = "CA"
     web_base_url: str = "http://localhost:8601"  # onboarding return/refresh targets
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
+    interac_webhook_secret: str = ""  # shared secret for the inbound e-Transfer auto-match webhook
 
     # Dev-only: /sync/token mints a token for this user when the request is unauthenticated,
     # so the client apps can connect before real auth exists.
