@@ -9,7 +9,7 @@ Sequenced by dependency; every phase ends with green tests and leaves the backen
 - **Sync:** self-hosted PowerSync running (Postgres bucket storage); `infra/powersync/sync-rules.yaml` (3 role buckets + global); `/sync/token` (mints PS JWT, dev shortcut); `/sync/upload` (real write path — `WRITE_POLICY` role authz + client→PG type coercion + upsert/patch/soft-delete).
 - **API:** `/auth/login` (passwordless **dev only**), `/health`, dev CORS.
 - **CI:** ruff · mypy · pytest (+ Postgres service, migrate, seed) · schema-drift gate.
-- **Built since (Phases 0–2 ✅):** `repositories/base` + `services/base` + the clients vertical; full auth
+- **Built since (Phases 0–2 ✅):** `core/scoping` + `services/base` + the clients vertical; full auth
   (login/register, sessions, invites, reset/verify, OAuth, JWKS); the `command()` helper (idempotency +
   audit + atomic txn) and `/sync/upload` hardening. Still empty: `tasks/` and most domain routers.
 
@@ -33,7 +33,7 @@ Every backend capability lives on exactly one surface. **Choosing the surface is
 > This is why **"create a booking" is a command (`POST /bookings`), not a raw sync write**: the capacity/conflict check must be atomic and server-authoritative. The resulting row then syncs back to every device for free. The same logic makes invoice numbering, payments, and broadcasts commands.
 
 ## Cross-cutting conventions (every phase obeys these)
-- **Layering:** `api/v1` (thin routers + DTOs) → `services` (business logic + transactions) → `repositories` (queries; base repo enforces `business_id` + soft-delete) → models. No logic in routers; no raw queries in services.
+- **Layering:** `api/v1` (thin routers + DTOs) → `services` (business logic + transactions; own their queries, scoped via `core/scoping` — `scoped`/`scoped_page`/`scoped_count` enforce `business_id` + soft-delete) → models. No logic in routers; tenant queries never hand-write a `business_id` filter.
 - **DTOs:** Pydantic `schemas/` per domain; OpenAPI → `make gen-api` → `@clientbridge/api-client` (web/mobile import the typed client).
 - **Auth deps:** `current_user`, `current_business`, `require_role(...)` in `core/deps`.
 - **Errors:** typed `AppError` subclasses → consistent JSON; never leak internals.
@@ -45,10 +45,10 @@ Every backend capability lives on exactly one surface. **Choosing the surface is
 
 ## Phases
 
-### Phase 0 — Spine (repo / service / schema layers + test harness) ✅ done
+### Phase 0 — Spine (service / schema layers + scoping + test harness) ✅ done
 The plumbing every domain reuses. No user-facing feature, but unblocks all of them.
-- `repositories/base.py` — `BaseRepository`: `business_id` scoping, soft-delete filter, get/list/paginate/create/update/delete.
-- `services/base.py` + the **clients vertical** end-to-end (repo → service → `api/v1/clients.py`: list/get/create/update) as the reference pattern.
+- `core/scoping.py` — `scoped(Model, business_id, soft_delete=…)` + `scoped_page`/`scoped_count`: the one place `business_id` scoping + soft-delete filter live; services own their queries.
+- `services/base.py` + the **clients vertical** end-to-end (service → `api/v1/clients.py`: list/get/create/update) as the reference pattern.
 - `schemas/` conventions; `core/pagination.py`; `core/deps` (`current_user/current_business/require_role`).
 - `conftest.py`: seeded-business fixture + factory helpers + assertion helpers.
 - **Exit:** clients vertical works over REST with tests; pattern documented for all later domains.

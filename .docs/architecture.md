@@ -31,11 +31,10 @@ schema + connector). Two toolchains (uv + pnpm), one root Makefile.
 ```
 backend/src/clientbridge/
 ├── main.py · worker.py    app factory + arq worker entrypoints
-├── core/          config · db/session · ids (ULID + prefixes) · security/auth · deps · errors · pagination
+├── core/          config · db/session · ids (ULID + prefixes) · security/auth · deps · errors · pagination · scoping (business_id + soft-delete filter — scoped/scoped_page/scoped_count)
 ├── models/        SQLAlchemy models — one file per domain
 ├── schemas/       Pydantic request/response DTOs, by domain
-├── repositories/  data access (queries/CRUD), by entity — base repo enforces business_id scoping
-├── services/      business logic, by domain (booking_service, invoice_service, tax_service …)
+├── services/      business logic + own queries (scoped via core/scoping), by domain (booking_service, invoice_service, tax_service …)
 ├── api/v1/        FastAPI routers/endpoints, by domain
 ├── sync/          PowerSync write path (/sync/upload), token + JWKS
 ├── integrations/  stripe · interac · twilio(SMS) · email · s3

@@ -3,7 +3,7 @@
 **Layout: Polyglot split + layer-first backend** (locked 2026-06-25). A clean Python ↔ TypeScript
 boundary — each ecosystem idiomatic — joined by a root Makefile, a generated API contract, and shared
 design tokens. The backend is **layer-first, domain-as-filename**: one file per domain inside each
-layer directory (`services/booking_service.py`, `repositories/scheduling.py`), matching the `models/`
+layer directory (`services/booking_service.py`, `schemas/scheduling.py`), matching the `models/`
 layout already in place and the sibling projects. Build sequencing lives in [backend-plan.md](backend-plan.md).
 
 **Legend:** ✅ exists today · ＋Pn added in Phase _n_ of the backend plan.
@@ -25,15 +25,12 @@ clientbridge/
 │       ├── core/                    ── cross-cutting, no domain logic ──
 │       │   ├── config·db·ids·security·deps·errors.py           ✅
 │       │   ├── pagination.py                                   ＋P0
+│       │   ├── scoping.py           ＋P0  scoped/scoped_page/scoped_count — business_id + soft-delete
 │       │   └── command.py           ＋P2  auth + idempotency + txn + audit wrapper
 │       │
 │       ├── models/                  ── SQLAlchemy · 1 file/domain ──  ✅ ALL 10 + base.py
 │       │   └── identity crm catalog scheduling billing payments
 │       │       messaging documents reviews platform
-│       │
-│       ├── repositories/            ── data access · base enforces business_id + soft-delete ──
-│       │   ├── base.py                                         ＋P0
-│       │   └── {crm,catalog,scheduling,billing,…}.py          ＋P0→P8  (per domain, as built)
 │       │
 │       ├── schemas/                 ── Pydantic request/response DTOs · 1 file/domain ──
 │       │   └── {crm,catalog,scheduling,billing,…}.py          ＋P0→
@@ -92,13 +89,13 @@ clientbridge/
 ## How a feature flows through the backend layers
 One domain, top to bottom — the template every domain follows:
 ```
-HTTP →  api/v1/bookings.py        validate DTO · authn/authz          ← schemas/scheduling.py
-     →  services/booking_service  business logic · capacity · txn     ← core/command.py
-     →  repositories/scheduling   queries (auto business_id-scoped)   ← repositories/base.py
+HTTP →  api/v1/bookings.py        validate DTO · authn/authz                ← schemas/scheduling.py
+     →  services/booking_service  business logic · capacity · txn · queries  ← core/command.py · core/scoping.py
      →  models/scheduling  →  Postgres  →  WAL  →  PowerSync  →  every device
 ```
-Rules: no logic in routers; no raw queries in services; the **base repository** is the only place
-that knows about `business_id` scoping + soft-delete; one transaction per command.
+Rules: no logic in routers; services own their queries but **always scope tenancy through
+`core/scoping`** (`scoped`/`scoped_page`/`scoped_count`) — the one place that knows
+`business_id` + soft-delete; one transaction per command.
 
 ## The 3 bridges (Python ↔ TypeScript — no shared runtime code)
 1. **`/sync/*`** — `packages/sync` connector ⟷ backend `sync/` (the live offline-data path).
@@ -112,7 +109,7 @@ The boundary is crossed *only* by these three; never by shared source.
   domains: `identity · crm · catalog · scheduling · billing · payments · messaging · documents ·
   reviews · platform`.
 - **Migrations** live only in `backend/migrations/versions/` (timestamp-prefixed).
-- **Repositories enforce `business_id` + soft-delete** via `repositories/base.py`; services never query unscoped.
+- **`core/scoping` (`scoped`/`scoped_page`/`scoped_count`) enforces `business_id` + soft-delete**; services own their queries but never query unscoped.
 - **Surfaces:** every capability is one of the 5 (sync-read · sync-write · command/RPC · webhook/public · job) — see [backend-plan.md](backend-plan.md) and [authorization.md](authorization.md).
 - **DTOs:** Pydantic in `schemas/`; OpenAPI → `make gen-api` → `@clientbridge/api-client`.
 - **TS packages** namespaced `@clientbridge/{tokens,sync,api-client,config}`.
