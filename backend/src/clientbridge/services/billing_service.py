@@ -9,6 +9,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
+from clientbridge.core.scoping import scoped
 from clientbridge.integrations.email import Email, EmailSender
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.crm import Client
@@ -369,12 +370,8 @@ class BillingService:
         rows = (
             (
                 await self.db.execute(
-                    select(Line)
-                    .where(
-                        Line.parent_type == parent_type,
-                        Line.parent_id == parent_id,
-                        Line.business_id == self.biz,
-                    )
+                    scoped(Line, self.biz)
+                    .where(Line.parent_type == parent_type, Line.parent_id == parent_id)
                     .order_by(Line.position)
                 )
             )
@@ -394,11 +391,7 @@ class BillingService:
     async def _client(self, client_id: str) -> Client:
         row = (
             await self.db.execute(
-                select(Client).where(
-                    Client.id == client_id,
-                    Client.business_id == self.biz,
-                    Client.deleted_at.is_(None),
-                )
+                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
             )
         ).scalar_one_or_none()
         if row is None:
@@ -407,9 +400,7 @@ class BillingService:
 
     async def _invoice(self, invoice_id: str) -> Invoice:
         row = (
-            await self.db.execute(
-                select(Invoice).where(Invoice.id == invoice_id, Invoice.business_id == self.biz)
-            )
+            await self.db.execute(scoped(Invoice, self.biz).where(Invoice.id == invoice_id))
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("invoice not found")
@@ -417,9 +408,7 @@ class BillingService:
 
     async def _estimate(self, estimate_id: str) -> Estimate:
         row = (
-            await self.db.execute(
-                select(Estimate).where(Estimate.id == estimate_id, Estimate.business_id == self.biz)
-            )
+            await self.db.execute(scoped(Estimate, self.biz).where(Estimate.id == estimate_id))
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("estimate not found")
