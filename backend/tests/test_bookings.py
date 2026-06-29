@@ -1,3 +1,5 @@
+from datetime import UTC, date, datetime, time
+
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -5,15 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
-from tests.conftest import Factory
+from clientbridge.models.scheduling import Availability, Session
+from tests.conftest import BIZ, Factory
 
 ST_OWNER = "st_owner"
+ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured
 
 
 async def _client_and_item(db: AsyncSession) -> tuple[str, str]:
     client_id = (await db.execute(select(Client.id).limit(1))).scalars().first()
     item_id = (
-        (await db.execute(select(Item.id).where(Item.duration_min.isnot(None)).limit(1)))
+        (
+            await db.execute(
+                select(Item.id)
+                .where(Item.kind == "service", Item.duration_min.isnot(None))
+                .limit(1)
+            )
+        )
         .scalars()
         .first()
     )
@@ -207,3 +217,176 @@ async def test_cannot_modify_terminal_booking(
 async def test_patch_unknown_booking_404(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.patch("/v1/bookings/bk_nope", json={"status": "canceled"})
     assert res.status_code == 404
+
+
+async def test_booking_within_buffer_conflicts(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # it_groom_sm is a 75-min service with a seeded 10-min after-buffer.
+    client_id, _ = await _client_and_item(db)
+    first = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T10:00:00Z")
+    )
+    assert first.status_code == 201
+    # 11:15 butts against the prior booking inside its 10-min after-buffer.
+    second = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T11:15:00Z")
+    )
+    assert second.status_code == 409
+
+
+async def test_booking_outside_buffer_ok(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    client_id, _ = await _client_and_item(db)
+    first = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T10:00:00Z")
+    )
+    assert first.status_code == 201
+    # 11:25 clears the 10-min buffer after the 11:15 end.
+    second = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T11:25:00Z")
+    )
+    assert second.status_code == 201
+
+
+async def test_unconfigured_availability_allows_any_time(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # st_priya has no availability rows → unconfigured → even an off-hours slot is allowed.
+    client_id, item_id = await _client_and_item(db)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T20:00:00Z", ST_PRIYA)
+    )
+    assert res.status_code == 201
+
+
+async def test_booking_within_window_ok_outside_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    client_id, item_id = await _client_and_item(db)
+    db.add(
+        Availability(
+            id=new_id("availability"),
+            business_id=BIZ,
+            staff_id=ST_PRIYA,
+            type="date",
+            date=date(2027, 9, 15),
+            start_time=time(9, 0),
+            end_time=time(17, 0),
+            is_available=True,
+        )
+    )
+    await db.flush()
+    inside = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-09-15T12:00:00Z", ST_PRIYA)
+    )
+    assert inside.status_code == 201
+    outside = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-09-15T20:00:00Z", ST_PRIYA)
+    )
+    assert outside.status_code == 409
+
+
+async def test_availability_closure_blocks_booking(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    client_id, item_id = await _client_and_item(db)
+    db.add(
+        Availability(
+            id=new_id("availability"),
+            business_id=BIZ,
+            staff_id=ST_PRIYA,
+            type="date",
+            date=date(2027, 9, 16),
+            is_available=False,  # all-day closure
+        )
+    )
+    await db.flush()
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-09-16T12:00:00Z", ST_PRIYA)
+    )
+    assert res.status_code == 409
+
+
+async def test_class_bookings_share_session_until_full(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    client_id, _ = await _client_and_item(db)
+    cls = Item(
+        id=new_id("item"),
+        business_id=BIZ,
+        kind="class",
+        name="Puppy Playgroup",
+        price_cents=3000,
+        currency="CAD",
+        duration_min=60,
+        capacity=2,
+    )
+    db.add(cls)
+    await db.flush()
+    body = _body(client_id, cls.id, "2027-03-02T10:00:00Z", ST_PRIYA)
+    first = await as_owner.post("/v1/bookings", json=body)
+    second = await as_owner.post("/v1/bookings", json=body)
+    third = await as_owner.post("/v1/bookings", json=body)
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["session_id"] == second.json()["session_id"]  # one shared session
+    assert third.status_code == 409  # capacity 2 exhausted
+    sess = (
+        await db.execute(select(Session).where(Session.id == first.json()["session_id"]))
+    ).scalar_one()
+    assert sess.capacity == 2
+    assert sess.booked_count == 2
+
+
+async def test_non_class_item_mints_single_capacity_session(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    client_id, item_id = await _client_and_item(db)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T09:00:00Z")
+    )
+    assert res.status_code == 201
+    sess = (
+        await db.execute(select(Session).where(Session.id == res.json()["session_id"]))
+    ).scalar_one()
+    assert sess.capacity == 1
+    assert sess.booked_count == 1
+
+
+async def test_foreign_business_session_does_not_block(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    client_id, _ = await _client_and_item(db)
+    other = await factory.business(name="Rival Co")
+    other_user = await factory.user()
+    other_staff = await factory.staff(business=other, user=other_user, role="owner")
+    other_item = Item(
+        id=new_id("item"),
+        business_id=other.id,
+        kind="service",
+        name="Rival Groom",
+        price_cents=5000,
+        currency="CAD",
+        duration_min=75,
+    )
+    db.add(other_item)
+    await db.flush()
+    db.add(
+        Session(
+            id=new_id("session"),
+            business_id=other.id,
+            item_id=other_item.id,
+            staff_id=other_staff.id,
+            starts_at=datetime(2027, 3, 2, 10, 0, tzinfo=UTC),
+            ends_at=datetime(2027, 3, 2, 11, 15, tzinfo=UTC),
+            capacity=1,
+            booked_count=1,
+            status="scheduled",
+        )
+    )
+    await db.flush()
+    # our owner books the same slot; the cross-tenant session must not block (scoped by business).
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T10:00:00Z")
+    )
+    assert res.status_code == 201
