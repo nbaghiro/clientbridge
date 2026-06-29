@@ -1,10 +1,16 @@
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
+
+# The 13 Canadian provinces/territories — onboarding seeds per-code tax rates, so an unknown code
+# can't be stored (it would silently get no GST/PST). Rejected at the boundary (422).
+ProvinceCode = Literal["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]
 
 
 class OnboardBody(BaseModel):
     name: str
     slug: str
-    province: str
+    province: ProvinceCode
     timezone: str | None = None
     locale: str = "en"
 

@@ -57,7 +57,10 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "packages"
-    __table_args__ = (Index("ix_packages_client_status", "business_id", "client_id", "status"),)
+    __table_args__ = (
+        enum_check("packages", "status", "active", "used", "expired", "canceled", "pending"),
+        Index("ix_packages_client_status", "business_id", "client_id", "status"),
+    )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
@@ -98,7 +101,7 @@ class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "gift_cards"
     __table_args__ = (
         UniqueConstraint("business_id", "code", name="uq_gift_cards_business_code"),
-        enum_check("gift_cards", "status", "active", "redeemed", "expired", "void"),
+        enum_check("gift_cards", "status", "active", "redeemed", "expired", "void", "pending"),
     )
 
     code: Mapped[str] = mapped_column(String, nullable=False)
@@ -109,3 +112,4 @@ class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):
     recipient: Mapped[str | None] = mapped_column(String)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
+    payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id"))

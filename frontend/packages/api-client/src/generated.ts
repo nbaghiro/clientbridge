@@ -913,8 +913,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Issue Gift Card */
-        post: operations["issue_gift_card_v1_gift_cards_post"];
+        /** Purchase Gift Card */
+        post: operations["purchase_gift_card_v1_gift_cards_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1549,17 +1549,6 @@ export interface components {
             /** Email */
             email: string;
         };
-        /** GiftCardIssue */
-        GiftCardIssue: {
-            /** Initial Cents */
-            initial_cents: number;
-            /** Item Id */
-            item_id?: string | null;
-            /** Recipient */
-            recipient?: string | null;
-            /** Purchaser Client Id */
-            purchaser_client_id?: string | null;
-        };
         /** GiftCardOut */
         GiftCardOut: {
             /** Id */
@@ -1572,6 +1561,30 @@ export interface components {
             balance_cents: number;
             /** Status */
             status: string;
+        };
+        /** GiftCardPurchase */
+        GiftCardPurchase: {
+            /** Item Id */
+            item_id?: string | null;
+            /** Amount Cents */
+            amount_cents?: number | null;
+            /** Recipient */
+            recipient?: string | null;
+            /** Purchaser Client Id */
+            purchaser_client_id?: string | null;
+            /** Payment Method Id */
+            payment_method_id?: string | null;
+        };
+        /** GiftCardPurchaseOut */
+        GiftCardPurchaseOut: {
+            /** Gift Card Id */
+            gift_card_id: string;
+            /** Code */
+            code: string;
+            /** Payment Id */
+            payment_id: string;
+            /** Client Secret */
+            client_secret: string;
         };
         /** GiftCardRedeem */
         GiftCardRedeem: {
@@ -1919,8 +1932,11 @@ export interface components {
             name: string;
             /** Slug */
             slug: string;
-            /** Province */
-            province: string;
+            /**
+             * Province
+             * @enum {string}
+             */
+            province: "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
             /** Timezone */
             timezone?: string | null;
             /**
@@ -1998,6 +2014,17 @@ export interface components {
             client_id: string;
             /** Item Id */
             item_id: string;
+            /** Payment Method Id */
+            payment_method_id?: string | null;
+        };
+        /** PackagePurchaseOut */
+        PackagePurchaseOut: {
+            /** Package Id */
+            package_id: string;
+            /** Payment Id */
+            payment_id: string;
+            /** Client Secret */
+            client_secret: string;
         };
         /** Page[ClientOut] */
         Page_ClientOut_: {
@@ -4211,7 +4238,7 @@ export interface operations {
             };
         };
     };
-    issue_gift_card_v1_gift_cards_post: {
+    purchase_gift_card_v1_gift_cards_post: {
         parameters: {
             query?: never;
             header?: {
@@ -4224,7 +4251,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GiftCardIssue"];
+                "application/json": components["schemas"]["GiftCardPurchase"];
             };
         };
         responses: {
@@ -4234,7 +4261,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GiftCardOut"];
+                    "application/json": components["schemas"]["GiftCardPurchaseOut"];
                 };
             };
             /** @description Validation Error */
@@ -4308,7 +4335,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PackageOut"];
+                    "application/json": components["schemas"]["PackagePurchaseOut"];
                 };
             };
             /** @description Validation Error */

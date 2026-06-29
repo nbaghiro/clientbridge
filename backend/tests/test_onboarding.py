@@ -91,3 +91,21 @@ async def test_onboard_duplicate_slug_409_no_partial(
     assert second.status_code == 409
     n = (await db.execute(text("SELECT count(*) FROM businesses WHERE slug = 'dup-slug'"))).scalar()
     assert n == 1
+
+
+async def test_unauthenticated_onboard_401(api: httpx.AsyncClient) -> None:
+    res = await api.post(
+        "/v1/onboarding", json={"name": "X", "slug": "noauth-co", "province": "AB"}
+    )
+    assert res.status_code == 401
+
+
+async def test_invalid_province_422(
+    api: httpx.AsyncClient, factory: Factory, db: AsyncSession
+) -> None:
+    user = await factory.user()
+    _auth(api, user.id)
+    res = await api.post("/v1/onboarding", json={"name": "X", "slug": "bad-prov", "province": "XX"})
+    assert res.status_code == 422  # an unsupported province must be rejected, not stored
+    n = (await db.execute(text("SELECT count(*) FROM businesses WHERE slug = 'bad-prov'"))).scalar()
+    assert n == 0  # and nothing partial is committed

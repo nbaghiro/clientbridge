@@ -14,7 +14,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
 from clientbridge.models.billing import Invoice, Line, Order
-from clientbridge.models.catalog import Item, Subscription
+from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment, PaymentMethod, Payout, PayoutAllocation
@@ -38,8 +38,14 @@ from clientbridge.services.lines import tax_for_lines
 class WebhookOutcome:
     """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
 
-    notify: str  # "payment" | "payment_failed" | "subscription_past_due" | "subscription_canceled"
+    notify: str  # payment | payment_failed | gift_card_issued | subscription_{past_due,canceled}
     target_id: str
+
+
+@dataclass(frozen=True)
+class _Settled:
+    payment_id: str
+    gift_card_id: str | None  # set when the settled charge activated a pending gift card
 
 
 class PaymentService:
@@ -633,6 +639,61 @@ async def open_booking_deposit(
     return payment, intent.client_secret
 
 
+async def open_entitlement_payment(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    *,
+    account_id: str,
+    business_id: str,
+    client: Client,
+    amount: int,
+    currency: str,
+    fee_bps: int,
+    entitlement_kind: str,
+    entitlement_id: str,
+    payment_method: str | None = None,
+    idempotency_key: str | None = None,
+) -> tuple[Payment, str]:
+    """Create the direct-charge PaymentIntent (+ app fee) and a pending Payment for a package/gift-
+    card purchase. A saved `payment_method` charges off-session now; otherwise the returned
+    client_secret is confirmed by the frontend. The caller links the entitlement to the returned
+    Payment (its `payment_id`) and commits; the webhook activates it on settlement."""
+    customer_id = await ensure_customer(db, gateway, account_id, client)
+    intent = await gateway.create_payment_intent(
+        account_id,
+        amount_cents=amount,
+        currency=currency,
+        customer_id=customer_id,
+        application_fee_cents=amount * fee_bps // 10000,
+        metadata={f"{entitlement_kind}_id": entitlement_id, "business_id": business_id},
+        idempotency_key=f"{entitlement_kind}_{entitlement_id}_{idempotency_key or amount}",
+        payment_method=payment_method,
+    )
+    existing = (
+        await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
+    ).scalar_one_or_none()
+    if existing is not None:  # a retry hit the same intent — don't mint a second pending row
+        return existing, intent.client_secret
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=business_id,
+        client_id=client.id,
+        kind="payment",
+        amount_cents=amount,
+        currency=currency,
+        method="card",
+        provider="stripe",
+        provider_ref=intent.id,
+        status="pending",
+    )
+    db.add(payment)
+    try:
+        await db.flush()  # the unique provider_ref guards a concurrent insert of the same intent
+    except IntegrityError as exc:
+        raise Conflict("purchase is being set up — please retry") from exc
+    return payment, intent.client_secret
+
+
 async def open_terminal_payment(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -752,7 +813,11 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> WebhookOutcome | N
         settled = await _settle_payment(
             db, str(event.data.get("id")), fee_cents=int(fee) if isinstance(fee, int) else 0
         )
-        return WebhookOutcome("payment", settled) if settled is not None else None
+        if settled is None:
+            return None
+        if settled.gift_card_id is not None:
+            return WebhookOutcome("gift_card_issued", settled.gift_card_id)
+        return WebhookOutcome("payment", settled.payment_id)
     elif event.type == "payment_intent.payment_failed":
         failed = await _fail_payment(db, str(event.data.get("id")))
         return WebhookOutcome("payment_failed", failed) if failed is not None else None
@@ -776,7 +841,7 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> WebhookOutcome | N
     return None
 
 
-async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -> str | None:
+async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -> _Settled | None:
     payment = (
         await db.execute(
             select(Payment).where(Payment.provider_ref == intent_id, Payment.provider == "stripe")
@@ -795,7 +860,30 @@ async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -
         await _reconcile_order(db, payment.order_id)
     if payment.booking_id is not None and payment.kind == "deposit":
         await _settle_booking_deposit(db, payment.booking_id)
-    return payment.id
+    gift_card_id = await _settle_entitlement(db, payment)
+    return _Settled(payment.id, gift_card_id)
+
+
+async def _settle_entitlement(db: AsyncSession, payment: Payment) -> str | None:
+    """Activate a pending package/gift card once its purchase charge settles (mirrors the deposit
+    settlement). Returns the gift card id whose recipient to notify, else None."""
+    if payment.invoice_id or payment.order_id or payment.booking_id:
+        return None
+    package = (
+        await db.execute(select(Package).where(Package.payment_id == payment.id))
+    ).scalar_one_or_none()
+    if package is not None and package.status == "pending":
+        package.status = "active"
+        await db.flush()
+        return None
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment.id))
+    ).scalar_one_or_none()
+    if card is not None and card.status == "pending":
+        card.status = "active"
+        await db.flush()
+        return card.id
+    return None
 
 
 async def _settle_booking_deposit(db: AsyncSession, booking_id: str) -> None:
