@@ -1,22 +1,54 @@
 import {
+    type AddPaymentMethod,
+    type ClientRow,
+    type ItemRow,
+    type SavedCardRow,
+    type SubscriptionRow,
+    canManagePayments,
+    cancelSubscription,
     clientStatusIntent,
+    detachCard,
     filterClients,
+    formatDate,
     formatMoney,
     initials,
+    isCancelable,
+    isMandate,
+    mandateStatusIntent,
+    parseTimestamp,
+    savedCardLabel,
+    setDefaultCard,
+    subscriptionStatusIntent,
+    useAddPaymentMethod,
+    useAsyncAction,
+    useCatalogItems,
     useClientForm,
+    useClientSubscriptions,
     useClients,
+    useCurrentRole,
+    useSavedCards,
     useSearch,
+    useSubscriptionForm,
 } from "@clientbridge/app-core";
-import { type FormEvent, useState } from "react";
+import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
+import { type Stripe, loadStripe } from "@stripe/stripe-js";
+import { type FormEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
+import { getTokens } from "../lib/auth";
+
+const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+const field =
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
 
 export function Clients() {
     const clients = useClients();
     const { q, setQ, filtered } = useSearch(clients, filterClients);
     const [adding, setAdding] = useState(false);
+    const [openId, setOpenId] = useState<string | null>(null);
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
@@ -62,7 +94,10 @@ export function Clients() {
                         {filtered.map((c) => (
                             <tr
                                 key={c.id}
-                                className="border-b border-line-soft transition last:border-0 hover:bg-bg"
+                                onClick={() => {
+                                    setOpenId(c.id);
+                                }}
+                                className="cursor-pointer border-b border-line-soft transition last:border-0 hover:bg-bg"
                             >
                                 <td className="px-4 py-3">
                                     <div className="flex items-center gap-3">
@@ -110,7 +145,433 @@ export function Clients() {
                     }}
                 />
             ) : null}
+            {openId !== null ? (
+                <ClientDetailModal
+                    client={filtered.find((c) => c.id === openId) ?? null}
+                    onClose={() => {
+                        setOpenId(null);
+                    }}
+                />
+            ) : null}
         </div>
+    );
+}
+
+function Overlay({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
+            {children}
+        </div>
+    );
+}
+
+function ClientDetailModal({ client, onClose }: { client: ClientRow | null; onClose: () => void }) {
+    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    if (client === null) return null;
+    const canManage = canManagePayments(role);
+
+    return (
+        <Overlay>
+            <div className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card">
+                <div className="flex items-start justify-between border-b border-line px-6 py-4">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-avatar bg-accent-weak text-sm font-bold text-accent">
+                            {initials(client.name)}
+                        </span>
+                        <div>
+                            <h2 className="font-display text-lg font-bold text-ink">
+                                {client.name}
+                            </h2>
+                            <p className="mt-0.5 text-sm text-muted">
+                                {client.email ?? client.phone ?? "—"}
+                            </p>
+                        </div>
+                    </div>
+                    <StatusPill status={client.status} intent={clientStatusIntent(client.status)} />
+                </div>
+                <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
+                    {canManage ? (
+                        <>
+                            <PaymentMethodsSection clientId={client.id} />
+                            <SubscriptionsSection clientId={client.id} />
+                        </>
+                    ) : (
+                        <p className="text-sm text-muted">
+                            Only owners and admins can manage payment methods and subscriptions.
+                        </p>
+                    )}
+                </div>
+                <div className="flex justify-end border-t border-line px-6 py-4">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </Overlay>
+    );
+}
+
+function PaymentMethodsSection({ clientId }: { clientId: string }) {
+    const cards = useSavedCards(clientId);
+    const flow = useAddPaymentMethod(api, clientId, () => undefined);
+
+    return (
+        <section>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Payment methods
+            </h3>
+            {cards.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">No saved payment methods yet.</p>
+            ) : (
+                <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
+                    {cards.map((card) => (
+                        <CardRow key={card.id} card={card} />
+                    ))}
+                </div>
+            )}
+
+            {flow.intent !== null && flow.kind !== null ? (
+                <SetupCardPanel flow={flow} />
+            ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        disabled={flow.busy}
+                        onClick={() => {
+                            flow.start("card");
+                        }}
+                        className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                    >
+                        {flow.busy && flow.kind === "card" ? "Starting…" : "Add card"}
+                    </button>
+                    <button
+                        type="button"
+                        disabled={flow.busy}
+                        onClick={() => {
+                            flow.start("bank");
+                        }}
+                        className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                    >
+                        {flow.busy && flow.kind === "bank"
+                            ? "Starting…"
+                            : "Add bank (pre-authorized debit)"}
+                    </button>
+                </div>
+            )}
+            {flow.error !== null ? <p className="mt-2 text-sm text-danger">{flow.error}</p> : null}
+        </section>
+    );
+}
+
+function CardRow({ card }: { card: SavedCardRow }) {
+    const { busy, error, run } = useAsyncAction();
+    const isDefault = card.is_default === 1;
+
+    const makeDefault = (): void => {
+        void run(() => setDefaultCard(api, card.id), {
+            errorMessage: "Couldn't set the default. Please try again.",
+        });
+    };
+
+    const remove = (): void => {
+        if (!window.confirm("Remove this payment method?")) return;
+        void run(() => detachCard(api, card.id), {
+            errorMessage: "Couldn't remove this method. Please try again.",
+        });
+    };
+
+    return (
+        <div className="px-3 py-2.5 text-sm">
+            <div className="flex items-center gap-2">
+                <span className="font-medium text-ink">{savedCardLabel(card)}</span>
+                {isDefault ? (
+                    <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
+                        Default
+                    </span>
+                ) : null}
+                {isMandate(card) ? (
+                    <StatusPill
+                        status={card.mandate_status}
+                        intent={mandateStatusIntent(card.mandate_status)}
+                    />
+                ) : null}
+                <div className="ml-auto flex shrink-0 gap-2">
+                    {!isDefault ? (
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={makeDefault}
+                            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                        >
+                            Make default
+                        </button>
+                    ) : null}
+                    <button
+                        type="button"
+                        disabled={busy}
+                        onClick={remove}
+                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                    >
+                        Remove
+                    </button>
+                </div>
+            </div>
+            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+        </div>
+    );
+}
+
+function SetupCardPanel({ flow }: { flow: AddPaymentMethod }) {
+    const intent = flow.intent;
+    const account = intent?.stripe_account_id ?? "";
+    // Direct charge on the connected account: Elements must target that Stripe account.
+    const stripePromise = useMemo<Promise<Stripe | null> | null>(
+        () =>
+            PUBLISHABLE_KEY && account
+                ? loadStripe(PUBLISHABLE_KEY, { stripeAccount: account })
+                : null,
+        [account],
+    );
+
+    if (intent === null) return null;
+    if (stripePromise === null)
+        return (
+            <p className="mt-3 text-sm text-danger">
+                Card setup isn’t configured. Please set a Stripe publishable key.
+            </p>
+        );
+
+    return (
+        <div className="mt-3 rounded-md border border-line bg-bg p-4">
+            <Elements stripe={stripePromise} options={{ clientSecret: intent.client_secret }}>
+                <SetupForm flow={flow} />
+            </Elements>
+        </div>
+    );
+}
+
+function SetupForm({ flow }: { flow: AddPaymentMethod }) {
+    const stripe = useStripe();
+    const elements = useElements();
+    const { busy, error, setError, run } = useAsyncAction();
+    const noun = flow.kind === "bank" ? "bank account" : "card";
+
+    const submit = (e: FormEvent): void => {
+        e.preventDefault();
+        if (!stripe || !elements) return;
+        void run(
+            async () => {
+                const result = await stripe.confirmSetup({ elements, redirect: "if_required" });
+                if (result.error) {
+                    setError(result.error.message ?? `Couldn’t save the ${noun}.`);
+                    return;
+                }
+                flow.complete();
+            },
+            { errorMessage: `Couldn’t save the ${noun}. Please try again.` },
+        );
+    };
+
+    return (
+        <form onSubmit={submit} className="space-y-3">
+            <PaymentElement />
+            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+            <div className="flex justify-end gap-2">
+                <button
+                    type="button"
+                    onClick={flow.cancel}
+                    className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    disabled={busy || !stripe}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                >
+                    {busy ? "Saving…" : `Save ${noun}`}
+                </button>
+            </div>
+        </form>
+    );
+}
+
+function SubscriptionsSection({ clientId }: { clientId: string }) {
+    const subs = useClientSubscriptions(clientId);
+    const cards = useSavedCards(clientId);
+    const items = useCatalogItems();
+    const plans = useMemo(
+        () => items.filter((i) => i.kind === "subscription" && i.active === 1),
+        [items],
+    );
+    const [starting, setStarting] = useState(false);
+
+    return (
+        <section>
+            <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Subscriptions
+                </h3>
+                {!starting ? (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setStarting(true);
+                        }}
+                        className="text-sm font-medium text-accent transition hover:opacity-80"
+                    >
+                        + Start subscription
+                    </button>
+                ) : null}
+            </div>
+
+            {subs.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">No subscriptions yet.</p>
+            ) : (
+                <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
+                    {subs.map((sub) => (
+                        <SubscriptionRowItem key={sub.id} sub={sub} />
+                    ))}
+                </div>
+            )}
+
+            {starting ? (
+                <StartSubscriptionForm
+                    clientId={clientId}
+                    plans={plans}
+                    cards={cards}
+                    onClose={() => {
+                        setStarting(false);
+                    }}
+                />
+            ) : null}
+        </section>
+    );
+}
+
+function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
+    const { busy, error, run } = useAsyncAction();
+    const nextCharge =
+        sub.current_period_end !== null ? formatDate(parseTimestamp(sub.current_period_end)) : null;
+
+    const cancel = (): void => {
+        if (!window.confirm("Cancel this subscription?")) return;
+        void run(() => cancelSubscription(api, sub.id), {
+            errorMessage: "Couldn't cancel this subscription. Please try again.",
+        });
+    };
+
+    return (
+        <div className="px-3 py-2.5 text-sm">
+            <div className="flex items-center gap-2">
+                <div className="min-w-0">
+                    <div className="font-medium text-ink">{sub.item_name ?? "Subscription"}</div>
+                    {nextCharge !== null ? (
+                        <div className="text-xs text-muted">Next charge {nextCharge}</div>
+                    ) : null}
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <StatusPill status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
+                    {isCancelable(sub.status) ? (
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={cancel}
+                            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                        >
+                            {busy ? "Canceling…" : "Cancel"}
+                        </button>
+                    ) : null}
+                </div>
+            </div>
+            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+        </div>
+    );
+}
+
+function StartSubscriptionForm({
+    clientId,
+    plans,
+    cards,
+    onClose,
+}: {
+    clientId: string;
+    plans: ItemRow[];
+    cards: SavedCardRow[];
+    onClose: () => void;
+}) {
+    const form = useSubscriptionForm(api, clientId, onClose);
+
+    return (
+        <form
+            onSubmit={(e) => {
+                e.preventDefault();
+                form.submit();
+            }}
+            className="mt-3 space-y-3 rounded-md border border-line bg-bg p-4"
+        >
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                Plan
+                <select
+                    value={form.itemId}
+                    onChange={(e) => {
+                        form.setItemId(e.target.value);
+                    }}
+                    className={field}
+                >
+                    <option value="">Select a subscription plan</option>
+                    {plans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                            {p.name} — {formatMoney(p.price_cents)}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                Payment method
+                <select
+                    value={form.paymentMethodId}
+                    onChange={(e) => {
+                        form.setPaymentMethodId(e.target.value);
+                    }}
+                    className={field}
+                >
+                    <option value="">Select a saved method</option>
+                    {cards.map((card) => (
+                        <option key={card.id} value={card.id}>
+                            {savedCardLabel(card)}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            {plans.length === 0 ? (
+                <p className="text-xs text-muted">Add a subscription item in your catalog first.</p>
+            ) : null}
+            {cards.length === 0 ? (
+                <p className="text-xs text-muted">Add a payment method above first.</p>
+            ) : null}
+            {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
+            <div className="flex justify-end gap-2">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    disabled={form.busy}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                >
+                    {form.busy ? "Starting…" : "Start subscription"}
+                </button>
+            </div>
+        </form>
     );
 }
 
@@ -121,11 +582,8 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
         form.submit();
     };
 
-    const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
-
     return (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
+        <Overlay>
             <form
                 onSubmit={submit}
                 className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"
@@ -183,6 +641,6 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                     </button>
                 </div>
             </form>
-        </div>
+        </Overlay>
     );
 }
