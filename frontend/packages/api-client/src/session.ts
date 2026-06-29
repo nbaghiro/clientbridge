@@ -21,6 +21,8 @@ export interface SessionOptions {
 
 export interface Session {
     get<T>(path: string): Promise<T>;
+    /** Authenticated GET returning the raw body text (non-JSON endpoints, e.g. report .csv exports). */
+    getText(path: string): Promise<string>;
     post<T>(path: string, body: unknown): Promise<T>;
     patch<T>(path: string, body: unknown): Promise<T>;
     delete<T>(path: string): Promise<T>;
@@ -94,9 +96,16 @@ export function createSession(opts: SessionOptions): Session {
         return (await res.json()) as T;
     };
 
+    const text = async (path: string): Promise<string> => {
+        const res = await authFetch(path);
+        if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+        return res.text();
+    };
+
     return {
         authFetch,
         get: <T>(path: string): Promise<T> => json<T>(path),
+        getText: (path: string): Promise<string> => text(path),
         post: <T>(path: string, body: unknown): Promise<T> =>
             json<T>(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }),
         patch: <T>(path: string, body: unknown): Promise<T> =>

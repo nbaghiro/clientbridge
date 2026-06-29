@@ -197,33 +197,7 @@ class PaymentService:
         )
 
     async def _saved_method_ref(self, payment_method_id: str | None, client_id: str) -> str | None:
-        if payment_method_id is None:
-            return None
-        if payment_method_id == "default":
-            pm = (
-                await self.db.execute(
-                    scoped(PaymentMethod, self.biz)
-                    .where(
-                        PaymentMethod.client_id == client_id,
-                        PaymentMethod.is_default.is_(True),
-                        PaymentMethod.status == "active",
-                    )
-                    .limit(1)
-                )
-            ).scalar_one_or_none()
-            if pm is None or pm.provider_ref is None:
-                raise NotFound("no default card on file")
-            return pm.provider_ref
-        pm = (
-            await self.db.execute(
-                scoped(PaymentMethod, self.biz).where(
-                    PaymentMethod.id == payment_method_id, PaymentMethod.client_id == client_id
-                )
-            )
-        ).scalar_one_or_none()
-        if pm is None or pm.provider_ref is None:
-            raise NotFound("saved card not found")
-        return pm.provider_ref
+        return await resolve_saved_method_ref(self.db, self.biz, payment_method_id, client_id)
 
     async def detach_card(self, payment_method_id: str) -> DetachResult:
         """Detach a saved card at the provider, then remove its row (owner/admin only)."""
@@ -431,6 +405,46 @@ class PaymentService:
         return row
 
 
+async def default_method_ref(db: AsyncSession, business_id: str, client_id: str) -> str | None:
+    """The client's default active saved-card provider ref, or None if they have none on file."""
+    pm = (
+        await db.execute(
+            scoped(PaymentMethod, business_id)
+            .where(
+                PaymentMethod.client_id == client_id,
+                PaymentMethod.is_default.is_(True),
+                PaymentMethod.status == "active",
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return pm.provider_ref if pm is not None else None
+
+
+async def resolve_saved_method_ref(
+    db: AsyncSession, business_id: str, payment_method_id: str | None, client_id: str
+) -> str | None:
+    """Resolve a saved-card selection to its provider ref: None (interactive), the `"default"`
+    sentinel (the client's default card), or a specific saved card id. Raises if not on file."""
+    if payment_method_id is None:
+        return None
+    if payment_method_id == "default":
+        ref = await default_method_ref(db, business_id, client_id)
+        if ref is None:
+            raise NotFound("no default card on file")
+        return ref
+    pm = (
+        await db.execute(
+            scoped(PaymentMethod, business_id).where(
+                PaymentMethod.id == payment_method_id, PaymentMethod.client_id == client_id
+            )
+        )
+    ).scalar_one_or_none()
+    if pm is None or pm.provider_ref is None:
+        raise NotFound("saved card not found")
+    return pm.provider_ref
+
+
 def assert_payable(invoice: Invoice) -> int:
     """Validate an invoice can take a payment; return the outstanding balance. Shared by the authed
     command path and the public pay-link surface so the rule can't drift between them."""
@@ -563,6 +577,59 @@ async def open_card_payment(
         await db.flush()  # the unique provider_ref guards a concurrent insert of the same intent
     except IntegrityError as exc:
         raise Conflict("payment is being set up — please retry") from exc
+    return payment, intent.client_secret
+
+
+async def open_booking_deposit(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    *,
+    account_id: str,
+    business_id: str,
+    booking: Booking,
+    client: Client,
+    amount: int,
+    fee_bps: int,
+    payment_method: str | None = None,
+    idempotency_key: str | None = None,
+) -> tuple[Payment, str]:
+    """Create the direct-charge deposit PaymentIntent (+ app fee, ensuring the client is a Customer)
+    and a pending deposit Payment keyed on the booking. A saved `payment_method` charges off-session
+    now; otherwise the returned client_secret is confirmed by the frontend. The caller commits."""
+    customer_id = await ensure_customer(db, gateway, account_id, client)
+    intent = await gateway.create_payment_intent(
+        account_id,
+        amount_cents=amount,
+        currency="CAD",
+        customer_id=customer_id,
+        application_fee_cents=amount * fee_bps // 10000,
+        metadata={"booking_id": booking.id, "business_id": business_id},
+        idempotency_key=f"deposit_{booking.id}_{idempotency_key or amount}",
+        payment_method=payment_method,
+    )
+    existing = (
+        await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
+    ).scalar_one_or_none()
+    if existing is not None:  # a retry hit the same intent — don't mint a second pending row
+        return existing, intent.client_secret
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=business_id,
+        client_id=client.id,
+        kind="deposit",
+        booking_id=booking.id,
+        amount_cents=amount,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref=intent.id,
+        status="pending",
+    )
+    db.add(payment)
+    try:
+        await db.flush()  # the unique provider_ref guards a concurrent insert of the same intent
+    except IntegrityError as exc:
+        raise Conflict("deposit is being set up — please retry") from exc
     return payment, intent.client_secret
 
 
@@ -725,7 +792,18 @@ async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -
         await _reconcile_invoice(db, payment.invoice_id)
     if payment.order_id is not None:
         await _reconcile_order(db, payment.order_id)
+    if payment.booking_id is not None and payment.kind == "deposit":
+        await _settle_booking_deposit(db, payment.booking_id)
     return payment.id
+
+
+async def _settle_booking_deposit(db: AsyncSession, booking_id: str) -> None:
+    """Mark a booking's deposit collected once its charge settles — but never downgrade one already
+    forfeited (a no-show capture marks forfeited up-front; its later settlement keeps it)."""
+    booking = await db.get(Booking, booking_id)
+    if booking is not None and booking.deposit_status in ("none", "pending"):
+        booking.deposit_status = "collected"
+        await db.flush()
 
 
 async def _reconcile_order(db: AsyncSession, order_id: str) -> None:

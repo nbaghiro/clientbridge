@@ -440,6 +440,7 @@ const bookings = new Table(
         price_cents: column.integer,
         deposit_required: column.integer,
         deposit_amount_cents: column.integer,
+        deposit_status: column.text,
         confirmed_at: column.text,
         completed_at: column.text,
         canceled_at: column.text,

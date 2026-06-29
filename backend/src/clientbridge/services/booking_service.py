@@ -1,20 +1,28 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
+from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError, Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
-from clientbridge.models.identity import Staff
+from clientbridge.models.identity import Business, Staff
+from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Session
-from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch
+from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch, DepositOut
 from clientbridge.services.availability_service import is_within_availability
+from clientbridge.services.payment_service import (
+    default_method_ref,
+    open_booking_deposit,
+    resolve_saved_method_ref,
+)
 
 _OVERLAP = "that staff member is already booked at that time"
 _OUTSIDE_HOURS = "outside the provider's available hours"
@@ -43,16 +51,18 @@ def _to_out(booking: Booking, session: Session) -> BookingOut:
         source=booking.source,
         price_cents=booking.price_cents,
         deposit_amount_cents=booking.deposit_amount_cents,
+        deposit_status=booking.deposit_status,
         starts_at=session.starts_at,
         ends_at=session.ends_at,
     )
 
 
 class BookingService:
-    def __init__(self, db: AsyncSession, principal: Principal) -> None:
+    def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
+        self.gateway = gateway
 
     async def create(self, data: BookingCreate, idempotency_key: str | None) -> BookingOut:
         self._assert_can_act_as(data.staff_id)
@@ -165,6 +175,8 @@ class BookingService:
                 elif data.status == "completed":
                     booking.completed_at = datetime.now(UTC)
                     session.status = "completed"
+                elif data.status == "no_show":
+                    await self._forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
             await self.db.flush()
             return _to_out(booking, session)
@@ -176,6 +188,114 @@ class BookingService:
             run=run,
             response_model=BookingOut,
         )
+
+    async def collect_deposit(
+        self, booking_id: str, payment_method_id: str | None, idempotency_key: str | None
+    ) -> DepositOut:
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        if not booking.deposit_required or booking.deposit_amount_cents <= 0:
+            raise Conflict("no deposit due")
+        business = await self._business()
+        if not business.stripe_charges_enabled or business.stripe_account_id is None:
+            raise Conflict("connect your Stripe account before taking payments")
+        account_id = business.stripe_account_id
+        client = await self._client(booking.client_id)
+        amount = booking.deposit_amount_cents
+        fee_bps = get_settings().platform_fee_bps
+        pm_ref = await resolve_saved_method_ref(
+            self.db, self.biz, payment_method_id, booking.client_id
+        )
+
+        async def run(cmd: Command) -> DepositOut:
+            await self._assert_no_open_deposit(booking.id)
+            payment, client_secret = await open_booking_deposit(
+                self.db,
+                self.gateway,
+                account_id=account_id,
+                business_id=self.biz,
+                booking=booking,
+                client=client,
+                amount=amount,
+                fee_bps=fee_bps,
+                payment_method=pm_ref,
+                idempotency_key=idempotency_key,
+            )
+            if booking.deposit_status == "none":
+                booking.deposit_status = "pending"
+                await self.db.flush()
+            cmd.record("booking.deposit", entity_type="booking", entity_id=booking.id)
+            return DepositOut(
+                booking_id=booking.id, payment_id=payment.id, client_secret=client_secret
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.deposit",
+            run=run,
+            response_model=DepositOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
+        """No-show forfeiture: keep an already-collected deposit (mark forfeited), or capture it
+        off-session via the client's default card. Idempotent — a re-set no_show never recharges."""
+        if not booking.deposit_required or booking.deposit_status == "forfeited":
+            return
+        if booking.deposit_status == "collected":
+            booking.deposit_status = "forfeited"
+            await self.db.flush()
+            cmd.record("booking.deposit_forfeited", entity_type="booking", entity_id=booking.id)
+            return
+        if booking.deposit_amount_cents <= 0 or await self._has_open_deposit(booking.id):
+            return
+        business = await self._business()
+        if not business.stripe_charges_enabled or business.stripe_account_id is None:
+            return
+        pm_ref = await default_method_ref(self.db, self.biz, booking.client_id)
+        if pm_ref is None:
+            return
+        client = await self._client(booking.client_id)
+        await open_booking_deposit(
+            self.db,
+            self.gateway,
+            account_id=business.stripe_account_id,
+            business_id=self.biz,
+            booking=booking,
+            client=client,
+            amount=booking.deposit_amount_cents,
+            fee_bps=get_settings().platform_fee_bps,
+            payment_method=pm_ref,
+            idempotency_key="no_show",
+        )
+        booking.deposit_status = "forfeited"
+        await self.db.flush()
+        cmd.record("booking.deposit_forfeited", entity_type="booking", entity_id=booking.id)
+
+    async def _assert_no_open_deposit(self, booking_id: str) -> None:
+        if await self._has_open_deposit(booking_id):
+            raise Conflict("deposit already collected or pending")
+
+    async def _has_open_deposit(self, booking_id: str) -> bool:
+        row = (
+            await self.db.execute(
+                select(Payment.id)
+                .where(
+                    Payment.booking_id == booking_id,
+                    Payment.kind == "deposit",
+                    Payment.status.notin_(("failed", "canceled")),
+                )
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        return row is not None
+
+    async def _business(self) -> Business:
+        row = await self.db.get(Business, self.biz)
+        if row is None:
+            raise NotFound("business not found")
+        return row
 
     def _assert_can_act_as(self, staff_id: str | None) -> None:
         if self.principal.role in ("owner", "admin"):
