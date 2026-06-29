@@ -167,3 +167,130 @@ export function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
 export function payLinkUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/pay/${token}`;
 }
+
+export interface SavedCardRow {
+    id: string;
+    client_id: string;
+    type: string; // card | bank_eft | interac
+    brand: string | null;
+    last4: string | null;
+    is_default: number; // SQLite boolean → 0/1
+    mandate_status: string;
+    status: string;
+}
+
+const SAVED_CARDS_SQL = `
+SELECT id, client_id, type, brand, last4, is_default, mandate_status, status
+FROM payment_methods
+WHERE client_id = ? AND status = 'active'
+ORDER BY is_default DESC, created_at`;
+
+/** A client's active saved payment methods (cards + bank/PAD mandates), default first. */
+export function useSavedCards(clientId: string): SavedCardRow[] {
+    return useQuery<SavedCardRow>(SAVED_CARDS_SQL, [clientId]).data;
+}
+
+/** A bank/EFT pre-authorized-debit mandate, vs a saved card. */
+export function isMandate(card: SavedCardRow): boolean {
+    return card.type === "bank_eft";
+}
+
+/** "Visa ···· 4242" for a card, "Bank account ···· 6789" for a PAD mandate. */
+export function savedCardLabel(card: SavedCardRow): string {
+    const noun = isMandate(card)
+        ? "Bank account"
+        : card.brand
+          ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
+          : "Card";
+    return card.last4 !== null ? `${noun} ···· ${card.last4}` : noun;
+}
+
+export function mandateStatusIntent(status: string): Intent {
+    switch (status) {
+        case "active":
+            return "success";
+        case "pending":
+            return "warning";
+        case "revoked":
+            return "danger";
+        default:
+            return "neutral";
+    }
+}
+
+export interface SetupIntent {
+    client_secret: string;
+    stripe_account_id: string;
+}
+
+/** Open a Stripe SetupIntent to save a card for a client (confirmed client-side via Elements). */
+export function startCardSetup(api: ApiLike, clientId: string): Promise<SetupIntent> {
+    return api.post<SetupIntent>(`/v1/payments/setup-intent/${clientId}`, {});
+}
+
+/** Open a SetupIntent for an ACSS/PAD (pre-authorized debit) bank mandate. */
+export function startPadSetup(api: ApiLike, clientId: string): Promise<SetupIntent> {
+    return api.post<SetupIntent>(`/v1/payments/pad-setup-intent/${clientId}`, {});
+}
+
+export function detachCard(api: ApiLike, id: string): Promise<{ detached: boolean }> {
+    return api.delete<{ detached: boolean }>(`/v1/payments/methods/${id}`);
+}
+
+export function setDefaultCard(api: ApiLike, id: string): Promise<{ id: string }> {
+    return api.post<{ id: string }>(`/v1/payments/methods/${id}/default`, {});
+}
+
+export type SetupKind = "card" | "bank";
+
+export interface AddPaymentMethod {
+    kind: SetupKind | null; // the active collection flow (null = idle)
+    intent: SetupIntent | null; // the SetupIntent secret once started
+    busy: boolean;
+    error: string | null;
+    start: (kind: SetupKind) => void;
+    cancel: () => void;
+    complete: () => void;
+    setError: (message: string | null) => void;
+}
+
+/** Add-payment-method view-model: opens a SetupIntent (card or PAD) and hands its `client_secret`
+ *  to the platform's card-confirm seam (web Elements / mobile native SDK), which calls `complete`
+ *  once the customer confirms — mirroring the POS Terminal seam. */
+export function useAddPaymentMethod(
+    api: ApiLike,
+    clientId: string,
+    onDone: () => void,
+): AddPaymentMethod {
+    const [kind, setKind] = useState<SetupKind | null>(null);
+    const [intent, setIntent] = useState<SetupIntent | null>(null);
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const reset = (): void => {
+        setKind(null);
+        setIntent(null);
+        setError(null);
+    };
+
+    const start = (next: SetupKind): void => {
+        setKind(next);
+        setIntent(null);
+        void run(
+            async () => {
+                setIntent(
+                    next === "card"
+                        ? await startCardSetup(api, clientId)
+                        : await startPadSetup(api, clientId),
+                );
+            },
+            { errorMessage: "Couldn't start payment setup. Please try again." },
+        );
+    };
+
+    const complete = (): void => {
+        reset();
+        onDone();
+    };
+
+    return { kind, intent, busy, error, start, cancel: reset, complete, setError };
+}
