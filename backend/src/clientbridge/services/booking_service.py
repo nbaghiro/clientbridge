@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,8 +14,11 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Staff
 from clientbridge.models.scheduling import Booking, Session
 from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch
+from clientbridge.services.availability_service import is_within_availability
 
 _OVERLAP = "that staff member is already booked at that time"
+_OUTSIDE_HOURS = "outside the provider's available hours"
+_CLASS_FULL = "that class is full"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 
 
@@ -61,25 +64,40 @@ class BookingService:
 
         async def run(cmd: Command) -> BookingOut:
             ends_at = data.starts_at + timedelta(minutes=item.duration_min or 0)
-            await self._assert_free(data.staff_id, data.starts_at, ends_at)
-            session = Session(
-                id=new_id("session"),
-                business_id=self.biz,
-                item_id=item.id,
-                staff_id=data.staff_id,
-                resource_id=data.resource_id,
-                starts_at=data.starts_at,
-                ends_at=ends_at,
-                capacity=1,
-                booked_count=1,
-                status="scheduled",
-            )
-            self.db.add(session)
-            try:
-                # the exclusion constraint backstops a concurrent overlapping insert
-                await self.db.flush()
-            except IntegrityError as exc:
-                raise Conflict(_OVERLAP) from exc
+            if not await is_within_availability(
+                self.db, data.staff_id, self.biz, data.starts_at, ends_at
+            ):
+                raise Conflict(_OUTSIDE_HOURS)
+
+            is_class = item.kind == "class" and item.capacity is not None and item.capacity > 1
+            session = None
+            if is_class:
+                session = await self._open_class_session(item.id, data.staff_id, data.starts_at)
+                if session is not None:
+                    if session.booked_count >= session.capacity:
+                        raise Conflict(_CLASS_FULL)
+                    session.booked_count += 1
+                    await self.db.flush()
+            if session is None:
+                await self._assert_free(item, data.staff_id, data.starts_at, ends_at)
+                session = Session(
+                    id=new_id("session"),
+                    business_id=self.biz,
+                    item_id=item.id,
+                    staff_id=data.staff_id,
+                    resource_id=data.resource_id,
+                    starts_at=data.starts_at,
+                    ends_at=ends_at,
+                    capacity=item.capacity if is_class and item.capacity is not None else 1,
+                    booked_count=1,
+                    status="scheduled",
+                )
+                self.db.add(session)
+                try:
+                    # the exclusion constraint backstops a concurrent overlapping insert
+                    await self.db.flush()
+                except IntegrityError as exc:
+                    raise Conflict(_OVERLAP) from exc
             booking = Booking(
                 id=new_id("booking"),
                 business_id=self.biz,
@@ -124,8 +142,13 @@ class BookingService:
             if data.starts_at is not None:
                 duration = session.ends_at - session.starts_at
                 new_ends = data.starts_at + duration
+                if not await is_within_availability(
+                    self.db, session.staff_id, self.biz, data.starts_at, new_ends
+                ):
+                    raise Conflict(_OUTSIDE_HOURS)
+                item = await self._item(session.item_id, require_active=False)
                 await self._assert_free(
-                    session.staff_id, data.starts_at, new_ends, exclude=session.id
+                    item, session.staff_id, data.starts_at, new_ends, exclude=session.id
                 )
                 session.starts_at = data.starts_at
                 session.ends_at = new_ends
@@ -161,26 +184,58 @@ class BookingService:
             raise Forbidden("staff can only manage their own bookings")
 
     async def _assert_free(
-        self, staff_id: str, starts_at: datetime, ends_at: datetime, exclude: str | None = None
+        self,
+        item: Item,
+        staff_id: str,
+        starts_at: datetime,
+        ends_at: datetime,
+        exclude: str | None = None,
     ) -> None:
-        q = select(Session.id).where(
-            Session.business_id == self.biz,
-            Session.staff_id == staff_id,
-            Session.status != "canceled",
-            Session.starts_at < ends_at,
-            Session.ends_at > starts_at,
+        # Buffer the candidate by its item's pad, and each existing session by its own, so two
+        # bookings can't sit closer than their cleanup/prep buffers allow.
+        new_start = starts_at - timedelta(minutes=item.buffer_before_min)
+        new_end = ends_at + timedelta(minutes=item.buffer_after_min)
+        q = (
+            scoped(Session, self.biz)
+            .join(Item, Item.id == Session.item_id)
+            .where(
+                Session.staff_id == staff_id,
+                Session.status != "canceled",
+                Session.starts_at - func.make_interval(0, 0, 0, 0, 0, Item.buffer_before_min)
+                < new_end,
+                Session.ends_at + func.make_interval(0, 0, 0, 0, 0, Item.buffer_after_min)
+                > new_start,
+                # A class session with room is joinable, not a conflict; a full one (incl. any 1:1
+                # session, capacity 1) blocks.
+                or_(
+                    Session.booked_count >= Session.capacity,
+                    Session.item_id != item.id,
+                    Session.starts_at != starts_at,
+                    Session.ends_at != ends_at,
+                ),
+            )
         )
         if exclude is not None:
             q = q.where(Session.id != exclude)
-        if (await self.db.execute(q.limit(1))).scalar_one_or_none() is not None:
+        if (await self.db.execute(q.limit(1))).first() is not None:
             raise Conflict(_OVERLAP)
 
-    async def _item(self, item_id: str) -> Item:
-        row = (
-            await self.db.execute(
-                scoped(Item, self.biz).where(Item.id == item_id, Item.active.is_(True))
-            )
-        ).scalar_one_or_none()
+    async def _open_class_session(
+        self, item_id: str, staff_id: str, starts_at: datetime
+    ) -> Session | None:
+        q = scoped(Session, self.biz).where(
+            Session.item_id == item_id,
+            Session.staff_id == staff_id,
+            Session.starts_at == starts_at,
+            Session.status != "canceled",
+        )
+        return (await self.db.execute(q)).scalars().first()
+
+    async def _item(self, item_id: str, *, require_active: bool = True) -> Item:
+        q = scoped(Item, self.biz).where(Item.id == item_id)
+        if require_active:
+            q = q.where(Item.active.is_(True))
+        row = (await self.db.execute(q)).scalar_one_or_none()
         if row is None:
             raise NotFound("item not found")
         return row
