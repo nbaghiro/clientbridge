@@ -2,7 +2,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, GatewayDep
+from clientbridge.core.deps import (
+    CurrentPrincipal,
+    DbSession,
+    EmailDep,
+    GatewayDep,
+    PushDep,
+    SmsDep,
+)
 from clientbridge.schemas.payments import (
     ConnectStatus,
     InteracRequest,
@@ -12,6 +19,7 @@ from clientbridge.schemas.payments import (
     RemittanceSummary,
     SetupIntentOut,
 )
+from clientbridge.services.notification_service import Notifier
 from clientbridge.services.payment_service import PaymentService
 
 router = APIRouter(prefix="/connect", tags=["connect"])
@@ -66,9 +74,17 @@ async def setup_card(
 
 @pay_router.post("/{payment_id}/refund", response_model=RefundOut)
 async def refund_payment(
-    payment_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+    payment_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
 ) -> RefundOut:
-    return await PaymentService(db, principal, gateway).refund_payment(payment_id)
+    out = await PaymentService(db, principal, gateway).refund_payment(payment_id)
+    await Notifier(email, sms, push).on_refund(db, out.refund_id)
+    return out
 
 
 @pay_router.get("/remittance", response_model=RemittanceSummary)
@@ -84,10 +100,15 @@ async def request_interac(
     principal: CurrentPrincipal,
     db: DbSession,
     gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
     amount_cents: int | None = None,
     deposit: bool = False,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InteracRequest:
-    return await PaymentService(db, principal, gateway).request_interac(
+    req = await PaymentService(db, principal, gateway).request_interac(
         invoice_id, amount_cents, idempotency_key, deposit
     )
+    await Notifier(email, sms, push).on_interac_requested(db, req.payment_id)
+    return req

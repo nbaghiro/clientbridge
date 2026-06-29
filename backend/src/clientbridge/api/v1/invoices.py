@@ -2,9 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep
+from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, PushDep, SmsDep
 from clientbridge.schemas.billing import InvoiceCreate, InvoiceOut, InvoiceUpdate
 from clientbridge.services.billing_service import BillingService
+from clientbridge.services.notification_service import Notifier
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
 
@@ -28,9 +29,16 @@ async def update_invoice(
 
 @router.post("/{invoice_id}/send", response_model=InvoiceOut)
 async def send_invoice(
-    invoice_id: str, principal: CurrentPrincipal, db: DbSession, email_sender: EmailDep
+    invoice_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
 ) -> InvoiceOut:
-    return await BillingService(db, principal).send_invoice(invoice_id, email_sender)
+    result = await BillingService(db, principal).send_invoice(invoice_id)
+    await Notifier(email, sms, push).on_invoice_sent(db, result.id)
+    return result
 
 
 @router.post("/{invoice_id}/void", response_model=InvoiceOut)

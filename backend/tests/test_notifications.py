@@ -1,12 +1,13 @@
 import json
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
-from clientbridge.models.crm import Client
+from clientbridge.models.crm import Client, Consent
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
@@ -128,3 +129,153 @@ async def test_device_register_upserts(as_owner: httpx.AsyncClient, db: AsyncSes
 async def test_device_register_rejects_bad_platform(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/devices/register", json={"token": "T", "platform": "blackberry"})
     assert res.status_code == 422
+
+
+async def test_receipt_is_french_when_locale_fr(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    await _enable(db)
+    await db.execute(update(Business).where(Business.id == BIZ).values(locale="fr"))
+    await db.flush()
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    inv_id = await _sent_invoice(db, cid)
+    await _pay_and_settle(as_owner, db, inv_id, "evt_fr")
+
+    assert email.sent[0].subject == "Reçu de Birchbark Pet Studio"
+    assert email.sent[0].body == (
+        "Merci! Votre paiement de $50.00 CAD à Birchbark Pet Studio a été reçu."
+    )
+    assert sms.sent[0].body.startswith("Merci!")
+
+
+async def test_invoice_sent_carries_pay_link(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    line = {"description": "Groom", "quantity": 1, "unit_amount_cents": 8000}
+    inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})).json()
+    sent = await as_owner.post(f"/v1/invoices/{inv['id']}/send")
+    assert sent.status_code == 200, sent.text
+    token = sent.json()["pay_token"]
+    assert token
+    assert any(f"/pay/{token}" in m.body for m in email.sent)
+    assert any(f"/pay/{token}" in m.body for m in sms.sent)
+
+
+async def test_interac_request_reaches_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    inv_id = await _sent_invoice(db, cid)
+    res = await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")
+    assert res.status_code == 200, res.text
+    ref = res.json()["reference_code"]
+    assert ref
+    assert any(ref in m.body for m in email.sent)
+    assert any(ref in m.body for m in sms.sent)
+
+
+async def test_refund_notifies_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    await _enable(db)
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    inv_id = await _sent_invoice(db, cid)
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pi = (
+        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
+    ).scalar_one()
+    event = json.dumps(
+        {"id": "evt_rf", "type": "payment_intent.succeeded", "data": {"object": {"id": pi}}}
+    )
+    await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
+    email.sent.clear()
+    sms.sent.clear()
+
+    refund = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
+    assert refund.status_code == 200, refund.text
+    assert any("refund" in m.body.lower() and "$50.00" in m.body for m in email.sent)
+    assert any("refund" in m.body.lower() for m in sms.sent)
+
+
+async def test_withdrawn_consent_blocks_sms_not_email(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    await _enable(db)
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    db.add(
+        Consent(
+            id=new_id("consent"),
+            business_id=BIZ,
+            client_id=cid,
+            channel="sms",
+            basis="express",
+            status="withdrawn",
+        )
+    )
+    await db.flush()
+    inv_id = await _sent_invoice(db, cid)
+    await _pay_and_settle(as_owner, db, inv_id, "evt_consent")
+
+    assert sms.sent == []  # CASL withdrawal blocks the SMS channel
+    assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
+
+
+async def test_failing_channel_does_not_500(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _enable(db)
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    db.add(
+        DeviceToken(
+            id=new_id("device_token"),
+            business_id=BIZ,
+            user_id="us_dev",
+            token="ExpoTokB",
+            platform="ios",
+        )
+    )
+    await db.flush()
+    inv_id = await _sent_invoice(db, cid)
+
+    async def boom(_: object) -> None:
+        raise RuntimeError("twilio down")
+
+    monkeypatch.setattr(sms, "send", boom)
+
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pi = (
+        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
+    ).scalar_one()
+    event = json.dumps(
+        {"id": "evt_boom", "type": "payment_intent.succeeded", "data": {"object": {"id": pi}}}
+    )
+    res = await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
+
+    assert res.status_code == 200  # the SMS failure didn't bubble to the webhook
+    assert len(email.sent) == 1  # the other client channel still fired
+    assert len(push.sent) == 1  # the staff push still fired
+    status = (
+        await db.execute(select(Payment.status).where(Payment.id == pay["payment_id"]))
+    ).scalar_one()
+    assert status == "succeeded"  # the settlement persisted
