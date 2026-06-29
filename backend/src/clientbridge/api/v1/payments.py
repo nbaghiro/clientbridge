@@ -12,9 +12,11 @@ from clientbridge.core.deps import (
 )
 from clientbridge.schemas.payments import (
     ConnectStatus,
+    DetachResult,
     InteracRequest,
     OnboardingLink,
     PayIntentOut,
+    PaymentMethodOut,
     RefundOut,
     RemittanceSummary,
     SetupIntentOut,
@@ -70,6 +72,26 @@ async def setup_card(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SetupIntentOut:
     return await PaymentService(db, principal, gateway).start_card_setup(client_id, idempotency_key)
+
+
+@pay_router.delete("/methods/{payment_method_id}", response_model=DetachResult)
+async def detach_card(
+    payment_method_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+) -> DetachResult:
+    return await PaymentService(db, principal, gateway).detach_card(payment_method_id)
+
+
+@pay_router.post("/methods/{payment_method_id}/default", response_model=PaymentMethodOut)
+async def set_default_card(
+    payment_method_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+) -> PaymentMethodOut:
+    return await PaymentService(db, principal, gateway).set_default_card(payment_method_id)
 
 
 @pay_router.post("/{payment_id}/refund", response_model=RefundOut)

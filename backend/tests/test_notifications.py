@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
+from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client, Consent
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
@@ -234,6 +235,101 @@ async def test_withdrawn_consent_blocks_sms_not_email(
 
     assert sms.sent == []  # CASL withdrawal blocks the SMS channel
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
+
+
+async def _bookable_item(db: AsyncSession) -> str:
+    item_id = (
+        await db.execute(
+            select(Item.id)
+            .where(Item.business_id == BIZ, Item.duration_min.isnot(None), Item.active.is_(True))
+            .limit(1)
+        )
+    ).scalar_one()
+    return item_id
+
+
+def _booking_body(cid: str, item_id: str, starts: str) -> dict[str, str]:
+    return {"client_id": cid, "item_id": item_id, "staff_id": "st_owner", "starts_at": starts}
+
+
+async def test_booking_create_notifies_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    item_id = await _bookable_item(db)
+    body = _booking_body(cid, item_id, "2027-05-01T10:00:00Z")
+    res = await as_owner.post("/v1/bookings", json=body)
+    assert res.status_code == 201, res.text
+    assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
+    assert len(sms.sent) == 1 and sms.sent[0].to == "+15145551234"
+    assert "2027-05-01" in email.sent[0].body  # the date lands in the business timezone
+
+
+async def test_booking_cancel_notifies_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    item_id = await _bookable_item(db)
+    bid = (
+        await as_owner.post(
+            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-02T10:00:00Z")
+        )
+    ).json()["id"]
+    email.sent.clear()
+    sms.sent.clear()
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+    assert res.status_code == 200, res.text
+    assert len(email.sent) == 1 and "cancel" in email.sent[0].body.lower()
+    assert len(sms.sent) == 1
+
+
+async def test_booking_noncancel_patch_sends_no_cancel_notice(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    item_id = await _bookable_item(db)
+    bid = (
+        await as_owner.post(
+            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-03T10:00:00Z")
+        )
+    ).json()["id"]
+    email.sent.clear()
+    sms.sent.clear()
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "completed"})
+    assert res.status_code == 200, res.text
+    assert email.sent == []  # a non-cancel status change fires no notice
+    assert sms.sent == []
+
+
+async def test_estimate_accept_notifies_business(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+) -> None:
+    cid = (
+        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
+        .scalars()
+        .first()
+    )
+    assert cid
+    line = {"description": "Project quote", "quantity": 1, "unit_amount_cents": 5000}
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [line]})).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    email.sent.clear()
+    accepted = await as_owner.post(f"/v1/estimates/{est['id']}/accept")
+    assert accepted.status_code == 200, accepted.text
+    assert any(
+        m.to == "hello@birchbarkpets.ca" and "accepted" in m.body.lower() for m in email.sent
+    )
 
 
 async def test_failing_channel_does_not_500(

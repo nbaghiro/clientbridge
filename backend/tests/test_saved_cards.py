@@ -9,6 +9,7 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
+from tests.conftest import Factory, FakePaymentGateway
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -236,3 +237,119 @@ async def test_payment_method_attached_unknown_account_noop(
         .all()
     )
     assert rows == []
+
+
+async def test_first_attached_card_is_default(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable(db, account="acct_def")
+    fresh = Client(
+        id=new_id("client"),
+        business_id=BIZ,
+        name="Card Tester",
+        tags=[],
+        custom_fields={},
+        stripe_customer_id="cus_def",
+    )
+    db.add(fresh)
+    await db.flush()
+    for evt, pm in (("evt_d1", "pm_one"), ("evt_d2", "pm_two")):  # two cards, same client
+        await api.post(
+            "/webhooks/stripe",
+            content=_pm_attached(evt, "acct_def", "cus_def", pm),
+            headers=GOOD,
+        )
+    one = (
+        await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_one"))
+    ).scalar_one()
+    two = (
+        await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_two"))
+    ).scalar_one()
+    assert one.is_default is True  # the first card on file
+    assert two.is_default is False  # later cards don't steal default
+
+
+def _saved_card(cid: str, *, ref: str, default: bool = False) -> PaymentMethod:
+    return PaymentMethod(
+        id=new_id("payment_method"),
+        business_id=BIZ,
+        client_id=cid,
+        type="card",
+        brand="visa",
+        last4="4242",
+        provider="stripe",
+        provider_ref=ref,
+        is_default=default,
+        status="active",
+    )
+
+
+async def test_detach_removes_row_and_calls_gateway(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    cid = await _client_id(db)
+    pm = _saved_card(cid, ref="pm_detach")
+    db.add(pm)
+    await db.flush()
+    res = await as_owner.delete(f"/v1/payments/methods/{pm.id}")
+    assert res.status_code == 200, res.text
+    assert res.json() == {"detached": True}
+    assert gateway.detached == ["pm_detach"]  # the provider was told to detach
+    rows = (
+        (await db.execute(select(PaymentMethod).where(PaymentMethod.id == pm.id))).scalars().all()
+    )
+    assert rows == []
+
+
+async def test_detach_unknown_card_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable(db)
+    assert (await as_owner.delete("/v1/payments/methods/pm_nope")).status_code == 404
+
+
+async def test_detach_cross_tenant_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await _enable(db)
+    other_biz = await factory.business()
+    other_client = await factory.client(business=other_biz)
+    pm = PaymentMethod(
+        id=new_id("payment_method"),
+        business_id=other_biz.id,
+        client_id=other_client.id,
+        type="card",
+        provider="stripe",
+        provider_ref="pm_other_biz",
+        status="active",
+    )
+    db.add(pm)
+    await db.flush()
+    assert (await as_owner.delete(f"/v1/payments/methods/{pm.id}")).status_code == 404
+
+
+async def test_set_default_flips_and_clears_siblings(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client_id(db)
+    a = _saved_card(cid, ref="pm_a", default=True)
+    b = _saved_card(cid, ref="pm_b", default=False)
+    db.add_all([a, b])
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/methods/{b.id}/default")
+    assert res.status_code == 200, res.text
+    assert res.json()["is_default"] is True
+    a_default = (
+        await db.execute(select(PaymentMethod.is_default).where(PaymentMethod.id == a.id))
+    ).scalar_one()
+    b_default = (
+        await db.execute(select(PaymentMethod.is_default).where(PaymentMethod.id == b.id))
+    ).scalar_one()
+    assert b_default is True
+    assert a_default is False  # the prior default was cleared
+
+
+async def test_staff_cannot_manage_cards(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
+    cid = await _client_id(db)
+    pm = _saved_card(cid, ref="pm_staff")
+    db.add(pm)
+    await db.flush()
+    assert (await as_staff.delete(f"/v1/payments/methods/{pm.id}")).status_code == 403
+    assert (await as_staff.post(f"/v1/payments/methods/{pm.id}/default")).status_code == 403

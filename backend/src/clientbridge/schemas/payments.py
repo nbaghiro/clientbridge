@@ -34,6 +34,19 @@ class InteracRequest(BaseModel):
     amount_cents: int
 
 
+class PaymentMethodOut(BaseModel):
+    id: str
+    client_id: str
+    brand: str | None
+    last4: str | None
+    is_default: bool
+    status: str
+
+
+class DetachResult(BaseModel):
+    detached: bool
+
+
 class InteracWebhookBody(BaseModel):
     reference_code: str
     amount_cents: int
