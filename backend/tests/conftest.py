@@ -117,10 +117,12 @@ class FakePaymentGateway:
         self.created_accounts: list[str] = []
         self.detached: list[str] = []
         self.created_prices: list[str] = []
+        self.created_price_amounts: list[int] = []  # unit_amount per created Price
         self.created_subscriptions: list[str] = []
         self.canceled_subscriptions: list[str] = []
         self._seq = 0
         self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
+        self._subs: dict[str, SubscriptionResult] = {}  # honor subscription idempotency keys
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
 
     async def create_connected_account(self, *, business_name: str, email: str | None) -> str:
@@ -177,20 +179,32 @@ class FakePaymentGateway:
         self._seq += 1
         pid = f"price_fake{self._seq}"
         self.created_prices.append(pid)
+        self.created_price_amounts.append(amount_cents)
         return pid
 
     async def create_subscription(
-        self, account_id: str, *, customer_id: str, price_id: str, payment_method_id: str
+        self,
+        account_id: str,
+        *,
+        customer_id: str,
+        price_id: str,
+        payment_method_id: str,
+        idempotency_key: str | None = None,
     ) -> SubscriptionResult:
+        if idempotency_key is not None and idempotency_key in self._subs:
+            return self._subs[idempotency_key]
         self._seq += 1
         sid = f"sub_fake{self._seq}"
         self.created_subscriptions.append(sid)
-        return SubscriptionResult(
+        result = SubscriptionResult(
             id=sid,
             status="active",
             current_period_start=datetime(2030, 1, 1, tzinfo=UTC),
             current_period_end=datetime(2030, 2, 1, tzinfo=UTC),
         )
+        if idempotency_key is not None:
+            self._subs[idempotency_key] = result
+        return result
 
     async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
         self.canceled_subscriptions.append(subscription_id)

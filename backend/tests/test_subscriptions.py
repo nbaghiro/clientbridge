@@ -1,17 +1,19 @@
 """EFT/PAD + recurring subscriptions: command surface + Stripe subscription webhooks."""
 
 import json
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
-from tests.conftest import Factory, FakePaymentGateway
+from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -58,6 +60,15 @@ async def _sub_item(
     db.add(item)
     await db.flush()
     return item
+
+
+async def _new_client(db: AsyncSession, *, business_id: str = BIZ, name: str = "Sub Client") -> str:
+    client = Client(
+        id=new_id("client"), business_id=business_id, name=name, tags=[], custom_fields={}
+    )
+    db.add(client)
+    await db.flush()
+    return client.id
 
 
 async def _saved_method(
@@ -113,14 +124,71 @@ async def test_second_subscription_reuses_cached_price(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _enable(db)
+    item = await _sub_item(db)
+    c1 = await _new_client(db, name="Client One")
+    c2 = await _new_client(db, name="Client Two")
+    pm1 = await _saved_method(db, c1, ref="pm_c1")
+    pm2 = await _saved_method(db, c2, ref="pm_c2")
+    r1 = await as_owner.post("/v1/subscriptions", json=_body(c1, item.id, pm1.id))
+    r2 = await as_owner.post("/v1/subscriptions", json=_body(c2, item.id, pm2.id))
+    assert r1.status_code == 201 and r2.status_code == 201, (r1.text, r2.text)
+    assert len(gateway.created_prices) == 1  # price created once, then reused across clients
+    assert len(gateway.created_subscriptions) == 2
+
+
+async def test_subscription_price_is_tax_inclusive(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    cid = await _client_id(db)
+    item = await _sub_item(db, price=5000)
+    pm = await _saved_method(db, cid)
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert res.status_code == 201, res.text
+    # BC + tax-registered: GST 5% + PST 7% on 5000 → 600 tax → a 5600 tax-inclusive Price
+    assert gateway.created_price_amounts == [5600]
+
+
+async def test_same_idempotency_key_creates_one_subscription(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    cid = await _client_id(db)
+    item = await _sub_item(db)
+    pm = await _saved_method(db, cid)
+    body = _body(cid, item.id, pm.id)
+    headers = {"Idempotency-Key": "sub-key-1"}
+    r1 = await as_owner.post("/v1/subscriptions", json=body, headers=headers)
+    r2 = await as_owner.post("/v1/subscriptions", json=body, headers=headers)
+    assert r1.status_code == 201 and r2.status_code == 201, (r1.text, r2.text)
+    assert r1.json()["id"] == r2.json()["id"]
+    assert len(gateway.created_subscriptions) == 1  # one Stripe sub
+    rows = (
+        (
+            await db.execute(
+                select(Subscription).where(
+                    Subscription.client_id == cid, Subscription.item_id == item.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1
+
+
+async def test_duplicate_active_subscription_conflicts(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
     cid = await _client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
     r1 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert r1.status_code == 201, r1.text
     r2 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
-    assert r1.status_code == 201 and r2.status_code == 201, (r1.text, r2.text)
-    assert len(gateway.created_prices) == 1  # price created once, then reused
-    assert len(gateway.created_subscriptions) == 2
+    assert r2.status_code == 409, r2.text
+    assert len(gateway.created_subscriptions) == 1  # the duplicate never minted a second Stripe sub
 
 
 async def test_cancel_subscription(
@@ -147,6 +215,29 @@ async def test_cancel_subscription(
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
     assert status == "canceled"
+
+
+async def test_cancel_already_canceled_conflicts(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    cid = await _client_id(db)
+    item = await _sub_item(db)
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=cid,
+        item_id=item.id,
+        status="active",
+        provider_ref="sub_cx",
+    )
+    db.add(sub)
+    await db.flush()
+    r1 = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel")
+    assert r1.status_code == 200, r1.text
+    r2 = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel")
+    assert r2.status_code == 409, r2.text
+    assert gateway.canceled_subscriptions.count("sub_cx") == 1  # Stripe canceled once only
 
 
 async def test_create_with_non_subscription_item_409(
@@ -317,7 +408,7 @@ async def test_invoice_payment_succeeded_records_payment(
         "id": "in_1",
         "subscription": "sub_inv1",
         "payment_intent": "pi_sub1",
-        "amount_paid": 5000,
+        "amount_paid": 5600,
         "currency": "cad",
     }
     res = await api.post(
@@ -328,8 +419,9 @@ async def test_invoice_payment_succeeded_records_payment(
     assert res.status_code == 200
     pay = (await db.execute(select(Payment).where(Payment.provider_ref == "pi_sub1"))).scalar_one()
     assert pay.status == "succeeded"
-    assert pay.amount_cents == 5000 and pay.currency == "CAD"
+    assert pay.amount_cents == 5600 and pay.currency == "CAD"
     assert pay.client_id == sub.client_id and pay.kind == "payment"
+    assert pay.invoice_id is not None  # the recurring charge minted a paid invoice
     # re-delivery (different event id, same charge) must not double-record
     res2 = await api.post(
         "/webhooks/stripe",
@@ -343,11 +435,84 @@ async def test_invoice_payment_succeeded_records_payment(
     assert len(rows) == 1
 
 
-async def test_invoice_payment_failed_sets_past_due(
-    api: httpx.AsyncClient, db: AsyncSession
+async def test_recurring_charge_taxed_and_in_gst_report(
+    as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await _enable(db)
-    sub = await _seed_sub(db, ref="sub_fail1")
+    cid = await _new_client(db, name="GST Client")
+    item = await _sub_item(db)
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=cid,
+        item_id=item.id,
+        status="active",
+        provider_ref="sub_gst1",
+    )
+    db.add(sub)
+    await db.flush()
+    today = datetime.now(UTC).date().isoformat()
+    before = (await as_owner.get(f"/v1/reports/gst-hst?start={today}&end={today}")).json()
+    obj: dict[str, object] = {
+        "id": "in_g1",
+        "subscription": "sub_gst1",
+        "payment_intent": "pi_gst1",
+        "amount_paid": 5600,
+        "currency": "cad",
+    }
+    res = await as_owner.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_g1", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res.status_code == 200
+    pay = (await db.execute(select(Payment).where(Payment.provider_ref == "pi_gst1"))).scalar_one()
+    assert pay.invoice_id is not None
+    inv = (await db.execute(select(Invoice).where(Invoice.id == pay.invoice_id))).scalar_one()
+    assert inv.status == "paid" and inv.paid_at is not None
+    assert inv.subtotal_cents == 5000 and inv.tax_total_cents == 600 and inv.total_cents == 5600
+    after = (await as_owner.get(f"/v1/reports/gst-hst?start={today}&end={today}")).json()
+    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 600
+    # re-delivery must not mint a second invoice/payment
+    res2 = await as_owner.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_g2", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res2.status_code == 200
+    pays = (
+        (await db.execute(select(Payment).where(Payment.provider_ref == "pi_gst1"))).scalars().all()
+    )
+    assert len(pays) == 1
+    invoices = (
+        (
+            await db.execute(
+                select(Invoice).where(Invoice.client_id == sub.client_id, Invoice.status == "paid")
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(invoices) == 1
+
+
+async def test_invoice_payment_failed_sets_past_due_and_notifies(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    await _enable(db)
+    cid = await _new_client(db, name="Past Due Client")
+    await db.execute(update(Client).where(Client.id == cid).values(email="pastdue@test.ca"))
+    item = await _sub_item(db)
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=cid,
+        item_id=item.id,
+        status="active",
+        provider_ref="sub_fail1",
+    )
+    db.add(sub)
+    await db.flush()
     event = _sub_event(
         "evt_f1", "invoice.payment_failed", {"id": "in_2", "subscription": "sub_fail1"}
     )
@@ -357,6 +522,34 @@ async def test_invoice_payment_failed_sets_past_due(
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
     assert status == "past_due"
+    assert any(e.to == "pastdue@test.ca" for e in email.sent)  # client warned of the failed charge
+
+
+async def test_subscription_deleted_notifies_client(
+    api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    await _enable(db)
+    cid = await _new_client(db, name="Canceled Client")
+    await db.execute(update(Client).where(Client.id == cid).values(email="canceled@test.ca"))
+    item = await _sub_item(db)
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=cid,
+        item_id=item.id,
+        status="active",
+        provider_ref="sub_del1",
+    )
+    db.add(sub)
+    await db.flush()
+    event = _sub_event("evt_del1", "customer.subscription.deleted", {"id": "sub_del1"})
+    res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
+    assert res.status_code == 200
+    status = (
+        await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
+    ).scalar_one()
+    assert status == "canceled"
+    assert any(e.to == "canceled@test.ca" for e in email.sent)
 
 
 async def test_unknown_status_maps_to_past_due(api: httpx.AsyncClient, db: AsyncSession) -> None:

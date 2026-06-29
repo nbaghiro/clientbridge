@@ -10,6 +10,7 @@ from sqlalchemy import (
     Numeric,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -72,6 +73,15 @@ class Subscription(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("subscriptions", "status", "active", "paused", "canceled", "past_due"),
         Index("ix_subscriptions_client_status", "business_id", "client_id", "status"),
+        Index("ix_subscriptions_provider_ref", "provider_ref", unique=True),
+        Index(
+            "ix_subscriptions_active_unique",
+            "business_id",
+            "client_id",
+            "item_id",
+            unique=True,
+            postgresql_where=text("status IN ('active', 'paused')"),
+        ),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

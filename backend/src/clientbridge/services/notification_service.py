@@ -10,6 +10,7 @@ from clientbridge.integrations.email import Email, EmailSender
 from clientbridge.integrations.push import Push, PushSender
 from clientbridge.integrations.sms import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice
+from clientbridge.models.catalog import Subscription
 from clientbridge.models.crm import Client, Consent
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
@@ -93,6 +94,31 @@ def _refund(locale: str, amount: str, business_name: str) -> tuple[str, str]:
     return (
         f"Refund from {business_name}",
         f"A refund of {amount} from {business_name} was issued.",
+    )
+
+
+def _subscription_past_due(locale: str, business_name: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Paiement en retard — {business_name}",
+            f"Le paiement de votre abonnement à {business_name} a échoué. "
+            "Veuillez mettre à jour votre mode de paiement.",
+        )
+    return (
+        f"Payment past due — {business_name}",
+        f"Your subscription payment to {business_name} failed. Please update your payment method.",
+    )
+
+
+def _subscription_canceled(locale: str, business_name: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Abonnement annulé — {business_name}",
+            f"Votre abonnement à {business_name} a été annulé.",
+        )
+    return (
+        f"Subscription canceled — {business_name}",
+        f"Your subscription to {business_name} was canceled.",
     )
 
 
@@ -216,6 +242,26 @@ class Notifier:
         amount = _money(payment.amount_cents, payment.currency)
         subject, body = _refund(business.locale, amount, business.name)
         await self._to_client(db, payment.client_id, subject, body)
+
+    async def on_subscription_past_due(self, db: AsyncSession, subscription_id: str) -> None:
+        sub = await db.get(Subscription, subscription_id)
+        if sub is None:
+            return
+        business = await db.get(Business, sub.business_id)
+        if business is None:
+            return
+        subject, body = _subscription_past_due(business.locale, business.name)
+        await self._to_client(db, sub.client_id, subject, body)
+
+    async def on_subscription_canceled(self, db: AsyncSession, subscription_id: str) -> None:
+        sub = await db.get(Subscription, subscription_id)
+        if sub is None:
+            return
+        business = await db.get(Business, sub.business_id)
+        if business is None:
+            return
+        subject, body = _subscription_canceled(business.locale, business.name)
+        await self._to_client(db, sub.client_id, subject, body)
 
     async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> None:
         booking = await db.get(Booking, booking_id)

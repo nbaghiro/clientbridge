@@ -1,4 +1,5 @@
 import secrets
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select, update
@@ -13,7 +14,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
 from clientbridge.models.billing import Invoice, Line, Order
-from clientbridge.models.catalog import Subscription
+from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment, PaymentMethod, Payout, PayoutAllocation
@@ -30,6 +31,15 @@ from clientbridge.schemas.payments import (
     RemittanceSummary,
     SetupIntentOut,
 )
+from clientbridge.services.lines import tax_for_lines
+
+
+@dataclass(frozen=True)
+class WebhookOutcome:
+    """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
+
+    notify: str  # "payment" | "subscription_past_due" | "subscription_canceled"
+    target_id: str
 
 
 class PaymentService:
@@ -639,10 +649,10 @@ async def open_interac_payment(
 
 async def process_stripe_event(
     db: AsyncSession, gateway: PaymentGateway, payload: bytes, signature: str
-) -> str | None:
+) -> WebhookOutcome | None:
     """Verify + dedup + dispatch a Stripe webhook (surface #4). Raises WebhookVerificationError on a
     bad signature. A repeated event id is a no-op; on a dispatch error nothing commits, so Stripe
-    retries. Returns the id of a payment that settled this delivery (for the caller to notify on,
+    retries. Returns the client notification this delivery warrants (for the caller to fire
     post-commit), else None."""
     event = gateway.verify_webhook(payload, signature)
     seen = (
@@ -654,7 +664,7 @@ async def process_stripe_event(
         id=event.id, provider="stripe", type=event.type, payload=event.data, status="pending"
     )
     db.add(record)
-    settled = await _dispatch(db, event)
+    outcome = await _dispatch(db, event)
     record.status = "processed"
     record.processed_at = datetime.now(UTC)
     try:
@@ -662,10 +672,10 @@ async def process_stripe_event(
     except IntegrityError:  # a concurrent delivery won the race on a unique key — already applied
         await db.rollback()
         return None
-    return settled
+    return outcome
 
 
-async def _dispatch(db: AsyncSession, event: GatewayEvent) -> str | None:
+async def _dispatch(db: AsyncSession, event: GatewayEvent) -> WebhookOutcome | None:
     if event.type == "account.updated":
         account_id = event.data.get("id")
         if isinstance(account_id, str):
@@ -676,9 +686,10 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> str | None:
             )
     elif event.type == "payment_intent.succeeded":
         fee = event.data.get("application_fee_amount")
-        return await _settle_payment(
+        settled = await _settle_payment(
             db, str(event.data.get("id")), fee_cents=int(fee) if isinstance(fee, int) else 0
         )
+        return WebhookOutcome("payment", settled) if settled is not None else None
     elif event.type == "payment_intent.payment_failed":
         await _fail_payment(db, str(event.data.get("id")))
     elif event.type == "payment_intent.canceled":
@@ -690,11 +701,14 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> str | None:
     elif event.type == "customer.subscription.updated":
         await _update_subscription(db, event.data)
     elif event.type == "customer.subscription.deleted":
-        await _cancel_subscription(db, event.data)
+        canceled = await _cancel_subscription(db, event.data)
+        return WebhookOutcome("subscription_canceled", canceled) if canceled is not None else None
     elif event.type == "invoice.payment_succeeded":
-        return await _record_recurring_payment(db, event.data)
+        recorded = await _record_recurring_payment(db, event.data)
+        return WebhookOutcome("payment", recorded) if recorded is not None else None
     elif event.type == "invoice.payment_failed":
-        await _subscription_past_due(db, event.data)
+        past_due = await _subscription_past_due(db, event.data)
+        return WebhookOutcome("subscription_past_due", past_due) if past_due is not None else None
     return None
 
 
@@ -933,24 +947,30 @@ async def _update_subscription(db: AsyncSession, data: dict[str, object]) -> Non
     await db.flush()
 
 
-async def _cancel_subscription(db: AsyncSession, data: dict[str, object]) -> None:
+async def _cancel_subscription(db: AsyncSession, data: dict[str, object]) -> str | None:
+    """Flag a deleted Stripe subscription canceled; return our id (to notify on), else None."""
     sub_id = data.get("id")
     if not isinstance(sub_id, str):
-        return
+        return None
     sub = await _find_subscription(db, sub_id)
-    if sub is not None:
-        sub.status = "canceled"
-        await db.flush()
+    if sub is None:
+        return None
+    sub.status = "canceled"
+    await db.flush()
+    return sub.id
 
 
-async def _subscription_past_due(db: AsyncSession, data: dict[str, object]) -> None:
+async def _subscription_past_due(db: AsyncSession, data: dict[str, object]) -> str | None:
+    """Flag a failed charge's subscription past_due; return our id (to notify on), else None."""
     sub_id = data.get("subscription")
     if not isinstance(sub_id, str):
-        return
+        return None
     sub = await _find_subscription(db, sub_id)
-    if sub is not None:
-        sub.status = "past_due"
-        await db.flush()
+    if sub is None:
+        return None
+    sub.status = "past_due"
+    await db.flush()
+    return sub.id
 
 
 async def _recurring_method(db: AsyncSession, sub: Subscription) -> str:
@@ -963,8 +983,9 @@ async def _recurring_method(db: AsyncSession, sub: Subscription) -> str:
 
 
 async def _record_recurring_payment(db: AsyncSession, data: dict[str, object]) -> str | None:
-    """Record a subscription's recurring invoice charge as a succeeded Payment (deduped on the
-    Stripe charge/intent id). Returns the new payment id for the post-commit receipt, else None."""
+    """Record a subscription's recurring charge as a paid Invoice (with line + Canadian tax) and a
+    linked succeeded Payment (deduped on the Stripe charge/intent id, so a re-delivery doesn't
+    double-record). Returns the new payment id for the post-commit receipt, else None."""
     sub_id = data.get("subscription")
     if not isinstance(sub_id, str):
         return None
@@ -981,13 +1002,16 @@ async def _record_recurring_payment(db: AsyncSession, data: dict[str, object]) -
         return None
     amount = data.get("amount_paid")
     currency = data.get("currency")
+    cur = currency.upper() if isinstance(currency, str) else "CAD"
+    invoice_id = await _recurring_invoice(db, sub, cur)
     payment = Payment(
         id=new_id("payment"),
         business_id=sub.business_id,
         client_id=sub.client_id,
         kind="payment",
+        invoice_id=invoice_id,
         amount_cents=amount if isinstance(amount, int) else 0,
-        currency=currency.upper() if isinstance(currency, str) else "CAD",
+        currency=cur,
         method=await _recurring_method(db, sub),
         provider="stripe",
         provider_ref=ref,
@@ -997,6 +1021,47 @@ async def _record_recurring_payment(db: AsyncSession, data: dict[str, object]) -
     db.add(payment)
     await db.flush()
     return payment.id
+
+
+async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str) -> str | None:
+    """A paid internal Invoice + Line for one subscription period, taxed through the line engine so
+    the GST/HST report (which sums paid invoices) counts the recurring revenue."""
+    item = await db.get(Item, sub.item_id)
+    if item is None:
+        return None
+    now = datetime.now(UTC)
+    invoice = Invoice(
+        id=new_id("invoice"),
+        business_id=sub.business_id,
+        client_id=sub.client_id,
+        status="paid",
+        currency=currency,
+        issued_at=now,
+        paid_at=now,
+    )
+    db.add(invoice)
+    await db.flush()
+    line = Line(
+        id=new_id("line"),
+        business_id=sub.business_id,
+        parent_type="invoice",
+        parent_id=invoice.id,
+        description=item.name,
+        item_id=item.id,
+        quantity=1,
+        unit_amount_cents=item.price_cents,
+        amount_cents=item.price_cents,
+        position=0,
+    )
+    db.add(line)
+    result = await tax_for_lines(db, sub.business_id, [line])
+    invoice.subtotal_cents = result.subtotal_cents
+    invoice.tax_total_cents = result.tax_total_cents
+    invoice.total_cents = result.total_cents
+    invoice.amount_paid_cents = result.total_cents
+    invoice.balance_cents = 0
+    await db.flush()
+    return invoice.id
 
 
 async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:

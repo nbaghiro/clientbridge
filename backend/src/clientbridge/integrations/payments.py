@@ -94,7 +94,13 @@ class PaymentGateway(Protocol):
         ...
 
     async def create_subscription(
-        self, account_id: str, *, customer_id: str, price_id: str, payment_method_id: str
+        self,
+        account_id: str,
+        *,
+        customer_id: str,
+        price_id: str,
+        payment_method_id: str,
+        idempotency_key: str | None = None,
     ) -> SubscriptionResult: ...
     async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None: ...
 
@@ -234,13 +240,20 @@ class StripeGateway:
         return str(price.id)
 
     async def create_subscription(  # pragma: no cover
-        self, account_id: str, *, customer_id: str, price_id: str, payment_method_id: str
+        self,
+        account_id: str,
+        *,
+        customer_id: str,
+        price_id: str,
+        payment_method_id: str,
+        idempotency_key: str | None = None,
     ) -> SubscriptionResult:
         sub = await stripe.Subscription.create_async(
             customer=customer_id,
             items=[{"price": price_id}],
             default_payment_method=payment_method_id,
             stripe_account=account_id,
+            idempotency_key=idempotency_key,
         )
         return SubscriptionResult(
             id=str(sub.id),
