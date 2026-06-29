@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Awaitable
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,7 @@ from clientbridge.models.crm import Client, Consent
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
+from clientbridge.models.scheduling import Booking, Session
 
 _log = logging.getLogger(__name__)
 
@@ -88,6 +90,18 @@ def _refund(locale: str, amount: str, business_name: str) -> tuple[str, str]:
     )
 
 
+def _booking_reminder(locale: str, business_name: str, when: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Rappel de rendez-vous — {business_name}",
+            f"Rappel : vous avez un rendez-vous avec {business_name} le {when}.",
+        )
+    return (
+        f"Appointment reminder — {business_name}",
+        f"Reminder: you have an appointment with {business_name} on {when}.",
+    )
+
+
 class Notifier:
     """Unified outreach across channels: client messages (email + SMS) and staff alerts (push) flow
     through here, so every event reaches every channel from one place. Channel sends are isolated
@@ -159,6 +173,20 @@ class Notifier:
         amount = _money(payment.amount_cents, payment.currency)
         subject, body = _refund(business.locale, amount, business.name)
         await self._to_client(db, payment.client_id, subject, body)
+
+    async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> None:
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        session = await db.get(Session, booking.session_id)
+        business = await db.get(Business, booking.business_id)
+        if session is None or business is None:
+            return
+        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        subject, body = _booking_reminder(
+            business.locale, business.name, f"{local:%Y-%m-%d at %H:%M}"
+        )
+        await self._to_client(db, booking.client_id, subject, body)
 
     async def _to_client(
         self, db: AsyncSession, client_id: str | None, subject: str, body: str
