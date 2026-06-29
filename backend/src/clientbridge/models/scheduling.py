@@ -45,6 +45,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
             "bookings", "status", "pending", "confirmed", "completed", "canceled", "no_show"
         ),
         enum_check("bookings", "source", "online", "manual"),
+        enum_check("bookings", "deposit_status", "none", "pending", "collected", "forfeited"),
         Index("ix_bookings_session", "business_id", "session_id"),
         Index("ix_bookings_client", "business_id", "client_id"),
         Index("ix_bookings_status", "business_id", "status"),
@@ -63,6 +64,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     price_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     deposit_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deposit_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    deposit_status: Mapped[str] = mapped_column(String, default="none", nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

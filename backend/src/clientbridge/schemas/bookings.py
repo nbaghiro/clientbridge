@@ -29,5 +29,12 @@ class BookingOut(BaseModel):
     source: str
     price_cents: int
     deposit_amount_cents: int
+    deposit_status: str
     starts_at: datetime
     ends_at: datetime
+
+
+class DepositOut(BaseModel):
+    booking_id: str
+    payment_id: str
+    client_secret: str

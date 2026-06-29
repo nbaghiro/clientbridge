@@ -428,6 +428,23 @@ export interface paths {
         patch: operations["patch_booking_v1_bookings__booking_id__patch"];
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/deposit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Collect Deposit */
+        post: operations["collect_deposit_v1_bookings__booking_id__deposit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/invoices": {
         parameters: {
             query?: never;
@@ -1280,6 +1297,8 @@ export interface components {
             price_cents: number;
             /** Deposit Amount Cents */
             deposit_amount_cents: number;
+            /** Deposit Status */
+            deposit_status: string;
             /**
              * Starts At
              * Format: date-time
@@ -1444,6 +1463,15 @@ export interface components {
             gst_hst_set_aside_cents: number;
             /** Gst Hst Filing Due */
             gst_hst_filing_due: string | null;
+        };
+        /** DepositOut */
+        DepositOut: {
+            /** Booking Id */
+            booking_id: string;
+            /** Payment Id */
+            payment_id: string;
+            /** Client Secret */
+            client_secret: string;
         };
         /** DetachResult */
         DetachResult: {
@@ -3186,6 +3214,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    collect_deposit_v1_bookings__booking_id__deposit_post: {
+        parameters: {
+            query?: {
+                payment_method_id?: string | null;
+            };
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepositOut"];
                 };
             };
             /** @description Validation Error */
