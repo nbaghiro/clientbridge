@@ -215,8 +215,10 @@ const subscriptions = new Table(
     },
     {
         indexes: {
+            subscriptions_active_unique: ["business_id", "client_id", "item_id"],
             subscriptions_business_id: ["business_id"],
             subscriptions_client_status: ["business_id", "client_id", "status"],
+            subscriptions_provider_ref: ["provider_ref"],
         },
     },
 );

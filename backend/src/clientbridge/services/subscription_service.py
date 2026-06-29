@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -11,6 +12,7 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import PaymentMethod
 from clientbridge.schemas.subscriptions import SubscriptionCreate, SubscriptionOut
+from clientbridge.services.lines import tax_for_amount
 from clientbridge.services.payment_service import ensure_customer, map_subscription_status
 
 
@@ -49,9 +51,11 @@ class SubscriptionService:
             customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
             price_id = item.stripe_price_id
             if price_id is None:
+                # the recurring charge must collect GST/PST, so the Price is the tax-inclusive total
+                tax = await tax_for_amount(self.db, self.biz, item.price_cents)
                 price_id = await self.gateway.create_price(
                     account_id,
-                    amount_cents=item.price_cents,
+                    amount_cents=tax.total_cents,
                     currency=item.currency,
                     interval_count=interval_count,
                     frequency=frequency,
@@ -59,7 +63,11 @@ class SubscriptionService:
                 item.stripe_price_id = price_id
                 await self.db.flush()
             result = await self.gateway.create_subscription(
-                account_id, customer_id=customer_id, price_id=price_id, payment_method_id=pm_ref
+                account_id,
+                customer_id=customer_id,
+                price_id=price_id,
+                payment_method_id=pm_ref,
+                idempotency_key=f"sub_{self.biz}_{data.client_id}_{item.id}",
             )
             row = Subscription(
                 id=new_id("subscription"),
@@ -73,7 +81,10 @@ class SubscriptionService:
                 provider_ref=result.id,
             )
             self.db.add(row)
-            await self.db.flush()
+            try:
+                await self.db.flush()  # unique provider_ref + one-active-per-client+item guards
+            except IntegrityError as exc:
+                raise Conflict("a subscription for this client and item already exists") from exc
             cmd.record("subscription.create", entity_type="subscription", entity_id=row.id)
             return _out(row)
 
@@ -92,6 +103,8 @@ class SubscriptionService:
         self._assert_admin()
         business = await self._business()
         sub = await self._subscription(subscription_id)
+        if sub.status == "canceled":
+            raise Conflict("subscription is already canceled")
         account_id = business.stripe_account_id
         provider_ref = sub.provider_ref
 

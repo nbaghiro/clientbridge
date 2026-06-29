@@ -70,6 +70,12 @@ async def fetch_lines(
     return list(rows)
 
 
+async def tax_for_amount(db: AsyncSession, business_id: str, amount_cents: int) -> TaxResult:
+    """Tax breakdown for a single taxable amount (e.g. a subscription item's price) via the line
+    engine. The transient line is discarded; only the rolled-up TaxResult is returned."""
+    return await tax_for_lines(db, business_id, [Line(amount_cents=amount_cents)])
+
+
 async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
     """Run the tax engine for a parent's lines, writing each line's tax_amount_cents. The caller
     applies the subtotal/tax/total rollups to its parent (invoice/estimate/order)."""

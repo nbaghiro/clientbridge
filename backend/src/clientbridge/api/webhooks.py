@@ -33,11 +33,17 @@ async def stripe_webhook(
 ) -> Response:
     payload = await request.body()
     try:
-        settled_id = await process_stripe_event(db, gateway, payload, stripe_signature)
+        outcome = await process_stripe_event(db, gateway, payload, stripe_signature)
     except WebhookVerificationError:
         return Response(status_code=400)
-    if settled_id is not None:  # post-commit so a notify failure can't roll back the settlement
-        await Notifier(email, sms, push).on_payment_succeeded(db, settled_id)
+    if outcome is not None:  # post-commit so a notify failure can't roll back the settlement
+        notifier = Notifier(email, sms, push)
+        if outcome.notify == "payment":
+            await notifier.on_payment_succeeded(db, outcome.target_id)
+        elif outcome.notify == "subscription_past_due":
+            await notifier.on_subscription_past_due(db, outcome.target_id)
+        elif outcome.notify == "subscription_canceled":
+            await notifier.on_subscription_canceled(db, outcome.target_id)
     return Response(status_code=200)
 
 
