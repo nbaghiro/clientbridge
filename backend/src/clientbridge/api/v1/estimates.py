@@ -2,9 +2,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep
+from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, PushDep, SmsDep
 from clientbridge.schemas.billing import EstimateCreate, EstimateOut, EstimateUpdate, InvoiceOut
 from clientbridge.services.billing_service import BillingService
+from clientbridge.services.notification_service import Notifier
 
 router = APIRouter(prefix="/estimates", tags=["estimates"])
 
@@ -28,9 +29,16 @@ async def update_estimate(
 
 @router.post("/{estimate_id}/send", response_model=EstimateOut)
 async def send_estimate(
-    estimate_id: str, principal: CurrentPrincipal, db: DbSession, email_sender: EmailDep
+    estimate_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
 ) -> EstimateOut:
-    return await BillingService(db, principal).send_estimate(estimate_id, email_sender)
+    result = await BillingService(db, principal).send_estimate(estimate_id)
+    await Notifier(email, sms, push).on_estimate_sent(db, result.id)
+    return result
 
 
 @router.post("/{estimate_id}/accept", response_model=EstimateOut)

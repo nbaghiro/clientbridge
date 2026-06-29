@@ -11,7 +11,6 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.email import Email, EmailSender
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
@@ -93,12 +92,11 @@ class BillingService:
             self.db, self.principal, action="invoice.update", run=run, response_model=InvoiceOut
         )
 
-    async def send_invoice(self, invoice_id: str, email_sender: EmailSender) -> InvoiceOut:
+    async def send_invoice(self, invoice_id: str) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
         if invoice.status == "void":
             raise Conflict("a void invoice can't be sent")
-        client = await self._client(invoice.client_id)
 
         async def run(cmd: Command) -> InvoiceOut:
             now = datetime.now(UTC)
@@ -118,9 +116,6 @@ class BillingService:
                 )  # the unique (business_id, number) backstops a concurrent send
             except IntegrityError as exc:
                 raise Conflict("that number was just assigned — please retry") from exc
-            await self._email_doc(
-                email_sender, client, "Invoice", invoice.number, invoice.total_cents
-            )
             return self._invoice_out(invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
@@ -201,12 +196,11 @@ class BillingService:
             self.db, self.principal, action="estimate.update", run=run, response_model=EstimateOut
         )
 
-    async def send_estimate(self, estimate_id: str, email_sender: EmailSender) -> EstimateOut:
+    async def send_estimate(self, estimate_id: str) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
         if estimate.status in ("accepted", "declined", "expired"):
             raise Conflict(f"a {estimate.status} estimate can't be sent")
-        client = await self._client(estimate.client_id)
 
         async def run(cmd: Command) -> EstimateOut:
             if estimate.status == "draft":
@@ -221,9 +215,6 @@ class BillingService:
                 )  # the unique (business_id, number) backstops a concurrent send
             except IntegrityError as exc:
                 raise Conflict("that number was just assigned — please retry") from exc
-            await self._email_doc(
-                email_sender, client, "Estimate", estimate.number, estimate.total_cents
-            )
             return self._estimate_out(estimate, await self._lines("estimate", estimate.id))
 
         return await run_command(
@@ -467,27 +458,4 @@ class BillingService:
             item_id=ln.item_id,
             booking_id=ln.booking_id,
             position=ln.position,
-        )
-
-    async def _email_doc(
-        self,
-        email_sender: EmailSender,
-        client: Client,
-        kind: str,
-        number: int | None,
-        total_cents: int,
-    ) -> None:
-        if not client.email:
-            return
-        label = f"{kind} #{number}" if number is not None else kind
-        await email_sender.send(
-            Email(
-                to=client.email,
-                subject=label,
-                body=(
-                    f"Hi {client.name},\n\n"
-                    f"Your {label.lower()} for ${total_cents / 100:.2f} CAD is ready.\n\n"
-                    "Thank you."
-                ),
-            )
         )
