@@ -313,7 +313,7 @@ class Factory:
         biz = Business(
             id=new_id("business"),
             name=name,
-            slug=f"test-{new_id('business')[3:13].lower()}",
+            slug=f"test-{new_id('business')[-12:].lower()}",
             province=province,
             timezone="America/Vancouver",
         )
