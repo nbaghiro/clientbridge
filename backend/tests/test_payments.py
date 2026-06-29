@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select, update
@@ -9,6 +10,7 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
+from tests.conftest import Factory
 
 BIZ = "bz_birchbark"
 
@@ -248,3 +250,72 @@ async def test_same_key_partial_is_deduped(as_owner: httpx.AsyncClient, db: Asyn
     r1 = await as_owner.post(url, headers=headers)
     r2 = await as_owner.post(url, headers=headers)
     assert r1.json()["payment_id"] == r2.json()["payment_id"]  # one charge for a true retry
+
+
+async def _foreign_invoice(db: AsyncSession, factory: Factory) -> str:
+    other = await factory.business()
+    client = await factory.client(business=other)
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=other.id,
+        client_id=client.id,
+        number=9300,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=5000,
+        tax_total_cents=0,
+        total_cents=5000,
+        balance_cents=5000,
+    )
+    db.add(inv)
+    await db.flush()
+    return inv.id
+
+
+async def test_pay_foreign_invoice_404_by_scoping(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    # BIZ is onboarded (so this can't be the 409 path) — a real invoice in ANOTHER tenant 404s
+    # because the lookup is business-scoped, not because the id is absent.
+    await _enable_payments(db)
+    foreign_inv = await _foreign_invoice(db, factory)
+    res = await as_owner.post(f"/v1/payments/invoice/{foreign_inv}")
+    assert res.status_code == 404
+    # the foreign invoice is untouched — no payment was minted against it
+    minted = (
+        await db.execute(select(Payment.id).where(Payment.invoice_id == foreign_inv))
+    ).scalar_one_or_none()
+    assert minted is None
+
+
+async def test_refund_foreign_payment_404_by_scoping(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await _enable_payments(db)
+    other = await factory.business()
+    client = await factory.client(business=other)
+    foreign_pay = Payment(
+        id=new_id("payment"),
+        business_id=other.id,
+        client_id=client.id,
+        kind="payment",
+        amount_cents=5000,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref="pi_foreign",
+        status="succeeded",
+        net_cents=5000,
+        paid_at=datetime.now(UTC),
+    )
+    db.add(foreign_pay)
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/{foreign_pay.id}/refund")
+    assert res.status_code == 404  # scoped out, not refunded across the tenant boundary
+    # no refund row was created and the foreign payment is still a clean succeeded charge
+    refund = (
+        await db.execute(select(Payment.id).where(Payment.parent_payment_id == foreign_pay.id))
+    ).scalar_one_or_none()
+    assert refund is None
+    still = await db.get(Payment, foreign_pay.id)
+    assert still is not None and still.status == "succeeded"

@@ -233,3 +233,21 @@ async def test_update_after_checkout_409(as_owner: httpx.AsyncClient, db: AsyncS
     # editing the total after checkout started must not be allowed (it could double-charge)
     res = await as_owner.patch(f"/v1/orders/{order['id']}", json={"lines": [LATTE, MUFFIN]})
     assert res.status_code == 409
+
+
+async def test_checkout_same_key_mints_one_intent(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
+    headers = {"Idempotency-Key": "co-replay"}
+    first = await as_owner.post(f"/v1/orders/{order['id']}/checkout", headers=headers)
+    second = await as_owner.post(f"/v1/orders/{order['id']}/checkout", headers=headers)
+    assert first.status_code == 200 and second.status_code == 200, (first.text, second.text)
+    assert first.json()["payment_id"] == second.json()["payment_id"]
+    # state-level: the replay didn't mint a second charge — one Payment, one Stripe intent
+    payments = (
+        (await db.execute(select(Payment).where(Payment.order_id == order["id"]))).scalars().all()
+    )
+    assert len(payments) == 1
+    assert payments[0].provider_ref is not None

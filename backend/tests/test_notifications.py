@@ -12,7 +12,7 @@ from clientbridge.models.crm import Client, Consent
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
-from tests.conftest import FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -125,6 +125,55 @@ async def test_device_register_upserts(as_owner: httpx.AsyncClient, db: AsyncSes
     )
     assert len(rows) == 1
     assert rows[0].platform == "android"
+
+
+async def test_device_register_scopes_to_caller(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await as_owner.post("/v1/devices/register", json={"token": "ExpoTokC", "platform": "ios"})
+    row = (
+        await db.execute(select(DeviceToken).where(DeviceToken.token == "ExpoTokC"))
+    ).scalar_one()
+    assert row.business_id == BIZ and row.user_id == "us_dev"  # bound to the caller's biz + user
+
+
+async def test_push_target_is_business_scoped(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    factory: Factory,
+) -> None:
+    await _enable(db)
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    db.add(
+        DeviceToken(
+            id=new_id("device_token"),
+            business_id=BIZ,
+            user_id="us_dev",
+            token="BizTok",
+            platform="ios",
+        )
+    )
+    # a DIFFERENT business's device must never be a push target for this business's payment
+    other = await factory.business()
+    other_user = await factory.user()
+    db.add(
+        DeviceToken(
+            id=new_id("device_token"),
+            business_id=other.id,
+            user_id=other_user.id,
+            token="ForeignTok",
+            platform="ios",
+        )
+    )
+    await db.flush()
+    inv_id = await _sent_invoice(db, cid)
+    await _pay_and_settle(as_owner, db, inv_id, "evt_scope")
+
+    assert len(push.sent) == 1
+    assert push.sent[0].tokens == ["BizTok"]  # the foreign device is scoped out of the target set
 
 
 async def test_device_register_rejects_bad_platform(as_owner: httpx.AsyncClient) -> None:
