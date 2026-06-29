@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install dev-api dev-web dev-mobile migrate revision seed gen-api gen-sync-schema test lint typecheck format format-check check
+.PHONY: help up down logs-sync install web-install dev-api dev-web dev-mobile migrate revision seed gen-api gen-sync-schema test lint typecheck format format-check check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -43,6 +43,9 @@ web-install:
 
 dev-api:
 	cd backend && uv run uvicorn clientbridge.main:app --reload --port 8701
+
+worker:
+	cd backend && uv run arq clientbridge.tasks.worker.WorkerSettings
 
 dev-web:
 	cd frontend && pnpm --filter web dev --port 8700
