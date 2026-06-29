@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import get_interac_secret
-from clientbridge.core.errors import Unauthorized
+from clientbridge.core.errors import CardDeclined, PaymentActionRequired, Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import public_pay_rate_limit
 from clientbridge.core.security import hash_password, issue_access_token
@@ -121,6 +121,7 @@ class FakePaymentGateway:
         self.canceled_subscriptions: list[str] = []
         self._seq = 0
         self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
+        self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
 
     async def create_connected_account(self, *, business_name: str, email: str | None) -> str:
         self._seq += 1
@@ -206,6 +207,12 @@ class FakePaymentGateway:
         idempotency_key: str,
         payment_method: str | None = None,
     ) -> PaymentIntentResult:
+        if payment_method == "pm_card_declined":
+            raise CardDeclined("the card was declined")
+        if payment_method == "pm_requires_action":
+            raise PaymentActionRequired("this card requires authentication")
+        if payment_method is not None:
+            self.charged_methods.append(payment_method)
         if idempotency_key in self._intents:
             return self._intents[idempotency_key]
         self._seq += 1

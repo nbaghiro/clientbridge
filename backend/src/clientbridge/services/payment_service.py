@@ -118,6 +118,7 @@ class PaymentService:
                 fee_bps=fee_bps,
                 payment_method=pm_ref,
                 kind="deposit" if deposit else "payment",
+                idempotency_key=idempotency_key,
             )
             cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
             return PayIntentOut(
@@ -188,6 +189,21 @@ class PaymentService:
     async def _saved_method_ref(self, payment_method_id: str | None, client_id: str) -> str | None:
         if payment_method_id is None:
             return None
+        if payment_method_id == "default":
+            pm = (
+                await self.db.execute(
+                    scoped(PaymentMethod, self.biz)
+                    .where(
+                        PaymentMethod.client_id == client_id,
+                        PaymentMethod.is_default.is_(True),
+                        PaymentMethod.status == "active",
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if pm is None or pm.provider_ref is None:
+                raise NotFound("no default card on file")
+            return pm.provider_ref
         pm = (
             await self.db.execute(
                 scoped(PaymentMethod, self.biz).where(
@@ -296,6 +312,7 @@ class PaymentService:
                 kind="refund",
                 parent_payment_id=payment.id,
                 invoice_id=payment.invoice_id,
+                order_id=payment.order_id,
                 amount_cents=payment.amount_cents,
                 currency=payment.currency,
                 method=payment.method,
@@ -311,6 +328,8 @@ class PaymentService:
                 raise Conflict("this payment was already refunded") from exc
             if payment.invoice_id is not None:
                 await _reconcile_invoice(self.db, payment.invoice_id)
+            if payment.order_id is not None:
+                await _reconcile_order(self.db, payment.order_id)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
             return RefundOut(refund_id=refund.id, status=result.status)
 
@@ -434,6 +453,24 @@ async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
         raise Conflict("this invoice already has a payment in progress")
 
 
+async def _assert_order_room(db: AsyncSession, order: Order, amount: int) -> None:
+    """Reject a checkout when a payment is already pending on the order — so editing the total and
+    re-checking-out can't open a second intent. Locks the order row so concurrent checkouts see each
+    other's pending rows."""
+    await db.execute(select(Order.id).where(Order.id == order.id).with_for_update())
+    pending = (
+        await db.execute(
+            select(func.coalesce(func.sum(Payment.amount_cents), 0)).where(
+                Payment.order_id == order.id,
+                Payment.status == "pending",
+                Payment.kind.in_(("payment", "deposit")),
+            )
+        )
+    ).scalar_one()
+    if amount > order.balance_cents - int(pending):
+        raise Conflict("this order already has a checkout in progress")
+
+
 async def ensure_customer(
     db: AsyncSession, gateway: PaymentGateway, account_id: str, client: Client
 ) -> str:
@@ -470,6 +507,7 @@ async def open_card_payment(
     fee_bps: int,
     payment_method: str | None = None,
     kind: str = "payment",
+    idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
     """Create the direct-charge PaymentIntent (+ app fee, ensuring the client is a Customer) and a
     pending card Payment (kind "payment" or "deposit"). A saved `payment_method` charges off-session
@@ -487,8 +525,9 @@ async def open_card_payment(
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"invoice_id": invoice.id, "business_id": business_id},
-        # one intent per (invoice, amount, kind) — a retry returns the same intent, not a new charge
-        idempotency_key=f"{kind}_{invoice.id}_{amount}",
+        # key on the caller's Idempotency-Key so a true retry dedups but two distinct same-amount
+        # partials (distinct keys) each get their own intent
+        idempotency_key=f"{kind}_{invoice.id}_{idempotency_key or amount}",
         payment_method=payment_method,
     )
     existing = (
@@ -530,6 +569,7 @@ async def open_terminal_payment(
     order: Order,
     amount: int,
     fee_bps: int,
+    idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
     """Create a Terminal (card_present) PaymentIntent (+ app fee, no customer) and a pending card
     Payment linked to the order. The device confirms via the Terminal SDK; the webhook settles. The
@@ -540,14 +580,16 @@ async def open_terminal_payment(
         currency=order.currency,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"order_id": order.id, "business_id": business_id},
-        # one intent per (order, amount) — a retry returns the same intent, not a new charge
-        idempotency_key=f"order_{order.id}_{amount}",
+        # key on the caller's Idempotency-Key so a true retry dedups; a re-checkout after an edit
+        # (new amount/key) gets a fresh intent that _assert_order_room then rejects
+        idempotency_key=f"order_{order.id}_{idempotency_key or amount}",
     )
     existing = (
         await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
     ).scalar_one_or_none()
     if existing is not None:  # a retry hit the same intent — don't mint a second pending row
         return existing, intent.client_secret
+    await _assert_order_room(db, order, amount)
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -685,11 +727,18 @@ async def _reconcile_order(db: AsyncSession, order_id: str) -> None:
     paid = sum(
         p.amount_cents for p in rows if p.status == "succeeded" and p.kind in ("payment", "deposit")
     ) - sum(p.amount_cents for p in rows if p.status == "succeeded" and p.kind == "refund")
+    refunded = any(p.status == "succeeded" and p.kind == "refund" for p in rows)
     order.amount_paid_cents = paid
     order.balance_cents = order.total_cents - paid
     if paid > 0 and order.balance_cents <= 0:
         order.status = "paid"
         order.paid_at = datetime.now(UTC)
+    elif paid <= 0 and refunded:
+        order.status = "refunded"  # fully refunded
+        order.paid_at = None
+    else:
+        order.status = "open"
+        order.paid_at = None
     await db.flush()
 
 
@@ -848,8 +897,9 @@ _SUB_STATUS = {
 
 
 def map_subscription_status(stripe_status: str) -> str:
-    """Stripe's subscription status → our `subscriptions.status` enum (unknown → active)."""
-    return _SUB_STATUS.get(stripe_status, "active")
+    """Stripe's subscription status → our `subscriptions.status` enum (unknown → past_due, so a
+    lapsed/odd status never leaves a non-serving sub marked active)."""
+    return _SUB_STATUS.get(stripe_status, "past_due")
 
 
 async def _find_subscription(db: AsyncSession, provider_ref: str) -> Subscription | None:

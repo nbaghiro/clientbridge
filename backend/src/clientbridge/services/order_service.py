@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -10,6 +11,7 @@ from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.billing import Line, Order
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
+from clientbridge.models.payments import Payment
 from clientbridge.schemas.billing import LineOut
 from clientbridge.schemas.orders import (
     CheckoutOut,
@@ -59,6 +61,8 @@ class OrderService:
         order = await self._order(order_id)
         if order.status != "open":
             raise Conflict("only an open order can be edited")
+        if await self._has_active_payment(order_id):
+            raise Conflict("can't edit an order after checkout has started")
 
         async def run(cmd: Command) -> OrderOut:
             lines = (
@@ -115,6 +119,7 @@ class OrderService:
                 order=order,
                 amount=order.balance_cents,
                 fee_bps=get_settings().platform_fee_bps,
+                idempotency_key=idempotency_key,
             )
             cmd.record("order.checkout", entity_type="order", entity_id=order.id)
             return CheckoutOut(
@@ -155,6 +160,16 @@ class OrderService:
         if row is None:
             raise NotFound("order not found")
         return row
+
+    async def _has_active_payment(self, order_id: str) -> bool:
+        row = (
+            await self.db.execute(
+                select(Payment.id)
+                .where(Payment.order_id == order_id, Payment.status.notin_(("failed", "canceled")))
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        return row is not None
 
     async def _client(self, client_id: str) -> Client:
         row = (

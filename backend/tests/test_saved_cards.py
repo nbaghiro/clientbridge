@@ -353,3 +353,92 @@ async def test_staff_cannot_manage_cards(as_staff: httpx.AsyncClient, db: AsyncS
     await db.flush()
     assert (await as_staff.delete(f"/v1/payments/methods/{pm.id}")).status_code == 403
     assert (await as_staff.post(f"/v1/payments/methods/{pm.id}/default")).status_code == 403
+
+
+def _invoice_row(cid: str, *, number: int) -> Invoice:
+    return Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=cid,
+        number=number,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=4000,
+        tax_total_cents=0,
+        total_cents=4000,
+        balance_cents=4000,
+    )
+
+
+async def test_off_session_card_declined_402(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable(db)
+    cid = await _client_id(db)
+    await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_dec"))
+    pm = _saved_card(cid, ref="pm_card_declined")
+    inv = _invoice_row(cid, number=9800)
+    db.add_all([pm, inv])
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
+    assert res.status_code == 402
+    assert res.json()["error"] == "card_declined"
+    # the declined charge left no phantom pending payment
+    rows = (await db.execute(select(Payment).where(Payment.invoice_id == inv.id))).scalars().all()
+    assert rows == []
+
+
+async def test_off_session_requires_action_402(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    cid = await _client_id(db)
+    await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_act"))
+    pm = _saved_card(cid, ref="pm_requires_action")
+    inv = _invoice_row(cid, number=9801)
+    db.add_all([pm, inv])
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
+    assert res.status_code == 402
+    assert res.json()["error"] == "payment_action_required"
+
+
+async def _fresh_client(db: AsyncSession, *, customer: str) -> str:
+    """A client with no seeded saved cards, so default resolution is fully controlled."""
+    client = Client(
+        id=new_id("client"),
+        business_id=BIZ,
+        name="Default Tester",
+        tags=[],
+        custom_fields={},
+        stripe_customer_id=customer,
+    )
+    db.add(client)
+    await db.flush()
+    return client.id
+
+
+async def test_pay_with_default_card(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    cid = await _fresh_client(db, customer="cus_dflt")
+    default = _saved_card(cid, ref="pm_default", default=True)
+    other = _saved_card(cid, ref="pm_other_card", default=False)
+    inv = _invoice_row(cid, number=9802)
+    db.add_all([default, other, inv])
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=default")
+    assert res.status_code == 200, res.text
+    assert gateway.charged_methods == ["pm_default"]  # the is_default card was charged off-session
+
+
+async def test_pay_with_default_no_default_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    cid = await _fresh_client(db, customer="cus_nodflt")
+    pm = _saved_card(cid, ref="pm_nondefault", default=False)
+    inv = _invoice_row(cid, number=9803)
+    db.add_all([pm, inv])
+    await db.flush()
+    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=default")
+    assert res.status_code == 404
