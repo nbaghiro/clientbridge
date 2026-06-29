@@ -666,6 +666,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/pad-setup-intent/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Setup Pad */
+        post: operations["setup_pad_v1_payments_pad_setup_intent__client_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/methods/{payment_method_id}": {
         parameters: {
             query?: never;
@@ -847,6 +864,40 @@ export interface paths {
         put?: never;
         /** Consume Session */
         post: operations["consume_session_v1_packages__package_id__consume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Subscription */
+        post: operations["create_subscription_v1_subscriptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/subscriptions/{subscription_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Subscription */
+        post: operations["cancel_subscription_v1_subscriptions__subscription_id__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1675,6 +1726,30 @@ export interface components {
             client_secret: string;
             /** Stripe Account Id */
             stripe_account_id: string;
+        };
+        /** SubscriptionCreate */
+        SubscriptionCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Payment Method Id */
+            payment_method_id: string;
+        };
+        /** SubscriptionOut */
+        SubscriptionOut: {
+            /** Id */
+            id: string;
+            /** Client Id */
+            client_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Status */
+            status: string;
+            /** Current Period Start */
+            current_period_start: string | null;
+            /** Current Period End */
+            current_period_end: string | null;
         };
         /** TaxRateOut */
         TaxRateOut: {
@@ -3233,6 +3308,41 @@ export interface operations {
             };
         };
     };
+    setup_pad_v1_payments_pad_setup_intent__client_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupIntentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     detach_card_v1_payments_methods__payment_method_id__delete: {
         parameters: {
             query?: never;
@@ -3608,6 +3718,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PackageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_subscription_v1_subscriptions_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_subscription_v1_subscriptions__subscription_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
                 };
             };
             /** @description Validation Error */

@@ -13,6 +13,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
 from clientbridge.models.billing import Invoice, Line
+from clientbridge.models.catalog import Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment, PaymentMethod, Payout, PayoutAllocation
@@ -153,6 +154,32 @@ class PaymentService:
             self.db,
             self.principal,
             action="payment.setup_intent",
+            run=run,
+            response_model=SetupIntentOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def start_pad_setup(
+        self, client_id: str, idempotency_key: str | None = None
+    ) -> SetupIntentOut:
+        """A SetupIntent to save a client's ACSS pre-authorized-debit mandate (no charge now)."""
+        self._assert_admin()
+        business = await self._business()
+        if business.stripe_account_id is None:
+            raise Conflict("connect your Stripe account before saving bank accounts")
+        account_id = business.stripe_account_id
+        client = await self._client(client_id)
+
+        async def run(cmd: Command) -> SetupIntentOut:
+            customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
+            intent = await self.gateway.create_pad_setup_intent(account_id, customer_id=customer_id)
+            cmd.record("payment.pad_setup_intent", entity_type="client", entity_id=client.id)
+            return SetupIntentOut(client_secret=intent.client_secret, stripe_account_id=account_id)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment.pad_setup_intent",
             run=run,
             response_model=SetupIntentOut,
             idempotency_key=idempotency_key,
@@ -570,6 +597,14 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> str | None:
         await _record_payout(db, event.account, event.data)
     elif event.type == "payment_method.attached":
         await _record_payment_method(db, event.account, event.data)
+    elif event.type == "customer.subscription.updated":
+        await _update_subscription(db, event.data)
+    elif event.type == "customer.subscription.deleted":
+        await _cancel_subscription(db, event.data)
+    elif event.type == "invoice.payment_succeeded":
+        return await _record_recurring_payment(db, event.data)
+    elif event.type == "invoice.payment_failed":
+        await _subscription_past_due(db, event.data)
     return None
 
 
@@ -707,24 +742,144 @@ async def _record_payment_method(
             .limit(1)
         )
     ).scalar_one_or_none()
-    card = data.get("card")
-    brand = card.get("brand") if isinstance(card, dict) else None
-    last4 = card.get("last4") if isinstance(card, dict) else None
+    pm_type = data.get("type")
+    if pm_type in ("acss_debit", "us_bank_account"):  # a PAD / bank mandate, not a card
+        kind, mandate = "bank_eft", "active"
+        detail = data.get(pm_type)
+    else:
+        kind, mandate = "card", "none"
+        detail = data.get("card")
+    detail = detail if isinstance(detail, dict) else {}
+    brand = detail.get("bank_name") if kind == "bank_eft" else detail.get("brand")
+    last4 = detail.get("last4")
     db.add(
         PaymentMethod(
             id=new_id("payment_method"),
             business_id=biz,
             client_id=client.id,
-            type="card",
+            type=kind,
             brand=brand if isinstance(brand, str) else None,
             last4=last4 if isinstance(last4, str) else None,
             provider="stripe",
             provider_ref=pm_id,
-            is_default=has_card is None,  # first card on file becomes the default
+            is_default=has_card is None,  # first method on file becomes the default
+            mandate_status=mandate,
             status="active",
         )
     )
     await db.flush()
+
+
+_SUB_STATUS = {
+    "active": "active",
+    "trialing": "active",
+    "past_due": "past_due",
+    "unpaid": "past_due",
+    "paused": "paused",
+    "canceled": "canceled",
+}
+
+
+def map_subscription_status(stripe_status: str) -> str:
+    """Stripe's subscription status → our `subscriptions.status` enum (unknown → active)."""
+    return _SUB_STATUS.get(stripe_status, "active")
+
+
+async def _find_subscription(db: AsyncSession, provider_ref: str) -> Subscription | None:
+    # provider_ref (the Stripe subscription id) is globally unique → no tenant scope needed.
+    return (
+        await db.execute(select(Subscription).where(Subscription.provider_ref == provider_ref))
+    ).scalar_one_or_none()
+
+
+def _period(data: dict[str, object], key: str) -> datetime | None:
+    ts = data.get(key)
+    return datetime.fromtimestamp(ts, tz=UTC) if isinstance(ts, int) else None
+
+
+async def _update_subscription(db: AsyncSession, data: dict[str, object]) -> None:
+    sub_id = data.get("id")
+    if not isinstance(sub_id, str):
+        return
+    sub = await _find_subscription(db, sub_id)
+    if sub is None:
+        return
+    status = data.get("status")
+    if isinstance(status, str):
+        sub.status = map_subscription_status(status)
+    start = _period(data, "current_period_start")
+    end = _period(data, "current_period_end")
+    if start is not None:
+        sub.current_period_start = start
+    if end is not None:
+        sub.current_period_end = end
+    await db.flush()
+
+
+async def _cancel_subscription(db: AsyncSession, data: dict[str, object]) -> None:
+    sub_id = data.get("id")
+    if not isinstance(sub_id, str):
+        return
+    sub = await _find_subscription(db, sub_id)
+    if sub is not None:
+        sub.status = "canceled"
+        await db.flush()
+
+
+async def _subscription_past_due(db: AsyncSession, data: dict[str, object]) -> None:
+    sub_id = data.get("subscription")
+    if not isinstance(sub_id, str):
+        return
+    sub = await _find_subscription(db, sub_id)
+    if sub is not None:
+        sub.status = "past_due"
+        await db.flush()
+
+
+async def _recurring_method(db: AsyncSession, sub: Subscription) -> str:
+    if sub.payment_method_id is None:
+        return "card"
+    pm = await db.get(PaymentMethod, sub.payment_method_id)
+    if pm is None:
+        return "card"
+    return {"card": "card", "bank_eft": "eft", "interac": "interac"}.get(pm.type, "card")
+
+
+async def _record_recurring_payment(db: AsyncSession, data: dict[str, object]) -> str | None:
+    """Record a subscription's recurring invoice charge as a succeeded Payment (deduped on the
+    Stripe charge/intent id). Returns the new payment id for the post-commit receipt, else None."""
+    sub_id = data.get("subscription")
+    if not isinstance(sub_id, str):
+        return None
+    sub = await _find_subscription(db, sub_id)
+    if sub is None:
+        return None
+    ref = data.get("payment_intent") or data.get("charge")
+    if not isinstance(ref, str):
+        return None
+    seen = (
+        await db.execute(select(Payment.id).where(Payment.provider_ref == ref))
+    ).scalar_one_or_none()
+    if seen is not None:  # already recorded — a re-delivery of the same charge
+        return None
+    amount = data.get("amount_paid")
+    currency = data.get("currency")
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=sub.business_id,
+        client_id=sub.client_id,
+        kind="payment",
+        amount_cents=amount if isinstance(amount, int) else 0,
+        currency=currency.upper() if isinstance(currency, str) else "CAD",
+        method=await _recurring_method(db, sub),
+        provider="stripe",
+        provider_ref=ref,
+        status="succeeded",
+        paid_at=datetime.now(UTC),
+    )
+    db.add(payment)
+    await db.flush()
+    return payment.id
 
 
 async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:

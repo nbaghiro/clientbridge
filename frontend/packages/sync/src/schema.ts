@@ -163,6 +163,7 @@ const items = new Table(
         session_count: column.integer,
         validity_days: column.integer,
         pack: column.text,
+        stripe_price_id: column.text,
         active: column.integer,
         custom_fields: column.text,
         business_id: column.text,
@@ -436,9 +437,11 @@ const bookings = new Table(
         source: column.text,
         price_cents: column.integer,
         deposit_required: column.integer,
+        deposit_amount_cents: column.integer,
         confirmed_at: column.text,
         completed_at: column.text,
         canceled_at: column.text,
+        reminded_at: column.text,
         custom_fields: column.text,
         business_id: column.text,
         created_at: column.text,
@@ -657,6 +660,7 @@ const payment_methods = new Table(
         indexes: {
             payment_methods_business_id: ["business_id"],
             payment_methods_client: ["business_id", "client_id"],
+            payment_methods_provider: ["business_id", "provider_ref"],
         },
     },
 );

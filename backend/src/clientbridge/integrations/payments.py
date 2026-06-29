@@ -6,6 +6,7 @@ onboarding / charge / webhook logic is covered without the network. Connected ac
 """
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Protocol
 
 import stripe
@@ -46,6 +47,14 @@ class RefundResult:
     status: str
 
 
+@dataclass(frozen=True)
+class SubscriptionResult:
+    id: str
+    status: str
+    current_period_start: datetime
+    current_period_end: datetime
+
+
 class WebhookVerificationError(Exception):
     """A webhook payload's signature could not be verified."""
 
@@ -64,6 +73,29 @@ class PaymentGateway(Protocol):
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         """Save a card for later off-session use, without charging now."""
         ...
+
+    async def create_pad_setup_intent(
+        self, account_id: str, *, customer_id: str
+    ) -> SetupIntentResult:
+        """Save a Canadian pre-authorized debit (ACSS) mandate for later off-session pulls."""
+        ...
+
+    async def create_price(
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        interval_count: int,
+        frequency: str,
+    ) -> str:
+        """A recurring Price for a subscription item; returns the price id."""
+        ...
+
+    async def create_subscription(
+        self, account_id: str, *, customer_id: str, price_id: str, payment_method_id: str
+    ) -> SubscriptionResult: ...
+    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None: ...
 
     async def create_payment_intent(
         self,
@@ -142,6 +174,67 @@ class StripeGateway:
             customer=customer_id, usage="off_session", stripe_account=account_id
         )
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
+
+    async def create_pad_setup_intent(  # pragma: no cover
+        self, account_id: str, *, customer_id: str
+    ) -> SetupIntentResult:
+        intent = await stripe.SetupIntent.create_async(
+            customer=customer_id,
+            usage="off_session",
+            payment_method_types=["acss_debit"],
+            payment_method_options={
+                "acss_debit": {
+                    "currency": "cad",
+                    "mandate_options": {
+                        "payment_schedule": "interval",
+                        "transaction_type": "personal",
+                    },
+                }
+            },
+            stripe_account=account_id,
+        )
+        return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
+
+    async def create_price(  # pragma: no cover
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        interval_count: int,
+        frequency: str,
+    ) -> str:
+        price = await stripe.Price.create_async(
+            unit_amount=amount_cents,
+            currency=currency.lower(),
+            recurring={"interval": frequency, "interval_count": interval_count},  # type: ignore[typeddict-item]
+            product_data={"name": "Subscription"},
+            stripe_account=account_id,
+        )
+        return str(price.id)
+
+    async def create_subscription(  # pragma: no cover
+        self, account_id: str, *, customer_id: str, price_id: str, payment_method_id: str
+    ) -> SubscriptionResult:
+        sub = await stripe.Subscription.create_async(
+            customer=customer_id,
+            items=[{"price": price_id}],
+            default_payment_method=payment_method_id,
+            stripe_account=account_id,
+        )
+        return SubscriptionResult(
+            id=str(sub.id),
+            status=str(sub.status),
+            # top-level period fields aren't in the stub (newer API versions moved them); the
+            # dict accessor reads them off the live object.
+            current_period_start=datetime.fromtimestamp(int(sub["current_period_start"]), tz=UTC),
+            current_period_end=datetime.fromtimestamp(int(sub["current_period_end"]), tz=UTC),
+        )
+
+    async def cancel_subscription(  # pragma: no cover
+        self, account_id: str, *, subscription_id: str
+    ) -> None:
+        await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
 
     async def create_payment_intent(  # pragma: no cover
         self,

@@ -49,6 +49,7 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     session_count: Mapped[int | None] = mapped_column(Integer)
     validity_days: Mapped[int | None] = mapped_column(Integer)
     pack: Mapped[str | None] = mapped_column(String)
+    stripe_price_id: Mapped[str | None] = mapped_column(String)  # cached recurring Price
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
