@@ -3,13 +3,13 @@ import io
 from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import case, func, select
+from sqlalchemy import Subquery, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment, PayoutAllocation
 from clientbridge.schemas.reports import GstHstReport, IncomeReport, T4ARow
@@ -19,11 +19,13 @@ _PAYABLE = ("approved", "paid")
 _UNNAMED_PAYEE = "Unnamed payee"
 
 
-def _bounds(start: date, end: date) -> tuple[datetime, datetime]:
-    """Inclusive `[start, end]` day bounds as UTC instants (start at 00:00, end at 23:59:59)."""
+def _bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
+    """Inclusive `[start, end]` day window in the business tz (00:00 to 23:59:59), as UTC instants
+    for the `paid_at` comparison — a late-evening payment near a quarter edge must file in the
+    business's local period, not UTC's."""
     return (
-        datetime.combine(start, time.min, tzinfo=UTC),
-        datetime.combine(end, time.max, tzinfo=UTC),
+        datetime.combine(start, time.min, tzinfo=tz).astimezone(UTC),
+        datetime.combine(end, time.max, tzinfo=tz).astimezone(UTC),
     )
 
 
@@ -34,8 +36,14 @@ class ReportService:
         self.db = db
         self.biz = principal.business_id
 
+    async def _business(self) -> Business:
+        business = await self.db.get(Business, self.biz)
+        if business is None:
+            raise NotFound("business not found")
+        return business
+
     async def income_summary(self, start: date, end: date) -> IncomeReport:
-        lo, hi = _bounds(start, end)
+        lo, hi = _bounds(start, end, ZoneInfo((await self._business()).timezone))
         sub = (
             scoped(Payment, self.biz)
             .where(Payment.status == "succeeded", Payment.paid_at >= lo, Payment.paid_at <= hi)
@@ -66,15 +74,28 @@ class ReportService:
         )
 
     async def gst_hst_return(self, start: date, end: date) -> GstHstReport:
-        business = await self.db.get(Business, self.biz)
-        if business is None:
-            raise NotFound("business not found")
-        lo, hi = _bounds(start, end)
-        sub = (
+        business = await self._business()
+        lo, hi = _bounds(start, end, ZoneInfo(business.timezone))
+        invoices = (
             scoped(Invoice, self.biz)
             .where(Invoice.status == "paid", Invoice.paid_at >= lo, Invoice.paid_at <= hi)
             .subquery()
         )
+        orders = (
+            scoped(Order, self.biz)
+            .where(Order.status == "paid", Order.paid_at >= lo, Order.paid_at <= hi)
+            .subquery()
+        )
+        inv_tax, inv_sales = await self._tax_totals(invoices)
+        ord_tax, ord_sales = await self._tax_totals(orders)
+        return GstHstReport(
+            tax_collected_cents=inv_tax + ord_tax,
+            taxable_sales_cents=inv_sales + ord_sales,
+            gst_hst_number=business.gst_hst_number,
+        )
+
+    async def _tax_totals(self, sub: Subquery) -> tuple[int, int]:
+        """Σ tax and Σ pre-tax sales (total minus tax) over a paid invoice/order subquery."""
         row = (
             await self.db.execute(
                 select(
@@ -83,16 +104,10 @@ class ReportService:
                 )
             )
         ).one()
-        return GstHstReport(
-            tax_collected_cents=int(row[0]),
-            taxable_sales_cents=int(row[1]),
-            gst_hst_number=business.gst_hst_number,
-        )
+        return int(row[0]), int(row[1])
 
     async def t4a_summary(self, year: int) -> list[T4ARow]:
-        business = await self.db.get(Business, self.biz)
-        if business is None:
-            raise NotFound("business not found")
+        business = await self._business()
         tz = ZoneInfo(business.timezone)
         start = datetime(year, 1, 1, tzinfo=tz)
         end = datetime(year + 1, 1, 1, tzinfo=tz)
