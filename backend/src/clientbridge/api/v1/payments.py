@@ -74,6 +74,17 @@ async def setup_card(
     return await PaymentService(db, principal, gateway).start_card_setup(client_id, idempotency_key)
 
 
+@pay_router.post("/pad-setup-intent/{client_id}", response_model=SetupIntentOut)
+async def setup_pad(
+    client_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> SetupIntentOut:
+    return await PaymentService(db, principal, gateway).start_pad_setup(client_id, idempotency_key)
+
+
 @pay_router.delete("/methods/{payment_method_id}", response_model=DetachResult)
 async def detach_card(
     payment_method_id: str,

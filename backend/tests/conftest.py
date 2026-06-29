@@ -7,6 +7,7 @@ baseline and every write vanishes — repeatable, no residue.
 
 import json
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -27,6 +28,7 @@ from clientbridge.integrations.payments import (
     PaymentIntentResult,
     RefundResult,
     SetupIntentResult,
+    SubscriptionResult,
     WebhookVerificationError,
     get_payment_gateway,
 )
@@ -114,6 +116,9 @@ class FakePaymentGateway:
     def __init__(self) -> None:
         self.created_accounts: list[str] = []
         self.detached: list[str] = []
+        self.created_prices: list[str] = []
+        self.created_subscriptions: list[str] = []
+        self.canceled_subscriptions: list[str] = []
         self._seq = 0
         self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
 
@@ -151,6 +156,43 @@ class FakePaymentGateway:
         self._seq += 1
         sid = f"seti_fake{self._seq}"
         return SetupIntentResult(id=sid, client_secret=f"{sid}_secret")
+
+    async def create_pad_setup_intent(
+        self, account_id: str, *, customer_id: str
+    ) -> SetupIntentResult:
+        self._seq += 1
+        sid = f"seti_pad_fake{self._seq}"
+        return SetupIntentResult(id=sid, client_secret=f"{sid}_secret")
+
+    async def create_price(
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        interval_count: int,
+        frequency: str,
+    ) -> str:
+        self._seq += 1
+        pid = f"price_fake{self._seq}"
+        self.created_prices.append(pid)
+        return pid
+
+    async def create_subscription(
+        self, account_id: str, *, customer_id: str, price_id: str, payment_method_id: str
+    ) -> SubscriptionResult:
+        self._seq += 1
+        sid = f"sub_fake{self._seq}"
+        self.created_subscriptions.append(sid)
+        return SubscriptionResult(
+            id=sid,
+            status="active",
+            current_period_start=datetime(2030, 1, 1, tzinfo=UTC),
+            current_period_end=datetime(2030, 2, 1, tzinfo=UTC),
+        )
+
+    async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
+        self.canceled_subscriptions.append(subscription_id)
 
     async def create_payment_intent(
         self,
