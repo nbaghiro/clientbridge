@@ -1176,6 +1176,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Message */
+        post: operations["send_message_v1_messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/broadcasts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Broadcast */
+        post: operations["send_broadcast_v1_broadcasts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/threads/{thread_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Thread Read */
+        post: operations["mark_thread_read_v1_threads__thread_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1246,6 +1297,31 @@ export interface components {
             starts_at?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
+        };
+        /** BroadcastOut */
+        BroadcastOut: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Channel */
+            channel: string;
+            /** Status */
+            status: string;
+            /** Recipient Count */
+            recipient_count: number;
+        };
+        /** BroadcastSend */
+        BroadcastSend: {
+            /** Name */
+            name: string;
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "sms" | "email";
+            /** Body */
+            body: string;
         };
         /** BusinessOut */
         BusinessOut: {
@@ -1777,6 +1853,33 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** MessageOut */
+        MessageOut: {
+            /** Id */
+            id: string;
+            /** Thread Id */
+            thread_id: string;
+            /** Direction */
+            direction: string;
+            /** Channel */
+            channel: string;
+            /** Body */
+            body: string | null;
+            /** Status */
+            status: string;
+        };
+        /** MessageSend */
+        MessageSend: {
+            /** Client Id */
+            client_id: string;
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "sms" | "email";
+            /** Body */
+            body: string;
+        };
         /** OAuthGoogleBody */
         OAuthGoogleBody: {
             /** Id Token */
@@ -2036,6 +2139,15 @@ export interface components {
             rate_bps: number;
             /** Name */
             name: string;
+        };
+        /** ThreadOut */
+        ThreadOut: {
+            /** Id */
+            id: string;
+            /** Unread Count */
+            unread_count: number;
+            /** Status */
+            status: string;
         };
         /** TokenPair */
         TokenPair: {
@@ -4617,6 +4729,114 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_message_v1_messages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageSend"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_broadcast_v1_broadcasts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BroadcastSend"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BroadcastOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_thread_read_v1_threads__thread_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                thread_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadOut"];
                 };
             };
             /** @description Validation Error */
