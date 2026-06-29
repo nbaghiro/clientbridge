@@ -11,6 +11,7 @@ from clientbridge.api.v1 import (
     estimates,
     gift_cards,
     invoices,
+    messaging,
     onboarding,
     orders,
     packages,
@@ -43,3 +44,4 @@ api_router.include_router(staff.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(devices.router)
 api_router.include_router(reports.router)
+api_router.include_router(messaging.router)
