@@ -11,4 +11,6 @@ export type RootStackParamList = {
     Scheduling: undefined;
     Booking: undefined;
     Invoices: undefined;
+    POS: undefined;
+    Reports: undefined;
 };

@@ -81,6 +81,14 @@ export function IconSettings({ size, color }: IconProps) {
         </NavIcon>
     );
 }
+export function IconPos({ size, color }: IconProps) {
+    return (
+        <NavIcon size={size} color={color}>
+            <Rect x="2" y="5" width="20" height="14" rx="2" />
+            <Path d="M2 10h20M6 15h4" />
+        </NavIcon>
+    );
+}
 export function IconChevron({ size, color }: IconProps) {
     return (
         <NavIcon size={size} color={color}>

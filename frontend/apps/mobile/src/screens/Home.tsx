@@ -102,6 +102,28 @@ export function HomeScreen() {
                     <Text style={styles.linkLabel}>Invoices</Text>
                     <IconChevron size={18} color={theme.colors.muted} />
                 </Pressable>
+
+                <Pressable
+                    style={styles.linkCard}
+                    onPress={() => {
+                        nav.navigate("POS");
+                    }}
+                >
+                    <Text style={styles.linkLabel}>Point of sale</Text>
+                    <IconChevron size={18} color={theme.colors.muted} />
+                </Pressable>
+
+                {canManagePayments(role) ? (
+                    <Pressable
+                        style={styles.linkCard}
+                        onPress={() => {
+                            nav.navigate("Reports");
+                        }}
+                    >
+                        <Text style={styles.linkLabel}>Reports</Text>
+                        <IconChevron size={18} color={theme.colors.muted} />
+                    </Pressable>
+                ) : null}
             </ScrollView>
 
             <DebugOverlay

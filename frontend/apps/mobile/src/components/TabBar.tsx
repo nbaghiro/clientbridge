@@ -5,7 +5,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BookingForm } from "./BookingForm";
-import { IconCalendar, IconClients, IconInbox, IconPlus, IconToday } from "./icons";
+import { IconCalendar, IconClients, IconInbox, IconPlus, IconPos, IconToday } from "./icons";
 
 function tabIcon(name: string, color: string): ReactElement {
     if (name === "Calendar") return <IconCalendar size={23} color={color} />;
@@ -101,6 +101,15 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                         >
                             <IconInbox size={20} color={theme.colors.accent} />
                             <Text style={styles.menuText}>Invoices</Text>
+                        </Pressable>
+                        <Pressable
+                            style={styles.menuRow}
+                            onPress={() => {
+                                go("POS");
+                            }}
+                        >
+                            <IconPos size={20} color={theme.colors.accent} />
+                            <Text style={styles.menuText}>New sale</Text>
                         </Pressable>
                     </View>
                 </Pressable>

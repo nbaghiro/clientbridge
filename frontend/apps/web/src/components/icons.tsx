@@ -66,6 +66,18 @@ export const IconSearch = ({ className }: { className?: string }) => (
         <path d="m21 21-4.3-4.3" />
     </Icon>
 );
+export const IconPos = ({ className }: { className?: string }) => (
+    <Icon className={className}>
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="M2 10h20M6 15h4" />
+    </Icon>
+);
+export const IconReports = ({ className }: { className?: string }) => (
+    <Icon className={className}>
+        <path d="M3 3v18h18" />
+        <path d="M7 14v3M12 9v8M17 5v12" />
+    </Icon>
+);
 export const IconLogout = ({ className }: { className?: string }) => (
     <Icon className={className}>
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
