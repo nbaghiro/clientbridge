@@ -24,7 +24,14 @@ export const KIND_LABEL: Record<string, string> = {
     gift: "Gift card",
 };
 
-export const ITEM_KINDS = ["service", "product", "class"] as const;
+export const ITEM_KINDS = [
+    "service",
+    "product",
+    "class",
+    "package",
+    "subscription",
+    "gift",
+] as const;
 
 const ITEMS_SQL =
     "SELECT id, kind, name, category, price_cents, duration_min, active FROM items ORDER BY active DESC, name COLLATE NOCASE";

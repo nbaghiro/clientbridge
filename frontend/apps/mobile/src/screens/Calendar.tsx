@@ -14,10 +14,10 @@ import {
     minutesSinceMidnight,
     rescheduleByDrag,
     sameDay,
-    setBookingStatus,
     startOfDay,
     statusIntent,
     useCalendarEvents,
+    useCancelBooking,
     weekColumns,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
@@ -334,20 +334,7 @@ function DraggableEvent({
 }
 
 function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
-    const [busy, setBusy] = useState(false);
-    const cancel = async (): Promise<void> => {
-        if (event.bookingId === null) {
-            onClose();
-            return;
-        }
-        setBusy(true);
-        try {
-            await setBookingStatus(api, event.bookingId, "canceled");
-            onClose();
-        } catch {
-            setBusy(false);
-        }
-    };
+    const { busy, error, cancel } = useCancelBooking(api, event, onClose);
     const sc = statusColors(event.status);
     return (
         <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -367,11 +354,10 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
                     <Text style={styles.detailTime}>
                         {formatTime(event.start)} – {formatTime(event.end)}
                     </Text>
+                    {error !== null ? <Text style={styles.detailError}>{error}</Text> : null}
                     {event.bookingId !== null && event.status !== "canceled" ? (
                         <Pressable
-                            onPress={() => {
-                                void cancel();
-                            }}
+                            onPress={cancel}
                             disabled={busy}
                             style={[styles.cancelBooking, busy && styles.dim]}
                         >
@@ -470,6 +456,7 @@ const styles = StyleSheet.create({
     detailTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
     detailSub: { color: c.muted, fontSize: 14, marginTop: 2 },
     detailTime: { color: c.ink, fontSize: 14, marginTop: 10 },
+    detailError: { color: c.danFg, fontSize: 13, marginTop: 10 },
     badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
     badgeText: { fontSize: 12, fontWeight: "600" },
     cancelBooking: {

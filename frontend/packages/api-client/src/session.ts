@@ -23,6 +23,7 @@ export interface Session {
     get<T>(path: string): Promise<T>;
     post<T>(path: string, body: unknown): Promise<T>;
     patch<T>(path: string, body: unknown): Promise<T>;
+    delete<T>(path: string): Promise<T>;
     /** Authenticated fetch with the same refresh-on-401 behavior — used by the PowerSync connector. */
     authFetch: (path: string, init?: RequestInit) => Promise<Response>;
 }
@@ -100,5 +101,7 @@ export function createSession(opts: SessionOptions): Session {
             json<T>(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }),
         patch: <T>(path: string, body: unknown): Promise<T> =>
             json<T>(path, { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(body) }),
+        delete: <T>(path: string): Promise<T> =>
+            json<T>(path, { method: "DELETE", headers: JSON_HEADERS }),
     };
 }

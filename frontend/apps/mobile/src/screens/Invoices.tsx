@@ -3,6 +3,7 @@ import {
     type EstimateRow,
     type InvoiceRow,
     type PaymentRow,
+    canManagePayments,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
@@ -18,6 +19,9 @@ import {
     paymentStatusIntent,
     refundPayment,
     useAsyncAction,
+    useClients,
+    useCurrentRole,
+    useDocForm,
     useEstimates,
     useInvoicePayments,
     useInvoices,
@@ -25,7 +29,7 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -41,9 +45,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { IconSearch } from "../components/icons";
+import { IconPlus, IconSearch } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
+import { getTokens } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
@@ -61,6 +66,7 @@ export function InvoicesScreen() {
     const invoices = useInvoices();
     const estimates = useEstimates();
     const [tab, setTab] = useState<Tab>("invoices");
+    const [creating, setCreating] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
     const { q, setQ, filtered } = useSearch<InvoiceRow | EstimateRow>(
         tab === "invoices" ? invoices : estimates,
@@ -74,10 +80,21 @@ export function InvoicesScreen() {
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <View style={styles.header}>
-                <Text style={styles.title}>Billing</Text>
-                <Text style={styles.count}>
-                    {invoices.length} invoices · {estimates.length} estimates
-                </Text>
+                <View>
+                    <Text style={styles.title}>Billing</Text>
+                    <Text style={styles.count}>
+                        {invoices.length} invoices · {estimates.length} estimates
+                    </Text>
+                </View>
+                <Pressable
+                    style={styles.add}
+                    onPress={() => {
+                        setCreating(true);
+                    }}
+                >
+                    <IconPlus size={16} color={c.accentInk} />
+                    <Text style={styles.addText}>New</Text>
+                </Pressable>
             </View>
 
             <View style={styles.tabs}>
@@ -152,7 +169,149 @@ export function InvoicesScreen() {
                     setOpenId(null);
                 }}
             />
+
+            {creating ? (
+                <NewDocSheet
+                    kind={tab}
+                    onClose={() => {
+                        setCreating(false);
+                    }}
+                />
+            ) : null}
         </SafeAreaView>
+    );
+}
+
+function NewDocSheet({ kind, onClose }: { kind: Tab; onClose: () => void }) {
+    const clients = useClients();
+    const form = useDocForm(api, kind === "invoices" ? "invoice" : "estimate", onClose);
+
+    return (
+        <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+            <Pressable style={styles.backdrop} onPress={onClose}>
+                <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+                    <Text style={styles.sheetTitle}>
+                        New {kind === "invoices" ? "invoice" : "estimate"}
+                    </Text>
+                    <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
+                        <Text style={styles.sectionLabel}>Client</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.chipRow}
+                        >
+                            {clients.map((cl) => (
+                                <Pressable
+                                    key={cl.id}
+                                    onPress={() => {
+                                        form.setClientId(cl.id);
+                                    }}
+                                    style={[styles.chip, form.clientId === cl.id && styles.chipOn]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.chipText,
+                                            form.clientId === cl.id && styles.chipTextOn,
+                                        ]}
+                                    >
+                                        {cl.name}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </ScrollView>
+
+                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>Lines</Text>
+                        {form.lines.map((l) => (
+                            <View key={l.key} style={styles.lineEdit}>
+                                <TextInput
+                                    style={[styles.lineInput, styles.lineDescInput]}
+                                    value={l.description}
+                                    onChangeText={(v) => {
+                                        form.setLine(l.key, { description: v });
+                                    }}
+                                    placeholder="Service or item"
+                                    placeholderTextColor={c.muted}
+                                />
+                                <TextInput
+                                    style={[styles.lineInput, styles.lineQtyInput]}
+                                    value={l.quantity}
+                                    onChangeText={(v) => {
+                                        form.setLine(l.key, { quantity: v });
+                                    }}
+                                    keyboardType="decimal-pad"
+                                    placeholder="Qty"
+                                    placeholderTextColor={c.muted}
+                                />
+                                <TextInput
+                                    style={[styles.lineInput, styles.linePriceInput]}
+                                    value={l.unit}
+                                    onChangeText={(v) => {
+                                        form.setLine(l.key, { unit: v });
+                                    }}
+                                    keyboardType="decimal-pad"
+                                    placeholder="0.00"
+                                    placeholderTextColor={c.muted}
+                                />
+                                <Pressable
+                                    onPress={() => {
+                                        form.removeLine(l.key);
+                                    }}
+                                    style={styles.lineRemove}
+                                    hitSlop={8}
+                                >
+                                    <Text style={styles.lineRemoveText}>×</Text>
+                                </Pressable>
+                            </View>
+                        ))}
+                        <Pressable
+                            onPress={() => {
+                                form.addLine();
+                            }}
+                        >
+                            <Text style={styles.addLine}>+ Add line</Text>
+                        </Pressable>
+
+                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>Notes</Text>
+                        <TextInput
+                            style={styles.notesInput}
+                            value={form.notes}
+                            onChangeText={form.setNotes}
+                            multiline
+                            placeholder="Optional"
+                            placeholderTextColor={c.muted}
+                        />
+                    </ScrollView>
+                    {form.error !== null ? (
+                        <Text style={styles.errorText}>{form.error}</Text>
+                    ) : null}
+                    <View style={styles.createFoot}>
+                        <Text style={styles.subtotal}>
+                            Subtotal{" "}
+                            <Text style={styles.subtotalValue}>
+                                {formatMoney(form.subtotalCents)}
+                            </Text>
+                            <Text style={styles.subtotalTax}> + tax</Text>
+                        </Text>
+                        <View style={styles.actions}>
+                            <Pressable style={styles.cancel} onPress={onClose}>
+                                <Text style={styles.cancelText}>Cancel</Text>
+                            </Pressable>
+                            <Pressable
+                                style={styles.save}
+                                disabled={form.busy}
+                                onPress={form.submit}
+                            >
+                                {form.busy ? (
+                                    <ActivityIndicator color={c.accentInk} />
+                                ) : (
+                                    <Text style={styles.saveText}>Save draft</Text>
+                                )}
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Pressable>
+        </Modal>
     );
 }
 
@@ -167,6 +326,13 @@ function DetailModal({
 }) {
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
     const { busy, error, run } = useAsyncAction();
+    const [token, setToken] = useState<string | null>(null);
+    useEffect(() => {
+        void getTokens().then((t) => {
+            setToken(t?.access_token ?? null);
+        });
+    }, []);
+    const canRefund = canManagePayments(useCurrentRole(token));
 
     const isInvoice = kind === "invoices";
     const invoice = isInvoice ? (row as InvoiceRow | null) : null;
@@ -223,7 +389,7 @@ function DetailModal({
                                     <PayLinkRow token={payToken} />
                                 ) : null}
                                 {invoice !== null ? (
-                                    <PaymentsSection invoiceId={invoice.id} />
+                                    <PaymentsSection invoiceId={invoice.id} canRefund={canRefund} />
                                 ) : null}
                             </ScrollView>
                             {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -283,23 +449,31 @@ function PayLinkRow({ token }: { token: string }) {
     );
 }
 
-function PaymentsSection({ invoiceId }: { invoiceId: string }) {
+function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefund: boolean }) {
     const payments = useInvoicePayments(invoiceId);
     if (payments.length === 0) return null;
     return (
         <View style={styles.payments}>
             <Text style={styles.sectionLabel}>Payments</Text>
             {payments.map((p) => (
-                <PaymentRowItem key={p.id} payment={p} payments={payments} />
+                <PaymentRowItem key={p.id} payment={p} payments={payments} canRefund={canRefund} />
             ))}
         </View>
     );
 }
 
-function PaymentRowItem({ payment, payments }: { payment: PaymentRow; payments: PaymentRow[] }) {
+function PaymentRowItem({
+    payment,
+    payments,
+    canRefund,
+}: {
+    payment: PaymentRow;
+    payments: PaymentRow[];
+    canRefund: boolean;
+}) {
     const { busy, error, run } = useAsyncAction();
     const isRefund = isRefundRow(payment);
-    const showRefund = isRefundable(payment, payments);
+    const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
         Alert.alert("Refund payment", "Refund this payment? This can't be undone.", [
@@ -337,9 +511,26 @@ function PaymentRowItem({ payment, payments }: { payment: PaymentRow; payments: 
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 8 },
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingTop: 8,
+        paddingBottom: 8,
+    },
     title: { color: c.ink, fontSize: 26, fontWeight: "700", letterSpacing: -0.4 },
     count: { color: c.muted, fontSize: 13, marginTop: 2 },
+    add: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        backgroundColor: c.accent,
+        borderRadius: theme.radius,
+        paddingHorizontal: 13,
+        paddingVertical: 9,
+    },
+    addText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
     tabs: {
         flexDirection: "row",
         gap: 4,
@@ -472,4 +663,51 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
+    sectionSpace: { marginTop: 16 },
+    chipRow: { gap: 8, paddingVertical: 8 },
+    chip: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: c.bg,
+        borderWidth: 1,
+        borderColor: c.border,
+    },
+    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
+    chipText: { color: c.ink, fontSize: 14, fontWeight: "500" },
+    chipTextOn: { color: c.accentInk },
+    lineEdit: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
+    lineInput: {
+        borderColor: c.border,
+        borderWidth: 1,
+        borderRadius: theme.radius,
+        paddingHorizontal: 10,
+        paddingVertical: 9,
+        color: c.ink,
+        fontSize: 14,
+        backgroundColor: c.bg,
+    },
+    lineDescInput: { flex: 1 },
+    lineQtyInput: { width: 52, textAlign: "center" },
+    linePriceInput: { width: 76, textAlign: "right" },
+    lineRemove: { width: 20, alignItems: "center" },
+    lineRemoveText: { color: c.muted, fontSize: 18 },
+    addLine: { color: c.accent, fontSize: 14, fontWeight: "600", marginTop: 10 },
+    notesInput: {
+        borderColor: c.border,
+        borderWidth: 1,
+        borderRadius: theme.radius,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginTop: 8,
+        minHeight: 56,
+        color: c.ink,
+        fontSize: 15,
+        backgroundColor: c.bg,
+        textAlignVertical: "top",
+    },
+    createFoot: { marginTop: 12 },
+    subtotal: { color: c.muted, fontSize: 13 },
+    subtotalValue: { color: c.ink, fontWeight: "700" },
+    subtotalTax: { fontSize: 11 },
 });

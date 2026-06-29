@@ -44,7 +44,7 @@ export function ClientsScreen() {
                         setAdding(true);
                     }}
                 >
-                    <IconPlus size={16} color="#fff" />
+                    <IconPlus size={16} color={theme.colors.accentInk} />
                     <Text style={styles.addText}>Add</Text>
                 </Pressable>
             </View>
@@ -153,7 +153,7 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
                             disabled={form.busy}
                         >
                             {form.busy ? (
-                                <ActivityIndicator color="#fff" />
+                                <ActivityIndicator color={theme.colors.accentInk} />
                             ) : (
                                 <Text style={styles.saveText}>Add client</Text>
                             )}
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 13,
         paddingVertical: 9,
     },
-    addText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    addText: { color: theme.colors.accentInk, fontSize: 14, fontWeight: "700" },
     searchWrap: {
         flexDirection: "row",
         alignItems: "center",
@@ -262,5 +262,5 @@ const styles = StyleSheet.create({
         minWidth: 96,
         alignItems: "center",
     },
-    saveText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    saveText: { color: theme.colors.accentInk, fontSize: 14, fontWeight: "700" },
 });
