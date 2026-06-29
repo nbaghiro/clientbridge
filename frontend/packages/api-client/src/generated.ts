@@ -751,6 +751,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payouts/allocations/{allocation_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Allocation */
+        post: operations["approve_allocation_v1_payouts_allocations__allocation_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payouts/allocations/{allocation_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay Allocation */
+        post: operations["pay_allocation_v1_payouts_allocations__allocation_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gift-cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Gift Card */
+        post: operations["issue_gift_card_v1_gift_cards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gift-cards/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Redeem Gift Card */
+        post: operations["redeem_gift_card_v1_gift_cards_redeem_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Purchase Package */
+        post: operations["purchase_package_v1_packages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/packages/{package_id}/consume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Consume Session */
+        post: operations["consume_session_v1_packages__package_id__consume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/tax-rates": {
         parameters: {
             query?: never;
@@ -1091,6 +1193,37 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** GiftCardIssue */
+        GiftCardIssue: {
+            /** Initial Cents */
+            initial_cents: number;
+            /** Item Id */
+            item_id?: string | null;
+            /** Recipient */
+            recipient?: string | null;
+            /** Purchaser Client Id */
+            purchaser_client_id?: string | null;
+        };
+        /** GiftCardOut */
+        GiftCardOut: {
+            /** Id */
+            id: string;
+            /** Code */
+            code: string;
+            /** Initial Cents */
+            initial_cents: number;
+            /** Balance Cents */
+            balance_cents: number;
+            /** Status */
+            status: string;
+        };
+        /** GiftCardRedeem */
+        GiftCardRedeem: {
+            /** Code */
+            code: string;
+            /** Amount Cents */
+            amount_cents: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1398,6 +1531,28 @@ export interface components {
             /** Charges Enabled */
             charges_enabled: boolean;
         };
+        /** PackageOut */
+        PackageOut: {
+            /** Id */
+            id: string;
+            /** Client Id */
+            client_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Sessions Total */
+            sessions_total: number;
+            /** Sessions Used */
+            sessions_used: number;
+            /** Status */
+            status: string;
+        };
+        /** PackagePurchase */
+        PackagePurchase: {
+            /** Client Id */
+            client_id: string;
+            /** Item Id */
+            item_id: string;
+        };
         /** Page[ClientOut] */
         Page_ClientOut_: {
             /** Items */
@@ -1441,6 +1596,17 @@ export interface components {
             last4: string | null;
             /** Is Default */
             is_default: boolean;
+            /** Status */
+            status: string;
+        };
+        /** PayoutAllocationOut */
+        PayoutAllocationOut: {
+            /** Id */
+            id: string;
+            /** Staff Id */
+            staff_id: string;
+            /** Amount Cents */
+            amount_cents: number;
             /** Status */
             status: string;
         };
@@ -3226,6 +3392,222 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InteracRequest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_allocation_v1_payouts_allocations__allocation_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                allocation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutAllocationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_allocation_v1_payouts_allocations__allocation_id__pay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                allocation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutAllocationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_gift_card_v1_gift_cards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiftCardIssue"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    redeem_gift_card_v1_gift_cards_redeem_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiftCardRedeem"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftCardOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    purchase_package_v1_packages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackagePurchase"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    consume_session_v1_packages__package_id__consume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageOut"];
                 };
             };
             /** @description Validation Error */
