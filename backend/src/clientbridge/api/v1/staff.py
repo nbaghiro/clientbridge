@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 
 from clientbridge.core.deps import DbSession, Principal, require_role
 from clientbridge.integrations.email import EmailSender, get_email_sender
@@ -16,13 +16,12 @@ async def create_invite(
     principal: Annotated[Principal, Depends(require_role("owner", "admin"))],
     db: DbSession,
     email_sender: Annotated[EmailSender, Depends(get_email_sender)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> InviteOut:
-    staff, raw = await StaffService(db).create_invite(
-        business_id=principal.business_id,
+    return await StaffService(db).create_invite(
+        principal,
         email_sender=email_sender,
         email=body.email,
         role=body.role,
-    )
-    return InviteOut(
-        id=staff.id, email=body.email, role=staff.role, status=staff.status, invite_token=raw
+        idempotency_key=idempotency_key,
     )

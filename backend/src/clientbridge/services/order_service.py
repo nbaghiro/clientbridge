@@ -31,7 +31,7 @@ class OrderService:
         self.biz = principal.business_id
         self.gateway = gateway
 
-    async def create_order(self, data: OrderCreate) -> OrderOut:
+    async def create_order(self, data: OrderCreate, idempotency_key: str | None = None) -> OrderOut:
         # POS is staff-operated front-desk work — any authenticated principal may ring a sale.
         if data.client_id is not None:
             await self._client(data.client_id)
@@ -54,7 +54,12 @@ class OrderService:
             return self._out(order, lines)
 
         return await run_command(
-            self.db, self.principal, action="order.create", run=run, response_model=OrderOut
+            self.db,
+            self.principal,
+            action="order.create",
+            run=run,
+            response_model=OrderOut,
+            idempotency_key=idempotency_key,
         )
 
     async def update_order(self, order_id: str, data: OrderUpdate) -> OrderOut:

@@ -11,7 +11,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
-from clientbridge.core.scoping import scoped
+from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import Item, Subscription
@@ -258,12 +258,8 @@ class PaymentService:
 
         async def run(cmd: Command) -> PaymentMethodOut:
             await self.db.execute(
-                update(PaymentMethod)
-                .where(
-                    PaymentMethod.business_id == self.biz,
-                    PaymentMethod.client_id == pm.client_id,
-                    PaymentMethod.id != pm.id,
-                )
+                scoped_update(PaymentMethod, self.biz)
+                .where(PaymentMethod.client_id == pm.client_id, PaymentMethod.id != pm.id)
                 .values(is_default=False)
             )
             pm.is_default = True

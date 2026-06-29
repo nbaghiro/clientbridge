@@ -1,7 +1,7 @@
 import json
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
@@ -54,6 +54,26 @@ async def test_create_order_with_client(as_owner: httpx.AsyncClient, db: AsyncSe
     res = await as_owner.post("/v1/orders", json={"client_id": cid, "lines": [LATTE]})
     assert res.status_code == 201, res.text
     assert res.json()["client_id"] == cid
+
+
+async def test_create_order_idempotent_replays(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    async def order_count() -> int:
+        return (
+            await db.execute(
+                select(func.count()).select_from(Order).where(Order.business_id == BIZ)
+            )
+        ).scalar_one()
+
+    before = await order_count()
+    headers = {"Idempotency-Key": "sale-1"}
+    first = await as_owner.post("/v1/orders", json={"lines": [LATTE]}, headers=headers)
+    assert first.status_code == 201, first.text
+    retry = await as_owner.post("/v1/orders", json={"lines": [LATTE]}, headers=headers)
+    assert retry.status_code == 201, retry.text
+    assert retry.json()["id"] == first.json()["id"]  # same order replayed, not a second sale
+    assert await order_count() == before + 1
 
 
 async def test_update_order_reapplies_totals(as_owner: httpx.AsyncClient) -> None:
