@@ -18,13 +18,13 @@ import {
     monthMatrix,
     rescheduleByDrag,
     sameDay,
-    setBookingStatus,
     staffLabel,
     startOfDay,
     startOfMonth,
     statusIntent,
     useBookingForm,
     useCalendarEvents,
+    useCancelBooking,
     useStaff,
     weekColumns,
 } from "@clientbridge/app-core";
@@ -37,6 +37,7 @@ import {
     useState,
 } from "react";
 
+import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 
 const HOUR_PX = 48;
@@ -717,30 +718,8 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
     );
 }
 
-const INTENT_BADGE: Record<Intent, string> = {
-    accent: "bg-accent-weak text-accent-strong",
-    success: "bg-ok-bg text-ok-fg",
-    warning: "bg-warn-bg text-warn-fg",
-    danger: "bg-surface text-danger",
-    neutral: "bg-bg text-muted",
-};
-const badgeClass = (s: string): string => INTENT_BADGE[statusIntent(s)];
-
 function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
-    const [busy, setBusy] = useState(false);
-    const cancel = async (): Promise<void> => {
-        if (event.bookingId === null) {
-            onClose();
-            return;
-        }
-        setBusy(true);
-        try {
-            await setBookingStatus(api, event.bookingId, "canceled");
-            onClose();
-        } catch {
-            setBusy(false);
-        }
-    };
+    const { busy, error, cancel } = useCancelBooking(api, event, onClose);
     return (
         <Overlay onClose={onClose}>
             <div className="space-y-3">
@@ -751,15 +730,12 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                             <p className="text-sm text-muted">{event.subtitle}</p>
                         ) : null}
                     </div>
-                    <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${badgeClass(event.status)}`}
-                    >
-                        {event.status}
-                    </span>
+                    <StatusPill status={event.status} intent={statusIntent(event.status)} />
                 </div>
                 <p className="text-sm text-ink">
                     {formatTime(event.start)} – {formatTime(event.end)}
                 </p>
+                {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
                 <div className="flex justify-end gap-2 pt-1">
                     <button
                         type="button"
@@ -771,9 +747,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                     {event.bookingId !== null && event.status !== "canceled" ? (
                         <button
                             type="button"
-                            onClick={() => {
-                                void cancel();
-                            }}
+                            onClick={cancel}
                             disabled={busy}
                             className="rounded-lg border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger hover:text-surface disabled:opacity-50"
                         >

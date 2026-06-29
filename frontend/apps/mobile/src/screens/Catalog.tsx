@@ -48,7 +48,7 @@ export function CatalogScreen() {
                         setAdding(true);
                     }}
                 >
-                    <IconPlus size={18} color="#fff" />
+                    <IconPlus size={18} color={theme.colors.accentInk} />
                 </Pressable>
             </View>
 
@@ -151,7 +151,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                         </Pressable>
                         <Pressable style={styles.save} onPress={form.submit} disabled={form.busy}>
                             {form.busy ? (
-                                <ActivityIndicator color="#fff" />
+                                <ActivityIndicator color={theme.colors.accentInk} />
                             ) : (
                                 <Text style={styles.saveText}>Add item</Text>
                             )}
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     modalTitle: { color: theme.colors.ink, fontSize: 18, fontWeight: "700" },
-    kindRow: { flexDirection: "row", gap: 8 },
+    kindRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     kindChip: {
         borderWidth: 1,
         borderColor: theme.colors.border,
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     },
     kindChipOn: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
     kindText: { color: theme.colors.inkSoft, fontSize: 13, fontWeight: "600" },
-    kindTextOn: { color: "#fff" },
+    kindTextOn: { color: theme.colors.accentInk },
     input: {
         borderColor: theme.colors.border,
         borderWidth: 1,
@@ -251,5 +251,5 @@ const styles = StyleSheet.create({
         minWidth: 96,
         alignItems: "center",
     },
-    saveText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+    saveText: { color: theme.colors.accentInk, fontSize: 14, fontWeight: "700" },
 });

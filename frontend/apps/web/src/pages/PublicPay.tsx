@@ -1,5 +1,10 @@
 import {
+    type InteracRequest,
     type PayMethod,
+    type PublicCardIntent,
+    type PublicInvoice,
+    PublicPayError,
+    createPublicPayClient,
     formatMoneyWithCurrency,
     invoiceStatusIntent,
     payMethods,
@@ -11,17 +16,9 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { StatusPill } from "../components/StatusPill";
-import {
-    type InteracRequest,
-    type PublicCardIntent,
-    type PublicInvoice,
-    PublicPayError,
-    getPublicInvoice,
-    payCard,
-    payInterac,
-} from "../lib/publicPay";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+const pay = createPublicPayClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
 export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();
@@ -40,7 +37,7 @@ export function PublicPay() {
     useEffect(() => {
         let live = true;
         setLoading(true);
-        getPublicInvoice(token)
+        pay.getPublicInvoice(token)
             .then((inv) => {
                 if (live) setInvoice(inv);
             })
@@ -86,7 +83,7 @@ export function PublicPay() {
     const runInterac = (): void => {
         void action.run(
             async () => {
-                setInterac(await payInterac(token));
+                setInterac(await pay.payInterac(token));
             },
             { errorMessage: "We couldn't start the Interac payment. Please try again." },
         );
@@ -99,7 +96,7 @@ export function PublicPay() {
         }
         void action.run(
             async () => {
-                setCard(await payCard(token));
+                setCard(await pay.payCard(token));
             },
             { errorMessage: "We couldn't start the card payment. Please try again." },
         );

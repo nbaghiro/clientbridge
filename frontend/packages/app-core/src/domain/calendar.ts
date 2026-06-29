@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react";
 import { useMemo, useState } from "react";
 
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { type ItemRow, useCatalogItems } from "./catalog";
 import { type ClientRow, useClients } from "./clients";
@@ -336,6 +337,34 @@ export function rescheduleByDrag(
     const newStart = dragToStart(event.start, deltaPx, pxPerMin);
     if (newStart.getTime() === event.start.getTime()) return;
     void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
+}
+
+export interface CancelBooking {
+    busy: boolean;
+    error: string | null;
+    cancel: () => void;
+}
+
+/** Shared cancel-booking action: busy/error state + the status PATCH, calling `onDone` on success.
+ *  An event with no booking (a bare session) just closes. */
+export function useCancelBooking(
+    api: ApiLike,
+    event: CalendarEvent,
+    onDone: () => void,
+): CancelBooking {
+    const { busy, error, run } = useAsyncAction();
+    const cancel = (): void => {
+        const bookingId = event.bookingId;
+        if (bookingId === null) {
+            onDone();
+            return;
+        }
+        void run(() => setBookingStatus(api, bookingId, "canceled"), {
+            onSuccess: onDone,
+            errorMessage: "Couldn't cancel this booking. Please try again.",
+        });
+    };
+    return { busy, error, cancel };
 }
 
 export interface BookingFormState {
