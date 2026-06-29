@@ -37,6 +37,16 @@ class Conflict(AppError):
     code = "conflict"
 
 
+class CardDeclined(AppError):
+    status_code = 402
+    code = "card_declined"
+
+
+class PaymentActionRequired(AppError):
+    status_code = 402
+    code = "payment_action_required"
+
+
 class TooManyRequests(AppError):
     status_code = 429
     code = "too_many_requests"

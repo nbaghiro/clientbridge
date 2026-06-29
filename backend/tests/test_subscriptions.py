@@ -357,3 +357,27 @@ async def test_invoice_payment_failed_sets_past_due(
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
     assert status == "past_due"
+
+
+async def test_unknown_status_maps_to_past_due(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable(db)
+    sub = await _seed_sub(db, ref="sub_odd")
+    event = _sub_event(
+        "evt_odd",
+        "customer.subscription.updated",
+        {"id": "sub_odd", "status": "incomplete_expired"},
+    )
+    res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
+    assert res.status_code == 200
+    status = (
+        await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
+    ).scalar_one()
+    assert status == "past_due"  # an unrecognized status must not leave the sub serving
+
+
+def test_map_subscription_status_unknown_is_past_due() -> None:
+    from clientbridge.services.payment_service import map_subscription_status
+
+    assert map_subscription_status("incomplete_expired") == "past_due"
+    assert map_subscription_status("active") == "active"
+    assert map_subscription_status("trialing") == "active"

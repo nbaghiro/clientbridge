@@ -12,6 +12,7 @@ from typing import Protocol
 import stripe
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.errors import CardDeclined, PaymentActionRequired
 
 
 @dataclass(frozen=True)
@@ -273,16 +274,21 @@ class StripeGateway:
             if payment_method
             else {}
         )
-        intent = await stripe.PaymentIntent.create_async(
-            amount=amount_cents,
-            currency=currency.lower(),
-            customer=customer_id,
-            application_fee_amount=application_fee_cents,
-            metadata=metadata,
-            stripe_account=account_id,
-            idempotency_key=idempotency_key,
-            **extra,  # type: ignore[arg-type]  # Stripe kwargs are loosely typed
-        )
+        try:
+            intent = await stripe.PaymentIntent.create_async(
+                amount=amount_cents,
+                currency=currency.lower(),
+                customer=customer_id,
+                application_fee_amount=application_fee_cents,
+                metadata=metadata,
+                stripe_account=account_id,
+                idempotency_key=idempotency_key,
+                **extra,  # type: ignore[arg-type]  # Stripe kwargs are loosely typed
+            )
+        except stripe.CardError as exc:  # off-session decline / 3DS → a 402 the client can act on
+            if exc.code == "authentication_required":
+                raise PaymentActionRequired("this card requires authentication") from exc
+            raise CardDeclined("the card was declined") from exc
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
     async def refund(  # pragma: no cover

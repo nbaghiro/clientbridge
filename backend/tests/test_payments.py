@@ -223,3 +223,28 @@ async def test_pay_idempotent_replays(as_owner: httpx.AsyncClient, db: AsyncSess
     second = await as_owner.post(f"/v1/payments/invoice/{inv_id}", headers=headers)
     assert first.status_code == 200 and second.status_code == 200
     assert first.json()["payment_id"] == second.json()["payment_id"]
+
+
+async def test_distinct_partials_same_amount_not_deduped(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable_payments(db)
+    inv_id = await _invoice(db, total=10000)
+    url = f"/v1/payments/invoice/{inv_id}?amount_cents=4000"
+    r1 = await as_owner.post(url, headers={"Idempotency-Key": "k1"})
+    r2 = await as_owner.post(url, headers={"Idempotency-Key": "k2"})
+    assert r1.status_code == 200 and r2.status_code == 200, (r1.text, r2.text)
+    assert r1.json()["payment_id"] != r2.json()["payment_id"]
+    ref1 = await _provider_ref(db, r1.json()["payment_id"])
+    ref2 = await _provider_ref(db, r2.json()["payment_id"])
+    assert ref1 != ref2  # two distinct Stripe intents — no silent under-collection
+
+
+async def test_same_key_partial_is_deduped(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable_payments(db)
+    inv_id = await _invoice(db, total=10000)
+    url = f"/v1/payments/invoice/{inv_id}?amount_cents=4000"
+    headers = {"Idempotency-Key": "same"}
+    r1 = await as_owner.post(url, headers=headers)
+    r2 = await as_owner.post(url, headers=headers)
+    assert r1.json()["payment_id"] == r2.json()["payment_id"]  # one charge for a true retry

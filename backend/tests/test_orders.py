@@ -148,3 +148,68 @@ async def test_order_tenant_isolation(
 
 async def test_unknown_order_404(as_owner: httpx.AsyncClient) -> None:
     assert (await as_owner.post("/v1/orders/ord_nope/checkout")).status_code == 404
+
+
+async def test_refund_order_payment_reverts_order(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
+    pay_id = (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).json()["payment_id"]
+    pi = (await db.execute(select(Payment.provider_ref).where(Payment.id == pay_id))).scalar_one()
+    settle = json.dumps(
+        {"id": "evt_or1", "type": "payment_intent.succeeded", "data": {"object": {"id": pi}}}
+    )
+    assert (
+        await as_owner.post("/webhooks/stripe", content=settle, headers=GOOD)
+    ).status_code == 200
+
+    refunded = await as_owner.post(f"/v1/payments/{pay_id}/refund")
+    assert refunded.status_code == 200, refunded.text
+    status, paid, balance, total = (
+        await db.execute(
+            select(
+                Order.status, Order.amount_paid_cents, Order.balance_cents, Order.total_cents
+            ).where(Order.id == order["id"])
+        )
+    ).one()
+    assert status == "refunded"
+    assert paid == 0 and balance == total
+    refund_order_id = (
+        await db.execute(
+            select(Payment.order_id).where(
+                Payment.parent_payment_id == pay_id, Payment.kind == "refund"
+            )
+        )
+    ).scalar_one()
+    assert refund_order_id == order["id"]  # the refund row is linked to the order
+
+
+async def test_second_checkout_with_pending_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
+    first = await as_owner.post(
+        f"/v1/orders/{order['id']}/checkout", headers={"Idempotency-Key": "ck1"}
+    )
+    assert first.status_code == 200, first.text
+    # a true retry (same key) replays the one intent
+    retry = await as_owner.post(
+        f"/v1/orders/{order['id']}/checkout", headers={"Idempotency-Key": "ck1"}
+    )
+    assert retry.json()["payment_id"] == first.json()["payment_id"]
+    # a fresh checkout while one is pending would mint a second intent → rejected
+    second = await as_owner.post(
+        f"/v1/orders/{order['id']}/checkout", headers={"Idempotency-Key": "ck2"}
+    )
+    assert second.status_code == 409
+
+
+async def test_update_after_checkout_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _enable(db)
+    order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
+    assert (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).status_code == 200
+    # editing the total after checkout started must not be allowed (it could double-charge)
+    res = await as_owner.patch(f"/v1/orders/{order['id']}", json={"lines": [LATTE, MUFFIN]})
+    assert res.status_code == 409
