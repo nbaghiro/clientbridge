@@ -13,6 +13,7 @@ import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
 import { Invoices } from "./pages/Invoices";
 import { PaymentsSettings } from "./pages/PaymentsSettings";
+import { Payouts } from "./pages/Payouts";
 import { Placeholder } from "./pages/Placeholder";
 import { POS } from "./pages/POS";
 import { PublicPay } from "./pages/PublicPay";
@@ -55,6 +56,7 @@ export function App() {
                             <Route path="inbox" element={<Placeholder title="Inbox" />} />
                             <Route path="invoices" element={<Invoices />} />
                             <Route path="pos" element={<POS />} />
+                            <Route path="payouts" element={<Payouts />} />
                             <Route path="reports" element={<Reports />} />
                             <Route path="settings" element={<SettingsLayout />}>
                                 <Route

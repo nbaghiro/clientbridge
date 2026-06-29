@@ -78,6 +78,13 @@ export const IconReports = ({ className }: { className?: string }) => (
         <path d="M7 14v3M12 9v8M17 5v12" />
     </Icon>
 );
+export const IconPayouts = ({ className }: { className?: string }) => (
+    <Icon className={className}>
+        <rect x="2" y="6" width="20" height="12" rx="2" />
+        <circle cx="12" cy="12" r="2.5" />
+        <path d="M6 12h.01M18 12h.01" />
+    </Icon>
+);
 export const IconLogout = ({ className }: { className?: string }) => (
     <Icon className={className}>
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
