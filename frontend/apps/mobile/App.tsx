@@ -21,6 +21,8 @@ import { InvoicesScreen } from "./src/screens/Invoices";
 import { LoginScreen } from "./src/screens/Login";
 import { PaymentsScreen } from "./src/screens/PaymentsSettings";
 import { ComingSoon, InboxScreen } from "./src/screens/Placeholder";
+import { POSScreen } from "./src/screens/POS";
+import { ReportsScreen } from "./src/screens/Reports";
 import { SettingsScreen } from "./src/screens/Settings";
 import { TaxesScreen } from "./src/screens/Taxes";
 
@@ -152,6 +154,16 @@ function Root() {
                             name="Invoices"
                             component={InvoicesScreen}
                             options={{ title: "Invoices" }}
+                        />
+                        <RootStack.Screen
+                            name="POS"
+                            component={POSScreen}
+                            options={{ title: "Point of sale" }}
+                        />
+                        <RootStack.Screen
+                            name="Reports"
+                            component={ReportsScreen}
+                            options={{ title: "Reports" }}
                         />
                     </RootStack.Group>
                 </RootStack.Navigator>

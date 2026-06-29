@@ -14,4 +14,6 @@ export * from "./domain/staff";
 export * from "./domain/calendar";
 export * from "./domain/billing";
 export * from "./domain/payments";
+export * from "./domain/pos";
+export * from "./domain/reports";
 export * from "./domain/publicPay";
