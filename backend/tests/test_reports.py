@@ -1,6 +1,7 @@
 import csv
 import io
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
@@ -8,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment, PayoutAllocation
@@ -87,6 +88,33 @@ async def _add_invoice(
     await db.flush()
 
 
+async def _add_order(
+    db: AsyncSession,
+    *,
+    status: str,
+    subtotal: int,
+    tax: int,
+    paid_at: datetime | None,
+    staff_id: str = "st_owner",
+) -> None:
+    db.add(
+        Order(
+            id=new_id("order"),
+            business_id=BIZ,
+            staff_id=staff_id,
+            status=status,
+            currency="CAD",
+            subtotal_cents=subtotal,
+            tax_total_cents=tax,
+            total_cents=subtotal + tax,
+            amount_paid_cents=subtotal + tax if status == "paid" else 0,
+            balance_cents=0 if status == "paid" else subtotal + tax,
+            paid_at=paid_at,
+        )
+    )
+    await db.flush()
+
+
 async def _add_alloc(
     db: AsyncSession, *, staff_id: str, amount: int, status: str, created_at: datetime
 ) -> None:
@@ -148,6 +176,39 @@ async def test_gst_hst_return_sums_paid_invoice_tax(
     assert after["tax_collected_cents"] - before["tax_collected_cents"] == 1200
     assert after["taxable_sales_cents"] - before["taxable_sales_cents"] == 10000
     assert after["gst_hst_number"] == "84720 1539 RT0001"
+
+
+async def test_gst_hst_return_includes_paid_orders(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    before = (await as_owner.get(f"/v1/reports/gst-hst?{WIDE}")).json()
+    await _add_order(db, status="paid", subtotal=5000, tax=600, paid_at=IN_RANGE)
+    await _add_order(db, status="open", subtotal=3000, tax=400, paid_at=None)  # unpaid → excluded
+    await _add_order(db, status="paid", subtotal=2000, tax=250, paid_at=OUT_RANGE)  # out of range
+    after = (await as_owner.get(f"/v1/reports/gst-hst?{WIDE}")).json()
+
+    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 600
+    assert after["taxable_sales_cents"] - before["taxable_sales_cents"] == 5000
+
+
+async def test_gst_hst_period_bounds_use_business_timezone(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    tz = ZoneInfo(
+        (await db.execute(select(Business.timezone).where(Business.id == BIZ))).scalar_one()
+    )
+    # 23:00 on the last day of Q2 in the business tz is still Q2 locally, but next-day UTC.
+    paid_at = datetime(2026, 6, 30, 23, 0, tzinfo=tz).astimezone(UTC)
+    q2, q3 = "start=2026-04-01&end=2026-06-30", "start=2026-07-01&end=2026-09-30"
+    q2_before = (await as_owner.get(f"/v1/reports/gst-hst?{q2}")).json()
+    q3_before = (await as_owner.get(f"/v1/reports/gst-hst?{q3}")).json()
+    await _add_invoice(db, number=9610, status="paid", subtotal=10000, tax=1300, paid_at=paid_at)
+    q2_after = (await as_owner.get(f"/v1/reports/gst-hst?{q2}")).json()
+    q3_after = (await as_owner.get(f"/v1/reports/gst-hst?{q3}")).json()
+
+    # files in Q2 (business tz), not the adjacent Q3 it would land in under UTC bounds
+    assert q2_after["tax_collected_cents"] - q2_before["tax_collected_cents"] == 1300
+    assert q3_after["tax_collected_cents"] - q3_before["tax_collected_cents"] == 0
 
 
 async def test_t4a_sums_payable_allocations_in_year(
