@@ -15,6 +15,7 @@ from clientbridge.api.v1 import (
     packages,
     payments,
     payouts,
+    reports,
     staff,
     subscriptions,
     tax,
@@ -37,3 +38,4 @@ api_router.include_router(onboarding.router)
 api_router.include_router(staff.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(devices.router)
+api_router.include_router(reports.router)
