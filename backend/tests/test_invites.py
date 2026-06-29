@@ -1,12 +1,27 @@
 """P1.4: staff invites — owner/admin create + email; invitee accepts → active staff."""
 
 import httpx
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.models.platform import AuditLog
 from tests.conftest import FakeEmailSender
 
 BIZ = "bz_birchbark"
+
+
+async def _actions(db: AsyncSession, entity_id: str) -> list[str]:
+    return list(
+        (
+            await db.execute(
+                select(AuditLog.action).where(
+                    AuditLog.business_id == BIZ, AuditLog.entity_id == entity_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
 
 
 async def test_owner_creates_invite_and_emails(
@@ -83,6 +98,39 @@ async def test_accept_invalid_token_401(api: httpx.AsyncClient) -> None:
         "/auth/accept-invite", json={"token": "bogus", "name": "X", "password": "pw-123456"}
     )
     assert res.status_code == 401
+
+
+async def test_invite_is_audited_and_idempotent(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    headers = {"Idempotency-Key": "inv-1"}
+    first = await as_owner.post(
+        "/v1/staff/invites", json={"email": "dup@test.ca", "role": "staff"}, headers=headers
+    )
+    assert first.status_code == 201, first.text
+    assert await _actions(db, first.json()["id"]) == ["staff.invite"]
+    # a retry with the same key replays the same invite — no second pending staff, no second email
+    second = await as_owner.post(
+        "/v1/staff/invites", json={"email": "dup@test.ca", "role": "staff"}, headers=headers
+    )
+    assert second.status_code == 201, second.text
+    assert second.json() == first.json()
+    assert len(email.sent) == 1
+    pending = (
+        await db.execute(text("SELECT count(*) FROM staff WHERE invite_email = 'dup@test.ca'"))
+    ).scalar_one()
+    assert pending == 1
+
+
+async def test_accept_invite_is_audited(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    inv = await as_owner.post("/v1/staff/invites", json={"email": "aud@test.ca", "role": "staff"})
+    staff_id = inv.json()["id"]
+    res = await as_owner.post(
+        "/auth/accept-invite",
+        json={"token": inv.json()["invite_token"], "name": "Aud", "password": "pw-123456"},
+    )
+    assert res.status_code == 200, res.text
+    assert set(await _actions(db, staff_id)) == {"staff.invite", "staff.accept"}
 
 
 async def test_accept_expired_invite_401(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

@@ -6,11 +6,11 @@ fetch its rows and run the pure tax engine, so the totals logic can't drift betw
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.core.scoping import scoped
+from clientbridge.core.scoping import scoped, scoped_delete
 from clientbridge.models.billing import Line
 from clientbridge.models.identity import Business
 from clientbridge.schemas.billing import LineInput
@@ -23,10 +23,8 @@ async def replace_lines(
 ) -> list[Line]:
     """Delete a parent's lines and rebuild them from `inputs` (amount = qty x unit, half-up)."""
     await db.execute(
-        delete(Line).where(
-            Line.parent_type == parent_type,
-            Line.parent_id == parent_id,
-            Line.business_id == business_id,
+        scoped_delete(Line, business_id).where(
+            Line.parent_type == parent_type, Line.parent_id == parent_id
         )
     )
     lines: list[Line] = []

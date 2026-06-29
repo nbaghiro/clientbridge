@@ -7,11 +7,15 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.command import Command, run_command
+from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError, Conflict, Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.security import hash_password, hash_token
 from clientbridge.integrations.email import Email, EmailSender
 from clientbridge.models.identity import Staff, User
+from clientbridge.models.platform import AuditLog
+from clientbridge.schemas.identity import InviteOut
 
 INVITE_TTL = timedelta(days=14)
 INVITABLE_ROLES = {"admin", "staff", "contractor"}  # never invite an owner
@@ -22,25 +26,47 @@ class StaffService:
         self.db = db
 
     async def create_invite(
-        self, *, business_id: str, email_sender: EmailSender, email: str, role: str
-    ) -> tuple[Staff, str]:
+        self,
+        principal: Principal,
+        *,
+        email_sender: EmailSender,
+        email: str,
+        role: str,
+        idempotency_key: str | None = None,
+    ) -> InviteOut:
         if role not in INVITABLE_ROLES:
             raise AppError(f"cannot invite with role '{role}'", code="invalid_role")
-        raw = secrets.token_urlsafe(24)
-        staff = Staff(
-            id=new_id("staff"),
-            business_id=business_id,
-            role=role,
-            status="invited",
-            invite_email=email,
-            invite_token=hash_token(raw),
+
+        async def run(cmd: Command) -> InviteOut:
+            raw = secrets.token_urlsafe(24)
+            staff = Staff(
+                id=new_id("staff"),
+                business_id=principal.business_id,
+                role=role,
+                status="invited",
+                invite_email=email,
+                invite_token=hash_token(raw),
+            )
+            self.db.add(staff)
+            await self.db.flush()
+            await email_sender.send(
+                Email(
+                    to=email, subject="You're invited to Clientbridge", body=f"Invite code: {raw}"
+                )
+            )
+            cmd.record("staff.invite", entity_type="staff", entity_id=staff.id)
+            return InviteOut(
+                id=staff.id, email=email, role=staff.role, status=staff.status, invite_token=raw
+            )
+
+        return await run_command(
+            self.db,
+            principal,
+            action="staff.invite",
+            run=run,
+            response_model=InviteOut,
+            idempotency_key=idempotency_key,
         )
-        self.db.add(staff)
-        await self.db.commit()
-        await email_sender.send(
-            Email(to=email, subject="You're invited to Clientbridge", body=f"Invite code: {raw}")
-        )
-        return staff, raw
 
     async def accept_invite(self, *, token: str, name: str | None, password: str) -> User:
         staff = (
@@ -70,5 +96,16 @@ class StaffService:
             await self.db.flush()
         staff.user_id = user.id
         staff.status = "active"
+        # principal-less surface — the invitee becomes one only here, so record the audit directly.
+        self.db.add(
+            AuditLog(
+                id=new_id("audit_log"),
+                business_id=staff.business_id,
+                actor_user_id=user.id,
+                action="staff.accept",
+                entity_type="staff",
+                entity_id=staff.id,
+            )
+        )
         await self.db.commit()
         return user

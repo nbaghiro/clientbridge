@@ -11,9 +11,13 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 @router.post("", response_model=OrderOut, status_code=201)
 async def create_order(
-    data: OrderCreate, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+    data: OrderCreate,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> OrderOut:
-    return await OrderService(db, principal, gateway).create_order(data)
+    return await OrderService(db, principal, gateway).create_order(data, idempotency_key)
 
 
 @router.patch("/{order_id}", response_model=OrderOut)
