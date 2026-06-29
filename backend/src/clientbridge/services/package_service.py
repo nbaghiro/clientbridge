@@ -1,26 +1,32 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
+from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError, Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.catalog import Item, Package
 from clientbridge.models.crm import Client
-from clientbridge.schemas.packages import PackageOut, PackagePurchase
+from clientbridge.models.identity import Business
+from clientbridge.schemas.packages import PackageOut, PackagePurchase, PackagePurchaseOut
+from clientbridge.services.lines import tax_for_amount
+from clientbridge.services.payment_service import open_entitlement_payment, resolve_saved_method_ref
 
 
 class PackageService:
-    def __init__(self, db: AsyncSession, principal: Principal) -> None:
+    def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
+        self.gateway = gateway
 
     async def purchase_package(
         self, data: PackagePurchase, idempotency_key: str | None = None
-    ) -> PackageOut:
+    ) -> PackagePurchaseOut:
         self._assert_admin()
-        await self._client(data.client_id)
+        client = await self._client(data.client_id)
         item = await self._item(data.item_id)
         if item.kind != "package":
             raise Conflict("item is not a package")
@@ -29,28 +35,55 @@ class PackageService:
                 "package item has no session count", status_code=422, code="invalid_package"
             )
         sessions_total = item.session_count
+        business = await self._business()
+        if not business.stripe_charges_enabled or business.stripe_account_id is None:
+            raise Conflict("connect your Stripe account before taking payments")
+        account_id = business.stripe_account_id
+        amount = (await tax_for_amount(self.db, self.biz, item.price_cents)).total_cents
+        fee_bps = get_settings().platform_fee_bps
+        pm_ref = await resolve_saved_method_ref(
+            self.db, self.biz, data.payment_method_id, data.client_id
+        )
 
-        async def run(cmd: Command) -> PackageOut:
+        async def run(cmd: Command) -> PackagePurchaseOut:
+            package_id = new_id("package")
+            payment, client_secret = await open_entitlement_payment(
+                self.db,
+                self.gateway,
+                account_id=account_id,
+                business_id=self.biz,
+                client=client,
+                amount=amount,
+                currency=item.currency,
+                fee_bps=fee_bps,
+                entitlement_kind="package",
+                entitlement_id=package_id,
+                payment_method=pm_ref,
+                idempotency_key=idempotency_key,
+            )
             package = Package(
-                id=new_id("package"),
+                id=package_id,
                 business_id=self.biz,
                 client_id=data.client_id,
                 item_id=item.id,
                 sessions_total=sessions_total,
                 sessions_used=0,
-                status="active",
+                status="pending",
+                payment_id=payment.id,
             )
             self.db.add(package)
             await self.db.flush()
             cmd.record("package.purchase", entity_type="package", entity_id=package.id)
-            return _out(package)
+            return PackagePurchaseOut(
+                package_id=package.id, payment_id=payment.id, client_secret=client_secret
+            )
 
         return await run_command(
             self.db,
             self.principal,
             action="package.purchase",
             run=run,
-            response_model=PackageOut,
+            response_model=PackagePurchaseOut,
             idempotency_key=idempotency_key,
         )
 
@@ -84,6 +117,12 @@ class PackageService:
     def _assert_admin(self) -> None:
         if self.principal.role not in ("owner", "admin"):
             raise Forbidden("only an owner or admin can manage packages")
+
+    async def _business(self) -> Business:
+        row = await self.db.get(Business, self.biz)
+        if row is None:
+            raise NotFound("business not found")
+        return row
 
     async def _client(self, client_id: str) -> Client:
         row = (

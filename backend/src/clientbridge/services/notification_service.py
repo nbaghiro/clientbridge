@@ -10,7 +10,7 @@ from clientbridge.integrations.email import Email, EmailSender
 from clientbridge.integrations.push import Push, PushSender
 from clientbridge.integrations.sms import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice
-from clientbridge.models.catalog import Subscription
+from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.crm import Client, Consent
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
@@ -151,6 +151,18 @@ def _subscription_canceled(locale: str, business_name: str) -> tuple[str, str]:
     return (
         f"Subscription canceled — {business_name}",
         f"Your subscription to {business_name} was canceled.",
+    )
+
+
+def _gift_card_issued(locale: str, business_name: str, amount: str, code: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Vous avez reçu une carte-cadeau de {business_name}",
+            f"Vous avez reçu une carte-cadeau de {amount} de {business_name}. Code : {code}",
+        )
+    return (
+        f"You've received a gift card from {business_name}",
+        f"You've received a {amount} gift card from {business_name}. Code: {code}",
     )
 
 
@@ -346,6 +358,22 @@ class Notifier:
             return
         subject, body = _subscription_canceled(business.locale, business.name)
         await self._to_client(db, sub.client_id, subject, body)
+
+    async def on_gift_card_issued(self, db: AsyncSession, gift_card_id: str) -> None:
+        """Send the code to the gift card's recipient once the purchase settles. The recipient is a
+        raw email/phone (not a known client), so this is a direct send, not CASL-gated."""
+        card = await db.get(GiftCard, gift_card_id)
+        if card is None or not card.recipient:
+            return
+        business = await db.get(Business, card.business_id)
+        if business is None:
+            return
+        amount = _money(card.initial_cents, "CAD")
+        subject, body = _gift_card_issued(business.locale, business.name, amount, card.code)
+        if "@" in card.recipient:
+            await self._safe(self.email.send(Email(to=card.recipient, subject=subject, body=body)))
+        else:
+            await self._safe(self.sms.send(Sms(to=card.recipient, body=body)))
 
     async def on_booking_reminder(self, db: AsyncSession, booking_id: str) -> None:
         booking = await db.get(Booking, booking_id)

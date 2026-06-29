@@ -233,6 +233,7 @@ const gift_cards = new Table(
         recipient: column.text,
         expires_at: column.text,
         status: column.text,
+        payment_id: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
