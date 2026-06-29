@@ -66,6 +66,12 @@ def _estimate_sent(
     )
 
 
+def _estimate_accepted(locale: str, number: int | None) -> tuple[str, str]:
+    if locale == "fr":
+        return (f"Devis nº{number} accepté", f"Le devis nº{number} a été accepté.")
+    return (f"Estimate #{number} accepted", f"Estimate #{number} was accepted.")
+
+
 def _interac_requested(locale: str, amount: str, send_to: str, reference: str) -> tuple[str, str]:
     if locale == "fr":
         return (
@@ -99,6 +105,30 @@ def _booking_reminder(locale: str, business_name: str, when: str) -> tuple[str, 
     return (
         f"Appointment reminder — {business_name}",
         f"Reminder: you have an appointment with {business_name} on {when}.",
+    )
+
+
+def _booking_confirmed(locale: str, business_name: str, when: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Réservation confirmée — {business_name}",
+            f"Vous avez un rendez-vous avec {business_name} le {when}.",
+        )
+    return (
+        f"Booking confirmed — {business_name}",
+        f"You're booked with {business_name} on {when}.",
+    )
+
+
+def _booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Rendez-vous annulé — {business_name}",
+            f"Votre rendez-vous avec {business_name} le {when} a été annulé.",
+        )
+    return (
+        f"Appointment canceled — {business_name}",
+        f"Your appointment with {business_name} on {when} was canceled.",
     )
 
 
@@ -150,6 +180,19 @@ class Notifier:
         subject, body = _estimate_sent(business.locale, estimate.number, amount, business.name)
         await self._to_client(db, estimate.client_id, subject, body)
 
+    async def on_estimate_accepted(self, db: AsyncSession, estimate_id: str) -> None:
+        """Alert the provider (their billing email) that a client accepted an estimate."""
+        estimate = await db.get(Estimate, estimate_id)
+        if estimate is None:
+            return
+        business = await db.get(Business, estimate.business_id)
+        if business is None or not business.billing_email:
+            return
+        subject, body = _estimate_accepted(business.locale, estimate.number)
+        await self._safe(
+            self.email.send(Email(to=business.billing_email, subject=subject, body=body))
+        )
+
     async def on_interac_requested(self, db: AsyncSession, payment_id: str) -> None:
         payment = await db.get(Payment, payment_id)
         if payment is None:
@@ -184,6 +227,34 @@ class Notifier:
             return
         local = session.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_reminder(
+            business.locale, business.name, f"{local:%Y-%m-%d at %H:%M}"
+        )
+        await self._to_client(db, booking.client_id, subject, body)
+
+    async def on_booking_confirmed(self, db: AsyncSession, booking_id: str) -> None:
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        session = await db.get(Session, booking.session_id)
+        business = await db.get(Business, booking.business_id)
+        if session is None or business is None:
+            return
+        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        subject, body = _booking_confirmed(
+            business.locale, business.name, f"{local:%Y-%m-%d at %H:%M}"
+        )
+        await self._to_client(db, booking.client_id, subject, body)
+
+    async def on_booking_canceled(self, db: AsyncSession, booking_id: str) -> None:
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        session = await db.get(Session, booking.session_id)
+        business = await db.get(Business, booking.business_id)
+        if session is None or business is None:
+            return
+        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        subject, body = _booking_canceled(
             business.locale, business.name, f"{local:%Y-%m-%d at %H:%M}"
         )
         await self._to_client(db, booking.client_id, subject, body)

@@ -20,9 +20,11 @@ from clientbridge.models.platform import WebhookEvent
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.payments import (
     ConnectStatus,
+    DetachResult,
     InteracRequest,
     OnboardingLink,
     PayIntentOut,
+    PaymentMethodOut,
     RefundOut,
     RemittanceSummary,
     SetupIntentOut,
@@ -170,6 +172,67 @@ class PaymentService:
             raise NotFound("saved card not found")
         return pm.provider_ref
 
+    async def detach_card(self, payment_method_id: str) -> DetachResult:
+        """Detach a saved card at the provider, then remove its row (owner/admin only)."""
+        self._assert_admin()
+        business = await self._business()
+        pm = await self._payment_method(payment_method_id)
+        account_id = business.stripe_account_id
+        provider_ref = pm.provider_ref
+
+        async def run(cmd: Command) -> DetachResult:
+            if account_id is not None and provider_ref is not None:
+                await self.gateway.detach_payment_method(account_id, payment_method_id=provider_ref)
+            await self.db.delete(pm)
+            await self.db.flush()
+            cmd.record(
+                "payment_method.detach", entity_type="payment_method", entity_id=payment_method_id
+            )
+            return DetachResult(detached=True)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment_method.detach",
+            run=run,
+            response_model=DetachResult,
+        )
+
+    async def set_default_card(self, payment_method_id: str) -> PaymentMethodOut:
+        """Make one saved card the client's default, clearing the flag on its siblings."""
+        self._assert_admin()
+        pm = await self._payment_method(payment_method_id)
+
+        async def run(cmd: Command) -> PaymentMethodOut:
+            await self.db.execute(
+                update(PaymentMethod)
+                .where(
+                    PaymentMethod.business_id == self.biz,
+                    PaymentMethod.client_id == pm.client_id,
+                    PaymentMethod.id != pm.id,
+                )
+                .values(is_default=False)
+            )
+            pm.is_default = True
+            await self.db.flush()
+            cmd.record("payment_method.set_default", entity_type="payment_method", entity_id=pm.id)
+            return PaymentMethodOut(
+                id=pm.id,
+                client_id=pm.client_id,
+                brand=pm.brand,
+                last4=pm.last4,
+                is_default=pm.is_default,
+                status=pm.status,
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment_method.set_default",
+            run=run,
+            response_model=PaymentMethodOut,
+        )
+
     async def refund_payment(self, payment_id: str) -> RefundOut:
         self._assert_admin()
         business = await self._business()
@@ -303,6 +366,16 @@ class PaymentService:
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("payment not found")
+        return row
+
+    async def _payment_method(self, payment_method_id: str) -> PaymentMethod:
+        row = (
+            await self.db.execute(
+                scoped(PaymentMethod, self.biz).where(PaymentMethod.id == payment_method_id)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("saved card not found")
         return row
 
 
@@ -623,6 +696,17 @@ async def _record_payment_method(
     ).scalar_one_or_none()
     if seen is not None:
         return
+    has_card = (
+        await db.execute(
+            select(PaymentMethod.id)
+            .where(
+                PaymentMethod.business_id == biz,
+                PaymentMethod.client_id == client.id,
+                PaymentMethod.status == "active",
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
     card = data.get("card")
     brand = card.get("brand") if isinstance(card, dict) else None
     last4 = card.get("last4") if isinstance(card, dict) else None
@@ -636,6 +720,7 @@ async def _record_payment_method(
             last4=last4 if isinstance(last4, str) else None,
             provider="stripe",
             provider_ref=pm_id,
+            is_default=has_card is None,  # first card on file becomes the default
             status="active",
         )
     )

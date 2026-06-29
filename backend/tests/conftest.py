@@ -113,6 +113,7 @@ class FakeOAuthVerifier:
 class FakePaymentGateway:
     def __init__(self) -> None:
         self.created_accounts: list[str] = []
+        self.detached: list[str] = []
         self._seq = 0
         self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
 
@@ -176,6 +177,9 @@ class FakePaymentGateway:
     ) -> RefundResult:
         self._seq += 1
         return RefundResult(id=f"re_fake{self._seq}", status="succeeded")
+
+    async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
+        self.detached.append(payment_method_id)
 
 
 @pytest.fixture

@@ -80,6 +80,9 @@ class PaymentGateway(Protocol):
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult: ...
+    async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
+        """Detach a saved card from its Customer so it can no longer be charged."""
+        ...
 
 
 class StripeGateway:
@@ -180,6 +183,11 @@ class StripeGateway:
             idempotency_key=idempotency_key,
         )
         return RefundResult(id=str(refund.id), status=str(refund.status))
+
+    async def detach_payment_method(  # pragma: no cover
+        self, account_id: str, *, payment_method_id: str
+    ) -> None:
+        await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:  # pragma: no cover
         try:

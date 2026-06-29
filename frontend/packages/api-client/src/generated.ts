@@ -666,6 +666,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/methods/{payment_method_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Detach Card */
+        delete: operations["detach_card_v1_payments_methods__payment_method_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/methods/{payment_method_id}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Default Card */
+        post: operations["set_default_card_v1_payments_methods__payment_method_id__default_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/{payment_id}/refund": {
         parameters: {
             query?: never;
@@ -980,6 +1014,11 @@ export interface components {
             gst_hst_set_aside_cents: number;
             /** Gst Hst Filing Due */
             gst_hst_filing_due: string | null;
+        };
+        /** DetachResult */
+        DetachResult: {
+            /** Detached */
+            detached: boolean;
         };
         /** DeviceOut */
         DeviceOut: {
@@ -1389,6 +1428,21 @@ export interface components {
             client_secret: string;
             /** Amount Cents */
             amount_cents: number;
+        };
+        /** PaymentMethodOut */
+        PaymentMethodOut: {
+            /** Id */
+            id: string;
+            /** Client Id */
+            client_id: string;
+            /** Brand */
+            brand: string | null;
+            /** Last4 */
+            last4: string | null;
+            /** Is Default */
+            is_default: boolean;
+            /** Status */
+            status: string;
         };
         /** PublicCardIntent */
         PublicCardIntent: {
@@ -3000,6 +3054,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SetupIntentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detach_card_v1_payments_methods__payment_method_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                payment_method_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetachResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_default_card_v1_payments_methods__payment_method_id__default_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                payment_method_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentMethodOut"];
                 };
             };
             /** @description Validation Error */
