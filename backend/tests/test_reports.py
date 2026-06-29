@@ -290,3 +290,20 @@ async def test_other_business_income_excluded(
     )
     after = (await as_owner.get(f"/v1/reports/income?{WIDE}")).json()
     assert after["gross_cents"] == before["gross_cents"]  # other tenant's payment not counted
+
+
+async def test_malformed_date_is_422(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.get("/v1/reports/income?start=not-a-date&end=2026-01-01")
+    assert res.status_code == 422
+
+
+async def test_inverted_range_yields_empty_window(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # end < start collapses the window to nothing — an otherwise in-range payment is excluded and
+    # the report is empty (documented behavior: a 200 with zeroed totals, not an error).
+    await _add_payment(db, kind="payment", amount=12345, method="card", paid_at=IN_RANGE)
+    res = await as_owner.get("/v1/reports/income?start=2026-12-31&end=2026-01-01")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["gross_cents"] == 0 and body["net_cents"] == 0 and body["refunds_cents"] == 0

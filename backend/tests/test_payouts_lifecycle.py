@@ -1,10 +1,12 @@
 """Payout-allocation lifecycle (approve → pay), against the seeded DB."""
 
 import httpx
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.payments import PayoutAllocation
+from clientbridge.models.platform import AuditLog
 from tests.conftest import Factory
 
 BIZ = "bz_birchbark"
@@ -88,3 +90,23 @@ async def test_idempotent_approve_replays(as_owner: httpx.AsyncClient, db: Async
     assert second.status_code == 200
     assert first.json() == second.json()
     assert second.json()["status"] == "approved"
+
+
+async def test_idempotent_pay_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    alloc = await _alloc(db)
+    assert (await as_owner.post(f"/v1/payouts/allocations/{alloc.id}/approve")).status_code == 200
+    headers = {"Idempotency-Key": "pal-pay-1"}
+    first = await as_owner.post(f"/v1/payouts/allocations/{alloc.id}/pay", headers=headers)
+    second = await as_owner.post(f"/v1/payouts/allocations/{alloc.id}/pay", headers=headers)
+    assert first.status_code == 200 and second.status_code == 200
+    assert first.json() == second.json()
+    assert second.json()["status"] == "paid"
+    # the replay didn't re-run the money-moving body — exactly one "payout.pay" audit row
+    paid_audits = (
+        await db.execute(
+            select(func.count())
+            .select_from(AuditLog)
+            .where(AuditLog.entity_id == alloc.id, AuditLog.action == "payout.pay")
+        )
+    ).scalar_one()
+    assert paid_audits == 1

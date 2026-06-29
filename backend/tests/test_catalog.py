@@ -1,6 +1,11 @@
 """Catalog (items) endpoints + the business tax-rates list, against the seeded DB."""
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from clientbridge.core.ids import new_id
+from clientbridge.models.catalog import Item
+from tests.conftest import Factory
 
 BIZ = "bz_birchbark"
 
@@ -45,6 +50,32 @@ async def test_create_get_update_deactivate(as_owner: httpx.AsyncClient) -> None
 async def test_get_unknown_item_404(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.get("/v1/items/it_nope")
     assert res.status_code == 404
+
+
+async def test_foreign_item_404_by_scoping(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    # a REAL item in another tenant — every read/write 404s by scoping, and the row stays untouched
+    other = await factory.business()
+    item = Item(
+        id=new_id("item"),
+        business_id=other.id,
+        kind="service",
+        name="Foreign Svc",
+        price_cents=1000,
+    )
+    db.add(item)
+    await db.flush()
+
+    assert (await as_owner.get(f"/v1/items/{item.id}")).status_code == 404
+    assert (
+        await as_owner.patch(f"/v1/items/{item.id}", json={"price_cents": 9999})
+    ).status_code == 404
+    assert (await as_owner.delete(f"/v1/items/{item.id}")).status_code == 404
+
+    after = await db.get(Item, item.id)
+    assert after is not None
+    assert after.price_cents == 1000 and after.active is True  # no cross-tenant mutation leaked
 
 
 async def test_tax_rates_list(as_owner: httpx.AsyncClient) -> None:
