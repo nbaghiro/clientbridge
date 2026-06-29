@@ -38,7 +38,7 @@ from clientbridge.services.lines import tax_for_lines
 class WebhookOutcome:
     """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
 
-    notify: str  # "payment" | "subscription_past_due" | "subscription_canceled"
+    notify: str  # "payment" | "payment_failed" | "subscription_past_due" | "subscription_canceled"
     target_id: str
 
 
@@ -754,7 +754,8 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> WebhookOutcome | N
         )
         return WebhookOutcome("payment", settled) if settled is not None else None
     elif event.type == "payment_intent.payment_failed":
-        await _fail_payment(db, str(event.data.get("id")))
+        failed = await _fail_payment(db, str(event.data.get("id")))
+        return WebhookOutcome("payment_failed", failed) if failed is not None else None
     elif event.type == "payment_intent.canceled":
         await _fail_payment(db, str(event.data.get("id")), status="canceled")
     elif event.type == "payout.paid":
@@ -830,7 +831,8 @@ async def _reconcile_order(db: AsyncSession, order_id: str) -> None:
     await db.flush()
 
 
-async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "failed") -> None:
+async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "failed") -> str | None:
+    """Flag a pending charge failed/canceled; return its id (to notify on) when it transitioned."""
     payment = (
         await db.execute(
             select(Payment).where(Payment.provider_ref == intent_id, Payment.provider == "stripe")
@@ -839,6 +841,8 @@ async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "fail
     if payment is not None and payment.status == "pending":
         payment.status = status  # a canceled intent frees the invoice's pending room to retry
         await db.flush()
+        return payment.id
+    return None
 
 
 async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:

@@ -40,6 +40,8 @@ async def stripe_webhook(
         notifier = Notifier(email, sms, push)
         if outcome.notify == "payment":
             await notifier.on_payment_succeeded(db, outcome.target_id)
+        elif outcome.notify == "payment_failed":
+            await notifier.on_payment_failed(db, outcome.target_id)
         elif outcome.notify == "subscription_past_due":
             await notifier.on_subscription_past_due(db, outcome.target_id)
         elif outcome.notify == "subscription_canceled":

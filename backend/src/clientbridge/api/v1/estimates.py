@@ -57,9 +57,16 @@ async def accept_estimate(
 
 @router.post("/{estimate_id}/decline", response_model=EstimateOut)
 async def decline_estimate(
-    estimate_id: str, principal: CurrentPrincipal, db: DbSession
+    estimate_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
 ) -> EstimateOut:
-    return await BillingService(db, principal).decline_estimate(estimate_id)
+    result = await BillingService(db, principal).decline_estimate(estimate_id)
+    await Notifier(email, sms, push).on_estimate_declined(db, result.id)
+    return result
 
 
 @router.post("/{estimate_id}/convert", response_model=InvoiceOut, status_code=201)

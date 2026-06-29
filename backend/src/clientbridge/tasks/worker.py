@@ -7,10 +7,16 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from clientbridge.core.config import get_settings
+from clientbridge.tasks.billing_jobs import sweep_overdue_invoices
+from clientbridge.tasks.maintenance import run_daily_maintenance
 from clientbridge.tasks.reminders import send_booking_reminders
 
 
 class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     functions: ClassVar[list[object]] = []
-    cron_jobs: ClassVar[list[object]] = [cron(send_booking_reminders, minute={0, 15, 30, 45})]
+    cron_jobs: ClassVar[list[object]] = [
+        cron(send_booking_reminders, minute={0, 15, 30, 45}),
+        cron(sweep_overdue_invoices, hour=7, minute=0),
+        cron(run_daily_maintenance, hour=3, minute=30),
+    ]

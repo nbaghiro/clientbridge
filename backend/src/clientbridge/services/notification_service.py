@@ -53,6 +53,20 @@ def _invoice_sent(
     return f"Invoice #{number} from {business_name}", body
 
 
+def _invoice_overdue(
+    locale: str, number: int | None, amount: str, business_name: str, link: str
+) -> tuple[str, str]:
+    if locale == "fr":
+        body = f"La facture nº{number} de {amount} de la part de {business_name} est en retard"
+        if link:
+            body += f" — payez à {link}"
+        return f"Facture nº{number} en retard — {business_name}", body
+    body = f"Invoice #{number} for {amount} from {business_name} is overdue"
+    if link:
+        body += f" — pay at {link}"
+    return f"Invoice #{number} overdue — {business_name}", body
+
+
 def _estimate_sent(
     locale: str, number: int | None, amount: str, business_name: str
 ) -> tuple[str, str]:
@@ -73,6 +87,12 @@ def _estimate_accepted(locale: str, number: int | None) -> tuple[str, str]:
     return (f"Estimate #{number} accepted", f"Estimate #{number} was accepted.")
 
 
+def _estimate_declined(locale: str, number: int | None) -> tuple[str, str]:
+    if locale == "fr":
+        return (f"Devis nº{number} refusé", f"Le devis nº{number} a été refusé.")
+    return (f"Estimate #{number} declined", f"Estimate #{number} was declined.")
+
+
 def _interac_requested(locale: str, amount: str, send_to: str, reference: str) -> tuple[str, str]:
     if locale == "fr":
         return (
@@ -82,6 +102,18 @@ def _interac_requested(locale: str, amount: str, send_to: str, reference: str) -
     return (
         "Interac e-Transfer requested",
         f"Send an Interac e-Transfer of {amount} to {send_to} — use reference {reference}",
+    )
+
+
+def _payment_failed(locale: str, amount: str, business_name: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Paiement échoué — {business_name}",
+            f"Votre paiement de {amount} à {business_name} a échoué. Veuillez réessayer.",
+        )
+    return (
+        f"Payment failed — {business_name}",
+        f"Your payment of {amount} to {business_name} failed. Please try again.",
     )
 
 
@@ -146,6 +178,18 @@ def _booking_confirmed(locale: str, business_name: str, when: str) -> tuple[str,
     )
 
 
+def _booking_rescheduled(locale: str, business_name: str, when: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Rendez-vous reporté — {business_name}",
+            f"Votre rendez-vous avec {business_name} a été déplacé au {when}.",
+        )
+    return (
+        f"Appointment rescheduled — {business_name}",
+        f"Your appointment with {business_name} was moved to {when}.",
+    )
+
+
 def _booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, str]:
     if locale == "fr":
         return (
@@ -195,6 +239,20 @@ class Notifier:
         subject, body = _invoice_sent(business.locale, invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 
+    async def on_invoice_overdue(self, db: AsyncSession, invoice_id: str) -> None:
+        invoice = await db.get(Invoice, invoice_id)
+        if invoice is None:
+            return
+        business = await db.get(Business, invoice.business_id)
+        if business is None:
+            return
+        amount = _money(invoice.balance_cents, invoice.currency)
+        link = f"{get_settings().web_base_url}/pay/{invoice.pay_token}" if invoice.pay_token else ""
+        subject, body = _invoice_overdue(
+            business.locale, invoice.number, amount, business.name, link
+        )
+        await self._to_client(db, invoice.client_id, subject, body)
+
     async def on_estimate_sent(self, db: AsyncSession, estimate_id: str) -> None:
         estimate = await db.get(Estimate, estimate_id)
         if estimate is None:
@@ -215,6 +273,19 @@ class Notifier:
         if business is None or not business.billing_email:
             return
         subject, body = _estimate_accepted(business.locale, estimate.number)
+        await self._safe(
+            self.email.send(Email(to=business.billing_email, subject=subject, body=body))
+        )
+
+    async def on_estimate_declined(self, db: AsyncSession, estimate_id: str) -> None:
+        """Alert the provider (their billing email) that a client declined an estimate."""
+        estimate = await db.get(Estimate, estimate_id)
+        if estimate is None:
+            return
+        business = await db.get(Business, estimate.business_id)
+        if business is None or not business.billing_email:
+            return
+        subject, body = _estimate_declined(business.locale, estimate.number)
         await self._safe(
             self.email.send(Email(to=business.billing_email, subject=subject, body=body))
         )
@@ -241,6 +312,19 @@ class Notifier:
             return
         amount = _money(payment.amount_cents, payment.currency)
         subject, body = _refund(business.locale, amount, business.name)
+        await self._to_client(db, payment.client_id, subject, body)
+
+    async def on_payment_failed(self, db: AsyncSession, payment_id: str) -> None:
+        """Tell the client a one-off charge failed so they can retry (subscription dunning is a
+        separate event)."""
+        payment = await db.get(Payment, payment_id)
+        if payment is None:
+            return
+        business = await db.get(Business, payment.business_id)
+        if business is None:
+            return
+        amount = _money(payment.amount_cents, payment.currency)
+        subject, body = _payment_failed(business.locale, amount, business.name)
         await self._to_client(db, payment.client_id, subject, body)
 
     async def on_subscription_past_due(self, db: AsyncSession, subscription_id: str) -> None:
@@ -287,6 +371,20 @@ class Notifier:
             return
         local = session.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_confirmed(
+            business.locale, business.name, f"{local:%Y-%m-%d at %H:%M}"
+        )
+        await self._to_client(db, booking.client_id, subject, body)
+
+    async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
+        booking = await db.get(Booking, booking_id)
+        if booking is None:
+            return
+        session = await db.get(Session, booking.session_id)
+        business = await db.get(Business, booking.business_id)
+        if session is None or business is None:
+            return
+        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        subject, body = _booking_rescheduled(
             business.locale, business.name, f"{local:%Y-%m-%d at %H:%M}"
         )
         await self._to_client(db, booking.client_id, subject, body)
