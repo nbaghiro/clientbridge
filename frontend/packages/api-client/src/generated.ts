@@ -768,6 +768,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Order */
+        post: operations["create_order_v1_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Order */
+        patch: operations["update_order_v1_orders__order_id__patch"];
+        trace?: never;
+    };
+    "/v1/orders/{order_id}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Checkout Order */
+        post: operations["checkout_order_v1_orders__order_id__checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{order_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Order */
+        post: operations["void_order_v1_orders__order_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/terminal/connection-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Connection Token */
+        post: operations["connection_token_v1_terminal_connection_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payouts/allocations/{allocation_id}/approve": {
         parameters: {
             query?: never;
@@ -1179,6 +1264,15 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** CheckoutOut */
+        CheckoutOut: {
+            /** Order Id */
+            order_id: string;
+            /** Client Secret */
+            client_secret: string;
+            /** Payment Id */
+            payment_id: string;
+        };
         /** ClientCreate */
         ClientCreate: {
             /** Name */
@@ -1258,6 +1352,11 @@ export interface components {
             connected: boolean;
             /** Charges Enabled */
             charges_enabled: boolean;
+        };
+        /** ConnectionTokenOut */
+        ConnectionTokenOut: {
+            /** Secret */
+            secret: string;
         };
         /** DashboardSummary */
         DashboardSummary: {
@@ -1705,6 +1804,47 @@ export interface components {
             url: string;
             /** Charges Enabled */
             charges_enabled: boolean;
+        };
+        /** OrderCreate */
+        OrderCreate: {
+            /** Client Id */
+            client_id?: string | null;
+            /** Lines */
+            lines?: components["schemas"]["LineInput"][];
+        };
+        /** OrderOut */
+        OrderOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Client Id */
+            client_id: string | null;
+            /** Staff Id */
+            staff_id: string;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /** Amount Paid Cents */
+            amount_paid_cents: number;
+            /** Balance Cents */
+            balance_cents: number;
+            /** Paid At */
+            paid_at: string | null;
+            /** Lines */
+            lines: components["schemas"]["LineOut"][];
+        };
+        /** OrderUpdate */
+        OrderUpdate: {
+            /** Lines */
+            lines?: components["schemas"]["LineInput"][] | null;
         };
         /** PackageOut */
         PackageOut: {
@@ -3635,6 +3775,181 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InteracRequest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_order_v1_orders_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_order_v1_orders__order_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    checkout_order_v1_orders__order_id__checkout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    void_order_v1_orders__order_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connection_token_v1_terminal_connection_token_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTokenOut"];
                 };
             };
             /** @description Validation Error */

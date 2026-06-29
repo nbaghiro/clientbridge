@@ -116,6 +116,25 @@ class PaymentGateway(Protocol):
         """Detach a saved card from its Customer so it can no longer be charged."""
         ...
 
+    # Stripe Terminal (in-person POS): the device fetches a connection token, then confirms a
+    # card_present PaymentIntent we create with the platform's application fee.
+    async def create_connection_token(self, account_id: str) -> str:
+        """A short-lived secret the Terminal SDK exchanges to connect a reader."""
+        ...
+
+    async def create_terminal_payment_intent(
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        application_fee_cents: int,
+        metadata: dict[str, str],
+        idempotency_key: str,
+    ) -> PaymentIntentResult:
+        """A card_present PaymentIntent (no customer); the reader confirms, the webhook settles."""
+        ...
+
 
 class StripeGateway:
     def __init__(self, secret_key: str, webhook_secret: str, country: str) -> None:
@@ -281,6 +300,31 @@ class StripeGateway:
         self, account_id: str, *, payment_method_id: str
     ) -> None:
         await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
+
+    async def create_connection_token(self, account_id: str) -> str:  # pragma: no cover
+        token = await stripe.terminal.ConnectionToken.create_async(stripe_account=account_id)
+        return str(token.secret)
+
+    async def create_terminal_payment_intent(  # pragma: no cover
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        application_fee_cents: int,
+        metadata: dict[str, str],
+        idempotency_key: str,
+    ) -> PaymentIntentResult:
+        intent = await stripe.PaymentIntent.create_async(
+            amount=amount_cents,
+            currency=currency.lower(),
+            payment_method_types=["card_present"],
+            application_fee_amount=application_fee_cents,
+            metadata=metadata,
+            stripe_account=account_id,
+            idempotency_key=idempotency_key,
+        )
+        return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:  # pragma: no cover
         try:

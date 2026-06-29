@@ -56,6 +56,7 @@ bucket_definitions:
       - SELECT * FROM schedules          WHERE business_id = bucket.business_id
       - SELECT * FROM invoices           WHERE business_id = bucket.business_id
       - SELECT * FROM estimates          WHERE business_id = bucket.business_id
+      - SELECT * FROM orders             WHERE business_id = bucket.business_id
       - SELECT * FROM lines              WHERE business_id = bucket.business_id
       - SELECT * FROM payments           WHERE business_id = bucket.business_id
       - SELECT * FROM payment_methods    WHERE business_id = bucket.business_id

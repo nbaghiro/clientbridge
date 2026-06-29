@@ -12,7 +12,7 @@ from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
-from clientbridge.models.billing import Invoice, Line
+from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
@@ -521,6 +521,54 @@ async def open_card_payment(
     return payment, intent.client_secret
 
 
+async def open_terminal_payment(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    *,
+    account_id: str,
+    business_id: str,
+    order: Order,
+    amount: int,
+    fee_bps: int,
+) -> tuple[Payment, str]:
+    """Create a Terminal (card_present) PaymentIntent (+ app fee, no customer) and a pending card
+    Payment linked to the order. The device confirms via the Terminal SDK; the webhook settles. The
+    caller commits."""
+    intent = await gateway.create_terminal_payment_intent(
+        account_id,
+        amount_cents=amount,
+        currency=order.currency,
+        application_fee_cents=amount * fee_bps // 10000,
+        metadata={"order_id": order.id, "business_id": business_id},
+        # one intent per (order, amount) — a retry returns the same intent, not a new charge
+        idempotency_key=f"order_{order.id}_{amount}",
+    )
+    existing = (
+        await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
+    ).scalar_one_or_none()
+    if existing is not None:  # a retry hit the same intent — don't mint a second pending row
+        return existing, intent.client_secret
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=business_id,
+        client_id=order.client_id,
+        kind="payment",
+        order_id=order.id,
+        amount_cents=amount,
+        currency=order.currency,
+        method="card",
+        provider="stripe",
+        provider_ref=intent.id,
+        status="pending",
+    )
+    db.add(payment)
+    try:
+        await db.flush()  # the unique provider_ref guards a concurrent insert of the same intent
+    except IntegrityError as exc:
+        raise Conflict("checkout is being set up — please retry") from exc
+    return payment, intent.client_secret
+
+
 async def open_interac_payment(
     db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int, kind: str = "payment"
 ) -> Payment:
@@ -623,7 +671,26 @@ async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -
     await db.flush()
     if payment.invoice_id is not None:
         await _reconcile_invoice(db, payment.invoice_id)
+    if payment.order_id is not None:
+        await _reconcile_order(db, payment.order_id)
     return payment.id
+
+
+async def _reconcile_order(db: AsyncSession, order_id: str) -> None:
+    """Recompute amount_paid / balance / status from the order's succeeded payments + refunds."""
+    order = await db.get(Order, order_id)
+    if order is None:
+        return
+    rows = (await db.execute(select(Payment).where(Payment.order_id == order_id))).scalars().all()
+    paid = sum(
+        p.amount_cents for p in rows if p.status == "succeeded" and p.kind in ("payment", "deposit")
+    ) - sum(p.amount_cents for p in rows if p.status == "succeeded" and p.kind == "refund")
+    order.amount_paid_cents = paid
+    order.balance_cents = order.total_cents - paid
+    if paid > 0 and order.balance_cents <= 0:
+        order.status = "paid"
+        order.paid_at = datetime.now(UTC)
+    await db.flush()
 
 
 async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "failed") -> None:

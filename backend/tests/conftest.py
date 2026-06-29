@@ -223,6 +223,28 @@ class FakePaymentGateway:
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
         self.detached.append(payment_method_id)
 
+    async def create_connection_token(self, account_id: str) -> str:
+        self._seq += 1
+        return f"pst_fake{self._seq}"
+
+    async def create_terminal_payment_intent(
+        self,
+        account_id: str,
+        *,
+        amount_cents: int,
+        currency: str,
+        application_fee_cents: int,
+        metadata: dict[str, str],
+        idempotency_key: str,
+    ) -> PaymentIntentResult:
+        if idempotency_key in self._intents:
+            return self._intents[idempotency_key]
+        self._seq += 1
+        pid = f"pi_term_fake{self._seq}"
+        result = PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
+        self._intents[idempotency_key] = result
+        return result
+
 
 @pytest.fixture
 def gateway() -> FakePaymentGateway:

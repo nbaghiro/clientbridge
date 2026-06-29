@@ -583,6 +583,30 @@ const estimates = new Table(
     },
 );
 
+const orders = new Table(
+    {
+        client_id: column.text,
+        staff_id: column.text,
+        status: column.text,
+        currency: column.text,
+        subtotal_cents: column.integer,
+        tax_total_cents: column.integer,
+        total_cents: column.integer,
+        amount_paid_cents: column.integer,
+        balance_cents: column.integer,
+        paid_at: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            orders_business_id: ["business_id"],
+            orders_status: ["business_id", "status"],
+        },
+    },
+);
+
 const lines = new Table(
     {
         parent_type: column.text,
@@ -614,6 +638,7 @@ const payments = new Table(
         kind: column.text,
         parent_payment_id: column.text,
         invoice_id: column.text,
+        order_id: column.text,
         booking_id: column.text,
         amount_cents: column.integer,
         currency: column.text,
@@ -633,6 +658,7 @@ const payments = new Table(
         indexes: {
             payments_business_id: ["business_id"],
             payments_invoice: ["invoice_id"],
+            payments_order: ["order_id"],
             payments_provider_ref: ["provider_ref"],
             payments_reference_code: ["reference_code"],
             payments_refund_parent: ["parent_payment_id"],
@@ -837,6 +863,7 @@ export const AppSchema = new Schema({
     payout_allocations,
     invoices,
     estimates,
+    orders,
     lines,
     payments,
     payment_methods,
