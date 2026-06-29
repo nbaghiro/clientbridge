@@ -289,6 +289,73 @@ async def test_booking_cancel_notifies_client(
     assert len(sms.sent) == 1
 
 
+async def test_booking_reschedule_notifies_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    item_id = await _bookable_item(db)
+    bid = (
+        await as_owner.post(
+            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-01T10:00:00Z")
+        )
+    ).json()["id"]
+    email.sent.clear()
+    sms.sent.clear()
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-05-02T10:00:00Z"})
+    assert res.status_code == 200, res.text
+    assert len(email.sent) == 1 and "2027-05-02" in email.sent[0].body  # the new time, in tz
+    assert len(sms.sent) == 1
+
+
+async def test_payment_failed_notifies_client(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+) -> None:
+    await _enable(db)
+    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
+    inv_id = await _sent_invoice(db, cid)
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pi = (
+        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
+    ).scalar_one()
+    email.sent.clear()
+    sms.sent.clear()
+    event = json.dumps(
+        {"id": "evt_pf", "type": "payment_intent.payment_failed", "data": {"object": {"id": pi}}}
+    )
+    res = await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
+    assert res.status_code == 200, res.text
+    assert any("failed" in m.body.lower() for m in email.sent)
+    assert len(sms.sent) == 1
+
+
+async def test_estimate_decline_notifies_business(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+) -> None:
+    cid = (
+        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
+        .scalars()
+        .first()
+    )
+    assert cid
+    line = {"description": "Project quote", "quantity": 1, "unit_amount_cents": 5000}
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [line]})).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    email.sent.clear()
+    declined = await as_owner.post(f"/v1/estimates/{est['id']}/decline")
+    assert declined.status_code == 200, declined.text
+    assert any(
+        m.to == "hello@birchbarkpets.ca" and "declined" in m.body.lower() for m in email.sent
+    )
+
+
 async def test_booking_noncancel_patch_sends_no_cancel_notice(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
