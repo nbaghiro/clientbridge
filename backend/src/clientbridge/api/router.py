@@ -12,6 +12,7 @@ from clientbridge.api.v1 import (
     gift_cards,
     invoices,
     onboarding,
+    orders,
     packages,
     payments,
     payouts,
@@ -19,6 +20,7 @@ from clientbridge.api.v1 import (
     staff,
     subscriptions,
     tax,
+    terminal,
 )
 
 api_router = APIRouter(prefix="/v1")
@@ -29,6 +31,8 @@ api_router.include_router(invoices.router)
 api_router.include_router(estimates.router)
 api_router.include_router(payments.router)
 api_router.include_router(payments.pay_router)
+api_router.include_router(orders.router)
+api_router.include_router(terminal.router)
 api_router.include_router(payouts.router)
 api_router.include_router(gift_cards.router)
 api_router.include_router(packages.router)

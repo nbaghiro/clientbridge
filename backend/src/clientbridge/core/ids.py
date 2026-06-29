@@ -21,6 +21,7 @@ PREFIXES: dict[str, str] = {
     "schedule": "sch",
     "invoice": "inv",
     "estimate": "est",
+    "order": "ord",
     "line": "ln",
     "tax_rate": "tx",
     "payment": "pay",

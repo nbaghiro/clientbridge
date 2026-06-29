@@ -1,8 +1,7 @@
 import secrets
 from datetime import UTC, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +12,6 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
 from clientbridge.schemas.billing import (
     EstimateCreate,
     EstimateOut,
@@ -24,8 +22,7 @@ from clientbridge.schemas.billing import (
     LineInput,
     LineOut,
 )
-from clientbridge.services.tax_rates import rates_for_business
-from clientbridge.services.tax_service import TaxComponent, TaxLine, compute_tax
+from clientbridge.services.lines import fetch_lines, replace_lines, tax_for_lines
 
 _DUE_DAYS = 30
 
@@ -303,75 +300,20 @@ class BillingService:
             raise Forbidden("only an owner or admin can manage billing")
 
     async def _apply_totals(self, parent: Invoice | Estimate, lines: list[Line]) -> None:
-        result = compute_tax(
-            [TaxLine(amount_cents=ln.amount_cents) for ln in lines],
-            await self._tax_components(),
-            registered=await self._is_registered(),
-        )
-        for ln, line_tax in zip(lines, result.lines, strict=True):
-            ln.tax_amount_cents = line_tax.tax_cents
+        result = await tax_for_lines(self.db, self.biz, lines)
         parent.subtotal_cents = result.subtotal_cents
         parent.tax_total_cents = result.tax_total_cents
         parent.total_cents = result.total_cents
         if isinstance(parent, Invoice):
             parent.balance_cents = result.total_cents - parent.amount_paid_cents
 
-    async def _tax_components(self) -> list[TaxComponent]:
-        rates = await rates_for_business(self.db, self.biz)
-        return [TaxComponent(jurisdiction=r.jurisdiction, rate_bps=r.rate_bps) for r in rates]
-
-    async def _is_registered(self) -> bool:
-        value = (
-            await self.db.execute(select(Business.is_tax_registered).where(Business.id == self.biz))
-        ).scalar_one()
-        return bool(value)
-
     async def _replace_lines(
         self, parent_type: str, parent_id: str, inputs: list[LineInput]
     ) -> list[Line]:
-        await self.db.execute(
-            delete(Line).where(
-                Line.parent_type == parent_type,
-                Line.parent_id == parent_id,
-                Line.business_id == self.biz,
-            )
-        )
-        lines: list[Line] = []
-        for i, inp in enumerate(inputs):
-            amount = (Decimal(str(inp.quantity)) * inp.unit_amount_cents).quantize(
-                Decimal(1), rounding=ROUND_HALF_UP
-            )
-            line = Line(
-                id=new_id("line"),
-                business_id=self.biz,
-                parent_type=parent_type,
-                parent_id=parent_id,
-                description=inp.description,
-                item_id=inp.item_id,
-                booking_id=inp.booking_id,
-                quantity=inp.quantity,
-                unit_amount_cents=inp.unit_amount_cents,
-                amount_cents=int(amount),
-                position=i,
-            )
-            self.db.add(line)
-            lines.append(line)
-        await self.db.flush()
-        return lines
+        return await replace_lines(self.db, self.biz, parent_type, parent_id, inputs)
 
     async def _lines(self, parent_type: str, parent_id: str) -> list[Line]:
-        rows = (
-            (
-                await self.db.execute(
-                    scoped(Line, self.biz)
-                    .where(Line.parent_type == parent_type, Line.parent_id == parent_id)
-                    .order_by(Line.position)
-                )
-            )
-            .scalars()
-            .all()
-        )
-        return list(rows)
+        return await fetch_lines(self.db, self.biz, parent_type, parent_id)
 
     async def _next_number(self, model: type[Invoice] | type[Estimate]) -> int:
         current = (

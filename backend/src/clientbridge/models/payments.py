@@ -16,6 +16,7 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("payments", "status", "pending", "succeeded", "failed", "refunded", "canceled"),
         Index("ix_payments_status", "business_id", "status"),
         Index("ix_payments_invoice", "invoice_id"),
+        Index("ix_payments_order", "order_id"),
         Index("ix_payments_reference_code", "reference_code", unique=True),
         Index("ix_payments_provider_ref", "provider_ref", unique=True),  # one row per Stripe object
         Index(
@@ -27,6 +28,7 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     kind: Mapped[str] = mapped_column(String, default="payment", nullable=False)
     parent_payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id"))
     invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
+    order_id: Mapped[str | None] = mapped_column(ForeignKey("orders.id"))  # Terminal POS sale
     # use_alter breaks the bookings→packages→payments→bookings FK cycle: this FK is added via
     # ALTER after the tables exist, so Alembic can order CREATE TABLEs.
     booking_id: Mapped[str | None] = mapped_column(
