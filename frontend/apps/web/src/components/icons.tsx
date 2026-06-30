@@ -85,6 +85,13 @@ export const IconPayouts = ({ className }: { className?: string }) => (
         <path d="M6 12h.01M18 12h.01" />
     </Icon>
 );
+export const IconGift = ({ className }: { className?: string }) => (
+    <Icon className={className}>
+        <rect x="3" y="8" width="18" height="4" rx="1" />
+        <path d="M12 8v13M5 12v9h14v-9" />
+        <path d="M12 8C12 8 11 3 8 3a2 2 0 0 0 0 5zM12 8c0 0 1-5 4-5a2 2 0 0 1 0 5z" />
+    </Icon>
+);
 export const IconLogout = ({ className }: { className?: string }) => (
     <Icon className={className}>
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />

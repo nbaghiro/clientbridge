@@ -5,6 +5,7 @@ import { getTokens } from "../lib/auth";
 import {
     IconCalendar,
     IconClients,
+    IconGift,
     IconInbox,
     IconInvoices,
     IconLogout,
@@ -31,9 +32,10 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
         { to: "/clients", label: "Clients", Icon: IconClients },
         { to: "/invoices", label: "Invoices", Icon: IconInvoices },
         { to: "/pos", label: "Point of sale", Icon: IconPos },
-        // Payouts and Reports are financial surfaces — owners and admins only (matches the backend gate).
+        // Gift cards, Payouts, and Reports are financial surfaces — owners and admins only (matches the backend gate).
         ...(canManagePayments(role)
             ? [
+                  { to: "/gift-cards", label: "Gift cards", Icon: IconGift },
                   { to: "/payouts", label: "Payouts", Icon: IconPayouts },
                   { to: "/reports", label: "Reports", Icon: IconReports },
               ]

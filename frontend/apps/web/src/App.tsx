@@ -11,6 +11,7 @@ import { connectPowerSync, db, signOut } from "./lib/powersync";
 import { Calendar } from "./pages/Calendar";
 import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
+import { GiftCards } from "./pages/GiftCards";
 import { Invoices } from "./pages/Invoices";
 import { PaymentsSettings } from "./pages/PaymentsSettings";
 import { Payouts } from "./pages/Payouts";
@@ -56,6 +57,7 @@ export function App() {
                             <Route path="inbox" element={<Placeholder title="Inbox" />} />
                             <Route path="invoices" element={<Invoices />} />
                             <Route path="pos" element={<POS />} />
+                            <Route path="gift-cards" element={<GiftCards />} />
                             <Route path="payouts" element={<Payouts />} />
                             <Route path="reports" element={<Reports />} />
                             <Route path="settings" element={<SettingsLayout />}>

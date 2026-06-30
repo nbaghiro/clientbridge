@@ -16,6 +16,8 @@ export * from "./domain/billing";
 export * from "./domain/payments";
 export * from "./domain/payouts";
 export * from "./domain/subscriptions";
+export * from "./domain/packages";
+export * from "./domain/giftCards";
 export * from "./domain/pos";
 export * from "./domain/reports";
 export * from "./domain/publicPay";

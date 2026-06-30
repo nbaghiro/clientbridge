@@ -2,11 +2,14 @@ import {
     type AddPaymentMethod,
     type ClientRow,
     type ItemRow,
+    type PackageRow,
     type SavedCardRow,
     type SubscriptionRow,
+    canConsume,
     canManagePayments,
     cancelSubscription,
     clientStatusIntent,
+    consumeSession,
     detachCard,
     filterClients,
     formatDate,
@@ -15,17 +18,21 @@ import {
     isCancelable,
     isMandate,
     mandateStatusIntent,
+    packageStatusIntent,
     parseTimestamp,
     savedCardLabel,
+    sessionsRemaining,
     setDefaultCard,
     subscriptionStatusIntent,
     useAddPaymentMethod,
     useAsyncAction,
     useCatalogItems,
     useClientForm,
+    useClientPackages,
     useClientSubscriptions,
     useClients,
     useCurrentRole,
+    usePackageSaleForm,
     useSavedCards,
     useSearch,
     useSubscriptionForm,
@@ -35,6 +42,7 @@ import { type Stripe, loadStripe } from "@stripe/stripe-js";
 import { type FormEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
+import { PurchaseCardConfirm } from "../components/PurchaseCardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -194,10 +202,12 @@ function ClientDetailModal({ client, onClose }: { client: ClientRow | null; onCl
                         <>
                             <PaymentMethodsSection clientId={client.id} />
                             <SubscriptionsSection clientId={client.id} />
+                            <PackagesSection clientId={client.id} />
                         </>
                     ) : (
                         <p className="text-sm text-muted">
-                            Only owners and admins can manage payment methods and subscriptions.
+                            Only owners and admins can manage payment methods, subscriptions, and
+                            packages.
                         </p>
                     )}
                 </div>
@@ -569,6 +579,187 @@ function StartSubscriptionForm({
                     className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                 >
                     {form.busy ? "Starting…" : "Start subscription"}
+                </button>
+            </div>
+        </form>
+    );
+}
+
+function PackagesSection({ clientId }: { clientId: string }) {
+    const packages = useClientPackages(clientId);
+    const cards = useSavedCards(clientId);
+    const items = useCatalogItems();
+    const offerings = useMemo(
+        () => items.filter((i) => i.kind === "package" && i.active === 1),
+        [items],
+    );
+    const [selling, setSelling] = useState(false);
+
+    return (
+        <section>
+            <div className="flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Packages
+                </h3>
+                {!selling ? (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setSelling(true);
+                        }}
+                        className="text-sm font-medium text-accent transition hover:opacity-80"
+                    >
+                        + Sell package
+                    </button>
+                ) : null}
+            </div>
+
+            {packages.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">No packages yet.</p>
+            ) : (
+                <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
+                    {packages.map((pkg) => (
+                        <PackageRowItem key={pkg.id} pkg={pkg} />
+                    ))}
+                </div>
+            )}
+
+            {selling ? (
+                <SellPackageForm
+                    clientId={clientId}
+                    offerings={offerings}
+                    cards={cards}
+                    onClose={() => {
+                        setSelling(false);
+                    }}
+                />
+            ) : null}
+        </section>
+    );
+}
+
+function PackageRowItem({ pkg }: { pkg: PackageRow }) {
+    const { busy, error, run } = useAsyncAction();
+
+    const consume = (): void => {
+        void run(() => consumeSession(api, pkg.id), {
+            errorMessage: "Couldn't consume a session. Please try again.",
+        });
+    };
+
+    return (
+        <div className="px-3 py-2.5 text-sm">
+            <div className="flex items-center gap-2">
+                <div className="min-w-0">
+                    <div className="font-medium text-ink">{pkg.item_name ?? "Package"}</div>
+                    <div className="text-xs text-muted">
+                        {sessionsRemaining(pkg)} of {pkg.sessions_total} sessions left
+                    </div>
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <StatusPill status={pkg.status} intent={packageStatusIntent(pkg.status)} />
+                    {canConsume(pkg) ? (
+                        <button
+                            type="button"
+                            disabled={busy}
+                            onClick={consume}
+                            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                        >
+                            {busy ? "…" : "Consume session"}
+                        </button>
+                    ) : null}
+                </div>
+            </div>
+            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+        </div>
+    );
+}
+
+function SellPackageForm({
+    clientId,
+    offerings,
+    cards,
+    onClose,
+}: {
+    clientId: string;
+    offerings: ItemRow[];
+    cards: SavedCardRow[];
+    onClose: () => void;
+}) {
+    const form = usePackageSaleForm(api, clientId, onClose);
+
+    if (form.clientSecret !== null) {
+        const offering = offerings.find((o) => o.id === form.itemId) ?? null;
+        return (
+            <PurchaseCardConfirm
+                clientSecret={form.clientSecret}
+                amountLabel={offering ? formatMoney(offering.price_cents) : "package"}
+                onPaid={form.complete}
+                onCancel={form.cancel}
+            />
+        );
+    }
+
+    return (
+        <form
+            onSubmit={(e) => {
+                e.preventDefault();
+                form.submit();
+            }}
+            className="mt-3 space-y-3 rounded-md border border-line bg-bg p-4"
+        >
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                Package
+                <select
+                    value={form.itemId}
+                    onChange={(e) => {
+                        form.setItemId(e.target.value);
+                    }}
+                    className={field}
+                >
+                    <option value="">Select a package</option>
+                    {offerings.map((o) => (
+                        <option key={o.id} value={o.id}>
+                            {o.name} — {formatMoney(o.price_cents)}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                Payment
+                <select
+                    value={form.paymentMethodId}
+                    onChange={(e) => {
+                        form.setPaymentMethodId(e.target.value);
+                    }}
+                    className={field}
+                >
+                    <option value="">Pay with a new card</option>
+                    {cards.map((card) => (
+                        <option key={card.id} value={card.id}>
+                            {savedCardLabel(card)}
+                        </option>
+                    ))}
+                </select>
+            </label>
+            {offerings.length === 0 ? (
+                <p className="text-xs text-muted">Add a package item in your catalog first.</p>
+            ) : null}
+            {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
+            <div className="flex justify-end gap-2">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    disabled={form.busy}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                >
+                    {form.busy ? "Selling…" : "Sell package"}
                 </button>
             </div>
         </form>

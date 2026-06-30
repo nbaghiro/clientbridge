@@ -118,6 +118,16 @@ export function HomeScreen() {
                         <Pressable
                             style={styles.linkCard}
                             onPress={() => {
+                                nav.navigate("GiftCards");
+                            }}
+                        >
+                            <Text style={styles.linkLabel}>Gift cards</Text>
+                            <IconChevron size={18} color={theme.colors.muted} />
+                        </Pressable>
+
+                        <Pressable
+                            style={styles.linkCard}
+                            onPress={() => {
                                 nav.navigate("Payouts");
                             }}
                         >
