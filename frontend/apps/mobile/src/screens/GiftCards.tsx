@@ -125,7 +125,13 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     const cards = useSavedCards(form.purchaserClientId);
 
     if (form.clientSecret !== null) {
-        return <PurchaseConfirmPanel clientSecret={form.clientSecret} onCancel={form.cancel} />;
+        return (
+            <PurchaseConfirmPanel
+                clientSecret={form.clientSecret}
+                onCancel={form.cancel}
+                onConfirmed={form.complete}
+            />
+        );
     }
 
     return (

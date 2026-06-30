@@ -62,8 +62,9 @@ export interface PackagePurchaseResult {
 export function purchasePackage(
     api: ApiLike,
     input: PackagePurchaseInput,
+    idempotencyKey: string,
 ): Promise<PackagePurchaseResult> {
-    return api.post<PackagePurchaseResult>("/v1/packages", input);
+    return api.post<PackagePurchaseResult>("/v1/packages", input, { idempotencyKey });
 }
 
 export function consumeSession(api: ApiLike, packageId: string): Promise<PackageRow> {
@@ -105,12 +106,16 @@ export function usePackageSaleForm(
         }
         const interactive = paymentMethodId === "";
         purchase.submit(
-            () =>
-                purchasePackage(api, {
-                    client_id: clientId,
-                    item_id: itemId,
-                    payment_method_id: interactive ? undefined : paymentMethodId,
-                }),
+            (idempotencyKey) =>
+                purchasePackage(
+                    api,
+                    {
+                        client_id: clientId,
+                        item_id: itemId,
+                        payment_method_id: interactive ? undefined : paymentMethodId,
+                    },
+                    idempotencyKey,
+                ),
             interactive,
             "Couldn't sell this package. Please try again.",
         );

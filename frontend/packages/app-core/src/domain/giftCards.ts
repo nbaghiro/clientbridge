@@ -55,8 +55,9 @@ export interface GiftCardPurchaseResult {
 export function purchaseGiftCard(
     api: ApiLike,
     input: GiftCardPurchaseInput,
+    idempotencyKey: string,
 ): Promise<GiftCardPurchaseResult> {
-    return api.post<GiftCardPurchaseResult>("/v1/gift-cards", input);
+    return api.post<GiftCardPurchaseResult>("/v1/gift-cards", input, { idempotencyKey });
 }
 
 export interface GiftCardRedeemResult {
@@ -118,13 +119,17 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
         }
         const interactive = paymentMethodId === "";
         purchase.submit(
-            () =>
-                purchaseGiftCard(api, {
-                    purchaser_client_id: purchaserClientId,
-                    amount_cents: cents,
-                    recipient: blankToNull(recipient),
-                    payment_method_id: interactive ? undefined : paymentMethodId,
-                }),
+            (idempotencyKey) =>
+                purchaseGiftCard(
+                    api,
+                    {
+                        purchaser_client_id: purchaserClientId,
+                        amount_cents: cents,
+                        recipient: blankToNull(recipient),
+                        payment_method_id: interactive ? undefined : paymentMethodId,
+                    },
+                    idempotencyKey,
+                ),
             interactive,
             "Couldn't sell this gift card. Please try again.",
         );

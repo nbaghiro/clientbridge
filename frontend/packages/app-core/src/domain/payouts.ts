@@ -1,4 +1,5 @@
 import { useQuery } from "@powersync/react";
+import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
@@ -40,6 +41,28 @@ ORDER BY a.created_at DESC`;
 /** Allocations still awaiting approval — the actionable queue for a count/badge or quick review. */
 export function usePendingAllocations(): AllocationRow[] {
     return useQuery<AllocationRow>(PENDING_ALLOCATIONS_SQL).data;
+}
+
+export type PayoutFilter = "pending" | "approved" | "paid" | "all";
+
+export const PAYOUT_FILTERS: PayoutFilter[] = ["pending", "approved", "paid", "all"];
+
+export interface PayoutFilterView {
+    filter: PayoutFilter;
+    setFilter: (f: PayoutFilter) => void;
+    filters: PayoutFilter[];
+    shown: AllocationRow[];
+    countOf: (f: PayoutFilter) => number;
+}
+
+/** Shared payout-list filter: the status tabs, the active selection, the filtered rows, and the
+ *  per-tab counts — so both Payouts screens render the same glue. */
+export function usePayoutFilter(rows: AllocationRow[]): PayoutFilterView {
+    const [filter, setFilter] = useState<PayoutFilter>("pending");
+    const shown = filter === "all" ? rows : rows.filter((r) => r.status === filter);
+    const countOf = (f: PayoutFilter): number =>
+        f === "all" ? rows.length : rows.filter((r) => r.status === f).length;
+    return { filter, setFilter, filters: PAYOUT_FILTERS, shown, countOf };
 }
 
 export function allocationStaffLabel(row: AllocationRow): string {

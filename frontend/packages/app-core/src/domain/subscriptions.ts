@@ -1,8 +1,9 @@
 import { useQuery } from "@powersync/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
+import { newIdempotencyKey } from "../util/idempotency";
 import type { Intent } from "../util/intent";
 
 export interface SubscriptionRow {
@@ -53,8 +54,9 @@ export interface SubscriptionInput {
 export function createSubscription(
     api: ApiLike,
     input: SubscriptionInput,
+    idempotencyKey: string,
 ): Promise<{ id: string }> {
-    return api.post<{ id: string }>("/v1/subscriptions", input);
+    return api.post<{ id: string }>("/v1/subscriptions", input, { idempotencyKey });
 }
 
 export function cancelSubscription(
@@ -83,6 +85,8 @@ export function useSubscriptionForm(
     const [itemId, setItemId] = useState("");
     const [paymentMethodId, setPaymentMethodId] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
+    // One key per attempt (the first invoice is a charge): kept across retries, cleared on success.
+    const keyRef = useRef<string | null>(null);
 
     const submit = (): void => {
         if (itemId === "") {
@@ -93,15 +97,22 @@ export function useSubscriptionForm(
             setError("Choose a payment method");
             return;
         }
+        keyRef.current ??= newIdempotencyKey();
+        const key = keyRef.current;
         void run(
             () =>
-                createSubscription(api, {
-                    client_id: clientId,
-                    item_id: itemId,
-                    payment_method_id: paymentMethodId,
-                }),
+                createSubscription(
+                    api,
+                    {
+                        client_id: clientId,
+                        item_id: itemId,
+                        payment_method_id: paymentMethodId,
+                    },
+                    key,
+                ),
             {
                 onSuccess: () => {
+                    keyRef.current = null;
                     setItemId("");
                     setPaymentMethodId("");
                     onCreated();

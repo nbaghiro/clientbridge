@@ -4,6 +4,7 @@ import {
     filterItems,
     formatMoney,
     orderStatusIntent,
+    sellableItems,
     useCart,
     useCatalogItems,
     useConnectionToken,
@@ -33,7 +34,7 @@ const c = theme.colors;
 export function POSScreen() {
     const cart = useCart(api);
     const items = useCatalogItems();
-    const active = useMemo(() => items.filter((i) => i.active && i.price_cents !== null), [items]);
+    const active = useMemo(() => sellableItems(items), [items]);
     const { q, setQ, filtered } = useSearch(active, filterItems);
     const reviewing = cart.phase === "awaiting_reader";
 

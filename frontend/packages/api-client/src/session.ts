@@ -19,11 +19,17 @@ export interface SessionOptions {
     lock?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
+/** Per-request write options. `idempotencyKey` is sent as the `Idempotency-Key` header so a retried
+ *  money/uniqueness command dedups server-side. */
+export interface PostOptions {
+    idempotencyKey?: string;
+}
+
 export interface Session {
     get<T>(path: string): Promise<T>;
     /** Authenticated GET returning the raw body text (non-JSON endpoints, e.g. report .csv exports). */
     getText(path: string): Promise<string>;
-    post<T>(path: string, body: unknown): Promise<T>;
+    post<T>(path: string, body: unknown, opts?: PostOptions): Promise<T>;
     patch<T>(path: string, body: unknown): Promise<T>;
     delete<T>(path: string): Promise<T>;
     /** Authenticated fetch with the same refresh-on-401 behavior — used by the PowerSync connector. */
@@ -106,8 +112,14 @@ export function createSession(opts: SessionOptions): Session {
         authFetch,
         get: <T>(path: string): Promise<T> => json<T>(path),
         getText: (path: string): Promise<string> => text(path),
-        post: <T>(path: string, body: unknown): Promise<T> =>
-            json<T>(path, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) }),
+        post: <T>(path: string, body: unknown, opts?: PostOptions): Promise<T> =>
+            json<T>(path, {
+                method: "POST",
+                headers: opts?.idempotencyKey
+                    ? { ...JSON_HEADERS, "Idempotency-Key": opts.idempotencyKey }
+                    : JSON_HEADERS,
+                body: JSON.stringify(body),
+            }),
         patch: <T>(path: string, body: unknown): Promise<T> =>
             json<T>(path, { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(body) }),
         delete: <T>(path: string): Promise<T> =>
