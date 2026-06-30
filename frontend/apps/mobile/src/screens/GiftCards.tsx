@@ -25,7 +25,7 @@ import {
     View,
 } from "react-native";
 
-import { PurchaseConfirmPanel } from "../components/PurchaseConfirmPanel";
+import { CardPaymentConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -129,7 +129,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
 
     if (form.clientSecret !== null) {
         return (
-            <PurchaseConfirmPanel
+            <CardPaymentConfirm
                 clientSecret={form.clientSecret}
                 onCancel={form.cancel}
                 onConfirmed={form.complete}

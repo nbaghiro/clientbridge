@@ -12,6 +12,7 @@ export * from "./hooks/useLogin";
 export * from "./hooks/useSearch";
 export * from "./domain/clients";
 export * from "./domain/catalog";
+export * from "./domain/onboarding";
 export * from "./domain/dashboard";
 export * from "./domain/staff";
 export * from "./domain/calendar";
