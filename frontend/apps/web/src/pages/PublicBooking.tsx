@@ -15,6 +15,8 @@ import {
 import { type FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import { ConnectedCardConfirm } from "../components/ConnectedCardConfirm";
+
 const booking = createPublicBookingClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
 const field =
@@ -106,9 +108,10 @@ export function PublicBooking() {
             </Frame>
         );
 
-    if (result) return <BookedState page={page} result={result} />;
-
     const service = page.services.find((s) => s.id === itemId) ?? null;
+
+    if (result) return <BookedState page={page} result={result} service={service} />;
+
     const canBook =
         startsAt !== "" &&
         name.trim().length > 0 &&
@@ -330,9 +333,43 @@ function Slots({
     );
 }
 
-function BookedState({ page, result }: { page: PublicBookingPage; result: PublicBookingResult }) {
-    // No connected account id is returned, which a Connect direct-charge Elements confirm needs, so
-    // the deposit is collected via a follow-up link rather than inline.
+function BookedState({
+    page,
+    result,
+    service,
+}: {
+    page: PublicBookingPage;
+    result: PublicBookingResult;
+    service: PublicService | null;
+}) {
+    const [paid, setPaid] = useState(false);
+
+    if (!paid && result.deposit_client_secret !== null && result.stripe_account_id !== null) {
+        const amount =
+            service !== null
+                ? formatMoneyWithCurrency(service.deposit_amount_cents, service.currency)
+                : "the deposit";
+        return (
+            <Frame>
+                <h1 className="font-display text-xl font-bold text-ink">Hold your spot</h1>
+                <p className="mt-2 text-sm text-muted">
+                    Your time with {page.business_name} is reserved. Pay the {amount} deposit to
+                    confirm it.
+                </p>
+                <div className="mt-5">
+                    <ConnectedCardConfirm
+                        clientSecret={result.deposit_client_secret}
+                        stripeAccount={result.stripe_account_id}
+                        amountLabel={amount}
+                        onPaid={() => {
+                            setPaid(true);
+                        }}
+                    />
+                </div>
+            </Frame>
+        );
+    }
+
     return (
         <Frame>
             <div className="py-4 text-center">
@@ -344,7 +381,7 @@ function BookedState({ page, result }: { page: PublicBookingPage; result: Public
                     Your appointment with {page.business_name} is confirmed. They'll be in touch
                     with any details.
                 </p>
-                {result.deposit_client_secret !== null ? (
+                {result.deposit_client_secret !== null && result.stripe_account_id === null ? (
                     <p className="mt-4 rounded-md bg-accent-weak px-3 py-2 text-sm text-accent-strong">
                         A deposit is required to hold this booking — a secure payment link will
                         follow by email or text.
