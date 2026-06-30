@@ -338,6 +338,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/form/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Form Context */
+        get: operations["public_form_context_form__token__get"];
+        put?: never;
+        /** Public Form Submit */
+        post: operations["public_form_submit_form__token__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contract/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Contract Context */
+        get: operations["public_contract_context_contract__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contract/{token}/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Contract Sign */
+        post: operations["public_contract_sign_contract__token__sign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contract/{token}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Contract Decline */
+        post: operations["public_contract_decline_contract__token__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clients": {
         parameters: {
             query?: never;
@@ -1364,6 +1433,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/forms/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Form */
+        post: operations["send_form_v1_forms_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contracts/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Contract */
+        post: operations["send_contract_v1_contracts_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create File */
+        post: operations["create_file_v1_files_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/files/{file_id}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** File Download Url */
+        get: operations["file_download_url_v1_files__file_id__url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1573,6 +1710,13 @@ export interface components {
             /** Secret */
             secret: string;
         };
+        /** ContractSend */
+        ContractSend: {
+            /** Contract Id */
+            contract_id: string;
+            /** Client Id */
+            client_id: string;
+        };
         /** DashboardSummary */
         DashboardSummary: {
             /** Today Revenue Cents */
@@ -1664,10 +1808,77 @@ export interface components {
             /** Valid Until */
             valid_until?: string | null;
         };
+        /** FileCreate */
+        FileCreate: {
+            /** Parent Type */
+            parent_type: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Kind */
+            kind?: string | null;
+            /** Content Type */
+            content_type?: string | null;
+            /** Size */
+            size?: number | null;
+        };
+        /** FileDownload */
+        FileDownload: {
+            /** Url */
+            url: string;
+        };
+        /** FileOut */
+        FileOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Parent Type */
+            parent_type: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Kind */
+            kind: string | null;
+            /** S3 Key */
+            s3_key: string;
+            /** Content Type */
+            content_type: string | null;
+            /** Size */
+            size: number | null;
+        };
+        /** FileUpload */
+        FileUpload: {
+            file: components["schemas"]["FileOut"];
+            /** Upload Url */
+            upload_url: string;
+        };
         /** ForgotPasswordBody */
         ForgotPasswordBody: {
             /** Email */
             email: string;
+        };
+        /** FormResponseOut */
+        FormResponseOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Form Id */
+            form_id: string;
+            /** Client Id */
+            client_id: string | null;
+            /** Status */
+            status: string;
+            /** Token */
+            token: string;
+            /** Submitted At */
+            submitted_at: string | null;
+        };
+        /** FormSend */
+        FormSend: {
+            /** Form Id */
+            form_id: string;
+            /** Client Id */
+            client_id: string;
         };
         /** GiftCardOut */
         GiftCardOut: {
@@ -2210,6 +2421,67 @@ export interface components {
             /** Stripe Account Id */
             stripe_account_id: string;
         };
+        /** PublicContractContext */
+        PublicContractContext: {
+            /** Contract Name */
+            contract_name: string;
+            /** Business Name */
+            business_name: string;
+            /** Body */
+            body: string;
+            /** Signer Name */
+            signer_name: string | null;
+            /** Status */
+            status: string;
+        };
+        /** PublicContractSign */
+        PublicContractSign: {
+            /** Signature Image Id */
+            signature_image_id?: string | null;
+            /** Typed Name */
+            typed_name?: string | null;
+        };
+        /** PublicFormContext */
+        PublicFormContext: {
+            /** Form Name */
+            form_name: string;
+            /** Business Name */
+            business_name: string;
+            /** Completed */
+            completed: boolean;
+            /** Fields */
+            fields: components["schemas"]["PublicFormField"][];
+        };
+        /** PublicFormField */
+        PublicFormField: {
+            /** Id */
+            id: string;
+            /** Type */
+            type: string;
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Help */
+            help: string | null;
+            /** Required */
+            required: boolean;
+            /** Options */
+            options: unknown[];
+            /** Validation */
+            validation: {
+                [key: string]: unknown;
+            };
+            /** Position */
+            position: number;
+        };
+        /** PublicFormSubmit */
+        PublicFormSubmit: {
+            /** Answers */
+            answers: {
+                [key: string]: unknown;
+            };
+        };
         /** PublicInvoice */
         PublicInvoice: {
             /** Number */
@@ -2347,6 +2619,23 @@ export interface components {
             client_secret: string;
             /** Stripe Account Id */
             stripe_account_id: string;
+        };
+        /** SignatureOut */
+        SignatureOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Contract Id */
+            contract_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Status */
+            status: string;
+            /** Token */
+            token: string;
+            /** Signed At */
+            signed_at: string | null;
         };
         /** SubscriptionCreate */
         SubscriptionCreate: {
@@ -3081,6 +3370,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicReviewContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_form_context_form__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicFormContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_form_submit_form__token__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicFormSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicFormContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_contract_context_contract__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContractContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_contract_sign_contract__token__sign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicContractSign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContractContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_contract_decline_contract__token__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicContractContext"];
                 };
             };
             /** @description Validation Error */
@@ -5405,6 +5857,150 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThreadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_form_v1_forms_send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FormSend"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormResponseOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_contract_v1_contracts_send_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractSend"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignatureOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_file_v1_files_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileUpload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    file_download_url_v1_files__file_id__url_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileDownload"];
                 };
             };
             /** @description Validation Error */

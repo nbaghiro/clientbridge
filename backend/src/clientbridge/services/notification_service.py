@@ -12,6 +12,7 @@ from clientbridge.integrations.sms import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.crm import Client, Consent
+from clientbridge.models.documents import Contract, Form, FormResponse, Signature
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
@@ -212,6 +213,32 @@ def _booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, 
     return (
         f"Appointment canceled — {business_name}",
         f"Your appointment with {business_name} on {when} was canceled.",
+    )
+
+
+def _form_sent(locale: str, business_name: str, form_name: str, link: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"{business_name} : veuillez remplir « {form_name} »",
+            f"{business_name} vous demande de remplir le formulaire « {form_name} » : {link}",
+        )
+    return (
+        f'{business_name}: please complete "{form_name}"',
+        f'{business_name} has asked you to complete the form "{form_name}": {link}',
+    )
+
+
+def _contract_sent(
+    locale: str, business_name: str, contract_name: str, link: str
+) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"{business_name} : veuillez signer « {contract_name} »",
+            f"{business_name} vous demande de signer le contrat « {contract_name} » : {link}",
+        )
+    return (
+        f'{business_name}: please sign "{contract_name}"',
+        f'{business_name} has asked you to sign the contract "{contract_name}": {link}',
     )
 
 
@@ -454,6 +481,30 @@ class Notifier:
         link = f"{get_settings().web_base_url}/review/{request.token}"
         subject, body = _review_requested(business.locale, business.name, link)
         await self._to_client(db, request.client_id, subject, body)
+
+    async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> None:
+        response = await db.get(FormResponse, form_response_id)
+        if response is None:
+            return
+        form = await db.get(Form, response.form_id)
+        business = await db.get(Business, response.business_id)
+        if form is None or business is None:
+            return
+        link = f"{get_settings().web_base_url}/form/{response.token}"
+        subject, body = _form_sent(business.locale, business.name, form.name, link)
+        await self._to_client(db, response.client_id, subject, body)
+
+    async def on_contract_sent(self, db: AsyncSession, signature_id: str) -> None:
+        signature = await db.get(Signature, signature_id)
+        if signature is None:
+            return
+        contract = await db.get(Contract, signature.contract_id)
+        business = await db.get(Business, signature.business_id)
+        if contract is None or business is None:
+            return
+        link = f"{get_settings().web_base_url}/contract/{signature.token}"
+        subject, body = _contract_sent(business.locale, business.name, contract.name, link)
+        await self._to_client(db, signature.client_id, subject, body)
 
     async def _to_client(
         self, db: AsyncSession, client_id: str | None, subject: str, body: str

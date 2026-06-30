@@ -37,6 +37,11 @@ class Conflict(AppError):
     code = "conflict"
 
 
+class Unprocessable(AppError):
+    status_code = 422
+    code = "unprocessable"
+
+
 class CardDeclined(AppError):
     status_code = 402
     code = "card_declined"

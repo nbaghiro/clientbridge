@@ -17,7 +17,12 @@ from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import get_interac_secret
 from clientbridge.core.errors import CardDeclined, PaymentActionRequired, Unauthorized
 from clientbridge.core.ids import new_id
-from clientbridge.core.ratelimit import public_pay_rate_limit, public_review_rate_limit
+from clientbridge.core.ratelimit import (
+    public_contract_rate_limit,
+    public_form_rate_limit,
+    public_pay_rate_limit,
+    public_review_rate_limit,
+)
 from clientbridge.core.security import hash_password, issue_access_token
 from clientbridge.integrations.email import Email, EmailSender, get_email_sender
 from clientbridge.integrations.oauth import OAuthProfile, get_oauth_verifier
@@ -33,6 +38,7 @@ from clientbridge.integrations.payments import (
     get_payment_gateway,
 )
 from clientbridge.integrations.push import Push, get_push_sender
+from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.sms import Sms, get_sms_sender
 from clientbridge.main import app
 from clientbridge.models.crm import Client
@@ -99,6 +105,26 @@ def sms() -> FakeSmsSender:
 @pytest.fixture
 def push() -> FakePushSender:
     return FakePushSender()
+
+
+# ── Recording object-storage fake: deterministic presigned URLs, no network ───────────────────
+class FakeFileStorage:
+    def __init__(self) -> None:
+        self.uploads: list[tuple[str, str]] = []
+        self.downloads: list[str] = []
+
+    def presign_upload(self, key: str, content_type: str) -> str:
+        self.uploads.append((key, content_type))
+        return f"https://files.test/{key}"
+
+    def presign_download(self, key: str) -> str:
+        self.downloads.append(key)
+        return f"https://files.test/{key}"
+
+
+@pytest.fixture
+def storage() -> FakeFileStorage:
+    return FakeFileStorage()
 
 
 # ── OAuth fake: id_token == the email; "invalid" → 401 (lets tests control the profile) ───────
@@ -280,6 +306,7 @@ async def api(
     gateway: FakePaymentGateway,
     sms: FakeSmsSender,
     push: FakePushSender,
+    storage: FakeFileStorage,
 ) -> AsyncIterator[httpx.AsyncClient]:
     async def _session() -> AsyncIterator[AsyncSession]:
         yield db
@@ -290,15 +317,21 @@ async def api(
     def _gateway() -> PaymentGateway:
         return gateway
 
+    def _storage() -> FileStorage:
+        return storage
+
     app.dependency_overrides[get_session] = _session
     app.dependency_overrides[get_email_sender] = _email
     app.dependency_overrides[get_oauth_verifier] = FakeOAuthVerifier
     app.dependency_overrides[get_payment_gateway] = _gateway
     app.dependency_overrides[get_sms_sender] = lambda: sms
     app.dependency_overrides[get_push_sender] = lambda: push
+    app.dependency_overrides[get_file_storage] = _storage
     app.dependency_overrides[get_interac_secret] = lambda: "testsecret"
     app.dependency_overrides[public_pay_rate_limit] = lambda: None  # no throttling under test
     app.dependency_overrides[public_review_rate_limit] = lambda: None
+    app.dependency_overrides[public_form_rate_limit] = lambda: None
+    app.dependency_overrides[public_contract_rate_limit] = lambda: None
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

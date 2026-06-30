@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -59,6 +59,7 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "form_responses"
     __table_args__ = (
         enum_check("form_responses", "status", "draft", "submitted"),
+        UniqueConstraint("token", name="uq_form_responses_token"),
         Index("ix_form_responses_form", "business_id", "form_id"),
         Index("ix_form_responses_parent", "parent_type", "parent_id"),
     )
@@ -67,6 +68,7 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
     parent_type: Mapped[str | None] = mapped_column(String)
     parent_id: Mapped[str | None] = mapped_column(String)
+    token: Mapped[str | None] = mapped_column(String)  # public submit-link key (server-minted)
     status: Mapped[str] = mapped_column(String, default="submitted", nullable=False)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     answers: Mapped[dict[str, object]] = mapped_column(
@@ -89,6 +91,7 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "signatures"
     __table_args__ = (
         enum_check("signatures", "status", "pending", "signed", "declined", "expired"),
+        UniqueConstraint("token", name="uq_signatures_token"),
         Index("ix_signatures_contract", "business_id", "contract_id"),
         Index("ix_signatures_parent", "parent_type", "parent_id"),
     )
@@ -97,6 +100,7 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     parent_type: Mapped[str | None] = mapped_column(String)
     parent_id: Mapped[str | None] = mapped_column(String)
+    token: Mapped[str | None] = mapped_column(String)  # public sign-link key (server-minted)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     signature_image_id: Mapped[str | None] = mapped_column(ForeignKey("files.id"))
     signed_body: Mapped[str | None] = mapped_column(String)  # snapshot at signing

@@ -35,6 +35,8 @@ class RateLimiter:
 
 _public_pay_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_review_limiter = RateLimiter(limit=30, window_s=60.0)
+_public_form_limiter = RateLimiter(limit=30, window_s=60.0)
+_public_contract_limiter = RateLimiter(limit=30, window_s=60.0)
 
 
 def _client_ip(request: Request) -> str:
@@ -54,4 +56,16 @@ def public_pay_rate_limit(request: Request) -> None:
 def public_review_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated review endpoints (token probing + writes)."""
     if not _public_review_limiter.check(_client_ip(request), time.monotonic()):
+        raise TooManyRequests("too many requests — please wait a moment")
+
+
+def public_form_rate_limit(request: Request) -> None:
+    """Cap how fast one IP hits the unauthenticated form endpoints (token probing + submits)."""
+    if not _public_form_limiter.check(_client_ip(request), time.monotonic()):
+        raise TooManyRequests("too many requests — please wait a moment")
+
+
+def public_contract_rate_limit(request: Request) -> None:
+    """Cap how fast one IP hits the unauthenticated contract endpoints (token probing + signs)."""
+    if not _public_contract_limiter.check(_client_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")

@@ -45,8 +45,10 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "consents": ("team", False),
     "notes": ("team", False),
     "files": ("team", False),
-    "form_responses": ("team", False),
-    "signatures": ("team", False),
+    # form_responses + signatures are NOT sync-writable: the submit/sign token is a server-minted
+    # secret and the status lifecycle is command- + public-token-authoritative (send commands +
+    # public submission/signing), so a client can't forge a link or self-submit/sign by syncing a
+    # row. They stay sync-READABLE (forms/contracts authoring still syncs).
     "threads": ("team", False),
     "messages": ("team", False),
     # sessions + bookings are NOT sync-writable: every mutation goes through the booking command

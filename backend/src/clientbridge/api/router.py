@@ -6,9 +6,12 @@ from clientbridge.api.v1 import (
     bookings,
     catalog,
     clients,
+    contracts,
     dashboard,
     devices,
     estimates,
+    files,
+    forms,
     gift_cards,
     invoices,
     messaging,
@@ -47,3 +50,6 @@ api_router.include_router(devices.router)
 api_router.include_router(reports.router)
 api_router.include_router(reviews.router)
 api_router.include_router(messaging.router)
+api_router.include_router(forms.router)
+api_router.include_router(contracts.router)
+api_router.include_router(files.router)
