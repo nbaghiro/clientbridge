@@ -69,6 +69,11 @@ export function packageOfferings(items: ItemRow[]): ItemRow[] {
     return items.filter((i) => isActive(i) && i.kind === "package");
 }
 
+/** Active `gift` items — the preset gift cards a sale can ring up by `item_id`. */
+export function giftItems(items: ItemRow[]): ItemRow[] {
+    return items.filter((i) => isActive(i) && i.kind === "gift");
+}
+
 export interface ItemInput {
     kind: string;
     name: string;

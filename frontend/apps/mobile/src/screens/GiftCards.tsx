@@ -3,7 +3,9 @@ import {
     canManagePayments,
     formatMoney,
     giftCardStatusIntent,
+    giftItems,
     savedCardLabel,
+    useCatalogItems,
     useClients,
     useCurrentRole,
     useGiftCardRedeemForm,
@@ -123,6 +125,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardSaleForm(api, onClose);
     const clients = useClients();
     const cards = useSavedCards(form.purchaserClientId);
+    const items = giftItems(useCatalogItems());
 
     if (form.clientSecret !== null) {
         return (
@@ -164,15 +167,67 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                 </View>
             )}
 
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Amount (CAD)</Text>
-            <TextInput
-                style={styles.input}
-                value={form.amount}
-                onChangeText={form.setAmount}
-                keyboardType="decimal-pad"
-                placeholder="100.00"
-                placeholderTextColor={c.muted}
-            />
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Type</Text>
+            <View style={styles.chipWrap}>
+                {(["preset", "custom"] as const).map((m) => (
+                    <Pressable
+                        key={m}
+                        style={[styles.chip, form.mode === m && styles.chipOn]}
+                        onPress={() => {
+                            form.setMode(m);
+                        }}
+                    >
+                        <Text style={[styles.chipText, form.mode === m && styles.chipTextOn]}>
+                            {m === "preset" ? "Preset card" : "Custom amount"}
+                        </Text>
+                    </Pressable>
+                ))}
+            </View>
+
+            {form.mode === "preset" ? (
+                <>
+                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>Gift card</Text>
+                    {items.length === 0 ? (
+                        <Text style={styles.muted}>No gift cards in your catalog.</Text>
+                    ) : (
+                        <View style={styles.chipWrap}>
+                            {items.map((it) => (
+                                <Pressable
+                                    key={it.id}
+                                    style={[styles.chip, form.itemId === it.id && styles.chipOn]}
+                                    onPress={() => {
+                                        form.setItemId(it.id);
+                                    }}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.chipText,
+                                            form.itemId === it.id && styles.chipTextOn,
+                                        ]}
+                                    >
+                                        {it.name}
+                                        {it.price_cents !== null
+                                            ? ` · ${formatMoney(it.price_cents)}`
+                                            : ""}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </View>
+                    )}
+                </>
+            ) : (
+                <>
+                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>Amount (CAD)</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={form.amount}
+                        onChangeText={form.setAmount}
+                        keyboardType="decimal-pad"
+                        placeholder="100.00"
+                        placeholderTextColor={c.muted}
+                    />
+                </>
+            )}
 
             <Text style={[styles.fieldLabel, styles.fieldSpace]}>Recipient (optional)</Text>
             <TextInput

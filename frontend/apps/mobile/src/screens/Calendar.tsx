@@ -3,10 +3,14 @@ import {
     type Intent,
     type PositionedEvent,
     addDays,
+    canCollectDeposit,
+    canManagePayments,
     dateKey,
     dayBounds,
+    depositStatusIntent,
     eventLabel,
     formatHour,
+    formatMoney,
     formatTime,
     formatWeekday,
     groupByDay,
@@ -14,14 +18,18 @@ import {
     minutesSinceMidnight,
     rescheduleByDrag,
     sameDay,
+    savedCardLabel,
     startOfDay,
     statusIntent,
     useCalendarEvents,
     useCancelBooking,
+    useCollectDeposit,
+    useCurrentRole,
+    useSavedCards,
     weekColumns,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Animated,
     Modal,
@@ -34,7 +42,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { PurchaseConfirmPanel } from "../components/PurchaseConfirmPanel";
+import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
+import { getTokens } from "../lib/auth";
 
 const c = theme.colors;
 const HOUR_PX = 56;
@@ -354,6 +365,9 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
                     <Text style={styles.detailTime}>
                         {formatTime(event.start)} – {formatTime(event.end)}
                     </Text>
+                    {event.depositRequired ? (
+                        <DepositSection event={event} onClose={onClose} />
+                    ) : null}
                     {error !== null ? <Text style={styles.detailError}>{error}</Text> : null}
                     {event.bookingId !== null && event.status !== "canceled" ? (
                         <Pressable
@@ -369,6 +383,99 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
                 </View>
             </Pressable>
         </Modal>
+    );
+}
+
+function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+    const [token, setToken] = useState<string | null>(null);
+    useEffect(() => {
+        void getTokens().then((t) => {
+            setToken(t?.access_token ?? null);
+        });
+    }, []);
+    const role = useCurrentRole(token);
+    const cards = useSavedCards(event.clientId ?? "");
+    const deposit = useCollectDeposit(api, event, onClose);
+    const [method, setMethod] = useState<string | null>(null);
+
+    if (!canManagePayments(role)) return null;
+    const amountLabel = formatMoney(event.depositAmountCents);
+    const effMethod = method ?? cards.at(0)?.id ?? "";
+
+    if (deposit.clientSecret !== null) {
+        return (
+            <View style={styles.depositBox}>
+                <Text style={styles.depositTitle}>Collect deposit · {amountLabel}</Text>
+                <PurchaseConfirmPanel
+                    clientSecret={deposit.clientSecret}
+                    onCancel={deposit.cancel}
+                    onConfirmed={deposit.complete}
+                />
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.depositBox}>
+            <View style={styles.depositHead}>
+                <View style={styles.agendaBody}>
+                    <Text style={styles.depositLabel}>Deposit</Text>
+                    <Text style={styles.depositAmount}>{amountLabel}</Text>
+                </View>
+                <StatusBadge
+                    status={event.depositStatus}
+                    intent={depositStatusIntent(event.depositStatus)}
+                />
+            </View>
+            {canCollectDeposit(event) ? (
+                <>
+                    <View style={styles.chipWrap}>
+                        <Pressable
+                            style={[styles.chip, effMethod === "" && styles.chipOn]}
+                            onPress={() => {
+                                setMethod("");
+                            }}
+                        >
+                            <Text style={[styles.chipText, effMethod === "" && styles.chipTextOn]}>
+                                New card
+                            </Text>
+                        </Pressable>
+                        {cards.map((card) => (
+                            <Pressable
+                                key={card.id}
+                                style={[styles.chip, effMethod === card.id && styles.chipOn]}
+                                onPress={() => {
+                                    setMethod(card.id);
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.chipText,
+                                        effMethod === card.id && styles.chipTextOn,
+                                    ]}
+                                >
+                                    {savedCardLabel(card)}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                    {deposit.error !== null ? (
+                        <Text style={styles.detailError}>{deposit.error}</Text>
+                    ) : null}
+                    <Pressable
+                        style={[styles.collectBtn, deposit.busy && styles.dim]}
+                        disabled={deposit.busy}
+                        onPress={() => {
+                            deposit.collect(effMethod);
+                        }}
+                    >
+                        <Text style={styles.collectText}>
+                            {deposit.busy ? "Collecting…" : `Collect ${amountLabel}`}
+                        </Text>
+                    </Pressable>
+                </>
+            ) : null}
+        </View>
     );
 }
 
@@ -469,4 +576,36 @@ const styles = StyleSheet.create({
     },
     cancelBookingText: { color: c.danFg, fontSize: 15, fontWeight: "600" },
     dim: { opacity: 0.5 },
+    depositBox: {
+        marginTop: 14,
+        padding: 12,
+        borderRadius: theme.radius,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+    },
+    depositTitle: { color: c.ink, fontSize: 14, fontWeight: "700" },
+    depositHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    depositLabel: { color: c.ink, fontSize: 14, fontWeight: "700" },
+    depositAmount: { color: c.muted, fontSize: 13, marginTop: 1 },
+    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+    chip: {
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 20,
+        backgroundColor: c.bg,
+        borderWidth: 1,
+        borderColor: c.border,
+    },
+    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
+    chipText: { color: c.ink, fontSize: 13, fontWeight: "500" },
+    chipTextOn: { color: c.accentInk },
+    collectBtn: {
+        marginTop: 12,
+        backgroundColor: c.accent,
+        borderRadius: theme.radius,
+        paddingVertical: 11,
+        alignItems: "center",
+    },
+    collectText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
 });

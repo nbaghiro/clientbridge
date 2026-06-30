@@ -22,3 +22,4 @@ export * from "./domain/giftCards";
 export * from "./domain/pos";
 export * from "./domain/reports";
 export * from "./domain/publicPay";
+export * from "./domain/files";

@@ -75,9 +75,15 @@ export function redeemGiftCard(
     return api.post<GiftCardRedeemResult>("/v1/gift-cards/redeem", input);
 }
 
+export type GiftSaleMode = "preset" | "custom";
+
 export interface GiftCardSaleForm {
     purchaserClientId: string;
     setPurchaserClientId: (v: string) => void;
+    mode: GiftSaleMode; // "preset" sends item_id; "custom" sends amount_cents
+    setMode: (v: GiftSaleMode) => void;
+    itemId: string;
+    setItemId: (v: string) => void;
     amount: string;
     setAmount: (v: string) => void;
     recipient: string;
@@ -92,15 +98,20 @@ export interface GiftCardSaleForm {
     complete: () => void;
 }
 
-/** Sell-gift-card form: a purchaser client + a face-value amount + an optional recipient, charged to
- *  a saved card (off-session) or a new card (interactive Elements confirm). */
+/** Sell-gift-card form: a purchaser client + either a preset gift item (`item_id`) or a custom face
+ *  value (`amount_cents`) — exactly one — plus an optional recipient, charged to a saved card
+ *  (off-session) or a new card (interactive Elements confirm). */
 export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardSaleForm {
     const [purchaserClientId, setPurchaserClientId] = useState("");
+    const [mode, setMode] = useState<GiftSaleMode>("custom");
+    const [itemId, setItemId] = useState("");
     const [amount, setAmount] = useState("");
     const [recipient, setRecipient] = useState("");
     const [paymentMethodId, setPaymentMethodId] = useState("");
     const purchase = useInteractivePurchase(() => {
         setPurchaserClientId("");
+        setMode("custom");
+        setItemId("");
         setAmount("");
         setRecipient("");
         setPaymentMethodId("");
@@ -112,10 +123,20 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
             purchase.setError("Choose a purchaser");
             return;
         }
-        const cents = Math.round(Number(amount) * 100);
-        if (!Number.isFinite(cents) || cents <= 0) {
-            purchase.setError("Enter a gift card amount");
-            return;
+        let face: { item_id: string } | { amount_cents: number };
+        if (mode === "preset") {
+            if (itemId === "") {
+                purchase.setError("Choose a gift card");
+                return;
+            }
+            face = { item_id: itemId };
+        } else {
+            const cents = Math.round(Number(amount) * 100);
+            if (!Number.isFinite(cents) || cents <= 0) {
+                purchase.setError("Enter a gift card amount");
+                return;
+            }
+            face = { amount_cents: cents };
         }
         const interactive = paymentMethodId === "";
         purchase.submit(
@@ -124,7 +145,7 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
                     api,
                     {
                         purchaser_client_id: purchaserClientId,
-                        amount_cents: cents,
+                        ...face,
                         recipient: blankToNull(recipient),
                         payment_method_id: interactive ? undefined : paymentMethodId,
                     },
@@ -138,6 +159,10 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
     return {
         purchaserClientId,
         setPurchaserClientId,
+        mode,
+        setMode,
+        itemId,
+        setItemId,
         amount,
         setAmount,
         recipient,
