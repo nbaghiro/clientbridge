@@ -1817,6 +1817,8 @@ export interface components {
         ConnectionTokenOut: {
             /** Secret */
             secret: string;
+            /** Location Id */
+            location_id?: string | null;
         };
         /** ContractSend */
         ContractSend: {

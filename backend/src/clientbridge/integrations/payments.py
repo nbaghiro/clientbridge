@@ -129,6 +129,12 @@ class PaymentGateway(Protocol):
         """A short-lived secret the Terminal SDK exchanges to connect a reader."""
         ...
 
+    async def create_terminal_location(
+        self, account_id: str, *, display_name: str, country: str, state: str | None
+    ) -> str:
+        """A Terminal Location (a logical address) the reader connects under; returns its id."""
+        ...
+
     async def create_terminal_payment_intent(
         self,
         account_id: str,
@@ -323,6 +329,23 @@ class StripeGateway:
     async def create_connection_token(self, account_id: str) -> str:  # pragma: no cover
         token = await stripe.terminal.ConnectionToken.create_async(stripe_account=account_id)
         return str(token.secret)
+
+    async def create_terminal_location(  # pragma: no cover
+        self, account_id: str, *, display_name: str, country: str, state: str | None
+    ) -> str:
+        address: dict[str, str] = {
+            "line1": display_name,
+            "city": state or country,
+            "country": country,
+        }
+        if state is not None:
+            address["state"] = state
+        location = await stripe.terminal.Location.create_async(
+            display_name=display_name,
+            address=address,  # type: ignore[arg-type]  # plain dict; Stripe stub types a TypedDict
+            stripe_account=account_id,
+        )
+        return str(location.id)
 
     async def create_terminal_payment_intent(  # pragma: no cover
         self,

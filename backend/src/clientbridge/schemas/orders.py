@@ -38,3 +38,4 @@ class CheckoutOut(BaseModel):
 
 class ConnectionTokenOut(BaseModel):
     secret: str
+    location_id: str | None = None  # the business's Terminal Location, for connectReader

@@ -29,6 +29,9 @@ class Business(PKMixin, TimestampMixin, Base):
     billing_email: Mapped[str | None] = mapped_column(String)
     stripe_customer_id: Mapped[str | None] = mapped_column(String)
     stripe_account_id: Mapped[str | None] = mapped_column(String)
+    stripe_terminal_location_id: Mapped[str | None] = mapped_column(
+        String
+    )  # minted on first POS use
     stripe_charges_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     payout_schedule: Mapped[str] = mapped_column(String, default="weekly", nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
