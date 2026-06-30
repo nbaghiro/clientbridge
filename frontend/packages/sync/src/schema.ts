@@ -818,6 +818,7 @@ const review_requests = new Table(
         indexes: {
             review_requests_business_id: ["business_id"],
             review_requests_status: ["business_id", "status"],
+            uq_review_requests_open_booking: ["business_id", "booking_id"],
         },
     },
 );

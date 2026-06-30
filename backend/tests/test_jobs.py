@@ -8,16 +8,21 @@ from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.crm import Client, Consent
 from clientbridge.models.platform import DeviceToken
+from clientbridge.models.reviews import ReviewRequest
+from clientbridge.models.scheduling import Booking, Session
 from clientbridge.services.notification_service import Notifier
+from clientbridge.services.review_service import build_review_request
 from clientbridge.tasks.billing_jobs import run_overdue_sweep
 from clientbridge.tasks.maintenance import (
     run_consent_expiry,
     run_expiry_sweeps,
     run_prune_device_tokens,
 )
+from clientbridge.tasks.review_jobs import run_review_requests
 from tests.conftest import FakeEmailSender, FakePushSender, FakeSmsSender
 
 BIZ = "bz_birchbark"
+ST_OWNER = "st_owner"
 # far in the past so the global scans see only the rows each test plants (the seed is ~now)
 NOW = datetime(2020, 1, 1, tzinfo=UTC)
 
@@ -175,6 +180,73 @@ async def test_prune_stale_device_tokens(db: AsyncSession) -> None:
     )
     assert "FreshTok" in remaining
     assert "StaleTok" not in remaining
+
+
+async def _completed_booking(
+    db: AsyncSession, cid: str, *, completed_at: datetime | None, status: str = "completed"
+) -> str:
+    sess = Session(
+        id=new_id("session"),
+        business_id=BIZ,
+        item_id=await _an_item(db),
+        staff_id=ST_OWNER,
+        starts_at=completed_at or NOW,
+        ends_at=(completed_at or NOW) + timedelta(hours=1),
+        capacity=1,
+        booked_count=1,
+        status="completed",
+    )
+    db.add(sess)
+    await db.flush()
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=BIZ,
+        session_id=sess.id,
+        staff_id=ST_OWNER,
+        client_id=cid,
+        status=status,
+        source="manual",
+        price_cents=5000,
+        completed_at=completed_at,
+    )
+    db.add(booking)
+    await db.flush()
+    return booking.id
+
+
+async def test_review_requests_for_recently_completed(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    cid = await _a_client(db, email="rev-job@example.ca")
+    bid = await _completed_booking(db, cid, completed_at=NOW)
+    notifier = _notifier(email, sms, push)
+
+    assert await run_review_requests(db, notifier, NOW) == 1
+    req = (
+        await db.execute(select(ReviewRequest).where(ReviewRequest.booking_id == bid))
+    ).scalar_one()
+    assert req.status == "sent" and req.token
+    assert any(m.to == "rev-job@example.ca" for m in email.sent)
+    assert await run_review_requests(db, notifier, NOW) == 0  # any existing request dedups
+
+
+async def test_review_requests_skips_already_requested(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    cid = await _a_client(db)
+    bid = await _completed_booking(db, cid, completed_at=NOW)
+    db.add(build_review_request(BIZ, cid, bid, NOW))
+    await db.flush()
+    assert await run_review_requests(db, _notifier(email, sms, push), NOW) == 0
+
+
+async def test_review_requests_skips_non_completed_and_stale(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    cid = await _a_client(db)
+    await _completed_booking(db, cid, completed_at=NOW, status="confirmed")  # not completed
+    await _completed_booking(db, cid, completed_at=NOW - timedelta(days=30))  # outside 7d window
+    assert await run_review_requests(db, _notifier(email, sms, push), NOW) == 0
 
 
 async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:
