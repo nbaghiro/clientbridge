@@ -299,6 +299,7 @@ class PaymentService:
                 parent_payment_id=payment.id,
                 invoice_id=payment.invoice_id,
                 order_id=payment.order_id,
+                booking_id=payment.booking_id,
                 amount_cents=payment.amount_cents,
                 currency=payment.currency,
                 method=payment.method,
@@ -316,6 +317,9 @@ class PaymentService:
                 await _reconcile_invoice(self.db, payment.invoice_id)
             if payment.order_id is not None:
                 await _reconcile_order(self.db, payment.order_id)
+            if payment.booking_id is not None and payment.kind == "deposit":
+                await _reverse_booking_deposit(self.db, payment.booking_id)
+            await _reverse_entitlement(self.db, payment)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
             return RefundOut(refund_id=refund.id, status=result.status)
 
@@ -666,7 +670,9 @@ async def open_entitlement_payment(
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={f"{entitlement_kind}_id": entitlement_id, "business_id": business_id},
-        idempotency_key=f"{entitlement_kind}_{entitlement_id}_{idempotency_key or amount}",
+        # the entitlement id is minted fresh per request, so it can't anchor the dedup; key on the
+        # client's Idempotency-Key (a keyless purchase stays per-request, like the deposit route)
+        idempotency_key=f"{entitlement_kind}_{idempotency_key or entitlement_id}",
         payment_method=payment_method,
     )
     existing = (
@@ -895,6 +901,33 @@ async def _settle_booking_deposit(db: AsyncSession, booking_id: str) -> None:
         await db.flush()
 
 
+async def _reverse_booking_deposit(db: AsyncSession, booking_id: str) -> None:
+    """Undo a collected deposit when its charge is refunded (no `refunded` enum value → `none`)."""
+    booking = await db.get(Booking, booking_id)
+    if booking is not None and booking.deposit_status == "collected":
+        booking.deposit_status = "none"
+        await db.flush()
+
+
+async def _reverse_entitlement(db: AsyncSession, payment: Payment) -> None:
+    """Void a package/gift card whose purchase charge is refunded (mirrors _settle_entitlement)."""
+    if payment.invoice_id or payment.order_id or payment.booking_id:
+        return
+    package = (
+        await db.execute(select(Package).where(Package.payment_id == payment.id))
+    ).scalar_one_or_none()
+    if package is not None and package.status in ("pending", "active"):
+        package.status = "canceled"
+        await db.flush()
+        return
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment.id))
+    ).scalar_one_or_none()
+    if card is not None and card.status in ("pending", "active"):
+        card.status = "void"
+        await db.flush()
+
+
 async def _reconcile_order(db: AsyncSession, order_id: str) -> None:
     """Recompute amount_paid / balance / status from the order's succeeded payments + refunds."""
     order = await db.get(Order, order_id)
@@ -962,7 +995,9 @@ async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:
 
 
 async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[str, object]) -> None:
-    """Mirror a Stripe payout (on the connected account) into our `payouts` table."""
+    """Mirror a Stripe payout (on the connected account) into our `payouts` table, then attach the
+    business's settled (approved/paid) unlinked allocations to it. Stripe doesn't itemize our
+    splits, so this is coarse — all currently-owed allocations link to this bank payout."""
     if account_id is None:
         return
     biz = (
@@ -970,30 +1005,39 @@ async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[st
     ).scalar_one_or_none()
     if biz is None:
         return
-    payout_id = str(data.get("id"))
+    payout_ref = str(data.get("id"))
     amount = data.get("amount")
     arrival = data.get("arrival_date")
     arrival_at = datetime.fromtimestamp(arrival, tz=UTC) if isinstance(arrival, int) else None
     existing = (
         await db.execute(
-            select(Payout).where(Payout.provider_ref == payout_id, Payout.business_id == biz)
+            select(Payout).where(Payout.provider_ref == payout_ref, Payout.business_id == biz)
         )
     ).scalar_one_or_none()
     if existing is not None:
         existing.status = "paid"
         if arrival_at is not None:
             existing.arrival_at = arrival_at
+        payout = existing
     else:
-        db.add(
-            Payout(
-                id=new_id("payout"),
-                business_id=biz,
-                amount_cents=amount if isinstance(amount, int) else 0,
-                status="paid",
-                provider_ref=payout_id,
-                arrival_at=arrival_at,
-            )
+        payout = Payout(
+            id=new_id("payout"),
+            business_id=biz,
+            amount_cents=amount if isinstance(amount, int) else 0,
+            status="paid",
+            provider_ref=payout_ref,
+            arrival_at=arrival_at,
         )
+        db.add(payout)
+    await db.flush()
+    await db.execute(
+        scoped_update(PayoutAllocation, biz)
+        .where(
+            PayoutAllocation.status.in_(("approved", "paid")),
+            PayoutAllocation.payout_id.is_(None),
+        )
+        .values(payout_id=payout.id)
+    )
     await db.flush()
 
 
