@@ -14,6 +14,7 @@ from clientbridge.integrations.email import EmailSender, get_email_sender
 from clientbridge.integrations.oauth import OAuthVerifier, get_oauth_verifier
 from clientbridge.integrations.payments import PaymentGateway, get_payment_gateway
 from clientbridge.integrations.push import PushSender, get_push_sender
+from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.sms import SmsSender, get_sms_sender
 from clientbridge.models.identity import Staff, User
 
@@ -23,6 +24,7 @@ SmsDep = Annotated[SmsSender, Depends(get_sms_sender)]
 PushDep = Annotated[PushSender, Depends(get_push_sender)]
 OAuthVerifierDep = Annotated[OAuthVerifier, Depends(get_oauth_verifier)]
 GatewayDep = Annotated[PaymentGateway, Depends(get_payment_gateway)]
+StorageDep = Annotated[FileStorage, Depends(get_file_storage)]
 
 
 def get_interac_secret() -> str:

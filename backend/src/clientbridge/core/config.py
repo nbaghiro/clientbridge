@@ -17,6 +17,16 @@ class Settings(BaseSettings):
     refresh_token_ttl_days: int = 30  # app refresh token
 
     redis_url: str = "redis://localhost:8703/0"
+
+    # Object storage — the dev stack runs MinIO (docker-compose `minio`, S3 API on 8705); prod
+    # points at S3. Presigned PUT/GET URLs let clients upload/download directly, off the API path.
+    s3_endpoint: str = "http://localhost:8705"
+    s3_bucket: str = "clientbridge"
+    s3_access_key: str = "minio"
+    s3_secret_key: str = "minio12345"  # dev-only MinIO default, overridden in prod
+    s3_region: str = "us-east-1"
+    s3_presign_ttl_seconds: int = 3600
+
     powersync_url: str = "http://localhost:8704"
     powersync_audience: str = "powersync"
     powersync_kid: str = "clientbridge-dev"  # matches infra/powersync/powersync.yaml
