@@ -638,3 +638,32 @@ async def test_no_show_without_deposit_is_noop(
     assert res.status_code == 200
     assert res.json()["deposit_status"] == "none"
     assert gateway.charged_methods == []
+
+
+async def test_refund_reverses_collected_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable_payments(db)
+    bid = await _deposit_booking(as_owner, db, starts="2027-06-11T10:00:00Z")
+    pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    await as_owner.post(
+        "/webhooks/stripe",
+        content=_pi_succeeded("evt_d3", pi_id),
+        headers={"Stripe-Signature": "good"},
+    )
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.deposit_status == "collected"
+
+    refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
+    assert refunded.status_code == 200, refunded.text
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.deposit_status == "none"  # no longer collected
+    refund_row = (
+        await db.execute(
+            select(Payment).where(
+                Payment.parent_payment_id == pay["payment_id"], Payment.kind == "refund"
+            )
+        )
+    ).scalar_one()
+    assert refund_row.booking_id == bid

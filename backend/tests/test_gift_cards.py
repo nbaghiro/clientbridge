@@ -318,7 +318,9 @@ async def test_code_collision_409(
     assert second.status_code == 409
 
 
-async def test_idempotent_purchase_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_idempotent_purchase_replays(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
     await _enable(db)
     headers = {"Idempotency-Key": "gc-buy-1"}
     body = {"amount_cents": 4000, "purchaser_client_id": PURCHASER, "payment_method_id": "default"}
@@ -327,9 +329,52 @@ async def test_idempotent_purchase_replays(as_owner: httpx.AsyncClient, db: Asyn
     assert first.status_code == 201 and second.status_code == 201
     assert first.json()["gift_card_id"] == second.json()["gift_card_id"]
     assert first.json()["code"] == second.json()["code"]
-    count = len(
-        (
-            await db.execute(select(GiftCard.id).where(GiftCard.id == first.json()["gift_card_id"]))
-        ).all()
-    )
-    assert count == 1
+    assert first.json()["payment_id"] == second.json()["payment_id"]
+    assert gateway.charged_methods.count("pm_demo_5454") == 1  # one off-session charge
+    cards = (
+        await db.execute(select(GiftCard.id).where(GiftCard.id == first.json()["gift_card_id"]))
+    ).all()
+    payments = (
+        await db.execute(select(Payment.id).where(Payment.id == first.json()["payment_id"]))
+    ).all()
+    assert len(cards) == 1 and len(payments) == 1
+
+
+async def test_distinct_keys_purchase_twice(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    body = {"amount_cents": 4000, "purchaser_client_id": PURCHASER, "payment_method_id": "default"}
+    first = await as_owner.post("/v1/gift-cards", json=body, headers={"Idempotency-Key": "k1"})
+    second = await as_owner.post("/v1/gift-cards", json=body, headers={"Idempotency-Key": "k2"})
+    assert first.status_code == 201 and second.status_code == 201
+    assert first.json()["gift_card_id"] != second.json()["gift_card_id"]
+    assert first.json()["payment_id"] != second.json()["payment_id"]
+    assert gateway.charged_methods.count("pm_demo_5454") == 2
+
+
+async def test_refund_voids_settled_gift_card(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    body = (
+        await as_owner.post(
+            "/v1/gift-cards",
+            json={
+                "amount_cents": 5000,
+                "purchaser_client_id": PURCHASER,
+                "payment_method_id": "default",
+            },
+        )
+    ).json()
+    await _settle(as_owner, db, body["payment_id"], "evt_gc_refund")
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
+    ).scalar_one()
+    assert card.status == "active"
+    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund")
+    assert refunded.status_code == 200, refunded.text
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
+    ).scalar_one()
+    assert card.status == "void"

@@ -258,7 +258,9 @@ async def test_other_business_package_404(
     assert res.status_code == 404
 
 
-async def test_idempotent_purchase_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_idempotent_purchase_replays(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
     await _enable(db)
     headers = {"Idempotency-Key": "pkg-buy-1"}
     body = {"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"}
@@ -266,7 +268,44 @@ async def test_idempotent_purchase_replays(as_owner: httpx.AsyncClient, db: Asyn
     second = await as_owner.post("/v1/packages", json=body, headers=headers)
     assert first.status_code == 201 and second.status_code == 201
     assert first.json()["package_id"] == second.json()["package_id"]
-    count = len(
-        (await db.execute(select(Package.id).where(Package.id == first.json()["package_id"]))).all()
-    )
-    assert count == 1
+    assert first.json()["payment_id"] == second.json()["payment_id"]
+    assert gateway.charged_methods.count("pm_demo_5454") == 1  # one off-session charge
+    packages = (
+        await db.execute(select(Package.id).where(Package.id == first.json()["package_id"]))
+    ).all()
+    payments = (
+        await db.execute(select(Payment.id).where(Payment.id == first.json()["payment_id"]))
+    ).all()
+    assert len(packages) == 1 and len(payments) == 1
+
+
+async def test_distinct_keys_purchase_twice(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    body = {"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"}
+    first = await as_owner.post("/v1/packages", json=body, headers={"Idempotency-Key": "k1"})
+    second = await as_owner.post("/v1/packages", json=body, headers={"Idempotency-Key": "k2"})
+    assert first.status_code == 201 and second.status_code == 201
+    assert first.json()["package_id"] != second.json()["package_id"]
+    assert first.json()["payment_id"] != second.json()["payment_id"]
+    assert gateway.charged_methods.count("pm_demo_5454") == 2
+
+
+async def test_refund_cancels_settled_package(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    body = (
+        await as_owner.post(
+            "/v1/packages",
+            json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"},
+        )
+    ).json()
+    await _settle(as_owner, db, body["payment_id"], "evt_pkg_refund")
+    pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
+    assert pkg.status == "active"
+    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund")
+    assert refunded.status_code == 200, refunded.text
+    pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
+    assert pkg.status == "canceled"
