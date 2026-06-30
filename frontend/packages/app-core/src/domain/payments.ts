@@ -218,6 +218,73 @@ export function mandateStatusIntent(status: string): Intent {
     }
 }
 
+/** The connected Stripe account id, read off the synced `businesses` row. The package/gift-card
+ *  purchase responses return only a `client_secret`; the web Elements confirm needs the account to
+ *  target the direct charge, so it reads it here (the saved-card/PublicPay seams get it inline). */
+export function useStripeAccountId(): string | null {
+    const rows = useQuery<{ stripe_account_id: string | null }>(
+        "SELECT stripe_account_id FROM businesses WHERE stripe_account_id IS NOT NULL LIMIT 1",
+    ).data;
+    return rows[0]?.stripe_account_id ?? null;
+}
+
+export interface InteractivePurchase {
+    busy: boolean;
+    error: string | null;
+    setError: (message: string | null) => void;
+    /** Set once a new-card (interactive) purchase needs a client-side card confirm. */
+    clientSecret: string | null;
+    /** Run a purchase. `interactive` true → stash the returned secret for the card seam; false (a
+     *  saved card charged off-session) → finish immediately (the webhook activates the entitlement). */
+    submit: (
+        purchase: () => Promise<{ client_secret: string }>,
+        interactive: boolean,
+        errorMessage: string,
+    ) => void;
+    /** The platform card seam calls this once the customer confirms the payment. */
+    complete: () => void;
+    /** Drop a pending interactive confirm (back to the form). */
+    cancel: () => void;
+}
+
+/** Shared package/gift-card purchase seam: a saved card charges off-session and finishes; a new card
+ *  yields a PaymentIntent `client_secret` the platform confirms (web Elements / mobile native SDK). */
+export function useInteractivePurchase(onDone: () => void): InteractivePurchase {
+    const [clientSecret, setClientSecret] = useState<string | null>(null);
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const reset = (): void => {
+        setClientSecret(null);
+        setError(null);
+    };
+
+    const submit = (
+        purchase: () => Promise<{ client_secret: string }>,
+        interactive: boolean,
+        errorMessage: string,
+    ): void => {
+        void run(
+            async () => {
+                const { client_secret } = await purchase();
+                if (interactive) {
+                    setClientSecret(client_secret);
+                } else {
+                    reset();
+                    onDone();
+                }
+            },
+            { errorMessage },
+        );
+    };
+
+    const complete = (): void => {
+        reset();
+        onDone();
+    };
+
+    return { busy, error, setError, clientSecret, submit, complete, cancel: reset };
+}
+
 export interface SetupIntent {
     client_secret: string;
     stripe_account_id: string;

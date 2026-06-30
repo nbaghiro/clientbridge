@@ -2,12 +2,15 @@ import {
     type AddPaymentMethod,
     type ClientRow,
     type ItemRow,
+    type PackageRow,
     type SavedCardRow,
     type SetupIntent,
     type SubscriptionRow,
+    canConsume,
     canManagePayments,
     cancelSubscription,
     clientStatusIntent,
+    consumeSession,
     detachCard,
     filterClients,
     formatDate,
@@ -16,17 +19,21 @@ import {
     isCancelable,
     isMandate,
     mandateStatusIntent,
+    packageStatusIntent,
     parseTimestamp,
     savedCardLabel,
+    sessionsRemaining,
     setDefaultCard,
     subscriptionStatusIntent,
     useAddPaymentMethod,
     useAsyncAction,
     useCatalogItems,
     useClientForm,
+    useClientPackages,
     useClientSubscriptions,
     useClients,
     useCurrentRole,
+    usePackageSaleForm,
     useSavedCards,
     useSearch,
     useSubscriptionForm,
@@ -48,6 +55,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconPlus, IconSearch } from "../components/icons";
+import { PurchaseConfirmPanel } from "../components/PurchaseConfirmPanel";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -195,11 +203,12 @@ function ClientDetailSheet({ client, onClose }: { client: ClientRow | null; onCl
                                     <>
                                         <PaymentMethodsSection clientId={client.id} />
                                         <SubscriptionsSection clientId={client.id} />
+                                        <PackagesSection clientId={client.id} />
                                     </>
                                 ) : (
                                     <Text style={styles.note}>
-                                        Only owners and admins can manage payment methods and
-                                        subscriptions.
+                                        Only owners and admins can manage payment methods,
+                                        subscriptions, and packages.
                                     </Text>
                                 )}
                             </ScrollView>
@@ -511,6 +520,169 @@ function StartSubscriptionForm({
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
                         <Text style={styles.saveText}>Start</Text>
+                    )}
+                </Pressable>
+            </View>
+        </View>
+    );
+}
+
+function PackagesSection({ clientId }: { clientId: string }) {
+    const packages = useClientPackages(clientId);
+    const cards = useSavedCards(clientId);
+    const items = useCatalogItems();
+    const offerings = items.filter((i) => i.kind === "package" && i.active === 1);
+    const [selling, setSelling] = useState(false);
+
+    return (
+        <View style={styles.section}>
+            <View style={styles.sectionHead}>
+                <Text style={styles.sectionLabel}>Packages</Text>
+                {!selling ? (
+                    <Pressable
+                        onPress={() => {
+                            setSelling(true);
+                        }}
+                    >
+                        <Text style={styles.linkText}>+ Sell package</Text>
+                    </Pressable>
+                ) : null}
+            </View>
+            {packages.length === 0 ? (
+                <Text style={styles.note}>No packages yet.</Text>
+            ) : (
+                packages.map((pkg) => <PackageRowItem key={pkg.id} pkg={pkg} />)
+            )}
+            {selling ? (
+                <SellPackageForm
+                    clientId={clientId}
+                    offerings={offerings}
+                    cards={cards}
+                    onClose={() => {
+                        setSelling(false);
+                    }}
+                />
+            ) : null}
+        </View>
+    );
+}
+
+function PackageRowItem({ pkg }: { pkg: PackageRow }) {
+    const { busy, error, run } = useAsyncAction();
+
+    const consume = (): void => {
+        void run(() => consumeSession(api, pkg.id), {
+            errorMessage: "Couldn't consume a session. Please try again.",
+        });
+    };
+
+    return (
+        <View style={styles.methodRow}>
+            <View style={styles.methodMain}>
+                <Text style={styles.methodLabel}>{pkg.item_name ?? "Package"}</Text>
+                <Text style={styles.rowSub}>
+                    {sessionsRemaining(pkg)} of {pkg.sessions_total} left
+                </Text>
+            </View>
+            <View style={styles.methodActions}>
+                <StatusBadge status={pkg.status} intent={packageStatusIntent(pkg.status)} />
+                {canConsume(pkg) ? (
+                    <Pressable style={styles.miniBtn} disabled={busy} onPress={consume}>
+                        <Text style={styles.miniBtnText}>{busy ? "…" : "Consume"}</Text>
+                    </Pressable>
+                ) : null}
+            </View>
+            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
+        </View>
+    );
+}
+
+function SellPackageForm({
+    clientId,
+    offerings,
+    cards,
+    onClose,
+}: {
+    clientId: string;
+    offerings: ItemRow[];
+    cards: SavedCardRow[];
+    onClose: () => void;
+}) {
+    const form = usePackageSaleForm(api, clientId, onClose);
+
+    if (form.clientSecret !== null) {
+        return <PurchaseConfirmPanel clientSecret={form.clientSecret} onCancel={form.cancel} />;
+    }
+
+    return (
+        <View style={styles.setupBox}>
+            <Text style={styles.fieldLabel}>Package</Text>
+            {offerings.length === 0 ? (
+                <Text style={styles.note}>Add a package item in your catalog first.</Text>
+            ) : (
+                <View style={styles.chipWrap}>
+                    {offerings.map((o) => (
+                        <Pressable
+                            key={o.id}
+                            style={[styles.chip, form.itemId === o.id && styles.chipOn]}
+                            onPress={() => {
+                                form.setItemId(o.id);
+                            }}
+                        >
+                            <Text
+                                style={[styles.chipText, form.itemId === o.id && styles.chipTextOn]}
+                            >
+                                {o.name} · {formatMoney(o.price_cents)}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </View>
+            )}
+
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Payment</Text>
+            <View style={styles.chipWrap}>
+                <Pressable
+                    style={[styles.chip, form.paymentMethodId === "" && styles.chipOn]}
+                    onPress={() => {
+                        form.setPaymentMethodId("");
+                    }}
+                >
+                    <Text
+                        style={[styles.chipText, form.paymentMethodId === "" && styles.chipTextOn]}
+                    >
+                        New card
+                    </Text>
+                </Pressable>
+                {cards.map((card) => (
+                    <Pressable
+                        key={card.id}
+                        style={[styles.chip, form.paymentMethodId === card.id && styles.chipOn]}
+                        onPress={() => {
+                            form.setPaymentMethodId(card.id);
+                        }}
+                    >
+                        <Text
+                            style={[
+                                styles.chipText,
+                                form.paymentMethodId === card.id && styles.chipTextOn,
+                            ]}
+                        >
+                            {savedCardLabel(card)}
+                        </Text>
+                    </Pressable>
+                ))}
+            </View>
+
+            {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
+            <View style={styles.setupActions}>
+                <Pressable style={styles.cancel} onPress={onClose}>
+                    <Text style={styles.cancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
+                    {form.busy ? (
+                        <ActivityIndicator color={c.accentInk} />
+                    ) : (
+                        <Text style={styles.saveText}>Sell</Text>
                     )}
                 </Pressable>
             </View>

@@ -16,6 +16,7 @@ import type { RootStackParamList } from "./src/navigation";
 import { CalendarScreen } from "./src/screens/Calendar";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
+import { GiftCardsScreen } from "./src/screens/GiftCards";
 import { HomeScreen } from "./src/screens/Home";
 import { InvoicesScreen } from "./src/screens/Invoices";
 import { LoginScreen } from "./src/screens/Login";
@@ -160,6 +161,11 @@ function Root() {
                             name="POS"
                             component={POSScreen}
                             options={{ title: "Point of sale" }}
+                        />
+                        <RootStack.Screen
+                            name="GiftCards"
+                            component={GiftCardsScreen}
+                            options={{ title: "Gift cards" }}
                         />
                         <RootStack.Screen
                             name="Payouts"
