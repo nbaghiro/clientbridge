@@ -57,7 +57,26 @@ async def test_status(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     res = await as_owner.get("/v1/connect/status")
     assert res.status_code == 200
     body = res.json()
-    assert set(body) == {"connected", "charges_enabled"}
+    assert {
+        "connected",
+        "charges_enabled",
+        "payouts_enabled",
+        "kyc_status",
+        "currently_due",
+    } <= set(body)
+    assert body["kyc_status"] in {"not_started", "pending", "restricted", "enabled", "disabled"}
+
+
+async def test_onboard_seeds_kyc_state(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _reset_account(db)
+    await as_owner.post("/v1/connect/onboard")
+    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
+    # the fake get_account returns a freshly-created account → not_started + what Stripe still wants
+    assert biz.kyc_status == "not_started" and biz.stripe_details_submitted is False
+    due = biz.stripe_requirements["currently_due"]
+    assert isinstance(due, list) and "external_account" in due
+    body = (await as_owner.get("/v1/connect/status")).json()  # and status() surfaces it
+    assert "external_account" in body["currently_due"]
 
 
 async def test_staff_cannot_onboard(as_staff: httpx.AsyncClient) -> None:

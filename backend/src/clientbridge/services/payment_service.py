@@ -2,7 +2,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +12,12 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict, Forbidden, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
-from clientbridge.integrations.payments import GatewayEvent, PaymentGateway
+from clientbridge.integrations.payments import (
+    ConnectAccount,
+    GatewayEvent,
+    PaymentGateway,
+    account_status_from,
+)
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client
@@ -63,10 +68,16 @@ class PaymentService:
         async def run(cmd: Command) -> OnboardingLink:
             if business.stripe_account_id is None:
                 business.stripe_account_id = await self.gateway.create_connected_account(
-                    business_name=business.name, email=business.billing_email
+                    business_name=business.name,
+                    email=business.billing_email,
+                    url=f"{settings.web_base_url}/book/{business.slug}",
                 )
                 await self.db.flush()
                 cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
+                # Seed the KYC state from Stripe right away (the webhook keeps it in sync after).
+                apply_account_status(
+                    business, await self.gateway.get_account(business.stripe_account_id)
+                )
             url = await self.gateway.create_account_link(
                 business.stripe_account_id,
                 refresh_url=f"{settings.web_base_url}/settings/payments?refresh=1",
@@ -87,9 +98,23 @@ class PaymentService:
     async def status(self) -> ConnectStatus:
         self._assert_admin()
         business = await self._business()
+        req = business.stripe_requirements
+
+        def _due(key: str) -> list[str]:
+            value = req.get(key)
+            return [str(x) for x in value] if isinstance(value, list) else []
+
+        reason = req.get("disabled_reason")
         return ConnectStatus(
             connected=business.stripe_account_id is not None,
             charges_enabled=business.stripe_charges_enabled,
+            payouts_enabled=business.stripe_payouts_enabled,
+            details_submitted=business.stripe_details_submitted,
+            kyc_status=business.kyc_status,
+            disabled_reason=str(reason) if isinstance(reason, str) else None,
+            currently_due=_due("currently_due"),
+            past_due=_due("past_due"),
+            pending_verification=_due("pending_verification"),
         )
 
     async def remittance_summary(self) -> RemittanceSummary:
@@ -805,15 +830,46 @@ async def process_stripe_event(
     return outcome
 
 
+def derive_kyc_status(status: ConnectAccount) -> str:
+    """The provider-facing KYC state, derived from the Stripe account (the source of truth)."""
+    if status.disabled_reason is not None and status.disabled_reason.startswith("rejected"):
+        return "disabled"
+    if status.charges_enabled and not status.currently_due and not status.past_due:
+        return "enabled"
+    if not status.details_submitted:
+        return "not_started"  # account created, the provider hasn't finished the hosted flow
+    if status.currently_due or status.past_due:
+        return "restricted"  # Stripe needs more from the provider
+    if status.pending_verification:
+        return "pending"  # Stripe is reviewing
+    return "pending"
+
+
+def apply_account_status(business: Business, status: ConnectAccount) -> None:
+    """Mirror the connected-account KYC state onto the business (Stripe = source of truth)."""
+    business.stripe_charges_enabled = status.charges_enabled
+    business.stripe_payouts_enabled = status.payouts_enabled
+    business.stripe_details_submitted = status.details_submitted
+    business.stripe_requirements = {
+        "currently_due": status.currently_due,
+        "eventually_due": status.eventually_due,
+        "past_due": status.past_due,
+        "pending_verification": status.pending_verification,
+        "disabled_reason": status.disabled_reason,
+    }
+    business.kyc_status = derive_kyc_status(status)
+
+
 async def _dispatch(db: AsyncSession, event: GatewayEvent) -> WebhookOutcome | None:
     if event.type == "account.updated":
         account_id = event.data.get("id")
         if isinstance(account_id, str):
-            await db.execute(
-                update(Business)
-                .where(Business.stripe_account_id == account_id)
-                .values(stripe_charges_enabled=bool(event.data.get("charges_enabled")))
-            )
+            business = (
+                await db.execute(select(Business).where(Business.stripe_account_id == account_id))
+            ).scalar_one_or_none()
+            if business is not None:
+                apply_account_status(business, account_status_from(account_id, event.data))
+                await db.flush()
     elif event.type == "payment_intent.succeeded":
         fee = event.data.get("application_fee_amount")
         settled = await _settle_payment(

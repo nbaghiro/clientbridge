@@ -152,8 +152,11 @@ class FakePaymentGateway:
         self._subs: dict[str, SubscriptionResult] = {}  # honor subscription idempotency keys
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
         self.created_locations: list[str] = []  # Terminal locations minted
+        self.account_status: ConnectAccount | None = None  # override get_account() in a test
 
-    async def create_connected_account(self, *, business_name: str, email: str | None) -> str:
+    async def create_connected_account(
+        self, *, business_name: str, email: str | None, url: str | None = None
+    ) -> str:
         self._seq += 1
         acct = f"acct_fake{self._seq}"
         self.created_accounts.append(acct)
@@ -165,7 +168,18 @@ class FakePaymentGateway:
         return f"https://connect.stripe.test/{account_id}"
 
     async def get_account(self, account_id: str) -> ConnectAccount:
-        return ConnectAccount(id=account_id, charges_enabled=False, details_submitted=False)
+        # a freshly-created account: nothing submitted, Stripe wants the hosted KYC details
+        return self.account_status or ConnectAccount(
+            id=account_id,
+            charges_enabled=False,
+            payouts_enabled=False,
+            details_submitted=False,
+            disabled_reason=None,
+            currently_due=["business_profile.url", "external_account"],
+            eventually_due=[],
+            past_due=[],
+            pending_verification=[],
+        )
 
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:
         if signature != "good":

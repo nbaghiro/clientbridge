@@ -33,6 +33,13 @@ class Business(PKMixin, TimestampMixin, Base):
         String
     )  # minted on first POS use
     stripe_charges_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # KYC mirrored from the Stripe connected account (source of truth), synced via account.updated.
+    stripe_payouts_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stripe_details_submitted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stripe_requirements: Mapped[dict[str, object]] = mapped_column(
+        JSONB, default=dict, nullable=False
+    )
+    kyc_status: Mapped[str] = mapped_column(String, default="not_started", nullable=False)
     payout_schedule: Mapped[str] = mapped_column(String, default="weekly", nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 

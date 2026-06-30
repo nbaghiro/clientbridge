@@ -19,7 +19,37 @@ from clientbridge.core.errors import CardDeclined, PaymentActionRequired
 class ConnectAccount:
     id: str
     charges_enabled: bool
+    payouts_enabled: bool
     details_submitted: bool
+    disabled_reason: str | None
+    currently_due: list[str]
+    eventually_due: list[str]
+    past_due: list[str]
+    pending_verification: list[str]
+
+
+def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAccount:
+    """Parse a Stripe Account object (the get_account result or an account.updated event) into our
+    KYC state — Stripe is the source of truth."""
+    req = data.get("requirements")
+    req = req if isinstance(req, dict) else {}
+
+    def _list(key: str) -> list[str]:
+        value = req.get(key)
+        return [str(x) for x in value] if isinstance(value, list) else []
+
+    reason = req.get("disabled_reason")
+    return ConnectAccount(
+        id=account_id,
+        charges_enabled=bool(data.get("charges_enabled")),
+        payouts_enabled=bool(data.get("payouts_enabled")),
+        details_submitted=bool(data.get("details_submitted")),
+        disabled_reason=str(reason) if isinstance(reason, str) else None,
+        currently_due=_list("currently_due"),
+        eventually_due=_list("eventually_due"),
+        past_due=_list("past_due"),
+        pending_verification=_list("pending_verification"),
+    )
 
 
 @dataclass(frozen=True)
@@ -61,7 +91,9 @@ class WebhookVerificationError(Exception):
 
 
 class PaymentGateway(Protocol):
-    async def create_connected_account(self, *, business_name: str, email: str | None) -> str: ...
+    async def create_connected_account(
+        self, *, business_name: str, email: str | None, url: str | None = None
+    ) -> str: ...
     async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str: ...
@@ -156,13 +188,19 @@ class StripeGateway:
         self._country = country
 
     async def create_connected_account(  # pragma: no cover - real Stripe, faked in tests
-        self, *, business_name: str, email: str | None
+        self, *, business_name: str, email: str | None, url: str | None = None
     ) -> str:
+        # Pre-fill everything we already have so Stripe's hosted KYC has less to collect.
+        profile: dict[str, str] = {"name": business_name}
+        if email is not None:
+            profile["support_email"] = email
+        if url is not None:
+            profile["url"] = url
         account = await stripe.Account.create_async(
             type="custom",
             country=self._country,
             email=email,  # type: ignore[arg-type]  # Stripe email is optional; stub types it str
-            business_profile={"name": business_name},
+            business_profile=profile,  # type: ignore[arg-type]  # plain dict; stub types a TypedDict
             capabilities={
                 "card_payments": {"requested": True},
                 "transfers": {"requested": True},
@@ -183,10 +221,17 @@ class StripeGateway:
 
     async def get_account(self, account_id: str) -> ConnectAccount:  # pragma: no cover
         account = await stripe.Account.retrieve_async(account_id)
+        req = account.requirements
         return ConnectAccount(
             id=str(account.id),
             charges_enabled=bool(account.charges_enabled),
+            payouts_enabled=bool(account.payouts_enabled),
             details_submitted=bool(account.details_submitted),
+            disabled_reason=req.disabled_reason if req is not None else None,
+            currently_due=list(req.currently_due or []) if req is not None else [],
+            eventually_due=list(req.eventually_due or []) if req is not None else [],
+            past_due=list(req.past_due or []) if req is not None else [],
+            pending_verification=list(req.pending_verification or []) if req is not None else [],
         )
 
     async def create_customer(  # pragma: no cover
