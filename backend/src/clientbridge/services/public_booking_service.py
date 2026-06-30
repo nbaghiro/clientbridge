@@ -27,6 +27,11 @@ from clientbridge.services.payment_service import open_booking_deposit
 from clientbridge.services.scheduling_service import open_slots
 
 
+def _account(business: Business) -> str | None:
+    """The connected account the client pays into, exposed only once charges are enabled."""
+    return business.stripe_account_id if business.stripe_charges_enabled else None
+
+
 def _service_out(item: Item) -> PublicService:
     return PublicService(
         id=item.id,
@@ -65,9 +70,10 @@ class PublicBookingService:
         )
         staff_rows = (
             await self.db.execute(
-                select(Staff, User.name)
+                scoped(Staff, business.id)
+                .add_columns(User.name)
                 .join(User, User.id == Staff.user_id, isouter=True)
-                .where(Staff.business_id == business.id, Staff.status == "active")
+                .where(Staff.status == "active")
                 .order_by(Staff.id)
             )
         ).all()
@@ -75,6 +81,7 @@ class PublicBookingService:
             business_name=business.name,
             services=[_service_out(i) for i in items],
             staff=[PublicStaff(id=r[0].id, name=r[1], title=r[0].title) for r in staff_rows],
+            stripe_account_id=_account(business),
         )
 
     async def slots(self, slug: str, item_id: str, staff_id: str, on_date: date) -> PublicSlots:
@@ -100,10 +107,15 @@ class PublicBookingService:
             starts_at=data.starts_at,
             client_id=client.id,
             source="online",
+            dedupe_client=True,
         )
         secret = await self._open_deposit(business, booking, client)
         await self.db.commit()
-        return PublicBookingResult(booking_id=booking.id, deposit_client_secret=secret)
+        return PublicBookingResult(
+            booking_id=booking.id,
+            deposit_client_secret=secret,
+            stripe_account_id=_account(business),
+        )
 
     async def _open_deposit(
         self, business: Business, booking: Booking, client: Client

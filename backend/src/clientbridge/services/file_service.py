@@ -25,23 +25,18 @@ class FileService:
 
     async def create(self, data: FileCreate) -> FileUpload:
         async def run(cmd: Command) -> FileUpload:
-            file = File(
-                id=new_id("file"),
+            result = await mint_upload(
+                self.db,
+                self.storage,
                 business_id=self.biz,
                 parent_type=data.parent_type,
                 parent_id=data.parent_id,
                 kind=data.kind,
-                s3_key=f"{self.biz}/{new_id('file')}",
                 content_type=data.content_type,
                 size=data.size,
             )
-            self.db.add(file)
-            await self.db.flush()
-            cmd.record("file.create", entity_type="file", entity_id=file.id)
-            url = self.storage.presign_upload(
-                file.s3_key, data.content_type or _DEFAULT_CONTENT_TYPE
-            )
-            return FileUpload(file=_file_out(file), upload_url=url)
+            cmd.record("file.create", entity_type="file", entity_id=result.file.id)
+            return result
 
         return await run_command(
             self.db, self.principal, action="file.create", run=run, response_model=FileUpload
@@ -54,6 +49,36 @@ class FileService:
         if file is None:
             raise NotFound("file not found")
         return FileDownload(url=self.storage.presign_download(file.s3_key))
+
+
+async def mint_upload(
+    db: AsyncSession,
+    storage: FileStorage,
+    *,
+    business_id: str,
+    parent_type: str,
+    parent_id: str,
+    kind: str | None = None,
+    content_type: str | None = None,
+    size: int | None = None,
+) -> FileUpload:
+    """Mint a server-keyed File row + its short-lived presigned upload URL. Principal-less so both
+    the authed command path and the token-gated public surfaces share one minting rule — the s3 key
+    is always derived from the resolved business, never the caller."""
+    file = File(
+        id=new_id("file"),
+        business_id=business_id,
+        parent_type=parent_type,
+        parent_id=parent_id,
+        kind=kind,
+        s3_key=f"{business_id}/{new_id('file')}",
+        content_type=content_type,
+        size=size,
+    )
+    db.add(file)
+    await db.flush()
+    url = storage.presign_upload(file.s3_key, content_type or _DEFAULT_CONTENT_TYPE)
+    return FileUpload(file=_file_out(file), upload_url=url)
 
 
 def _file_out(file: File) -> FileOut:

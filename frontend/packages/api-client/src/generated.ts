@@ -373,6 +373,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/form/{token}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Form Upload */
+        post: operations["public_form_upload_form__token__upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contract/{token}": {
         parameters: {
             query?: never;
@@ -401,6 +418,23 @@ export interface paths {
         put?: never;
         /** Public Contract Sign */
         post: operations["public_contract_sign_contract__token__sign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/contract/{token}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Contract Upload */
+        post: operations["public_contract_upload_contract__token__upload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2518,6 +2552,8 @@ export interface components {
             services: components["schemas"]["PublicService"][];
             /** Staff */
             staff: components["schemas"]["PublicStaff"][];
+            /** Stripe Account Id */
+            stripe_account_id?: string | null;
         };
         /** PublicBookingResult */
         PublicBookingResult: {
@@ -2525,6 +2561,8 @@ export interface components {
             booking_id: string;
             /** Deposit Client Secret */
             deposit_client_secret?: string | null;
+            /** Stripe Account Id */
+            stripe_account_id?: string | null;
         };
         /** PublicCardIntent */
         PublicCardIntent: {
@@ -2552,6 +2590,20 @@ export interface components {
             signature_image_id?: string | null;
             /** Typed Name */
             typed_name?: string | null;
+        };
+        /** PublicFileCreate */
+        PublicFileCreate: {
+            /** Content Type */
+            content_type?: string | null;
+            /** Size */
+            size?: number | null;
+        };
+        /** PublicFileUpload */
+        PublicFileUpload: {
+            /** File Id */
+            file_id: string;
+            /** Upload Url */
+            upload_url: string;
         };
         /** PublicFormContext */
         PublicFormContext: {
@@ -3638,6 +3690,41 @@ export interface operations {
             };
         };
     };
+    public_form_upload_form__token__upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicFileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicFileUpload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     public_contract_context_contract__token__get: {
         parameters: {
             query?: never;
@@ -3691,6 +3778,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicContractContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_contract_upload_contract__token__upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicFileCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicFileUpload"];
                 };
             };
             /** @description Validation Error */

@@ -69,6 +69,17 @@ async def _enable_payments(db: AsyncSession) -> None:
     await db.flush()
 
 
+async def test_services_expose_connected_account_when_onboarded(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # the public booking page needs the connected account to mount the deposit Elements
+    before = (await api.get(f"/book/{SLUG}/services")).json()
+    assert before["stripe_account_id"] is None
+    await _enable_payments(db)
+    after = (await api.get(f"/book/{SLUG}/services")).json()
+    assert after["stripe_account_id"] == "acct_test"
+
+
 # ── services + staff ─────────────────────────────────────────────────────────────────────────
 async def test_services_lists_only_online_bookable(api: httpx.AsyncClient) -> None:
     res = await api.get(f"/book/{SLUG}/services")

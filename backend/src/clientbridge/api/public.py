@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep
+from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep, StorageDep
 from clientbridge.core.ratelimit import (
     _client_ip,
     public_booking_rate_limit,
@@ -13,6 +13,7 @@ from clientbridge.core.ratelimit import (
     public_review_rate_limit,
 )
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
+from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
 from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
 from clientbridge.schemas.public_booking import (
@@ -91,6 +92,17 @@ async def public_form_submit(
     return await PublicFormService(db).submit(token, body)
 
 
+@form_router.post("/{token}/upload", response_model=PublicFileUpload)
+async def public_form_upload(
+    token: str,
+    body: PublicFileCreate,
+    db: DbSession,
+    storage: StorageDep,
+    _: FormRateLimited,
+) -> PublicFileUpload:
+    return await PublicFormService(db).upload(token, body, storage)
+
+
 contract_router = APIRouter(prefix="/contract", tags=["public-contract"])
 
 
@@ -110,6 +122,17 @@ async def public_contract_sign(
     _: ContractRateLimited,
 ) -> PublicContractContext:
     return await PublicContractService(db).sign(token, body, _client_ip(request))
+
+
+@contract_router.post("/{token}/upload", response_model=PublicFileUpload)
+async def public_contract_upload(
+    token: str,
+    body: PublicFileCreate,
+    db: DbSession,
+    storage: StorageDep,
+    _: ContractRateLimited,
+) -> PublicFileUpload:
+    return await PublicContractService(db).upload(token, body, storage)
 
 
 @contract_router.post("/{token}/decline", response_model=PublicContractContext)

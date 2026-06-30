@@ -24,6 +24,7 @@ class PublicBookingPage(BaseModel):
     business_name: str
     services: list[PublicService]
     staff: list[PublicStaff]
+    stripe_account_id: str | None = None  # connected account to mount Elements, when onboarded
 
 
 class PublicSlot(BaseModel):
@@ -57,3 +58,4 @@ class PublicBookingCreate(BaseModel):
 class PublicBookingResult(BaseModel):
     booking_id: str
     deposit_client_secret: str | None = None
+    stripe_account_id: str | None = None  # connected account for the deposit charge, when onboarded

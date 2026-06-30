@@ -27,6 +27,9 @@ bucket_definitions:
       - SELECT * FROM contracts       WHERE business_id = bucket.business_id
       - SELECT * FROM signatures      WHERE business_id = bucket.business_id
       - SELECT * FROM files           WHERE business_id = bucket.business_id
+      - SELECT * FROM threads         WHERE business_id = bucket.business_id
+      - SELECT * FROM messages        WHERE business_id = bucket.business_id
+      - SELECT * FROM broadcasts      WHERE business_id = bucket.business_id
 
   # 2) STAFF-SELF — a staff member's OWN work + earnings, keyed to their staff row.
   #    (staff_id is denormalized onto bookings so it can be sliced here directly.)
@@ -62,9 +65,6 @@ bucket_definitions:
       - SELECT * FROM payment_methods    WHERE business_id = bucket.business_id
       - SELECT * FROM payouts            WHERE business_id = bucket.business_id
       - SELECT * FROM payout_allocations WHERE business_id = bucket.business_id
-      - SELECT * FROM threads            WHERE business_id = bucket.business_id
-      - SELECT * FROM messages           WHERE business_id = bucket.business_id
-      - SELECT * FROM broadcasts         WHERE business_id = bucket.business_id
       - SELECT * FROM reviews            WHERE business_id = bucket.business_id
       - SELECT * FROM review_requests    WHERE business_id = bucket.business_id
       - SELECT * FROM audit_logs         WHERE business_id = bucket.business_id

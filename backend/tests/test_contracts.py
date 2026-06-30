@@ -172,6 +172,24 @@ async def test_public_decline_then_sign_409(api: httpx.AsyncClient, db: AsyncSes
     assert (await api.post(f"/contract/{token}/sign", json={})).status_code == 409
 
 
+async def test_public_upload_then_sign_with_image(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    token = await _a_signature(db)
+    up = await api.post(f"/contract/{token}/upload", json={"content_type": "image/png"})
+    assert up.status_code == 200, up.text
+    fid = up.json()["file_id"]
+    assert up.json()["upload_url"]  # presigned PUT target
+    row = (await db.execute(select(File).where(File.id == fid))).scalar_one()
+    assert row.business_id == BIZ  # the public upload is scoped to the token's business
+    signed = await api.post(f"/contract/{token}/sign", json={"signature_image_id": fid})
+    assert signed.status_code == 200, signed.text
+    sig = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
+    assert sig.signature_image_id == fid
+
+
+async def test_public_upload_unknown_token_404(api: httpx.AsyncClient) -> None:
+    assert (await api.post("/contract/nope/upload", json={})).status_code == 404
+
+
 async def test_public_unknown_token_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/contract/nope")).status_code == 404
     assert (await api.post("/contract/nope/sign", json={})).status_code == 404

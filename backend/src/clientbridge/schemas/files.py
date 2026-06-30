@@ -27,3 +27,13 @@ class FileUpload(BaseModel):
 
 class FileDownload(BaseModel):
     url: str
+
+
+class PublicFileCreate(BaseModel):
+    content_type: str | None = None
+    size: int | None = None
+
+
+class PublicFileUpload(BaseModel):
+    file_id: str
+    upload_url: str

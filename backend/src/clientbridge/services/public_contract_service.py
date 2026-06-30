@@ -4,11 +4,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.integrations.s3 import FileStorage
 from clientbridge.models.crm import Client
 from clientbridge.models.documents import Contract, Signature
 from clientbridge.models.identity import Business
 from clientbridge.models.platform import File
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
+from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
+from clientbridge.services.file_service import mint_upload
 
 
 class PublicContractService:
@@ -55,6 +58,23 @@ class PublicContractService:
         signature.ip = ip
         await self.db.commit()
         return await self._context(signature, contract, business)
+
+    async def upload(
+        self, token: str, data: PublicFileCreate, storage: FileStorage
+    ) -> PublicFileUpload:
+        signature, _, _ = await self._resolve(token)
+        result = await mint_upload(
+            self.db,
+            storage,
+            business_id=signature.business_id,
+            parent_type="signature",
+            parent_id=signature.id,
+            kind="signature",
+            content_type=data.content_type,
+            size=data.size,
+        )
+        await self.db.commit()
+        return PublicFileUpload(file_id=result.file.id, upload_url=result.upload_url)
 
     async def decline(self, token: str) -> PublicContractContext:
         signature, contract, business = await self._resolve(token)

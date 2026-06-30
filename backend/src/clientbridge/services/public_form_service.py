@@ -4,13 +4,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
+from clientbridge.integrations.s3 import FileStorage
 from clientbridge.models.documents import Form, FormField, FormResponse
 from clientbridge.models.identity import Business
+from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import (
     PublicFormContext,
     PublicFormField,
     PublicFormSubmit,
 )
+from clientbridge.services.file_service import mint_upload
 
 
 class PublicFormService:
@@ -55,6 +58,23 @@ class PublicFormService:
             completed=response.status == "submitted",
             fields=[_field_out(f) for f in fields],
         )
+
+    async def upload(
+        self, token: str, data: PublicFileCreate, storage: FileStorage
+    ) -> PublicFileUpload:
+        response, _, _ = await self._resolve(token)
+        result = await mint_upload(
+            self.db,
+            storage,
+            business_id=response.business_id,
+            parent_type="form_response",
+            parent_id=response.id,
+            kind="attachment",
+            content_type=data.content_type,
+            size=data.size,
+        )
+        await self.db.commit()
+        return PublicFileUpload(file_id=result.file.id, upload_url=result.upload_url)
 
     async def submit(self, token: str, data: PublicFormSubmit) -> PublicFormContext:
         response, form, business = await self._resolve(token)
