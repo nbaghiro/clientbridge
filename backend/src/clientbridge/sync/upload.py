@@ -67,8 +67,10 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     # payment_methods + payout_allocations are NOT sync-writable: the gateway/mandate fields and the
     # computed split amounts/status are server-authoritative (Stripe webhooks + the payout job).
     "broadcasts": ("admin", False),
-    "reviews": ("admin", False),
-    "review_requests": ("admin", False),
+    # reviews + review_requests are NOT sync-writable: the request token is a server-minted secret
+    # and the review/request status lifecycle is command- + public-token-authoritative (request
+    # command, public submission, moderation commands), so a client can't forge a review link or
+    # publish/hide a review by syncing a row.
 }
 
 # Timestamps + tenancy the server owns; never settable by a client write.

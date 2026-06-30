@@ -10,6 +10,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -42,6 +43,14 @@ class ReviewRequest(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("review_requests", "status", "sent", "opened", "completed", "expired"),
         UniqueConstraint("token", name="uq_review_requests_token"),
         Index("ix_review_requests_status", "business_id", "status"),
+        # At most one open (sent/opened) request per booking — backstops the dedup guard.
+        Index(
+            "uq_review_requests_open_booking",
+            "business_id",
+            "booking_id",
+            unique=True,
+            postgresql_where=text("status IN ('sent', 'opened') AND booking_id IS NOT NULL"),
+        ),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)

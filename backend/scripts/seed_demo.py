@@ -1495,14 +1495,14 @@ def seed_reviews(owner: str) -> None:
                 review_id=f"rv_{k}",
             )
         )
-    # a couple of pending requests with no review yet
+    # a couple of pending requests with no review yet (standalone — not tied to a booking)
     for k, client in enumerate(["cl_ethan", "cl_priscilla"]):
         rows.append(
             ReviewRequest(
                 id=f"rvr_p_{k}",
                 business_id=BIZ,
                 client_id=client,
-                booking_id="bk_010",
+                booking_id=None,
                 channel="email",
                 token=f"rev_tok_p_{k}",
                 status="sent" if k == 0 else "opened",

@@ -15,6 +15,7 @@ from clientbridge.models.crm import Client, Consent
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
+from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Session
 
 _log = logging.getLogger(__name__)
@@ -211,6 +212,18 @@ def _booking_canceled(locale: str, business_name: str, when: str) -> tuple[str, 
     return (
         f"Appointment canceled — {business_name}",
         f"Your appointment with {business_name} on {when} was canceled.",
+    )
+
+
+def _review_requested(locale: str, business_name: str, link: str) -> tuple[str, str]:
+    if locale == "fr":
+        return (
+            f"Comment s'est passée votre visite chez {business_name}?",
+            f"Merci d'avoir choisi {business_name}! Laissez un avis : {link}",
+        )
+    return (
+        f"How was your visit to {business_name}?",
+        f"Thanks for choosing {business_name}! Leave a review: {link}",
     )
 
 
@@ -430,6 +443,17 @@ class Notifier:
             business.locale, business.name, f"{local:%Y-%m-%d at %H:%M}"
         )
         await self._to_client(db, booking.client_id, subject, body)
+
+    async def on_review_requested(self, db: AsyncSession, review_request_id: str) -> None:
+        request = await db.get(ReviewRequest, review_request_id)
+        if request is None:
+            return
+        business = await db.get(Business, request.business_id)
+        if business is None:
+            return
+        link = f"{get_settings().web_base_url}/review/{request.token}"
+        subject, body = _review_requested(business.locale, business.name, link)
+        await self._to_client(db, request.client_id, subject, body)
 
     async def _to_client(
         self, db: AsyncSession, client_id: str | None, subject: str, body: str

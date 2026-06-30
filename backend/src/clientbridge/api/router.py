@@ -18,6 +18,7 @@ from clientbridge.api.v1 import (
     payments,
     payouts,
     reports,
+    reviews,
     staff,
     subscriptions,
     tax,
@@ -44,4 +45,5 @@ api_router.include_router(staff.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(devices.router)
 api_router.include_router(reports.router)
+api_router.include_router(reviews.router)
 api_router.include_router(messaging.router)
