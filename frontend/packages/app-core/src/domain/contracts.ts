@@ -182,6 +182,7 @@ export interface PublicContractClient {
     getContract(token: string): Promise<PublicContract>;
     sign(token: string, input: SignInput): Promise<PublicContract>;
     decline(token: string): Promise<PublicContract>;
+    upload(token: string, file: Blob): Promise<string>; // returns a file_id to pass as signature_image_id
 }
 
 /** Build an e-sign client bound to the API origin (web `VITE_API_URL`), mirroring
@@ -211,5 +212,20 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
             request<PublicContract>(`/contract/${encodeURIComponent(token)}/decline`, {
                 method: "POST",
             }),
+        upload: async (token, file) => {
+            const meta = await request<{ file_id: string; upload_url: string }>(
+                `/contract/${encodeURIComponent(token)}/upload`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content_type: file.type || null, size: file.size }),
+                },
+            );
+            const headers: Record<string, string> = {};
+            if (file.type) headers["Content-Type"] = file.type;
+            const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
+            if (!put.ok) throw new PublicContractError(put.status, "the signature upload failed");
+            return meta.file_id;
+        },
     };
 }

@@ -25,6 +25,8 @@ export function PublicContract() {
     const [notFound, setNotFound] = useState(false);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [typedName, setTypedName] = useState("");
+    const [imageId, setImageId] = useState<string | null>(null);
+    const [imageName, setImageName] = useState("");
     const action = useAsyncAction();
 
     useEffect(() => {
@@ -75,15 +77,33 @@ export function PublicContract() {
 
     const sign = (e: FormEvent): void => {
         e.preventDefault();
-        if (typedName.trim().length === 0) {
-            action.setError("Type your full name to sign.");
+        if (typedName.trim().length === 0 && imageId === null) {
+            action.setError("Type your full name or upload a signature image to sign.");
             return;
         }
         void action.run(
             async () => {
-                setContract(await contracts.sign(token, { typed_name: typedName.trim() }));
+                setContract(
+                    await contracts.sign(token, {
+                        typed_name: typedName.trim() || null,
+                        signature_image_id: imageId,
+                    }),
+                );
             },
             { errorMessage: "We couldn't record your signature. Please try again." },
+        );
+    };
+
+    const uploadImage = (e: React.ChangeEvent<HTMLInputElement>): void => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        void action.run(
+            async () => {
+                const id = await contracts.upload(token, file);
+                setImageId(id);
+                setImageName(file.name);
+            },
+            { errorMessage: "We couldn't upload that signature image. Please try again." },
         );
     };
 
@@ -118,6 +138,18 @@ export function PublicContract() {
                         placeholder="Full legal name"
                         className={field}
                     />
+                </label>
+                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                    Or upload a signature image
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={uploadImage}
+                        className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
+                    />
+                    {imageName !== "" ? (
+                        <span className="text-xs text-ok-fg">Attached: {imageName}</span>
+                    ) : null}
                 </label>
                 {action.error !== null ? (
                     <p className="text-sm text-danger-fg">{action.error}</p>
