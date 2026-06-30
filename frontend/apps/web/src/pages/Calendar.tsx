@@ -4,11 +4,15 @@ import {
     type CalendarView,
     type StaffRow,
     addDays,
+    canCollectDeposit,
+    canManagePayments,
     dateKey,
     dayBounds,
     dayColumns,
+    depositStatusIntent,
     eventLabel,
     formatHour,
+    formatMoney,
     formatRangeLabel,
     formatTime,
     formatWeekday,
@@ -18,6 +22,7 @@ import {
     monthMatrix,
     rescheduleByDrag,
     sameDay,
+    savedCardLabel,
     staffLabel,
     startOfDay,
     startOfMonth,
@@ -25,6 +30,9 @@ import {
     useBookingForm,
     useCalendarEvents,
     useCancelBooking,
+    useCollectDeposit,
+    useCurrentRole,
+    useSavedCards,
     useStaff,
     weekColumns,
 } from "@clientbridge/app-core";
@@ -37,8 +45,10 @@ import {
     useState,
 } from "react";
 
+import { PurchaseCardConfirm } from "../components/PurchaseCardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
+import { getTokens } from "../lib/auth";
 
 const HOUR_PX = 48;
 const MIN_HOUR_PX = 44;
@@ -735,6 +745,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                 <p className="text-sm text-ink">
                     {formatTime(event.start)} – {formatTime(event.end)}
                 </p>
+                {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
                 {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
                 <div className="flex justify-end gap-2 pt-1">
                     <button
@@ -757,5 +768,76 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                 </div>
             </div>
         </Overlay>
+    );
+}
+
+function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
+    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const cards = useSavedCards(event.clientId ?? "");
+    const deposit = useCollectDeposit(api, event, onClose);
+    const [method, setMethod] = useState<string | null>(null);
+
+    if (!canManagePayments(role)) return null;
+    const amountLabel = formatMoney(event.depositAmountCents);
+    const effMethod = method ?? cards.at(0)?.id ?? "";
+
+    if (deposit.clientSecret !== null) {
+        return (
+            <div className="rounded-lg border border-line bg-bg p-3">
+                <p className="text-sm font-medium text-ink">Collect deposit · {amountLabel}</p>
+                <PurchaseCardConfirm
+                    clientSecret={deposit.clientSecret}
+                    amountLabel={amountLabel}
+                    onPaid={deposit.complete}
+                    onCancel={deposit.cancel}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-lg border border-line bg-bg p-3">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <p className="text-sm font-medium text-ink">Deposit</p>
+                    <p className="text-sm text-muted">{amountLabel}</p>
+                </div>
+                <StatusPill
+                    status={event.depositStatus}
+                    intent={depositStatusIntent(event.depositStatus)}
+                />
+            </div>
+            {canCollectDeposit(event) ? (
+                <div className="mt-3 space-y-2">
+                    <select
+                        value={effMethod}
+                        onChange={(e) => {
+                            setMethod(e.target.value);
+                        }}
+                        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                    >
+                        <option value="">Pay with a new card</option>
+                        {cards.map((card) => (
+                            <option key={card.id} value={card.id}>
+                                {savedCardLabel(card)}
+                            </option>
+                        ))}
+                    </select>
+                    {deposit.error !== null ? (
+                        <p className="text-sm text-danger">{deposit.error}</p>
+                    ) : null}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            deposit.collect(effMethod);
+                        }}
+                        disabled={deposit.busy}
+                        className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                    >
+                        {deposit.busy ? "Collecting…" : `Collect ${amountLabel}`}
+                    </button>
+                </div>
+            ) : null}
+        </div>
     );
 }

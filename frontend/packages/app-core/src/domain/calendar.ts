@@ -15,6 +15,7 @@ import {
     startOfWeek,
 } from "../util/datetime";
 import type { Intent } from "../util/intent";
+import { useInteractivePurchase } from "./payments";
 import { type StaffRow, useStaff } from "./staff";
 
 export interface CalendarEvent {
@@ -27,9 +28,13 @@ export interface CalendarEvent {
     subtitle: string;
     status: string;
     staffId: string;
+    clientId: string | null;
     color: string | null;
     capacity: number;
     bookedCount: number;
+    depositRequired: boolean;
+    depositAmountCents: number;
+    depositStatus: string;
 }
 
 export interface PositionedEvent {
@@ -60,6 +65,19 @@ export function statusIntent(status: string): Intent {
             return "danger";
         default:
             return "neutral";
+    }
+}
+
+export function depositStatusIntent(status: string): Intent {
+    switch (status) {
+        case "pending":
+            return "warning";
+        case "collected":
+            return "success";
+        case "forfeited":
+            return "danger";
+        default:
+            return "neutral"; // none
     }
 }
 
@@ -233,13 +251,19 @@ interface Row {
     item_name: string;
     item_color: string | null;
     client_name: string | null;
+    client_id: string | null;
+    deposit_required: number | null;
+    deposit_amount_cents: number | null;
+    deposit_status: string | null;
 }
 
 // datetime() normalizes both the stored text and the ISO params to a comparable UTC form.
 const EVENTS_SQL = `
 SELECT s.id AS session_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.booked_count,
        s.status AS session_status, i.name AS item_name, i.color AS item_color,
-       b.id AS booking_id, b.status AS booking_status, c.name AS client_name
+       b.id AS booking_id, b.status AS booking_status, c.name AS client_name,
+       b.client_id AS client_id, b.deposit_required AS deposit_required,
+       b.deposit_amount_cents AS deposit_amount_cents, b.deposit_status AS deposit_status
 FROM sessions s
 JOIN items i ON i.id = s.item_id
 LEFT JOIN bookings b ON b.session_id = s.id AND b.deleted_at IS NULL
@@ -259,9 +283,13 @@ function toEvent(r: Row): CalendarEvent {
         subtitle: r.client_name ?? "",
         status: r.booking_status ?? r.session_status,
         staffId: r.staff_id,
+        clientId: r.client_id,
         color: r.item_color,
         capacity: r.capacity,
         bookedCount: r.booked_count,
+        depositRequired: r.deposit_required === 1,
+        depositAmountCents: r.deposit_amount_cents ?? 0,
+        depositStatus: r.deposit_status ?? "none",
     };
 }
 
@@ -365,6 +393,93 @@ export function useCancelBooking(
         });
     };
     return { busy, error, cancel };
+}
+
+export interface DepositResult {
+    booking_id: string;
+    payment_id: string;
+    client_secret: string;
+}
+
+export interface CollectDepositOptions {
+    paymentMethodId?: string;
+    idempotencyKey?: string;
+}
+
+/** Collect a booking's deposit (`POST /v1/bookings/{id}/deposit`). A saved `paymentMethodId` charges
+ *  off-session now; without one the returned `client_secret` is confirmed by the platform card seam.
+ *  `payment_method_id` is a query param (the endpoint takes no body). */
+export function collectDeposit(
+    api: ApiLike,
+    bookingId: string,
+    opts: CollectDepositOptions = {},
+): Promise<DepositResult> {
+    const query =
+        opts.paymentMethodId !== undefined && opts.paymentMethodId !== ""
+            ? `?payment_method_id=${encodeURIComponent(opts.paymentMethodId)}`
+            : "";
+    return api.post<DepositResult>(
+        `/v1/bookings/${bookingId}/deposit${query}`,
+        {},
+        opts.idempotencyKey !== undefined ? { idempotencyKey: opts.idempotencyKey } : undefined,
+    );
+}
+
+/** Owner/admin may collect a deposit while it's still outstanding (not collected or forfeited). */
+export function canCollectDeposit(event: CalendarEvent): boolean {
+    return (
+        event.bookingId !== null &&
+        event.depositRequired &&
+        event.depositStatus !== "collected" &&
+        event.depositStatus !== "forfeited"
+    );
+}
+
+export interface CollectDeposit {
+    busy: boolean;
+    error: string | null;
+    /** Set once an interactive (new-card) deposit needs a client-side confirm. */
+    clientSecret: string | null;
+    /** Pass a saved card id to charge off-session; omit it (or "") to confirm a new card. */
+    collect: (paymentMethodId?: string) => void;
+    cancel: () => void;
+    complete: () => void;
+}
+
+/** Collect-deposit view-model: reuses the off-session-vs-client_secret purchase seam — a saved card
+ *  finishes immediately; a new card yields a `client_secret` the platform confirms (web Elements /
+ *  mobile native SDK). The Idempotency-Key dedups a double-submit server-side. */
+export function useCollectDeposit(
+    api: ApiLike,
+    event: CalendarEvent,
+    onDone: () => void,
+): CollectDeposit {
+    const purchase = useInteractivePurchase(onDone);
+
+    const collect = (paymentMethodId?: string): void => {
+        const bookingId = event.bookingId;
+        if (bookingId === null) return;
+        const saved =
+            paymentMethodId !== undefined && paymentMethodId !== "" ? paymentMethodId : null;
+        purchase.submit(
+            (idempotencyKey) =>
+                collectDeposit(api, bookingId, {
+                    ...(saved !== null ? { paymentMethodId: saved } : {}),
+                    idempotencyKey,
+                }),
+            saved === null,
+            "Couldn't collect the deposit. Please try again.",
+        );
+    };
+
+    return {
+        busy: purchase.busy,
+        error: purchase.error,
+        clientSecret: purchase.clientSecret,
+        collect,
+        cancel: purchase.cancel,
+        complete: purchase.complete,
+    };
 }
 
 export interface BookingFormState {

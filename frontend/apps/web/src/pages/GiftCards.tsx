@@ -5,7 +5,9 @@ import {
     canManagePayments,
     formatMoney,
     giftCardStatusIntent,
+    giftItems,
     savedCardLabel,
+    useCatalogItems,
     useClients,
     useCurrentRole,
     useGiftCardRedeemForm,
@@ -138,16 +140,21 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardSaleForm(api, onClose);
     const clients = useClients();
     const cards = useSavedCards(form.purchaserClientId);
+    const items = giftItems(useCatalogItems());
 
     if (form.clientSecret !== null) {
-        const dollars = Number(form.amount);
+        const selected = items.find((i) => i.id === form.itemId);
+        const faceCents =
+            form.mode === "preset"
+                ? (selected?.price_cents ?? null)
+                : Math.round(Number(form.amount) * 100);
         return (
             <Panel title="Confirm gift card payment">
                 <PurchaseCardConfirm
                     clientSecret={form.clientSecret}
                     amountLabel={
-                        Number.isFinite(dollars)
-                            ? formatMoney(Math.round(dollars * 100))
+                        faceCents !== null && Number.isFinite(faceCents)
+                            ? formatMoney(faceCents)
                             : "gift card"
                     }
                     onPaid={form.complete}
@@ -174,18 +181,59 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                         onChange={form.setPurchaserClientId}
                     />
                 </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Amount (CAD)
-                    <input
-                        value={form.amount}
-                        onChange={(e) => {
-                            form.setAmount(e.target.value);
-                        }}
-                        inputMode="decimal"
-                        placeholder="100.00"
-                        className={field}
-                    />
-                </label>
+                <div className="flex gap-2">
+                    {(["preset", "custom"] as const).map((m) => (
+                        <button
+                            key={m}
+                            type="button"
+                            onClick={() => {
+                                form.setMode(m);
+                            }}
+                            className={`flex-1 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                                form.mode === m
+                                    ? "border-accent bg-accent-weak text-accent-strong"
+                                    : "border-line text-ink-soft hover:bg-bg"
+                            }`}
+                        >
+                            {m === "preset" ? "Preset card" : "Custom amount"}
+                        </button>
+                    ))}
+                </div>
+                {form.mode === "preset" ? (
+                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                        Gift card
+                        <select
+                            value={form.itemId}
+                            onChange={(e) => {
+                                form.setItemId(e.target.value);
+                            }}
+                            className={field}
+                        >
+                            <option value="">Select a gift card</option>
+                            {items.map((it) => (
+                                <option key={it.id} value={it.id}>
+                                    {it.name}
+                                    {it.price_cents !== null
+                                        ? ` — ${formatMoney(it.price_cents)}`
+                                        : ""}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                ) : (
+                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                        Amount (CAD)
+                        <input
+                            value={form.amount}
+                            onChange={(e) => {
+                                form.setAmount(e.target.value);
+                            }}
+                            inputMode="decimal"
+                            placeholder="100.00"
+                            className={field}
+                        />
+                    </label>
+                )}
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                     Recipient (optional)
                     <input
