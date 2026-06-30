@@ -8,16 +8,20 @@ import { Login } from "./components/Login";
 import { api, onSignedOut } from "./lib/api";
 import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
+import { BookingForms } from "./pages/BookingForms";
 import { Calendar } from "./pages/Calendar";
 import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
 import { GiftCards } from "./pages/GiftCards";
+import { Inbox } from "./pages/Inbox";
 import { Invoices } from "./pages/Invoices";
 import { PaymentsSettings } from "./pages/PaymentsSettings";
 import { Payouts } from "./pages/Payouts";
 import { Placeholder } from "./pages/Placeholder";
 import { POS } from "./pages/POS";
 import { PublicBooking } from "./pages/PublicBooking";
+import { PublicContract } from "./pages/PublicContract";
+import { PublicForm } from "./pages/PublicForm";
 import { PublicPay } from "./pages/PublicPay";
 import { Reports } from "./pages/Reports";
 import { Reviews } from "./pages/Reviews";
@@ -52,13 +56,16 @@ export function App() {
                     <Route path="/pay/:token" element={<PublicPay />} />
                     {/* Public online-booking page — unauth (the booking slug is the credential). */}
                     <Route path="/book/:slug" element={<PublicBooking />} />
+                    {/* Public e-sign + form-fill pages — unauth (the URL token is the credential). */}
+                    <Route path="/contract/:token" element={<PublicContract />} />
+                    <Route path="/form/:token" element={<PublicForm />} />
                     {authed ? (
                         <Route element={<AppShell onSignOut={() => void handleSignOut()} />}>
                             <Route index element={<Navigate to="/home" replace />} />
                             <Route path="home" element={<Today />} />
                             <Route path="calendar" element={<Calendar />} />
                             <Route path="clients" element={<Clients />} />
-                            <Route path="inbox" element={<Placeholder title="Inbox" />} />
+                            <Route path="inbox" element={<Inbox />} />
                             <Route path="invoices" element={<Invoices />} />
                             <Route path="pos" element={<POS />} />
                             <Route path="gift-cards" element={<GiftCards />} />
@@ -78,10 +85,7 @@ export function App() {
                                     path="scheduling"
                                     element={<Placeholder title="Scheduling" />}
                                 />
-                                <Route
-                                    path="booking"
-                                    element={<Placeholder title="Booking & forms" />}
-                                />
+                                <Route path="booking" element={<BookingForms />} />
                             </Route>
                             <Route path="*" element={<Navigate to="/clients" replace />} />
                         </Route>
