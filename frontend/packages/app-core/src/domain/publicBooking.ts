@@ -23,6 +23,7 @@ export interface PublicBookingPage {
     business_name: string;
     services: PublicService[];
     staff: PublicStaff[];
+    stripe_account_id: string | null; // connected account to mount the deposit Elements, when onboarded
 }
 
 export interface PublicSlot {
@@ -43,6 +44,7 @@ export interface BookingClientInput {
 export interface PublicBookingResult {
     booking_id: string;
     deposit_client_secret: string | null;
+    stripe_account_id: string | null; // connected account for the deposit charge
 }
 
 export class PublicBookingError extends Error {
