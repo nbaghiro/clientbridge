@@ -17,8 +17,10 @@ import { PaymentsSettings } from "./pages/PaymentsSettings";
 import { Payouts } from "./pages/Payouts";
 import { Placeholder } from "./pages/Placeholder";
 import { POS } from "./pages/POS";
+import { PublicBooking } from "./pages/PublicBooking";
 import { PublicPay } from "./pages/PublicPay";
 import { Reports } from "./pages/Reports";
+import { Reviews } from "./pages/Reviews";
 import { SettingsLayout } from "./pages/Settings";
 import { TaxSettings } from "./pages/TaxSettings";
 import { Today } from "./pages/Today";
@@ -48,6 +50,8 @@ export function App() {
                 <Routes>
                     {/* Public pay-link page — renders regardless of auth (the URL token is the credential). */}
                     <Route path="/pay/:token" element={<PublicPay />} />
+                    {/* Public online-booking page — unauth (the booking slug is the credential). */}
+                    <Route path="/book/:slug" element={<PublicBooking />} />
                     {authed ? (
                         <Route element={<AppShell onSignOut={() => void handleSignOut()} />}>
                             <Route index element={<Navigate to="/home" replace />} />
@@ -59,6 +63,7 @@ export function App() {
                             <Route path="pos" element={<POS />} />
                             <Route path="gift-cards" element={<GiftCards />} />
                             <Route path="payouts" element={<Payouts />} />
+                            <Route path="reviews" element={<Reviews />} />
                             <Route path="reports" element={<Reports />} />
                             <Route path="settings" element={<SettingsLayout />}>
                                 <Route
