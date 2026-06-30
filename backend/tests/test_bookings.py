@@ -410,7 +410,12 @@ async def _enable_payments(db: AsyncSession) -> None:
 
 
 async def _deposit_booking(
-    api: httpx.AsyncClient, db: AsyncSession, *, starts: str, deposit: bool = True
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    *,
+    starts: str,
+    deposit: bool = True,
+    client_id: str = CL_AMELIE,
 ) -> str:
     item = Item(
         id=new_id("item"),
@@ -425,7 +430,7 @@ async def _deposit_booking(
     )
     db.add(item)
     await db.flush()
-    res = await api.post("/v1/bookings", json=_body(CL_AMELIE, item.id, starts))
+    res = await api.post("/v1/bookings", json=_body(client_id, item.id, starts))
     assert res.status_code == 201, res.text
     return str(res.json()["id"])
 
@@ -638,6 +643,83 @@ async def test_no_show_without_deposit_is_noop(
     assert res.status_code == 200
     assert res.json()["deposit_status"] == "none"
     assert gateway.charged_methods == []
+
+
+async def test_no_show_required_deposit_no_default_card_does_not_forfeit(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    # Deposit is required but the client has NO card on file → off-session capture is impossible,
+    # so the no-show must NOT forfeit and must charge nothing (the pm_ref-None early return).
+    await _enable_payments(db)
+    nocard = Client(
+        id=new_id("client"), business_id=BIZ, name="No Card Nora", tags=[], custom_fields={}
+    )
+    db.add(nocard)
+    await db.flush()
+    bid = await _deposit_booking(as_owner, db, starts="2027-06-12T10:00:00Z", client_id=nocard.id)
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "no_show"
+    assert res.json()["deposit_status"] != "forfeited"  # nothing to capture → left untouched
+    assert res.json()["deposit_status"] == "none"
+    assert gateway.charged_methods == []  # no card → no off-session charge
+
+
+async def test_no_show_with_pending_interactive_deposit_does_not_charge(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    # An interactive deposit is still pending (an open deposit Payment exists, awaiting client
+    # confirmation) → the no-show must early-return on the open deposit, not an off-session charge.
+    await _enable_payments(db)
+    bid = await _deposit_booking(as_owner, db, starts="2027-06-13T10:00:00Z")
+    opened = await as_owner.post(f"/v1/bookings/{bid}/deposit")  # interactive — no payment_method
+    assert opened.status_code == 200
+    assert gateway.charged_methods == []  # awaiting client confirmation; nothing charged yet
+    pending = (
+        await db.execute(
+            select(Payment).where(Payment.booking_id == bid, Payment.kind == "deposit")
+        )
+    ).scalar_one()
+    assert pending.status == "pending"  # the open deposit that must short-circuit the forfeit
+
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
+    assert res.status_code == 200
+    assert res.json()["status"] == "no_show"
+    assert res.json()["deposit_status"] == "pending"  # left as-is — the open deposit blocks forfeit
+    assert gateway.charged_methods == []  # no second, off-session charge
+
+
+async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    email: FakeEmailSender,
+) -> None:
+    # A redelivered deposit settle (same intent, a NEW event id so the WebhookEvent dedup doesn't
+    # mask it) must hit the payment-already-settled guard: collected once, no second receipt.
+    await _enable_payments(db)
+    bid = await _deposit_booking(as_owner, db, starts="2027-06-14T10:00:00Z")
+    pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    await as_owner.post(
+        "/webhooks/stripe",
+        content=_pi_succeeded("evt_dr1", pi_id),
+        headers={"Stripe-Signature": "good"},
+    )
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.deposit_status == "collected"
+    receipts = len(email.sent)
+    assert receipts >= 1  # the deposit receipt fired on the first settle
+
+    await as_owner.post(
+        "/webhooks/stripe",
+        content=_pi_succeeded("evt_dr2", pi_id),  # second event id, same payment intent
+        headers={"Stripe-Signature": "good"},
+    )
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.deposit_status == "collected"  # still collected, not re-collected
+    assert len(email.sent) == receipts  # no second receipt — the settle no-oped
+    assert gateway.charged_methods.count(SEEDED_CARD) == 1  # never re-charged
 
 
 async def test_refund_reverses_collected_deposit(

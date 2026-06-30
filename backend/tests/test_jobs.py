@@ -19,7 +19,7 @@ from clientbridge.tasks.maintenance import (
     run_prune_device_tokens,
 )
 from clientbridge.tasks.review_jobs import run_review_requests
-from tests.conftest import FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -54,10 +54,12 @@ async def _an_item(db: AsyncSession) -> str:
     return iid
 
 
-async def _invoice(db: AsyncSession, cid: str, *, due_at: datetime, total: int = 5000) -> str:
+async def _invoice(
+    db: AsyncSession, cid: str, *, due_at: datetime, total: int = 5000, business_id: str = BIZ
+) -> str:
     inv = Invoice(
         id=new_id("invoice"),
-        business_id=BIZ,
+        business_id=business_id,
         client_id=cid,
         status="sent",
         currency="CAD",
@@ -98,6 +100,34 @@ async def test_overdue_sweep_is_idempotent(
     notifier = _notifier(email, sms, push)
     assert await run_overdue_sweep(db, notifier, NOW) == 1
     assert await run_overdue_sweep(db, notifier, NOW) == 0  # the transition is the dedup marker
+
+
+async def test_overdue_sweep_is_multi_tenant(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    factory: Factory,
+) -> None:
+    # Tenant A (the seeded business) and Tenant B (a second business) each have an overdue invoice;
+    # the ONE global scan must sweep + notify both — proving it isn't accidentally single-business.
+    cid_a = await _a_client(db, email="tenant-a@example.ca")
+    inv_a = await _invoice(db, cid_a, due_at=NOW - timedelta(days=5))
+
+    other = await factory.business(name="Second Tenant")
+    client_b = await factory.client(business=other, name="B Client")
+    client_b.email = "tenant-b@example.ca"
+    await db.flush()
+    inv_b = await _invoice(db, client_b.id, due_at=NOW - timedelta(days=5), business_id=other.id)
+
+    swept = await run_overdue_sweep(db, _notifier(email, sms, push), NOW)
+
+    assert swept == 2  # the single scan resolved both tenants' rows, not just the seeded one
+    assert await _status(db, Invoice, inv_a) == "overdue"
+    assert await _status(db, Invoice, inv_b) == "overdue"
+    recipients = {m.to for m in email.sent}
+    assert "tenant-a@example.ca" in recipients
+    assert "tenant-b@example.ca" in recipients  # the second tenant's client was notified per-row
 
 
 async def test_consent_expiry_blocks_channel(
