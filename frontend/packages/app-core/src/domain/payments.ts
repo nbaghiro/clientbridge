@@ -1,8 +1,9 @@
 import { useQuery } from "@powersync/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
+import { newIdempotencyKey } from "../util/idempotency";
 import type { Intent } from "../util/intent";
 
 export interface ConnectStatus {
@@ -235,9 +236,11 @@ export interface InteractivePurchase {
     /** Set once a new-card (interactive) purchase needs a client-side card confirm. */
     clientSecret: string | null;
     /** Run a purchase. `interactive` true → stash the returned secret for the card seam; false (a
-     *  saved card charged off-session) → finish immediately (the webhook activates the entitlement). */
+     *  saved card charged off-session) → finish immediately (the webhook activates the entitlement).
+     *  The same `idempotencyKey` is handed to `purchase` across retries of an attempt so a
+     *  double-submit dedups server-side instead of double-charging. */
     submit: (
-        purchase: () => Promise<{ client_secret: string }>,
+        purchase: (idempotencyKey: string) => Promise<{ client_secret: string }>,
         interactive: boolean,
         errorMessage: string,
     ) => void;
@@ -252,20 +255,26 @@ export interface InteractivePurchase {
 export function useInteractivePurchase(onDone: () => void): InteractivePurchase {
     const [clientSecret, setClientSecret] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
+    // One key per attempt: minted on first submit, kept through retries of that attempt (so a failed
+    // charge re-sent dedups), cleared on success/cancel so the next sale gets a fresh key.
+    const keyRef = useRef<string | null>(null);
 
     const reset = (): void => {
+        keyRef.current = null;
         setClientSecret(null);
         setError(null);
     };
 
     const submit = (
-        purchase: () => Promise<{ client_secret: string }>,
+        purchase: (idempotencyKey: string) => Promise<{ client_secret: string }>,
         interactive: boolean,
         errorMessage: string,
     ): void => {
+        keyRef.current ??= newIdempotencyKey();
+        const key = keyRef.current;
         void run(
             async () => {
-                const { client_secret } = await purchase();
+                const { client_secret } = await purchase(key);
                 if (interactive) {
                     setClientSecret(client_secret);
                 } else {
@@ -291,13 +300,25 @@ export interface SetupIntent {
 }
 
 /** Open a Stripe SetupIntent to save a card for a client (confirmed client-side via Elements). */
-export function startCardSetup(api: ApiLike, clientId: string): Promise<SetupIntent> {
-    return api.post<SetupIntent>(`/v1/payments/setup-intent/${clientId}`, {});
+export function startCardSetup(
+    api: ApiLike,
+    clientId: string,
+    idempotencyKey: string,
+): Promise<SetupIntent> {
+    return api.post<SetupIntent>(`/v1/payments/setup-intent/${clientId}`, {}, { idempotencyKey });
 }
 
 /** Open a SetupIntent for an ACSS/PAD (pre-authorized debit) bank mandate. */
-export function startPadSetup(api: ApiLike, clientId: string): Promise<SetupIntent> {
-    return api.post<SetupIntent>(`/v1/payments/pad-setup-intent/${clientId}`, {});
+export function startPadSetup(
+    api: ApiLike,
+    clientId: string,
+    idempotencyKey: string,
+): Promise<SetupIntent> {
+    return api.post<SetupIntent>(
+        `/v1/payments/pad-setup-intent/${clientId}`,
+        {},
+        { idempotencyKey },
+    );
 }
 
 export function detachCard(api: ApiLike, id: string): Promise<{ detached: boolean }> {
@@ -332,8 +353,12 @@ export function useAddPaymentMethod(
     const [kind, setKind] = useState<SetupKind | null>(null);
     const [intent, setIntent] = useState<SetupIntent | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
+    // One key per setup attempt, reused while retrying the same kind (so a re-click dedups) and
+    // re-minted when the kind changes or the flow resets.
+    const attemptRef = useRef<{ kind: SetupKind; key: string } | null>(null);
 
     const reset = (): void => {
+        attemptRef.current = null;
         setKind(null);
         setIntent(null);
         setError(null);
@@ -342,12 +367,16 @@ export function useAddPaymentMethod(
     const start = (next: SetupKind): void => {
         setKind(next);
         setIntent(null);
+        if (attemptRef.current?.kind !== next) {
+            attemptRef.current = { kind: next, key: newIdempotencyKey() };
+        }
+        const { key } = attemptRef.current;
         void run(
             async () => {
                 setIntent(
                     next === "card"
-                        ? await startCardSetup(api, clientId)
-                        : await startPadSetup(api, clientId),
+                        ? await startCardSetup(api, clientId, key)
+                        : await startPadSetup(api, clientId, key),
                 );
             },
             { errorMessage: "Couldn't start payment setup. Please try again." },

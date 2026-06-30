@@ -48,6 +48,27 @@ export function filterItems(rows: ItemRow[], q: string): ItemRow[] {
     );
 }
 
+// `active` is the SQLite 0/1 boolean column; normalize the check in one place so POS and Clients
+// can't drift (POS once used truthy `active`, Clients `active === 1`).
+function isActive(item: ItemRow): boolean {
+    return item.active === 1;
+}
+
+/** Active, priced catalog items — the set the POS can ring up. */
+export function sellableItems(items: ItemRow[]): ItemRow[] {
+    return items.filter((i) => isActive(i) && i.price_cents !== null);
+}
+
+/** Active `subscription` items — the plans a client subscription can start on. */
+export function subscriptionPlans(items: ItemRow[]): ItemRow[] {
+    return items.filter((i) => isActive(i) && i.kind === "subscription");
+}
+
+/** Active `package` items — the offerings a client package can be sold from. */
+export function packageOfferings(items: ItemRow[]): ItemRow[] {
+    return items.filter((i) => isActive(i) && i.kind === "package");
+}
+
 export interface ItemInput {
     kind: string;
     name: string;

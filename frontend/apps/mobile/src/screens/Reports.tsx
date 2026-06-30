@@ -1,15 +1,13 @@
 import {
     type GstHstReport,
     type IncomeReport,
-    type ReportCsvKind,
     type T4ARow,
     canManagePayments,
     defaultReportRange,
-    downloadReportCsv,
     formatMoney,
     reportRangeForYear,
-    useAsyncAction,
     useCurrentRole,
+    useReportDownload,
     useReports,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
@@ -52,19 +50,13 @@ function ReportsBody() {
     const [year, setYear] = useState(defaultReportRange().year);
     const range = reportRangeForYear(year);
     const { income, gstHst, t4a, error } = useReports(api, range);
-    const { busy, error: dlError, run } = useAsyncAction();
-    const [downloading, setDownloading] = useState<ReportCsvKind | null>(null);
-
-    const download = (kind: ReportCsvKind): void => {
-        setDownloading(kind);
-        void run(
-            async () => {
-                const csv = await downloadReportCsv(api, kind, range);
-                await Share.share({ message: csv });
-            },
-            { errorMessage: "Couldn't share the CSV. Please try again." },
-        );
-    };
+    const {
+        error: dlError,
+        isDownloading,
+        download,
+    } = useReportDownload(api, range, async (csv) => {
+        await Share.share({ message: csv });
+    });
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -100,7 +92,7 @@ function ReportsBody() {
                         onDownload={() => {
                             download("income");
                         }}
-                        downloading={busy && downloading === "income"}
+                        downloading={isDownloading("income")}
                     >
                         {income === null ? <Loading /> : <IncomeBody income={income} />}
                     </Card>
@@ -111,7 +103,7 @@ function ReportsBody() {
                         onDownload={() => {
                             download("gst-hst");
                         }}
-                        downloading={busy && downloading === "gst-hst"}
+                        downloading={isDownloading("gst-hst")}
                     >
                         {gstHst === null ? <Loading /> : <GstBody report={gstHst} />}
                     </Card>
@@ -122,7 +114,7 @@ function ReportsBody() {
                         onDownload={() => {
                             download("t4a");
                         }}
-                        downloading={busy && downloading === "t4a"}
+                        downloading={isDownloading("t4a")}
                     >
                         {t4a === null ? (
                             <Loading />

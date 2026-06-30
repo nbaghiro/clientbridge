@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 
 export interface IncomeReport {
@@ -108,4 +109,36 @@ export function downloadReportCsv(
     range: ReportRange,
 ): Promise<string> {
     return api.getText(reportCsvPath(kind, range));
+}
+
+export interface ReportDownload {
+    error: string | null;
+    /** Whether `kind` is the report currently being fetched. */
+    isDownloading: (kind: ReportCsvKind) => boolean;
+    download: (kind: ReportCsvKind) => void;
+}
+
+/** Shared CSV-export view-model: tracks which report is downloading + the error, fetches the CSV
+ *  body, and hands it (with a filename) to the platform `save` seam — the only difference between
+ *  web (Blob/anchor) and mobile (Share). */
+export function useReportDownload(
+    api: ApiLike,
+    range: ReportRange,
+    save: (csv: string, filename: string) => void | Promise<void>,
+): ReportDownload {
+    const { busy, error, run } = useAsyncAction();
+    const [downloading, setDownloading] = useState<ReportCsvKind | null>(null);
+
+    const download = (kind: ReportCsvKind): void => {
+        setDownloading(kind);
+        void run(
+            async () => {
+                const csv = await downloadReportCsv(api, kind, range);
+                await save(csv, reportCsvFilename(kind));
+            },
+            { errorMessage: "Couldn't export the CSV. Please try again." },
+        );
+    };
+
+    return { error, isDownloading: (kind) => busy && downloading === kind, download };
 }

@@ -19,11 +19,13 @@ import {
     isCancelable,
     isMandate,
     mandateStatusIntent,
+    packageOfferings,
     packageStatusIntent,
     parseTimestamp,
     savedCardLabel,
     sessionsRemaining,
     setDefaultCard,
+    subscriptionPlans,
     subscriptionStatusIntent,
     useAddPaymentMethod,
     useAsyncAction,
@@ -370,7 +372,7 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
     const subs = useClientSubscriptions(clientId);
     const cards = useSavedCards(clientId);
     const items = useCatalogItems();
-    const plans = items.filter((i) => i.kind === "subscription" && i.active === 1);
+    const plans = subscriptionPlans(items);
     const [starting, setStarting] = useState(false);
 
     return (
@@ -531,7 +533,7 @@ function PackagesSection({ clientId }: { clientId: string }) {
     const packages = useClientPackages(clientId);
     const cards = useSavedCards(clientId);
     const items = useCatalogItems();
-    const offerings = items.filter((i) => i.kind === "package" && i.active === 1);
+    const offerings = packageOfferings(items);
     const [selling, setSelling] = useState(false);
 
     return (
@@ -611,7 +613,13 @@ function SellPackageForm({
     const form = usePackageSaleForm(api, clientId, onClose);
 
     if (form.clientSecret !== null) {
-        return <PurchaseConfirmPanel clientSecret={form.clientSecret} onCancel={form.cancel} />;
+        return (
+            <PurchaseConfirmPanel
+                clientSecret={form.clientSecret}
+                onCancel={form.cancel}
+                onConfirmed={form.complete}
+            />
+        );
     }
 
     return (

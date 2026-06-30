@@ -7,18 +7,14 @@ import {
     formatRelativeTime,
     useAllocationActions,
     useCurrentRole,
+    usePayoutFilter,
     useStaffPayouts,
     type AllocationRow,
 } from "@clientbridge/app-core";
-import { useState } from "react";
 
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
-
-type Filter = "pending" | "approved" | "paid" | "all";
-
-const FILTERS: Filter[] = ["pending", "approved", "paid", "all"];
 
 export function Payouts() {
     const role = useCurrentRole(getTokens()?.access_token ?? null);
@@ -39,11 +35,7 @@ export function Payouts() {
 
 function PayoutsView() {
     const rows = useStaffPayouts();
-    const [filter, setFilter] = useState<Filter>("pending");
-
-    const shown = filter === "all" ? rows : rows.filter((r) => r.status === filter);
-    const countOf = (f: Filter): number =>
-        f === "all" ? rows.length : rows.filter((r) => r.status === f).length;
+    const { filter, setFilter, filters, shown, countOf } = usePayoutFilter(rows);
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
@@ -53,7 +45,7 @@ function PayoutsView() {
             </p>
 
             <div className="mt-6 flex gap-1 rounded-md border border-line bg-surface p-1 text-sm font-medium">
-                {FILTERS.map((f) => (
+                {filters.map((f) => (
                     <button
                         key={f}
                         type="button"

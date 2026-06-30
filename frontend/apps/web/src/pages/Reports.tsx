@@ -1,14 +1,11 @@
 import {
-    type ReportCsvKind,
     type ReportRange,
     type T4ARow,
     canManagePayments,
     defaultReportRange,
-    downloadReportCsv,
     formatMoney,
-    reportCsvFilename,
-    useAsyncAction,
     useCurrentRole,
+    useReportDownload,
     useReports,
 } from "@clientbridge/app-core";
 import { useState } from "react";
@@ -36,24 +33,18 @@ export function Reports() {
 function ReportsView() {
     const [range, setRange] = useState<ReportRange>(defaultReportRange());
     const { income, gstHst, t4a, loading, error } = useReports(api, range);
-    const { busy, error: dlError, run } = useAsyncAction();
-    const [downloading, setDownloading] = useState<ReportCsvKind | null>(null);
-
-    const download = (kind: ReportCsvKind): void => {
-        setDownloading(kind);
-        void run(
-            async () => {
-                const csv = await downloadReportCsv(api, kind, range);
-                const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = reportCsvFilename(kind);
-                link.click();
-                URL.revokeObjectURL(url);
-            },
-            { errorMessage: "Couldn't download the CSV. Please try again." },
-        );
-    };
+    const {
+        error: dlError,
+        isDownloading,
+        download,
+    } = useReportDownload(api, range, (csv, filename) => {
+        const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+    });
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
@@ -104,7 +95,7 @@ function ReportsView() {
                         onDownload={() => {
                             download("income");
                         }}
-                        downloading={busy && downloading === "income"}
+                        downloading={isDownloading("income")}
                     >
                         {income === null ? (
                             <Skeleton />
@@ -150,7 +141,7 @@ function ReportsView() {
                         onDownload={() => {
                             download("gst-hst");
                         }}
-                        downloading={busy && downloading === "gst-hst"}
+                        downloading={isDownloading("gst-hst")}
                     >
                         {gstHst === null ? (
                             <Skeleton />
@@ -183,7 +174,7 @@ function ReportsView() {
                         onDownload={() => {
                             download("t4a");
                         }}
-                        downloading={busy && downloading === "t4a"}
+                        downloading={isDownloading("t4a")}
                     >
                         {t4a === null ? (
                             <Skeleton />

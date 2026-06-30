@@ -7,6 +7,7 @@ import {
     formatRelativeTime,
     useAllocationActions,
     useCurrentRole,
+    usePayoutFilter,
     useStaffPayouts,
     type AllocationRow,
 } from "@clientbridge/app-core";
@@ -19,10 +20,6 @@ import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
 
 const c = theme.colors;
-
-type Filter = "pending" | "approved" | "paid" | "all";
-
-const FILTERS: Filter[] = ["pending", "approved", "paid", "all"];
 
 export function PayoutsScreen() {
     const [token, setToken] = useState<string | null>(null);
@@ -45,16 +42,12 @@ export function PayoutsScreen() {
 
 function PayoutsBody() {
     const rows = useStaffPayouts();
-    const [filter, setFilter] = useState<Filter>("pending");
-
-    const shown = filter === "all" ? rows : rows.filter((r) => r.status === filter);
-    const countOf = (f: Filter): number =>
-        f === "all" ? rows.length : rows.filter((r) => r.status === f).length;
+    const { filter, setFilter, filters, shown, countOf } = usePayoutFilter(rows);
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <View style={styles.tabs}>
-                {FILTERS.map((f) => (
+                {filters.map((f) => (
                     <Pressable
                         key={f}
                         style={[styles.tab, filter === f && styles.tabActive]}

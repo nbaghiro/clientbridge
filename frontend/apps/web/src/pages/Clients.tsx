@@ -18,11 +18,13 @@ import {
     isCancelable,
     isMandate,
     mandateStatusIntent,
+    packageOfferings,
     packageStatusIntent,
     parseTimestamp,
     savedCardLabel,
     sessionsRemaining,
     setDefaultCard,
+    subscriptionPlans,
     subscriptionStatusIntent,
     useAddPaymentMethod,
     useAsyncAction,
@@ -414,10 +416,7 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
     const subs = useClientSubscriptions(clientId);
     const cards = useSavedCards(clientId);
     const items = useCatalogItems();
-    const plans = useMemo(
-        () => items.filter((i) => i.kind === "subscription" && i.active === 1),
-        [items],
-    );
+    const plans = useMemo(() => subscriptionPlans(items), [items]);
     const [starting, setStarting] = useState(false);
 
     return (
@@ -589,10 +588,7 @@ function PackagesSection({ clientId }: { clientId: string }) {
     const packages = useClientPackages(clientId);
     const cards = useSavedCards(clientId);
     const items = useCatalogItems();
-    const offerings = useMemo(
-        () => items.filter((i) => i.kind === "package" && i.active === 1),
-        [items],
-    );
+    const offerings = useMemo(() => packageOfferings(items), [items]);
     const [selling, setSelling] = useState(false);
 
     return (

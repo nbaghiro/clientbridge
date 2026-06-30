@@ -4,15 +4,24 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 const c = theme.colors;
 
 /** The native purchase card seam: confirming a package/gift-card PaymentIntent needs the native
- *  Stripe SDK (the follow). It isn't wired here, so we surface the secret + a clear placeholder —
- *  mirroring the saved-card / POS Terminal seams. A saved card charges off-session without this. */
+ *  Stripe SDK (the follow), injected via `confirm` and wired to the purchase form's `complete` —
+ *  mirroring `AddMethodPanel`. Undefined (this build) → a disabled Confirm + a clear placeholder. */
 export function PurchaseConfirmPanel({
     clientSecret,
     onCancel,
+    onConfirmed,
+    confirm,
 }: {
     clientSecret: string;
     onCancel: () => void;
+    onConfirmed: () => void;
+    confirm?: (clientSecret: string) => Promise<void>;
 }) {
+    const runConfirm = (): void => {
+        if (confirm === undefined) return;
+        void confirm(clientSecret).then(onConfirmed);
+    };
+
     return (
         <View style={styles.box}>
             <Text style={styles.title}>Confirm payment</Text>
@@ -26,6 +35,13 @@ export function PurchaseConfirmPanel({
             <View style={styles.actions}>
                 <Pressable style={styles.cancel} onPress={onCancel}>
                     <Text style={styles.cancelText}>Back</Text>
+                </Pressable>
+                <Pressable
+                    style={[styles.save, confirm === undefined && styles.disabled]}
+                    disabled={confirm === undefined}
+                    onPress={runConfirm}
+                >
+                    <Text style={styles.saveText}>Confirm</Text>
                 </Pressable>
             </View>
         </View>
@@ -47,4 +63,14 @@ const styles = StyleSheet.create({
     actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 12 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
+    save: {
+        backgroundColor: c.accent,
+        borderRadius: theme.radius,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        minWidth: 88,
+        alignItems: "center",
+    },
+    saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
+    disabled: { opacity: 0.5 },
 });
