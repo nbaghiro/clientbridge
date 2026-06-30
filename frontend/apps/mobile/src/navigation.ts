@@ -14,5 +14,6 @@ export type RootStackParamList = {
     POS: undefined;
     GiftCards: undefined;
     Payouts: undefined;
+    Reviews: undefined;
     Reports: undefined;
 };

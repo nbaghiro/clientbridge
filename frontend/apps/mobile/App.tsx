@@ -25,6 +25,7 @@ import { PayoutsScreen } from "./src/screens/Payouts";
 import { ComingSoon, InboxScreen } from "./src/screens/Placeholder";
 import { POSScreen } from "./src/screens/POS";
 import { ReportsScreen } from "./src/screens/Reports";
+import { ReviewsScreen } from "./src/screens/Reviews";
 import { SettingsScreen } from "./src/screens/Settings";
 import { TaxesScreen } from "./src/screens/Taxes";
 
@@ -171,6 +172,11 @@ function Root() {
                             name="Payouts"
                             component={PayoutsScreen}
                             options={{ title: "Payouts" }}
+                        />
+                        <RootStack.Screen
+                            name="Reviews"
+                            component={ReviewsScreen}
+                            options={{ title: "Reviews" }}
                         />
                         <RootStack.Screen
                             name="Reports"

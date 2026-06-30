@@ -12,6 +12,7 @@ import {
     IconPayouts,
     IconPos,
     IconReports,
+    IconReviews,
     IconSettings,
     IconToday,
     Logo,
@@ -37,6 +38,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
             ? [
                   { to: "/gift-cards", label: "Gift cards", Icon: IconGift },
                   { to: "/payouts", label: "Payouts", Icon: IconPayouts },
+                  { to: "/reviews", label: "Reviews", Icon: IconReviews },
                   { to: "/reports", label: "Reports", Icon: IconReports },
               ]
             : []),

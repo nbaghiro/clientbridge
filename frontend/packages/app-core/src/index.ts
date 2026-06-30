@@ -21,5 +21,7 @@ export * from "./domain/packages";
 export * from "./domain/giftCards";
 export * from "./domain/pos";
 export * from "./domain/reports";
+export * from "./domain/reviews";
 export * from "./domain/publicPay";
+export * from "./domain/publicBooking";
 export * from "./domain/files";
