@@ -27,6 +27,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSearch } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
+import { TerminalProvider, useTerminalCheckout } from "../components/terminal";
 import { api } from "../lib/api";
 
 const c = theme.colors;
@@ -37,17 +38,20 @@ export function POSScreen() {
     const active = useMemo(() => sellableItems(items), [items]);
     const { q, setQ, filtered } = useSearch(active, filterItems);
     const reviewing = cart.phase === "awaiting_reader";
+    const tokenProvider = useConnectionToken(api); // feeds the Terminal SDK its connection token
 
     return (
         <SafeAreaView style={styles.screen} edges={["bottom"]}>
             {reviewing && cart.checkoutResult !== null && cart.order !== null ? (
-                <ReaderPanel
-                    order={cart.order}
-                    clientSecret={cart.checkoutResult.client_secret}
-                    onDone={cart.newSale}
-                    onVoid={cart.voidSale}
-                    busy={cart.busy}
-                />
+                <TerminalProvider tokenProvider={tokenProvider}>
+                    <ReaderPanel
+                        order={cart.order}
+                        clientSecret={cart.checkoutResult.client_secret}
+                        onDone={cart.newSale}
+                        onVoid={cart.voidSale}
+                        busy={cart.busy}
+                    />
+                </TerminalProvider>
             ) : (
                 <>
                     <View style={styles.searchWrap}>
@@ -238,9 +242,17 @@ function ReaderPanel({
     onVoid: () => void;
     busy: boolean;
 }) {
-    // The native Stripe Terminal SDK confirmation is the follow-up; here we only acquire the reader
-    // token (the seam the SDK consumes) and surface the created PaymentIntent.
-    const tokenProvider = useConnectionToken(api);
+    const terminal = useTerminalCheckout();
+    const status =
+        terminal.phase === "connecting"
+            ? "Connecting reader…"
+            : terminal.phase === "ready"
+              ? "Reader ready — tap to charge"
+              : terminal.phase === "collecting"
+                ? "Waiting for the card…"
+                : terminal.phase === "done"
+                  ? "Approved ✓"
+                  : "Reader unavailable";
 
     return (
         <ScrollView contentContainerStyle={styles.reader}>
@@ -249,25 +261,30 @@ function ReaderPanel({
                 Tap, insert, or swipe the card to collect {formatMoney(order.total_cents)}.
             </Text>
             <View style={styles.readerBox}>
-                <Text style={styles.readerWaiting}>Waiting for card…</Text>
+                <Text style={styles.readerWaiting}>{status}</Text>
+                {terminal.error !== null ? (
+                    <Text style={styles.readerNote}>{terminal.error}</Text>
+                ) : null}
                 <Text style={styles.readerNote}>
-                    Card-present capture needs the native Terminal SDK (not wired in this build).
+                    Tap to Pay needs an EAS dev build + a capable device (or a simulated reader) and
+                    a Stripe Terminal location id.
                 </Text>
             </View>
-            <Text style={styles.readerSecret} numberOfLines={1}>
-                PaymentIntent: {clientSecret}
-            </Text>
-            <Pressable
-                style={styles.secondary}
-                onPress={() => {
-                    void tokenProvider();
-                }}
-            >
-                <Text style={styles.secondaryText}>Pair reader</Text>
-            </Pressable>
-            <Pressable style={styles.charge} onPress={onDone}>
-                <Text style={styles.chargeText}>New sale</Text>
-            </Pressable>
+            {terminal.phase === "done" ? (
+                <Pressable style={styles.charge} onPress={onDone}>
+                    <Text style={styles.chargeText}>New sale</Text>
+                </Pressable>
+            ) : (
+                <Pressable
+                    style={styles.charge}
+                    disabled={!terminal.ready || terminal.phase === "collecting"}
+                    onPress={() => {
+                        terminal.charge(clientSecret);
+                    }}
+                >
+                    <Text style={styles.chargeText}>Collect {formatMoney(order.total_cents)}</Text>
+                </Pressable>
+            )}
             <Pressable style={styles.void} onPress={onVoid} disabled={busy}>
                 <Text style={styles.voidText}>Void this sale</Text>
             </Pressable>

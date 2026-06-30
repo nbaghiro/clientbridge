@@ -73,6 +73,9 @@ importers:
       '@stripe/stripe-react-native':
         specifier: 0.38.6
         version: 0.38.6(expo@51.0.39(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
+      '@stripe/stripe-terminal-react-native':
+        specifier: 0.0.1-beta.31
+        version: 0.0.1-beta.31(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
       base-64:
         specifier: ^1.0.0
         version: 1.0.0
@@ -1738,6 +1741,12 @@ packages:
     peerDependenciesMeta:
       expo:
         optional: true
+
+  '@stripe/stripe-terminal-react-native@0.0.1-beta.31':
+    resolution: {integrity: sha512-7f7c3++jVF/h664QN+ENr7NcKN+yyp/ccG5n9dNrIf1smENIALSCtFKyA79xO+q9LmT2s5da6TtJN785KEd5Tw==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
 
   '@turbo/darwin-64@2.10.0':
     resolution: {integrity: sha512-EwvHThXzpY0KGd1/NAmuewI5D+aVa3Rl/OlxE36yfjUKb/+ySrfJrSlEFt8aD1OXwnnaHnQnPKHFndor0Zxlsg==}
@@ -7517,6 +7526,12 @@ snapshots:
       react-native: 0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.2.79)(react@18.2.0)
     optionalDependencies:
       expo: 51.0.39(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)
+
+  '@stripe/stripe-terminal-react-native@0.0.1-beta.31(react-native@0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.2.79)(react@18.2.0))(react@18.2.0)':
+    dependencies:
+      base-64: 1.0.0
+      react: 18.2.0
+      react-native: 0.74.5(@babel/core@7.29.7)(@babel/preset-env@7.29.7(@babel/core@7.29.7))(@types/react@18.2.79)(react@18.2.0)
 
   '@turbo/darwin-64@2.10.0':
     optional: true

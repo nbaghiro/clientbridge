@@ -22,6 +22,9 @@ const config: ExpoConfig = {
             "@stripe/stripe-react-native",
             { merchantIdentifier: STRIPE_MERCHANT_ID, enableGooglePay: false },
         ],
+        // POS card-present (Tap to Pay). Its config plugin adds the iOS/Android entitlements +
+        // permissions; needs an EAS dev build + a Tap-to-Pay-capable device (or a simulated reader).
+        "@stripe/stripe-terminal-react-native",
     ],
     extra: {
         apiUrl: process.env.API_URL ?? "http://localhost:8701",
@@ -30,6 +33,10 @@ const config: ExpoConfig = {
         // Stripe publishable (platform) key — NOT a secret; left blank until configured per env.
         stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
         stripeMerchantId: STRIPE_MERCHANT_ID,
+        // Stripe Terminal location id for connecting a Tap-to-Pay reader (the backend doesn't mint
+        // one yet — set it from the Stripe dashboard). Empty + simulated=true uses a test reader.
+        stripeTerminalLocationId: process.env.STRIPE_TERMINAL_LOCATION_ID ?? "",
+        terminalSimulated: (process.env.STRIPE_TERMINAL_SIMULATED ?? "true") === "true",
     },
 };
 
