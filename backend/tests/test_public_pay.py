@@ -164,3 +164,16 @@ async def test_public_pay_is_rate_limited(api: httpx.AsyncClient, db: AsyncSessi
     _, token = await _sent_invoice(db)
     assert (await api.post(f"/pay/{token}/interac")).status_code == 200
     assert (await api.post(f"/pay/{token}/interac")).status_code == 429
+
+
+async def test_pay_link_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    rl = RateLimiter(limit=1, window_s=60.0)
+
+    def limited() -> None:
+        if not rl.check("x", 0.0):
+            raise TooManyRequests("slow down")
+
+    app.dependency_overrides[public_pay_rate_limit] = limited
+    _, token = await _sent_invoice(db)
+    assert (await api.get(f"/pay/{token}")).status_code == 200
+    assert (await api.get(f"/pay/{token}")).status_code == 429

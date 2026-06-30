@@ -765,6 +765,7 @@ const broadcasts = new Table(
         created_by: column.text,
         name: column.text,
         channel: column.text,
+        body: column.text,
         audience: column.text,
         status: column.text,
         scheduled_at: column.text,

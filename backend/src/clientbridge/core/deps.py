@@ -34,6 +34,13 @@ def get_interac_secret() -> str:
 InteracSecretDep = Annotated[str, Depends(get_interac_secret)]
 
 
+def get_sms_webhook_secret() -> str:
+    return get_settings().sms_webhook_secret
+
+
+SmsWebhookSecretDep = Annotated[str, Depends(get_sms_webhook_secret)]
+
+
 async def current_claims(authorization: str = Header(default="")) -> dict[str, object]:
     if not authorization.startswith("Bearer "):
         raise Unauthorized("missing bearer token")

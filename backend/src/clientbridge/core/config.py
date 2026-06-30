@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     web_base_url: str = "http://localhost:8601"  # onboarding return/refresh targets
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""  # shared secret for the inbound e-Transfer auto-match webhook
+    sms_webhook_secret: str = ""  # shared secret for the inbound SMS (Twilio-style) webhook
 
     # Outreach channels — empty → the no-op Console sender (tests use recording fakes); set creds in
     # prod to swap in real Twilio/Expo. SMS + email reach clients, push reaches staff devices.

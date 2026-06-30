@@ -184,6 +184,15 @@ async def create_booking_core(
     return booking, session
 
 
+async def release_session_slot(db: AsyncSession, session: Session) -> None:
+    """Free the seat a canceled booking held, canceling the session once it empties — the
+    cancel-frees-the-slot rule (a canceled session is excluded from the overlap check)."""
+    session.booked_count = max(0, session.booked_count - 1)
+    if session.booked_count == 0:
+        session.status = "canceled"
+    await db.flush()
+
+
 class BookingService:
     def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db

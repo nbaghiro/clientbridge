@@ -182,3 +182,62 @@ async def test_rejects_server_timestamps(as_owner: httpx.AsyncClient) -> None:
         },
     )
     assert res.status_code == 403
+
+
+async def test_rejects_writing_a_file(as_owner: httpx.AsyncClient) -> None:
+    # files are server-minted (the s3_key can't be forged) — created only via the file command.
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "files",
+                    "id": "fl_x",
+                    "data": {
+                        "business_id": BIZ,
+                        "parent_type": "client",
+                        "parent_id": "cl_amelie",
+                        "s3_key": "forged/key",
+                    },
+                }
+            ]
+        },
+    )
+    assert res.status_code == 403
+
+
+async def test_rejects_setting_item_stripe_price(as_owner: httpx.AsyncClient) -> None:
+    # stripe_price_id caches the recurring Price the subscription command mints — command-only.
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PATCH",
+                    "type": "items",
+                    "id": "it_groom_sm",
+                    "data": {"stripe_price_id": "price_forged"},
+                }
+            ]
+        },
+    )
+    assert res.status_code == 403
+
+
+async def test_item_field_edit_still_works(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PATCH",
+                    "type": "items",
+                    "id": "it_groom_sm",
+                    "data": {"name": "Renamed Groom"},
+                }
+            ]
+        },
+    )
+    assert res.status_code == 200
+    assert await _scalar(db, "SELECT name FROM items WHERE id='it_groom_sm'") == "Renamed Groom"

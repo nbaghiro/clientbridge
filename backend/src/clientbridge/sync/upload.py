@@ -38,13 +38,14 @@ class UploadBody(BaseModel):
 # own_only: a non-admin staff may only touch rows assigned to them (staff_id == theirs).
 # Tables absent here are NOT writable via sync (server-authoritative): payments, payouts,
 # payout_allocations, payment_methods, packages, subscriptions, gift_cards, tax_rates, businesses,
-# staff, users, audit_logs, webhook_events.
+# staff, users, audit_logs, webhook_events, files.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),
     "subjects": ("team", False),
     "consents": ("team", False),
     "notes": ("team", False),
-    "files": ("team", False),
+    # files are NOT sync-writable: the row is server-minted so its `s3_key` can't be forged —
+    # creation flows through the file command (POST /v1/files). They stay sync-READABLE.
     # form_responses + signatures are NOT sync-writable: the submit/sign token is a server-minted
     # secret and the status lifecycle is command- + public-token-authoritative (send commands +
     # public submission/signing), so a client can't forge a link or self-submit/sign by syncing a
@@ -82,6 +83,7 @@ SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 # rejected.
 COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
     "clients": frozenset({"stripe_customer_id"}),  # set by the payments command, never by a client
+    "items": frozenset({"stripe_price_id"}),  # the recurring Price cached by the subscription cmd
 }
 
 

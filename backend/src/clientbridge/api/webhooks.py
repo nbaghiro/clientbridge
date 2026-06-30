@@ -2,6 +2,7 @@
 
 import secrets
 from typing import Annotated
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, Header, Request, Response
 
@@ -12,9 +13,11 @@ from clientbridge.core.deps import (
     InteracSecretDep,
     PushDep,
     SmsDep,
+    SmsWebhookSecretDep,
 )
 from clientbridge.integrations.payments import WebhookVerificationError
 from clientbridge.schemas.payments import InteracWebhookBody
+from clientbridge.services.message_service import process_inbound_sms
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.payment_service import process_interac_event, process_stripe_event
 
@@ -66,4 +69,26 @@ async def interac_webhook(
     matched_id = await process_interac_event(db, body.reference_code, body.amount_cents)
     if matched_id is not None:
         await Notifier(email, sms, push).on_payment_succeeded(db, matched_id)
+    return Response(status_code=200)
+
+
+@router.post("/sms")
+async def sms_webhook(
+    request: Request,
+    db: DbSession,
+    secret: SmsWebhookSecretDep,
+    x_twilio_signature: Annotated[str, Header(alias="X-Twilio-Signature")] = "",
+) -> Response:
+    if not secret or not secrets.compare_digest(x_twilio_signature, secret):
+        return Response(status_code=401)
+    form = parse_qs((await request.body()).decode())
+    sid = (form.get("MessageSid") or [""])[0]
+    if not sid:
+        return Response(status_code=400)
+    await process_inbound_sms(
+        db,
+        from_phone=(form.get("From") or [""])[0],
+        body=(form.get("Body") or [""])[0],
+        message_sid=sid,
+    )
     return Response(status_code=200)
