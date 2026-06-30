@@ -15,7 +15,18 @@ import {
 import { api } from "../lib/api";
 
 export function PaymentsScreen() {
-    const { phase, busy, error, ctaLabel, connect, refresh } = useConnectOnboarding(api, (url) => {
+    const {
+        phase,
+        busy,
+        error,
+        headline,
+        ctaLabel,
+        showCta,
+        requirements,
+        payoutsEnabled,
+        connect,
+        refresh,
+    } = useConnectOnboarding(api, (url) => {
         void Linking.openURL(url);
     });
 
@@ -37,21 +48,26 @@ export function PaymentsScreen() {
                     <Text style={styles.error}>
                         We couldn’t load your payment status. Please try again.
                     </Text>
-                ) : phase === "enabled" ? (
-                    <>
-                        <Text style={styles.title}>
-                            Payments enabled — you can take card payments.
-                        </Text>
-                        <Text style={styles.muted}>Connected to Stripe.</Text>
-                    </>
                 ) : (
                     <>
-                        <Text style={styles.title}>
-                            {phase === "in_progress"
-                                ? "Onboarding in progress — finish your Stripe setup."
-                                : "Connect Stripe to take card payments and get paid out."}
+                        <Text style={phase === "disabled" ? styles.titleDanger : styles.title}>
+                            {headline}
                         </Text>
-                        <ConnectButton busy={busy} label={ctaLabel} onPress={connect} />
+                        {phase === "enabled" && (
+                            <Text style={styles.muted}>
+                                {payoutsEnabled
+                                    ? "Connected to Stripe. Payouts are active."
+                                    : "Connected to Stripe. Payouts start once your bank details are verified."}
+                            </Text>
+                        )}
+                        {requirements.map((req) => (
+                            <Text key={req} style={styles.requirement}>
+                                • {req}
+                            </Text>
+                        ))}
+                        {showCta && (
+                            <ConnectButton busy={busy} label={ctaLabel} onPress={connect} />
+                        )}
                     </>
                 )}
                 {error !== null && <Text style={styles.error}>{error}</Text>}
@@ -97,6 +113,8 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     title: { color: theme.colors.ink, fontSize: 15, fontWeight: "500", lineHeight: 20 },
+    titleDanger: { color: theme.colors.danFg, fontSize: 15, fontWeight: "500", lineHeight: 20 },
+    requirement: { color: theme.colors.inkSoft, fontSize: 14, marginTop: 6 },
     muted: { color: theme.colors.muted, fontSize: 14, marginTop: 4 },
     button: {
         backgroundColor: theme.colors.accent,

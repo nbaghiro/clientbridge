@@ -9,6 +9,13 @@ import type { Intent } from "../util/intent";
 export interface ConnectStatus {
     connected: boolean;
     charges_enabled: boolean;
+    payouts_enabled: boolean;
+    details_submitted: boolean;
+    kyc_status: string;
+    disabled_reason: string | null;
+    currently_due: string[];
+    past_due: string[];
+    pending_verification: string[];
 }
 
 /** Provider's Stripe Connect status (REST). `null` = loading, `"error"` = the fetch failed.
@@ -35,19 +42,76 @@ export function startOnboarding(api: ApiLike): Promise<OnboardingLink> {
     return api.post<OnboardingLink>("/v1/connect/onboard", {});
 }
 
-export type ConnectPhase = "loading" | "error" | "not_connected" | "in_progress" | "enabled";
+const REQUIREMENT_LABELS: Record<string, string> = {
+    external_account: "Bank account for payouts",
+    "business_profile.url": "Business website",
+    "business_profile.mcc": "Business category",
+    "business_profile.product_description": "What you sell",
+    "individual.id_number": "ID number (SIN)",
+    "individual.verification.document": "Photo ID",
+    "individual.verification.additional_document": "Proof of address",
+    "individual.address.line1": "Home address",
+    "company.tax_id": "Business number",
+    "tos_acceptance.date": "Accept Stripe's terms",
+};
+
+/** Humanize a Stripe requirement key (e.g. `individual.dob.day`) into provider-facing copy. */
+export function formatRequirement(key: string): string {
+    const known = REQUIREMENT_LABELS[key];
+    if (known !== undefined) return known;
+    if (key.startsWith("individual.dob") || key.startsWith("person.dob")) return "Date of birth";
+    const tail = key.split(".").pop() ?? key;
+    const words = tail.replace(/_/g, " ");
+    return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export type ConnectPhase =
+    | "loading"
+    | "error"
+    | "not_connected"
+    | "in_progress"
+    | "pending"
+    | "restricted"
+    | "enabled"
+    | "disabled";
 
 export interface ConnectOnboarding {
     phase: ConnectPhase;
     busy: boolean;
     error: string | null;
+    headline: string;
     ctaLabel: string;
+    showCta: boolean;
+    requirements: string[];
+    payoutsEnabled: boolean;
     connect: () => void;
     refresh: () => void;
 }
 
-/** Shared Stripe Connect onboarding view-model: the load phase + the connect action + error copy.
- *  `openUrl` is injected per platform (web `location.href`, mobile `Linking.openURL`). */
+const HEADLINES: Record<Exclude<ConnectPhase, "loading" | "error">, string> = {
+    not_connected: "Connect Stripe to take card payments and get paid out.",
+    in_progress: "Onboarding in progress — finish your Stripe setup.",
+    pending: "Stripe is reviewing your details. No action needed — this updates automatically.",
+    restricted: "Stripe needs a bit more to keep your payments active:",
+    enabled: "Payments enabled — you can take card payments.",
+    disabled: "Your Stripe account can't accept payments right now. Please contact support.",
+};
+
+function phaseOf(status: ConnectStatus): ConnectPhase {
+    if (!status.connected) return "not_connected";
+    switch (status.kyc_status) {
+        case "pending":
+        case "restricted":
+        case "enabled":
+        case "disabled":
+            return status.kyc_status;
+        default:
+            return "in_progress"; // not_started, but the account exists
+    }
+}
+
+/** Shared Stripe Connect onboarding view-model: the KYC phase, what Stripe still needs, the connect
+ *  action, and error copy. `openUrl` is injected per platform (web `location.href`, mobile `Linking`). */
 export function useConnectOnboarding(
     api: ApiLike,
     openUrl: (url: string) => void,
@@ -57,17 +121,23 @@ export function useConnectOnboarding(
     const { busy, error, run } = useAsyncAction();
 
     const phase: ConnectPhase =
-        status === null
-            ? "loading"
-            : status === "error"
-              ? "error"
-              : status.charges_enabled
-                ? "enabled"
-                : status.connected
-                  ? "in_progress"
-                  : "not_connected";
+        status === null ? "loading" : status === "error" ? "error" : phaseOf(status);
 
-    const ctaLabel = phase === "in_progress" ? "Continue setup" : "Connect Stripe";
+    const requirements =
+        status !== null && status !== "error"
+            ? [...new Set([...status.currently_due, ...status.past_due].map(formatRequirement))]
+            : [];
+
+    const ctaLabel =
+        phase === "restricted"
+            ? "Finish verification"
+            : phase === "in_progress"
+              ? "Continue setup"
+              : "Connect Stripe";
+
+    const showCta = phase === "not_connected" || phase === "in_progress" || phase === "restricted";
+    const headline = phase === "loading" || phase === "error" ? "" : HEADLINES[phase];
+    const payoutsEnabled = status !== null && status !== "error" && status.payouts_enabled;
 
     const connect = (): void => {
         void run(
@@ -83,7 +153,18 @@ export function useConnectOnboarding(
         setReloadKey((k) => k + 1);
     }, []);
 
-    return { phase, busy, error, ctaLabel, connect, refresh };
+    return {
+        phase,
+        busy,
+        error,
+        headline,
+        ctaLabel,
+        showCta,
+        requirements,
+        payoutsEnabled,
+        connect,
+        refresh,
+    };
 }
 
 export function refundPayment(
