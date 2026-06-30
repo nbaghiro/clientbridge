@@ -406,6 +406,70 @@ const files = new Table(
     },
 );
 
+const threads = new Table(
+    {
+        client_id: column.text,
+        channel: column.text,
+        last_message_at: column.text,
+        unread_count: column.integer,
+        status: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            threads_business_id: ["business_id"],
+            threads_last_message: ["business_id", "last_message_at"],
+        },
+    },
+);
+
+const messages = new Table(
+    {
+        thread_id: column.text,
+        direction: column.text,
+        channel: column.text,
+        sender_user_id: column.text,
+        body: column.text,
+        status: column.text,
+        broadcast_id: column.text,
+        provider_ref: column.text,
+        attachments: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            messages_broadcast: ["broadcast_id"],
+            messages_business_id: ["business_id"],
+            messages_thread: ["thread_id", "created_at"],
+        },
+    },
+);
+
+const broadcasts = new Table(
+    {
+        created_by: column.text,
+        name: column.text,
+        channel: column.text,
+        body: column.text,
+        audience: column.text,
+        status: column.text,
+        scheduled_at: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            broadcasts_business_id: ["business_id"],
+            broadcasts_status: ["business_id", "status"],
+        },
+    },
+);
+
 const sessions = new Table(
     {
         item_id: column.text,
@@ -717,70 +781,6 @@ const payouts = new Table(
     },
 );
 
-const threads = new Table(
-    {
-        client_id: column.text,
-        channel: column.text,
-        last_message_at: column.text,
-        unread_count: column.integer,
-        status: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            threads_business_id: ["business_id"],
-            threads_last_message: ["business_id", "last_message_at"],
-        },
-    },
-);
-
-const messages = new Table(
-    {
-        thread_id: column.text,
-        direction: column.text,
-        channel: column.text,
-        sender_user_id: column.text,
-        body: column.text,
-        status: column.text,
-        broadcast_id: column.text,
-        provider_ref: column.text,
-        attachments: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            messages_broadcast: ["broadcast_id"],
-            messages_business_id: ["business_id"],
-            messages_thread: ["thread_id", "created_at"],
-        },
-    },
-);
-
-const broadcasts = new Table(
-    {
-        created_by: column.text,
-        name: column.text,
-        channel: column.text,
-        body: column.text,
-        audience: column.text,
-        status: column.text,
-        scheduled_at: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            broadcasts_business_id: ["business_id"],
-            broadcasts_status: ["business_id", "status"],
-        },
-    },
-);
-
 const reviews = new Table(
     {
         client_id: column.text,
@@ -864,6 +864,9 @@ export const AppSchema = new Schema({
     contracts,
     signatures,
     files,
+    threads,
+    messages,
+    broadcasts,
     sessions,
     bookings,
     availability,
@@ -876,9 +879,6 @@ export const AppSchema = new Schema({
     payments,
     payment_methods,
     payouts,
-    threads,
-    messages,
-    broadcasts,
     reviews,
     review_requests,
     audit_logs,

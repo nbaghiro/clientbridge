@@ -316,10 +316,9 @@ class BillingService:
         return await fetch_lines(self.db, self.biz, parent_type, parent_id)
 
     async def _next_number(self, model: type[Invoice] | type[Estimate]) -> int:
+        sub = scoped(model, self.biz).subquery()
         current = (
-            await self.db.execute(
-                select(func.max(model.number)).where(model.business_id == self.biz)
-            )
+            await self.db.execute(select(func.max(sub.c.number)))
         ).scalar_one_or_none()
         return (current or 0) + 1
 

@@ -27,6 +27,7 @@ from clientbridge.services.payment_service import (
 _OVERLAP = "that staff member is already booked at that time"
 _OUTSIDE_HOURS = "outside the provider's available hours"
 _CLASS_FULL = "that class is full"
+_ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 
 
@@ -118,6 +119,23 @@ async def open_class_session(
     return (await db.execute(q)).scalars().first()
 
 
+async def _client_has_seat(
+    db: AsyncSession, business_id: str, session_id: str, client_id: str
+) -> bool:
+    """Whether this client already holds a live (non-canceled) booking on the given session — the
+    self-service double-submit guard for shared class sessions."""
+    q = (
+        scoped(Booking, business_id, soft_delete=True)
+        .where(
+            Booking.session_id == session_id,
+            Booking.client_id == client_id,
+            Booking.status != "canceled",
+        )
+        .limit(1)
+    )
+    return (await db.execute(q)).first() is not None
+
+
 async def create_booking_core(
     db: AsyncSession,
     business_id: str,
@@ -129,10 +147,15 @@ async def create_booking_core(
     source: str,
     subject_id: str | None = None,
     resource_id: str | None = None,
+    dedupe_client: bool = False,
 ) -> tuple[Booking, Session]:
     """Mint a confirmed booking (+ its session) enforcing the scheduling invariant — availability,
     buffer/overlap conflicts, and class-capacity reuse — shared by the authed command path and the
-    public online-booking surface so the rule has one home. The caller records/commits."""
+    public online-booking surface so the rule has one home. The caller records/commits.
+
+    ``dedupe_client`` rejects a client who already holds a seat on the class session (the
+    self-service double-submit guard); the authed path leaves it off so staff can seat one client
+    multiple times."""
     ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
     if not await is_within_availability(db, staff_id, business_id, starts_at, ends_at):
         raise Conflict(_OUTSIDE_HOURS)
@@ -141,6 +164,8 @@ async def create_booking_core(
     if is_class:
         session = await open_class_session(db, business_id, item.id, staff_id, starts_at)
         if session is not None:
+            if dedupe_client and await _client_has_seat(db, business_id, session.id, client_id):
+                raise Conflict(_ALREADY_IN_CLASS)
             if session.booked_count >= session.capacity:
                 raise Conflict(_CLASS_FULL)
             session.booked_count += 1

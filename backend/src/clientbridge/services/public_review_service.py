@@ -37,6 +37,13 @@ class PublicReviewService:
 
     async def submit(self, token: str, data: PublicReviewSubmit) -> PublicReviewContext:
         request, business = await self._resolve(token)
+        # Lock the request row so two concurrent public submits can't both insert a review:
+        # the second blocks here, then sees the completed status and 409s.
+        request = (
+            await self.db.execute(
+                select(ReviewRequest).where(ReviewRequest.id == request.id).with_for_update()
+            )
+        ).scalar_one()
         if request.status == "completed":
             raise Conflict("this review was already submitted")
         review = Review(
