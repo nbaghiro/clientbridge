@@ -42,7 +42,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { PurchaseConfirmPanel } from "../components/PurchaseConfirmPanel";
+import { CardPaymentConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -406,7 +406,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
         return (
             <View style={styles.depositBox}>
                 <Text style={styles.depositTitle}>Collect deposit · {amountLabel}</Text>
-                <PurchaseConfirmPanel
+                <CardPaymentConfirm
                     clientSecret={deposit.clientSecret}
                     onCancel={deposit.cancel}
                     onConfirmed={deposit.complete}

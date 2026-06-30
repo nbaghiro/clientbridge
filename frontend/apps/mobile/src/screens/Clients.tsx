@@ -4,7 +4,6 @@ import {
     type ItemRow,
     type PackageRow,
     type SavedCardRow,
-    type SetupIntent,
     type SubscriptionRow,
     canConsume,
     canManagePayments,
@@ -57,17 +56,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconPlus, IconSearch } from "../components/icons";
-import { PurchaseConfirmPanel } from "../components/PurchaseConfirmPanel";
+import { CardPaymentConfirm, CardSetupConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
 
 const c = theme.colors;
-
-// The native card-confirm seam: the native Stripe SDK (the follow) collects card / PAD bank details,
-// confirms the SetupIntent `client_secret`, and resolves — mirroring the POS Terminal token seam.
-// It isn't wired in this build, so nothing is injected and the panel renders a clear placeholder.
-type ConfirmCardSetup = (intent: SetupIntent) => Promise<void>;
 
 export function ClientsScreen() {
     const clients = useClients();
@@ -245,20 +239,17 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
     );
 }
 
-function AddMethodPanel({ flow, confirm }: { flow: AddPaymentMethod; confirm?: ConfirmCardSetup }) {
+function AddMethodPanel({ flow }: { flow: AddPaymentMethod }) {
     const intent = flow.intent;
     if (intent !== null) {
-        const runConfirm = (): void => {
-            if (confirm === undefined) return;
-            void confirm(intent).then(flow.complete);
-        };
+        // Card setup confirms with the SDK CardField; bank (PAD/ACSS) needs an ACSS mandate flow
+        // beyond a CardField, so it keeps the placeholder until that follow lands.
+        if (flow.kind === "card") return <CardSetupConfirm flow={flow} />;
         return (
             <View style={styles.setupBox}>
-                <Text style={styles.setupTitle}>
-                    {flow.kind === "bank" ? "Authorize pre-authorized debit" : "Add card"}
-                </Text>
+                <Text style={styles.setupTitle}>Authorize pre-authorized debit</Text>
                 <Text style={styles.setupNote}>
-                    Card entry needs the native Stripe SDK (not wired in this build).
+                    Bank (PAD) entry needs the native Stripe SDK (not wired in this build).
                 </Text>
                 <Text style={styles.setupSecret} numberOfLines={1}>
                     SetupIntent: {intent.client_secret}
@@ -266,13 +257,6 @@ function AddMethodPanel({ flow, confirm }: { flow: AddPaymentMethod; confirm?: C
                 <View style={styles.setupActions}>
                     <Pressable style={styles.cancel} onPress={flow.cancel}>
                         <Text style={styles.cancelText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable
-                        style={[styles.save, confirm === undefined && styles.disabled]}
-                        disabled={confirm === undefined}
-                        onPress={runConfirm}
-                    >
-                        <Text style={styles.saveText}>Confirm</Text>
                     </Pressable>
                 </View>
             </View>
@@ -614,7 +598,7 @@ function SellPackageForm({
 
     if (form.clientSecret !== null) {
         return (
-            <PurchaseConfirmPanel
+            <CardPaymentConfirm
                 clientSecret={form.clientSecret}
                 onCancel={form.cancel}
                 onConfirmed={form.complete}

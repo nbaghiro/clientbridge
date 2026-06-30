@@ -5,6 +5,7 @@ export type RootStackParamList = {
     Tabs: undefined;
     Settings: undefined;
     Account: undefined;
+    Team: undefined;
     Catalog: undefined;
     Taxes: undefined;
     Payments: undefined;
