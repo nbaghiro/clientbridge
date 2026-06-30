@@ -37,6 +37,7 @@ _public_pay_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_review_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_form_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_contract_limiter = RateLimiter(limit=30, window_s=60.0)
+_public_booking_limiter = RateLimiter(limit=30, window_s=60.0)
 
 
 def _client_ip(request: Request) -> str:
@@ -68,4 +69,11 @@ def public_form_rate_limit(request: Request) -> None:
 def public_contract_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated contract endpoints (token probing + signs)."""
     if not _public_contract_limiter.check(_client_ip(request), time.monotonic()):
+        raise TooManyRequests("too many requests — please wait a moment")
+
+
+def public_booking_rate_limit(request: Request) -> None:
+    """Cap how fast one IP hits the unauthenticated booking endpoints (slug probing + slot/book
+    spam that mints sessions and Stripe deposit intents)."""
+    if not _public_booking_limiter.check(_client_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")

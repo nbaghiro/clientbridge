@@ -407,6 +407,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/services": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Booking Page */
+        get: operations["public_booking_page_book__slug__services_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/book/{slug}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Booking Slots */
+        get: operations["public_booking_slots_book__slug__slots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/book/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Book */
+        post: operations["public_book_book__slug__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clients": {
         parameters: {
             query?: never;
@@ -2414,6 +2465,44 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** PublicBookingClient */
+        PublicBookingClient: {
+            /** Name */
+            name: string;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+        };
+        /** PublicBookingCreate */
+        PublicBookingCreate: {
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            client: components["schemas"]["PublicBookingClient"];
+        };
+        /** PublicBookingPage */
+        PublicBookingPage: {
+            /** Business Name */
+            business_name: string;
+            /** Services */
+            services: components["schemas"]["PublicService"][];
+            /** Staff */
+            staff: components["schemas"]["PublicStaff"][];
+        };
+        /** PublicBookingResult */
+        PublicBookingResult: {
+            /** Booking Id */
+            booking_id: string;
+            /** Deposit Client Secret */
+            deposit_client_secret?: string | null;
+        };
         /** PublicCardIntent */
         PublicCardIntent: {
             /** Client Secret */
@@ -2516,6 +2605,52 @@ export interface components {
             rating: number;
             /** Body */
             body?: string | null;
+        };
+        /** PublicService */
+        PublicService: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Duration Min */
+            duration_min: number | null;
+            /** Price Cents */
+            price_cents: number;
+            /** Currency */
+            currency: string;
+            /** Deposit Required */
+            deposit_required: boolean;
+            /** Deposit Amount Cents */
+            deposit_amount_cents: number;
+        };
+        /** PublicSlot */
+        PublicSlot: {
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+        };
+        /** PublicSlots */
+        PublicSlots: {
+            /** Slots */
+            slots: components["schemas"]["PublicSlot"][];
+        };
+        /** PublicStaff */
+        PublicStaff: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Title */
+            title: string | null;
         };
         /** RefreshBody */
         RefreshBody: {
@@ -3533,6 +3668,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicContractContext"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_booking_page_book__slug__services_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBookingPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_booking_slots_book__slug__slots_get: {
+        parameters: {
+            query: {
+                item_id: string;
+                staff_id: string;
+                date: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicSlots"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_book_book__slug__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicBookingCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicBookingResult"];
                 };
             };
             /** @description Validation Error */

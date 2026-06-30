@@ -1,10 +1,12 @@
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 
-from clientbridge.core.deps import DbSession, GatewayDep
+from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep
 from clientbridge.core.ratelimit import (
     _client_ip,
+    public_booking_rate_limit,
     public_contract_rate_limit,
     public_form_rate_limit,
     public_pay_rate_limit,
@@ -13,7 +15,15 @@ from clientbridge.core.ratelimit import (
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
 from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
+from clientbridge.schemas.public_booking import (
+    PublicBookingCreate,
+    PublicBookingPage,
+    PublicBookingResult,
+    PublicSlots,
+)
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
+from clientbridge.services.notification_service import Notifier
+from clientbridge.services.public_booking_service import PublicBookingService
 from clientbridge.services.public_contract_service import PublicContractService
 from clientbridge.services.public_form_service import PublicFormService
 from clientbridge.services.public_pay_service import PublicPayService
@@ -25,6 +35,7 @@ RateLimited = Annotated[None, Depends(public_pay_rate_limit)]
 ReviewRateLimited = Annotated[None, Depends(public_review_rate_limit)]
 FormRateLimited = Annotated[None, Depends(public_form_rate_limit)]
 ContractRateLimited = Annotated[None, Depends(public_contract_rate_limit)]
+BookingRateLimited = Annotated[None, Depends(public_booking_rate_limit)]
 
 
 @router.get("/{token}", response_model=PublicInvoice)
@@ -104,3 +115,42 @@ async def public_contract_decline(
     token: str, db: DbSession, _: ContractRateLimited
 ) -> PublicContractContext:
     return await PublicContractService(db).decline(token)
+
+
+booking_router = APIRouter(prefix="/book", tags=["public-booking"])
+
+
+@booking_router.get("/{slug}/services", response_model=PublicBookingPage)
+async def public_booking_page(
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> PublicBookingPage:
+    return await PublicBookingService(db, gateway).page(slug)
+
+
+@booking_router.get("/{slug}/slots", response_model=PublicSlots)
+async def public_booking_slots(
+    slug: str,
+    item_id: str,
+    staff_id: str,
+    date: date,
+    db: DbSession,
+    gateway: GatewayDep,
+    _: BookingRateLimited,
+) -> PublicSlots:
+    return await PublicBookingService(db, gateway).slots(slug, item_id, staff_id, date)
+
+
+@booking_router.post("/{slug}", response_model=PublicBookingResult)
+async def public_book(
+    slug: str,
+    body: PublicBookingCreate,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    _: BookingRateLimited,
+) -> PublicBookingResult:
+    result = await PublicBookingService(db, gateway).book(slug, body)
+    await Notifier(email, sms, push).on_booking_confirmed(db, result.booking_id)
+    return result
