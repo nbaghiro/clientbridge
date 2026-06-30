@@ -48,6 +48,41 @@ async def test_account_updated_enables_charges(api: httpx.AsyncClient, db: Async
     assert enabled is True
 
 
+async def test_account_updated_syncs_kyc_state(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_kyc")
+    )
+    await db.flush()
+    body = json.dumps(
+        {
+            "id": "evt_kyc",
+            "type": "account.updated",
+            "data": {
+                "object": {
+                    "id": "acct_kyc",
+                    "charges_enabled": False,
+                    "payouts_enabled": False,
+                    "details_submitted": True,
+                    "requirements": {
+                        "currently_due": ["external_account", "individual.id_number"],
+                        "past_due": [],
+                        "eventually_due": [],
+                        "pending_verification": [],
+                        "disabled_reason": None,
+                    },
+                }
+            },
+        }
+    )
+    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
+    assert res.status_code == 200
+    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
+    # details submitted but Stripe still needs things → provider action required
+    assert biz.kyc_status == "restricted"
+    assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
+    assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
+
+
 async def test_bad_signature_rejected(api: httpx.AsyncClient) -> None:
     res = await api.post(
         "/webhooks/stripe",

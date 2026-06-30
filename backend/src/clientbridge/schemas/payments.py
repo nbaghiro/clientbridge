@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class OnboardingLink(BaseModel):
@@ -9,6 +9,13 @@ class OnboardingLink(BaseModel):
 class ConnectStatus(BaseModel):
     connected: bool
     charges_enabled: bool
+    payouts_enabled: bool = False
+    details_submitted: bool = False
+    kyc_status: str = "not_started"  # not_started | pending | restricted | enabled | disabled
+    disabled_reason: str | None = None
+    currently_due: list[str] = Field(default_factory=list)  # what the provider must still submit
+    past_due: list[str] = Field(default_factory=list)
+    pending_verification: list[str] = Field(default_factory=list)  # Stripe is reviewing
 
 
 class PayIntentOut(BaseModel):

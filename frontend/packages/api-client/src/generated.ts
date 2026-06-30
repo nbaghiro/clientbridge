@@ -1812,6 +1812,29 @@ export interface components {
             connected: boolean;
             /** Charges Enabled */
             charges_enabled: boolean;
+            /**
+             * Payouts Enabled
+             * @default false
+             */
+            payouts_enabled: boolean;
+            /**
+             * Details Submitted
+             * @default false
+             */
+            details_submitted: boolean;
+            /**
+             * Kyc Status
+             * @default not_started
+             */
+            kyc_status: string;
+            /** Disabled Reason */
+            disabled_reason?: string | null;
+            /** Currently Due */
+            currently_due?: string[];
+            /** Past Due */
+            past_due?: string[];
+            /** Pending Verification */
+            pending_verification?: string[];
         };
         /** ConnectionTokenOut */
         ConnectionTokenOut: {
