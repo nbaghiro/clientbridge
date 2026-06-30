@@ -151,6 +151,7 @@ class FakePaymentGateway:
         self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
         self._subs: dict[str, SubscriptionResult] = {}  # honor subscription idempotency keys
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
+        self.created_locations: list[str] = []  # Terminal locations minted
 
     async def create_connected_account(self, *, business_name: str, email: str | None) -> str:
         self._seq += 1
@@ -274,6 +275,14 @@ class FakePaymentGateway:
     async def create_connection_token(self, account_id: str) -> str:
         self._seq += 1
         return f"pst_fake{self._seq}"
+
+    async def create_terminal_location(
+        self, account_id: str, *, display_name: str, country: str, state: str | None
+    ) -> str:
+        self._seq += 1
+        loc = f"tml_fake{self._seq}"
+        self.created_locations.append(loc)
+        return loc
 
     async def create_terminal_payment_intent(
         self,

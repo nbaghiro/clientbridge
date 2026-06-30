@@ -229,6 +229,15 @@ export function useStripeAccountId(): string | null {
     return rows[0]?.stripe_account_id ?? null;
 }
 
+/** The business's Stripe Terminal Location (minted server-side on first POS use, then synced) —
+ *  the POS reader connects under it. Null until the connection-token call has minted it. */
+export function useStripeTerminalLocation(): string | null {
+    const rows = useQuery<{ stripe_terminal_location_id: string | null }>(
+        "SELECT stripe_terminal_location_id FROM businesses WHERE stripe_terminal_location_id IS NOT NULL LIMIT 1",
+    ).data;
+    return rows[0]?.stripe_terminal_location_id ?? null;
+}
+
 export interface InteractivePurchase {
     busy: boolean;
     error: string | null;

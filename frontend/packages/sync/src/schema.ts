@@ -43,6 +43,7 @@ const businesses = new Table(
         billing_email: column.text,
         stripe_customer_id: column.text,
         stripe_account_id: column.text,
+        stripe_terminal_location_id: column.text,
         stripe_charges_enabled: column.integer,
         payout_schedule: column.text,
         status: column.text,

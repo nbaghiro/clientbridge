@@ -317,9 +317,7 @@ class BillingService:
 
     async def _next_number(self, model: type[Invoice] | type[Estimate]) -> int:
         sub = scoped(model, self.biz).subquery()
-        current = (
-            await self.db.execute(select(func.max(sub.c.number)))
-        ).scalar_one_or_none()
+        current = (await self.db.execute(select(func.max(sub.c.number)))).scalar_one_or_none()
         return (current or 0) + 1
 
     async def _client(self, client_id: str) -> Client:

@@ -1,8 +1,9 @@
 import httpx
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.identity import Business
+from tests.conftest import FakePaymentGateway
 
 BIZ = "bz_birchbark"
 
@@ -34,3 +35,21 @@ async def test_staff_can_get_connection_token(
     await _set_account(db, "acct_test")  # the reader is staff-operated — any principal may connect
     res = await as_staff.post("/v1/terminal/connection-token")
     assert res.status_code == 200, res.text
+
+
+async def test_connection_token_mints_and_reuses_terminal_location(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _set_account(db, "acct_test")
+    first = (await as_owner.post("/v1/terminal/connection-token")).json()
+    loc = first["location_id"]
+    assert loc is not None and loc.startswith("tml_fake")
+    assert len(gateway.created_locations) == 1
+    stored = (
+        await db.execute(select(Business.stripe_terminal_location_id).where(Business.id == BIZ))
+    ).scalar_one()
+    assert stored == loc
+    # a second call reuses the cached location — no second mint
+    second = (await as_owner.post("/v1/terminal/connection-token")).json()
+    assert second["location_id"] == loc
+    assert len(gateway.created_locations) == 1
