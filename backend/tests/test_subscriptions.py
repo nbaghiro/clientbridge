@@ -1,7 +1,7 @@
 """EFT/PAD + recurring subscriptions: command surface + Stripe subscription webhooks."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy import select, update
@@ -451,8 +451,12 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     )
     db.add(sub)
     await db.flush()
-    today = datetime.now(UTC).date().isoformat()
-    before = (await as_owner.get(f"/v1/reports/gst-hst?start={today}&end={today}")).json()
+    # ±1 day: the report computes bounds in the business tz, so a single UTC day can miss paid_at
+    # near the boundary. The wide window is tz-stable; the before/after delta still isolates 600.
+    day = datetime.now(UTC).date()
+    start = (day - timedelta(days=1)).isoformat()
+    end = (day + timedelta(days=1)).isoformat()
+    before = (await as_owner.get(f"/v1/reports/gst-hst?start={start}&end={end}")).json()
     obj: dict[str, object] = {
         "id": "in_g1",
         "subscription": "sub_gst1",
@@ -471,7 +475,7 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     inv = (await db.execute(select(Invoice).where(Invoice.id == pay.invoice_id))).scalar_one()
     assert inv.status == "paid" and inv.paid_at is not None
     assert inv.subtotal_cents == 5000 and inv.tax_total_cents == 600 and inv.total_cents == 5600
-    after = (await as_owner.get(f"/v1/reports/gst-hst?start={today}&end={today}")).json()
+    after = (await as_owner.get(f"/v1/reports/gst-hst?start={start}&end={end}")).json()
     assert after["tax_collected_cents"] - before["tax_collected_cents"] == 600
     # re-delivery must not mint a second invoice/payment
     res2 = await as_owner.post(
