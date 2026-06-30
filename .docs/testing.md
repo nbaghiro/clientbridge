@@ -31,11 +31,30 @@ Third parties are never called in tests. Each is an **interface** injected as a 
 | Email | `EmailSender` | SES/Postmark | `FakeEmailSender` — records `.sent` |
 | OAuth | `OAuthVerifier` | Google certs | `FakeOAuthVerifier` — fixed profile |
 | SMS (P7) | `SmsSender` | Twilio | records |
-| Payments (P6) | `PaymentGateway` | Stripe | sandbox + recorded webhooks |
+| Payments (P6) | `PaymentGateway` | Stripe | `FakePaymentGateway` + the Stripe tiers ↓ |
 
 A test asserts on the fake — *"one reset email to alice@x, with a token that then resets the
 password"* — fully exercising our logic up to the wire. The real provider is verified once in a
 sandbox smoke (the only step tests can't own).
+
+## Stripe: verifying the adapter itself
+The fake covers our *logic*; it can't prove the real `StripeGateway` maps correctly to Stripe (the
+fake encodes our *assumptions*). Three tiers close that, layered by cost — the first two need no
+Stripe account:
+
+| Tier | Run | Validates | Marker |
+|---|---|---|---|
+| **Contract** | `make test-contract` | real gateway vs **stripe-mock** (OpenAPI mock, `:8708`) — every request shape + response parse against the live spec | `contract` |
+| **Webhook** | default suite | real `verify_webhook` with a genuine HMAC signature + golden event fixtures (`tests/fixtures/stripe/`) | — |
+| **E2E** | `make test-e2e` | real test mode — KYC transitions, declines/3DS, subscription periods at the *current* API version | `e2e` |
+
+- `contract`/`e2e` are out of the default run (`-m "not contract and not e2e"`) and **auto-skip** when
+  their backing service / keys are absent — so `make test` stays hermetic.
+- **stripe-mock is stateless and pins a spec version**: it checks shapes, not behavior, and won't catch
+  fields that moved in newer API versions. Only the E2E tier covers that; it stays dormant until
+  `STRIPE_TEST_SECRET_KEY` is set.
+- The webhook tier already earned its keep — it caught two stripe-v15 breakages in `verify_webhook`
+  (the SDK's `StripeObject` is not a dict, so `.get()` and `dict()` both fail).
 
 ## The coverage bar (the real standard)
 A feature isn't "done" until its tests clear this matrix:

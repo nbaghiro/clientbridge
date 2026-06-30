@@ -43,8 +43,13 @@ packages = ["src/clientbridge"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 # Deterministic by default (pytest-randomly installed so this is a real switch, not a no-op).
-# Drop `-p no:randomly` ad hoc to surface order-coupling.
-addopts = "-p no:randomly"
+# Drop `-p no:randomly` ad hoc to surface order-coupling. contract/e2e need an external service
+# (stripe-mock / Stripe test keys) so they're out of the default run — see `make test-contract`.
+addopts = "-p no:randomly -m 'not contract and not e2e'"
+markers = [
+    "contract: real StripeGateway against stripe-mock (start it with `make stripe-mock`)",
+    "e2e: Stripe test-mode flows; skipped unless STRIPE_TEST_SECRET_KEY is set",
+]
 
 [tool.mypy]
 python_version = "3.12"

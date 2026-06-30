@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import httpx
 from sqlalchemy import select, update
@@ -81,6 +82,24 @@ async def test_account_updated_syncs_kyc_state(api: httpx.AsyncClient, db: Async
     assert biz.kyc_status == "restricted"
     assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
     assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
+
+
+async def test_account_updated_golden_payload_syncs_state(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # the full real-shaped account.updated event — our parser must ignore the noise and read the
+    # requirement buckets through the live webhook path end-to-end.
+    body = (Path(__file__).parent / "fixtures" / "stripe" / "account_updated.json").read_text()
+    acct = json.loads(body)["data"]["object"]["id"]
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id=acct))
+    await db.flush()
+    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
+    assert res.status_code == 200
+    biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
+    assert biz.kyc_status == "restricted"
+    assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
+    assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
+    assert biz.stripe_requirements["past_due"] == ["external_account"]
 
 
 async def test_bad_signature_rejected(api: httpx.AsyncClient) -> None:

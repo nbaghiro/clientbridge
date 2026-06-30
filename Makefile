@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install dev-api dev-web dev-mobile migrate revision seed gen-api gen-sync-schema test lint typecheck format format-check check worker
+.PHONY: help up down logs-sync install web-install dev-api dev-web dev-mobile migrate revision seed gen-api gen-sync-schema test test-contract test-e2e stripe-mock lint typecheck format format-check check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -14,6 +14,9 @@ help:
 	@echo "gen-api        regenerate frontend api-client from backend OpenAPI"
 	@echo "gen-sync-schema  regenerate PowerSync client schema from models + sync-rules"
 	@echo "test           backend pytest + frontend tests"
+	@echo "test-contract  real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
+	@echo "test-e2e       Stripe test-mode flows (needs STRIPE_TEST_SECRET_KEY)"
+	@echo "stripe-mock    start the stripe-mock contract-test service on :8708"
 	@echo "lint           ruff + mypy (backend) · eslint + tsc (frontend)"
 	@echo "typecheck      mypy (backend) · tsc (frontend)"
 	@echo "format         ruff format · prettier --write"
@@ -73,6 +76,18 @@ gen-sync-schema:
 test:
 	cd backend && uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 	cd frontend && pnpm test
+
+stripe-mock:
+	docker compose --profile test up -d stripe-mock
+	@echo "stripe-mock on http://localhost:8708"
+
+# Contract tier: real StripeGateway vs the OpenAPI mock. Auto-skips if stripe-mock isn't reachable.
+test-contract: stripe-mock
+	cd backend && STRIPE_MOCK_URL=http://localhost:8708 uv run pytest -m contract -q
+
+# E2E tier: real Stripe test mode. Skips unless STRIPE_TEST_SECRET_KEY is exported.
+test-e2e:
+	cd backend && uv run pytest -m e2e -q
 
 lint:
 	cd backend && uv run ruff check . && uv run mypy src scripts tests

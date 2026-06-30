@@ -27,6 +27,13 @@ services:
       POWERSYNC_CONFIG_PATH: /config/powersync.yaml
     command: ["start", "-r", "unified"]
 
+  # Contract-test only (profile "test"): the official OpenAPI mock. `make stripe-mock` starts it;
+  # the real StripeGateway runs against it to validate request/response shapes against the live spec.
+  stripe-mock:
+    image: stripemock/stripe-mock:latest
+    profiles: ["test"]
+    ports: ["8708:12111"]   # host 8708 → stripe-mock 12111 (http)
+
   redis:
     image: redis:7
     ports: ["8703:6379"]   # host 8703 → redis 6379
