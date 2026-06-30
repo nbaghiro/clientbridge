@@ -4,7 +4,7 @@ Clientbridge claims the **87xx** block so it runs **simultaneously** with the ot
 `~/Documents/code` (+ `~/PocketSuite`). Every host port below is unique across those projects
 (verified 2026-06-24). Update this file when adding a service.
 
-## Clientbridge — 8700–8707
+## Clientbridge — 8700–8708
 | Port | Service | Maps to | Set in |
 |---|---|---|---|
 | **8700** | Web (Vite dev) | — | `frontend/apps/web` vite.config (strictPort) · Makefile `dev-web` |
@@ -15,6 +15,7 @@ Clientbridge claims the **87xx** block so it runs **simultaneously** with the ot
 | **8705** | MinIO — S3 API | container `9000` | docker-compose · `S3_ENDPOINT` |
 | **8706** | MinIO — console | container `9001` | docker-compose |
 | **8707** | Expo / Metro (mobile) | — | Makefile `dev-mobile` |
+| **8708** | stripe-mock (contract tests only) | container `12111` | docker-compose `profiles: [test]` · `make stripe-mock` |
 
 *Container-internal ports stay conventional (5432/6379/8080/9000); only host mappings use 87xx.*
 

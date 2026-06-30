@@ -5,6 +5,7 @@ onboarding / charge / webhook logic is covered without the network. Connected ac
 (the platform owns onboarding + compliance); charges are direct with an application fee (Phase 6b).
 """
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -413,14 +414,17 @@ class StripeGateway:
         )
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
-    def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:  # pragma: no cover
+    def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent:
         try:
-            event = stripe.Webhook.construct_event(  # type: ignore[no-untyped-call]
+            stripe.Webhook.construct_event(  # type: ignore[no-untyped-call]
                 payload, signature, self._webhook_secret
             )
         except Exception as exc:
             raise WebhookVerificationError(str(exc)) from exc
-        obj = dict(event["data"]["object"])
+        # construct_event verified the bytes; read them as plain JSON — the SDK's StripeObject is
+        # not a dict (no `.get`, `dict()` fails) so we don't traverse it.
+        event = json.loads(payload)
+        obj = event["data"]["object"]
         account = event.get("account")
         return GatewayEvent(
             id=str(event["id"]),

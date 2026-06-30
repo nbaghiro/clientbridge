@@ -1,0 +1,64 @@
+{
+  "id": "evt_1NG8Du2eZvKYlo2C8b9Hd0Fb",
+  "object": "event",
+  "api_version": "2024-06-20",
+  "created": 1719750000,
+  "type": "account.updated",
+  "account": "acct_1NG8Du2eZvKYlo2C",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "data": {
+    "object": {
+      "id": "acct_1NG8Du2eZvKYlo2C",
+      "object": "account",
+      "business_type": "individual",
+      "charges_enabled": false,
+      "payouts_enabled": false,
+      "details_submitted": true,
+      "country": "CA",
+      "default_currency": "cad",
+      "email": "owner@birchbark.test",
+      "type": "custom",
+      "business_profile": {
+        "name": "Birchbark Pet Studio",
+        "support_email": "owner@birchbark.test",
+        "url": "https://app.clientbridge.test/book/birchbark",
+        "mcc": "0742"
+      },
+      "capabilities": { "card_payments": "active", "transfers": "inactive" },
+      "requirements": {
+        "alternatives": [],
+        "current_deadline": 1720354800,
+        "currently_due": ["external_account", "individual.id_number"],
+        "disabled_reason": "requirements.past_due",
+        "errors": [],
+        "eventually_due": [
+          "external_account",
+          "individual.id_number",
+          "tos_acceptance.date"
+        ],
+        "past_due": ["external_account"],
+        "pending_verification": []
+      },
+      "future_requirements": {
+        "alternatives": [],
+        "currently_due": [],
+        "eventually_due": [],
+        "past_due": [],
+        "pending_verification": []
+      },
+      "individual": {
+        "id": "person_1NG8Dv2eZvKYlo2C",
+        "object": "person",
+        "first_name": "Robin",
+        "last_name": "Maple",
+        "verification": {
+          "status": "unverified",
+          "document": { "front": null, "back": null }
+        }
+      },
+      "tos_acceptance": { "date": null, "ip": null }
+    }
+  }
+}

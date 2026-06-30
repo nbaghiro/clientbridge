@@ -1,0 +1,30 @@
+{
+  "id": "evt_3NG9aB2eZvKYlo2C0kLmNoP1",
+  "object": "event",
+  "api_version": "2024-06-20",
+  "created": 1719750500,
+  "type": "payment_intent.succeeded",
+  "account": "acct_1NG8Du2eZvKYlo2C",
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": "req_abc123", "idempotency_key": "pi-birchbark-inv42" },
+  "data": {
+    "object": {
+      "id": "pi_3NG9aB2eZvKYlo2C0kLmNoP1",
+      "object": "payment_intent",
+      "amount": 8500,
+      "amount_received": 8500,
+      "application_fee_amount": 213,
+      "currency": "cad",
+      "customer": "cus_NG9aBcDeFgHiJk",
+      "status": "succeeded",
+      "latest_charge": "ch_3NG9aB2eZvKYlo2C0abcDEFG",
+      "payment_method": "pm_1NG9aA2eZvKYlo2CqRsTuVwX",
+      "payment_method_types": ["card"],
+      "metadata": {
+        "invoice_id": "inv_birchbark_0042",
+        "business_id": "bz_birchbark"
+      }
+    }
+  }
+}
