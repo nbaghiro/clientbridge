@@ -324,6 +324,7 @@ export class PublicFormError extends Error {
 export interface PublicFormClient {
     getForm(token: string): Promise<PublicForm>;
     submit(token: string, answers: Record<string, FormAnswer>): Promise<PublicForm>;
+    upload(token: string, file: Blob): Promise<string>; // returns a file_id to store as the answer
 }
 
 /** Build a form-fill client bound to the API origin (web `VITE_API_URL`), mirroring
@@ -346,11 +347,27 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ answers }),
             }),
+        upload: async (token, file) => {
+            const meta = await request<{ file_id: string; upload_url: string }>(
+                `/form/${encodeURIComponent(token)}/upload`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ content_type: file.type || null, size: file.size }),
+                },
+            );
+            const headers: Record<string, string> = {};
+            if (file.type) headers["Content-Type"] = file.type;
+            const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
+            if (!put.ok) throw new PublicFormError(put.status, "the file upload failed");
+            return meta.file_id;
+        },
     };
 }
 
-/** Field types the public fill page can't capture (they need an authed file upload). */
-export function isUnsupportedPublicField(type: string): boolean {
+/** File-capture field types — now uploadable on the public fill page via the upload endpoint, the
+ *  answer being the resulting file_id. */
+export function isFileField(type: string): boolean {
     return type === "file" || type === "image" || type === "signature";
 }
 
