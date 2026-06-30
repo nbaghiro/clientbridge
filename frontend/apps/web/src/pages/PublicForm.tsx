@@ -5,7 +5,7 @@ import {
     type PublicFormField,
     createPublicFormClient,
     isAnswerMissing,
-    isUnsupportedPublicField,
+    isFileField,
     useAsyncAction,
 } from "@clientbridge/app-core";
 import { type FormEvent, useEffect, useState } from "react";
@@ -77,15 +77,20 @@ export function PublicForm() {
         action.setError(null);
     };
 
+    const uploadFor = (name: string, file: File): void => {
+        void action.run(
+            async () => {
+                setAnswer(name, await forms.upload(token, file));
+            },
+            { errorMessage: "We couldn't upload that file. Please try again." },
+        );
+    };
+
     const submit = (e: FormEvent): void => {
         e.preventDefault();
         const missing = form.fields.find((f) => f.required && isAnswerMissing(answers[f.name]));
         if (missing !== undefined) {
-            action.setError(
-                isUnsupportedPublicField(missing.type)
-                    ? `“${missing.label}” can't be completed on this link — contact the business.`
-                    : `“${missing.label}” is required.`,
-            );
+            action.setError(`“${missing.label}” is required.`);
             return;
         }
         void action.run(
@@ -109,6 +114,9 @@ export function PublicForm() {
                         value={answers[f.name]}
                         onChange={(v) => {
                             setAnswer(f.name, v);
+                        }}
+                        onUpload={(file) => {
+                            uploadFor(f.name, file);
                         }}
                     />
                 ))}
@@ -146,10 +154,12 @@ function FieldView({
     field: f,
     value,
     onChange,
+    onUpload,
 }: {
     field: PublicFormField;
     value: FormAnswer | undefined;
     onChange: (v: FormAnswer) => void;
+    onUpload: (file: File) => void;
 }) {
     const label = (
         <span className="text-sm font-medium text-ink-soft">
@@ -159,15 +169,24 @@ function FieldView({
     );
     const help = f.help !== null ? <span className="text-xs text-muted">{f.help}</span> : null;
 
-    if (isUnsupportedPublicField(f.type)) {
+    if (isFileField(f.type)) {
+        const uploaded = typeof value === "string" && value.length > 0;
+        const accept = f.type === "image" || f.type === "signature" ? "image/*" : "*/*";
         return (
-            <div className="flex flex-col gap-1">
+            <label className="flex flex-col gap-1">
                 {label}
-                <p className="rounded-md border border-dashed border-line bg-bg px-3 py-2 text-xs text-muted">
-                    This field can't be completed on the online form — the business will collect it
-                    directly.
-                </p>
-            </div>
+                {help}
+                <input
+                    type="file"
+                    accept={accept}
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) onUpload(file);
+                    }}
+                    className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
+                />
+                {uploaded ? <span className="text-xs text-ok-fg">File attached ✓</span> : null}
+            </label>
         );
     }
 
