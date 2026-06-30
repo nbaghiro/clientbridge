@@ -55,6 +55,9 @@ class Broadcast(PKMixin, BusinessScoped, TimestampMixin, Base):
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str] = mapped_column(String, nullable=False)
     channel: Mapped[str] = mapped_column(String, nullable=False)
+    body: Mapped[str | None] = mapped_column(
+        String
+    )  # rendered at send (kept for a scheduled fan-out)
     audience: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

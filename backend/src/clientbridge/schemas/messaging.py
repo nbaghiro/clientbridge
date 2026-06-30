@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 Channel = Literal["sms", "email"]
 
@@ -24,6 +25,10 @@ class BroadcastSend(BaseModel):
     name: str
     channel: Channel
     body: str
+    audience: dict[str, object] = Field(
+        default_factory=dict
+    )  # {} | {"all": true} | {"tags": [...]}
+    scheduled_at: datetime | None = None  # a future time → create scheduled, don't send now
 
 
 class BroadcastOut(BaseModel):

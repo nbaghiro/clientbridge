@@ -39,7 +39,9 @@ BookingRateLimited = Annotated[None, Depends(public_booking_rate_limit)]
 
 
 @router.get("/{token}", response_model=PublicInvoice)
-async def public_invoice(token: str, db: DbSession, gateway: GatewayDep) -> PublicInvoice:
+async def public_invoice(
+    token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
+) -> PublicInvoice:
     return await PublicPayService(db, gateway).invoice(token)
 
 

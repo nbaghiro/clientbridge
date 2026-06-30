@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import httpx
 import pytest
 from sqlalchemy import select, update
@@ -5,10 +7,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.crm import Client
-from clientbridge.models.messaging import Message, Thread
+from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.services.message_service import run_due_broadcasts
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
 
 BIZ = "bz_birchbark"
+
+
+def _active_client(*, name: str, phone: str, tags: list[str]) -> Client:
+    return Client(
+        id=new_id("client"),
+        business_id=BIZ,
+        name=name,
+        phone=phone,
+        status="active",
+        tags=tags,
+        custom_fields={},
+    )
 
 
 async def _client_with_contact(
@@ -219,3 +234,87 @@ async def test_thread_tenant_isolation(
     await db.flush()
     res = await as_owner.post(f"/v1/threads/{thread.id}/read")
     assert res.status_code == 404
+
+
+async def test_broadcast_audience_tag_filter(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
+    db.add_all(
+        [
+            _active_client(name="VIP", phone="+15145559001", tags=["vip"]),
+            _active_client(name="Regular", phone="+15145559002", tags=["regular"]),
+        ]
+    )
+    await db.flush()
+    res = await as_owner.post(
+        "/v1/broadcasts",
+        json={"name": "VIP sale", "channel": "sms", "body": "Hi", "audience": {"tags": ["vip"]}},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["recipient_count"] == 1
+    assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559001"  # only the tagged client
+
+
+async def test_schedule_broadcast_does_not_send_now(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
+    db.add(_active_client(name="Later", phone="+15145559003", tags=[]))
+    await db.flush()
+    future = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+    res = await as_owner.post(
+        "/v1/broadcasts",
+        json={"name": "Promo", "channel": "sms", "body": "Soon", "scheduled_at": future},
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "scheduled"
+    assert sms.sent == []  # nothing dispatched yet
+    row = (await db.execute(select(Broadcast).where(Broadcast.id == res.json()["id"]))).scalar_one()
+    assert row.status == "scheduled" and row.scheduled_at is not None and row.body == "Soon"
+
+
+async def test_run_due_broadcasts_sends_when_due(
+    db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender
+) -> None:
+    await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
+    db.add(_active_client(name="Due", phone="+15145559004", tags=[]))
+    await db.flush()
+    # a past `now` so the seeded future-scheduled broadcast (bro_winback) can't also fire
+    now = datetime(2020, 1, 2, tzinfo=UTC)
+    broadcast = Broadcast(
+        id=new_id("broadcast"),
+        business_id=BIZ,
+        name="Scheduled",
+        channel="sms",
+        body="Hello",
+        audience={},
+        status="scheduled",
+        scheduled_at=datetime(2020, 1, 1, tzinfo=UTC),
+    )
+    db.add(broadcast)
+    await db.flush()
+    assert await run_due_broadcasts(db, sms, email, now) == 1
+    assert len(sms.sent) == 1 and sms.sent[0].to == "+15145559004"
+    row = (await db.execute(select(Broadcast).where(Broadcast.id == broadcast.id))).scalar_one()
+    assert row.status == "sent"
+
+
+async def test_run_due_broadcasts_skips_future(
+    db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender
+) -> None:
+    now = datetime(2020, 1, 2, tzinfo=UTC)
+    broadcast = Broadcast(
+        id=new_id("broadcast"),
+        business_id=BIZ,
+        name="NotYet",
+        channel="sms",
+        body="x",
+        audience={},
+        status="scheduled",
+        scheduled_at=now + timedelta(hours=1),
+    )
+    db.add(broadcast)
+    await db.flush()
+    assert await run_due_broadcasts(db, sms, email, now) == 0
+    assert sms.sent == []

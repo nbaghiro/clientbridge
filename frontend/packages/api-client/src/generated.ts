@@ -269,6 +269,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/webhooks/sms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sms Webhook */
+        post: operations["sms_webhook_webhooks_sms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pay/{token}": {
         parameters: {
             query?: never;
@@ -1649,6 +1666,12 @@ export interface components {
             channel: "sms" | "email";
             /** Body */
             body: string;
+            /** Audience */
+            audience?: {
+                [key: string]: unknown;
+            };
+            /** Scheduled At */
+            scheduled_at?: string | null;
         };
         /** BusinessOut */
         BusinessOut: {
@@ -3338,6 +3361,37 @@ export interface operations {
                 "application/json": components["schemas"]["InteracWebhookBody"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sms_webhook_webhooks_sms_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Twilio-Signature"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
