@@ -113,6 +113,38 @@ async def test_purchase_settles_active_and_notifies_recipient(
     assert body["code"] in sent[0].body
 
 
+async def test_settle_redelivery_activates_once_and_notifies_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    # A redelivered entitlement settle (same intent, a NEW event id so WebhookEvent dedup doesn't
+    # mask it) must hit the payment-already-settled guard: card active once, recipient emailed once.
+    await _enable(db)
+    body = (
+        await as_owner.post(
+            "/v1/gift-cards",
+            json={
+                "amount_cents": 6000,
+                "purchaser_client_id": PURCHASER,
+                "payment_method_id": "default",
+                "recipient": "gran@example.com",
+            },
+        )
+    ).json()
+    await _settle(as_owner, db, body["payment_id"], "evt_gc_first")
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
+    ).scalar_one()
+    assert card.status == "active"
+    assert len([m for m in email.sent if m.to == "gran@example.com"]) == 1
+
+    await _settle(as_owner, db, body["payment_id"], "evt_gc_redelivery")  # second event id
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
+    ).scalar_one()
+    assert card.status == "active"  # still active, not re-activated
+    assert len([m for m in email.sent if m.to == "gran@example.com"]) == 1  # emailed exactly once
+
+
 async def test_redeem_before_activation_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _enable(db)
     body = (
