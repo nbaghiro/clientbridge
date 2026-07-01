@@ -100,8 +100,6 @@ export function useSendFormForm(api: ApiLike, onSent: () => void): SendFormForm 
     return { formId, setFormId, clientId, setClientId, busy, error, submit };
 }
 
-// ── Minimal form authoring via sync-write (`forms` + `form_fields` are admin-writable) ────────────
-
 /** Field types the minimal builder offers (a subset that renders cleanly on the public fill page). */
 export const BUILDER_FIELD_TYPES = [
     "text",
@@ -285,8 +283,6 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
         submit,
     };
 }
-
-// ── Public fill client (unauthenticated; the URL token is the only credential) ────────────────────
 
 export interface PublicFormField {
     id: string;

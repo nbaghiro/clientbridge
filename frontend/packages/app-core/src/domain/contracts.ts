@@ -152,8 +152,6 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
     return { name, setName, body, setBody, busy, error, submit };
 }
 
-// ── Public e-sign client (unauthenticated; the URL token is the only credential) ──────────────────
-
 export interface PublicContract {
     contract_name: string;
     business_name: string;

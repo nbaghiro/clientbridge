@@ -3,7 +3,7 @@
 A command is one atomic, audited, optionally-idempotent mutation. The service does the work and
 records audit entries on the `Command`; `run_command` owns the transaction — replaying a stored
 response for a repeated `Idempotency-Key`, persisting the audit trail, and committing (or rolling
-back) as a unit. See .docs/backend-plan.md (Phase 2).
+back) as a unit.
 """
 
 from collections.abc import Awaitable, Callable

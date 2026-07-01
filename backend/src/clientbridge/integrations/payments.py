@@ -2,7 +2,7 @@
 
 Production talks to Stripe; tests override `get_payment_gateway` with a recording fake, so the
 onboarding / charge / webhook logic is covered without the network. Connected accounts are Custom
-(the platform owns onboarding + compliance); charges are direct with an application fee (Phase 6b).
+(the platform owns onboarding + compliance); charges are direct with an application fee.
 """
 
 import json

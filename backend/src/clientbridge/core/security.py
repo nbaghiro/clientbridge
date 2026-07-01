@@ -69,7 +69,6 @@ def issue_powersync_token(user_id: str) -> str:
     return jwt.encode(payload, s.jwt_secret, algorithm="HS256", headers={"kid": s.powersync_kid})
 
 
-# ── RS256 keypair for prod PowerSync auth (public key served at the JWKS endpoint) ──
 # Prod loads a PEM private key from settings; dev/test (no PEM) generates an ephemeral key on first
 # use, so the JWKS endpoint + RS256 roundtrip work without any configuration.
 @lru_cache
