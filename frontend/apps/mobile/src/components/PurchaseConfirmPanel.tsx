@@ -1,4 +1,4 @@
-import { useAsyncAction } from "@clientbridge/app-core";
+import { strings, useAsyncAction } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
@@ -31,30 +31,27 @@ export function PurchaseConfirmPanel({
         if (confirm === undefined) return;
         void run(() => confirm(clientSecret), {
             onSuccess: onConfirmed,
-            errorMessage: "Payment failed. Please check the card and try again.",
+            errorMessage: strings.purchase.confirmError,
         });
     };
 
     return (
         <View style={styles.box}>
-            <Text style={styles.title}>Confirm payment</Text>
+            <Text style={styles.title}>{strings.purchase.title}</Text>
             {wired ? (
                 cardField
             ) : (
                 <>
-                    <Text style={styles.note}>
-                        Card entry needs the native Stripe SDK (not wired in this build). Charge a
-                        saved card instead, or finish on the web app.
-                    </Text>
+                    <Text style={styles.note}>{strings.purchase.notWired}</Text>
                     <Text style={styles.secret} numberOfLines={1}>
-                        PaymentIntent: {clientSecret}
+                        {strings.purchase.paymentIntentLabel} {clientSecret}
                     </Text>
                 </>
             )}
             {error !== null ? <Text style={styles.error}>{error}</Text> : null}
             <View style={styles.actions}>
                 <Pressable style={styles.cancel} onPress={onCancel} disabled={busy}>
-                    <Text style={styles.cancelText}>Back</Text>
+                    <Text style={styles.cancelText}>{strings.purchase.back}</Text>
                 </Pressable>
                 <Pressable
                     style={[styles.save, (!wired || !confirmReady || busy) && styles.disabled]}
@@ -64,7 +61,7 @@ export function PurchaseConfirmPanel({
                     {busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>Confirm</Text>
+                        <Text style={styles.saveText}>{strings.purchase.confirm}</Text>
                     )}
                 </Pressable>
             </View>

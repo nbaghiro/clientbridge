@@ -1,4 +1,4 @@
-import { type UploadTarget, useFileUpload } from "@clientbridge/app-core";
+import { type UploadTarget, strings, useFileUpload } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -19,7 +19,7 @@ export interface PickedFile {
  *  form file fields. */
 export function FileUploadField({
     target,
-    label = "Upload file",
+    label = strings.fileUpload.uploadFile,
     pickFile,
     onUploaded,
 }: {
@@ -54,9 +54,9 @@ export function FileUploadField({
                 )}
             </Pressable>
             {pickFile === undefined ? (
-                <Text style={styles.note}>File picker not wired in this build.</Text>
+                <Text style={styles.note}>{strings.fileUpload.pickerNotWired}</Text>
             ) : null}
-            {fileId !== null ? <Text style={styles.ok}>Uploaded.</Text> : null}
+            {fileId !== null ? <Text style={styles.ok}>{strings.fileUpload.uploaded}</Text> : null}
             {error !== null ? <Text style={styles.error}>{error}</Text> : null}
         </View>
     );

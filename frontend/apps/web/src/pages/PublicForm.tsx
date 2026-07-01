@@ -4,6 +4,7 @@ import {
     createPublicFormClient,
     isFileField,
     optionPair,
+    strings,
     usePublicFormFill,
 } from "@clientbridge/app-core";
 import type { FormEvent } from "react";
@@ -20,24 +21,26 @@ export function PublicForm() {
     const form = fill.form;
     const answers = fill.answers;
 
-    if (fill.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
+    if (fill.status === "loading")
+        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
 
     if (fill.status === "not-found")
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Form not found</h1>
-                <p className="mt-2 text-sm text-muted">
-                    This link is invalid or has expired. Please check with the business that sent it
-                    to you.
-                </p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.publicForm.notFoundTitle}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.publicForm.notFoundBody}</p>
             </Frame>
         );
 
     if (fill.status === "error" || form === null)
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">Please try again later.</p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.common.somethingWrong}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
             </Frame>
         );
 
@@ -75,7 +78,7 @@ export function PublicForm() {
                     disabled={fill.busy}
                     className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                 >
-                    {fill.busy ? "Submitting…" : "Submit"}
+                    {fill.busy ? strings.publicForm.submitting : strings.publicForm.submit}
                 </button>
             </form>
         </Frame>
@@ -117,7 +120,9 @@ function FieldView({
                     }}
                     className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
                 />
-                {uploaded ? <span className="text-xs text-ok-fg">File attached ✓</span> : null}
+                {uploaded ? (
+                    <span className="text-xs text-ok-fg">{strings.publicForm.fileAttached}</span>
+                ) : null}
             </label>
         );
     }
@@ -154,7 +159,7 @@ function FieldView({
                     }}
                     className={field}
                 >
-                    <option value="">Select…</option>
+                    <option value="">{strings.publicForm.selectPlaceholder}</option>
                     {f.options.map((opt, i) => {
                         const { value: v, label: l } = optionPair(opt);
                         return (
@@ -282,9 +287,11 @@ function DoneState({ businessName }: { businessName: string }) {
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓
                 </span>
-                <h1 className="mt-4 font-display text-xl font-bold text-ink">Thanks — all done</h1>
+                <h1 className="mt-4 font-display text-xl font-bold text-ink">
+                    {strings.publicForm.doneTitle}
+                </h1>
                 <p className="mt-2 text-sm text-muted">
-                    Your responses have been sent to {businessName}.
+                    {strings.publicForm.doneBody(businessName)}
                 </p>
             </div>
         </Frame>

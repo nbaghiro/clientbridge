@@ -8,6 +8,7 @@
 
 export const strings = {
     common: {
+        comingSoon: "Coming soon.",
         somethingWrongRetry: "Something went wrong. Please try again.",
         fileUploadError: "Couldn't upload that file. Please try again.",
         loading: "Loading…",
@@ -317,6 +318,7 @@ export const strings = {
         recordError: "We couldn't record that. Please try again.",
     },
     clients: {
+        setupIntentLabel: "SetupIntent:",
         sellPackageError: "Couldn't sell this package. Please try again.",
         title: "Clients",
         total: (count: number) => `${count} total`,
@@ -627,6 +629,9 @@ export const strings = {
         title: "Settings",
     },
     home: {
+        payoutToPrefix: "to ····",
+        connected: "connected",
+        offline: "offline",
         activityRefund: "Refund",
         activityDepositReceived: "Deposit received",
         activityInteracReceived: "Interac received",
@@ -824,6 +829,10 @@ export const strings = {
         incompleteForm: "Add your name and an email or phone, then pick a time.",
     },
     nav: {
+        createMenu: "Create",
+        newClient: "New client",
+        newBooking: "New booking",
+        newSale: "New sale",
         today: "Today",
         calendar: "Calendar",
         clients: "Clients",
@@ -843,6 +852,60 @@ export const strings = {
         team: "Team",
         scheduling: "Scheduling",
         booking: "Booking & forms",
+    },
+    publicContract: {
+        sign: "Sign contract",
+        signedStatus: "Contract signed",
+        declinedStatus: "Contract declined",
+        notFoundTitle: "Contract not found",
+        notFoundBody:
+            "This signing link is invalid or has expired. Please check with the business that sent it to you.",
+        typeNameToSign: "Type your full name to sign",
+        uploadSignature: "Or upload a signature image",
+        attached: (name: string) => `Attached: ${name}`,
+        decline: "Decline",
+        esignConsent:
+            "By typing your name and signing, you agree this is your electronic signature.",
+    },
+    publicForm: {
+        submitting: "Submitting…",
+        submit: "Submit",
+        notFoundTitle: "Form not found",
+        notFoundBody:
+            "This link is invalid or has expired. Please check with the business that sent it to you.",
+        fileAttached: "File attached ✓",
+        selectPlaceholder: "Select…",
+        doneTitle: "Thanks — all done",
+        doneBody: (businessName: string) => `Your responses have been sent to ${businessName}.`,
+    },
+    fileUpload: {
+        uploadFile: "Upload file",
+        uploading: "Uploading…",
+        viewUploadedFile: "View uploaded file",
+        pickerNotWired: "File picker not wired in this build.",
+        uploaded: "Uploaded.",
+    },
+    purchase: {
+        confirmError: "Payment failed. Please check the card and try again.",
+        title: "Confirm payment",
+        notWired:
+            "Card entry needs the native Stripe SDK (not wired in this build). Charge a saved card instead, or finish on the web app.",
+        paymentIntentLabel: "PaymentIntent:",
+        back: "Back",
+        confirm: "Confirm",
+    },
+    card: {
+        notConfiguredSavedCard: "Card payments aren’t configured. Charge a saved card instead.",
+        notConfiguredContact: "Card payments aren't configured. Please contact the business.",
+        back: "Back",
+        paymentFailed: "Payment failed. Please try again.",
+        charging: "Charging…",
+        charge: (amount: string) => `Charge ${amount}`,
+        pay: (amount: string) => `Pay ${amount}`,
+        addCard: "Add card",
+        entryNotWired: "Card entry needs the native Stripe SDK (not wired in this build).",
+        saveError: "Couldn’t save the card. Please check the details and try again.",
+        saveCard: "Save card",
     },
 } as const;
 

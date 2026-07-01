@@ -1,3 +1,4 @@
+import { strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -5,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 export function ComingSoon() {
     return (
         <View style={[styles.screen, styles.center]}>
-            <Text style={styles.sub}>Coming soon.</Text>
+            <Text style={styles.sub}>{strings.common.comingSoon}</Text>
         </View>
     );
 }
