@@ -6,32 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.db import SessionLocal
 from clientbridge.models.billing import Estimate
 from clientbridge.models.catalog import GiftCard, Package
-from clientbridge.models.crm import Consent
 from clientbridge.models.platform import DeviceToken
 
 _TOKEN_TTL = timedelta(days=60)
-
-
-async def run_consent_expiry(db: AsyncSession, now: datetime) -> int:
-    """CASL: a consent past `expires_at` no longer grants — flip it to a non-granting state so the
-    notifier's consent gate (which blocks `withdrawn`) stops sending on that channel."""
-    consents = (
-        (
-            await db.execute(
-                select(Consent).where(
-                    Consent.status == "granted",
-                    Consent.expires_at.is_not(None),
-                    Consent.expires_at < now,
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for consent in consents:
-        consent.status = "withdrawn"
-    await db.commit()
-    return len(consents)
 
 
 async def run_prune_device_tokens(db: AsyncSession, now: datetime) -> int:
@@ -105,12 +82,8 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
 
 
 async def run_daily_maintenance(ctx: dict[str, object]) -> int:
-    """arq cron entry — the daily housekeeping pass (consent expiry, token pruning, expiry sweeps).
-    Returns the total rows touched across the three sweeps."""
+    """arq cron entry — the daily housekeeping pass (token pruning, expiry sweeps). Returns the
+    total rows touched across the sweeps."""
     now = datetime.now(UTC)
     async with SessionLocal() as db:
-        return (
-            await run_consent_expiry(db, now)
-            + await run_prune_device_tokens(db, now)
-            + await run_expiry_sweeps(db, now)
-        )
+        return await run_prune_device_tokens(db, now) + await run_expiry_sweeps(db, now)

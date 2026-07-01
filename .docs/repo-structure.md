@@ -64,7 +64,7 @@ clientbridge/
 │       │   └── webhooks.py          ＋P6  (Stripe/Interac/Twilio → webhook_events)
 │       │
 │       └── tasks/                   ── arq jobs ──             ＋P7
-│           └── reminders · recurring · payouts · consent_expiry · review_requests
+│           └── reminders · recurring · payouts · review_requests
 │
 ├── frontend/                        ────────── TypeScript · pnpm + turbo ──────────
 │   ├── package.json · turbo.json · tsconfig.base.json          ✅

@@ -93,9 +93,8 @@ write via `POST /v1/clients`. Proved the local-first loop across both platforms.
 - Can grow incrementally — start with whatever data exists after slices 3–5.
 
 ### Slice 7 — Inbox & Notifications (server-initiated everything)
-- **Backend:** **arq worker** on Redis (reminders, recurring generation, payout reconciliation, consent
-  expiry, review requests, schedule-window roll-forward); **email + Twilio SMS**; messaging/inbox
-  (threads, inbound SMS webhook → thread, **broadcasts** with consent gating).
+- **Backend:** **arq worker** on Redis (reminders, recurring generation, payout reconciliation, review requests, schedule-window roll-forward); **email + Twilio SMS**; messaging/inbox
+  (threads, inbound SMS webhook → thread, **broadcasts**).
 - **Web:** Inbox (threads), notification settings.
 - **Mobile:** Inbox tab.
 - **Proof:** a reminder job sends SMS and the booking change appears on-device instantly via sync.
@@ -107,8 +106,7 @@ write via `POST /v1/clients`. Proved the local-first loop across both platforms.
 - **Mobile:** forms, file attach.
 
 ### Slice 9 — Hardening & Prod (continuous; dedicated pass at the end)
-- Postgres **RLS** (per-request `SET LOCAL` + `business_id WITH CHECK`); **consent + data-subject
-  rights** (consent gating, export, right-to-be-forgotten, retention); rate limiting + lockout + RS256/JWKS in prod;
+- Postgres **RLS** (per-request `SET LOCAL` + `business_id WITH CHECK`); **data-subject rights** (export, right-to-be-forgotten, retention); rate limiting + lockout + RS256/JWKS in prod;
   observability (Sentry, metrics, tracing, slow-query/index/sync-rule audit); deployment (prod
   containers, migration gating, backups, PowerSync prod topology).
 

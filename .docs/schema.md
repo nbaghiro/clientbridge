@@ -1,6 +1,6 @@
 # Clientbridge — Schema Specification (LOCKED · v1)
 
-DDL-ready detail for all **37 tables / 10 domains**. Companion to the conceptual
+DDL-ready detail for all **36 tables / 10 domains**. Companion to the conceptual
 [data-model.md](data-model.md); this is the source of truth for the Alembic migration.
 Status: **locked 2026-06-24.**
 
@@ -27,9 +27,6 @@ business.payout_schedule daily | weekly | manual
 membership.role         owner | admin | staff | contractor
 membership.status       active | invited
 membership.rate_type    percent | fixed | hourly
-consent.channel         sms | email
-consent.basis           express | implied
-consent.status          granted | withdrawn
 subject.kind            pet | vehicle | child | property
 item.kind               service | class | product | package | subscription | gift
 item.deposit_type       none | fixed | percent
@@ -131,13 +128,6 @@ subjects                                                            -- sj_
   kind text not null · name text not null · attributes jsonb default '{}'
   created_at · updated_at
   idx: (business_id,client_id)
-
-consents                                                            -- cns_  (append-only log)
-  id text pk · business_id fk not null · client_id fk→clients not null
-  channel text not null · basis text not null · status text not null
-  source text · captured_at timestamptz not null default now() · expires_at timestamptz null
-  created_at · updated_at
-  idx: (business_id,client_id,channel), (expires_at) where basis='implied'
 
 notes                                                               -- nt_
   id text pk · business_id fk not null · author_user_id fk→users null

@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import BigInteger, Boolean, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,26 +38,6 @@ class Subject(PKMixin, BusinessScoped, TimestampMixin, Base):
     kind: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     attributes: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
-
-
-class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):
-    __tablename__ = "consents"
-    __table_args__ = (
-        enum_check("consents", "channel", "sms", "email"),
-        enum_check("consents", "basis", "express", "implied"),
-        enum_check("consents", "status", "granted", "withdrawn"),
-        Index("ix_consents_client_channel", "business_id", "client_id", "channel"),
-    )
-
-    client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    channel: Mapped[str] = mapped_column(String, nullable=False)
-    basis: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)
-    source: Mapped[str | None] = mapped_column(String)
-    captured_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
-    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Note(PKMixin, BusinessScoped, TimestampMixin, Base):

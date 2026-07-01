@@ -105,27 +105,6 @@ const subjects = new Table(
     },
 );
 
-const consents = new Table(
-    {
-        client_id: column.text,
-        channel: column.text,
-        basis: column.text,
-        status: column.text,
-        source: column.text,
-        captured_at: column.text,
-        expires_at: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            consents_business_id: ["business_id"],
-            consents_client_channel: ["business_id", "client_id", "channel"],
-        },
-    },
-);
-
 const notes = new Table(
     {
         author_user_id: column.text,
@@ -855,7 +834,6 @@ export const AppSchema = new Schema({
     businesses,
     clients,
     subjects,
-    consents,
     notes,
     items,
     packages,

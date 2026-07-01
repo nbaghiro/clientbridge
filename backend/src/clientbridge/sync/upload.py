@@ -42,7 +42,6 @@ class UploadBody(BaseModel):
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),
     "subjects": ("team", False),
-    "consents": ("team", False),
     "notes": ("team", False),
     # files are NOT sync-writable: the row is server-minted so its `s3_key` can't be forged —
     # creation flows through the file command (POST /v1/files). They stay sync-READABLE.

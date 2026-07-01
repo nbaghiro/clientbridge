@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
-from clientbridge.models.crm import Client, Consent
+from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
@@ -258,32 +258,6 @@ async def test_refund_notifies_client(
     assert refund.status_code == 200, refund.text
     assert any("refund" in m.body.lower() and "$50.00" in m.body for m in email.sent)
     assert any("refund" in m.body.lower() for m in sms.sent)
-
-
-async def test_withdrawn_consent_blocks_sms_not_email(
-    as_owner: httpx.AsyncClient,
-    db: AsyncSession,
-    email: FakeEmailSender,
-    sms: FakeSmsSender,
-) -> None:
-    await _enable(db)
-    cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
-    db.add(
-        Consent(
-            id=new_id("consent"),
-            business_id=BIZ,
-            client_id=cid,
-            channel="sms",
-            basis="express",
-            status="withdrawn",
-        )
-    )
-    await db.flush()
-    inv_id = await _sent_invoice(db, cid)
-    await _pay_and_settle(as_owner, db, inv_id, "evt_consent")
-
-    assert sms.sent == []  # CASL withdrawal blocks the SMS channel
-    assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
 
 
 async def _bookable_item(db: AsyncSession) -> str:

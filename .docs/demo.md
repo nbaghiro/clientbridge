@@ -9,13 +9,13 @@ or `diego@`/`priya@birchbarkpets.ca` to switch users. No password needed in dev 
 none); prod accounts require one. Returns an app JWT, exchanged at `/sync/token`.
 
 ## 🐾 Birchbark Pet Studio (Victoria, BC)
-Pet grooming & daycare. **GST 5% + PST 7%** (exercises line-level multi-jurisdiction tax). **268 rows across all
-37 tables.** Script: `backend/scripts/seed_demo.py`.
+Pet grooming & daycare. **GST 5% + PST 7%** (exercises line-level multi-jurisdiction tax). **256 rows across all
+36 tables.** Script: `backend/scripts/seed_demo.py`.
 
 | Area | What's seeded |
 |---|---|
 | **Team** | Hannah Wong (owner, `us_dev`), Diego Ramirez (senior groomer, payee), Priya Patel (bather/desk) + 1 pending invite |
-| **Clients** | 12 — avatars, tags (vip/regular/new/churn-risk), consents |
+| **Clients** | 12 — avatars, tags (vip/regular/new/churn-risk) |
 | **Pets (subjects)** | 13 dogs/cats — breed, weight, temperament, photos |
 | **Catalog** | 12 items: grooming services, puppy class, monthly daycare (subscription), 5-bath package, retail products, gift card |
 | **Schedule** | 21 sessions / 21 bookings spanning past (completed) → today → +14d, incl. a no-show and a cancellation; availability + a recurring puppy class |

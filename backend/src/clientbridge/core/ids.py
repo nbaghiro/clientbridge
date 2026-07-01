@@ -8,7 +8,6 @@ PREFIXES: dict[str, str] = {
     "staff": "st",
     "client": "cl",
     "subject": "sj",
-    "consent": "cns",
     "note": "nt",
     "item": "it",
     "package": "pkg",
