@@ -1,5 +1,6 @@
 import {
-    type DocActionKey,
+    DOC_ACTION_LABEL,
+    type DocTab,
     type EstimateRow,
     type InvoiceRow,
     type PaymentRow,
@@ -35,20 +36,10 @@ import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
 
-type Tab = "invoices" | "estimates";
-
-const ACTION_LABELS: Record<DocActionKey, string> = {
-    send: "Send",
-    void: "Void",
-    accept: "Accept",
-    decline: "Decline",
-    convert: "Convert to invoice",
-};
-
 export function Invoices() {
     const invoices = useInvoices();
     const estimates = useEstimates();
-    const [tab, setTab] = useState<Tab>("invoices");
+    const [tab, setTab] = useState<DocTab>("invoices");
     const [creating, setCreating] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
     const { q, setQ, filtered } = useSearch<InvoiceRow | EstimateRow>(
@@ -194,7 +185,7 @@ function Overlay({ children }: { children: React.ReactNode }) {
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
 
-function NewDocModal({ kind, onClose }: { kind: Tab; onClose: () => void }) {
+function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
     const clients = useClients();
     const form = useDocForm(api, kind === "invoices" ? "invoice" : "estimate", onClose);
 
@@ -334,7 +325,7 @@ function DetailModal({
     row,
     onClose,
 }: {
-    kind: Tab;
+    kind: DocTab;
     row: InvoiceRow | EstimateRow | null;
     onClose: () => void;
 }) {
@@ -421,12 +412,12 @@ function DetailModal({
                             onClick={() =>
                                 void run(a.run, {
                                     onSuccess: onClose,
-                                    errorMessage: `Couldn't ${ACTION_LABELS[a.key].toLowerCase()} — please try again.`,
+                                    errorMessage: `Couldn't ${DOC_ACTION_LABEL[a.key].toLowerCase()} — please try again.`,
                                 })
                             }
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {ACTION_LABELS[a.key]}
+                            {DOC_ACTION_LABEL[a.key]}
                         </button>
                     ))}
                 </div>

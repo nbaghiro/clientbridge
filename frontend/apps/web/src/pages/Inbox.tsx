@@ -1,6 +1,7 @@
 import {
     type BroadcastResult,
     type Channel,
+    MESSAGE_CHANNELS,
     type MessageRow,
     type ThreadRow,
     channelLabel,
@@ -271,12 +272,10 @@ function ModalFrame({ children, onClose }: { children: React.ReactNode; onClose:
     );
 }
 
-const channels: Channel[] = ["sms", "email"];
-
 function ChannelToggle({ value, onChange }: { value: Channel; onChange: (c: Channel) => void }) {
     return (
         <div className="flex gap-2">
-            {channels.map((ch) => (
+            {MESSAGE_CHANNELS.map((ch) => (
                 <button
                     key={ch}
                     type="button"

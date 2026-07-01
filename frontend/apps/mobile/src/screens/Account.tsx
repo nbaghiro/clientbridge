@@ -1,4 +1,4 @@
-import { type AccountFields, useAccountForm } from "@clientbridge/app-core";
+import { ACCOUNT_TEXT_FIELDS, LOCALES, useAccountForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import {
     ActivityIndicator,
@@ -15,29 +15,6 @@ import {
 import { api } from "../lib/api";
 
 const c = theme.colors;
-
-const TEXT_FIELDS: {
-    key: keyof AccountFields;
-    label: string;
-    placeholder: string;
-    keyboard?: "email-address";
-}[] = [
-    { key: "name", label: "Business name", placeholder: "Birch Bark Pet Care" },
-    { key: "timezone", label: "Time zone", placeholder: "America/Toronto" },
-    {
-        key: "billing_email",
-        label: "Billing email",
-        placeholder: "you@example.com",
-        keyboard: "email-address",
-    },
-    { key: "gst_hst_number", label: "GST/HST number", placeholder: "123456789RT0001" },
-    { key: "qst_number", label: "QST number", placeholder: "1234567890TQ0001" },
-];
-
-const LOCALES: { code: string; label: string }[] = [
-    { code: "en", label: "English" },
-    { code: "fr", label: "Français" },
-];
 
 export function AccountScreen() {
     const form = useAccountForm(api);
@@ -59,7 +36,7 @@ export function AccountScreen() {
             >
                 <Text style={styles.note}>Your business profile and tax registration.</Text>
 
-                {TEXT_FIELDS.map((f) => (
+                {ACCOUNT_TEXT_FIELDS.map((f) => (
                     <View key={f.key}>
                         <Text style={styles.label}>{f.label}</Text>
                         <TextInput
@@ -70,7 +47,7 @@ export function AccountScreen() {
                             }}
                             placeholder={f.placeholder}
                             placeholderTextColor={c.muted}
-                            keyboardType={f.keyboard ?? "default"}
+                            keyboardType={f.key === "billing_email" ? "email-address" : "default"}
                             autoCapitalize={f.key === "billing_email" ? "none" : "sentences"}
                         />
                     </View>

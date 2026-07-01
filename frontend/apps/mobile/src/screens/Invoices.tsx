@@ -1,5 +1,6 @@
 import {
-    type DocActionKey,
+    DOC_ACTION_LABEL,
+    type DocTab,
     type EstimateRow,
     type InvoiceRow,
     type PaymentRow,
@@ -52,20 +53,11 @@ import { getTokens } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
-type Tab = "invoices" | "estimates";
-
-const ACTION_LABELS: Record<DocActionKey, string> = {
-    send: "Send",
-    void: "Void",
-    accept: "Accept",
-    decline: "Decline",
-    convert: "Convert",
-};
 
 export function InvoicesScreen() {
     const invoices = useInvoices();
     const estimates = useEstimates();
-    const [tab, setTab] = useState<Tab>("invoices");
+    const [tab, setTab] = useState<DocTab>("invoices");
     const [creating, setCreating] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
     const { q, setQ, filtered } = useSearch<InvoiceRow | EstimateRow>(
@@ -182,7 +174,7 @@ export function InvoicesScreen() {
     );
 }
 
-function NewDocSheet({ kind, onClose }: { kind: Tab; onClose: () => void }) {
+function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
     const clients = useClients();
     const form = useDocForm(api, kind === "invoices" ? "invoice" : "estimate", onClose);
 
@@ -320,7 +312,7 @@ function DetailModal({
     row,
     onClose,
 }: {
-    kind: Tab;
+    kind: DocTab;
     row: InvoiceRow | EstimateRow | null;
     onClose: () => void;
 }) {
@@ -405,7 +397,7 @@ function DetailModal({
                                         onPress={() =>
                                             void run(a.run, {
                                                 onSuccess: onClose,
-                                                errorMessage: `Couldn't ${ACTION_LABELS[
+                                                errorMessage: `Couldn't ${DOC_ACTION_LABEL[
                                                     a.key
                                                 ].toLowerCase()} — please try again.`,
                                             })
@@ -415,7 +407,7 @@ function DetailModal({
                                             <ActivityIndicator color={c.accentInk} />
                                         ) : (
                                             <Text style={styles.saveText}>
-                                                {ACTION_LABELS[a.key]}
+                                                {DOC_ACTION_LABEL[a.key]}
                                             </Text>
                                         )}
                                     </Pressable>

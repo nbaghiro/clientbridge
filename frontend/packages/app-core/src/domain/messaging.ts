@@ -8,6 +8,9 @@ import type { Intent } from "../util/primitives";
 
 export type Channel = "sms" | "email";
 
+/** The channels a message/broadcast can go out on. */
+export const MESSAGE_CHANNELS: Channel[] = ["sms", "email"];
+
 export interface ThreadRow {
     id: string;
     client_id: string;

@@ -22,6 +22,25 @@ export interface AccountFields {
     qst_number: string;
 }
 
+/** The editable business-profile text fields, shared so web + mobile render the same set + labels. */
+export const ACCOUNT_TEXT_FIELDS: {
+    key: keyof AccountFields;
+    label: string;
+    placeholder: string;
+}[] = [
+    { key: "name", label: "Business name", placeholder: "Birch Bark Pet Care" },
+    { key: "timezone", label: "Time zone", placeholder: "America/Toronto" },
+    { key: "billing_email", label: "Billing email", placeholder: "you@example.com" },
+    { key: "gst_hst_number", label: "GST/HST number", placeholder: "123456789RT0001" },
+    { key: "qst_number", label: "QST number", placeholder: "1234567890TQ0001" },
+];
+
+/** Supported UI languages (the bilingual EN/FR selector). */
+export const LOCALES: { code: string; label: string }[] = [
+    { code: "en", label: "English" },
+    { code: "fr", label: "Français" },
+];
+
 export interface AccountForm {
     fields: AccountFields | null; // null until the synced business row loads
     set: (key: keyof AccountFields, value: string) => void;
