@@ -1,8 +1,11 @@
 import {
     type ReviewRow,
     canManagePayments,
+    emptyStars,
+    formatAverageRating,
     formatRelativeTime,
     reviewStatusIntent,
+    roundedRating,
     useClients,
     useCurrentRole,
     useRequestReviewForm,
@@ -102,9 +105,9 @@ function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummar
                 <>
                     <div className="flex items-baseline gap-1">
                         <span className="font-display text-4xl font-bold tabular-nums text-ink">
-                            {(summary.average ?? 0).toFixed(1)}
+                            {formatAverageRating(summary.average)}
                         </span>
-                        <Stars rating={Math.round(summary.average ?? 0)} />
+                        <Stars rating={roundedRating(summary.average)} />
                     </div>
                     <p className="text-sm text-muted">
                         {summary.count} published review{summary.count === 1 ? "" : "s"}
@@ -119,7 +122,7 @@ function Stars({ rating }: { rating: number }) {
     return (
         <span aria-label={`${rating} out of 5`} className="text-lg text-accent">
             {"★".repeat(rating)}
-            <span className="text-line">{"★".repeat(Math.max(0, 5 - rating))}</span>
+            <span className="text-line">{"★".repeat(emptyStars(rating))}</span>
         </span>
     );
 }

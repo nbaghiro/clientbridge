@@ -1,8 +1,11 @@
 import {
     type ReviewRow,
     canManagePayments,
+    emptyStars,
+    formatAverageRating,
     formatRelativeTime,
     reviewStatusIntent,
+    roundedRating,
     useClients,
     useCurrentRole,
     useRequestReviewForm,
@@ -60,8 +63,8 @@ function ReviewsBody() {
                     <Text style={styles.muted}>No published reviews yet.</Text>
                 ) : (
                     <>
-                        <Text style={styles.average}>{(summary.average ?? 0).toFixed(1)}</Text>
-                        <Stars rating={Math.round(summary.average ?? 0)} />
+                        <Text style={styles.average}>{formatAverageRating(summary.average)}</Text>
+                        <Stars rating={roundedRating(summary.average)} />
                         <Text style={styles.muted}>
                             {summary.count} published review{summary.count === 1 ? "" : "s"}
                         </Text>
@@ -101,7 +104,7 @@ function Stars({ rating }: { rating: number }) {
     return (
         <Text style={styles.stars}>
             {"★".repeat(rating)}
-            <Text style={styles.starsEmpty}>{"★".repeat(Math.max(0, 5 - rating))}</Text>
+            <Text style={styles.starsEmpty}>{"★".repeat(emptyStars(rating))}</Text>
         </Text>
     );
 }
