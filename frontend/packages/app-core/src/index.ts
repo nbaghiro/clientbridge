@@ -1,3 +1,4 @@
+export * from "./icons";
 export * from "./util/api";
 export * from "./util/datetime";
 export * from "./util/format";
