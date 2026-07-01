@@ -117,8 +117,9 @@ async def test_logout_unknown_token_204(api: httpx.AsyncClient) -> None:
 
 
 async def test_tampered_access_token_rejected(api: httpx.AsyncClient) -> None:
-    good = issue_access_token(OWNER_USER)
-    tampered = good[:-1] + ("A" if good[-1] != "A" else "B")
+    # real header + payload, but a signature that can't match the HMAC → always rejected
+    header, payload, _sig = issue_access_token(OWNER_USER).split(".")
+    tampered = f"{header}.{payload}.wrongsignature"
     assert (await api.get("/v1/clients", headers=_auth(tampered))).status_code == 401
 
 
