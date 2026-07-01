@@ -1,6 +1,16 @@
+import { type IconName, type IconPrimitive, ICON_SPECS } from "@clientbridge/app-core";
 import type { ReactNode } from "react";
 
-function Icon({ className, children }: { className?: string | undefined; children: ReactNode }) {
+function prims(name: IconName): ReactNode {
+    return ICON_SPECS[name].map((p: IconPrimitive, i) => {
+        if (p.kind === "rect")
+            return <rect key={i} x={p.x} y={p.y} width={p.width} height={p.height} rx={p.rx} />;
+        if (p.kind === "circle") return <circle key={i} cx={p.cx} cy={p.cy} r={p.r} />;
+        return <path key={i} d={p.d} />;
+    });
+}
+
+function Icon({ name, className }: { name: IconName; className?: string | undefined }) {
     return (
         <svg
             viewBox="0 0 24 24"
@@ -12,101 +22,55 @@ function Icon({ className, children }: { className?: string | undefined; childre
             className={className}
             aria-hidden="true"
         >
-            {children}
+            {prims(name)}
         </svg>
     );
 }
 
 export const IconToday = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="14" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" />
-    </Icon>
+    <Icon name="today" className={className} />
 );
 export const IconCalendar = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <rect x="3" y="4" width="18" height="18" rx="2" />
-        <path d="M16 2v4M8 2v4M3 10h18" />
-    </Icon>
+    <Icon name="calendar" className={className} />
 );
 export const IconClients = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-    </Icon>
+    <Icon name="clients" className={className} />
 );
 export const IconInvoices = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
-    </Icon>
+    <Icon name="invoices" className={className} />
 );
 export const IconInbox = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </Icon>
+    <Icon name="inbox" className={className} />
 );
 export const IconCatalog = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10z" />
-        <circle cx="7" cy="7" r="1.4" />
-    </Icon>
+    <Icon name="catalog" className={className} />
 );
 export const IconPlus = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M12 5v14M5 12h14" />
-    </Icon>
+    <Icon name="plus" className={className} />
 );
 export const IconSearch = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.3-4.3" />
-    </Icon>
+    <Icon name="search" className={className} />
 );
 export const IconPos = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <rect x="2" y="5" width="20" height="14" rx="2" />
-        <path d="M2 10h20M6 15h4" />
-    </Icon>
+    <Icon name="pos" className={className} />
 );
 export const IconReports = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M3 3v18h18" />
-        <path d="M7 14v3M12 9v8M17 5v12" />
-    </Icon>
+    <Icon name="reports" className={className} />
 );
 export const IconPayouts = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <rect x="2" y="6" width="20" height="12" rx="2" />
-        <circle cx="12" cy="12" r="2.5" />
-        <path d="M6 12h.01M18 12h.01" />
-    </Icon>
+    <Icon name="payouts" className={className} />
 );
 export const IconReviews = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M12 17.3 6.16 20.5l1.12-6.53L2.5 9.34l6.56-.95L12 2.5l2.94 5.89 6.56.95-4.78 4.63 1.12 6.53z" />
-    </Icon>
+    <Icon name="reviews" className={className} />
 );
 export const IconGift = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <rect x="3" y="8" width="18" height="4" rx="1" />
-        <path d="M12 8v13M5 12v9h14v-9" />
-        <path d="M12 8C12 8 11 3 8 3a2 2 0 0 0 0 5zM12 8c0 0 1-5 4-5a2 2 0 0 1 0 5z" />
-    </Icon>
+    <Icon name="gift" className={className} />
 );
 export const IconLogout = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
-    </Icon>
+    <Icon name="logout" className={className} />
 );
 export const IconSettings = ({ className }: { className?: string }) => (
-    <Icon className={className}>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </Icon>
+    <Icon name="settings" className={className} />
 );
 
 export function Logo({ className }: { className?: string }) {

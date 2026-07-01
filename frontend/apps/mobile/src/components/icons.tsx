@@ -1,3 +1,4 @@
+import { type IconName, type IconPrimitive, ICON_SPECS } from "@clientbridge/app-core";
 import type { ReactNode } from "react";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
@@ -6,7 +7,25 @@ interface IconProps {
     color?: string | undefined;
 }
 
-function NavIcon({ size = 22, color = "#000", children }: IconProps & { children: ReactNode }) {
+function prims(name: IconName): ReactNode {
+    return ICON_SPECS[name].map((p: IconPrimitive, i) => {
+        if (p.kind === "rect")
+            return (
+                <Rect
+                    key={i}
+                    x={p.x}
+                    y={p.y}
+                    width={p.width}
+                    height={p.height}
+                    {...(p.rx !== undefined ? { rx: p.rx } : {})}
+                />
+            );
+        if (p.kind === "circle") return <Circle key={i} cx={p.cx} cy={p.cy} r={p.r} />;
+        return <Path key={i} d={p.d} />;
+    });
+}
+
+function NavIcon({ name, size = 22, color = "#000" }: IconProps & { name: IconName }) {
     return (
         <Svg
             width={size}
@@ -19,82 +38,37 @@ function NavIcon({ size = 22, color = "#000", children }: IconProps & { children
             strokeLinejoin="round"
             style={{ width: size, height: size }}
         >
-            {children}
+            {prims(name)}
         </Svg>
     );
 }
 
 export function IconToday({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Rect x="3" y="3" width="7" height="7" rx="1.5" />
-            <Rect x="14" y="3" width="7" height="7" rx="1.5" />
-            <Rect x="14" y="14" width="7" height="7" rx="1.5" />
-            <Rect x="3" y="14" width="7" height="7" rx="1.5" />
-        </NavIcon>
-    );
+    return <NavIcon name="today" size={size} color={color} />;
 }
 export function IconCalendar({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Rect x="3" y="4" width="18" height="18" rx="2" />
-            <Path d="M16 2v4M8 2v4M3 10h18" />
-        </NavIcon>
-    );
+    return <NavIcon name="calendar" size={size} color={color} />;
 }
 export function IconClients({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-            <Circle cx="9" cy="7" r="4" />
-            <Path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-        </NavIcon>
-    );
+    return <NavIcon name="clients" size={size} color={color} />;
 }
 export function IconInbox({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </NavIcon>
-    );
+    return <NavIcon name="inbox" size={size} color={color} />;
 }
 export function IconPlus({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Path d="M12 5v14M5 12h14" />
-        </NavIcon>
-    );
+    return <NavIcon name="plus" size={size} color={color} />;
 }
 export function IconSearch({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Circle cx="11" cy="11" r="8" />
-            <Path d="m21 21-4.3-4.3" />
-        </NavIcon>
-    );
+    return <NavIcon name="search" size={size} color={color} />;
 }
 export function IconSettings({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Circle cx="12" cy="12" r="3" />
-            <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-        </NavIcon>
-    );
+    return <NavIcon name="settings" size={size} color={color} />;
 }
 export function IconPos({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Rect x="2" y="5" width="20" height="14" rx="2" />
-            <Path d="M2 10h20M6 15h4" />
-        </NavIcon>
-    );
+    return <NavIcon name="pos" size={size} color={color} />;
 }
 export function IconChevron({ size, color }: IconProps) {
-    return (
-        <NavIcon size={size} color={color}>
-            <Path d="m9 18 6-6-6-6" />
-        </NavIcon>
-    );
+    return <NavIcon name="chevron" size={size} color={color} />;
 }
 
 export function Logo({ size = 32, color = "#3f5e80" }: { size?: number; color?: string }) {
