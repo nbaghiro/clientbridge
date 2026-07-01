@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     env: str = "dev"
-    api_port: int = 8701  # Clientbridge 87xx block — see docs/ports.md
     database_url: str = "postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge"
 
     jwt_secret: str = "clientbridge-dev-secret-do-not-use-in-prod"  # matches infra/powersync jwks
@@ -27,7 +26,6 @@ class Settings(BaseSettings):
     s3_region: str = "us-east-1"
     s3_presign_ttl_seconds: int = 3600
 
-    powersync_url: str = "http://localhost:8704"
     powersync_audience: str = "powersync"
     powersync_kid: str = "clientbridge-dev"  # matches infra/powersync/powersync.yaml
     powersync_use_rs256: bool = False  # prod: sign PowerSync tokens with RS256, verified via JWKS
