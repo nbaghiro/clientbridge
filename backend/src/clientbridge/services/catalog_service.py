@@ -1,14 +1,20 @@
 from collections.abc import Sequence
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_count, scoped_page
 from clientbridge.models.catalog import Item
 from clientbridge.schemas.catalog import ItemCreate, ItemUpdate
-from clientbridge.services.base import BaseService
 
 
-class CatalogService(BaseService):
+class CatalogService:
+    def __init__(self, db: AsyncSession, principal: Principal) -> None:
+        self.db = db
+        self.principal = principal
+
     async def list(self, *, limit: int, offset: int) -> tuple[Sequence[Item], int]:
         biz = self.principal.business_id
         items = await scoped_page(self.db, Item, biz, limit=limit, offset=offset)
