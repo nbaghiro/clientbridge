@@ -145,19 +145,14 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     const stripeAccount = useStripeAccountId() ?? "";
 
     if (form.clientSecret !== null) {
-        const selected = items.find((i) => i.id === form.itemId);
-        const faceCents =
-            form.mode === "preset"
-                ? (selected?.price_cents ?? null)
-                : Math.round(Number(form.amount) * 100);
         return (
             <Panel title="Confirm gift card payment">
                 <CardConfirm
                     clientSecret={form.clientSecret}
                     stripeAccount={stripeAccount}
                     amountLabel={
-                        faceCents !== null && Number.isFinite(faceCents)
-                            ? formatMoney(faceCents)
+                        form.faceAmountCents !== null
+                            ? formatMoney(form.faceAmountCents)
                             : "gift card"
                     }
                     onPaid={form.complete}

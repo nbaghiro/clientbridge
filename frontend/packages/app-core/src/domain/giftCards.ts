@@ -5,6 +5,7 @@ import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/primitives";
+import { giftItems, useCatalogItems } from "./catalog";
 import { useInteractivePurchase } from "./payments";
 
 export interface GiftCardRow {
@@ -90,6 +91,7 @@ export interface GiftCardSaleForm {
     setRecipient: (v: string) => void;
     paymentMethodId: string; // "" = pay with a new card (interactive)
     setPaymentMethodId: (v: string) => void;
+    faceAmountCents: number | null; // the card's face value (preset price or parsed custom), for display
     busy: boolean;
     error: string | null;
     clientSecret: string | null;
@@ -108,6 +110,14 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
     const [amount, setAmount] = useState("");
     const [recipient, setRecipient] = useState("");
     const [paymentMethodId, setPaymentMethodId] = useState("");
+    const items = giftItems(useCatalogItems());
+    const customCents = Math.round(Number(amount) * 100);
+    const faceAmountCents =
+        mode === "preset"
+            ? (items.find((i) => i.id === itemId)?.price_cents ?? null)
+            : Number.isFinite(customCents) && customCents > 0
+              ? customCents
+              : null;
     const purchase = useInteractivePurchase(() => {
         setPurchaserClientId("");
         setMode("custom");
@@ -131,12 +141,11 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
             }
             face = { item_id: itemId };
         } else {
-            const cents = Math.round(Number(amount) * 100);
-            if (!Number.isFinite(cents) || cents <= 0) {
+            if (faceAmountCents === null) {
                 purchase.setError("Enter a gift card amount");
                 return;
             }
-            face = { amount_cents: cents };
+            face = { amount_cents: faceAmountCents };
         }
         const interactive = paymentMethodId === "";
         purchase.submit(
@@ -169,6 +178,7 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
         setRecipient,
         paymentMethodId,
         setPaymentMethodId,
+        faceAmountCents,
         busy: purchase.busy,
         error: purchase.error,
         clientSecret: purchase.clientSecret,

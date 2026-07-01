@@ -553,8 +553,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
     const [interval, setInterval] = useState(1);
     const [count, setCount] = useState(8);
     const [notice, setNotice] = useState<string | null>(null);
-    const [busy, setBusy] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const { busy, error, setError, run } = useAsyncAction();
 
     const effStaff = staffId.length > 0 ? staffId : (staff.at(0)?.id ?? "");
 
@@ -569,45 +568,45 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
             setError("Pick a client, service, and time.");
             return;
         }
-        setBusy(true);
-        setError(null);
         setNotice(null);
-        try {
-            if (repeat) {
-                const result = await createSchedule(api, {
-                    clientId,
-                    itemId,
-                    staffId: effStaff,
-                    startsAt,
-                    frequency,
-                    interval: Math.max(1, interval),
-                    count: Math.max(1, count),
-                });
-                setClientId("");
-                setItemId("");
-                // A clean series closes; one that skipped occurrences stays open with a notice.
-                if (result.skipped > 0) {
-                    setNotice(
-                        `Booked ${result.created}, skipped ${result.skipped} (already taken or outside hours).`,
-                    );
+        let created = 0;
+        let skipped = 0;
+        await run(
+            async () => {
+                if (repeat) {
+                    const result = await createSchedule(api, {
+                        clientId,
+                        itemId,
+                        staffId: effStaff,
+                        startsAt,
+                        frequency,
+                        interval: Math.max(1, interval),
+                        count: Math.max(1, count),
+                    });
+                    created = result.created;
+                    skipped = result.skipped;
                 } else {
-                    onCreated();
+                    await createBooking(api, { clientId, itemId, staffId: effStaff, startsAt });
                 }
-            } else {
-                await createBooking(api, { clientId, itemId, staffId: effStaff, startsAt });
-                setClientId("");
-                setItemId("");
-                onCreated();
-            }
-        } catch {
-            setError(
-                repeat
+            },
+            {
+                onSuccess: () => {
+                    setClientId("");
+                    setItemId("");
+                    // A clean series closes; one that skipped occurrences stays open with a notice.
+                    if (repeat && skipped > 0) {
+                        setNotice(
+                            `Booked ${created}, skipped ${skipped} (already taken or outside hours).`,
+                        );
+                    } else {
+                        onCreated();
+                    }
+                },
+                errorMessage: repeat
                     ? "Could not create the series. Please try again."
                     : "Could not book — that time may already be taken.",
-            );
-        } finally {
-            setBusy(false);
-        }
+            },
+        );
     };
 
     return {

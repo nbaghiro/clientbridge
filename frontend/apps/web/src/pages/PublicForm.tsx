@@ -6,6 +6,7 @@ import {
     createPublicFormClient,
     isAnswerMissing,
     isFileField,
+    optionPair,
     useAsyncAction,
 } from "@clientbridge/app-core";
 import { type FormEvent, useEffect, useState } from "react";
@@ -133,21 +134,6 @@ export function PublicForm() {
             </form>
         </Frame>
     );
-}
-
-function optionPair(option: unknown): { value: string; label: string } {
-    if (typeof option === "string") return { value: option, label: option };
-    if (typeof option === "number" || typeof option === "boolean") {
-        const s = String(option);
-        return { value: s, label: s };
-    }
-    if (typeof option === "object" && option !== null) {
-        const o = option as { value?: unknown; label?: unknown };
-        const value = typeof o.value === "string" ? o.value : "";
-        const label = typeof o.label === "string" ? o.label : value;
-        return { value, label };
-    }
-    return { value: "", label: "" };
 }
 
 function FieldView({

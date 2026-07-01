@@ -37,6 +37,23 @@ export interface ReviewSummary {
     count: number;
 }
 
+export const MAX_STARS = 5;
+
+/** One-decimal average for display (a null/absent average shows as "0.0"). */
+export function formatAverageRating(average: number | null): string {
+    return (average ?? 0).toFixed(1);
+}
+
+/** The whole-star count for an average (rounded; drives the filled stars). */
+export function roundedRating(average: number | null): number {
+    return Math.round(average ?? 0);
+}
+
+/** The empty-star count that pads a filled rating out to `MAX_STARS`. */
+export function emptyStars(filled: number): number {
+    return Math.max(0, MAX_STARS - filled);
+}
+
 /** The published-reviews summary (REST). `null` = loading, `"error"` = the fetch failed. Bump
  *  `reloadKey` to refetch after a publish/hide changes which reviews count. */
 export function useReviewSummary(api: ApiLike, reloadKey = 0): ReviewSummary | "error" | null {
