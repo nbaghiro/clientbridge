@@ -11,6 +11,7 @@ import { api, onSignedOut } from "./lib/api";
 import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
+import { Account } from "./pages/Account";
 import { BookingForms } from "./pages/BookingForms";
 import { Calendar } from "./pages/Calendar";
 import { Catalog } from "./pages/Catalog";
@@ -115,7 +116,7 @@ function AppRoutes({
                         <Route path="reports" element={<Reports />} />
                         <Route path="settings" element={<SettingsLayout />}>
                             <Route index element={<Navigate to="/settings/catalog" replace />} />
-                            <Route path="account" element={<Placeholder title="Account" />} />
+                            <Route path="account" element={<Account />} />
                             <Route path="catalog" element={<Catalog />} />
                             <Route path="taxes" element={<TaxSettings />} />
                             <Route path="payments" element={<PaymentsSettings />} />

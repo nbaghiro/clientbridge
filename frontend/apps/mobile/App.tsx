@@ -15,6 +15,7 @@ import { clearTokens, getTokens } from "./src/lib/auth";
 import { connectPowerSync, db, signOut } from "./src/lib/powersync";
 import { registerForPush } from "./src/lib/push";
 import type { RootStackParamList } from "./src/navigation";
+import { AccountScreen } from "./src/screens/Account";
 import { CalendarScreen } from "./src/screens/Calendar";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
@@ -159,7 +160,7 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                         />
                         <RootStack.Screen
                             name="Account"
-                            component={ComingSoon}
+                            component={AccountScreen}
                             options={{ title: "Account" }}
                         />
                         <RootStack.Screen

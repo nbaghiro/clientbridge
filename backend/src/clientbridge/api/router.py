@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from clientbridge.api.v1 import (
     bookings,
+    business,
     catalog,
     clients,
     contracts,
@@ -30,6 +31,7 @@ from clientbridge.api.v1 import (
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(clients.router)
+api_router.include_router(business.router)
 api_router.include_router(catalog.router)
 api_router.include_router(bookings.router)
 api_router.include_router(invoices.router)

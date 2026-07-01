@@ -546,6 +546,23 @@ export interface paths {
         patch: operations["update_client_v1_clients__client_id__patch"];
         trace?: never;
     };
+    "/v1/business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Business */
+        patch: operations["update_business_v1_business_patch"];
+        trace?: never;
+    };
     "/v1/items": {
         parameters: {
             query?: never;
@@ -1723,6 +1740,31 @@ export interface components {
             locale: string;
             /** Status */
             status: string;
+            /** Billing Email */
+            billing_email: string | null;
+            /** Gst Hst Number */
+            gst_hst_number: string | null;
+            /** Qst Number */
+            qst_number: string | null;
+        };
+        /**
+         * BusinessSettingsUpdate
+         * @description Editable account fields (partial — only sent keys are applied). Slug + province are fixed
+         *     here (province drives seeded tax rates); the tax numbers accept "" to clear.
+         */
+        BusinessSettingsUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /** Locale */
+            locale?: string | null;
+            /** Billing Email */
+            billing_email?: string | null;
+            /** Gst Hst Number */
+            gst_hst_number?: string | null;
+            /** Qst Number */
+            qst_number?: string | null;
         };
         /** CheckoutOut */
         CheckoutOut: {
@@ -4145,6 +4187,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_business_v1_business_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BusinessOut"];
                 };
             };
             /** @description Validation Error */
