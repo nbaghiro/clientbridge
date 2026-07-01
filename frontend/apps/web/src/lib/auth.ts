@@ -1,4 +1,5 @@
 import type { TokenPair } from "@clientbridge/api-client";
+import { useCurrentRole } from "@clientbridge/app-core";
 
 export type { TokenPair };
 
@@ -19,4 +20,10 @@ export function clearTokens(): void {
 
 export function isAuthenticated(): boolean {
     return getTokens() !== null;
+}
+
+/** The signed-in user's role from the stored token — the (sync) web side of the token seam behind
+ *  app-core's shared decode. Mobile's counterpart reads SecureStore asynchronously. */
+export function useRole(): string | null {
+    return useCurrentRole(getTokens()?.access_token ?? null);
 }

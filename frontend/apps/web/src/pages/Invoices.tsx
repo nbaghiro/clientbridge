@@ -21,7 +21,6 @@ import {
     refundPayment,
     useAsyncAction,
     useClients,
-    useCurrentRole,
     useDocForm,
     useEstimates,
     useInvoicePayments,
@@ -34,7 +33,7 @@ import { useState } from "react";
 import { IconPlus, IconSearch } from "../components/icons";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 export function Invoices() {
     const invoices = useInvoices();
@@ -331,7 +330,7 @@ function DetailModal({
 }) {
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
     const { busy, error, run } = useAsyncAction();
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
 
     if (row === null) return null;
     const isInvoice = kind === "invoices";

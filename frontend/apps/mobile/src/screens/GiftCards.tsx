@@ -7,7 +7,6 @@ import {
     savedCardLabel,
     useCatalogItems,
     useClients,
-    useCurrentRole,
     useGiftCardRedeemForm,
     GIFT_SALE_MODES,
     GIFT_SALE_MODE_LABEL,
@@ -16,7 +15,7 @@ import {
     useSavedCards,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -30,18 +29,12 @@ import {
 import { CardPaymentConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 
 export function GiftCardsScreen() {
-    const [token, setToken] = useState<string | null>(null);
-    useEffect(() => {
-        void getTokens().then((t) => {
-            setToken(t?.access_token ?? null);
-        });
-    }, []);
-    const role = useCurrentRole(token);
+    const role = useRole();
 
     if (!canManagePayments(role)) {
         return (

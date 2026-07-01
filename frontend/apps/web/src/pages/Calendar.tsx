@@ -37,7 +37,6 @@ import {
     useCalendarEvents,
     useCancelBooking,
     useCollectDeposit,
-    useCurrentRole,
     useSavedCards,
     useStaff,
     useStripeAccountId,
@@ -55,7 +54,7 @@ import {
 import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const HOUR_PX = 48;
 const MIN_HOUR_PX = 44;
@@ -833,7 +832,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
 }
 
 function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(api, event, onClose);
     const stripeAccount = useStripeAccountId() ?? "";

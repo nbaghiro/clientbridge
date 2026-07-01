@@ -6,7 +6,6 @@ import {
     formatMoney,
     formatRelativeTime,
     useAllocationActions,
-    useCurrentRole,
     usePayoutFilter,
     useStaffPayouts,
     type AllocationRow,
@@ -14,10 +13,10 @@ import {
 
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 export function Payouts() {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
 
     if (!canManagePayments(role)) {
         return (

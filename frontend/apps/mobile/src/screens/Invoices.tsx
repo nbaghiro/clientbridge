@@ -21,7 +21,6 @@ import {
     refundPayment,
     useAsyncAction,
     useClients,
-    useCurrentRole,
     useDocForm,
     useEstimates,
     useInvoicePayments,
@@ -30,7 +29,7 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -49,7 +48,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { IconPlus, IconSearch } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
@@ -318,13 +317,7 @@ function DetailModal({
 }) {
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
     const { busy, error, run } = useAsyncAction();
-    const [token, setToken] = useState<string | null>(null);
-    useEffect(() => {
-        void getTokens().then((t) => {
-            setToken(t?.access_token ?? null);
-        });
-    }, []);
-    const canRefund = canManagePayments(useCurrentRole(token));
+    const canRefund = canManagePayments(useRole());
 
     const isInvoice = kind === "invoices";
     const invoice = isInvoice ? (row as InvoiceRow | null) : null;

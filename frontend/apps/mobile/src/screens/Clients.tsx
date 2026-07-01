@@ -33,14 +33,13 @@ import {
     useClientPackages,
     useClientSubscriptions,
     useClients,
-    useCurrentRole,
     usePackageSaleForm,
     useSavedCards,
     useSearch,
     useSubscriptionForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { type ComponentProps, useEffect, useState } from "react";
+import { type ComponentProps, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -59,7 +58,7 @@ import { IconPlus, IconSearch } from "../components/icons";
 import { CardPaymentConfirm, CardSetupConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 
@@ -159,13 +158,7 @@ function ClientRowView({ cl, onPress }: { cl: ClientRow; onPress: () => void }) 
 }
 
 function ClientDetailSheet({ client, onClose }: { client: ClientRow | null; onClose: () => void }) {
-    const [token, setToken] = useState<string | null>(null);
-    useEffect(() => {
-        void getTokens().then((t) => {
-            setToken(t?.access_token ?? null);
-        });
-    }, []);
-    const canManage = canManagePayments(useCurrentRole(token));
+    const canManage = canManagePayments(useRole());
 
     return (
         <Modal visible={client !== null} transparent animationType="slide" onRequestClose={onClose}>

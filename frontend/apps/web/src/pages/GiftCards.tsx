@@ -9,7 +9,6 @@ import {
     savedCardLabel,
     useCatalogItems,
     useClients,
-    useCurrentRole,
     useGiftCardRedeemForm,
     GIFT_SALE_MODES,
     GIFT_SALE_MODE_LABEL,
@@ -23,13 +22,13 @@ import { useState } from "react";
 import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
 
 export function GiftCards() {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
     const cards = useGiftCards();
     const [mode, setMode] = useState<"sell" | "redeem" | null>(null);
 

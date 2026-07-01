@@ -1,7 +1,7 @@
-import { canManagePayments, useCurrentRole } from "@clientbridge/app-core";
+import { canManagePayments } from "@clientbridge/app-core";
 import { NavLink, Outlet } from "react-router-dom";
 
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 import {
     IconCalendar,
     IconClients,
@@ -26,7 +26,7 @@ const linkClass = ({ isActive }: { isActive: boolean }): string =>
     }`;
 
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
     const nav = [
         { to: "/home", label: "Today", Icon: IconToday },
         { to: "/calendar", label: "Calendar", Icon: IconCalendar },

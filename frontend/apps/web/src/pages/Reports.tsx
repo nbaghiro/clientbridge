@@ -4,17 +4,16 @@ import {
     canManagePayments,
     defaultReportRange,
     formatMoney,
-    useCurrentRole,
     useReportDownload,
     useReports,
 } from "@clientbridge/app-core";
 import { useState } from "react";
 
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 export function Reports() {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
 
     if (!canManagePayments(role)) {
         return (
