@@ -18,7 +18,11 @@ import {
     formatRangeLabel,
     formatTime,
     formatWeekday,
+    combineDayAndTime,
+    formatFullDate,
+    formatMonthYear,
     groupByDay,
+    groupByStaff,
     layoutDay,
     minutesSinceMidnight,
     monthMatrix,
@@ -126,12 +130,13 @@ export function Calendar() {
     const events = useCalendarEvents(start, end);
     const staff = useStaff();
 
+    const byStaff = groupByStaff(events);
     const lanes: Lane[] = isStaff
         ? staff.map((s) => ({
               key: s.id,
               header: <StaffHeader staff={s} />,
               dayStart: startOfDay(anchor),
-              events: events.filter((e) => e.staffId === s.id),
+              events: byStaff.get(s.id) ?? [],
               isToday: sameDay(anchor, now),
           }))
         : dateCols.map((day) => ({
@@ -143,9 +148,9 @@ export function Calendar() {
           }));
 
     const label = isStaff
-        ? anchor.toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })
+        ? formatFullDate(anchor)
         : isMonth
-          ? anchor.toLocaleDateString("en-CA", { month: "long", year: "numeric" })
+          ? formatMonthYear(anchor)
           : formatRangeLabel(dateCols);
 
     return (
@@ -541,36 +546,30 @@ function AgendaView({
                     <div key={day.toISOString()} className="border-b border-line py-3">
                         <div className="mb-2 text-sm font-semibold text-ink">
                             {sameDay(day, now) ? "Today · " : ""}
-                            {day.toLocaleDateString("en-CA", {
-                                weekday: "long",
-                                month: "long",
-                                day: "numeric",
-                            })}
+                            {formatFullDate(day)}
                         </div>
                         <div className="space-y-1">
-                            {dayEvents
-                                .sort((a, b) => a.start.getTime() - b.start.getTime())
-                                .map((e) => (
-                                    <button
-                                        type="button"
-                                        key={e.id}
-                                        onClick={() => {
-                                            onEventClick(e);
-                                        }}
-                                        className="flex w-full items-center gap-3 rounded-md py-1 text-left hover:bg-bg"
-                                    >
-                                        <div className="w-20 shrink-0 text-sm text-muted">
-                                            {formatTime(e.start)}
-                                        </div>
-                                        <div
-                                            className={`h-2 w-2 shrink-0 rounded-full ${dotClass(e.status)}`}
-                                        />
-                                        <div className="text-sm font-medium text-ink">
-                                            {eventLabel(e)}
-                                        </div>
-                                        <div className="text-sm text-muted">{e.title}</div>
-                                    </button>
-                                ))}
+                            {dayEvents.map((e) => (
+                                <button
+                                    type="button"
+                                    key={e.id}
+                                    onClick={() => {
+                                        onEventClick(e);
+                                    }}
+                                    className="flex w-full items-center gap-3 rounded-md py-1 text-left hover:bg-bg"
+                                >
+                                    <div className="w-20 shrink-0 text-sm text-muted">
+                                        {formatTime(e.start)}
+                                    </div>
+                                    <div
+                                        className={`h-2 w-2 shrink-0 rounded-full ${dotClass(e.status)}`}
+                                    />
+                                    <div className="text-sm font-medium text-ink">
+                                        {eventLabel(e)}
+                                    </div>
+                                    <div className="text-sm text-muted">{e.title}</div>
+                                </button>
+                            ))}
                         </div>
                     </div>
                 );
@@ -626,7 +625,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
-        void form.submit(new Date(`${date}T${time}`));
+        void form.submit(combineDayAndTime(date, time));
     };
 
     return (
