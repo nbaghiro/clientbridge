@@ -176,3 +176,111 @@ async def test_payee_staff_allocation_on_paid_invoice(
     assert alloc.amount_cents == 6000  # 60% of the $100 line
     assert alloc.basis == "percent"
     assert alloc.status == "pending"
+
+
+async def _allocate_for(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    *,
+    rate_type: str,
+    rate: float,
+    end_hour: int = 16,
+    end_min: int = 0,
+) -> PayoutAllocation:
+    """Set Diego's payee rate, run a $100 booking line through pay+settle, return its allocation."""
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_alloc", stripe_charges_enabled=True)
+    )
+    await db.execute(
+        update(Staff)
+        .where(Staff.id == "st_diego")
+        .values(is_payee=True, rate_type=rate_type, default_rate=rate)
+    )
+    await db.flush()
+    cid = await _seed_client(db)
+    item_id = await _seed_item(db)
+    sess = Session(
+        id=new_id("session"),
+        business_id=BIZ,
+        item_id=item_id,
+        staff_id="st_diego",
+        starts_at=datetime(2030, 1, 1, 15, tzinfo=UTC),
+        ends_at=datetime(2030, 1, 1, end_hour, end_min, tzinfo=UTC),
+        capacity=1,
+        booked_count=1,
+        status="scheduled",
+    )
+    db.add(sess)
+    await db.flush()
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=BIZ,
+        session_id=sess.id,
+        staff_id="st_diego",
+        client_id=cid,
+        status="confirmed",
+        source="manual",
+        price_cents=10000,
+    )
+    db.add(booking)
+    await db.flush()
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=cid,
+        number=9301,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=10000,
+        tax_total_cents=0,
+        total_cents=10000,
+        balance_cents=10000,
+    )
+    db.add(inv)
+    await db.flush()
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            parent_type="invoice",
+            parent_id=inv.id,
+            description="Service",
+            booking_id=booking.id,
+            quantity=1,
+            unit_amount_cents=10000,
+            amount_cents=10000,
+            position=0,
+        )
+    )
+    await db.flush()
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv.id}")).json()
+    pi = (
+        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
+    ).scalar_one()
+    event = json.dumps(
+        {
+            "id": f"evt_{rate_type}",
+            "type": "payment_intent.succeeded",
+            "data": {"object": {"id": pi, "application_fee_amount": 0}},
+        }
+    )
+    await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
+    return (
+        await db.execute(select(PayoutAllocation).where(PayoutAllocation.source_id == booking.id))
+    ).scalar_one()
+
+
+async def test_hourly_payee_allocation(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    alloc = await _allocate_for(
+        as_owner, db, rate_type="hourly", rate=22.0, end_hour=16, end_min=30
+    )
+    assert alloc.amount_cents == 3300  # $22/hr x 1.5h (15:00-16:30)
+    assert alloc.basis == "rate"
+
+
+async def test_fixed_payee_allocation(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    alloc = await _allocate_for(as_owner, db, rate_type="fixed", rate=15.0)
+    assert alloc.amount_cents == 1500  # a flat $15 per booking, independent of the line
+    assert alloc.basis == "fixed"
