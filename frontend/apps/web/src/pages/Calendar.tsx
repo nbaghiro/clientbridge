@@ -34,6 +34,7 @@ import {
     useCurrentRole,
     useSavedCards,
     useStaff,
+    useStripeAccountId,
     weekColumns,
 } from "@clientbridge/app-core";
 import {
@@ -45,7 +46,7 @@ import {
     useState,
 } from "react";
 
-import { PurchaseCardConfirm } from "../components/PurchaseCardConfirm";
+import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -775,6 +776,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
     const role = useCurrentRole(getTokens()?.access_token ?? null);
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(api, event, onClose);
+    const stripeAccount = useStripeAccountId() ?? "";
     const [method, setMethod] = useState<string | null>(null);
 
     if (!canManagePayments(role)) return null;
@@ -785,8 +787,9 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
         return (
             <div className="rounded-lg border border-line bg-bg p-3">
                 <p className="text-sm font-medium text-ink">Collect deposit · {amountLabel}</p>
-                <PurchaseCardConfirm
+                <CardConfirm
                     clientSecret={deposit.clientSecret}
+                    stripeAccount={stripeAccount}
                     amountLabel={amountLabel}
                     onPaid={deposit.complete}
                     onCancel={deposit.cancel}

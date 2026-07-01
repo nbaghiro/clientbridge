@@ -14,10 +14,11 @@ import {
     useGiftCardSaleForm,
     useGiftCards,
     useSavedCards,
+    useStripeAccountId,
 } from "@clientbridge/app-core";
 import { useState } from "react";
 
-import { PurchaseCardConfirm } from "../components/PurchaseCardConfirm";
+import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -141,6 +142,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     const clients = useClients();
     const cards = useSavedCards(form.purchaserClientId);
     const items = giftItems(useCatalogItems());
+    const stripeAccount = useStripeAccountId() ?? "";
 
     if (form.clientSecret !== null) {
         const selected = items.find((i) => i.id === form.itemId);
@@ -150,8 +152,9 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                 : Math.round(Number(form.amount) * 100);
         return (
             <Panel title="Confirm gift card payment">
-                <PurchaseCardConfirm
+                <CardConfirm
                     clientSecret={form.clientSecret}
+                    stripeAccount={stripeAccount}
                     amountLabel={
                         faceCents !== null && Number.isFinite(faceCents)
                             ? formatMoney(faceCents)
