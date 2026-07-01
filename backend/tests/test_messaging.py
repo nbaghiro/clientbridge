@@ -236,6 +236,48 @@ async def test_thread_tenant_isolation(
     assert res.status_code == 404
 
 
+async def test_send_to_foreign_client_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    # a real, fully-contactable client in ANOTHER business 404s (scoped lookup, not mere existence)
+    other = await factory.business(name="Rival Co")
+    foreign = await factory.client(business=other)
+    foreign.phone = "+15145550000"
+    await db.flush()
+    res = await as_owner.post(
+        "/v1/messages", json={"client_id": foreign.id, "channel": "sms", "body": "Hi"}
+    )
+    assert res.status_code == 404
+
+
+async def test_broadcast_excludes_other_business(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, sms: FakeSmsSender
+) -> None:
+    # null the seed phones so only the clients added here are reachable
+    await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
+    db.add(
+        Client(
+            id=new_id("client"),
+            business_id=BIZ,
+            name="Ours",
+            phone="+15145559001",
+            status="active",
+            tags=[],
+            custom_fields={},
+        )
+    )
+    other = await factory.business(name="Rival Co")
+    foreign = await factory.client(business=other)
+    foreign.phone = "+15145559999"  # fully contactable, but a different business
+    await db.flush()
+    res = await as_owner.post(
+        "/v1/broadcasts", json={"name": "Ours only", "channel": "sms", "body": "Sale!"}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["recipient_count"] == 1  # only our own client, never the foreign one
+    assert [m.to for m in sms.sent] == ["+15145559001"]
+
+
 async def test_broadcast_audience_tag_filter(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
