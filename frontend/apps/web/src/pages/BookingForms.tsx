@@ -56,8 +56,6 @@ export function BookingForms() {
     );
 }
 
-// ── Forms ─────────────────────────────────────────────────────────────────────────────────────────
-
 function FormsSection() {
     const forms = useForms();
     const [mode, setMode] = useState<"none" | "send" | "create">("none");
@@ -315,8 +313,6 @@ function FieldEditor({
     );
 }
 
-// ── Contracts ──────────────────────────────────────────────────────────────────────────────────────
-
 function ContractsSection() {
     const contracts = useContracts();
     const [mode, setMode] = useState<"none" | "send" | "create">("none");
@@ -473,8 +469,6 @@ function ContractDraftPanel({ onDone }: { onDone: () => void }) {
         </Panel>
     );
 }
-
-// ── Shared bits ────────────────────────────────────────────────────────────────────────────────────
 
 function SectionHead({
     title,

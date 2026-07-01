@@ -141,7 +141,6 @@ class AuthService:
             .values(revoked_at=datetime.now(UTC))
         )
 
-    # ── one-time tokens (password reset / email verification) ─────────────────────────────────
     async def _create_token(self, user_id: str, purpose: str, ttl: timedelta) -> str:
         raw = secrets.token_urlsafe(24)
         self.db.add(

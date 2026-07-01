@@ -1,8 +1,8 @@
 """Server-only auth infrastructure (refresh-token families + one-time tokens).
 
 NOT business-scoped and NOT referenced by the sync rules → never reaches a client (excluded from the
-generated AppSchema). Phase 9 hardening: move these to a `private` schema + a `FOR TABLES IN SCHEMA
-public` publication so they aren't replicated into PowerSync's server-side storage either.
+generated AppSchema). A future hardening could move these to a `private` schema + a `FOR TABLES IN
+SCHEMA public` publication so they aren't replicated into PowerSync's server-side storage either.
 """
 
 from datetime import datetime

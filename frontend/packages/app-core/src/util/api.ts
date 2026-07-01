@@ -4,7 +4,7 @@ export interface PostOptions {
     idempotencyKey?: string;
 }
 
-// The slice of each app's createApi() that the shared mutations need (web + mobile build their own).
+// The slice of each app's session client that the shared mutations need (web + mobile build their own).
 export interface ApiLike {
     get<T>(path: string): Promise<T>;
     // Authenticated GET returning the raw body (for non-JSON endpoints like report .csv exports).
