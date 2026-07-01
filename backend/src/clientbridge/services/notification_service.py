@@ -2,10 +2,10 @@ import logging
 from collections.abc import Awaitable
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
+from clientbridge.core.scoping import scoped
 from clientbridge.integrations.notifications import (
     Email,
     EmailSender,
@@ -548,15 +548,8 @@ class Notifier:
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]
     ) -> None:
-        tokens = (
-            (
-                await db.execute(
-                    select(DeviceToken.token).where(DeviceToken.business_id == business.id)
-                )
-            )
-            .scalars()
-            .all()
-        )
+        rows = (await db.execute(scoped(DeviceToken, business.id))).scalars().all()
+        tokens = [r.token for r in rows]
         if tokens:
             await self._safe(
                 self.push.send(Push(tokens=list(tokens), title=business.name, body=body, data=data))

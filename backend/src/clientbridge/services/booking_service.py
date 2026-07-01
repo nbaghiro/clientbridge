@@ -40,7 +40,7 @@ def _deposit_cents(item: Item) -> int:
     return round(item.price_cents * float(item.deposit_value) / 100)
 
 
-def _to_out(booking: Booking, session: Session) -> BookingOut:
+def _booking_out(booking: Booking, session: Session) -> BookingOut:
     return BookingOut(
         id=booking.id,
         business_id=booking.business_id,
@@ -285,7 +285,7 @@ class BookingService:
                 resource_id=data.resource_id,
             )
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
-            return _to_out(booking, session)
+            return _booking_out(booking, session)
 
         return await run_command(
             self.db,
@@ -339,7 +339,7 @@ class BookingService:
                     await self._forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
             await self.db.flush()
-            return _to_out(booking, session)
+            return _booking_out(booking, session)
 
         return await run_command(
             self.db,

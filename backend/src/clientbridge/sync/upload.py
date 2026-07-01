@@ -49,7 +49,9 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     # secret and the status lifecycle is command- + public-token-authoritative (send commands +
     # public submission/signing), so a client can't forge a link or self-submit/sign by syncing a
     # row. They stay sync-READABLE (forms/contracts authoring still syncs).
-    "threads": ("team", False),
+    # threads are NOT sync-writable: the (business_id, client_id, channel) uniqueness invariant is
+    # server-owned — a thread is created/reused by `open_thread` inside the message-send command, so
+    # a client can't race the unique constraint by syncing a row. They stay sync-READABLE.
     "messages": ("team", False),
     # sessions + bookings + schedules are NOT sync-writable: every mutation goes through a command
     # (POST/PATCH /v1/bookings, POST /v1/schedules) so the atomic conflict check + exclusion

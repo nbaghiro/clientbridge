@@ -13,7 +13,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_delete
 from clientbridge.models.billing import Line
 from clientbridge.models.identity import Business
-from clientbridge.schemas.billing import LineInput
+from clientbridge.schemas.billing import LineInput, LineOut
 from clientbridge.services.tax_rates import rates_for_business
 from clientbridge.services.tax_service import TaxComponent, TaxLine, TaxResult, compute_tax
 
@@ -66,6 +66,20 @@ async def fetch_lines(
         .all()
     )
     return list(rows)
+
+
+def line_out(ln: Line) -> LineOut:
+    return LineOut(
+        id=ln.id,
+        description=ln.description,
+        quantity=float(ln.quantity),
+        unit_amount_cents=ln.unit_amount_cents,
+        amount_cents=ln.amount_cents,
+        tax_amount_cents=ln.tax_amount_cents,
+        item_id=ln.item_id,
+        booking_id=ln.booking_id,
+        position=ln.position,
+    )
 
 
 async def tax_for_amount(db: AsyncSession, business_id: str, amount_cents: int) -> TaxResult:
