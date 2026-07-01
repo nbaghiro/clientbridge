@@ -2,6 +2,11 @@
 // hit the API with a plain `fetch` (never the authed session) against a base URL each platform
 // supplies — mirroring `createPublicPayClient`.
 
+import { useEffect, useState } from "react";
+
+import { useAsyncAction } from "../hooks/useAsyncAction";
+import { dateKey } from "../util/datetime";
+
 export interface PublicService {
     id: string;
     name: string;
@@ -107,5 +112,168 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
                     },
                 }),
             }),
+    };
+}
+
+export type PublicBookingStatus = "loading" | "not-found" | "error" | "booked" | "ready";
+
+export interface PublicBookingForm {
+    status: PublicBookingStatus;
+    page: PublicBookingPage | null;
+    result: PublicBookingResult | null;
+    service: PublicService | null; // the picked service, derived from itemId
+    itemId: string;
+    setItemId: (v: string) => void;
+    staffId: string;
+    setStaffId: (v: string) => void;
+    date: string;
+    setDate: (v: string) => void;
+    slots: PublicSlot[] | null; // null = not yet loaded (or selection incomplete)
+    slotsError: string | null;
+    startsAt: string;
+    setStartsAt: (v: string) => void;
+    name: string;
+    setName: (v: string) => void;
+    email: string;
+    setEmail: (v: string) => void;
+    phone: string;
+    setPhone: (v: string) => void;
+    canBook: boolean;
+    submit: () => void;
+    busy: boolean;
+    error: string | null;
+    setError: (message: string | null) => void;
+}
+
+/** View-model for the public online-booking wizard: load the page, pick service/staff/date (which
+ *  refetches open slots), pick a time, enter contact details, then book. The deposit-card Elements
+ *  render per-platform from `result.deposit_client_secret`. */
+export function usePublicBookingForm(
+    booking: PublicBookingClient,
+    slug: string,
+): PublicBookingForm {
+    const [page, setPage] = useState<PublicBookingPage | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+    const [itemId, setItemId] = useState("");
+    const [staffId, setStaffId] = useState("");
+    const [date, setDate] = useState(() => dateKey(new Date()));
+    const [slots, setSlots] = useState<PublicSlot[] | null>(null);
+    const [slotsError, setSlotsError] = useState<string | null>(null);
+    const [startsAt, setStartsAt] = useState("");
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
+    const [result, setResult] = useState<PublicBookingResult | null>(null);
+    const { busy, error, setError, run } = useAsyncAction();
+
+    useEffect(() => {
+        let live = true;
+        setLoading(true);
+        booking
+            .getServices(slug)
+            .then((p) => {
+                if (live) setPage(p);
+            })
+            .catch((err: unknown) => {
+                if (!live) return;
+                if (err instanceof PublicBookingError && err.status === 404) setNotFound(true);
+                else setLoadError(true);
+            })
+            .finally(() => {
+                if (live) setLoading(false);
+            });
+        return () => {
+            live = false;
+        };
+    }, [booking, slug]);
+
+    useEffect(() => {
+        setStartsAt("");
+        if (itemId === "" || staffId === "" || date === "") {
+            setSlots(null);
+            return;
+        }
+        let live = true;
+        setSlots(null);
+        setSlotsError(null);
+        booking
+            .getSlots(slug, { itemId, staffId, date })
+            .then((res) => {
+                if (live) setSlots(res.slots);
+            })
+            .catch(() => {
+                if (live) setSlotsError("We couldn't load open times. Please try another day.");
+            });
+        return () => {
+            live = false;
+        };
+    }, [booking, slug, itemId, staffId, date]);
+
+    const canBook =
+        startsAt !== "" &&
+        name.trim().length > 0 &&
+        (email.trim().length > 0 || phone.trim().length > 0);
+
+    const status: PublicBookingStatus = loading
+        ? "loading"
+        : notFound
+          ? "not-found"
+          : loadError || page === null
+            ? "error"
+            : result !== null
+              ? "booked"
+              : "ready";
+
+    const submit = (): void => {
+        if (!canBook) {
+            setError("Add your name and an email or phone, then pick a time.");
+            return;
+        }
+        void run(
+            async () => {
+                setResult(
+                    await booking.book(slug, {
+                        itemId,
+                        staffId,
+                        startsAt,
+                        client: { name: name.trim(), email: email.trim(), phone: phone.trim() },
+                    }),
+                );
+            },
+            {
+                errorMessage:
+                    "We couldn't book that time. It may have just been taken — try another.",
+            },
+        );
+    };
+
+    return {
+        status,
+        page,
+        result,
+        service: page?.services.find((s) => s.id === itemId) ?? null,
+        itemId,
+        setItemId,
+        staffId,
+        setStaffId,
+        date,
+        setDate,
+        slots,
+        slotsError,
+        startsAt,
+        setStartsAt,
+        name,
+        setName,
+        email,
+        setEmail,
+        phone,
+        setPhone,
+        canBook,
+        submit,
+        busy,
+        error,
+        setError,
     };
 }

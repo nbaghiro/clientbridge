@@ -1,5 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useBusinessId } from "../hooks/primitives";
@@ -390,4 +390,90 @@ export function optionPair(option: unknown): { value: string; label: string } {
         return { value, label };
     }
     return { value: "", label: "" };
+}
+
+export type PublicFormStatus = "loading" | "not-found" | "error" | "done" | "ready";
+
+export interface PublicFormFill {
+    status: PublicFormStatus;
+    form: PublicForm | null;
+    answers: Record<string, FormAnswer>;
+    setAnswer: (name: string, value: FormAnswer) => void;
+    uploadFor: (name: string, file: Blob) => void;
+    submit: () => void;
+    busy: boolean;
+    error: string | null;
+    setError: (message: string | null) => void;
+}
+
+/** View-model for the public form-fill page: load the form, track answers by field name, upload
+ *  file-fields, validate required fields, and submit. The field inputs render per-platform. */
+export function usePublicFormFill(forms: PublicFormClient, token: string): PublicFormFill {
+    const [form, setForm] = useState<PublicForm | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+    const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
+    const { busy, error, setError, run } = useAsyncAction();
+
+    useEffect(() => {
+        let live = true;
+        setLoading(true);
+        forms
+            .getForm(token)
+            .then((f) => {
+                if (live) setForm(f);
+            })
+            .catch((err: unknown) => {
+                if (!live) return;
+                if (err instanceof PublicFormError && err.status === 404) setNotFound(true);
+                else setLoadError(true);
+            })
+            .finally(() => {
+                if (live) setLoading(false);
+            });
+        return () => {
+            live = false;
+        };
+    }, [forms, token]);
+
+    const status: PublicFormStatus = loading
+        ? "loading"
+        : notFound
+          ? "not-found"
+          : loadError || form === null
+            ? "error"
+            : form.completed
+              ? "done"
+              : "ready";
+
+    const setAnswer = (name: string, value: FormAnswer): void => {
+        setAnswers((a) => ({ ...a, [name]: value }));
+        setError(null);
+    };
+
+    const uploadFor = (name: string, file: Blob): void => {
+        void run(
+            async () => {
+                setAnswer(name, await forms.upload(token, file));
+            },
+            { errorMessage: "We couldn't upload that file. Please try again." },
+        );
+    };
+
+    const submit = (): void => {
+        const missing = form?.fields.find((f) => f.required && isAnswerMissing(answers[f.name]));
+        if (missing !== undefined) {
+            setError(`“${missing.label}” is required.`);
+            return;
+        }
+        void run(
+            async () => {
+                setForm(await forms.submit(token, answers));
+            },
+            { errorMessage: "We couldn't submit your answers. Please try again." },
+        );
+    };
+
+    return { status, form, answers, setAnswer, uploadFor, submit, busy, error, setError };
 }
