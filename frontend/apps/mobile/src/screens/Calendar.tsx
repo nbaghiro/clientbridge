@@ -11,6 +11,7 @@ import {
     eventLabel,
     formatHour,
     formatMoney,
+    formatMonthYear,
     formatTime,
     formatWeekday,
     groupByDay,
@@ -76,16 +77,12 @@ export function CalendarScreen() {
     const events = useCalendarEvents(rangeStart, rangeEnd);
     const now = new Date();
 
-    const dayEvents = (groupByDay(events).get(dateKey(anchor)) ?? []).sort(
-        (a, b) => a.start.getTime() - b.start.getTime(),
-    );
+    const dayEvents = groupByDay(events).get(dateKey(anchor)) ?? [];
 
     return (
         <SafeAreaView edges={["top"]} style={styles.screen}>
             <View style={styles.header}>
-                <Text style={styles.month}>
-                    {anchor.toLocaleDateString("en-CA", { month: "long", year: "numeric" })}
-                </Text>
+                <Text style={styles.month}>{formatMonthYear(anchor)}</Text>
                 <View style={styles.segment}>
                     {(["agenda", "day"] as const).map((v) => (
                         <Pressable

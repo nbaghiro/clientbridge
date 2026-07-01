@@ -118,6 +118,11 @@ export interface LayoutOptions {
     gapPx?: number;
 }
 
+/** Chronological order for a day's events: earliest start first, longer events first on ties. */
+export function compareEventStart(a: CalendarEvent, b: CalendarEvent): number {
+    return a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime();
+}
+
 // Overlapping events chain into a group, then split into first-fit columns so none visually overlap.
 export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): PositionedEvent[] {
     const { dayStart, pxPerMin, minHeightPx = 18, gapPx = 1 } = opts;
@@ -126,7 +131,7 @@ export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): Positio
 
     const inDay = events
         .filter((e) => e.start < dayEnd && e.end > dayStart)
-        .sort((a, b) => a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime());
+        .sort(compareEventStart);
 
     const out: PositionedEvent[] = [];
     let group: CalendarEvent[] = [];
@@ -200,6 +205,7 @@ export function groupByDay(events: CalendarEvent[]): Map<string, CalendarEvent[]
         list.push(e);
         map.set(key, list);
     }
+    for (const list of map.values()) list.sort(compareEventStart);
     return map;
 }
 

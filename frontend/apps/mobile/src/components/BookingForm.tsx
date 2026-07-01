@@ -1,4 +1,9 @@
-import { RECUR_FREQUENCIES, staffLabel, useBookingForm } from "@clientbridge/app-core";
+import {
+    RECUR_FREQUENCIES,
+    combineDayAndTime,
+    staffLabel,
+    useBookingForm,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -38,10 +43,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
     const submit = (): void => {
         const time = timeIdx !== null ? TIMES[timeIdx] : undefined;
         const day = days[dayIdx];
-        const startsAt =
-            time && day
-                ? new Date(day.getFullYear(), day.getMonth(), day.getDate(), time.h, time.m)
-                : null;
+        const startsAt = time && day ? combineDayAndTime(day, `${time.h}:${time.m}`) : null;
         void form.submit(startsAt);
     };
 

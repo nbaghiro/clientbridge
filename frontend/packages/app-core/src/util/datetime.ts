@@ -85,6 +85,28 @@ export function formatMonthDay(d: Date, locale = "en-CA"): string {
     return d.toLocaleDateString(locale, { month: "long", day: "numeric" });
 }
 
+export function formatFullDate(d: Date, locale = "en-CA"): string {
+    return d.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
+}
+
+export function formatMonthYear(d: Date, locale = "en-CA"): string {
+    return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
+}
+
 export function formatDate(d: Date, locale = "en-CA"): string {
     return d.toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function ymdToLocalDate(ymd: string): Date {
+    const [y = 1970, mo = 1, d = 1] = ymd.split("-").map(Number);
+    return new Date(y, mo - 1, d);
+}
+
+/** Combine a calendar day (a Date or a "YYYY-MM-DD" string) with a wall-clock "HH:MM" into a local
+ *  Date — the single home for turning a picked day + time into a booking start (web string-parsed it
+ *  while mobile built it numerically; sharing it keeps the two from drifting). */
+export function combineDayAndTime(day: Date | string, hhmm: string): Date {
+    const base = typeof day === "string" ? ymdToLocalDate(day) : day;
+    const [h = 0, m = 0] = hhmm.split(":").map(Number);
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m);
 }
