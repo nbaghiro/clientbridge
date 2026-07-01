@@ -5,6 +5,7 @@ import {
     canManageStaff,
     decodeJwtSub,
     staffDisplayName,
+    strings,
     useCurrentRole,
     useInviteForm,
     usePendingInvites,
@@ -46,14 +47,16 @@ export function TeamScreen() {
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <Text style={styles.sectionLabel}>Members</Text>
+            <Text style={styles.sectionLabel}>{strings.team.members}</Text>
             <View style={styles.group}>
                 {staff.map((s, i) => (
                     <View key={s.id} style={[styles.row, i > 0 && styles.rowBorder]}>
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName}>
                                 {staffDisplayName(s)}
-                                {s.user_id !== null && s.user_id === myUserId ? " (You)" : ""}
+                                {s.user_id !== null && s.user_id === myUserId
+                                    ? strings.team.youSuffix
+                                    : ""}
                             </Text>
                             {s.invite_email !== null ? (
                                 <Text style={styles.rowSub}>{s.invite_email}</Text>
@@ -66,12 +69,15 @@ export function TeamScreen() {
 
             {pending.length > 0 ? (
                 <>
-                    <Text style={styles.sectionLabel}>Pending invites</Text>
+                    <Text style={styles.sectionLabel}>{strings.team.pending}</Text>
                     <View style={styles.group}>
                         {pending.map((s, i) => (
                             <View key={s.id} style={[styles.row, i > 0 && styles.rowBorder]}>
                                 <Text style={styles.rowName}>{s.invite_email ?? "—"}</Text>
-                                <StatusBadge status={`${s.role} · invited`} intent="warning" />
+                                <StatusBadge
+                                    status={strings.team.invitedBadge(s.role)}
+                                    intent="warning"
+                                />
                             </View>
                         ))}
                     </View>
@@ -81,7 +87,7 @@ export function TeamScreen() {
             {canManageStaff(role) ? (
                 <InviteForm invite={invite} />
             ) : (
-                <Text style={styles.note}>Only owners and admins can invite teammates.</Text>
+                <Text style={styles.note}>{strings.team.cannotInvite}</Text>
             )}
         </ScrollView>
     );
@@ -90,20 +96,20 @@ export function TeamScreen() {
 function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
     return (
         <>
-            <Text style={styles.sectionLabel}>Invite a teammate</Text>
+            <Text style={styles.sectionLabel}>{strings.team.inviteHeading}</Text>
             <View style={styles.panel}>
-                <Text style={styles.fieldLabel}>Email</Text>
+                <Text style={styles.fieldLabel}>{strings.team.email}</Text>
                 <TextInput
                     style={styles.input}
                     value={invite.email}
                     onChangeText={invite.setEmail}
-                    placeholder="teammate@example.com"
+                    placeholder={strings.team.emailPlaceholder}
                     placeholderTextColor={c.muted}
                     autoCapitalize="none"
                     keyboardType="email-address"
                 />
 
-                <Text style={styles.fieldLabel}>Role</Text>
+                <Text style={styles.fieldLabel}>{strings.team.role}</Text>
                 <View style={styles.chipRow}>
                     {INVITABLE_ROLES.map((r) => {
                         const on = invite.role === r.value;
@@ -133,7 +139,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                     {invite.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.submitText}>Send invite</Text>
+                        <Text style={styles.submitText}>{strings.team.sendInvite}</Text>
                     )}
                 </Pressable>
 
@@ -152,16 +158,16 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
     };
     return (
         <View style={styles.linkBox}>
-            <Text style={styles.linkLabel}>Invite sent to {invite.email}. Share this link:</Text>
+            <Text style={styles.linkLabel}>{strings.team.inviteSentMobile(invite.email)}</Text>
             <Text style={styles.link} numberOfLines={2} selectable>
                 {link}
             </Text>
             <View style={styles.linkActions}>
                 <Pressable style={styles.shareBtn} onPress={share}>
-                    <Text style={styles.shareText}>Share link</Text>
+                    <Text style={styles.shareText}>{strings.team.shareLink}</Text>
                 </Pressable>
                 <Pressable style={styles.doneBtn} onPress={onDone}>
-                    <Text style={styles.doneText}>Done</Text>
+                    <Text style={styles.doneText}>{strings.common.done}</Text>
                 </Pressable>
             </View>
         </View>

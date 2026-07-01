@@ -3,17 +3,18 @@ import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useBusinessId } from "../hooks/primitives";
+import { strings } from "../strings";
 import { newRowId } from "../util/primitives";
 
 /** Weekday order for the editor, 0 = Monday … 6 = Sunday — matching the server's `date.weekday()`. */
 export const WEEKDAYS: { weekday: number; label: string }[] = [
-    { weekday: 0, label: "Monday" },
-    { weekday: 1, label: "Tuesday" },
-    { weekday: 2, label: "Wednesday" },
-    { weekday: 3, label: "Thursday" },
-    { weekday: 4, label: "Friday" },
-    { weekday: 5, label: "Saturday" },
-    { weekday: 6, label: "Sunday" },
+    { weekday: 0, label: strings.scheduling.monday },
+    { weekday: 1, label: strings.scheduling.tuesday },
+    { weekday: 2, label: strings.scheduling.wednesday },
+    { weekday: 3, label: strings.scheduling.thursday },
+    { weekday: 4, label: strings.scheduling.friday },
+    { weekday: 5, label: strings.scheduling.saturday },
+    { weekday: 6, label: strings.scheduling.sunday },
 ];
 
 const DEFAULT_START = "09:00";
@@ -97,17 +98,17 @@ export function useAvailabilityEditor(staffId: string | null): AvailabilityEdito
     const submit = (): void => {
         if (days === null || staffId === null) return;
         if (businessId === null) {
-            setError("Still syncing — try again in a moment.");
+            setError(strings.common.stillSyncing);
             return;
         }
         for (const d of days) {
             if (!d.open) continue;
             if (!HHMM.test(d.start) || !HHMM.test(d.end)) {
-                setError("Times must be in HH:MM format");
+                setError(strings.scheduling.timeFormatError);
                 return;
             }
             if (d.start >= d.end) {
-                setError("Each open day needs a start time before its end time");
+                setError(strings.scheduling.timeOrderError);
                 return;
             }
         }
@@ -138,7 +139,7 @@ export function useAvailabilityEditor(staffId: string | null): AvailabilityEdito
                 onSuccess: () => {
                     setSaved(true);
                 },
-                errorMessage: "Couldn't save availability. Please try again.",
+                errorMessage: strings.scheduling.saveError,
             },
         );
     };

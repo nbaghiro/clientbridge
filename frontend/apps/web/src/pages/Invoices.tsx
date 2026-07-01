@@ -19,6 +19,7 @@ import {
     payLinkUrl,
     paymentStatusIntent,
     refundPayment,
+    strings,
     useAsyncAction,
     useClients,
     useDocForm,
@@ -55,9 +56,9 @@ export function Invoices() {
         <div className="mx-auto max-w-5xl px-8 py-8">
             <header className="flex items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-2xl font-bold">Billing</h1>
+                    <h1 className="font-display text-2xl font-bold">{strings.invoices.title}</h1>
                     <p className="mt-0.5 text-sm text-muted">
-                        {invoices.length} invoices · {estimates.length} estimates
+                        {strings.invoices.countSummary(invoices.length, estimates.length)}
                     </p>
                 </div>
                 <button
@@ -67,7 +68,7 @@ export function Invoices() {
                     }}
                     className="flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                 >
-                    <IconPlus className="h-4 w-4" /> New {noun}
+                    <IconPlus className="h-4 w-4" /> {strings.invoices.newButton(noun)}
                 </button>
             </header>
 
@@ -95,7 +96,7 @@ export function Invoices() {
                     onChange={(e) => {
                         setQ(e.target.value);
                     }}
-                    placeholder={`Search ${tab}…`}
+                    placeholder={strings.invoices.searchPlaceholder(tab)}
                     className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
                 />
             </div>
@@ -104,10 +105,18 @@ export function Invoices() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">#</th>
-                            <th className="px-4 py-3 font-semibold">Client</th>
-                            <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 text-right font-semibold">Total</th>
+                            <th className="px-4 py-3 font-semibold">
+                                {strings.invoices.colNumber}
+                            </th>
+                            <th className="px-4 py-3 font-semibold">
+                                {strings.invoices.colClient}
+                            </th>
+                            <th className="px-4 py-3 font-semibold">
+                                {strings.invoices.colStatus}
+                            </th>
+                            <th className="px-4 py-3 text-right font-semibold">
+                                {strings.invoices.colTotal}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -144,7 +153,9 @@ export function Invoices() {
                                     colSpan={4}
                                     className="px-4 py-12 text-center text-sm text-muted"
                                 >
-                                    {q ? `No ${tab} match your search.` : `No ${tab} yet.`}
+                                    {q
+                                        ? strings.invoices.searchEmpty(tab)
+                                        : strings.invoices.empty(tab)}
                                 </td>
                             </tr>
                         ) : null}
@@ -198,11 +209,11 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                 className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card"
             >
                 <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold text-ink">
-                    New {kind === "invoices" ? "invoice" : "estimate"}
+                    {strings.invoices.newButton(kind === "invoices" ? "invoice" : "estimate")}
                 </h2>
                 <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Client
+                        {strings.invoices.clientLabel}
                         <select
                             value={form.clientId}
                             onChange={(e) => {
@@ -210,7 +221,7 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                             }}
                             className={field}
                         >
-                            <option value="">Select a client</option>
+                            <option value="">{strings.invoices.clientPlaceholder}</option>
                             {clients.map((c) => (
                                 <option key={c.id} value={c.id}>
                                     {c.name}
@@ -221,9 +232,9 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
 
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-                            <span className="flex-1">Description</span>
-                            <span className="w-12 text-center">Qty</span>
-                            <span className="w-20 text-right">Price</span>
+                            <span className="flex-1">{strings.invoices.lineDescription}</span>
+                            <span className="w-12 text-center">{strings.invoices.lineQty}</span>
+                            <span className="w-20 text-right">{strings.invoices.linePrice}</span>
                             <span className="w-5" />
                         </div>
                         {form.lines.map((l) => (
@@ -233,7 +244,7 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                     onChange={(e) => {
                                         form.setLine(l.key, { description: e.target.value });
                                     }}
-                                    placeholder="Service or item"
+                                    placeholder={strings.invoices.lineDescriptionPlaceholder}
                                     className={`${field} flex-1`}
                                 />
                                 <input
@@ -250,7 +261,7 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                         form.setLine(l.key, { unit: e.target.value });
                                     }}
                                     inputMode="decimal"
-                                    placeholder="0.00"
+                                    placeholder={strings.invoices.linePricePlaceholder}
                                     className={`${field} w-20 text-right`}
                                 />
                                 <button
@@ -272,12 +283,12 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                             }}
                             className="text-sm font-medium text-accent transition hover:opacity-80"
                         >
-                            + Add line
+                            {strings.invoices.addLine}
                         </button>
                     </div>
 
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Notes
+                        {strings.invoices.notesLabel}
                         <textarea
                             value={form.notes}
                             onChange={(e) => {
@@ -291,11 +302,11 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                 </div>
                 <div className="flex items-center justify-between border-t border-line px-6 py-4">
                     <span className="text-sm text-muted">
-                        Subtotal{" "}
+                        {strings.invoices.subtotal}{" "}
                         <span className="font-semibold text-ink">
                             {formatMoney(form.subtotalCents)}
                         </span>
-                        <span className="text-xs"> + tax</span>
+                        <span className="text-xs">{strings.invoices.plusTax}</span>
                     </span>
                     <div className="flex gap-2">
                         <button
@@ -303,14 +314,14 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                             onClick={onClose}
                             className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                         >
-                            Cancel
+                            {strings.common.cancel}
                         </button>
                         <button
                             type="submit"
                             disabled={form.busy}
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {form.busy ? "Saving…" : "Save draft"}
+                            {form.busy ? strings.common.saving : strings.invoices.saveDraft}
                         </button>
                     </div>
                 </div>
@@ -349,8 +360,10 @@ function DetailModal({
                 <div className="flex items-start justify-between border-b border-line px-6 py-4">
                     <div>
                         <h2 className="font-display text-lg font-bold text-ink">
-                            {isInvoice ? "Invoice" : "Estimate"}{" "}
-                            {row.number !== null ? `#${row.number}` : "(draft)"}
+                            {isInvoice
+                                ? strings.invoices.invoiceHeading
+                                : strings.invoices.estimateHeading}{" "}
+                            {row.number !== null ? `#${row.number}` : strings.invoices.draftHeading}
                         </h2>
                         <p className="mt-0.5 text-sm text-muted">{row.client_name ?? "—"}</p>
                     </div>
@@ -381,7 +394,7 @@ function DetailModal({
                     </table>
                     <div className="mt-4 flex justify-end">
                         <span className="text-sm text-muted">
-                            Total{" "}
+                            {strings.invoices.total}{" "}
                             <span className="font-semibold text-ink">
                                 {formatMoney(row.total_cents)}
                             </span>
@@ -401,7 +414,7 @@ function DetailModal({
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                     >
-                        Close
+                        {strings.common.close}
                     </button>
                     {actions.map((a) => (
                         <button
@@ -411,7 +424,9 @@ function DetailModal({
                             onClick={() =>
                                 void run(a.run, {
                                     onSuccess: onClose,
-                                    errorMessage: `Couldn't ${DOC_ACTION_LABEL[a.key].toLowerCase()} — please try again.`,
+                                    errorMessage: strings.invoices.actionError(
+                                        DOC_ACTION_LABEL[a.key].toLowerCase(),
+                                    ),
                                 })
                             }
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
@@ -440,7 +455,7 @@ function PayLink({ token }: { token: string }) {
 
     return (
         <div className="mt-4 rounded-md border border-line bg-bg px-3 py-2.5">
-            <p className="text-xs uppercase tracking-wide text-muted">Pay link</p>
+            <p className="text-xs uppercase tracking-wide text-muted">{strings.invoices.payLink}</p>
             <div className="mt-1.5 flex items-center gap-2">
                 <span className="flex-1 truncate text-sm text-ink-soft">{url}</span>
                 <button
@@ -448,7 +463,7 @@ function PayLink({ token }: { token: string }) {
                     onClick={copy}
                     className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-surface"
                 >
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? strings.invoices.copied : strings.invoices.copy}
                 </button>
             </div>
         </div>
@@ -461,7 +476,9 @@ function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefun
 
     return (
         <div className="mt-4">
-            <p className="text-xs uppercase tracking-wide text-muted">Payments</p>
+            <p className="text-xs uppercase tracking-wide text-muted">
+                {strings.invoices.payments}
+            </p>
             <div className="mt-1.5 divide-y divide-line-soft rounded-md border border-line">
                 {payments.map((p) => (
                     <PaymentRowItem
@@ -490,9 +507,9 @@ function PaymentRowItem({
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
-        if (!window.confirm("Refund this payment? This can't be undone.")) return;
+        if (!window.confirm(strings.invoices.refundConfirm)) return;
         void run(() => refundPayment(api, payment.id), {
-            errorMessage: "Couldn't refund this payment. Please try again.",
+            errorMessage: strings.invoices.refundError,
         });
     };
 
@@ -507,7 +524,7 @@ function PaymentRowItem({
                 </span>
                 {isRefund ? (
                     <span className="rounded-full bg-bg px-2 py-0.5 text-xs font-medium text-muted">
-                        Refund
+                        {strings.invoices.refundBadge}
                     </span>
                 ) : (
                     <span className="capitalize text-muted">{payment.method}</span>
@@ -520,7 +537,7 @@ function PaymentRowItem({
                         onClick={refund}
                         className="ml-auto shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
-                        {busy ? "Refunding…" : "Refund"}
+                        {busy ? strings.invoices.refunding : strings.invoices.refund}
                     </button>
                 ) : null}
             </div>

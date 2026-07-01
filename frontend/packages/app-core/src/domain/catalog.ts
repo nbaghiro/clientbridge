@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 
@@ -16,12 +17,12 @@ export interface ItemRow {
 }
 
 export const KIND_LABEL: Record<string, string> = {
-    service: "Service",
-    product: "Product",
-    class: "Class",
-    package: "Package",
-    subscription: "Subscription",
-    gift: "Gift card",
+    service: strings.catalog.kindService,
+    product: strings.catalog.kindProduct,
+    class: strings.catalog.kindClass,
+    package: strings.catalog.kindPackage,
+    subscription: strings.catalog.kindSubscription,
+    gift: strings.catalog.kindGift,
 };
 
 export const ITEM_KINDS = [
@@ -120,7 +121,7 @@ export function useItemForm(api: ApiLike, onCreated: () => void): ItemForm {
 
     const submit = (): void => {
         if (name.trim().length === 0) {
-            setError("Name is required");
+            setError(strings.catalog.nameRequired);
             return;
         }
         void run(
@@ -140,7 +141,7 @@ export function useItemForm(api: ApiLike, onCreated: () => void): ItemForm {
                     setCategory("");
                     onCreated();
                 },
-                errorMessage: "Could not add item",
+                errorMessage: strings.catalog.addError,
             },
         );
     };

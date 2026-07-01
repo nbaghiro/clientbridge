@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 
 /** Where a file attaches. The server mints the row + s3 key; (parent_type, parent_id) own it. */
@@ -87,7 +88,7 @@ export function useFileUpload(api: ApiLike, onUploaded?: (fileId: string) => voi
                 setFileId(id);
                 onUploaded?.(id);
             },
-            { errorMessage: "Couldn't upload that file. Please try again." },
+            { errorMessage: strings.common.fileUploadError },
         );
     };
 

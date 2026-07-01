@@ -22,6 +22,7 @@ import {
     savedCardLabel,
     startOfDay,
     statusIntent,
+    strings,
     useCalendarEvents,
     useCancelBooking,
     useCollectDeposit,
@@ -92,7 +93,9 @@ export function CalendarScreen() {
                             style={[styles.segBtn, view === v && styles.segBtnOn]}
                         >
                             <Text style={[styles.segText, view === v && styles.segTextOn]}>
-                                {v === "agenda" ? "Agenda" : "Day"}
+                                {v === "agenda"
+                                    ? strings.calendar.viewAgenda
+                                    : strings.calendar.viewDay}
                             </Text>
                         </Pressable>
                     ))}
@@ -171,7 +174,7 @@ function AgendaList({
     if (events.length === 0) {
         return (
             <View style={styles.empty}>
-                <Text style={styles.emptyText}>No bookings</Text>
+                <Text style={styles.emptyText}>{strings.calendar.noBookings}</Text>
             </View>
         );
     }
@@ -372,7 +375,7 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
                             style={[styles.cancelBooking, busy && styles.dim]}
                         >
                             <Text style={styles.cancelBookingText}>
-                                {busy ? "Canceling…" : "Cancel booking"}
+                                {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
                             </Text>
                         </Pressable>
                     ) : null}
@@ -395,7 +398,9 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
     if (deposit.clientSecret !== null) {
         return (
             <View style={styles.depositBox}>
-                <Text style={styles.depositTitle}>Collect deposit · {amountLabel}</Text>
+                <Text style={styles.depositTitle}>
+                    {strings.calendar.collectDepositTitle(amountLabel)}
+                </Text>
                 <CardPaymentConfirm
                     clientSecret={deposit.clientSecret}
                     onCancel={deposit.cancel}
@@ -409,7 +414,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
         <View style={styles.depositBox}>
             <View style={styles.depositHead}>
                 <View style={styles.agendaBody}>
-                    <Text style={styles.depositLabel}>Deposit</Text>
+                    <Text style={styles.depositLabel}>{strings.calendar.deposit}</Text>
                     <Text style={styles.depositAmount}>{amountLabel}</Text>
                 </View>
                 <StatusBadge
@@ -427,7 +432,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                             }}
                         >
                             <Text style={[styles.chipText, effMethod === "" && styles.chipTextOn]}>
-                                New card
+                                {strings.calendar.newCard}
                             </Text>
                         </Pressable>
                         {cards.map((card) => (
@@ -460,7 +465,9 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                         }}
                     >
                         <Text style={styles.collectText}>
-                            {deposit.busy ? "Collecting…" : `Collect ${amountLabel}`}
+                            {deposit.busy
+                                ? strings.calendar.collecting
+                                : strings.calendar.collectAmount(amountLabel)}
                         </Text>
                     </Pressable>
                 </>

@@ -2,6 +2,7 @@ import {
     type StaffRow,
     WEEKDAYS,
     staffLabel,
+    strings,
     useAvailabilityEditor,
     useStaff,
 } from "@clientbridge/app-core";
@@ -17,18 +18,16 @@ export function Scheduling() {
 
     return (
         <div className="max-w-2xl">
-            <h1 className="font-display text-2xl font-bold text-ink">Scheduling</h1>
-            <p className="mt-1 text-sm text-muted">
-                Set each team member’s weekly working hours. Bookings are held to these windows.
-            </p>
+            <h1 className="font-display text-2xl font-bold text-ink">{strings.scheduling.title}</h1>
+            <p className="mt-1 text-sm text-muted">{strings.scheduling.subtitle}</p>
 
             {selected === null ? (
-                <p className="mt-6 text-sm text-muted">No team members yet.</p>
+                <p className="mt-6 text-sm text-muted">{strings.scheduling.noStaff}</p>
             ) : (
                 <>
                     {staff.length > 1 ? (
                         <label className="mt-6 flex max-w-xs flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            Team member
+                            {strings.scheduling.teamMember}
                             <select
                                 value={selected}
                                 onChange={(e) => {
@@ -59,7 +58,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
     return (
         <div className="mt-6 rounded-lg border border-line bg-surface p-6">
             {days === null ? (
-                <p className="text-sm text-muted">Loading…</p>
+                <p className="text-sm text-muted">{strings.common.loading}</p>
             ) : (
                 <form
                     className="space-y-3"
@@ -93,7 +92,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                                             }}
                                             className={FIELD}
                                         />
-                                        <span className="text-muted">to</span>
+                                        <span className="text-muted">{strings.scheduling.to}</span>
                                         <input
                                             type="time"
                                             value={d.end}
@@ -104,20 +103,22 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                                         />
                                     </div>
                                 ) : (
-                                    <span className="text-sm text-muted">Closed</span>
+                                    <span className="text-sm text-muted">
+                                        {strings.scheduling.closed}
+                                    </span>
                                 )}
                             </div>
                         );
                     })}
 
                     {editor.error !== null && <p className="text-sm text-danger">{editor.error}</p>}
-                    {editor.saved && <p className="text-sm text-success">Saved.</p>}
+                    {editor.saved && <p className="text-sm text-success">{strings.common.saved}</p>}
                     <button
                         type="submit"
                         disabled={editor.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {editor.busy ? "Saving…" : "Save hours"}
+                        {editor.busy ? strings.common.saving : strings.scheduling.saveHours}
                     </button>
                 </form>
             )}

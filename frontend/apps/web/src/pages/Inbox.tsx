@@ -9,6 +9,7 @@ import {
     formatTime,
     messageStatusIntent,
     parseTimestamp,
+    strings,
     useBroadcastForm,
     useClients,
     useComposeMessage,
@@ -36,10 +37,10 @@ export function Inbox() {
         <div className="flex h-full flex-col">
             <header className="flex items-center justify-between gap-4 border-b border-line px-8 py-5">
                 <div>
-                    <h1 className="font-display text-2xl font-bold text-ink">Inbox</h1>
-                    <p className="mt-0.5 text-sm text-muted">
-                        Message clients and send broadcasts.
-                    </p>
+                    <h1 className="font-display text-2xl font-bold text-ink">
+                        {strings.inbox.title}
+                    </h1>
+                    <p className="mt-0.5 text-sm text-muted">{strings.inbox.subtitle}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
                     <button
@@ -49,7 +50,7 @@ export function Inbox() {
                         }}
                         className="rounded-md border border-line px-3.5 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                     >
-                        Broadcast
+                        {strings.inbox.broadcast}
                     </button>
                     <button
                         type="button"
@@ -58,7 +59,7 @@ export function Inbox() {
                         }}
                         className="rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                     >
-                        New message
+                        {strings.inbox.newMessage}
                     </button>
                 </div>
             </header>
@@ -67,7 +68,7 @@ export function Inbox() {
                 <aside className="w-80 shrink-0 overflow-y-auto border-r border-line">
                     {threads.length === 0 ? (
                         <p className="px-5 py-8 text-center text-sm text-muted">
-                            No conversations yet.
+                            {strings.inbox.noConversations}
                         </p>
                     ) : (
                         threads.map((t) => (
@@ -88,9 +89,7 @@ export function Inbox() {
                         <ThreadView thread={selected} />
                     ) : (
                         <div className="flex h-full items-center justify-center">
-                            <p className="text-sm text-muted">
-                                Select a conversation to read and reply.
-                            </p>
+                            <p className="text-sm text-muted">{strings.inbox.selectConversation}</p>
                         </div>
                     )}
                 </section>
@@ -133,7 +132,7 @@ function ThreadListItem({
         >
             <div className="flex items-center gap-2">
                 <span className="flex-1 truncate text-sm font-semibold text-ink">
-                    {thread.client_name ?? "Client"}
+                    {thread.client_name ?? strings.inbox.clientFallback}
                 </span>
                 {thread.last_message_at !== null ? (
                     <span className="text-xs text-muted">
@@ -175,14 +174,16 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
         <div className="flex h-full flex-col">
             <div className="flex items-center gap-2 border-b border-line px-6 py-3.5">
                 <h2 className="font-display text-base font-bold text-ink">
-                    {thread.client_name ?? "Client"}
+                    {thread.client_name ?? strings.inbox.clientFallback}
                 </h2>
                 <StatusPill status={channelLabel(thread.channel)} intent="neutral" />
             </div>
 
             <div className="flex-1 space-y-2 overflow-y-auto px-6 py-4">
                 {messages.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted">No messages yet.</p>
+                    <p className="py-8 text-center text-sm text-muted">
+                        {strings.inbox.noMessages}
+                    </p>
                 ) : (
                     messages.map((m) => <Bubble key={m.id} message={m} />)
                 )}
@@ -206,7 +207,9 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
                             compose.setBody(e.target.value);
                         }}
                         rows={2}
-                        placeholder={`Reply by ${channelLabel(thread.channel).toLowerCase()}…`}
+                        placeholder={strings.inbox.replyBy(
+                            channelLabel(thread.channel).toLowerCase(),
+                        )}
                         className={`${field} resize-none`}
                     />
                     <button
@@ -214,7 +217,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
                         disabled={compose.busy || compose.body.trim().length === 0}
                         className="rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {compose.busy ? "Sending…" : "Send"}
+                        {compose.busy ? strings.inbox.sending : strings.inbox.send}
                     </button>
                 </div>
             </form>
@@ -301,7 +304,9 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
 
     return (
         <ModalFrame onClose={onClose}>
-            <h2 className="mb-4 font-display text-lg font-bold text-ink">New message</h2>
+            <h2 className="mb-4 font-display text-lg font-bold text-ink">
+                {strings.inbox.newMessageTitle}
+            </h2>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -310,7 +315,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Client
+                    {strings.inbox.clientLabel}
                     <select
                         value={compose.clientId}
                         onChange={(e) => {
@@ -318,7 +323,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                         }}
                         className={field}
                     >
-                        <option value="">Select a client</option>
+                        <option value="">{strings.inbox.selectClient}</option>
                         {clients.map((cl) => (
                             <option key={cl.id} value={cl.id}>
                                 {cl.name}
@@ -327,18 +332,18 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                     </select>
                 </label>
                 <div className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Channel
+                    {strings.inbox.channelLabel}
                     <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
                 </div>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Message
+                    {strings.inbox.messageLabel}
                     <textarea
                         value={compose.body}
                         onChange={(e) => {
                             compose.setBody(e.target.value);
                         }}
                         rows={4}
-                        placeholder="Write a message…"
+                        placeholder={strings.inbox.messagePlaceholder}
                         className={`${field} resize-none`}
                     />
                 </label>
@@ -351,14 +356,14 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={compose.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {compose.busy ? "Sending…" : "Send message"}
+                        {compose.busy ? strings.inbox.sending : strings.inbox.sendMessage}
                     </button>
                 </div>
             </form>
@@ -375,18 +380,19 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
             <ModalFrame onClose={onClose}>
                 <div className="py-4 text-center">
                     <h2 className="font-display text-lg font-bold text-ink">
-                        {sent.status === "scheduled" ? "Broadcast scheduled" : "Broadcast sent"}
+                        {sent.status === "scheduled"
+                            ? strings.inbox.broadcastScheduled
+                            : strings.inbox.broadcastSent}
                     </h2>
                     <p className="mt-2 text-sm text-muted">
-                        {sent.name} · {sent.recipient_count} recipient
-                        {sent.recipient_count === 1 ? "" : "s"}.
+                        {strings.inbox.broadcastRecipients(sent.name, sent.recipient_count)}
                     </p>
                     <button
                         type="button"
                         onClick={onClose}
                         className="mt-5 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                     >
-                        Done
+                        {strings.common.done}
                     </button>
                 </div>
             </ModalFrame>
@@ -395,7 +401,9 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
 
     return (
         <ModalFrame onClose={onClose}>
-            <h2 className="mb-4 font-display text-lg font-bold text-ink">New broadcast</h2>
+            <h2 className="mb-4 font-display text-lg font-bold text-ink">
+                {strings.inbox.newBroadcastTitle}
+            </h2>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -404,45 +412,47 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Name
+                    {strings.inbox.nameLabel}
                     <input
                         value={form.name}
                         onChange={(e) => {
                             form.setName(e.target.value);
                         }}
-                        placeholder="Spring promo"
+                        placeholder={strings.inbox.namePlaceholder}
                         className={field}
                     />
                 </label>
                 <div className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Channel
+                    {strings.inbox.channelLabel}
                     <ChannelToggle value={form.channel} onChange={form.setChannel} />
                 </div>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Message
+                    {strings.inbox.messageLabel}
                     <textarea
                         value={form.body}
                         onChange={(e) => {
                             form.setBody(e.target.value);
                         }}
                         rows={4}
-                        placeholder="Write your announcement…"
+                        placeholder={strings.inbox.announcementPlaceholder}
                         className={`${field} resize-none`}
                     />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Audience tags <span className="font-normal text-muted">(optional)</span>
+                    {strings.inbox.audienceTagsLabel}{" "}
+                    <span className="font-normal text-muted">{strings.inbox.optional}</span>
                     <input
                         value={form.tags}
                         onChange={(e) => {
                             form.setTags(e.target.value);
                         }}
-                        placeholder="vip, regulars — leave blank for everyone"
+                        placeholder={strings.inbox.tagsPlaceholderWeb}
                         className={field}
                     />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Schedule <span className="font-normal text-muted">(optional)</span>
+                    {strings.inbox.scheduleLabel}{" "}
+                    <span className="font-normal text-muted">{strings.inbox.optional}</span>
                     <input
                         type="datetime-local"
                         value={form.scheduledAt}
@@ -459,14 +469,14 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Sending…" : "Send broadcast"}
+                        {form.busy ? strings.inbox.sending : strings.inbox.sendBroadcast}
                     </button>
                 </div>
             </form>

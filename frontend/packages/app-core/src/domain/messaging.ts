@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey } from "../util/primitives";
 import type { Intent } from "../util/primitives";
@@ -59,11 +60,11 @@ export function useThreadMessages(threadId: string): MessageRow[] {
 export function channelLabel(channel: string): string {
     switch (channel) {
         case "sms":
-            return "Text";
+            return strings.inbox.channelSms;
         case "email":
-            return "Email";
+            return strings.inbox.channelEmail;
         case "chat":
-            return "Chat";
+            return strings.inbox.channelChat;
         default:
             return channel;
     }
@@ -172,11 +173,11 @@ export function useComposeMessage(
 
     const submit = (): void => {
         if (clientId === "") {
-            setError("Select a client");
+            setError(strings.inbox.selectClient);
             return;
         }
         if (body.trim().length === 0) {
-            setError("Write a message");
+            setError(strings.inbox.writeMessage);
             return;
         }
         void run(() => sendMessage(api, { client_id: clientId, channel, body: body.trim() }), {
@@ -185,7 +186,7 @@ export function useComposeMessage(
                 if (initial?.clientId === undefined) setClientId("");
                 onSent();
             },
-            errorMessage: "Couldn't send your message. Please try again.",
+            errorMessage: strings.inbox.sendError,
         });
     };
 
@@ -231,11 +232,11 @@ export function useBroadcastForm(
 
     const submit = (): void => {
         if (name.trim().length === 0) {
-            setError("Name your broadcast");
+            setError(strings.inbox.nameBroadcast);
             return;
         }
         if (body.trim().length === 0) {
-            setError("Write a message");
+            setError(strings.inbox.writeMessage);
             return;
         }
         const tagList = parseTags(tags);
@@ -261,7 +262,7 @@ export function useBroadcastForm(
                     setTags("");
                     setScheduledAt("");
                 },
-                errorMessage: "Couldn't send the broadcast. Please try again.",
+                errorMessage: strings.inbox.broadcastError,
             },
         );
     };

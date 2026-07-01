@@ -5,6 +5,7 @@ import {
     formatMoney,
     orderStatusIntent,
     sellableItems,
+    strings,
     useCart,
     useCatalogItems,
     useConnectionToken,
@@ -60,7 +61,7 @@ export function POSScreen() {
                             style={styles.search}
                             value={q}
                             onChangeText={setQ}
-                            placeholder="Search catalog…"
+                            placeholder={strings.pos.searchPlaceholder}
                             placeholderTextColor={c.muted}
                             autoCapitalize="none"
                         />
@@ -89,7 +90,7 @@ export function POSScreen() {
                         )}
                         ListEmptyComponent={
                             <Text style={styles.empty}>
-                                {q ? "No items match your search." : "No sellable items yet."}
+                                {q ? strings.pos.searchEmpty : strings.pos.empty}
                             </Text>
                         }
                         ListFooterComponent={<OpenOrders />}
@@ -106,7 +107,7 @@ function CartBar({ cart }: { cart: ReturnType<typeof useCart> }) {
     return (
         <View style={styles.cart}>
             {cart.isEmpty ? (
-                <Text style={styles.cartEmpty}>Tap a catalog item to start a sale.</Text>
+                <Text style={styles.cartEmpty}>{strings.pos.cartEmptyStart}</Text>
             ) : (
                 <ScrollView style={styles.cartLines}>
                     {cart.lines.map((line) => (
@@ -132,7 +133,7 @@ function CartBar({ cart }: { cart: ReturnType<typeof useCart> }) {
                             <ActivityIndicator color={c.accentInk} />
                         ) : (
                             <Text style={styles.chargeText}>
-                                Charge {formatMoney(cart.order.total_cents)}
+                                {strings.pos.charge(formatMoney(cart.order.total_cents))}
                             </Text>
                         )}
                     </Pressable>
@@ -140,10 +141,10 @@ function CartBar({ cart }: { cart: ReturnType<typeof useCart> }) {
             ) : (
                 <>
                     <View style={styles.subtotalRow}>
-                        <Text style={styles.subtotalLabel}>Subtotal</Text>
+                        <Text style={styles.subtotalLabel}>{strings.pos.subtotal}</Text>
                         <Text style={styles.subtotalValue}>
                             {formatMoney(cart.subtotalCents)}
-                            <Text style={styles.subtotalTax}> + tax</Text>
+                            <Text style={styles.subtotalTax}>{strings.pos.plusTax}</Text>
                         </Text>
                     </View>
                     <Pressable
@@ -154,7 +155,7 @@ function CartBar({ cart }: { cart: ReturnType<typeof useCart> }) {
                         {cart.busy ? (
                             <ActivityIndicator color={c.accentInk} />
                         ) : (
-                            <Text style={styles.chargeText}>Review total</Text>
+                            <Text style={styles.chargeText}>{strings.pos.reviewTotal}</Text>
                         )}
                     </Pressable>
                 </>
@@ -179,7 +180,9 @@ function CartLineRow({
                 <Text style={styles.lineName} numberOfLines={1}>
                     {line.description}
                 </Text>
-                <Text style={styles.lineUnit}>{formatMoney(line.unitAmountCents)} each</Text>
+                <Text style={styles.lineUnit}>
+                    {strings.pos.unitEach(formatMoney(line.unitAmountCents))}
+                </Text>
             </View>
             <View style={styles.stepper}>
                 <Pressable
@@ -210,10 +213,10 @@ function CartLineRow({
 function Totals({ order }: { order: Order }) {
     return (
         <View style={styles.totals}>
-            <TotalRow label="Subtotal" cents={order.subtotal_cents} />
-            <TotalRow label="Tax" cents={order.tax_total_cents} />
+            <TotalRow label={strings.pos.subtotal} cents={order.subtotal_cents} />
+            <TotalRow label={strings.pos.tax} cents={order.tax_total_cents} />
             <View style={[styles.totalRow, styles.totalGrand]}>
-                <Text style={styles.grandLabel}>Total</Text>
+                <Text style={styles.grandLabel}>{strings.pos.total}</Text>
                 <Text style={styles.grandValue}>{formatMoney(order.total_cents)}</Text>
             </View>
         </View>
@@ -245,34 +248,31 @@ function ReaderPanel({
     const terminal = useTerminalCheckout();
     const status =
         terminal.phase === "connecting"
-            ? "Connecting reader…"
+            ? strings.pos.readerConnecting
             : terminal.phase === "ready"
-              ? "Reader ready — tap to charge"
+              ? strings.pos.readerReady
               : terminal.phase === "collecting"
-                ? "Waiting for the card…"
+                ? strings.pos.readerCollecting
                 : terminal.phase === "done"
-                  ? "Approved ✓"
-                  : "Reader unavailable";
+                  ? strings.pos.readerApproved
+                  : strings.pos.readerUnavailable;
 
     return (
         <ScrollView contentContainerStyle={styles.reader}>
-            <Text style={styles.readerTitle}>Charge on reader</Text>
+            <Text style={styles.readerTitle}>{strings.pos.readerTitle}</Text>
             <Text style={styles.readerSub}>
-                Tap, insert, or swipe the card to collect {formatMoney(order.total_cents)}.
+                {strings.pos.readerCollect(formatMoney(order.total_cents))}
             </Text>
             <View style={styles.readerBox}>
                 <Text style={styles.readerWaiting}>{status}</Text>
                 {terminal.error !== null ? (
                     <Text style={styles.readerNote}>{terminal.error}</Text>
                 ) : null}
-                <Text style={styles.readerNote}>
-                    Tap to Pay needs an EAS dev build + a capable device (or a simulated reader) and
-                    a Stripe Terminal location id.
-                </Text>
+                <Text style={styles.readerNote}>{strings.pos.readerRequirements}</Text>
             </View>
             {terminal.phase === "done" ? (
                 <Pressable style={styles.charge} onPress={onDone}>
-                    <Text style={styles.chargeText}>New sale</Text>
+                    <Text style={styles.chargeText}>{strings.pos.newSale}</Text>
                 </Pressable>
             ) : (
                 <Pressable
@@ -282,11 +282,13 @@ function ReaderPanel({
                         terminal.charge(clientSecret);
                     }}
                 >
-                    <Text style={styles.chargeText}>Collect {formatMoney(order.total_cents)}</Text>
+                    <Text style={styles.chargeText}>
+                        {strings.pos.collect(formatMoney(order.total_cents))}
+                    </Text>
                 </Pressable>
             )}
             <Pressable style={styles.void} onPress={onVoid} disabled={busy}>
-                <Text style={styles.voidText}>Void this sale</Text>
+                <Text style={styles.voidText}>{strings.pos.voidSale}</Text>
             </Pressable>
         </ScrollView>
     );
@@ -298,11 +300,11 @@ function OpenOrders() {
 
     return (
         <View style={styles.openOrders}>
-            <Text style={styles.openTitle}>Open orders</Text>
+            <Text style={styles.openTitle}>{strings.pos.openOrders}</Text>
             {orders.map((order) => (
                 <View key={order.id} style={styles.openRow}>
                     <Text style={styles.openName} numberOfLines={1}>
-                        {order.client_name ?? "Walk-in"}
+                        {order.client_name ?? strings.pos.walkIn}
                     </Text>
                     <StatusBadge status={order.status} intent={orderStatusIntent(order.status)} />
                     <Text style={styles.openValue}>{formatMoney(order.total_cents)}</Text>

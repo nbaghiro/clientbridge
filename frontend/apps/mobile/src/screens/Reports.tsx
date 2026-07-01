@@ -6,6 +6,7 @@ import {
     defaultReportRange,
     formatMoney,
     reportRangeForYear,
+    strings,
     useReportDownload,
     useReports,
 } from "@clientbridge/app-core";
@@ -32,7 +33,7 @@ export function ReportsScreen() {
     if (!canManagePayments(role)) {
         return (
             <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>Reports are available to owners and admins.</Text>
+                <Text style={styles.muted}>{strings.reports.accessRestricted}</Text>
             </View>
         );
     }
@@ -76,12 +77,12 @@ function ReportsBody() {
             {dlError !== null ? <Text style={styles.error}>{dlError}</Text> : null}
 
             {error ? (
-                <Text style={styles.muted}>Couldn’t load your reports.</Text>
+                <Text style={styles.muted}>{strings.reports.loadError}</Text>
             ) : (
                 <>
                     <Card
-                        title="Income"
-                        subtitle="Payments received, net of refunds"
+                        title={strings.reports.incomeTitle}
+                        subtitle={strings.reports.incomeSubtitle}
                         onDownload={() => {
                             download("income");
                         }}
@@ -91,8 +92,8 @@ function ReportsBody() {
                     </Card>
 
                     <Card
-                        title="GST/HST"
-                        subtitle="Tax collected on paid invoices"
+                        title={strings.reports.gstTitle}
+                        subtitle={strings.reports.gstSubtitleMobile}
                         onDownload={() => {
                             download("gst-hst");
                         }}
@@ -102,8 +103,8 @@ function ReportsBody() {
                     </Card>
 
                     <Card
-                        title={`T4A — ${year}`}
-                        subtitle="Amounts paid to staff payees"
+                        title={strings.reports.t4aTitle(year)}
+                        subtitle={strings.reports.t4aSubtitleMobile}
                         onDownload={() => {
                             download("t4a");
                         }}
@@ -112,7 +113,7 @@ function ReportsBody() {
                         {t4a === null ? (
                             <Loading />
                         ) : t4a.length === 0 ? (
-                            <Text style={styles.muted}>No payee amounts for {year}.</Text>
+                            <Text style={styles.muted}>{strings.reports.noPayeeAmounts(year)}</Text>
                         ) : (
                             t4a.map((row: T4ARow) => (
                                 <View key={row.staff_id} style={styles.line}>
@@ -133,9 +134,9 @@ function ReportsBody() {
 function IncomeBody({ income }: { income: IncomeReport }) {
     return (
         <>
-            <Figure label="Gross" cents={income.gross_cents} />
-            <Figure label="Refunds" cents={income.refunds_cents} tone="danger" />
-            <Figure label="Net" cents={income.net_cents} tone="success" />
+            <Figure label={strings.reports.gross} cents={income.gross_cents} />
+            <Figure label={strings.reports.refunds} cents={income.refunds_cents} tone="danger" />
+            <Figure label={strings.reports.net} cents={income.net_cents} tone="success" />
             {Object.entries(income.by_method).map(([method, cents]) => (
                 <View key={method} style={styles.line}>
                     <Text style={styles.lineLabel}>{method}</Text>
@@ -149,11 +150,17 @@ function IncomeBody({ income }: { income: IncomeReport }) {
 function GstBody({ report }: { report: GstHstReport }) {
     return (
         <>
-            <Figure label="Tax collected" cents={report.tax_collected_cents} tone="success" />
-            <Figure label="Taxable sales" cents={report.taxable_sales_cents} />
+            <Figure
+                label={strings.reports.taxCollected}
+                cents={report.tax_collected_cents}
+                tone="success"
+            />
+            <Figure label={strings.reports.taxableSales} cents={report.taxable_sales_cents} />
             <View style={styles.line}>
-                <Text style={styles.lineLabel}>GST/HST number</Text>
-                <Text style={styles.lineValue}>{report.gst_hst_number ?? "Not registered"}</Text>
+                <Text style={styles.lineLabel}>{strings.reports.gstNumberLabel}</Text>
+                <Text style={styles.lineValue}>
+                    {report.gst_hst_number ?? strings.reports.notRegistered}
+                </Text>
             </View>
         </>
     );
@@ -201,7 +208,7 @@ function Card({
                     {downloading ? (
                         <ActivityIndicator color={c.inkSoft} size="small" />
                     ) : (
-                        <Text style={styles.csvText}>CSV</Text>
+                        <Text style={styles.csvText}>{strings.reports.csv}</Text>
                     )}
                 </Pressable>
             </View>

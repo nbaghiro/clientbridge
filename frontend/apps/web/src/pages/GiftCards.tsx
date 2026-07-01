@@ -12,6 +12,7 @@ import {
     useGiftCardRedeemForm,
     GIFT_SALE_MODES,
     GIFT_SALE_MODE_LABEL,
+    strings,
     useGiftCardSaleForm,
     useGiftCards,
     useSavedCards,
@@ -35,10 +36,8 @@ export function GiftCards() {
     if (!canManagePayments(role))
         return (
             <div className="mx-auto max-w-3xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold">Gift cards</h1>
-                <p className="mt-4 text-sm text-muted">
-                    Only owners and admins can sell and redeem gift cards.
-                </p>
+                <h1 className="font-display text-2xl font-bold">{strings.giftCards.title}</h1>
+                <p className="mt-4 text-sm text-muted">{strings.giftCards.ownerAdminOnly}</p>
             </div>
         );
 
@@ -46,8 +45,10 @@ export function GiftCards() {
         <div className="mx-auto max-w-3xl px-8 py-8">
             <header className="flex items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-2xl font-bold">Gift cards</h1>
-                    <p className="mt-0.5 text-sm text-muted">{cards.length} issued</p>
+                    <h1 className="font-display text-2xl font-bold">{strings.giftCards.title}</h1>
+                    <p className="mt-0.5 text-sm text-muted">
+                        {strings.giftCards.issuedCount(cards.length)}
+                    </p>
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -57,7 +58,7 @@ export function GiftCards() {
                         }}
                         className="rounded-md border border-line px-3.5 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                     >
-                        Redeem
+                        {strings.giftCards.redeem}
                     </button>
                     <button
                         type="button"
@@ -66,7 +67,7 @@ export function GiftCards() {
                         }}
                         className="rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                     >
-                        Sell gift card
+                        {strings.giftCards.sell}
                     </button>
                 </div>
             </header>
@@ -90,10 +91,14 @@ export function GiftCards() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">Code</th>
-                            <th className="px-4 py-3 font-semibold">Recipient</th>
-                            <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 text-right font-semibold">Balance</th>
+                            <th className="px-4 py-3 font-semibold">{strings.giftCards.code}</th>
+                            <th className="px-4 py-3 font-semibold">
+                                {strings.giftCards.recipient}
+                            </th>
+                            <th className="px-4 py-3 font-semibold">{strings.giftCards.status}</th>
+                            <th className="px-4 py-3 text-right font-semibold">
+                                {strings.giftCards.balance}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -106,7 +111,7 @@ export function GiftCards() {
                                     colSpan={4}
                                     className="px-4 py-12 text-center text-sm text-muted"
                                 >
-                                    No gift cards issued yet.
+                                    {strings.giftCards.emptyList}
                                 </td>
                             </tr>
                         ) : null}
@@ -130,7 +135,7 @@ function GiftCardRowItem({ card }: { card: GiftCardRow }) {
                 {card.balance_cents !== card.initial_cents ? (
                     <span className="text-xs text-muted">
                         {" "}
-                        of {formatMoney(card.initial_cents)}
+                        {strings.giftCards.ofInitial(formatMoney(card.initial_cents))}
                     </span>
                 ) : null}
             </td>
@@ -147,14 +152,14 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
 
     if (form.clientSecret !== null) {
         return (
-            <Panel title="Confirm gift card payment">
+            <Panel title={strings.giftCards.confirmPayment}>
                 <CardConfirm
                     clientSecret={form.clientSecret}
                     stripeAccount={stripeAccount}
                     amountLabel={
                         form.faceAmountCents !== null
                             ? formatMoney(form.faceAmountCents)
-                            : "gift card"
+                            : strings.giftCards.amountFallback
                     }
                     onPaid={form.complete}
                     onCancel={form.cancel}
@@ -164,7 +169,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     }
 
     return (
-        <Panel title="Sell gift card">
+        <Panel title={strings.giftCards.sell}>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -173,7 +178,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Purchaser
+                    {strings.giftCards.purchaser}
                     <ClientSelect
                         clients={clients}
                         value={form.purchaserClientId}
@@ -200,7 +205,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                 </div>
                 {form.mode === "preset" ? (
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Gift card
+                        {strings.giftCards.giftCard}
                         <select
                             value={form.itemId}
                             onChange={(e) => {
@@ -208,7 +213,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                             }}
                             className={field}
                         >
-                            <option value="">Select a gift card</option>
+                            <option value="">{strings.giftCards.selectGiftCard}</option>
                             {items.map((it) => (
                                 <option key={it.id} value={it.id}>
                                     {it.name}
@@ -221,31 +226,31 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                     </label>
                 ) : (
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Amount (CAD)
+                        {strings.giftCards.amountCad}
                         <input
                             value={form.amount}
                             onChange={(e) => {
                                 form.setAmount(e.target.value);
                             }}
                             inputMode="decimal"
-                            placeholder="100.00"
+                            placeholder={strings.giftCards.amountPlaceholder}
                             className={field}
                         />
                     </label>
                 )}
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Recipient (optional)
+                    {strings.giftCards.recipientOptional}
                     <input
                         value={form.recipient}
                         onChange={(e) => {
                             form.setRecipient(e.target.value);
                         }}
-                        placeholder="Name or email"
+                        placeholder={strings.giftCards.recipientPlaceholder}
                         className={field}
                     />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Payment
+                    {strings.giftCards.payment}
                     <select
                         value={form.paymentMethodId}
                         onChange={(e) => {
@@ -253,7 +258,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                         }}
                         className={field}
                     >
-                        <option value="">Pay with a new card</option>
+                        <option value="">{strings.giftCards.payNewCard}</option>
                         {cards.map((card: SavedCardRow) => (
                             <option key={card.id} value={card.id}>
                                 {savedCardLabel(card)}
@@ -268,14 +273,14 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Selling…" : "Sell gift card"}
+                        {form.busy ? strings.giftCards.selling : strings.giftCards.sell}
                     </button>
                 </div>
             </form>
@@ -287,7 +292,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardRedeemForm(api, onClose);
 
     return (
-        <Panel title="Redeem gift card">
+        <Panel title={strings.giftCards.redeemTitle}>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -296,26 +301,26 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Code
+                    {strings.giftCards.code}
                     <input
                         value={form.code}
                         onChange={(e) => {
                             form.setCode(e.target.value);
                         }}
-                        placeholder="ABCD2345EFGH"
+                        placeholder={strings.giftCards.codePlaceholder}
                         autoCapitalize="characters"
                         className={`${field} font-mono`}
                     />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Amount (CAD)
+                    {strings.giftCards.amountCad}
                     <input
                         value={form.amount}
                         onChange={(e) => {
                             form.setAmount(e.target.value);
                         }}
                         inputMode="decimal"
-                        placeholder="25.00"
+                        placeholder={strings.giftCards.redeemAmountPlaceholder}
                         className={field}
                     />
                 </label>
@@ -326,14 +331,14 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Redeeming…" : "Redeem"}
+                        {form.busy ? strings.giftCards.redeeming : strings.giftCards.redeem}
                     </button>
                 </div>
             </form>
@@ -367,7 +372,7 @@ function ClientSelect({
             }}
             className={field}
         >
-            <option value="">Select a client</option>
+            <option value="">{strings.giftCards.selectClient}</option>
             {clients.map((cl) => (
                 <option key={cl.id} value={cl.id}>
                     {cl.name}

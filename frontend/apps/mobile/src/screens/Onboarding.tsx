@@ -1,4 +1,4 @@
-import { PROVINCES, useOnboardingForm } from "@clientbridge/app-core";
+import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -32,7 +32,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
         return (
             <SafeAreaView style={[styles.screen, styles.center]}>
                 <Logo size={30} color={c.accent} />
-                <Text style={styles.settingUp}>Setting up your workspace…</Text>
+                <Text style={styles.settingUp}>{strings.onboarding.settingUp}</Text>
             </SafeAreaView>
         );
     }
@@ -54,35 +54,32 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         <Text style={styles.wordmark}>Clientbridge</Text>
                     </View>
 
-                    <Text style={styles.title}>Create your business</Text>
-                    <Text style={styles.subtitle}>
-                        We’ll set up your bookings, invoices, and the right tax rates for your
-                        province.
-                    </Text>
+                    <Text style={styles.title}>{strings.onboarding.title}</Text>
+                    <Text style={styles.subtitle}>{strings.onboarding.subtitleMobile}</Text>
 
-                    <Text style={styles.label}>Business name</Text>
+                    <Text style={styles.label}>{strings.onboarding.businessName}</Text>
                     <TextInput
                         style={styles.input}
                         value={form.name}
                         onChangeText={form.setName}
-                        placeholder="Birch Bark Pet Care"
+                        placeholder={strings.onboarding.businessNamePlaceholder}
                         placeholderTextColor={c.muted}
                     />
 
-                    <Text style={styles.label}>Web address</Text>
+                    <Text style={styles.label}>{strings.onboarding.webAddress}</Text>
                     <View style={styles.slugRow}>
-                        <Text style={styles.slugPrefix}>clientbridge.ca/</Text>
+                        <Text style={styles.slugPrefix}>{strings.onboarding.slugPrefix}</Text>
                         <TextInput
                             style={styles.slugInput}
                             value={form.slug}
                             onChangeText={form.setSlug}
-                            placeholder="birch-bark"
+                            placeholder={strings.onboarding.slugPlaceholder}
                             placeholderTextColor={c.muted}
                             autoCapitalize="none"
                         />
                     </View>
 
-                    <Text style={styles.label}>Province</Text>
+                    <Text style={styles.label}>{strings.onboarding.province}</Text>
                     <View style={styles.chipWrap}>
                         {PROVINCES.map((p) => {
                             const on = form.province === p.code;
@@ -115,12 +112,14 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         {form.busy ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <Text style={styles.submitText}>Create business</Text>
+                            <Text style={styles.submitText}>
+                                {strings.onboarding.createBusiness}
+                            </Text>
                         )}
                     </Pressable>
 
                     <Pressable style={styles.signOut} onPress={onSignOut} hitSlop={8}>
-                        <Text style={styles.signOutText}>Not you? Sign out</Text>
+                        <Text style={styles.signOutText}>{strings.onboarding.notYouSignOut}</Text>
                     </Pressable>
                 </ScrollView>
             </KeyboardAvoidingView>

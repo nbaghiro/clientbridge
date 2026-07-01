@@ -10,6 +10,7 @@ import {
     markThreadRead,
     messageStatusIntent,
     parseTimestamp,
+    strings,
     useBroadcastForm,
     useClients,
     useComposeMessage,
@@ -46,7 +47,7 @@ export function InboxScreen() {
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <View style={styles.header}>
-                <Text style={styles.title}>Inbox</Text>
+                <Text style={styles.title}>{strings.inbox.title}</Text>
                 <View style={styles.headerBtns}>
                     <Pressable
                         style={styles.ghostBtn}
@@ -54,7 +55,7 @@ export function InboxScreen() {
                             setBroadcasting(true);
                         }}
                     >
-                        <Text style={styles.ghostText}>Broadcast</Text>
+                        <Text style={styles.ghostText}>{strings.inbox.broadcast}</Text>
                     </Pressable>
                     <Pressable
                         style={styles.add}
@@ -62,7 +63,7 @@ export function InboxScreen() {
                             setComposing(true);
                         }}
                     >
-                        <Text style={styles.addText}>New</Text>
+                        <Text style={styles.addText}>{strings.inbox.newShort}</Text>
                     </Pressable>
                 </View>
             </View>
@@ -79,7 +80,9 @@ export function InboxScreen() {
                         }}
                     />
                 )}
-                ListEmptyComponent={<Text style={styles.empty}>No conversations yet.</Text>}
+                ListEmptyComponent={
+                    <Text style={styles.empty}>{strings.inbox.noConversations}</Text>
+                }
             />
 
             <ThreadModal
@@ -109,7 +112,7 @@ function ThreadRowView({ thread, onPress }: { thread: ThreadRow; onPress: () => 
         <Pressable style={styles.row} onPress={onPress}>
             <View style={styles.rowMain}>
                 <Text style={styles.rowName} numberOfLines={1}>
-                    {thread.client_name ?? "Client"}
+                    {thread.client_name ?? strings.inbox.clientFallback}
                 </Text>
                 <Text style={styles.rowSub} numberOfLines={1}>
                     {channelLabel(thread.channel)}
@@ -160,10 +163,10 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
         >
             <View style={styles.sheetHead}>
                 <Text style={styles.sheetTitle} numberOfLines={1}>
-                    {thread.client_name ?? "Client"}
+                    {thread.client_name ?? strings.inbox.clientFallback}
                 </Text>
                 <Pressable onPress={onClose}>
-                    <Text style={styles.closeText}>Close</Text>
+                    <Text style={styles.closeText}>{strings.common.close}</Text>
                 </Pressable>
             </View>
 
@@ -172,7 +175,7 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
                 keyExtractor={(m) => m.id}
                 contentContainerStyle={styles.messages}
                 renderItem={({ item }) => <Bubble message={item} />}
-                ListEmptyComponent={<Text style={styles.muted}>No messages yet.</Text>}
+                ListEmptyComponent={<Text style={styles.muted}>{strings.inbox.noMessages}</Text>}
             />
 
             <View style={styles.composer}>
@@ -182,7 +185,9 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
                         style={styles.composerInput}
                         value={compose.body}
                         onChangeText={compose.setBody}
-                        placeholder={`Reply by ${channelLabel(thread.channel).toLowerCase()}…`}
+                        placeholder={strings.inbox.replyBy(
+                            channelLabel(thread.channel).toLowerCase(),
+                        )}
                         placeholderTextColor={c.muted}
                         multiline
                     />
@@ -194,7 +199,9 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
                         disabled={compose.busy || compose.body.trim().length === 0}
                         onPress={compose.submit}
                     >
-                        <Text style={styles.sendText}>{compose.busy ? "…" : "Send"}</Text>
+                        <Text style={styles.sendText}>
+                            {compose.busy ? strings.inbox.busyEllipsis : strings.inbox.send}
+                        </Text>
                     </Pressable>
                 </View>
             </View>
@@ -252,11 +259,11 @@ function ComposeModal({ visible, onClose }: { visible: boolean; onClose: () => v
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.backdrop}>
                 <View style={styles.formSheet}>
-                    <Text style={styles.sheetTitle}>New message</Text>
+                    <Text style={styles.sheetTitle}>{strings.inbox.newMessageTitle}</Text>
                     <ScrollView contentContainerStyle={styles.formBody}>
-                        <Text style={styles.fieldLabel}>Client</Text>
+                        <Text style={styles.fieldLabel}>{strings.inbox.clientLabel}</Text>
                         {clients.length === 0 ? (
-                            <Text style={styles.muted}>Add a client first.</Text>
+                            <Text style={styles.muted}>{strings.inbox.addClientFirst}</Text>
                         ) : (
                             <View style={styles.chipWrap}>
                                 {clients.map((cl) => (
@@ -283,15 +290,19 @@ function ComposeModal({ visible, onClose }: { visible: boolean; onClose: () => v
                             </View>
                         )}
 
-                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>Channel</Text>
+                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                            {strings.inbox.channelLabel}
+                        </Text>
                         <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
 
-                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>Message</Text>
+                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                            {strings.inbox.messageLabel}
+                        </Text>
                         <TextInput
                             style={styles.textArea}
                             value={compose.body}
                             onChangeText={compose.setBody}
-                            placeholder="Write a message…"
+                            placeholder={strings.inbox.messagePlaceholder}
                             placeholderTextColor={c.muted}
                             multiline
                         />
@@ -303,7 +314,7 @@ function ComposeModal({ visible, onClose }: { visible: boolean; onClose: () => v
                         busy={compose.busy}
                         onCancel={onClose}
                         onSubmit={compose.submit}
-                        label="Send"
+                        label={strings.inbox.send}
                     />
                 </View>
             </View>
@@ -328,48 +339,54 @@ function BroadcastModal({ visible, onClose }: { visible: boolean; onClose: () =>
                         <View style={styles.center}>
                             <Text style={styles.sheetTitle}>
                                 {sent.status === "scheduled"
-                                    ? "Broadcast scheduled"
-                                    : "Broadcast sent"}
+                                    ? strings.inbox.broadcastScheduled
+                                    : strings.inbox.broadcastSent}
                             </Text>
                             <Text style={styles.muted}>
-                                {sent.name} · {sent.recipient_count} recipient
-                                {sent.recipient_count === 1 ? "" : "s"}
+                                {strings.inbox.broadcastRecipientsShort(
+                                    sent.name,
+                                    sent.recipient_count,
+                                )}
                             </Text>
                             <Pressable style={styles.add} onPress={close}>
-                                <Text style={styles.addText}>Done</Text>
+                                <Text style={styles.addText}>{strings.common.done}</Text>
                             </Pressable>
                         </View>
                     ) : (
                         <>
-                            <Text style={styles.sheetTitle}>New broadcast</Text>
+                            <Text style={styles.sheetTitle}>{strings.inbox.newBroadcastTitle}</Text>
                             <ScrollView contentContainerStyle={styles.formBody}>
-                                <Text style={styles.fieldLabel}>Name</Text>
+                                <Text style={styles.fieldLabel}>{strings.inbox.nameLabel}</Text>
                                 <TextInput
                                     style={styles.input}
                                     value={form.name}
                                     onChangeText={form.setName}
-                                    placeholder="Spring promo"
+                                    placeholder={strings.inbox.namePlaceholder}
                                     placeholderTextColor={c.muted}
                                 />
-                                <Text style={[styles.fieldLabel, styles.fieldSpace]}>Channel</Text>
+                                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                                    {strings.inbox.channelLabel}
+                                </Text>
                                 <ChannelToggle value={form.channel} onChange={form.setChannel} />
-                                <Text style={[styles.fieldLabel, styles.fieldSpace]}>Message</Text>
+                                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                                    {strings.inbox.messageLabel}
+                                </Text>
                                 <TextInput
                                     style={styles.textArea}
                                     value={form.body}
                                     onChangeText={form.setBody}
-                                    placeholder="Write your announcement…"
+                                    placeholder={strings.inbox.announcementPlaceholder}
                                     placeholderTextColor={c.muted}
                                     multiline
                                 />
                                 <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                                    Audience tags (optional)
+                                    {strings.inbox.audienceTagsOptional}
                                 </Text>
                                 <TextInput
                                     style={styles.input}
                                     value={form.tags}
                                     onChangeText={form.setTags}
-                                    placeholder="vip, regulars — blank = everyone"
+                                    placeholder={strings.inbox.tagsPlaceholderShort}
                                     placeholderTextColor={c.muted}
                                     autoCapitalize="none"
                                 />
@@ -381,7 +398,7 @@ function BroadcastModal({ visible, onClose }: { visible: boolean; onClose: () =>
                                 busy={form.busy}
                                 onCancel={close}
                                 onSubmit={form.submit}
-                                label="Send broadcast"
+                                label={strings.inbox.sendBroadcast}
                             />
                         </>
                     )}
@@ -405,14 +422,14 @@ function ModalActions({
     return (
         <View style={styles.actions}>
             <Pressable style={styles.cancel} onPress={onCancel}>
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelText}>{strings.common.cancel}</Text>
             </Pressable>
             <Pressable
                 style={[styles.save, busy && styles.btnBusy]}
                 disabled={busy}
                 onPress={onSubmit}
             >
-                <Text style={styles.saveText}>{busy ? "Sending…" : label}</Text>
+                <Text style={styles.saveText}>{busy ? strings.inbox.sending : label}</Text>
             </Pressable>
         </View>
     );

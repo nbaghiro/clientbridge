@@ -1,4 +1,4 @@
-import { PROVINCES, useOnboardingForm } from "@clientbridge/app-core";
+import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 
 import { Logo } from "../components/icons";
@@ -20,7 +20,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
             <div className="flex min-h-screen items-center justify-center bg-bg px-6">
                 <div className="text-center">
                     <Logo className="mx-auto h-8 w-8 text-accent" />
-                    <p className="mt-4 text-sm text-muted">Setting up your workspace…</p>
+                    <p className="mt-4 text-sm text-muted">{strings.onboarding.settingUp}</p>
                 </div>
             </div>
         );
@@ -34,11 +34,10 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     <span className="text-lg font-bold tracking-tight text-ink">Clientbridge</span>
                 </div>
 
-                <h1 className="font-display text-2xl font-bold text-ink">Create your business</h1>
-                <p className="mt-1 text-sm text-muted">
-                    Tell us about your practice — we’ll set up your bookings, invoices, and the
-                    right tax rates for your province.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.onboarding.title}
+                </h1>
+                <p className="mt-1 text-sm text-muted">{strings.onboarding.subtitleWeb}</p>
 
                 <form
                     onSubmit={(e) => {
@@ -48,35 +47,37 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     className="mt-6 flex flex-col gap-4"
                 >
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                        Business name
+                        {strings.onboarding.businessName}
                         <input
                             value={form.name}
                             onChange={(e) => {
                                 form.setName(e.target.value);
                             }}
-                            placeholder="Birch Bark Pet Care"
+                            placeholder={strings.onboarding.businessNamePlaceholder}
                             autoFocus
                             className={field}
                         />
                     </label>
 
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                        Web address
+                        {strings.onboarding.webAddress}
                         <div className="flex items-center overflow-hidden rounded-md border border-line bg-bg focus-within:border-accent">
-                            <span className="pl-3 text-sm text-muted">clientbridge.ca/</span>
+                            <span className="pl-3 text-sm text-muted">
+                                {strings.onboarding.slugPrefix}
+                            </span>
                             <input
                                 value={form.slug}
                                 onChange={(e) => {
                                     form.setSlug(e.target.value);
                                 }}
-                                placeholder="birch-bark"
+                                placeholder={strings.onboarding.slugPlaceholder}
                                 className="flex-1 bg-transparent px-1 py-2.5 text-ink outline-none placeholder:text-muted"
                             />
                         </div>
                     </label>
 
                     <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                        Province
+                        {strings.onboarding.province}
                         <select
                             value={form.province}
                             onChange={(e) => {
@@ -99,18 +100,20 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                         disabled={form.busy}
                         className="mt-1 rounded-md bg-accent px-4 py-2.5 font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Creating…" : "Create business"}
+                        {form.busy
+                            ? strings.onboarding.creating
+                            : strings.onboarding.createBusiness}
                     </button>
                 </form>
 
                 <p className="mt-6 text-center text-sm text-muted">
-                    Not you?{" "}
+                    {strings.onboarding.notYou}{" "}
                     <button
                         type="button"
                         onClick={onSignOut}
                         className="font-semibold text-accent hover:underline"
                     >
-                        Sign out
+                        {strings.onboarding.signOut}
                     </button>
                 </p>
             </div>

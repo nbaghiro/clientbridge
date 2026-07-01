@@ -1,4 +1,4 @@
-import { useConnectOnboarding } from "@clientbridge/app-core";
+import { strings, useConnectOnboarding } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
@@ -38,16 +38,12 @@ export function PaymentsScreen() {
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <Text style={styles.note}>
-                Take card payments through Stripe and get paid out to your bank.
-            </Text>
+            <Text style={styles.note}>{strings.payments.subtitle}</Text>
             <View style={styles.group}>
                 {phase === "loading" ? (
                     <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
                 ) : phase === "error" ? (
-                    <Text style={styles.error}>
-                        We couldn’t load your payment status. Please try again.
-                    </Text>
+                    <Text style={styles.error}>{strings.payments.loadError}</Text>
                 ) : (
                     <>
                         <Text style={phase === "disabled" ? styles.titleDanger : styles.title}>
@@ -56,8 +52,8 @@ export function PaymentsScreen() {
                         {phase === "enabled" && (
                             <Text style={styles.muted}>
                                 {payoutsEnabled
-                                    ? "Connected to Stripe. Payouts are active."
-                                    : "Connected to Stripe. Payouts start once your bank details are verified."}
+                                    ? strings.payments.payoutsActive
+                                    : strings.payments.payoutsPending}
                             </Text>
                         )}
                         {requirements.map((req) => (

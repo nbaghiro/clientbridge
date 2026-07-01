@@ -5,6 +5,7 @@ import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/primitives";
+import { strings } from "../strings";
 
 export interface InvoiceRow {
     id: string;
@@ -207,11 +208,11 @@ export type DocTab = "invoices" | "estimates";
 
 /** Button copy for each document action — shared so web + mobile can't drift (they had). */
 export const DOC_ACTION_LABEL: Record<DocActionKey, string> = {
-    send: "Send",
-    void: "Void",
-    accept: "Accept",
-    decline: "Decline",
-    convert: "Convert to invoice",
+    send: strings.invoices.actionSend,
+    void: strings.invoices.actionVoid,
+    accept: strings.invoices.actionAccept,
+    decline: strings.invoices.actionDecline,
+    convert: strings.invoices.actionConvert,
 };
 
 export interface DocAction {
@@ -336,7 +337,7 @@ export function useDocForm(
     const submit = (): void => {
         const payload = toLineInputs(lines);
         if (clientId.length === 0 || payload.length === 0) {
-            setError("Pick a client and add at least one line.");
+            setError(strings.invoices.incompleteInvoice);
             return;
         }
         void run(
@@ -344,7 +345,7 @@ export function useDocForm(
                 kind === "invoice"
                     ? createInvoice(api, clientId, payload, notes)
                     : createEstimate(api, clientId, payload, notes),
-            { onSuccess: onCreated, errorMessage: "Could not save — please try again." },
+            { onSuccess: onCreated, errorMessage: strings.invoices.saveError },
         );
     };
 

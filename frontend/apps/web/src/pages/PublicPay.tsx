@@ -3,6 +3,7 @@ import {
     createPublicPayClient,
     formatMoneyWithCurrency,
     invoiceStatusIntent,
+    strings,
     useAsyncAction,
     usePublicPayForm,
 } from "@clientbridge/app-core";
@@ -21,24 +22,26 @@ export function PublicPay() {
     const form = usePublicPayForm(pay, token);
     const invoice = form.invoice;
 
-    if (form.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
+    if (form.status === "loading")
+        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
 
     if (form.status === "not-found")
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Invoice not found</h1>
-                <p className="mt-2 text-sm text-muted">
-                    This payment link is invalid or has expired. Please check with the business that
-                    sent it to you.
-                </p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.publicPay.notFoundTitle}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.publicPay.notFoundBody}</p>
             </Frame>
         );
 
     if (form.status === "error" || invoice === null)
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">Please try again later.</p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.common.somethingWrong}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
             </Frame>
         );
 
@@ -46,7 +49,7 @@ export function PublicPay() {
 
     const runCard = (): void => {
         if (!PUBLISHABLE_KEY) {
-            form.setError("Card payments aren't configured. Please use Interac e-Transfer.");
+            form.setError(strings.publicPay.cardNotConfigured);
             return;
         }
         form.payCard();
@@ -54,36 +57,44 @@ export function PublicPay() {
 
     return (
         <Frame>
-            <p className="text-sm text-muted">{invoice.business_name} is requesting payment</p>
+            <p className="text-sm text-muted">
+                {strings.publicPay.requestingPayment(invoice.business_name)}
+            </p>
             <div className="mt-1 flex items-center gap-2">
                 <h1 className="font-display text-lg font-bold text-ink">
-                    {invoice.number !== null ? `Invoice #${invoice.number}` : "Invoice"}
+                    {invoice.number !== null
+                        ? strings.publicPay.invoiceNumber(invoice.number)
+                        : strings.publicPay.invoice}
                 </h1>
                 <StatusPill status={invoice.status} intent={invoiceStatusIntent(invoice.status)} />
             </div>
 
             <div className="mt-6 rounded-lg border border-line bg-bg px-5 py-4">
-                <p className="text-xs uppercase tracking-wide text-muted">Balance due</p>
+                <p className="text-xs uppercase tracking-wide text-muted">
+                    {strings.publicPay.balanceDue}
+                </p>
                 <p className="mt-1 font-display text-4xl font-bold tabular-nums text-ink">
                     {formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
                 </p>
                 {invoice.balance_cents !== invoice.total_cents ? (
                     <p className="mt-1 text-xs text-muted">
-                        of {formatMoneyWithCurrency(invoice.total_cents, invoice.currency)} total
+                        {strings.publicPay.ofTotal(
+                            formatMoneyWithCurrency(invoice.total_cents, invoice.currency),
+                        )}
                     </p>
                 ) : null}
             </div>
 
             <h2 className="mt-6 text-sm font-semibold text-ink" id="pay-method-label">
-                Choose how to pay
+                {strings.publicPay.chooseHowToPay}
             </h2>
             <div role="radiogroup" aria-labelledby="pay-method-label" className="mt-3 space-y-2">
                 {form.methods.map((m) =>
                     m === "interac" ? (
                         <MethodOption
                             key={m}
-                            label="Interac e-Transfer"
-                            badge="Recommended · no fee"
+                            label={strings.publicPay.interacLabel}
+                            badge={strings.publicPay.interacBadge}
                             selected={form.method === "interac"}
                             onSelect={() => {
                                 form.setMethod("interac");
@@ -93,7 +104,7 @@ export function PublicPay() {
                     ) : (
                         <MethodOption
                             key={m}
-                            label="Credit or debit card"
+                            label={strings.publicPay.cardLabel}
                             selected={form.method === "card"}
                             onSelect={() => {
                                 form.setMethod("card");
@@ -110,7 +121,7 @@ export function PublicPay() {
                         <InteracInstructions result={form.interac} currency={invoice.currency} />
                     ) : (
                         <PrimaryButton onClick={form.payInterac} busy={form.busy}>
-                            Pay by Interac
+                            {strings.publicPay.payByInterac}
                         </PrimaryButton>
                     )
                 ) : form.card ? (
@@ -125,7 +136,7 @@ export function PublicPay() {
                     />
                 ) : (
                     <PrimaryButton onClick={runCard} busy={form.busy}>
-                        Pay by card
+                        {strings.publicPay.payByCard}
                     </PrimaryButton>
                 )}
                 {form.error ? <p className="mt-3 text-sm text-danger-fg">{form.error}</p> : null}
@@ -206,7 +217,7 @@ function PrimaryButton({
             disabled={busy ?? disabled ?? false}
             className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
         >
-            {busy ? "Working…" : children}
+            {busy ? strings.common.working : children}
         </button>
     );
 }
@@ -214,24 +225,24 @@ function PrimaryButton({
 function InteracInstructions({ result, currency }: { result: InteracRequest; currency: string }) {
     return (
         <div className="rounded-lg border border-accent-line bg-accent-weak px-4 py-4 text-sm text-ink">
-            <p className="font-semibold">Send your Interac e-Transfer</p>
+            <p className="font-semibold">{strings.publicPay.interacHeading}</p>
             {result.send_to !== null ? (
                 <p className="mt-2 leading-relaxed">
-                    Send an Interac e-Transfer of{" "}
-                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong> to{" "}
-                    <strong>{result.send_to}</strong> and put{" "}
-                    <strong>{result.reference_code}</strong> in the message.
+                    {strings.publicPay.interacSendPrefix}{" "}
+                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong>{" "}
+                    {strings.publicPay.interacTo} <strong>{result.send_to}</strong>{" "}
+                    {strings.publicPay.interacAndPut} <strong>{result.reference_code}</strong>{" "}
+                    {strings.publicPay.interacInMessage}
                 </p>
             ) : (
                 <p className="mt-2 leading-relaxed">
-                    The business will share their e-Transfer email with you. Send{" "}
-                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong> and
-                    put <strong>{result.reference_code}</strong> in the message.
+                    {strings.publicPay.interacNoEmail}{" "}
+                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong>{" "}
+                    {strings.publicPay.interacAndPut} <strong>{result.reference_code}</strong>{" "}
+                    {strings.publicPay.interacInMessage}
                 </p>
             )}
-            <p className="mt-3 text-xs text-muted">
-                Your payment will be marked as received once the business confirms the transfer.
-            </p>
+            <p className="mt-3 text-xs text-muted">{strings.publicPay.interacConfirmNote}</p>
         </div>
     );
 }
@@ -254,11 +265,7 @@ function CardPay({
     );
 
     if (!stripePromise)
-        return (
-            <p className="text-sm text-danger-fg">
-                Card payments aren't configured. Please use Interac e-Transfer.
-            </p>
-        );
+        return <p className="text-sm text-danger-fg">{strings.publicPay.cardNotConfigured}</p>;
 
     return (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
@@ -279,12 +286,12 @@ function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => 
             async () => {
                 const result = await stripe.confirmPayment({ elements, redirect: "if_required" });
                 if (result.error) {
-                    setError(result.error.message ?? "Payment failed. Please try again.");
+                    setError(result.error.message ?? strings.publicPay.paymentFailed);
                     return;
                 }
                 onPaid();
             },
-            { errorMessage: "Payment failed. Please try again." },
+            { errorMessage: strings.publicPay.paymentFailed },
         );
     };
 
@@ -293,7 +300,7 @@ function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => 
             <PaymentElement />
             {error ? <p className="text-sm text-danger-fg">{error}</p> : null}
             <PrimaryButton busy={busy} disabled={!stripe}>
-                Pay {amountLabel}
+                {strings.publicPay.payAmount(amountLabel)}
             </PrimaryButton>
         </form>
     );
@@ -307,11 +314,10 @@ function PaidState({ businessName }: { businessName: string }) {
                     ✓
                 </span>
                 <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                    This invoice is paid — thank you
+                    {strings.publicPay.paidTitle}
                 </h1>
                 <p className="mt-2 text-sm text-muted">
-                    Your payment to {businessName} is complete. A receipt will follow from the
-                    business.
+                    {strings.publicPay.paidBody(businessName)}
                 </p>
             </div>
         </Frame>

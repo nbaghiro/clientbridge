@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useCallback, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
 import type { ItemRow } from "./catalog";
@@ -217,7 +218,7 @@ export function useCart(api: ApiLike): Cart {
 
     const review = (): void => {
         if (lines.length === 0) {
-            setError("Add an item before charging.");
+            setError(strings.pos.addItemFirst);
             return;
         }
         const payload = cartLineInputs(lines);
@@ -230,7 +231,7 @@ export function useCart(api: ApiLike): Cart {
                 setOrder(result);
                 setPhase("review");
             },
-            { errorMessage: "Couldn't total this sale. Please try again." },
+            { errorMessage: strings.pos.totalError },
         );
     };
 
@@ -242,7 +243,7 @@ export function useCart(api: ApiLike): Cart {
                 setCheckoutResult(result);
                 setPhase("awaiting_reader");
             },
-            { errorMessage: "Couldn't start the charge. Please try again." },
+            { errorMessage: strings.pos.chargeStartError },
         );
     };
 
@@ -253,7 +254,7 @@ export function useCart(api: ApiLike): Cart {
         }
         void run(() => voidOrder(api, order.id), {
             onSuccess: newSale,
-            errorMessage: "Couldn't void this sale. Please try again.",
+            errorMessage: strings.pos.voidError,
         });
     };
 

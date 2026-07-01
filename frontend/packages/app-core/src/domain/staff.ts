@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { AuthTokens } from "../hooks/useLogin";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 
 export interface StaffRow {
@@ -48,9 +49,9 @@ export function canManageStaff(role: string | null): boolean {
 export type StaffRole = "admin" | "staff" | "contractor";
 
 export const INVITABLE_ROLES: { value: StaffRole; label: string }[] = [
-    { value: "staff", label: "Staff" },
-    { value: "admin", label: "Admin" },
-    { value: "contractor", label: "Contractor" },
+    { value: "staff", label: strings.team.roleStaff },
+    { value: "admin", label: strings.team.roleAdmin },
+    { value: "contractor", label: strings.team.roleContractor },
 ];
 
 /** Matches the backend InviteOut; `invite_token` is the raw token, returned once to the inviter. */
@@ -118,7 +119,7 @@ export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void
 
     const submit = (): void => {
         if (email.trim().length === 0) {
-            setError("An email is required");
+            setError(strings.team.emailRequired);
             return;
         }
         void run(
@@ -128,7 +129,7 @@ export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void
                 setEmail("");
                 onInvited?.(created);
             },
-            { errorMessage: "Couldn’t send that invite — check the email and try again." },
+            { errorMessage: strings.team.inviteError },
         );
     };
 
@@ -164,11 +165,11 @@ export function useAcceptInviteForm(
 
     const submit = (): void => {
         if (token.length === 0) {
-            setError("This invite link is missing its code.");
+            setError(strings.team.inviteMissingCode);
             return;
         }
         if (password.length < 8) {
-            setError("Choose a password of at least 8 characters.");
+            setError(strings.team.passwordTooShort);
             return;
         }
         void run(
@@ -177,7 +178,7 @@ export function useAcceptInviteForm(
             },
             {
                 onSuccess,
-                errorMessage: "Couldn’t accept this invite — it may be invalid or expired.",
+                errorMessage: strings.team.acceptInviteError,
             },
         );
     };

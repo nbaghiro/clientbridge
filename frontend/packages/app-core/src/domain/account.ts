@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 
 interface AccountRow {
@@ -28,18 +29,34 @@ export const ACCOUNT_TEXT_FIELDS: {
     label: string;
     placeholder: string;
 }[] = [
-    { key: "name", label: "Business name", placeholder: "Birch Bark Pet Care" },
-    { key: "timezone", label: "Time zone", placeholder: "America/Toronto" },
-    { key: "billing_email", label: "Billing email", placeholder: "you@example.com" },
-    { key: "gst_hst_number", label: "GST/HST number", placeholder: "123456789RT0001" },
-    { key: "qst_number", label: "QST number", placeholder: "1234567890TQ0001" },
+    { key: "name", label: strings.account.nameLabel, placeholder: strings.account.namePlaceholder },
+    {
+        key: "timezone",
+        label: strings.account.timezoneLabel,
+        placeholder: strings.account.timezonePlaceholder,
+    },
+    {
+        key: "billing_email",
+        label: strings.account.billingEmailLabel,
+        placeholder: strings.account.billingEmailPlaceholder,
+    },
+    {
+        key: "gst_hst_number",
+        label: strings.account.gstLabel,
+        placeholder: strings.account.gstPlaceholder,
+    },
+    {
+        key: "qst_number",
+        label: strings.account.qstLabel,
+        placeholder: strings.account.qstPlaceholder,
+    },
 ];
 
-/** Supported UI languages (the bilingual EN/FR selector). */
-export const LOCALES: { code: string; label: string }[] = [
-    { code: "en", label: "English" },
-    { code: "fr", label: "Français" },
-];
+/**
+ * Supported UI languages. English-only for now; adding a second entry re-enables the account
+ * language picker (which renders only when more than one locale exists). See strings.ts / CLAUDE.md.
+ */
+export const LOCALES: { code: string; label: string }[] = [{ code: "en", label: "English" }];
 
 export interface AccountForm {
     fields: AccountFields | null; // null until the synced business row loads
@@ -82,14 +99,14 @@ export function useAccountForm(api: ApiLike): AccountForm {
     const submit = (): void => {
         if (fields === null) return;
         if (fields.name.trim().length === 0) {
-            setError("Business name is required");
+            setError(strings.account.nameRequired);
             return;
         }
         void run(() => api.patch("/v1/business", fields), {
             onSuccess: () => {
                 setSaved(true);
             },
-            errorMessage: "Could not save account settings",
+            errorMessage: strings.account.saveError,
         });
     };
 

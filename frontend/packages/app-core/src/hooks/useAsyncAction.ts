@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import { strings } from "../strings";
+
 export interface AsyncAction {
     busy: boolean;
     error: string | null;
@@ -25,7 +27,7 @@ export function useAsyncAction(): AsyncAction {
             await fn();
             opts?.onSuccess?.();
         } catch {
-            setError(opts?.errorMessage ?? "Something went wrong. Please try again.");
+            setError(opts?.errorMessage ?? strings.common.somethingWrongRetry);
         } finally {
             setBusy(false);
         }

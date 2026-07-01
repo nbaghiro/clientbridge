@@ -3,6 +3,7 @@ import {
     KIND_LABEL,
     filterItems,
     formatMoney,
+    strings,
     useCatalogItems,
     useItemForm,
     useSearch,
@@ -21,8 +22,10 @@ export function Catalog() {
         <div>
             <header className="flex items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-2xl font-bold">Catalog &amp; services</h1>
-                    <p className="mt-0.5 text-sm text-muted">{items.length} items</p>
+                    <h1 className="font-display text-2xl font-bold">{strings.catalog.title}</h1>
+                    <p className="mt-0.5 text-sm text-muted">
+                        {strings.catalog.itemCount(items.length)}
+                    </p>
                 </div>
                 <button
                     type="button"
@@ -31,7 +34,7 @@ export function Catalog() {
                     }}
                     className="flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                 >
-                    <IconPlus className="h-4 w-4" /> Add item
+                    <IconPlus className="h-4 w-4" /> {strings.catalog.addItem}
                 </button>
             </header>
 
@@ -42,7 +45,7 @@ export function Catalog() {
                     onChange={(e) => {
                         setQ(e.target.value);
                     }}
-                    placeholder="Search catalog…"
+                    placeholder={strings.catalog.searchPlaceholder}
                     className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
                 />
             </div>
@@ -51,10 +54,12 @@ export function Catalog() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">Name</th>
-                            <th className="px-4 py-3 font-semibold">Type</th>
-                            <th className="px-4 py-3 font-semibold">Duration</th>
-                            <th className="px-4 py-3 text-right font-semibold">Price</th>
+                            <th className="px-4 py-3 font-semibold">{strings.catalog.name}</th>
+                            <th className="px-4 py-3 font-semibold">{strings.catalog.type}</th>
+                            <th className="px-4 py-3 font-semibold">{strings.catalog.duration}</th>
+                            <th className="px-4 py-3 text-right font-semibold">
+                                {strings.catalog.price}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -77,7 +82,9 @@ export function Catalog() {
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 text-ink-soft">
-                                    {i.duration_min ? `${String(i.duration_min)} min` : "—"}
+                                    {i.duration_min
+                                        ? strings.catalog.durationMin(i.duration_min)
+                                        : "—"}
                                 </td>
                                 <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
                                     {formatMoney(i.price_cents)}
@@ -90,7 +97,7 @@ export function Catalog() {
                                     colSpan={4}
                                     className="px-4 py-12 text-center text-sm text-muted"
                                 >
-                                    {q ? "No items match your search." : "No catalog items yet."}
+                                    {q ? strings.catalog.noMatch : strings.catalog.empty}
                                 </td>
                             </tr>
                         ) : null}
@@ -125,10 +132,12 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                 onSubmit={submit}
                 className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"
             >
-                <h2 className="font-display text-lg font-bold text-ink">Add item</h2>
+                <h2 className="font-display text-lg font-bold text-ink">
+                    {strings.catalog.addItem}
+                </h2>
                 <div className="mt-4 flex flex-col gap-3">
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Type
+                        {strings.catalog.type}
                         <select
                             value={form.kind}
                             onChange={(e) => {
@@ -144,7 +153,7 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                         </select>
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Name
+                        {strings.catalog.name}
                         <input
                             value={form.name}
                             onChange={(e) => {
@@ -156,7 +165,7 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                     </label>
                     <div className="flex gap-3">
                         <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
-                            Price ($)
+                            {strings.catalog.priceLabel}
                             <input
                                 value={form.price}
                                 onChange={(e) => {
@@ -168,7 +177,7 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                             />
                         </label>
                         <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
-                            Duration (min)
+                            {strings.catalog.durationLabel}
                             <input
                                 value={form.duration}
                                 onChange={(e) => {
@@ -181,7 +190,7 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                         </label>
                     </div>
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Category
+                        {strings.catalog.category}
                         <input
                             value={form.category}
                             onChange={(e) => {
@@ -198,14 +207,14 @@ function AddItemModal({ onClose }: { onClose: () => void }) {
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Adding…" : "Add item"}
+                        {form.busy ? strings.catalog.adding : strings.catalog.addItem}
                     </button>
                 </div>
             </form>

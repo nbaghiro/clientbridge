@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/primitives";
@@ -73,7 +74,7 @@ export function useClientForm(api: ApiLike, onCreated: () => void): ClientForm {
 
     const submit = (): void => {
         if (name.trim().length === 0) {
-            setError("Name is required");
+            setError(strings.clients.nameRequired);
             return;
         }
         void run(() => createClient(api, { name, email, phone }), {
@@ -83,7 +84,7 @@ export function useClientForm(api: ApiLike, onCreated: () => void): ClientForm {
                 setPhone("");
                 onCreated();
             },
-            errorMessage: "Could not add client",
+            errorMessage: strings.clients.addError,
         });
     };
 

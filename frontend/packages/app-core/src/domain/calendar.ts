@@ -15,6 +15,7 @@ import {
     startOfWeek,
 } from "../util/datetime";
 import type { Intent } from "../util/primitives";
+import { strings } from "../strings";
 import { useInteractivePurchase } from "./payments";
 import { type StaffRow, useStaff } from "./staff";
 
@@ -346,9 +347,9 @@ export type RecurFrequency = "daily" | "weekly" | "monthly";
 /** Recurrence options with both display forms so each platform keeps its own phrasing without drift:
  *  `label` for a standalone chip ("Weekly"), `unit` for an "Every N …" control ("Weeks"). */
 export const RECUR_FREQUENCIES: { value: RecurFrequency; label: string; unit: string }[] = [
-    { value: "daily", label: "Daily", unit: "Days" },
-    { value: "weekly", label: "Weekly", unit: "Weeks" },
-    { value: "monthly", label: "Monthly", unit: "Months" },
+    { value: "daily", label: strings.calendar.freqDaily, unit: strings.calendar.unitDays },
+    { value: "weekly", label: strings.calendar.freqWeekly, unit: strings.calendar.unitWeeks },
+    { value: "monthly", label: strings.calendar.freqMonthly, unit: strings.calendar.unitMonths },
 ];
 
 export interface ScheduleResult {
@@ -435,7 +436,7 @@ export function useCancelBooking(
         }
         void run(() => setBookingStatus(api, bookingId, "canceled"), {
             onSuccess: onDone,
-            errorMessage: "Couldn't cancel this booking. Please try again.",
+            errorMessage: strings.calendar.cancelError,
         });
     };
     return { busy, error, cancel };
@@ -514,7 +515,7 @@ export function useCollectDeposit(
                     idempotencyKey,
                 }),
             saved === null,
-            "Couldn't collect the deposit. Please try again.",
+            strings.calendar.collectDepositError,
         );
     };
 
@@ -579,7 +580,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
             startsAt === null ||
             Number.isNaN(startsAt.getTime())
         ) {
-            setError("Pick a client, service, and time.");
+            setError(strings.calendar.incompleteBooking);
             return;
         }
         setNotice(null);
@@ -609,16 +610,14 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
                     setItemId("");
                     // A clean series closes; one that skipped occurrences stays open with a notice.
                     if (repeat && skipped > 0) {
-                        setNotice(
-                            `Booked ${created}, skipped ${skipped} (already taken or outside hours).`,
-                        );
+                        setNotice(strings.calendar.seriesSkippedNotice(created, skipped));
                     } else {
                         onCreated();
                     }
                 },
                 errorMessage: repeat
-                    ? "Could not create the series. Please try again."
-                    : "Could not book — that time may already be taken.",
+                    ? strings.calendar.createSeriesError
+                    : strings.calendar.bookError,
             },
         );
     };

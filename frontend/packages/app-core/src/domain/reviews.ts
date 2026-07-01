@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey } from "../util/primitives";
 import type { Intent } from "../util/primitives";
@@ -157,19 +158,19 @@ export function useReviewActions(
         if (trimmed.length === 0) return;
         void run(() => respondToReview(api, review.id, trimmed), {
             onSuccess: () => onDone?.(),
-            errorMessage: "Couldn't post your reply. Please try again.",
+            errorMessage: strings.reviews.postReplyError,
         });
     };
     const hide = (): void => {
         void run(() => hideReview(api, review.id), {
             onSuccess: () => onDone?.(),
-            errorMessage: "Couldn't hide this review. Please try again.",
+            errorMessage: strings.reviews.hideError,
         });
     };
     const publish = (): void => {
         void run(() => publishReview(api, review.id), {
             onSuccess: () => onDone?.(),
-            errorMessage: "Couldn't publish this review. Please try again.",
+            errorMessage: strings.reviews.publishError,
         });
     };
 
@@ -199,7 +200,7 @@ export function useRequestReviewForm(api: ApiLike, onSent: () => void): RequestR
 
     const submit = (): void => {
         if (clientId.length === 0) {
-            setError("Select a client");
+            setError(strings.reviews.selectClient);
             return;
         }
         void run(() => requestReview(api, { client_id: clientId }), {
@@ -207,7 +208,7 @@ export function useRequestReviewForm(api: ApiLike, onSent: () => void): RequestR
                 setClientId("");
                 onSent();
             },
-            errorMessage: "Couldn't send the review request. Please try again.",
+            errorMessage: strings.reviews.sendRequestError,
         });
     };
 

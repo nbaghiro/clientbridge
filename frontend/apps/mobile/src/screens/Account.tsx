@@ -1,4 +1,4 @@
-import { ACCOUNT_TEXT_FIELDS, LOCALES, useAccountForm } from "@clientbridge/app-core";
+import { ACCOUNT_TEXT_FIELDS, LOCALES, strings, useAccountForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import {
     ActivityIndicator,
@@ -34,7 +34,7 @@ export function AccountScreen() {
                 contentContainerStyle={styles.content}
                 keyboardShouldPersistTaps="handled"
             >
-                <Text style={styles.note}>Your business profile and tax registration.</Text>
+                <Text style={styles.note}>{strings.account.subtitle}</Text>
 
                 {ACCOUNT_TEXT_FIELDS.map((f) => (
                     <View key={f.key}>
@@ -53,28 +53,32 @@ export function AccountScreen() {
                     </View>
                 ))}
 
-                <Text style={styles.label}>Language</Text>
-                <View style={styles.chipWrap}>
-                    {LOCALES.map((l) => {
-                        const on = fields.locale === l.code;
-                        return (
-                            <Pressable
-                                key={l.code}
-                                style={[styles.chip, on && styles.chipOn]}
-                                onPress={() => {
-                                    form.set("locale", l.code);
-                                }}
-                            >
-                                <Text style={[styles.chipText, on && styles.chipTextOn]}>
-                                    {l.label}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
-                </View>
+                {LOCALES.length > 1 ? (
+                    <>
+                        <Text style={styles.label}>{strings.account.language}</Text>
+                        <View style={styles.chipWrap}>
+                            {LOCALES.map((l) => {
+                                const on = fields.locale === l.code;
+                                return (
+                                    <Pressable
+                                        key={l.code}
+                                        style={[styles.chip, on && styles.chipOn]}
+                                        onPress={() => {
+                                            form.set("locale", l.code);
+                                        }}
+                                    >
+                                        <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                                            {l.label}
+                                        </Text>
+                                    </Pressable>
+                                );
+                            })}
+                        </View>
+                    </>
+                ) : null}
 
                 {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
-                {form.saved ? <Text style={styles.saved}>Saved.</Text> : null}
+                {form.saved ? <Text style={styles.saved}>{strings.common.saved}</Text> : null}
 
                 <Pressable
                     style={({ pressed }) => [styles.submit, (form.busy || pressed) && styles.dim]}
@@ -84,7 +88,7 @@ export function AccountScreen() {
                     {form.busy ? (
                         <ActivityIndicator color="#fff" />
                     ) : (
-                        <Text style={styles.submitText}>Save changes</Text>
+                        <Text style={styles.submitText}>{strings.common.save}</Text>
                     )}
                 </Pressable>
             </ScrollView>

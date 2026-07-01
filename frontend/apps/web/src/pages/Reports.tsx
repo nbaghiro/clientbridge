@@ -4,6 +4,7 @@ import {
     canManagePayments,
     defaultReportRange,
     formatMoney,
+    strings,
     useReportDownload,
     useReports,
 } from "@clientbridge/app-core";
@@ -18,10 +19,10 @@ export function Reports() {
     if (!canManagePayments(role)) {
         return (
             <div className="mx-auto max-w-5xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold text-ink">Reports</h1>
-                <p className="mt-2 text-sm text-muted">
-                    Reports are available to owners and admins.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.reports.title}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.reports.accessRestricted}</p>
             </div>
         );
     }
@@ -48,29 +49,29 @@ function ReportsView() {
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
             <header>
-                <h1 className="font-display text-2xl font-bold text-ink">Reports</h1>
-                <p className="mt-0.5 text-sm text-muted">
-                    Income, GST/HST, and T4A — export for your bookkeeper or the CRA.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.reports.title}
+                </h1>
+                <p className="mt-0.5 text-sm text-muted">{strings.reports.subtitle}</p>
             </header>
 
             <div className="mt-6 flex flex-wrap items-end gap-4 rounded-lg border border-line bg-surface p-4">
                 <RangeField
-                    label="From"
+                    label={strings.reports.rangeFrom}
                     value={range.start}
                     onChange={(start) => {
                         setRange((r) => ({ ...r, start }));
                     }}
                 />
                 <RangeField
-                    label="To"
+                    label={strings.reports.rangeTo}
                     value={range.end}
                     onChange={(end) => {
                         setRange((r) => ({ ...r, end }));
                     }}
                 />
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    T4A year
+                    {strings.reports.t4aYear}
                     <input
                         type="number"
                         value={range.year}
@@ -85,12 +86,12 @@ function ReportsView() {
             {dlError !== null ? <p className="mt-3 text-sm text-danger">{dlError}</p> : null}
 
             {error ? (
-                <p className="mt-6 text-sm text-muted">Couldn’t load your reports.</p>
+                <p className="mt-6 text-sm text-muted">{strings.reports.loadError}</p>
             ) : (
                 <div className="mt-6 space-y-5">
                     <Card
-                        title="Income"
-                        subtitle="Payments received, net of refunds"
+                        title={strings.reports.incomeTitle}
+                        subtitle={strings.reports.incomeSubtitle}
                         onDownload={() => {
                             download("income");
                         }}
@@ -101,13 +102,20 @@ function ReportsView() {
                         ) : (
                             <>
                                 <div className="grid gap-4 sm:grid-cols-3">
-                                    <Figure label="Gross" cents={income.gross_cents} />
                                     <Figure
-                                        label="Refunds"
+                                        label={strings.reports.gross}
+                                        cents={income.gross_cents}
+                                    />
+                                    <Figure
+                                        label={strings.reports.refunds}
                                         cents={income.refunds_cents}
                                         tone="danger"
                                     />
-                                    <Figure label="Net" cents={income.net_cents} tone="success" />
+                                    <Figure
+                                        label={strings.reports.net}
+                                        cents={income.net_cents}
+                                        tone="success"
+                                    />
                                 </div>
                                 {Object.keys(income.by_method).length > 0 ? (
                                     <table className="mt-4 w-full text-sm">
@@ -135,8 +143,8 @@ function ReportsView() {
                     </Card>
 
                     <Card
-                        title="GST/HST"
-                        subtitle="Tax collected on paid invoices — remit to the CRA"
+                        title={strings.reports.gstTitle}
+                        subtitle={strings.reports.gstSubtitle}
                         onDownload={() => {
                             download("gst-hst");
                         }}
@@ -148,19 +156,19 @@ function ReportsView() {
                             <>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                     <Figure
-                                        label="Tax collected"
+                                        label={strings.reports.taxCollected}
                                         cents={gstHst.tax_collected_cents}
                                         tone="success"
                                     />
                                     <Figure
-                                        label="Taxable sales"
+                                        label={strings.reports.taxableSales}
                                         cents={gstHst.taxable_sales_cents}
                                     />
                                 </div>
                                 <p className="mt-3 text-sm text-muted">
-                                    GST/HST number:{" "}
+                                    {strings.reports.gstNumberLabel}:{" "}
                                     <span className="font-medium text-ink">
-                                        {gstHst.gst_hst_number ?? "Not registered"}
+                                        {gstHst.gst_hst_number ?? strings.reports.notRegistered}
                                     </span>
                                 </p>
                             </>
@@ -168,8 +176,8 @@ function ReportsView() {
                     </Card>
 
                     <Card
-                        title={`T4A — ${range.year}`}
-                        subtitle="Amounts paid to staff payees for the calendar year"
+                        title={strings.reports.t4aTitle(range.year)}
+                        subtitle={strings.reports.t4aSubtitle}
                         onDownload={() => {
                             download("t4a");
                         }}
@@ -178,13 +186,19 @@ function ReportsView() {
                         {t4a === null ? (
                             <Skeleton />
                         ) : t4a.length === 0 ? (
-                            <p className="text-sm text-muted">No payee amounts for {range.year}.</p>
+                            <p className="text-sm text-muted">
+                                {strings.reports.noPayeeAmounts(range.year)}
+                            </p>
                         ) : (
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="text-left text-xs uppercase tracking-wide text-muted">
-                                        <th className="pb-2 font-semibold">Payee</th>
-                                        <th className="pb-2 text-right font-semibold">Total</th>
+                                        <th className="pb-2 font-semibold">
+                                            {strings.reports.colPayee}
+                                        </th>
+                                        <th className="pb-2 text-right font-semibold">
+                                            {strings.reports.colTotal}
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -205,7 +219,9 @@ function ReportsView() {
                     </Card>
                 </div>
             )}
-            {loading ? <p className="mt-4 text-xs text-muted">Loading reports…</p> : null}
+            {loading ? (
+                <p className="mt-4 text-xs text-muted">{strings.reports.loadingReports}</p>
+            ) : null}
         </div>
     );
 }
@@ -260,7 +276,7 @@ function Card({
                     disabled={downloading}
                     className="shrink-0 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                 >
-                    {downloading ? "Downloading…" : "Download CSV"}
+                    {downloading ? strings.reports.downloading : strings.reports.downloadCsv}
                 </button>
             </div>
             <div className="mt-4">{children}</div>

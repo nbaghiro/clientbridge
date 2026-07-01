@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey } from "../util/primitives";
 import type { Intent } from "../util/primitives";
@@ -43,23 +44,24 @@ export function startOnboarding(api: ApiLike): Promise<OnboardingLink> {
 }
 
 const REQUIREMENT_LABELS: Record<string, string> = {
-    external_account: "Bank account for payouts",
-    "business_profile.url": "Business website",
-    "business_profile.mcc": "Business category",
-    "business_profile.product_description": "What you sell",
-    "individual.id_number": "ID number (SIN)",
-    "individual.verification.document": "Photo ID",
-    "individual.verification.additional_document": "Proof of address",
-    "individual.address.line1": "Home address",
-    "company.tax_id": "Business number",
-    "tos_acceptance.date": "Accept Stripe's terms",
+    external_account: strings.payments.reqExternalAccount,
+    "business_profile.url": strings.payments.reqBusinessWebsite,
+    "business_profile.mcc": strings.payments.reqBusinessCategory,
+    "business_profile.product_description": strings.payments.reqProductDescription,
+    "individual.id_number": strings.payments.reqIdNumber,
+    "individual.verification.document": strings.payments.reqPhotoId,
+    "individual.verification.additional_document": strings.payments.reqProofOfAddress,
+    "individual.address.line1": strings.payments.reqHomeAddress,
+    "company.tax_id": strings.payments.reqBusinessNumber,
+    "tos_acceptance.date": strings.payments.reqTosAcceptance,
 };
 
 /** Humanize a Stripe requirement key (e.g. `individual.dob.day`) into provider-facing copy. */
 export function formatRequirement(key: string): string {
     const known = REQUIREMENT_LABELS[key];
     if (known !== undefined) return known;
-    if (key.startsWith("individual.dob") || key.startsWith("person.dob")) return "Date of birth";
+    if (key.startsWith("individual.dob") || key.startsWith("person.dob"))
+        return strings.payments.reqDateOfBirth;
     const tail = key.split(".").pop() ?? key;
     const words = tail.replace(/_/g, " ");
     return words.charAt(0).toUpperCase() + words.slice(1);
@@ -89,12 +91,12 @@ export interface ConnectOnboarding {
 }
 
 const HEADLINES: Record<Exclude<ConnectPhase, "loading" | "error">, string> = {
-    not_connected: "Connect Stripe to take card payments and get paid out.",
-    in_progress: "Onboarding in progress — finish your Stripe setup.",
-    pending: "Stripe is reviewing your details. No action needed — this updates automatically.",
-    restricted: "Stripe needs a bit more to keep your payments active:",
-    enabled: "Payments enabled — you can take card payments.",
-    disabled: "Your Stripe account can't accept payments right now. Please contact support.",
+    not_connected: strings.payments.headlineNotConnected,
+    in_progress: strings.payments.headlineInProgress,
+    pending: strings.payments.headlinePending,
+    restricted: strings.payments.headlineRestricted,
+    enabled: strings.payments.headlineEnabled,
+    disabled: strings.payments.headlineDisabled,
 };
 
 function phaseOf(status: ConnectStatus): ConnectPhase {
@@ -130,10 +132,10 @@ export function useConnectOnboarding(
 
     const ctaLabel =
         phase === "restricted"
-            ? "Finish verification"
+            ? strings.payments.finishVerification
             : phase === "in_progress"
-              ? "Continue setup"
-              : "Connect Stripe";
+              ? strings.payments.continueSetup
+              : strings.payments.connectStripe;
 
     const showCta = phase === "not_connected" || phase === "in_progress" || phase === "restricted";
     const headline = phase === "loading" || phase === "error" ? "" : HEADLINES[phase];
@@ -145,7 +147,7 @@ export function useConnectOnboarding(
                 const { url } = await startOnboarding(api);
                 openUrl(url);
             },
-            { errorMessage: "Couldn't start Stripe onboarding. Please try again." },
+            { errorMessage: strings.payments.onboardingStartError },
         );
     };
 
@@ -284,11 +286,11 @@ export function isMandate(card: SavedCardRow): boolean {
 /** "Visa ···· 4242" for a card, "Bank account ···· 6789" for a PAD mandate. */
 export function savedCardLabel(card: SavedCardRow): string {
     const noun = isMandate(card)
-        ? "Bank account"
+        ? strings.payments.bankAccountNoun
         : card.brand
           ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
-          : "Card";
-    return card.last4 !== null ? `${noun} ···· ${card.last4}` : noun;
+          : strings.payments.cardNoun;
+    return card.last4 !== null ? strings.payments.savedCardLabel(noun, card.last4) : noun;
 }
 
 export function mandateStatusIntent(status: string): Intent {
@@ -473,7 +475,7 @@ export function useAddPaymentMethod(
                         : await startPadSetup(api, clientId, key),
                 );
             },
-            { errorMessage: "Couldn't start payment setup. Please try again." },
+            { errorMessage: strings.payments.setupStartError },
         );
     };
 

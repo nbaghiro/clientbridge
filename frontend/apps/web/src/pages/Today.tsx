@@ -7,6 +7,7 @@ import {
     isRefundRow,
     parseTimestamp,
     paymentStatusIntent,
+    strings,
     useDashboardSummary,
     useRecentActivity,
     useRecentPayouts,
@@ -23,13 +24,11 @@ export function Today() {
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
-            <h1 className="font-display text-2xl font-bold text-ink">Today</h1>
+            <h1 className="font-display text-2xl font-bold text-ink">{strings.home.title}</h1>
             {canManagePayments(role) ? (
                 <MoneyView />
             ) : (
-                <p className="mt-0.5 text-sm text-muted">
-                    Your schedule and clients are in the tabs above.
-                </p>
+                <p className="mt-0.5 text-sm text-muted">{strings.home.staffSubtitle}</p>
             )}
         </div>
     );
@@ -42,35 +41,37 @@ function MoneyView() {
 
     return (
         <>
-            <p className="mt-0.5 text-sm text-muted">Your money at a glance.</p>
+            <p className="mt-0.5 text-sm text-muted">{strings.home.moneySubtitle}</p>
 
             {summary === "error" ? (
-                <p className="mt-6 text-sm text-muted">Couldn’t load your numbers.</p>
+                <p className="mt-6 text-sm text-muted">{strings.home.numbersError}</p>
             ) : (
                 <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <StatCard
-                        label="Today's revenue"
+                        label={strings.home.todayRevenue}
                         cents={summary === null ? null : summary.today_revenue_cents}
-                        caption="received today"
+                        caption={strings.home.todayRevenueCaption}
                         tone="success"
                     />
                     <StatCard
-                        label="Awaiting payment"
+                        label={strings.home.awaitingPayment}
                         cents={summary === null ? null : summary.awaiting_payment_cents}
-                        caption="outstanding invoices"
+                        caption={strings.home.awaitingPaymentCaption}
                     />
                     <StatCard
-                        label="GST/HST set aside"
+                        label={strings.home.gstSetAside}
                         cents={summary === null ? null : summary.gst_hst_set_aside_cents}
-                        caption="remit to CRA"
+                        caption={strings.home.gstSetAsideCaption}
                     />
                 </div>
             )}
 
             <section className="mt-8">
-                <h2 className="font-display text-lg font-semibold text-ink">Recent activity</h2>
+                <h2 className="font-display text-lg font-semibold text-ink">
+                    {strings.home.recentActivity}
+                </h2>
                 {activity.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted">No payments yet.</p>
+                    <p className="mt-2 text-sm text-muted">{strings.home.noPayments}</p>
                 ) : (
                     <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
                         {activity.map((row) => (
@@ -81,9 +82,11 @@ function MoneyView() {
             </section>
 
             <section className="mt-8">
-                <h2 className="font-display text-lg font-semibold text-ink">Payouts</h2>
+                <h2 className="font-display text-lg font-semibold text-ink">
+                    {strings.home.payouts}
+                </h2>
                 {payouts.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted">No payouts yet.</p>
+                    <p className="mt-2 text-sm text-muted">{strings.home.noPayouts}</p>
                 ) : (
                     <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
                         {payouts.map((row) => (

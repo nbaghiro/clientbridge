@@ -10,6 +10,7 @@ import {
     useGiftCardRedeemForm,
     GIFT_SALE_MODES,
     GIFT_SALE_MODE_LABEL,
+    strings,
     useGiftCardSaleForm,
     useGiftCards,
     useSavedCards,
@@ -39,7 +40,7 @@ export function GiftCardsScreen() {
     if (!canManagePayments(role)) {
         return (
             <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>Gift cards are available to owners and admins.</Text>
+                <Text style={styles.muted}>{strings.giftCards.ownerAdminOnlyMobile}</Text>
             </View>
         );
     }
@@ -59,7 +60,7 @@ function GiftCardsBody() {
                         setMode(mode === "redeem" ? null : "redeem");
                     }}
                 >
-                    <Text style={styles.outlineBtnText}>Redeem</Text>
+                    <Text style={styles.outlineBtnText}>{strings.giftCards.redeem}</Text>
                 </Pressable>
                 <Pressable
                     style={styles.primaryBtn}
@@ -67,7 +68,7 @@ function GiftCardsBody() {
                         setMode(mode === "sell" ? null : "sell");
                     }}
                 >
-                    <Text style={styles.primaryBtnText}>Sell gift card</Text>
+                    <Text style={styles.primaryBtnText}>{strings.giftCards.sell}</Text>
                 </Pressable>
             </View>
 
@@ -87,7 +88,7 @@ function GiftCardsBody() {
             ) : null}
 
             {cards.length === 0 ? (
-                <Text style={styles.muted}>No gift cards issued yet.</Text>
+                <Text style={styles.muted}>{strings.giftCards.emptyList}</Text>
             ) : (
                 <View style={styles.list}>
                     {cards.map((card, i) => (
@@ -134,11 +135,11 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
 
     return (
         <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Sell gift card</Text>
+            <Text style={styles.panelTitle}>{strings.giftCards.sell}</Text>
 
-            <Text style={styles.fieldLabel}>Purchaser</Text>
+            <Text style={styles.fieldLabel}>{strings.giftCards.purchaser}</Text>
             {clients.length === 0 ? (
-                <Text style={styles.muted}>Add a client first.</Text>
+                <Text style={styles.muted}>{strings.giftCards.addClientFirst}</Text>
             ) : (
                 <View style={styles.chipWrap}>
                     {clients.map((cl) => (
@@ -162,7 +163,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                 </View>
             )}
 
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Type</Text>
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>{strings.giftCards.type}</Text>
             <View style={styles.chipWrap}>
                 {GIFT_SALE_MODES.map((m) => (
                     <Pressable
@@ -181,9 +182,11 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
 
             {form.mode === "preset" ? (
                 <>
-                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>Gift card</Text>
+                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                        {strings.giftCards.giftCard}
+                    </Text>
                     {items.length === 0 ? (
-                        <Text style={styles.muted}>No gift cards in your catalog.</Text>
+                        <Text style={styles.muted}>{strings.giftCards.emptyCatalog}</Text>
                     ) : (
                         <View style={styles.chipWrap}>
                             {items.map((it) => (
@@ -212,29 +215,33 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                 </>
             ) : (
                 <>
-                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>Amount (CAD)</Text>
+                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                        {strings.giftCards.amountCad}
+                    </Text>
                     <TextInput
                         style={styles.input}
                         value={form.amount}
                         onChangeText={form.setAmount}
                         keyboardType="decimal-pad"
-                        placeholder="100.00"
+                        placeholder={strings.giftCards.amountPlaceholder}
                         placeholderTextColor={c.muted}
                     />
                 </>
             )}
 
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Recipient (optional)</Text>
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                {strings.giftCards.recipientOptional}
+            </Text>
             <TextInput
                 style={styles.input}
                 value={form.recipient}
                 onChangeText={form.setRecipient}
-                placeholder="Name or email"
+                placeholder={strings.giftCards.recipientPlaceholder}
                 placeholderTextColor={c.muted}
                 autoCapitalize="none"
             />
 
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Payment</Text>
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>{strings.giftCards.payment}</Text>
             <View style={styles.chipWrap}>
                 <Pressable
                     style={[styles.chip, form.paymentMethodId === "" && styles.chipOn]}
@@ -245,7 +252,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                     <Text
                         style={[styles.chipText, form.paymentMethodId === "" && styles.chipTextOn]}
                     >
-                        New card
+                        {strings.giftCards.newCard}
                     </Text>
                 </Pressable>
                 {cards.map((card) => (
@@ -271,13 +278,13 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
             {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
             <View style={styles.panelActions}>
                 <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                 </Pressable>
                 <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
                     {form.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>Sell</Text>
+                        <Text style={styles.saveText}>{strings.giftCards.sellShort}</Text>
                     )}
                 </Pressable>
             </View>
@@ -290,39 +297,41 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
 
     return (
         <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Redeem gift card</Text>
+            <Text style={styles.panelTitle}>{strings.giftCards.redeemTitle}</Text>
 
-            <Text style={styles.fieldLabel}>Code</Text>
+            <Text style={styles.fieldLabel}>{strings.giftCards.code}</Text>
             <TextInput
                 style={styles.input}
                 value={form.code}
                 onChangeText={form.setCode}
-                placeholder="ABCD2345EFGH"
+                placeholder={strings.giftCards.codePlaceholder}
                 placeholderTextColor={c.muted}
                 autoCapitalize="characters"
                 autoCorrect={false}
             />
 
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Amount (CAD)</Text>
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                {strings.giftCards.amountCad}
+            </Text>
             <TextInput
                 style={styles.input}
                 value={form.amount}
                 onChangeText={form.setAmount}
                 keyboardType="decimal-pad"
-                placeholder="25.00"
+                placeholder={strings.giftCards.redeemAmountPlaceholder}
                 placeholderTextColor={c.muted}
             />
 
             {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
             <View style={styles.panelActions}>
                 <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                 </Pressable>
                 <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
                     {form.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>Redeem</Text>
+                        <Text style={styles.saveText}>{strings.giftCards.redeem}</Text>
                     )}
                 </Pressable>
             </View>

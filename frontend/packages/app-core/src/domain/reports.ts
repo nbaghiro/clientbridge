@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 
 export interface IncomeReport {
@@ -136,7 +137,7 @@ export function useReportDownload(
                 const csv = await downloadReportCsv(api, kind, range);
                 await save(csv, reportCsvFilename(kind));
             },
-            { errorMessage: "Couldn't export the CSV. Please try again." },
+            { errorMessage: strings.reports.exportError },
         );
     };
 

@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey } from "../util/primitives";
 import type { Intent } from "../util/primitives";
@@ -90,11 +91,11 @@ export function useSubscriptionForm(
 
     const submit = (): void => {
         if (itemId === "") {
-            setError("Choose a subscription plan");
+            setError(strings.clients.choosePlan);
             return;
         }
         if (paymentMethodId === "") {
-            setError("Choose a payment method");
+            setError(strings.clients.choosePaymentMethod);
             return;
         }
         keyRef.current ??= newIdempotencyKey();
@@ -117,7 +118,7 @@ export function useSubscriptionForm(
                     setPaymentMethodId("");
                     onCreated();
                 },
-                errorMessage: "Couldn't start the subscription. Please try again.",
+                errorMessage: strings.clients.startSubscriptionError,
             },
         );
     };

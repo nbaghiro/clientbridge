@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import { dateKey } from "../util/datetime";
 
 export interface PublicService {
@@ -204,7 +205,7 @@ export function usePublicBookingForm(
                 if (live) setSlots(res.slots);
             })
             .catch(() => {
-                if (live) setSlotsError("We couldn't load open times. Please try another day.");
+                if (live) setSlotsError(strings.publicBooking.slotsLoadError);
             });
         return () => {
             live = false;
@@ -228,7 +229,7 @@ export function usePublicBookingForm(
 
     const submit = (): void => {
         if (!canBook) {
-            setError("Add your name and an email or phone, then pick a time.");
+            setError(strings.publicBooking.incompleteForm);
             return;
         }
         void run(
@@ -243,8 +244,7 @@ export function usePublicBookingForm(
                 );
             },
             {
-                errorMessage:
-                    "We couldn't book that time. It may have just been taken — try another.",
+                errorMessage: strings.publicBooking.bookError,
             },
         );
     };

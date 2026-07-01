@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import { type PayMethod, payMethods } from "./payments";
 
 export interface PublicInvoice {
@@ -134,7 +135,7 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
             async () => {
                 setInterac(await pay.payInterac(token));
             },
-            { errorMessage: "We couldn't start the Interac payment. Please try again." },
+            { errorMessage: strings.publicPay.interacStartError },
         );
     };
     const payCard = (): void => {
@@ -142,7 +143,7 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
             async () => {
                 setCard(await pay.payCard(token));
             },
-            { errorMessage: "We couldn't start the card payment. Please try again." },
+            { errorMessage: strings.publicPay.cardStartError },
         );
     };
 

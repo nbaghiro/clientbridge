@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { useAsyncAction } from "./useAsyncAction";
 
@@ -52,8 +53,8 @@ export function useLogin(
                 onSuccess,
                 errorMessage:
                     mode === "signin"
-                        ? "Invalid email or password"
-                        : "Could not create that account — try another email",
+                        ? strings.auth.invalidCredentials
+                        : strings.auth.createAccountError,
             },
         );
     };
@@ -64,7 +65,7 @@ export function useLogin(
     };
 
     const googleUnavailable = (): void => {
-        setError("Google sign-in isn’t configured yet — use email & password.");
+        setError(strings.auth.googleNotConfigured);
     };
 
     return {

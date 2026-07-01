@@ -1,4 +1,4 @@
-import { useLogin } from "@clientbridge/app-core";
+import { strings, useLogin } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { StatusBar } from "expo-status-bar";
 import { type ComponentProps } from "react";
@@ -46,35 +46,35 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                         </View>
 
                         <Text style={styles.title}>
-                            {signin ? "Sign in" : "Create your account"}
+                            {signin ? strings.auth.signInTitle : strings.auth.signUpTitle}
                         </Text>
                         <Text style={styles.subtitle}>
-                            {signin ? "Welcome back." : "Start running your practice in minutes."}
+                            {signin ? strings.auth.signInSubtitle : strings.auth.signUpSubtitle}
                         </Text>
 
                         {signin ? null : (
                             <Field
-                                label="Name"
+                                label={strings.auth.name}
                                 value={login.name}
                                 onChangeText={login.setName}
-                                placeholder="Hannah Bauer"
+                                placeholder={strings.auth.namePlaceholder}
                                 autoComplete="name"
                             />
                         )}
                         <Field
-                            label="Email"
+                            label={strings.auth.email}
                             value={login.email}
                             onChangeText={login.setEmail}
-                            placeholder="you@example.com"
+                            placeholder={strings.auth.emailPlaceholder}
                             autoCapitalize="none"
                             keyboardType="email-address"
                             autoComplete="email"
                         />
                         <Field
-                            label="Password"
+                            label={strings.auth.password}
                             value={login.password}
                             onChangeText={login.setPassword}
-                            placeholder="••••••••"
+                            placeholder={strings.auth.passwordPlaceholder}
                             secureTextEntry
                             autoComplete={signin ? "current-password" : "new-password"}
                             onSubmitEditing={() => {
@@ -98,30 +98,30 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                                 <ActivityIndicator color="#fff" />
                             ) : (
                                 <Text style={styles.submitText}>
-                                    {signin ? "Sign in" : "Create account"}
+                                    {signin ? strings.auth.signIn : strings.auth.createAccount}
                                 </Text>
                             )}
                         </Pressable>
 
                         <View style={styles.divider}>
                             <View style={styles.line} />
-                            <Text style={styles.or}>or</Text>
+                            <Text style={styles.or}>{strings.auth.or}</Text>
                             <View style={styles.line} />
                         </View>
 
                         <Pressable style={styles.google} onPress={login.googleUnavailable}>
                             <GoogleIcon size={20} />
-                            <Text style={styles.googleText}>Continue with Google</Text>
+                            <Text style={styles.googleText}>{strings.auth.continueWithGoogle}</Text>
                         </Pressable>
                     </View>
 
                     <View style={styles.toggleRow}>
                         <Text style={styles.toggleText}>
-                            {signin ? "New to Clientbridge?" : "Already have an account?"}
+                            {signin ? strings.auth.newToApp : strings.auth.haveAccount}
                         </Text>
                         <Pressable onPress={login.flip} hitSlop={8}>
                             <Text style={styles.toggleLink}>
-                                {signin ? "Create an account" : "Sign in"}
+                                {signin ? strings.auth.createAnAccount : strings.auth.signIn}
                             </Text>
                         </Pressable>
                     </View>

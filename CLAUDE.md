@@ -1,6 +1,7 @@
 # Clientbridge — repo conventions
 
-Bilingual (EN/FR) all-in-one business OS for solo/small service providers (a PocketSuite analog).
+All-in-one business OS for solo/small service providers (a PocketSuite analog). English UI today,
+with all user-facing copy centralized for future localization (see **Localization**).
 Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + turbo: web + mobile) ·
 `infra/` · `.docs/`.
 
@@ -36,6 +37,21 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Web (React/Vite/Tailwind) + mobile (Expo RN) share everything UI-agnostic via `@clientbridge/app-core`; only rendering, navigation, and platform APIs differ.
 - **Every feature's view-model is an app-core hook** — the form (`useXForm`: field state + validation + submit, built on the `useAsyncAction` primitive), the list (`useSearch`), the lifecycle actions, and the status→`Intent` decision. A new screen is thin rendering over a shared hook, never re-implemented glue (mirror `useBookingForm` / `useClientForm` / `useDocForm`).
 - Reads = `useQuery` over the local replica (SQL lives in app-core); writes = shared fns taking `ApiLike` (each app builds its concrete `api` from `createSession`). The only platform seams are the **SQLite driver, the token store, and rendering**. Design tokens come from `@clientbridge/tokens` (one source → Tailwind preset + RN theme); per-platform token maps key off the neutral `Intent` type. No cross-platform UI framework (it would rewrite the idiomatic web UI to dedupe the cheapest layer).
+
+## Localization — one catalog, English for now
+- **Every user-facing UI string lives in `frontend/packages/app-core/src/strings.ts`** — a single
+  `strings` object grouped by domain, shared by web + mobile. Screens/components render
+  `strings.<domain>.<key>` (values are literals or functions for interpolation) and **never hold inline
+  copy**. This includes validation/error messages and shared descriptor labels (weekdays, nav, roles,
+  recurrence, account fields) that used to sit inline in the app-core view-model hooks. Non-copy — SQL,
+  class names, test ids, route/enum values, icon names — stays out.
+- **Backend notification copy** is the server-side equivalent: the builder functions in
+  `services/notification_service.py` return `(subject, body[, push])` per event, all English in one place.
+- **English-only today, but the seam is in place.** `strings` *is* the locale layer — to add a language,
+  select a per-locale catalog off the user's `businesses.locale` (the column is retained for exactly
+  this) and wrap the notification builders in the same locale dimension. `LOCALES` in
+  `domain/account.ts` is English-only; adding a second entry re-enables the account language picker,
+  which renders only when more than one locale exists.
 
 ## Testing — the feedback loop (`.docs/testing.md`)
 - **Integration-first**: `httpx` → real app → real Postgres. Unit-test pure logic only. Don't mock our code.
