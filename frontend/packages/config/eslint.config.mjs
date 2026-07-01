@@ -17,6 +17,13 @@ export default tseslint.config(
         },
     },
     {
-        ignores: ["dist/**", "node_modules/**", "**/generated/**", "**/*.config.{js,ts,mjs,cjs}"],
+        ignores: [
+            "dist/**",
+            "node_modules/**",
+            "**/generated/**",
+            "**/generated.ts", // the openapi-typescript output (packages/api-client/src/generated.ts)
+            "**/*.cjs", // CommonJS build/codegen scripts (repo is ESM); not type-lintable
+            "**/*.config.{js,ts,mjs,cjs}",
+        ],
     },
 );
