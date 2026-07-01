@@ -37,6 +37,7 @@ import {
     usePackageSaleForm,
     useSavedCards,
     useSearch,
+    useStripeAccountId,
     useSubscriptionForm,
 } from "@clientbridge/app-core";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
@@ -44,7 +45,7 @@ import { type Stripe, loadStripe } from "@stripe/stripe-js";
 import { type FormEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
-import { PurchaseCardConfirm } from "../components/PurchaseCardConfirm";
+import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -683,12 +684,14 @@ function SellPackageForm({
     onClose: () => void;
 }) {
     const form = usePackageSaleForm(api, clientId, onClose);
+    const stripeAccount = useStripeAccountId() ?? "";
 
     if (form.clientSecret !== null) {
         const offering = offerings.find((o) => o.id === form.itemId) ?? null;
         return (
-            <PurchaseCardConfirm
+            <CardConfirm
                 clientSecret={form.clientSecret}
+                stripeAccount={stripeAccount}
                 amountLabel={offering ? formatMoney(offering.price_cents) : "package"}
                 onPaid={form.complete}
                 onCancel={form.cancel}

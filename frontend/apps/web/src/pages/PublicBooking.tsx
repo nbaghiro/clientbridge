@@ -15,7 +15,7 @@ import {
 import { type FormEvent, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { ConnectedCardConfirm } from "../components/ConnectedCardConfirm";
+import { CardConfirm } from "../components/CardConfirm";
 
 const booking = createPublicBookingClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
@@ -357,7 +357,7 @@ function BookedState({
                     confirm it.
                 </p>
                 <div className="mt-5">
-                    <ConnectedCardConfirm
+                    <CardConfirm
                         clientSecret={result.deposit_client_secret}
                         stripeAccount={result.stripe_account_id}
                         amountLabel={amount}
