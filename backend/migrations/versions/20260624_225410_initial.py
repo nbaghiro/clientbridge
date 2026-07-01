@@ -520,54 +520,6 @@ def upgrade() -> None:
         "ix_availability_staff", "availability", ["business_id", "staff_id", "type"], unique=False
     )
     op.create_table(
-        "consents",
-        sa.Column("client_id", sa.String(), nullable=False),
-        sa.Column("channel", sa.String(), nullable=False),
-        sa.Column("basis", sa.String(), nullable=False),
-        sa.Column("status", sa.String(), nullable=False),
-        sa.Column("source", sa.String(), nullable=True),
-        sa.Column(
-            "captured_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("id", sa.String(), nullable=False),
-        sa.Column("business_id", sa.String(), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.CheckConstraint("basis IN ('express', 'implied')", name="ck_consents_basis"),
-        sa.CheckConstraint("channel IN ('sms', 'email')", name="ck_consents_channel"),
-        sa.CheckConstraint("status IN ('granted', 'withdrawn')", name="ck_consents_status"),
-        sa.ForeignKeyConstraint(
-            ["business_id"],
-            ["businesses.id"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["client_id"],
-            ["clients.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_consents_business_id"), "consents", ["business_id"], unique=False)
-    op.create_index(
-        "ix_consents_client_channel",
-        "consents",
-        ["business_id", "client_id", "channel"],
-        unique=False,
-    )
-    op.create_table(
         "form_fields",
         sa.Column("form_id", sa.String(), nullable=False),
         sa.Column("type", sa.String(), nullable=False),
@@ -1731,9 +1683,6 @@ def downgrade() -> None:
     op.drop_index("ix_form_fields_form", table_name="form_fields")
     op.drop_index(op.f("ix_form_fields_business_id"), table_name="form_fields")
     op.drop_table("form_fields")
-    op.drop_index("ix_consents_client_channel", table_name="consents")
-    op.drop_index(op.f("ix_consents_business_id"), table_name="consents")
-    op.drop_table("consents")
     op.drop_index("ix_availability_staff", table_name="availability")
     op.drop_index(op.f("ix_availability_business_id"), table_name="availability")
     op.drop_table("availability")

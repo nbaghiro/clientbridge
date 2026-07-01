@@ -396,7 +396,7 @@ async def test_foreign_business_session_does_not_block(
 
 
 # ── deposits ──────────────────────────────────────────────────────────────────────────────────
-CL_AMELIE = "cl_amelie"  # seeded client with email + phone + granted sms consent
+CL_AMELIE = "cl_amelie"  # seeded client with email + phone
 SEEDED_CARD = "pm_demo_4242"  # cl_amelie's seeded default-card provider ref
 
 

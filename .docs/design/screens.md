@@ -1,7 +1,7 @@
 # Clientbridge — Information Architecture & Key Screens
 
 Companion to `clientbridge-design-system.html` (visual) and `tokens.md` (system). This is the
-*structure*: navigation model, the key screens, their jobs, and the tax / payments / compliance
+_structure_: navigation model, the key screens, their jobs, and the tax / payments / compliance
 behaviour baked into each. Built **horizontal** (vertical-pluggable) and **web + mobile in parallel**.
 
 ---
@@ -10,14 +10,14 @@ behaviour baked into each. Built **horizontal** (vertical-pluggable) and **web +
 
 Primary nav (6 destinations) — identical on web (left rail) and mobile (bottom tab + FAB):
 
-| Nav          | EN / FR             | Job                                                       |
-| ------------ | ------------------- | -------------------------------------------------------- |
+| Nav          | EN / FR             | Job                                                        |
+| ------------ | ------------------- | ---------------------------------------------------------- |
 | **Today**    | Today / Aujourd'hui | The daily cockpit — schedule, money snapshot, action items |
-| **Calendar** | Calendar / Agenda   | Manage availability & bookings (day/week/month)          |
-| **Clients**  | Clients / Clients   | The CRM — the "bridge" relationship hub                  |
-| **Invoices** | Invoices / Factures | Billing, payments, tax status                            |
-| **Inbox**    | Inbox / Messages    | Unified client thread (SMS + email + chat), consent-aware |
-| **Catalog**  | Catalog / Catalogue | Services, packages, subscriptions, intake forms          |
+| **Calendar** | Calendar / Agenda   | Manage availability & bookings (day/week/month)            |
+| **Clients**  | Clients / Clients   | The CRM — the "bridge" relationship hub                    |
+| **Invoices** | Invoices / Factures | Billing, payments, tax status                              |
+| **Inbox**    | Inbox / Messages    | Unified client thread (SMS + email + chat)                 |
+| **Catalog**  | Catalog / Catalogue | Services, packages, subscriptions, intake forms            |
 
 Global **+ (FAB)** → quick-create: Booking · Invoice · Client · Payment request.
 Persistent **EN/FR** toggle + tax/region context in account menu.
@@ -63,7 +63,7 @@ protection (deposit / card-on-file) front-and-centre.
 
 **Job:** the relationship of record. This is the namesake screen.
 
-- Header: avatar, contact, tags, **consent state** (express/implied + timestamp).
+- Header: avatar, contact, tags.
 - Bridge metric strip: **visits · lifetime value · amount owing**.
 - Tabs: **Timeline** (unified events) · Bookings · Payments · Notes (+ custom fields,
   intake records, files). One-tap: book, invoice, message, request deposit.
@@ -85,11 +85,11 @@ protection (deposit / card-on-file) front-and-centre.
 
 - Branded header (logo, location, rating, **EN·FR** auto from browser/region).
 - Choose service → time → details → **deposit/pay** (Interac/card) → confirm.
-- Generates a shareable booking link (`/<handle>`); embeddable widget; consent-compliant opt-in capture.
+- Generates a shareable booking link (`/<handle>`); embeddable widget; opt-in capture.
 
 ### Supporting screens (specced later)
 
-Inbox (consent-gated campaigns), Catalog (packages/subscriptions/intake), Contracts & e-sign,
+Inbox (campaigns), Catalog (packages/subscriptions/intake), Contracts & e-sign,
 Reports (income, tax, receivables; tax-return exports), Settings (tax setup, payout/Interac,
 team/payees, white-label, data controls).
 
@@ -97,17 +97,16 @@ team/payees, white-label, data controls).
 
 ## Tax, payments & compliance, by screen
 
-| Capability                     | Lives in                     | Note                                                  |
-| ------------------------------ | ---------------------------- | ----------------------------------------------------- |
-| Multi-jurisdiction sales tax   | Invoice, Catalog             | Per-region rules engine (e.g. GST/HST + PST/QST)          |
-| Small-supplier threshold mode  | Invoice, Settings            | Tax hidden until the registration threshold is crossed |
-| Tax set-aside + remittance     | Today, Reports               | Auto-reserve; surfaces filing dates                   |
-| Interac e-Transfer (auto-match) | Invoice, Booking, Public    | Default rail; reconcile by reference                  |
-| EFT / PAD                      | Invoice, Subscriptions       | Pre-authorized debit for recurring                    |
-| Consent + audit                | Clients, Inbox               | Express/implied state gates marketing sends           |
-| Data-subject rights            | Settings, Client hub         | Data-residency, export, delete controls               |
-| Bilingual EN/FR                | Everywhere                   | i18n keys; FR-first option per account                |
-| Tax reporting                  | Reports                      | Tax-return + payee exports                            |
+| Capability                      | Lives in                 | Note                                                   |
+| ------------------------------- | ------------------------ | ------------------------------------------------------ |
+| Multi-jurisdiction sales tax    | Invoice, Catalog         | Per-region rules engine (e.g. GST/HST + PST/QST)       |
+| Small-supplier threshold mode   | Invoice, Settings        | Tax hidden until the registration threshold is crossed |
+| Tax set-aside + remittance      | Today, Reports           | Auto-reserve; surfaces filing dates                    |
+| Interac e-Transfer (auto-match) | Invoice, Booking, Public | Default rail; reconcile by reference                   |
+| EFT / PAD                       | Invoice, Subscriptions   | Pre-authorized debit for recurring                     |
+| Data-subject rights             | Settings, Client hub     | Data-residency, export, delete controls                |
+| Bilingual EN/FR                 | Everywhere               | i18n keys; FR-first option per account                 |
+| Tax reporting                   | Reports                  | Tax-return + payee exports                             |
 
 ---
 

@@ -16,7 +16,7 @@ from clientbridge.integrations.notifications import (
 )
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Subscription
-from clientbridge.models.crm import Client, Consent
+from clientbridge.models.crm import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
@@ -262,7 +262,7 @@ def _review_requested(locale: str, business_name: str, link: str) -> tuple[str, 
 class Notifier:
     """Unified outreach across channels: client messages (email + SMS) and staff alerts (push) flow
     through here, so every event reaches every channel from one place. Channel sends are isolated
-    (one failure never blocks the others or the caller) and client channels honour CASL consent."""
+    (one failure never blocks the others or the caller)."""
 
     def __init__(self, email: EmailSender, sms: SmsSender, push: PushSender) -> None:
         self.email = email
@@ -514,15 +514,15 @@ class Notifier:
     async def _to_client(
         self, db: AsyncSession, client_id: str | None, subject: str, body: str
     ) -> None:
-        """Email + SMS to a client, each honouring CASL consent and isolated from the other."""
+        """Email + SMS to a client, each isolated from the other."""
         if client_id is None:
             return
         client = await db.get(Client, client_id)
         if client is None:
             return
-        if client.email and await self._allowed(db, client_id, "email"):
+        if client.email:
             await self._safe(self.email.send(Email(to=client.email, subject=subject, body=body)))
-        if client.phone and await self._allowed(db, client_id, "sms"):
+        if client.phone:
             await self._safe(self.sms.send(Sms(to=client.phone, body=body)))
 
     async def _alert_staff(
@@ -541,19 +541,6 @@ class Notifier:
             await self._safe(
                 self.push.send(Push(tokens=list(tokens), title=business.name, body=body, data=data))
             )
-
-    async def _allowed(self, db: AsyncSession, client_id: str, channel: str) -> bool:
-        """CASL gate: a withdrawn consent blocks; absence defaults to allowed (transactional)."""
-        withdrawn = (
-            await db.execute(
-                select(Consent.id).where(
-                    Consent.client_id == client_id,
-                    Consent.channel == channel,
-                    Consent.status == "withdrawn",
-                )
-            )
-        ).scalar_one_or_none()
-        return withdrawn is None
 
     async def _safe(self, awaitable: Awaitable[None]) -> None:
         try:

@@ -13,7 +13,6 @@ bucket_definitions:
       - SELECT * FROM staff     WHERE business_id = bucket.business_id
       - SELECT * FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM subjects        WHERE business_id = bucket.business_id
-      - SELECT * FROM consents        WHERE business_id = bucket.business_id
       - SELECT * FROM notes           WHERE business_id = bucket.business_id
       - SELECT * FROM items           WHERE business_id = bucket.business_id
       - SELECT * FROM packages        WHERE business_id = bucket.business_id

@@ -70,4 +70,4 @@ Owners/staff: **email + password + Google OAuth**. Clients **book without an acc
 GST/HST/PST/QST computed per **province** at the **line level**; the business stores its registration numbers (GST/HST, QST). Small-supplier (<$30k) mode hides tax until registered. See `tax_rates` + `billing`.
 
 ## v1 scope
-Comprehensive: **core get-paid loop** (bookings · calendar · public booking · clients/CRM · services catalog · invoices · estimates · payments · tax) **+ Messaging/Inbox · Packages & Subscriptions · Team & multi-location · Reviews · Intake forms · Contracts/e-sign · Staff payout-splits · Recurring bookings**. *(All 37 tables / 10 domains — nothing deferred.)*
+Comprehensive: **core get-paid loop** (bookings · calendar · public booking · clients/CRM · services catalog · invoices · estimates · payments · tax) **+ Messaging/Inbox · Packages & Subscriptions · Team & multi-location · Reviews · Intake forms · Contracts/e-sign · Staff payout-splits · Recurring bookings**. *(All 36 tables / 10 domains — nothing deferred.)*

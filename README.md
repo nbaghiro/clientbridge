@@ -6,14 +6,13 @@ Clientbridge is a bilingual (EN/FR) all-in-one business operating system for sol
 providers** — booking, invoicing, payments (cards + Interac e-Transfer / EFT-PAD), sales tax,
 clients/CRM, messaging, packages & subscriptions, contracts, POS, and light team tools. It is a
 net-new product (not a fork) inspired by PocketSuite, built around a first-class configurable tax
-engine, modern payment rails, consent-aware messaging, and data-subject rights (export / delete /
-retention).
+engine and modern payment rails.
 
 ## Positioning
 
 - **Horizontal from day one** — a vertical-pluggable core; the same engine serves beauty, wellness,
   cleaning, trades, tutoring, pet care, photography and more.
-- **Depth where incumbents are shallow** — a first-class tax, payments, consent/compliance, and
+- **Depth where incumbents are shallow** — a first-class tax, payments, compliance, and
   bilingual surface that big horizontal tools (Square, Vagaro, HoneyBook) treat as afterthoughts.
 - **White space** — beauty/personal-care + multi-discipline wellness solos + cleaning, where Jane App
   (clinical health) and Jobber (home services) don't reach.
@@ -112,7 +111,7 @@ api-client / PowerSync schema are stale). Conventions live in
 
 **Alpha, active development.** Backend (all domains across the 5 surfaces, Stripe Connect payments +
 KYC, webhooks, and background jobs) and the web + mobile apps are substantially built on a shared
-view-model layer, with a full integration test suite (**509 tests, 91% branch coverage**) and green
+view-model layer, with a full integration test suite (**506 tests, 91% branch coverage**) and green
 CI. External providers (Stripe, email/SMS/push) run through faked adapters and are not yet wired to
 live services. Naming and theme (**Pewter**) are decided.
 

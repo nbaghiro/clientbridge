@@ -21,7 +21,7 @@ from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.security import hash_password
 from clientbridge.models.billing import Estimate, Invoice, Line, TaxRate
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
-from clientbridge.models.crm import Client, Consent, Note, Subject
+from clientbridge.models.crm import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.messaging import Broadcast, Message, Thread
@@ -534,19 +534,6 @@ def seed_clients(owner: str) -> None:
                     "avatar_url": face(seed),
                     "source": "google" if "new" in tags else "referral",
                 },
-            )
-        )
-        rows.append(
-            Consent(
-                id=f"cns_{cid}",
-                business_id=BIZ,
-                client_id=cid,
-                channel="sms",
-                basis="express" if "vip" in tags or "regular" in tags else "implied",
-                status="granted",
-                source="booking_page",
-                captured_at=at(-200, 10),
-                expires_at=None if ("vip" in tags or "regular" in tags) else at(530, 10),
             )
         )
         for pid, pname, breed, weight, temperament, pseed in pets:
@@ -1598,7 +1585,6 @@ INSERT_ORDER = [
     Payout,
     PaymentMethod,
     Subject,
-    Consent,
     Note,
     Package,
     Subscription,

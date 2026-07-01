@@ -6,18 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Item, Package
-from clientbridge.models.crm import Client, Consent
+from clientbridge.models.crm import Client
 from clientbridge.models.platform import DeviceToken
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Session
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.review_service import build_review_request
 from clientbridge.tasks.billing_jobs import run_overdue_sweep
-from clientbridge.tasks.maintenance import (
-    run_consent_expiry,
-    run_expiry_sweeps,
-    run_prune_device_tokens,
-)
+from clientbridge.tasks.maintenance import run_expiry_sweeps, run_prune_device_tokens
 from clientbridge.tasks.review_jobs import run_review_requests
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 
@@ -128,54 +124,6 @@ async def test_overdue_sweep_is_multi_tenant(
     recipients = {m.to for m in email.sent}
     assert "tenant-a@example.ca" in recipients
     assert "tenant-b@example.ca" in recipients  # the second tenant's client was notified per-row
-
-
-async def test_consent_expiry_blocks_channel(
-    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
-) -> None:
-    cid = await _a_client(db, email="cx@example.ca")
-    db.add(
-        Consent(
-            id=new_id("consent"),
-            business_id=BIZ,
-            client_id=cid,
-            channel="email",
-            basis="implied",
-            status="granted",
-            expires_at=NOW - timedelta(days=1),
-        )
-    )
-    await db.flush()
-
-    assert await run_consent_expiry(db, NOW) == 1
-
-    status = (
-        await db.execute(
-            select(Consent.status).where(Consent.client_id == cid, Consent.channel == "email")
-        )
-    ).scalar_one()
-    assert status == "withdrawn"
-
-    inv_id = await _invoice(db, cid, due_at=NOW - timedelta(days=5))
-    await _notifier(email, sms, push).on_invoice_overdue(db, inv_id)
-    assert email.sent == []  # CASL: the lapsed consent now blocks the email channel
-
-
-async def test_consent_expiry_keeps_unexpired(db: AsyncSession) -> None:
-    cid = await _a_client(db)
-    db.add(
-        Consent(
-            id=new_id("consent"),
-            business_id=BIZ,
-            client_id=cid,
-            channel="sms",
-            basis="implied",
-            status="granted",
-            expires_at=NOW + timedelta(days=365),
-        )
-    )
-    await db.flush()
-    assert await run_consent_expiry(db, NOW) == 0
 
 
 async def test_prune_stale_device_tokens(db: AsyncSession) -> None:

@@ -4,7 +4,7 @@ A phased roadmap from "models + sync + dev-auth" to a fully-functioning, product
 Sequenced by dependency; every phase ends with green tests and leaves the backend more capable.
 
 ## Starting point (done)
-- **Data:** 37 SQLAlchemy models → migrations; demo seed (Birchbark, 268 rows) as the test baseline.
+- **Data:** 36 SQLAlchemy models → migrations; demo seed (Birchbark, 256 rows) as the test baseline.
 - **core/:** config, async db/session, ids (prefixed ULID), security (argon2 + JWT), deps, errors.
 - **Sync:** self-hosted PowerSync running (Postgres bucket storage); `infra/powersync/sync-rules.yaml` (3 role buckets + global); `/sync/token` (mints PS JWT, dev shortcut); `/sync/upload` (real write path — `WRITE_POLICY` role authz + client→PG type coercion + upsert/patch/soft-delete).
 - **API:** `/auth/login` (passwordless **dev only**), `/health`, dev CORS.
@@ -102,9 +102,9 @@ Stand up surface #3 and tighten surface #2.
 
 ### Phase 7 — Jobs, Messaging, Notifications (server-initiated everything)
 - **arq worker** on Redis: scheduled + retryable + idempotent job patterns.
-- Jobs: booking **reminders**, **recurring** booking/invoice generation, **payout reconciliation**, **consent expiry**, **review requests**, schedule-window roll-forward.
+- Jobs: booking **reminders**, **recurring** booking/invoice generation, **payout reconciliation**, **review requests**, schedule-window roll-forward.
 - **Notifications:** transactional **email** + **Twilio SMS** (confirmations, reminders, receipts).
-- **Messaging/Inbox:** threads/messages; inbound SMS webhook → thread; **broadcasts** (only to consented recipients).
+- **Messaging/Inbox:** threads/messages; inbound SMS webhook → thread; **broadcasts**.
 - Proves **server-initiated push**: a job/webhook writes → WAL → client updates live (no client poll).
 - **Exit:** a reminder job sends SMS and the booking change appears on the device instantly via sync.
 
@@ -117,7 +117,7 @@ Stand up surface #3 and tighten surface #2.
 
 ### Phase 9 — Compliance, Security, Observability, Prod-readiness
 - **Postgres RLS** (defense-in-depth): per-request `SET LOCAL` business/user; `business_id` `WITH CHECK` on writes (belt-and-suspenders with `WRITE_POLICY`).
-- **Compliance:** consent enforcement; data export + deletion (right-to-be-forgotten) + retention; complete audit coverage.
+- **Compliance:** data export + deletion (right-to-be-forgotten) + retention; complete audit coverage.
 - **Security:** rate limiting, brute-force/lockout, secrets management, RS256/JWKS in prod, dependency scanning.
 - **Observability:** error tracking (Sentry/Rollbar), metrics, tracing, readiness/liveness, slow-query + index audit, sync-rule perf.
 - **Deployment:** prod containers, migration gating, backups, PowerSync prod topology + monitoring.

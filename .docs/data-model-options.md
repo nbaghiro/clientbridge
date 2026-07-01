@@ -2,7 +2,7 @@
 
 For each area with a real design fork: the options, a 1-line schema sketch, pros/cons, and a
 recommendation. Uncontroversial tables (`tax_rates`, `reviews`, `files`, `webhook_events`,
-`counters`, `invitations`, `consents`, `resources`) have one obvious shape and are omitted.
+`counters`, `invitations`, `resources`) have one obvious shape and are omitted.
 
 **Three "presets"** if you'd rather choose a whole philosophy than go area-by-area:
 - **P1 · Lean** — max consolidation, polymorphic, fewer tables (~33), more validation in the app layer. *(my v2)*

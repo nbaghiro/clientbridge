@@ -23,7 +23,7 @@ not the DB). Writes are authorized in FastAPI. Postgres RLS is optional defense-
 | Data | owner / admin | staff |
 |---|---|---|
 | Own calendar (sessions/bookings/availability) | ✅ all members | ✅ own only |
-| Shared client book (clients, subjects, consents, docs) | ✅ | ✅ |
+| Shared client book (clients, subjects, docs) | ✅ | ✅ |
 | Catalog (items, packages, tax, resources, forms) | ✅ | ✅ |
 | Own earnings (`payout_allocations` where member = me) | ✅ all | ✅ own |
 | Financials (invoices, payments, payouts, others' pay) | ✅ | ❌ |
@@ -62,7 +62,7 @@ loads their active `staff` rows, then for each op enforces a **`WRITE_POLICY`** 
   looks up the existing row).
 - **`WRITE_POLICY[table] = (min_tier, own_only)`** — `min_tier` `team` (any active staff) vs `admin`
   (owner/admin); `own_only` means a non-admin may only touch rows where `staff_id` is theirs.
-  - **team-writable:** clients · subjects · consents · notes · files · form_responses · signatures ·
+  - **team-writable:** clients · subjects · notes · files · form_responses · signatures ·
     threads · messages, and (own-only) sessions · bookings · availability · schedules.
   - **admin-only:** items · packages · invoices · estimates · lines · payment_methods ·
     payout_allocations · broadcasts · reviews · …

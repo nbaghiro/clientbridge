@@ -76,7 +76,7 @@ bucket_definitions:
 ## Sync scope — what lives on-device
 | Class | Tables | On client |
 |---|---|---|
-| **Read + write** | clients · subjects · consents · notes · items · packages · subscriptions · gift_cards · sessions · bookings · availability · resources · schedules · invoices · estimates · lines · threads · messages · broadcasts · forms · form_fields · form_responses · contracts · signatures · reviews · review_requests · files(meta) | local SQLite; writes via `uploadData` |
+| **Read + write** | clients · subjects · notes · items · packages · subscriptions · gift_cards · sessions · bookings · availability · resources · schedules · invoices · estimates · lines · threads · messages · broadcasts · forms · form_fields · form_responses · contracts · signatures · reviews · review_requests · files(meta) | local SQLite; writes via `uploadData` |
 | **Read-only (server-authoritative)** | payments · payment_methods · payouts · payout_allocations · tax_rates · businesses(own) · staff(own business) | synced down; client writes **rejected** by `/sync/upload` |
 | **Server-only (never synced)** | webhook_events · audit_logs† | Postgres only |
 

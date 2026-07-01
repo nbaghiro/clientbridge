@@ -6,7 +6,7 @@ Conventions in [architecture.md](architecture.md): prefixed-ULID PKs · `snake_c
 `currency` · soft-delete via `deleted_at` where noted · enums = `text`+`CHECK` · status + key lifecycle
 timestamps · lightweight config in `jsonb` · per-business numbering via Postgres sequences.
 
-**37 tables · 10 domains.** No general ledger (Stripe Connect custodies + pays out).
+**36 tables · 10 domains.** No general ledger (Stripe Connect custodies + pays out).
 
 ## Decisions
 tenancy = **`businesses`** (business + billing; multi-location via `parent_business_id`) + `users` +
@@ -18,7 +18,7 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 
 ## ID prefixes
 `bz_`business `us_`user `st_`staff ·
-`cl_`client `sj_`subject `cns_`consent `nt_`note ·
+`cl_`client `sj_`subject `nt_`note ·
 `it_`item `pkg_`package `sub_`subscription `gc_`gift_card ·
 `ses_`session `bk_`booking `av_`availability `rs_`resource `sch_`schedule ·
 `inv_`invoice `est_`estimate `ln_`line `tx_`tax_rate ·
@@ -42,7 +42,6 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 |---|---|
 | **clients** *(soft-del)* | `name`, `email`, `phone`, `user_id?`, `tags text[]`, `status`, `lifetime_value_cents`, `custom_fields jsonb` |
 | **subjects** | pet/vehicle/child/property: `client_id`, `kind`, `name`, `attributes jsonb` |
-| **consents** | consent tracking: `client_id`, `channel` (sms/email), `basis` (express/implied), `status`, `source`, `captured_at`, `expires_at` |
 | **notes** | generic: `parent_type`, `parent_id`, `author_user_id`, `body`, `pinned` |
 
 ## catalog (4)
@@ -83,7 +82,7 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 |---|---|
 | **threads** | inbox: `client_id`, `channel` (sms/email/chat), `last_message_at`, `unread_count`, `status` |
 | **messages** | `thread_id`, `direction` (in/out), `channel`, `sender_user_id?`, `body`, `status` (draft/sent/delivered/read/failed), `broadcast_id?`, `provider_ref`, `attachments jsonb` |
-| **broadcasts** | bulk SMS/email to a segment (consent-gated): `name`, `channel`, `audience jsonb`, `status`, `scheduled_at` |
+| **broadcasts** | bulk SMS/email to a segment: `name`, `channel`, `audience jsonb`, `status`, `scheduled_at` |
 
 ## documents (5) — intake forms + contracts/e-sign
 | Table | Key columns |
