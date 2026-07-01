@@ -181,24 +181,25 @@ async def test_device_register_rejects_bad_platform(as_owner: httpx.AsyncClient)
     assert res.status_code == 422
 
 
-async def test_receipt_is_french_when_locale_fr(
+async def test_receipt_is_english_regardless_of_locale(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     email: FakeEmailSender,
     sms: FakeSmsSender,
 ) -> None:
+    # copy is English-only now — a non-English locale no longer changes the notification language
     await _enable(db)
     await db.execute(update(Business).where(Business.id == BIZ).values(locale="fr"))
     await db.flush()
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     inv_id = await _sent_invoice(db, cid)
-    await _pay_and_settle(as_owner, db, inv_id, "evt_fr")
+    await _pay_and_settle(as_owner, db, inv_id, "evt_loc")
 
-    assert email.sent[0].subject == "Reçu de Birchbark Pet Studio"
+    assert email.sent[0].subject == "Receipt from Birchbark Pet Studio"
     assert email.sent[0].body == (
-        "Merci! Votre paiement de $50.00 CAD à Birchbark Pet Studio a été reçu."
+        "Thank you! Your payment of $50.00 CAD to Birchbark Pet Studio was received."
     )
-    assert sms.sent[0].body.startswith("Merci!")
+    assert sms.sent[0].body.startswith("Thank you!")
 
 
 async def test_invoice_sent_carries_pay_link(
