@@ -12,7 +12,6 @@ from clientbridge.models.billing import Line, Order
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.schemas.billing import LineOut
 from clientbridge.schemas.orders import (
     CheckoutOut,
     ConnectionTokenOut,
@@ -20,7 +19,7 @@ from clientbridge.schemas.orders import (
     OrderOut,
     OrderUpdate,
 )
-from clientbridge.services.lines import fetch_lines, replace_lines, tax_for_lines
+from clientbridge.services.lines import fetch_lines, line_out, replace_lines, tax_for_lines
 from clientbridge.services.payment_service import open_terminal_payment
 
 
@@ -51,7 +50,7 @@ class OrderService:
             await self._apply_totals(order, lines)
             await self.db.flush()
             cmd.record("order.create", entity_type="order", entity_id=order.id)
-            return self._out(order, lines)
+            return _out(order, lines)
 
         return await run_command(
             self.db,
@@ -78,7 +77,7 @@ class OrderService:
             await self._apply_totals(order, lines)
             await self.db.flush()
             cmd.record("order.update", entity_type="order", entity_id=order.id)
-            return self._out(order, lines)
+            return _out(order, lines)
 
         return await run_command(
             self.db, self.principal, action="order.update", run=run, response_model=OrderOut
@@ -94,7 +93,7 @@ class OrderService:
             order.status = "void"
             await self.db.flush()
             cmd.record("order.void", entity_type="order", entity_id=order.id)
-            return self._out(order, await fetch_lines(self.db, self.biz, "order", order.id))
+            return _out(order, await fetch_lines(self.db, self.biz, "order", order.id))
 
         return await run_command(
             self.db, self.principal, action="order.void", run=run, response_model=OrderOut
@@ -198,32 +197,20 @@ class OrderService:
             raise NotFound("client not found")
         return row
 
-    def _out(self, order: Order, lines: list[Line]) -> OrderOut:
-        return OrderOut(
-            id=order.id,
-            business_id=order.business_id,
-            client_id=order.client_id,
-            staff_id=order.staff_id,
-            status=order.status,
-            currency=order.currency,
-            subtotal_cents=order.subtotal_cents,
-            tax_total_cents=order.tax_total_cents,
-            total_cents=order.total_cents,
-            amount_paid_cents=order.amount_paid_cents,
-            balance_cents=order.balance_cents,
-            paid_at=order.paid_at,
-            lines=[self._line_out(ln) for ln in lines],
-        )
 
-    def _line_out(self, ln: Line) -> LineOut:
-        return LineOut(
-            id=ln.id,
-            description=ln.description,
-            quantity=float(ln.quantity),
-            unit_amount_cents=ln.unit_amount_cents,
-            amount_cents=ln.amount_cents,
-            tax_amount_cents=ln.tax_amount_cents,
-            item_id=ln.item_id,
-            booking_id=ln.booking_id,
-            position=ln.position,
-        )
+def _out(order: Order, lines: list[Line]) -> OrderOut:
+    return OrderOut(
+        id=order.id,
+        business_id=order.business_id,
+        client_id=order.client_id,
+        staff_id=order.staff_id,
+        status=order.status,
+        currency=order.currency,
+        subtotal_cents=order.subtotal_cents,
+        tax_total_cents=order.tax_total_cents,
+        total_cents=order.total_cents,
+        amount_paid_cents=order.amount_paid_cents,
+        balance_cents=order.balance_cents,
+        paid_at=order.paid_at,
+        lines=[line_out(ln) for ln in lines],
+    )

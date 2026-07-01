@@ -20,9 +20,8 @@ from clientbridge.schemas.billing import (
     InvoiceOut,
     InvoiceUpdate,
     LineInput,
-    LineOut,
 )
-from clientbridge.services.lines import fetch_lines, replace_lines, tax_for_lines
+from clientbridge.services.lines import fetch_lines, line_out, replace_lines, tax_for_lines
 
 _DUE_DAYS = 30
 
@@ -53,7 +52,7 @@ class BillingService:
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return self._invoice_out(invoice, lines)
+            return _invoice_out(invoice, lines)
 
         return await run_command(
             self.db,
@@ -83,7 +82,7 @@ class BillingService:
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.update", entity_type="invoice", entity_id=invoice.id)
-            return self._invoice_out(invoice, lines)
+            return _invoice_out(invoice, lines)
 
         return await run_command(
             self.db, self.principal, action="invoice.update", run=run, response_model=InvoiceOut
@@ -113,7 +112,7 @@ class BillingService:
                 )  # the unique (business_id, number) backstops a concurrent send
             except IntegrityError as exc:
                 raise Conflict("that number was just assigned — please retry") from exc
-            return self._invoice_out(invoice, await self._lines("invoice", invoice.id))
+            return _invoice_out(invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
@@ -130,7 +129,7 @@ class BillingService:
             invoice.voided_at = datetime.now(UTC)
             await self.db.flush()
             cmd.record("invoice.void", entity_type="invoice", entity_id=invoice.id)
-            return self._invoice_out(invoice, await self._lines("invoice", invoice.id))
+            return _invoice_out(invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.void", run=run, response_model=InvoiceOut
@@ -157,7 +156,7 @@ class BillingService:
             await self._apply_totals(estimate, lines)
             await self.db.flush()
             cmd.record("estimate.create", entity_type="estimate", entity_id=estimate.id)
-            return self._estimate_out(estimate, lines)
+            return _estimate_out(estimate, lines)
 
         return await run_command(
             self.db,
@@ -187,7 +186,7 @@ class BillingService:
             await self._apply_totals(estimate, lines)
             await self.db.flush()
             cmd.record("estimate.update", entity_type="estimate", entity_id=estimate.id)
-            return self._estimate_out(estimate, lines)
+            return _estimate_out(estimate, lines)
 
         return await run_command(
             self.db, self.principal, action="estimate.update", run=run, response_model=EstimateOut
@@ -212,7 +211,7 @@ class BillingService:
                 )  # the unique (business_id, number) backstops a concurrent send
             except IntegrityError as exc:
                 raise Conflict("that number was just assigned — please retry") from exc
-            return self._estimate_out(estimate, await self._lines("estimate", estimate.id))
+            return _estimate_out(estimate, await self._lines("estimate", estimate.id))
 
         return await run_command(
             self.db, self.principal, action="estimate.send", run=run, response_model=EstimateOut
@@ -260,7 +259,7 @@ class BillingService:
             await self.db.flush()
             cmd.record("estimate.convert", entity_type="estimate", entity_id=estimate.id)
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return self._invoice_out(invoice, lines)
+            return _invoice_out(invoice, lines)
 
         return await run_command(
             self.db,
@@ -285,7 +284,7 @@ class BillingService:
                 estimate.declined_at = datetime.now(UTC)
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
-            return self._estimate_out(estimate, await self._lines("estimate", estimate.id))
+            return _estimate_out(estimate, await self._lines("estimate", estimate.id))
 
         return await run_command(
             self.db,
@@ -346,55 +345,44 @@ class BillingService:
             raise NotFound("estimate not found")
         return row
 
-    def _invoice_out(self, invoice: Invoice, lines: list[Line]) -> InvoiceOut:
-        return InvoiceOut(
-            id=invoice.id,
-            business_id=invoice.business_id,
-            client_id=invoice.client_id,
-            number=invoice.number,
-            status=invoice.status,
-            currency=invoice.currency,
-            subtotal_cents=invoice.subtotal_cents,
-            tax_total_cents=invoice.tax_total_cents,
-            total_cents=invoice.total_cents,
-            amount_paid_cents=invoice.amount_paid_cents,
-            balance_cents=invoice.balance_cents,
-            issued_at=invoice.issued_at,
-            due_at=invoice.due_at,
-            paid_at=invoice.paid_at,
-            voided_at=invoice.voided_at,
-            notes=invoice.notes,
-            pay_token=invoice.pay_token,
-            lines=[self._line_out(ln) for ln in lines],
-        )
 
-    def _estimate_out(self, estimate: Estimate, lines: list[Line]) -> EstimateOut:
-        return EstimateOut(
-            id=estimate.id,
-            business_id=estimate.business_id,
-            client_id=estimate.client_id,
-            number=estimate.number,
-            status=estimate.status,
-            subtotal_cents=estimate.subtotal_cents,
-            tax_total_cents=estimate.tax_total_cents,
-            total_cents=estimate.total_cents,
-            valid_until=estimate.valid_until,
-            accepted_at=estimate.accepted_at,
-            declined_at=estimate.declined_at,
-            converted_invoice_id=estimate.converted_invoice_id,
-            notes=estimate.notes,
-            lines=[self._line_out(ln) for ln in lines],
-        )
+def _invoice_out(invoice: Invoice, lines: list[Line]) -> InvoiceOut:
+    return InvoiceOut(
+        id=invoice.id,
+        business_id=invoice.business_id,
+        client_id=invoice.client_id,
+        number=invoice.number,
+        status=invoice.status,
+        currency=invoice.currency,
+        subtotal_cents=invoice.subtotal_cents,
+        tax_total_cents=invoice.tax_total_cents,
+        total_cents=invoice.total_cents,
+        amount_paid_cents=invoice.amount_paid_cents,
+        balance_cents=invoice.balance_cents,
+        issued_at=invoice.issued_at,
+        due_at=invoice.due_at,
+        paid_at=invoice.paid_at,
+        voided_at=invoice.voided_at,
+        notes=invoice.notes,
+        pay_token=invoice.pay_token,
+        lines=[line_out(ln) for ln in lines],
+    )
 
-    def _line_out(self, ln: Line) -> LineOut:
-        return LineOut(
-            id=ln.id,
-            description=ln.description,
-            quantity=float(ln.quantity),
-            unit_amount_cents=ln.unit_amount_cents,
-            amount_cents=ln.amount_cents,
-            tax_amount_cents=ln.tax_amount_cents,
-            item_id=ln.item_id,
-            booking_id=ln.booking_id,
-            position=ln.position,
-        )
+
+def _estimate_out(estimate: Estimate, lines: list[Line]) -> EstimateOut:
+    return EstimateOut(
+        id=estimate.id,
+        business_id=estimate.business_id,
+        client_id=estimate.client_id,
+        number=estimate.number,
+        status=estimate.status,
+        subtotal_cents=estimate.subtotal_cents,
+        tax_total_cents=estimate.tax_total_cents,
+        total_cents=estimate.total_cents,
+        valid_until=estimate.valid_until,
+        accepted_at=estimate.accepted_at,
+        declined_at=estimate.declined_at,
+        converted_invoice_id=estimate.converted_invoice_id,
+        notes=estimate.notes,
+        lines=[line_out(ln) for ln in lines],
+    )

@@ -874,10 +874,7 @@ async def _update_payment_method(
         return
     pm = (
         await db.execute(
-            select(PaymentMethod).where(
-                PaymentMethod.business_id == biz,
-                PaymentMethod.provider_ref == str(data.get("id")),
-            )
+            scoped(PaymentMethod, biz).where(PaymentMethod.provider_ref == str(data.get("id")))
         )
     ).scalar_one_or_none()
     if pm is None:
@@ -1174,9 +1171,7 @@ async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[st
     arrival = data.get("arrival_date")
     arrival_at = datetime.fromtimestamp(arrival, tz=UTC) if isinstance(arrival, int) else None
     existing = (
-        await db.execute(
-            select(Payout).where(Payout.provider_ref == payout_ref, Payout.business_id == biz)
-        )
+        await db.execute(scoped(Payout, biz).where(Payout.provider_ref == payout_ref))
     ).scalar_one_or_none()
     if existing is not None:
         existing.status = "paid"
@@ -1227,22 +1222,14 @@ async def _record_payment_method(
         return
     pm_id = str(data.get("id"))
     seen = (
-        await db.execute(
-            select(PaymentMethod.id).where(
-                PaymentMethod.business_id == biz, PaymentMethod.provider_ref == pm_id
-            )
-        )
+        await db.execute(scoped(PaymentMethod, biz).where(PaymentMethod.provider_ref == pm_id))
     ).scalar_one_or_none()
     if seen is not None:
         return
     has_card = (
         await db.execute(
-            select(PaymentMethod.id)
-            .where(
-                PaymentMethod.business_id == biz,
-                PaymentMethod.client_id == client.id,
-                PaymentMethod.status == "active",
-            )
+            scoped(PaymentMethod, biz)
+            .where(PaymentMethod.client_id == client.id, PaymentMethod.status == "active")
             .limit(1)
         )
     ).scalar_one_or_none()
