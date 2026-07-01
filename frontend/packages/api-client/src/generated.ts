@@ -651,6 +651,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Schedule */
+        post: operations["create_schedule_v1_schedules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/invoices": {
         parameters: {
             query?: never;
@@ -2890,6 +2907,77 @@ export interface components {
             /** Count */
             count: number;
         };
+        /** ScheduleCreate */
+        ScheduleCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "daily" | "weekly" | "monthly";
+            /**
+             * Interval
+             * @default 1
+             */
+            interval: number;
+            /** Byday */
+            byday?: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[] | null;
+            /** Count */
+            count?: number | null;
+            /** Until */
+            until?: string | null;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Subject Id */
+            subject_id?: string | null;
+        };
+        /** ScheduleOccurrence */
+        ScheduleOccurrence: {
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Booking Id */
+            booking_id: string | null;
+            /** Skipped */
+            skipped: string | null;
+        };
+        /** ScheduleOut */
+        ScheduleOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /** Client Id */
+            client_id: string | null;
+            /** Frequency */
+            frequency: string;
+            /** Interval */
+            interval: number;
+            /** Status */
+            status: string;
+            /** Created */
+            created: number;
+            /** Skipped */
+            skipped: number;
+            /** Occurrences */
+            occurrences: components["schemas"]["ScheduleOccurrence"][];
+        };
         /** SetupIntentOut */
         SetupIntentOut: {
             /** Client Secret */
@@ -4510,6 +4598,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DepositOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_schedule_v1_schedules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleOut"];
                 };
             };
             /** @description Validation Error */

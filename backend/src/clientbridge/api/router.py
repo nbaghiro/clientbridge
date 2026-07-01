@@ -23,6 +23,7 @@ from clientbridge.api.v1 import (
     payouts,
     reports,
     reviews,
+    schedules,
     staff,
     subscriptions,
     tax,
@@ -34,6 +35,7 @@ api_router.include_router(clients.router)
 api_router.include_router(business.router)
 api_router.include_router(catalog.router)
 api_router.include_router(bookings.router)
+api_router.include_router(schedules.router)
 api_router.include_router(invoices.router)
 api_router.include_router(estimates.router)
 api_router.include_router(payments.router)

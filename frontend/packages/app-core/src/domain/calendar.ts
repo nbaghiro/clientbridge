@@ -335,6 +335,38 @@ export function createBooking(api: ApiLike, input: NewBooking): Promise<BookingR
     });
 }
 
+export type RecurFrequency = "daily" | "weekly" | "monthly";
+
+export interface ScheduleResult {
+    id: string;
+    created: number; // occurrences that became bookings
+    skipped: number; // occurrences skipped (overlap / outside hours)
+}
+
+export interface NewSchedule {
+    clientId: string;
+    itemId: string;
+    staffId: string;
+    startsAt: Date; // first occurrence; its time-of-day repeats
+    frequency: RecurFrequency;
+    interval: number;
+    count: number; // end after N occurrences
+    resourceId?: string | null;
+}
+
+export function createSchedule(api: ApiLike, input: NewSchedule): Promise<ScheduleResult> {
+    return api.post<ScheduleResult>("/v1/schedules", {
+        client_id: input.clientId,
+        item_id: input.itemId,
+        staff_id: input.staffId,
+        starts_at: input.startsAt.toISOString(),
+        frequency: input.frequency,
+        interval: input.interval,
+        count: input.count,
+        resource_id: input.resourceId ?? null,
+    });
+}
+
 export function rescheduleBooking(
     api: ApiLike,
     bookingId: string,
@@ -493,6 +525,15 @@ export interface BookingFormState {
     staffId: string;
     setStaffId: (id: string) => void;
     effStaff: string;
+    repeat: boolean;
+    setRepeat: (v: boolean) => void;
+    frequency: RecurFrequency;
+    setFrequency: (v: RecurFrequency) => void;
+    interval: number;
+    setInterval: (v: number) => void;
+    count: number;
+    setCount: (v: number) => void;
+    notice: string | null; // set after a series that skipped occurrences, so the user sees it
     busy: boolean;
     error: string | null;
     submit: (startsAt: Date | null) => Promise<void>;
@@ -507,6 +548,11 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
     const [clientId, setClientId] = useState("");
     const [itemId, setItemId] = useState("");
     const [staffId, setStaffId] = useState("");
+    const [repeat, setRepeat] = useState(false);
+    const [frequency, setFrequency] = useState<RecurFrequency>("weekly");
+    const [interval, setInterval] = useState(1);
+    const [count, setCount] = useState(8);
+    const [notice, setNotice] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -525,14 +571,40 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
         }
         setBusy(true);
         setError(null);
+        setNotice(null);
         try {
-            await createBooking(api, { clientId, itemId, staffId: effStaff, startsAt });
-            setClientId("");
-            setItemId("");
-            setError(null);
-            onCreated();
+            if (repeat) {
+                const result = await createSchedule(api, {
+                    clientId,
+                    itemId,
+                    staffId: effStaff,
+                    startsAt,
+                    frequency,
+                    interval: Math.max(1, interval),
+                    count: Math.max(1, count),
+                });
+                setClientId("");
+                setItemId("");
+                // A clean series closes; one that skipped occurrences stays open with a notice.
+                if (result.skipped > 0) {
+                    setNotice(
+                        `Booked ${result.created}, skipped ${result.skipped} (already taken or outside hours).`,
+                    );
+                } else {
+                    onCreated();
+                }
+            } else {
+                await createBooking(api, { clientId, itemId, staffId: effStaff, startsAt });
+                setClientId("");
+                setItemId("");
+                onCreated();
+            }
         } catch {
-            setError("Could not book — that time may already be taken.");
+            setError(
+                repeat
+                    ? "Could not create the series. Please try again."
+                    : "Could not book — that time may already be taken.",
+            );
         } finally {
             setBusy(false);
         }
@@ -549,6 +621,15 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
         staffId,
         setStaffId,
         effStaff,
+        repeat,
+        setRepeat,
+        frequency,
+        setFrequency,
+        interval,
+        setInterval,
+        count,
+        setCount,
+        notice,
         busy,
         error,
         submit,

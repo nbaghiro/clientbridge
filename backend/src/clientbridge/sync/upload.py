@@ -51,10 +51,10 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     # row. They stay sync-READABLE (forms/contracts authoring still syncs).
     "threads": ("team", False),
     "messages": ("team", False),
-    # sessions + bookings are NOT sync-writable: every mutation goes through the booking command
-    # (POST/PATCH /v1/bookings) so the atomic conflict check + exclusion constraint always hold.
+    # sessions + bookings + schedules are NOT sync-writable: every mutation goes through a command
+    # (POST/PATCH /v1/bookings, POST /v1/schedules) so the atomic conflict check + exclusion
+    # constraint (and, for a recurring series, the per-occurrence expansion) always hold.
     "availability": ("team", True),
-    "schedules": ("team", True),
     "items": ("admin", False),
     # packages / subscriptions / gift_cards are NOT sync-writable: balances, consumption counters,
     # gateway refs, and billing status are server-authoritative (purchase/redeem commands +

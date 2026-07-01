@@ -2,6 +2,7 @@ import {
     type CalendarEvent,
     type Intent,
     type CalendarView,
+    type RecurFrequency,
     type StaffRow,
     addDays,
     canCollectDeposit,
@@ -707,7 +708,64 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         />
                     </label>
                 </div>
+                <label className="flex items-center gap-2 pt-1 text-sm text-ink">
+                    <input
+                        type="checkbox"
+                        checked={form.repeat}
+                        onChange={(e) => {
+                            form.setRepeat(e.target.checked);
+                        }}
+                        className="accent-accent"
+                    />
+                    Repeat this booking
+                </label>
+                {form.repeat ? (
+                    <div className="flex items-end gap-2">
+                        <label className="block w-20">
+                            <span className="text-sm text-muted">Every</span>
+                            <input
+                                type="number"
+                                min={1}
+                                value={form.interval}
+                                onChange={(e) => {
+                                    form.setInterval(Number(e.target.value));
+                                }}
+                                className={fieldClass}
+                            />
+                        </label>
+                        <label className="block flex-1">
+                            <span className="text-sm text-muted">Frequency</span>
+                            <select
+                                value={form.frequency}
+                                onChange={(e) => {
+                                    form.setFrequency(e.target.value as RecurFrequency);
+                                }}
+                                className={fieldClass}
+                            >
+                                <option value="daily">Days</option>
+                                <option value="weekly">Weeks</option>
+                                <option value="monthly">Months</option>
+                            </select>
+                        </label>
+                        <label className="block w-24">
+                            <span className="text-sm text-muted">Occurrences</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={60}
+                                value={form.count}
+                                onChange={(e) => {
+                                    form.setCount(Number(e.target.value));
+                                }}
+                                className={fieldClass}
+                            />
+                        </label>
+                    </div>
+                ) : null}
                 {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
+                {form.notice !== null ? (
+                    <p className="text-sm text-success">{form.notice}</p>
+                ) : null}
                 <div className="flex justify-end gap-2 pt-1">
                     <button
                         type="button"
@@ -721,7 +779,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         disabled={form.busy}
                         className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong disabled:opacity-50"
                     >
-                        {form.busy ? "Booking…" : "Book"}
+                        {form.busy ? "Booking…" : form.repeat ? "Book series" : "Book"}
                     </button>
                 </div>
             </form>

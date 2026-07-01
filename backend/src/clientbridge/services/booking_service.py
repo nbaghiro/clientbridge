@@ -147,6 +147,7 @@ async def create_booking_core(
     source: str,
     subject_id: str | None = None,
     resource_id: str | None = None,
+    recurrence_id: str | None = None,
     dedupe_client: bool = False,
 ) -> tuple[Booking, Session]:
     """Mint a confirmed booking (+ its session) enforcing the scheduling invariant — availability,
@@ -178,6 +179,7 @@ async def create_booking_core(
             item_id=item.id,
             staff_id=staff_id,
             resource_id=resource_id,
+            recurrence_id=recurrence_id,
             starts_at=starts_at,
             ends_at=ends_at,
             capacity=item.capacity if is_class and item.capacity is not None else 1,
@@ -216,6 +218,43 @@ async def release_session_slot(db: AsyncSession, session: Session) -> None:
     if session.booked_count == 0:
         session.status = "canceled"
     await db.flush()
+
+
+def assert_can_act_as(principal: Principal, staff_id: str | None) -> None:
+    if principal.role in ("owner", "admin"):
+        return
+    if staff_id != principal.staff_id:
+        raise Forbidden("staff can only manage their own bookings")
+
+
+async def load_item(
+    db: AsyncSession, biz: str, item_id: str, *, require_active: bool = True
+) -> Item:
+    q = scoped(Item, biz).where(Item.id == item_id)
+    if require_active:
+        q = q.where(Item.active.is_(True))
+    row = (await db.execute(q)).scalar_one_or_none()
+    if row is None:
+        raise NotFound("item not found")
+    return row
+
+
+async def load_client(db: AsyncSession, biz: str, client_id: str) -> Client:
+    row = (
+        await db.execute(scoped(Client, biz, soft_delete=True).where(Client.id == client_id))
+    ).scalar_one_or_none()
+    if row is None:
+        raise NotFound("client not found")
+    return row
+
+
+async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
+    row = (
+        await db.execute(scoped(Staff, biz).where(Staff.id == staff_id, Staff.status == "active"))
+    ).scalar_one_or_none()
+    if row is None:
+        raise NotFound("staff not found")
+    return row
 
 
 class BookingService:
@@ -419,39 +458,16 @@ class BookingService:
         return row
 
     def _assert_can_act_as(self, staff_id: str | None) -> None:
-        if self.principal.role in ("owner", "admin"):
-            return
-        if staff_id != self.principal.staff_id:
-            raise Forbidden("staff can only manage their own bookings")
+        assert_can_act_as(self.principal, staff_id)
 
     async def _item(self, item_id: str, *, require_active: bool = True) -> Item:
-        q = scoped(Item, self.biz).where(Item.id == item_id)
-        if require_active:
-            q = q.where(Item.active.is_(True))
-        row = (await self.db.execute(q)).scalar_one_or_none()
-        if row is None:
-            raise NotFound("item not found")
-        return row
+        return await load_item(self.db, self.biz, item_id, require_active=require_active)
 
     async def _client(self, client_id: str) -> Client:
-        row = (
-            await self.db.execute(
-                scoped(Client, self.biz, soft_delete=True).where(Client.id == client_id)
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("client not found")
-        return row
+        return await load_client(self.db, self.biz, client_id)
 
     async def _staff(self, staff_id: str) -> Staff:
-        row = (
-            await self.db.execute(
-                scoped(Staff, self.biz).where(Staff.id == staff_id, Staff.status == "active")
-            )
-        ).scalar_one_or_none()
-        if row is None:
-            raise NotFound("staff not found")
-        return row
+        return await load_staff(self.db, self.biz, staff_id)
 
     async def _booking(self, booking_id: str) -> Booking:
         row = (
