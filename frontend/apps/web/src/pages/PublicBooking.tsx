@@ -1,7 +1,6 @@
 import {
     type PublicBookingPage,
     type PublicBookingResult,
-    PublicBookingError,
     type PublicService,
     type PublicSlot,
     type PublicStaff,
@@ -10,9 +9,9 @@ import {
     formatMoneyWithCurrency,
     formatTime,
     parseTimestamp,
-    useAsyncAction,
+    usePublicBookingForm,
 } from "@clientbridge/app-core";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { CardConfirm } from "../components/CardConfirm";
@@ -24,73 +23,13 @@ const field =
 
 export function PublicBooking() {
     const { slug = "" } = useParams<{ slug: string }>();
+    const form = usePublicBookingForm(booking, slug);
+    const page = form.page;
+    const service = form.service;
 
-    const [page, setPage] = useState<PublicBookingPage | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    if (form.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
 
-    const [itemId, setItemId] = useState("");
-    const [staffId, setStaffId] = useState("");
-    const [date, setDate] = useState(() => dateKey(new Date()));
-
-    const [slots, setSlots] = useState<PublicSlot[] | null>(null);
-    const [slotsError, setSlotsError] = useState<string | null>(null);
-    const [startsAt, setStartsAt] = useState("");
-
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-
-    const [result, setResult] = useState<PublicBookingResult | null>(null);
-    const action = useAsyncAction();
-
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        booking
-            .getServices(slug)
-            .then((p) => {
-                if (live) setPage(p);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicBookingError && err.status === 404) setNotFound(true);
-                else setLoadError("We couldn't load this booking page. Please try again later.");
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [slug]);
-
-    useEffect(() => {
-        setStartsAt("");
-        if (itemId === "" || staffId === "" || date === "") {
-            setSlots(null);
-            return;
-        }
-        let live = true;
-        setSlots(null);
-        setSlotsError(null);
-        booking
-            .getSlots(slug, { itemId, staffId, date })
-            .then((res) => {
-                if (live) setSlots(res.slots);
-            })
-            .catch(() => {
-                if (live) setSlotsError("We couldn't load open times. Please try another day.");
-            });
-        return () => {
-            live = false;
-        };
-    }, [slug, itemId, staffId, date]);
-
-    if (loading) return <Frame>{<Centered>Loading…</Centered>}</Frame>;
-
-    if (notFound)
+    if (form.status === "not-found")
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Booking page not found</h1>
@@ -100,45 +39,20 @@ export function PublicBooking() {
             </Frame>
         );
 
-    if (loadError || !page)
+    if (form.status === "error" || page === null)
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">{loadError ?? "Please try again later."}</p>
+                <p className="mt-2 text-sm text-muted">Please try again later.</p>
             </Frame>
         );
 
-    const service = page.services.find((s) => s.id === itemId) ?? null;
-
-    if (result) return <BookedState page={page} result={result} service={service} />;
-
-    const canBook =
-        startsAt !== "" &&
-        name.trim().length > 0 &&
-        (email.trim().length > 0 || phone.trim().length > 0);
+    if (form.result !== null)
+        return <BookedState page={page} result={form.result} service={service} />;
 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
-        if (!canBook) {
-            action.setError("Add your name and an email or phone, then pick a time.");
-            return;
-        }
-        void action.run(
-            async () => {
-                setResult(
-                    await booking.book(slug, {
-                        itemId,
-                        staffId,
-                        startsAt,
-                        client: { name: name.trim(), email: email.trim(), phone: phone.trim() },
-                    }),
-                );
-            },
-            {
-                errorMessage:
-                    "We couldn't book that time. It may have just been taken — try another.",
-            },
-        );
+        form.submit();
     };
 
     return (
@@ -149,9 +63,9 @@ export function PublicBooking() {
             <form onSubmit={submit} className="mt-6 space-y-5">
                 <Labeled label="Service">
                     <select
-                        value={itemId}
+                        value={form.itemId}
                         onChange={(e) => {
-                            setItemId(e.target.value);
+                            form.setItemId(e.target.value);
                         }}
                         className={field}
                     >
@@ -168,9 +82,9 @@ export function PublicBooking() {
                     <>
                         <Labeled label="With">
                             <select
-                                value={staffId}
+                                value={form.staffId}
                                 onChange={(e) => {
-                                    setStaffId(e.target.value);
+                                    form.setStaffId(e.target.value);
                                 }}
                                 className={field}
                             >
@@ -186,10 +100,10 @@ export function PublicBooking() {
                         <Labeled label="Date">
                             <input
                                 type="date"
-                                value={date}
+                                value={form.date}
                                 min={dateKey(new Date())}
                                 onChange={(e) => {
-                                    setDate(e.target.value);
+                                    form.setDate(e.target.value);
                                 }}
                                 className={field}
                             />
@@ -197,25 +111,25 @@ export function PublicBooking() {
                     </>
                 ) : null}
 
-                {staffId !== "" && itemId !== "" ? (
+                {form.staffId !== "" && form.itemId !== "" ? (
                     <Slots
-                        slots={slots}
-                        error={slotsError}
-                        selected={startsAt}
+                        slots={form.slots}
+                        error={form.slotsError}
+                        selected={form.startsAt}
                         onSelect={(v) => {
-                            setStartsAt(v);
-                            action.setError(null);
+                            form.setStartsAt(v);
+                            form.setError(null);
                         }}
                     />
                 ) : null}
 
-                {startsAt !== "" && service !== null ? (
+                {form.startsAt !== "" && service !== null ? (
                     <div className="space-y-3 border-t border-line pt-4">
                         <Labeled label="Your name">
                             <input
-                                value={name}
+                                value={form.name}
                                 onChange={(e) => {
-                                    setName(e.target.value);
+                                    form.setName(e.target.value);
                                 }}
                                 placeholder="Full name"
                                 className={field}
@@ -223,9 +137,9 @@ export function PublicBooking() {
                         </Labeled>
                         <Labeled label="Email">
                             <input
-                                value={email}
+                                value={form.email}
                                 onChange={(e) => {
-                                    setEmail(e.target.value);
+                                    form.setEmail(e.target.value);
                                 }}
                                 inputMode="email"
                                 placeholder="you@example.com"
@@ -234,9 +148,9 @@ export function PublicBooking() {
                         </Labeled>
                         <Labeled label="Phone">
                             <input
-                                value={phone}
+                                value={form.phone}
                                 onChange={(e) => {
-                                    setPhone(e.target.value);
+                                    form.setPhone(e.target.value);
                                 }}
                                 inputMode="tel"
                                 placeholder="(555) 555-5555"
@@ -259,16 +173,16 @@ export function PublicBooking() {
 
                         <button
                             type="submit"
-                            disabled={action.busy || !canBook}
+                            disabled={form.busy || !form.canBook}
                             className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {action.busy ? "Booking…" : "Confirm booking"}
+                            {form.busy ? "Booking…" : "Confirm booking"}
                         </button>
                     </div>
                 ) : null}
 
-                {action.error !== null ? (
-                    <p className="text-sm text-danger-fg">{action.error}</p>
+                {form.error !== null ? (
+                    <p className="text-sm text-danger-fg">{form.error}</p>
                 ) : null}
             </form>
         </Frame>

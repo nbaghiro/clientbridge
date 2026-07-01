@@ -1,6 +1,11 @@
 // Unauthenticated pay-by-link client. The URL token is the only credential, so these hit the API
 // with a plain `fetch` (never the authed session) against a base URL each platform supplies.
 
+import { useEffect, useState } from "react";
+
+import { useAsyncAction } from "../hooks/useAsyncAction";
+import { type PayMethod, payMethods } from "./payments";
+
 export interface PublicInvoice {
     number: number | null;
     business_name: string;
@@ -59,5 +64,103 @@ export function createPublicPayClient(baseUrl: string): PublicPayClient {
             }),
         payCard: (token) =>
             request<PublicCardIntent>(`/pay/${encodeURIComponent(token)}/card`, { method: "POST" }),
+    };
+}
+
+export type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid";
+
+export interface PublicPayForm {
+    status: PublicPayStatus;
+    invoice: PublicInvoice | null;
+    methods: PayMethod[];
+    method: PayMethod;
+    setMethod: (m: PayMethod) => void;
+    interac: InteracRequest | null;
+    card: PublicCardIntent | null;
+    payInterac: () => void;
+    payCard: () => void;
+    markPaid: () => void;
+    busy: boolean;
+    error: string | null;
+    setError: (message: string | null) => void;
+}
+
+/** View-model for the public pay-by-link page: load the invoice, pick a method, create the Interac
+ *  request or card intent, and track paid state. Platforms render Stripe Elements / native card UI
+ *  from `card`; everything else (the state machine) is shared. */
+export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPayForm {
+    const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+    const [method, setMethod] = useState<PayMethod>("interac");
+    const [interac, setInterac] = useState<InteracRequest | null>(null);
+    const [card, setCard] = useState<PublicCardIntent | null>(null);
+    const [paid, setPaid] = useState(false);
+    const { busy, error, setError, run } = useAsyncAction();
+
+    useEffect(() => {
+        let live = true;
+        setLoading(true);
+        pay.getPublicInvoice(token)
+            .then((inv) => {
+                if (live) setInvoice(inv);
+            })
+            .catch((err: unknown) => {
+                if (!live) return;
+                if (err instanceof PublicPayError && err.status === 404) setNotFound(true);
+                else setLoadError(true);
+            })
+            .finally(() => {
+                if (live) setLoading(false);
+            });
+        return () => {
+            live = false;
+        };
+    }, [pay, token]);
+
+    const status: PublicPayStatus = loading
+        ? "loading"
+        : notFound
+          ? "not-found"
+          : loadError || invoice === null
+            ? "error"
+            : paid || invoice.status === "paid"
+              ? "paid"
+              : "ready";
+
+    const payInterac = (): void => {
+        void run(
+            async () => {
+                setInterac(await pay.payInterac(token));
+            },
+            { errorMessage: "We couldn't start the Interac payment. Please try again." },
+        );
+    };
+    const payCard = (): void => {
+        void run(
+            async () => {
+                setCard(await pay.payCard(token));
+            },
+            { errorMessage: "We couldn't start the card payment. Please try again." },
+        );
+    };
+
+    return {
+        status,
+        invoice,
+        methods: invoice !== null ? payMethods(invoice) : [],
+        method,
+        setMethod,
+        interac,
+        card,
+        payInterac,
+        payCard,
+        markPaid: () => {
+            setPaid(true);
+        },
+        busy,
+        error,
+        setError,
     };
 }

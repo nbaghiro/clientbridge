@@ -1,5 +1,5 @@
 import { usePowerSync, useQuery } from "@powersync/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useBusinessId } from "../hooks/primitives";
@@ -224,5 +224,122 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
             if (!put.ok) throw new PublicContractError(put.status, "the signature upload failed");
             return meta.file_id;
         },
+    };
+}
+
+export type PublicContractStatus = "loading" | "not-found" | "error" | "resolved" | "pending";
+
+export interface PublicContractSign {
+    status: PublicContractStatus;
+    contract: PublicContract | null;
+    typedName: string;
+    setTypedName: (v: string) => void;
+    imageName: string; // the attached signature-image filename, "" if none
+    uploadImage: (file: Blob, name: string) => void;
+    sign: () => void;
+    decline: () => void;
+    busy: boolean;
+    error: string | null;
+    setError: (message: string | null) => void;
+}
+
+/** View-model for the public e-sign page: load the contract, capture a typed name or an uploaded
+ *  signature image, then sign or decline. The file `<input>`/picker stays per-platform; it hands the
+ *  Blob + name to `uploadImage`. */
+export function usePublicContractSign(
+    contracts: PublicContractClient,
+    token: string,
+): PublicContractSign {
+    const [contract, setContract] = useState<PublicContract | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+    const [typedName, setTypedName] = useState("");
+    const [imageId, setImageId] = useState<string | null>(null);
+    const [imageName, setImageName] = useState("");
+    const { busy, error, setError, run } = useAsyncAction();
+
+    useEffect(() => {
+        let live = true;
+        setLoading(true);
+        contracts
+            .getContract(token)
+            .then((c) => {
+                if (!live) return;
+                setContract(c);
+                if (c.signer_name !== null) setTypedName(c.signer_name);
+            })
+            .catch((err: unknown) => {
+                if (!live) return;
+                if (err instanceof PublicContractError && err.status === 404) setNotFound(true);
+                else setLoadError(true);
+            })
+            .finally(() => {
+                if (live) setLoading(false);
+            });
+        return () => {
+            live = false;
+        };
+    }, [contracts, token]);
+
+    const status: PublicContractStatus = loading
+        ? "loading"
+        : notFound
+          ? "not-found"
+          : loadError || contract === null
+            ? "error"
+            : contract.status !== "pending"
+              ? "resolved"
+              : "pending";
+
+    const sign = (): void => {
+        if (typedName.trim().length === 0 && imageId === null) {
+            setError("Type your full name or upload a signature image to sign.");
+            return;
+        }
+        void run(
+            async () => {
+                setContract(
+                    await contracts.sign(token, {
+                        typed_name: typedName.trim() || null,
+                        signature_image_id: imageId,
+                    }),
+                );
+            },
+            { errorMessage: "We couldn't record your signature. Please try again." },
+        );
+    };
+
+    const uploadImage = (file: Blob, name: string): void => {
+        void run(
+            async () => {
+                setImageId(await contracts.upload(token, file));
+                setImageName(name);
+            },
+            { errorMessage: "We couldn't upload that signature image. Please try again." },
+        );
+    };
+
+    const decline = (): void => {
+        void run(
+            async () => {
+                setContract(await contracts.decline(token));
+            },
+            { errorMessage: "We couldn't record that. Please try again." },
+        );
+    };
+
+    return {
+        status,
+        contract,
+        typedName,
+        setTypedName,
+        imageName,
+        uploadImage,
+        sign,
+        decline,
+        busy,
+        error,
+        setError,
     };
 }

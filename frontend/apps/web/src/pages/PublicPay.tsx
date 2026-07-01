@@ -1,18 +1,14 @@
 import {
     type InteracRequest,
-    type PayMethod,
-    type PublicCardIntent,
-    type PublicInvoice,
-    PublicPayError,
     createPublicPayClient,
     formatMoneyWithCurrency,
     invoiceStatusIntent,
-    payMethods,
     useAsyncAction,
+    usePublicPayForm,
 } from "@clientbridge/app-core";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useMemo } from "react";
 import { useParams } from "react-router-dom";
 
 import { StatusPill } from "../components/StatusPill";
@@ -22,41 +18,12 @@ const pay = createPublicPayClient(import.meta.env.VITE_API_URL ?? "http://localh
 
 export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();
+    const form = usePublicPayForm(pay, token);
+    const invoice = form.invoice;
 
-    const [invoice, setInvoice] = useState<PublicInvoice | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState<string | null>(null);
+    if (form.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
 
-    const [method, setMethod] = useState<PayMethod>("interac");
-    const [interac, setInterac] = useState<InteracRequest | null>(null);
-    const [card, setCard] = useState<PublicCardIntent | null>(null);
-    const [paid, setPaid] = useState(false);
-    const action = useAsyncAction();
-
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        pay.getPublicInvoice(token)
-            .then((inv) => {
-                if (live) setInvoice(inv);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicPayError && err.status === 404) setNotFound(true);
-                else setLoadError("We couldn't load this invoice. Please try again later.");
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [token]);
-
-    if (loading) return <Frame>{<Centered>Loading…</Centered>}</Frame>;
-
-    if (notFound)
+    if (form.status === "not-found")
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Invoice not found</h1>
@@ -67,39 +34,22 @@ export function PublicPay() {
             </Frame>
         );
 
-    if (loadError || !invoice)
+    if (form.status === "error" || invoice === null)
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">{loadError ?? "Please try again later."}</p>
+                <p className="mt-2 text-sm text-muted">Please try again later.</p>
             </Frame>
         );
 
-    if (paid || invoice.status === "paid")
-        return <PaidState businessName={invoice.business_name} />;
-
-    const methods = payMethods(invoice);
-
-    const runInterac = (): void => {
-        void action.run(
-            async () => {
-                setInterac(await pay.payInterac(token));
-            },
-            { errorMessage: "We couldn't start the Interac payment. Please try again." },
-        );
-    };
+    if (form.status === "paid") return <PaidState businessName={invoice.business_name} />;
 
     const runCard = (): void => {
         if (!PUBLISHABLE_KEY) {
-            action.setError("Card payments aren't configured. Please use Interac e-Transfer.");
+            form.setError("Card payments aren't configured. Please use Interac e-Transfer.");
             return;
         }
-        void action.run(
-            async () => {
-                setCard(await pay.payCard(token));
-            },
-            { errorMessage: "We couldn't start the card payment. Please try again." },
-        );
+        form.payCard();
     };
 
     return (
@@ -128,26 +78,26 @@ export function PublicPay() {
                 Choose how to pay
             </h2>
             <div role="radiogroup" aria-labelledby="pay-method-label" className="mt-3 space-y-2">
-                {methods.map((m) =>
+                {form.methods.map((m) =>
                     m === "interac" ? (
                         <MethodOption
                             key={m}
                             label="Interac e-Transfer"
                             badge="Recommended · no fee"
-                            selected={method === "interac"}
+                            selected={form.method === "interac"}
                             onSelect={() => {
-                                setMethod("interac");
-                                action.setError(null);
+                                form.setMethod("interac");
+                                form.setError(null);
                             }}
                         />
                     ) : (
                         <MethodOption
                             key={m}
                             label="Credit or debit card"
-                            selected={method === "card"}
+                            selected={form.method === "card"}
                             onSelect={() => {
-                                setMethod("card");
-                                action.setError(null);
+                                form.setMethod("card");
+                                form.setError(null);
                             }}
                         />
                     ),
@@ -155,34 +105,30 @@ export function PublicPay() {
             </div>
 
             <div className="mt-5">
-                {method === "interac" ? (
-                    interac ? (
-                        <InteracInstructions result={interac} currency={invoice.currency} />
+                {form.method === "interac" ? (
+                    form.interac ? (
+                        <InteracInstructions result={form.interac} currency={invoice.currency} />
                     ) : (
-                        <PrimaryButton onClick={runInterac} busy={action.busy}>
+                        <PrimaryButton onClick={form.payInterac} busy={form.busy}>
                             Pay by Interac
                         </PrimaryButton>
                     )
-                ) : card ? (
+                ) : form.card ? (
                     <CardPay
-                        clientSecret={card.client_secret}
-                        stripeAccount={card.stripe_account_id}
+                        clientSecret={form.card.client_secret}
+                        stripeAccount={form.card.stripe_account_id}
                         amountLabel={formatMoneyWithCurrency(
                             invoice.balance_cents,
                             invoice.currency,
                         )}
-                        onPaid={() => {
-                            setPaid(true);
-                        }}
+                        onPaid={form.markPaid}
                     />
                 ) : (
-                    <PrimaryButton onClick={runCard} busy={action.busy}>
+                    <PrimaryButton onClick={runCard} busy={form.busy}>
                         Pay by card
                     </PrimaryButton>
                 )}
-                {action.error ? (
-                    <p className="mt-3 text-sm text-danger-fg">{action.error}</p>
-                ) : null}
+                {form.error ? <p className="mt-3 text-sm text-danger-fg">{form.error}</p> : null}
             </div>
         </Frame>
     );

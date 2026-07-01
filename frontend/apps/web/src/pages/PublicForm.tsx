@@ -1,15 +1,12 @@
 import {
     type FormAnswer,
-    type PublicForm as PublicFormData,
-    PublicFormError,
     type PublicFormField,
     createPublicFormClient,
-    isAnswerMissing,
     isFileField,
     optionPair,
-    useAsyncAction,
+    usePublicFormFill,
 } from "@clientbridge/app-core";
-import { type FormEvent, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 
 const forms = createPublicFormClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
@@ -17,42 +14,15 @@ const forms = createPublicFormClient(import.meta.env.VITE_API_URL ?? "http://loc
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
 
-type Answers = Record<string, FormAnswer>;
-
 export function PublicForm() {
     const { token = "" } = useParams<{ token: string }>();
+    const fill = usePublicFormFill(forms, token);
+    const form = fill.form;
+    const answers = fill.answers;
 
-    const [form, setForm] = useState<PublicFormData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState<string | null>(null);
-    const [answers, setAnswers] = useState<Answers>({});
-    const action = useAsyncAction();
+    if (fill.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
 
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        forms
-            .getForm(token)
-            .then((f) => {
-                if (live) setForm(f);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicFormError && err.status === 404) setNotFound(true);
-                else setLoadError("We couldn't load this form. Please try again later.");
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [token]);
-
-    if (loading) return <Frame>{<Centered>Loading…</Centered>}</Frame>;
-
-    if (notFound)
+    if (fill.status === "not-found")
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Form not found</h1>
@@ -63,43 +33,19 @@ export function PublicForm() {
             </Frame>
         );
 
-    if (loadError || form === null)
+    if (fill.status === "error" || form === null)
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">{loadError ?? "Please try again later."}</p>
+                <p className="mt-2 text-sm text-muted">Please try again later.</p>
             </Frame>
         );
 
-    if (form.completed) return <DoneState businessName={form.business_name} />;
-
-    const setAnswer = (name: string, value: FormAnswer): void => {
-        setAnswers((a) => ({ ...a, [name]: value }));
-        action.setError(null);
-    };
-
-    const uploadFor = (name: string, file: File): void => {
-        void action.run(
-            async () => {
-                setAnswer(name, await forms.upload(token, file));
-            },
-            { errorMessage: "We couldn't upload that file. Please try again." },
-        );
-    };
+    if (fill.status === "done") return <DoneState businessName={form.business_name} />;
 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
-        const missing = form.fields.find((f) => f.required && isAnswerMissing(answers[f.name]));
-        if (missing !== undefined) {
-            action.setError(`“${missing.label}” is required.`);
-            return;
-        }
-        void action.run(
-            async () => {
-                setForm(await forms.submit(token, answers));
-            },
-            { errorMessage: "We couldn't submit your answers. Please try again." },
-        );
+        fill.submit();
     };
 
     return (
@@ -114,22 +60,22 @@ export function PublicForm() {
                         field={f}
                         value={answers[f.name]}
                         onChange={(v) => {
-                            setAnswer(f.name, v);
+                            fill.setAnswer(f.name, v);
                         }}
                         onUpload={(file) => {
-                            uploadFor(f.name, file);
+                            fill.uploadFor(f.name, file);
                         }}
                     />
                 ))}
-                {action.error !== null ? (
-                    <p className="text-sm text-danger-fg">{action.error}</p>
+                {fill.error !== null ? (
+                    <p className="text-sm text-danger-fg">{fill.error}</p>
                 ) : null}
                 <button
                     type="submit"
-                    disabled={action.busy}
+                    disabled={fill.busy}
                     className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                 >
-                    {action.busy ? "Submitting…" : "Submit"}
+                    {fill.busy ? "Submitting…" : "Submit"}
                 </button>
             </form>
         </Frame>

@@ -1,11 +1,10 @@
 import {
     type PublicContract as PublicContractData,
-    PublicContractError,
     createPublicContractClient,
     signatureStatusIntent,
-    useAsyncAction,
+    usePublicContractSign,
 } from "@clientbridge/app-core";
-import { type FormEvent, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 
 import { StatusPill } from "../components/StatusPill";
@@ -19,42 +18,12 @@ const field =
 
 export function PublicContract() {
     const { token = "" } = useParams<{ token: string }>();
+    const form = usePublicContractSign(contracts, token);
+    const contract = form.contract;
 
-    const [contract, setContract] = useState<PublicContractData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState<string | null>(null);
-    const [typedName, setTypedName] = useState("");
-    const [imageId, setImageId] = useState<string | null>(null);
-    const [imageName, setImageName] = useState("");
-    const action = useAsyncAction();
+    if (form.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
 
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        contracts
-            .getContract(token)
-            .then((c) => {
-                if (!live) return;
-                setContract(c);
-                if (c.signer_name !== null) setTypedName(c.signer_name);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicContractError && err.status === 404) setNotFound(true);
-                else setLoadError("We couldn't load this contract. Please try again later.");
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [token]);
-
-    if (loading) return <Frame>{<Centered>Loading…</Centered>}</Frame>;
-
-    if (notFound)
+    if (form.status === "not-found")
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Contract not found</h1>
@@ -65,55 +34,24 @@ export function PublicContract() {
             </Frame>
         );
 
-    if (loadError || contract === null)
+    if (form.status === "error" || contract === null)
         return (
             <Frame>
                 <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">{loadError ?? "Please try again later."}</p>
+                <p className="mt-2 text-sm text-muted">Please try again later.</p>
             </Frame>
         );
 
-    if (contract.status !== "pending") return <ResolvedState contract={contract} />;
+    if (form.status === "resolved") return <ResolvedState contract={contract} />;
 
     const sign = (e: FormEvent): void => {
         e.preventDefault();
-        if (typedName.trim().length === 0 && imageId === null) {
-            action.setError("Type your full name or upload a signature image to sign.");
-            return;
-        }
-        void action.run(
-            async () => {
-                setContract(
-                    await contracts.sign(token, {
-                        typed_name: typedName.trim() || null,
-                        signature_image_id: imageId,
-                    }),
-                );
-            },
-            { errorMessage: "We couldn't record your signature. Please try again." },
-        );
+        form.sign();
     };
 
     const uploadImage = (e: React.ChangeEvent<HTMLInputElement>): void => {
         const file = e.target.files?.[0];
-        if (!file) return;
-        void action.run(
-            async () => {
-                const id = await contracts.upload(token, file);
-                setImageId(id);
-                setImageName(file.name);
-            },
-            { errorMessage: "We couldn't upload that signature image. Please try again." },
-        );
-    };
-
-    const decline = (): void => {
-        void action.run(
-            async () => {
-                setContract(await contracts.decline(token));
-            },
-            { errorMessage: "We couldn't record that. Please try again." },
-        );
+        if (file) form.uploadImage(file, file.name);
     };
 
     return (
@@ -131,9 +69,9 @@ export function PublicContract() {
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                     Type your full name to sign
                     <input
-                        value={typedName}
+                        value={form.typedName}
                         onChange={(e) => {
-                            setTypedName(e.target.value);
+                            form.setTypedName(e.target.value);
                         }}
                         placeholder="Full legal name"
                         className={field}
@@ -147,25 +85,25 @@ export function PublicContract() {
                         onChange={uploadImage}
                         className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
                     />
-                    {imageName !== "" ? (
-                        <span className="text-xs text-ok-fg">Attached: {imageName}</span>
+                    {form.imageName !== "" ? (
+                        <span className="text-xs text-ok-fg">Attached: {form.imageName}</span>
                     ) : null}
                 </label>
-                {action.error !== null ? (
-                    <p className="text-sm text-danger-fg">{action.error}</p>
+                {form.error !== null ? (
+                    <p className="text-sm text-danger-fg">{form.error}</p>
                 ) : null}
                 <div className="flex gap-2">
                     <button
                         type="submit"
-                        disabled={action.busy}
+                        disabled={form.busy}
                         className="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {action.busy ? "Working…" : "Sign contract"}
+                        {form.busy ? "Working…" : "Sign contract"}
                     </button>
                     <button
                         type="button"
-                        onClick={decline}
-                        disabled={action.busy}
+                        onClick={form.decline}
+                        disabled={form.busy}
                         className="rounded-md border border-line px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
                         Decline
