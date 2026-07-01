@@ -7,6 +7,7 @@ export * from "./hooks/useClientState";
 export * from "./hooks/useCurrentRole";
 export * from "./hooks/useLogin";
 export * from "./hooks/primitives";
+export * from "./domain/account";
 export * from "./domain/clients";
 export * from "./domain/catalog";
 export * from "./domain/onboarding";

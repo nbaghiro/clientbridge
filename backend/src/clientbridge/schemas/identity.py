@@ -25,6 +25,21 @@ class BusinessOut(BaseModel):
     timezone: str
     locale: str
     status: str
+    billing_email: str | None
+    gst_hst_number: str | None
+    qst_number: str | None
+
+
+class BusinessSettingsUpdate(BaseModel):
+    """Editable account fields (partial — only sent keys are applied). Slug + province are fixed
+    here (province drives seeded tax rates); the tax numbers accept "" to clear."""
+
+    name: str | None = None
+    timezone: str | None = None
+    locale: str | None = None
+    billing_email: str | None = None
+    gst_hst_number: str | None = None
+    qst_number: str | None = None
 
 
 class InviteBody(BaseModel):
