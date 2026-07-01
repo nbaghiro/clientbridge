@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -8,9 +9,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.messaging import Message, Thread
-from clientbridge.models.platform import WebhookEvent
+from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.platform import DeviceToken, WebhookEvent
+from tests.conftest import FakePushSender
 
 BIZ = "bz_birchbark"
+
+
+async def _a_client_id(db: AsyncSession) -> str:
+    cid = (
+        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
+        .scalars()
+        .first()
+    )
+    assert cid
+    return cid
 
 
 async def _client_with_phone(db: AsyncSession, phone: str) -> str:
@@ -100,6 +113,127 @@ async def test_account_updated_golden_payload_syncs_state(
     assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
     assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
     assert biz.stripe_requirements["past_due"] == ["external_account"]
+
+
+async def test_payment_method_auto_updated_refreshes_card(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_pm"))
+    cid = await _a_client_id(db)
+    db.add(
+        PaymentMethod(
+            id="pm_row",
+            business_id=BIZ,
+            client_id=cid,
+            type="card",
+            brand="visa",
+            last4="4242",
+            provider="stripe",
+            provider_ref="pm_stripe_1",
+            is_default=True,
+            mandate_status="none",
+            status="active",
+        )
+    )
+    await db.flush()
+    body = json.dumps(
+        {
+            "id": "evt_pm_upd",
+            "type": "payment_method.automatically_updated",
+            "account": "acct_pm",
+            "data": {
+                "object": {"id": "pm_stripe_1", "card": {"brand": "mastercard", "last4": "5555"}}
+            },
+        }
+    )
+    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
+    assert res.status_code == 200
+    pm = (await db.execute(select(PaymentMethod).where(PaymentMethod.id == "pm_row"))).scalar_one()
+    assert pm.brand == "mastercard" and pm.last4 == "5555"
+
+
+async def test_charge_refunded_records_a_dashboard_refund(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _a_client_id(db)
+    db.add(
+        Payment(
+            id="pay_dash",
+            business_id=BIZ,
+            client_id=cid,
+            kind="payment",
+            amount_cents=5000,
+            currency="cad",
+            method="card",
+            provider="stripe",
+            provider_ref="pi_dash",
+            status="succeeded",
+            paid_at=datetime.now(UTC),
+        )
+    )
+    await db.flush()
+    body = json.dumps(
+        {
+            "id": "evt_refunded",
+            "type": "charge.refunded",
+            "account": "acct_r",
+            "data": {
+                "object": {
+                    "id": "ch_1",
+                    "payment_intent": "pi_dash",
+                    "amount_refunded": 5000,
+                    "refunds": {"data": [{"id": "re_dash_1"}]},
+                }
+            },
+        }
+    )
+    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
+    assert res.status_code == 200
+    refund = (
+        await db.execute(
+            select(Payment).where(Payment.parent_payment_id == "pay_dash", Payment.kind == "refund")
+        )
+    ).scalar_one()
+    assert refund.amount_cents == 5000
+    assert refund.provider_ref == "re_dash_1" and refund.status == "succeeded"
+
+
+async def test_charge_dispute_alerts_staff(
+    api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
+) -> None:
+    cid = await _a_client_id(db)
+    db.add(
+        Payment(
+            id="pay_disp",
+            business_id=BIZ,
+            client_id=cid,
+            kind="payment",
+            amount_cents=8000,
+            currency="cad",
+            method="card",
+            provider="stripe",
+            provider_ref="pi_disp",
+            status="succeeded",
+            paid_at=datetime.now(UTC),
+        )
+    )
+    db.add(
+        DeviceToken(
+            id="dvt_test", business_id=BIZ, user_id="us_dev", token="ExpoTok", platform="ios"
+        )
+    )
+    await db.flush()
+    body = json.dumps(
+        {
+            "id": "evt_disp",
+            "type": "charge.dispute.created",
+            "account": "acct_d",
+            "data": {"object": {"id": "dp_1", "payment_intent": "pi_disp", "amount": 8000}},
+        }
+    )
+    res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
+    assert res.status_code == 200
+    assert any("disput" in p.body.lower() for p in push.sent)  # the business's staff were alerted
 
 
 async def test_bad_signature_rejected(api: httpx.AsyncClient) -> None:
