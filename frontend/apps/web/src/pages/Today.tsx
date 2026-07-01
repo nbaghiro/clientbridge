@@ -7,7 +7,6 @@ import {
     isRefundRow,
     parseTimestamp,
     paymentStatusIntent,
-    useCurrentRole,
     useDashboardSummary,
     useRecentActivity,
     useRecentPayouts,
@@ -17,10 +16,10 @@ import {
 
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 export function Today() {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">

@@ -6,12 +6,11 @@ import {
     defaultReportRange,
     formatMoney,
     reportRangeForYear,
-    useCurrentRole,
     useReportDownload,
     useReports,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -23,18 +22,12 @@ import {
 } from "react-native";
 
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 
 export function ReportsScreen() {
-    const [token, setToken] = useState<string | null>(null);
-    useEffect(() => {
-        void getTokens().then((t) => {
-            setToken(t?.access_token ?? null);
-        });
-    }, []);
-    const role = useCurrentRole(token);
+    const role = useRole();
 
     if (!canManagePayments(role)) {
         return (

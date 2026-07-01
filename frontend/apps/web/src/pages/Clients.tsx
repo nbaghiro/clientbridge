@@ -33,7 +33,6 @@ import {
     useClientPackages,
     useClientSubscriptions,
     useClients,
-    useCurrentRole,
     usePackageSaleForm,
     useSavedCards,
     useSearch,
@@ -48,7 +47,7 @@ import { IconPlus, IconSearch } from "../components/icons";
 import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
@@ -177,7 +176,7 @@ function Overlay({ children }: { children: React.ReactNode }) {
 }
 
 function ClientDetailModal({ client, onClose }: { client: ClientRow | null; onClose: () => void }) {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
     if (client === null) return null;
     const canManage = canManagePayments(role);
 

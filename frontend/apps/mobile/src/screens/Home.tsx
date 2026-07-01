@@ -7,7 +7,6 @@ import {
     isRefundRow,
     parseTimestamp,
     paymentStatusIntent,
-    useCurrentRole,
     useDashboardSummary,
     useRecentActivity,
     useRecentPayouts,
@@ -19,7 +18,7 @@ import { useStatus } from "@powersync/react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -27,7 +26,7 @@ import { DebugOverlay } from "../components/DebugOverlay";
 import { IconChevron, IconSettings, Logo } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
 
 export function HomeScreen() {
@@ -35,13 +34,7 @@ export function HomeScreen() {
     const status = useStatus();
     const connected = status.connected;
 
-    const [token, setToken] = useState<string | null>(null);
-    useEffect(() => {
-        void getTokens().then((t) => {
-            setToken(t?.access_token ?? null);
-        });
-    }, []);
-    const role = useCurrentRole(token);
+    const role = useRole();
 
     const [debugOpen, setDebugOpen] = useState(false);
     const taps = useRef<number[]>([]);

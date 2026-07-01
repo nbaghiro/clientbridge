@@ -7,7 +7,6 @@ import {
     reviewStatusIntent,
     roundedRating,
     useClients,
-    useCurrentRole,
     useRequestReviewForm,
     useReviewActions,
     useReviewSummary,
@@ -17,13 +16,13 @@ import { useState } from "react";
 
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
 
 export function Reviews() {
-    const role = useCurrentRole(getTokens()?.access_token ?? null);
+    const role = useRole();
 
     if (!canManagePayments(role)) {
         return (

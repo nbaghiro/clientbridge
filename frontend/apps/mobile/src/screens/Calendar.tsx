@@ -25,12 +25,11 @@ import {
     useCalendarEvents,
     useCancelBooking,
     useCollectDeposit,
-    useCurrentRole,
     useSavedCards,
     weekColumns,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
     Animated,
     Modal,
@@ -46,7 +45,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CardPaymentConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 const HOUR_PX = 56;
@@ -384,13 +383,7 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
 }
 
 function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
-    const [token, setToken] = useState<string | null>(null);
-    useEffect(() => {
-        void getTokens().then((t) => {
-            setToken(t?.access_token ?? null);
-        });
-    }, []);
-    const role = useCurrentRole(token);
+    const role = useRole();
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(api, event, onClose);
     const [method, setMethod] = useState<string | null>(null);
