@@ -7,6 +7,11 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const FREQUENCIES = [
+    { value: "daily", label: "Daily" },
+    { value: "weekly", label: "Weekly" },
+    { value: "monthly", label: "Monthly" },
+] as const;
 
 function nextDays(n: number): Date[] {
     const t = new Date();
@@ -113,8 +118,57 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                 />
                             ))}
                         </Section>
+                        <Section label="Repeat">
+                            <Chip
+                                label="One-time"
+                                on={!form.repeat}
+                                onPress={() => {
+                                    form.setRepeat(false);
+                                }}
+                            />
+                            {FREQUENCIES.map((f) => (
+                                <Chip
+                                    key={f.value}
+                                    label={f.label}
+                                    on={form.repeat && form.frequency === f.value}
+                                    onPress={() => {
+                                        form.setRepeat(true);
+                                        form.setFrequency(f.value);
+                                    }}
+                                />
+                            ))}
+                        </Section>
+                        {form.repeat ? (
+                            <>
+                                <Section label="Every">
+                                    {[1, 2, 3, 4].map((n) => (
+                                        <Chip
+                                            key={n}
+                                            label={String(n)}
+                                            on={form.interval === n}
+                                            onPress={() => {
+                                                form.setInterval(n);
+                                            }}
+                                        />
+                                    ))}
+                                </Section>
+                                <Section label="Occurrences">
+                                    {[2, 4, 6, 8, 12].map((n) => (
+                                        <Chip
+                                            key={n}
+                                            label={String(n)}
+                                            on={form.count === n}
+                                            onPress={() => {
+                                                form.setCount(n);
+                                            }}
+                                        />
+                                    ))}
+                                </Section>
+                            </>
+                        ) : null}
                     </ScrollView>
                     {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
+                    {form.notice !== null ? <Text style={styles.notice}>{form.notice}</Text> : null}
                     <View style={styles.actions}>
                         <Pressable onPress={onClose} style={styles.cancelBtn}>
                             <Text style={styles.cancelText}>Cancel</Text>
@@ -124,7 +178,9 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                             disabled={form.busy}
                             style={[styles.bookBtn, form.busy && styles.dim]}
                         >
-                            <Text style={styles.bookText}>{form.busy ? "Booking…" : "Book"}</Text>
+                            <Text style={styles.bookText}>
+                                {form.busy ? "Booking…" : form.repeat ? "Book series" : "Book"}
+                            </Text>
                         </Pressable>
                     </View>
                 </View>
@@ -190,6 +246,7 @@ const styles = StyleSheet.create({
     chipText: { color: c.ink, fontSize: 14, fontWeight: "500" },
     chipTextOn: { color: c.accentInk },
     error: { color: c.danFg, fontSize: 13, marginTop: 12 },
+    notice: { color: c.success, fontSize: 13, marginTop: 12 },
     actions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 18 },
     cancelBtn: { paddingHorizontal: 16, paddingVertical: 11 },
     cancelText: { color: c.muted, fontSize: 15, fontWeight: "600" },
