@@ -4,8 +4,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Conflict, Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.crm import Client
@@ -51,8 +51,9 @@ class FormService:
         )
 
     def _assert_admin(self) -> None:
-        if self.principal.role not in ("owner", "admin"):
-            raise Forbidden("only an owner or admin can send forms")
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can send forms"
+        )
 
     async def _form(self, form_id: str) -> Form:
         row = (

@@ -2,8 +2,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import AppError, Conflict, Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
@@ -126,8 +126,12 @@ class SubscriptionService:
         )
 
     def _assert_admin(self) -> None:
-        if self.principal.role not in ("owner", "admin"):
-            raise Forbidden("only an owner or admin can manage subscriptions")
+        assert_role(
+            self.principal,
+            "owner",
+            "admin",
+            message="only an owner or admin can manage subscriptions",
+        )
 
     async def _business(self) -> Business:
         row = await self.db.get(Business, self.biz)
