@@ -40,6 +40,20 @@ backend spine (core + all 37 models + async Alembic) · frontend workspace (Pewt
 
 **Selected theme: Pewter** — cool silver-gray + slate-blue accent, Schibsted Grotesk, crisp 1.5px borders. Open `.docs/design/theme-explorer.html` to compare against the other five finals (Calm, Slate, Fjord, Birch, Moss).
 
+## Development
+
+```
+make hooks        # once per clone — installs the pre-commit hook (.githooks): format-check + lint
+make up           # local infra (postgres · powersync · redis · minio, 87xx ports)
+make migrate seed # schema + the Birchbark demo business
+make check        # the full local gate: ruff/mypy + eslint/tsc/prettier + pytest (90% branch) + web tests
+make test-contract # real StripeGateway vs stripe-mock (:8708); test-e2e needs STRIPE_TEST_SECRET_KEY
+```
+
+CI (`.github/workflows/ci.yml`) mirrors this on every push to `main` + PR: **backend** (lint · type ·
+migrate · seed · pytest 90%), **contract** (stripe-mock), **frontend** (lint · type · prettier · tests),
+and **codegen-drift** (fails if the generated api-client / PowerSync schema are stale).
+
 ## Status
 
 Naming: **decided — Clientbridge** (register `clientbridge.ca`; run CIPO/USPTO knockout).
@@ -47,4 +61,5 @@ Theme: **decided — Pewter**.
 Current phase: **architecture & data schema** — aligning on tech stack, repo structure, data model + naming conventions, and MVP scope before building.
 
 ---
+
 🍁 Built for Canadian service pros.
