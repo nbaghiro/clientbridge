@@ -1,4 +1,6 @@
 import {
+    MONEY_NAV_ITEMS,
+    type MoneyNavKey,
     activityLabel,
     canManagePayments,
     formatMoneyWithCurrency,
@@ -28,6 +30,14 @@ import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
+
+// Each shared money destination → this platform's stack screen (routing seam; labels from app-core).
+const MONEY_SCREEN: Record<MoneyNavKey, keyof RootStackParamList> = {
+    giftCards: "GiftCards",
+    payouts: "Payouts",
+    reviews: "Reviews",
+    reports: "Reports",
+};
 
 export function HomeScreen() {
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -108,45 +118,18 @@ export function HomeScreen() {
 
                 {canManagePayments(role) ? (
                     <>
-                        <Pressable
-                            style={styles.linkCard}
-                            onPress={() => {
-                                nav.navigate("GiftCards");
-                            }}
-                        >
-                            <Text style={styles.linkLabel}>Gift cards</Text>
-                            <IconChevron size={18} color={theme.colors.muted} />
-                        </Pressable>
-
-                        <Pressable
-                            style={styles.linkCard}
-                            onPress={() => {
-                                nav.navigate("Payouts");
-                            }}
-                        >
-                            <Text style={styles.linkLabel}>Payouts</Text>
-                            <IconChevron size={18} color={theme.colors.muted} />
-                        </Pressable>
-
-                        <Pressable
-                            style={styles.linkCard}
-                            onPress={() => {
-                                nav.navigate("Reviews");
-                            }}
-                        >
-                            <Text style={styles.linkLabel}>Reviews</Text>
-                            <IconChevron size={18} color={theme.colors.muted} />
-                        </Pressable>
-
-                        <Pressable
-                            style={styles.linkCard}
-                            onPress={() => {
-                                nav.navigate("Reports");
-                            }}
-                        >
-                            <Text style={styles.linkLabel}>Reports</Text>
-                            <IconChevron size={18} color={theme.colors.muted} />
-                        </Pressable>
+                        {MONEY_NAV_ITEMS.map((m) => (
+                            <Pressable
+                                key={m.key}
+                                style={styles.linkCard}
+                                onPress={() => {
+                                    nav.navigate(MONEY_SCREEN[m.key]);
+                                }}
+                            >
+                                <Text style={styles.linkLabel}>{m.label}</Text>
+                                <IconChevron size={18} color={theme.colors.muted} />
+                            </Pressable>
+                        ))}
                     </>
                 ) : null}
             </ScrollView>

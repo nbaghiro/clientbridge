@@ -1,4 +1,5 @@
-import { canManagePayments } from "@clientbridge/app-core";
+import { MONEY_NAV_ITEMS, type MoneyNavKey, canManagePayments } from "@clientbridge/app-core";
+import type { ComponentType } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { useRole } from "../lib/auth";
@@ -18,6 +19,15 @@ import {
     Logo,
 } from "./icons";
 
+// The per-platform routing + icon for each shared money destination (labels come from app-core).
+const MONEY_WEB: Record<MoneyNavKey, { to: string; Icon: ComponentType<{ className?: string }> }> =
+    {
+        giftCards: { to: "/gift-cards", Icon: IconGift },
+        payouts: { to: "/payouts", Icon: IconPayouts },
+        reviews: { to: "/reviews", Icon: IconReviews },
+        reports: { to: "/reports", Icon: IconReports },
+    };
+
 const linkClass = ({ isActive }: { isActive: boolean }): string =>
     `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition ${
         isActive
@@ -33,14 +43,13 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
         { to: "/clients", label: "Clients", Icon: IconClients },
         { to: "/invoices", label: "Invoices", Icon: IconInvoices },
         { to: "/pos", label: "Point of sale", Icon: IconPos },
-        // Gift cards, Payouts, and Reports are financial surfaces — owners and admins only (matches the backend gate).
+        // The money destinations are owner/admin-only (matches the backend gate + the mobile Home section).
         ...(canManagePayments(role)
-            ? [
-                  { to: "/gift-cards", label: "Gift cards", Icon: IconGift },
-                  { to: "/payouts", label: "Payouts", Icon: IconPayouts },
-                  { to: "/reviews", label: "Reviews", Icon: IconReviews },
-                  { to: "/reports", label: "Reports", Icon: IconReports },
-              ]
+            ? MONEY_NAV_ITEMS.map((m) => ({
+                  to: MONEY_WEB[m.key].to,
+                  label: m.label,
+                  Icon: MONEY_WEB[m.key].Icon,
+              }))
             : []),
         { to: "/inbox", label: "Inbox", Icon: IconInbox },
     ];
