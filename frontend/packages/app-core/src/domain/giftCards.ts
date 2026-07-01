@@ -78,6 +78,12 @@ export function redeemGiftCard(
 
 export type GiftSaleMode = "preset" | "custom";
 
+export const GIFT_SALE_MODES: GiftSaleMode[] = ["preset", "custom"];
+export const GIFT_SALE_MODE_LABEL: Record<GiftSaleMode, string> = {
+    preset: "Preset card",
+    custom: "Custom amount",
+};
+
 export interface GiftCardSaleForm {
     purchaserClientId: string;
     setPurchaserClientId: (v: string) => void;

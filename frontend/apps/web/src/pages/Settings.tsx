@@ -1,14 +1,5 @@
+import { SETTINGS_SECTIONS } from "@clientbridge/app-core";
 import { NavLink, Outlet } from "react-router-dom";
-
-const SECTIONS = [
-    { to: "/settings/account", label: "Account" },
-    { to: "/settings/catalog", label: "Catalog & services" },
-    { to: "/settings/taxes", label: "Taxes" },
-    { to: "/settings/payments", label: "Payments" },
-    { to: "/settings/team", label: "Team" },
-    { to: "/settings/scheduling", label: "Scheduling" },
-    { to: "/settings/booking", label: "Booking & forms" },
-];
 
 export function SettingsLayout() {
     return (
@@ -16,10 +7,10 @@ export function SettingsLayout() {
             <nav className="w-52 shrink-0">
                 <h1 className="mb-3 px-3 font-display text-lg font-bold text-ink">Settings</h1>
                 <div className="space-y-0.5">
-                    {SECTIONS.map((s) => (
+                    {SETTINGS_SECTIONS.map((s) => (
                         <NavLink
-                            key={s.to}
-                            to={s.to}
+                            key={s.key}
+                            to={`/settings/${s.key}`}
                             className={({ isActive }) =>
                                 `block rounded-md px-3 py-2 text-sm transition ${
                                     isActive

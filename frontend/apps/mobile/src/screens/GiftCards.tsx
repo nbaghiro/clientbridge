@@ -9,6 +9,8 @@ import {
     useClients,
     useCurrentRole,
     useGiftCardRedeemForm,
+    GIFT_SALE_MODES,
+    GIFT_SALE_MODE_LABEL,
     useGiftCardSaleForm,
     useGiftCards,
     useSavedCards,
@@ -169,7 +171,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
 
             <Text style={[styles.fieldLabel, styles.fieldSpace]}>Type</Text>
             <View style={styles.chipWrap}>
-                {(["preset", "custom"] as const).map((m) => (
+                {GIFT_SALE_MODES.map((m) => (
                     <Pressable
                         key={m}
                         style={[styles.chip, form.mode === m && styles.chipOn]}
@@ -178,7 +180,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                         }}
                     >
                         <Text style={[styles.chipText, form.mode === m && styles.chipTextOn]}>
-                            {m === "preset" ? "Preset card" : "Custom amount"}
+                            {GIFT_SALE_MODE_LABEL[m]}
                         </Text>
                     </Pressable>
                 ))}

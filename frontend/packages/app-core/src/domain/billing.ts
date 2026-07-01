@@ -203,6 +203,17 @@ export function convertEstimate(api: ApiLike, id: string): Promise<DocResult> {
 
 export type DocActionKey = "send" | "void" | "accept" | "decline" | "convert";
 
+export type DocTab = "invoices" | "estimates";
+
+/** Button copy for each document action — shared so web + mobile can't drift (they had). */
+export const DOC_ACTION_LABEL: Record<DocActionKey, string> = {
+    send: "Send",
+    void: "Void",
+    accept: "Accept",
+    decline: "Decline",
+    convert: "Convert to invoice",
+};
+
 export interface DocAction {
     key: DocActionKey;
     run: () => Promise<DocResult>;

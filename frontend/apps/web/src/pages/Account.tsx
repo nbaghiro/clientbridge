@@ -1,17 +1,9 @@
-import { type AccountFields, useAccountForm } from "@clientbridge/app-core";
+import { ACCOUNT_TEXT_FIELDS, LOCALES, useAccountForm } from "@clientbridge/app-core";
 
 import { api } from "../lib/api";
 
 const FIELD =
     "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-none transition placeholder:text-muted focus:border-accent";
-
-const TEXT_FIELDS: { key: keyof AccountFields; label: string; placeholder: string }[] = [
-    { key: "name", label: "Business name", placeholder: "" },
-    { key: "timezone", label: "Time zone", placeholder: "America/Toronto" },
-    { key: "billing_email", label: "Billing email", placeholder: "you@example.com" },
-    { key: "gst_hst_number", label: "GST/HST number", placeholder: "123456789RT0001" },
-    { key: "qst_number", label: "QST number", placeholder: "" },
-];
 
 export function Account() {
     const form = useAccountForm(api);
@@ -33,7 +25,7 @@ export function Account() {
                             form.submit();
                         }}
                     >
-                        {TEXT_FIELDS.map((f) => (
+                        {ACCOUNT_TEXT_FIELDS.map((f) => (
                             <label
                                 key={f.key}
                                 className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft"
@@ -59,8 +51,11 @@ export function Account() {
                                 }}
                                 className={FIELD}
                             >
-                                <option value="en">English</option>
-                                <option value="fr">Français</option>
+                                {LOCALES.map((l) => (
+                                    <option key={l.code} value={l.code}>
+                                        {l.label}
+                                    </option>
+                                ))}
                             </select>
                         </label>
                         {form.error !== null && <p className="text-sm text-danger">{form.error}</p>}

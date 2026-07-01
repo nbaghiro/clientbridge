@@ -1,4 +1,4 @@
-import { staffLabel, useBookingForm } from "@clientbridge/app-core";
+import { RECUR_FREQUENCIES, staffLabel, useBookingForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -7,11 +7,6 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const FREQUENCIES = [
-    { value: "daily", label: "Daily" },
-    { value: "weekly", label: "Weekly" },
-    { value: "monthly", label: "Monthly" },
-] as const;
 
 function nextDays(n: number): Date[] {
     const t = new Date();
@@ -126,7 +121,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                     form.setRepeat(false);
                                 }}
                             />
-                            {FREQUENCIES.map((f) => (
+                            {RECUR_FREQUENCIES.map((f) => (
                                 <Chip
                                     key={f.value}
                                     label={f.label}

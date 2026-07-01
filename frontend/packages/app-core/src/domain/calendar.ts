@@ -337,6 +337,14 @@ export function createBooking(api: ApiLike, input: NewBooking): Promise<BookingR
 
 export type RecurFrequency = "daily" | "weekly" | "monthly";
 
+/** Recurrence options with both display forms so each platform keeps its own phrasing without drift:
+ *  `label` for a standalone chip ("Weekly"), `unit` for an "Every N …" control ("Weeks"). */
+export const RECUR_FREQUENCIES: { value: RecurFrequency; label: string; unit: string }[] = [
+    { value: "daily", label: "Daily", unit: "Days" },
+    { value: "weekly", label: "Weekly", unit: "Weeks" },
+    { value: "monthly", label: "Monthly", unit: "Months" },
+];
+
 export interface ScheduleResult {
     id: string;
     created: number; // occurrences that became bookings

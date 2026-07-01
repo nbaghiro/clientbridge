@@ -1,3 +1,4 @@
+import { SETTINGS_SECTIONS, type SettingsSectionKey } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -8,27 +9,28 @@ import type { RootStackParamList } from "../navigation";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const SECTIONS: { label: string; screen: keyof RootStackParamList }[] = [
-    { label: "Account", screen: "Account" },
-    { label: "Catalog & services", screen: "Catalog" },
-    { label: "Taxes", screen: "Taxes" },
-    { label: "Payments", screen: "Payments" },
-    { label: "Team", screen: "Team" },
-    { label: "Scheduling", screen: "Scheduling" },
-    { label: "Booking & forms", screen: "Booking" },
-];
+// Map each shared section key to this platform's stack screen (the routing seam).
+const SECTION_SCREEN: Record<SettingsSectionKey, keyof RootStackParamList> = {
+    account: "Account",
+    catalog: "Catalog",
+    taxes: "Taxes",
+    payments: "Payments",
+    team: "Team",
+    scheduling: "Scheduling",
+    booking: "Booking",
+};
 
 export function SettingsScreen() {
     const nav = useNavigation<Nav>();
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <View style={styles.group}>
-                {SECTIONS.map((s, i) => (
+                {SETTINGS_SECTIONS.map((s, i) => (
                     <Pressable
-                        key={s.screen}
+                        key={s.key}
                         style={[styles.row, i > 0 ? styles.rowBorder : null]}
                         onPress={() => {
-                            nav.navigate(s.screen);
+                            nav.navigate(SECTION_SCREEN[s.key]);
                         }}
                     >
                         <Text style={styles.rowLabel}>{s.label}</Text>

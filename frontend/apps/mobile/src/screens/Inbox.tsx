@@ -1,6 +1,7 @@
 import {
     type BroadcastResult,
     type Channel,
+    MESSAGE_CHANNELS,
     type MessageRow,
     type ThreadRow,
     channelLabel,
@@ -35,8 +36,6 @@ import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 
 const c = theme.colors;
-const channels: Channel[] = ["sms", "email"];
-
 export function InboxScreen() {
     const threads = useThreads();
     const [openId, setOpenId] = useState<string | null>(null);
@@ -228,7 +227,7 @@ function Bubble({ message }: { message: MessageRow }) {
 function ChannelToggle({ value, onChange }: { value: Channel; onChange: (ch: Channel) => void }) {
     return (
         <View style={styles.chipWrap}>
-            {channels.map((ch) => (
+            {MESSAGE_CHANNELS.map((ch) => (
                 <Pressable
                     key={ch}
                     style={[styles.chip, value === ch && styles.chipOn]}

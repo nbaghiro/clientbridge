@@ -11,6 +11,8 @@ import {
     useClients,
     useCurrentRole,
     useGiftCardRedeemForm,
+    GIFT_SALE_MODES,
+    GIFT_SALE_MODE_LABEL,
     useGiftCardSaleForm,
     useGiftCards,
     useSavedCards,
@@ -180,7 +182,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                     />
                 </label>
                 <div className="flex gap-2">
-                    {(["preset", "custom"] as const).map((m) => (
+                    {GIFT_SALE_MODES.map((m) => (
                         <button
                             key={m}
                             type="button"
@@ -193,7 +195,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                                     : "border-line text-ink-soft hover:bg-bg"
                             }`}
                         >
-                            {m === "preset" ? "Preset card" : "Custom amount"}
+                            {GIFT_SALE_MODE_LABEL[m]}
                         </button>
                     ))}
                 </div>

@@ -2,6 +2,7 @@ import {
     type CalendarEvent,
     type Intent,
     type CalendarView,
+    RECUR_FREQUENCIES,
     type RecurFrequency,
     type StaffRow,
     addDays,
@@ -742,9 +743,11 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                                 }}
                                 className={fieldClass}
                             >
-                                <option value="daily">Days</option>
-                                <option value="weekly">Weeks</option>
-                                <option value="monthly">Months</option>
+                                {RECUR_FREQUENCIES.map((f) => (
+                                    <option key={f.value} value={f.value}>
+                                        {f.unit}
+                                    </option>
+                                ))}
                             </select>
                         </label>
                         <label className="block w-24">

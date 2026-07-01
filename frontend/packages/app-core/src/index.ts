@@ -15,6 +15,7 @@ export * from "./domain/dashboard";
 export * from "./domain/staff";
 export * from "./domain/calendar";
 export * from "./domain/scheduling";
+export * from "./domain/navigation";
 export * from "./domain/billing";
 export * from "./domain/payments";
 export * from "./domain/payouts";
