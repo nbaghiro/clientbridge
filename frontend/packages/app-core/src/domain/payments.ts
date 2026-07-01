@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
-import { newIdempotencyKey } from "../util/idempotency";
-import type { Intent } from "../util/intent";
+import { newIdempotencyKey } from "../util/primitives";
+import type { Intent } from "../util/primitives";
 
 export interface ConnectStatus {
     connected: boolean;

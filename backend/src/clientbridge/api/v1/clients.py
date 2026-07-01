@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession
-from clientbridge.core.pagination import Page, PageQuery
+from clientbridge.core.scoping import Page, PageQuery
 from clientbridge.schemas.crm import ClientCreate, ClientOut, ClientUpdate
 from clientbridge.services.client_service import ClientService
 

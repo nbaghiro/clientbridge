@@ -1,5 +1,8 @@
 from collections.abc import Sequence
+from typing import Annotated
 
+from fastapi import Depends, Query
+from pydantic import BaseModel
 from sqlalchemy import Delete, Select, Update, delete, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,3 +64,27 @@ async def scoped_count[ModelT: Base](
         scoped(model, business_id, soft_delete=soft_delete).subquery()
     )
     return int((await db.execute(stmt)).scalar_one())
+
+
+class PageParams(BaseModel):
+    limit: int
+    offset: int
+
+
+def page_params(
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> PageParams:
+    return PageParams(limit=limit, offset=offset)
+
+
+PageQuery = Annotated[PageParams, Depends(page_params)]
+
+
+class Page[T](BaseModel):
+    """A page of results plus the total count for the same (business-scoped) filter."""
+
+    items: list[T]
+    total: int
+    limit: int
+    offset: int

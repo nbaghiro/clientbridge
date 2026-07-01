@@ -1,8 +1,7 @@
 from datetime import UTC, datetime
 
 from clientbridge.core.db import SessionLocal
-from clientbridge.integrations.email import get_email_sender
-from clientbridge.integrations.sms import get_sms_sender
+from clientbridge.integrations.notifications import get_email_sender, get_sms_sender
 from clientbridge.services.message_service import run_due_broadcasts
 
 

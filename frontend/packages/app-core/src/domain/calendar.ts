@@ -14,7 +14,7 @@ import {
     startOfMonth,
     startOfWeek,
 } from "../util/datetime";
-import type { Intent } from "../util/intent";
+import type { Intent } from "../util/primitives";
 import { useInteractivePurchase } from "./payments";
 import { type StaffRow, useStaff } from "./staff";
 

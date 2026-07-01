@@ -1,8 +1,10 @@
+"""The `/sync` auth surface: mint a PowerSync token from the app session, and serve the JWKS."""
+
 from fastapi import APIRouter, Header
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import Unauthorized
-from clientbridge.core.security import decode_jwt, issue_powersync_token
+from clientbridge.core.security import decode_jwt, issue_powersync_token, public_jwk
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 
@@ -29,3 +31,9 @@ async def sync_token(authorization: str = Header(default="")) -> dict[str, str]:
     else:
         raise Unauthorized("missing bearer token")
     return {"token": issue_powersync_token(user_id)}
+
+
+@router.get("/keys")
+async def jwks() -> dict[str, list[dict[str, str]]]:
+    """JWKS for prod PowerSync auth (the service's `jwks_uri`). Serves the RS256 public key."""
+    return {"keys": [public_jwk()]}

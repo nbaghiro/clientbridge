@@ -12,7 +12,7 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError, Conflict, Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.security import hash_password, hash_token
-from clientbridge.integrations.email import Email, EmailSender
+from clientbridge.integrations.notifications import Email, EmailSender
 from clientbridge.models.identity import Staff, User
 from clientbridge.models.platform import AuditLog
 from clientbridge.schemas.identity import InviteOut

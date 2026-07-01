@@ -11,8 +11,7 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.email import Email, EmailSender
-from clientbridge.integrations.sms import Sms, SmsSender
+from clientbridge.integrations.notifications import Email, EmailSender, Sms, SmsSender
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.messaging import Broadcast, Message, Thread

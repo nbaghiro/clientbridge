@@ -4,9 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
-from clientbridge.integrations.email import get_email_sender
-from clientbridge.integrations.push import get_push_sender
-from clientbridge.integrations.sms import get_sms_sender
+from clientbridge.integrations.notifications import (
+    get_email_sender,
+    get_push_sender,
+    get_sms_sender,
+)
 from clientbridge.models.billing import Invoice
 from clientbridge.services.notification_service import Notifier
 
