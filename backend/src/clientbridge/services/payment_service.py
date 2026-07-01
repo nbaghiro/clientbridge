@@ -288,7 +288,9 @@ class PaymentService:
             response_model=PaymentMethodOut,
         )
 
-    async def refund_payment(self, payment_id: str) -> RefundOut:
+    async def refund_payment(
+        self, payment_id: str, idempotency_key: str | None = None
+    ) -> RefundOut:
         self._assert_admin()
         business = await self._business()
         payment = await self._payment(payment_id)
@@ -298,19 +300,21 @@ class PaymentService:
             raise Conflict("only a succeeded payment can be refunded")
         if business.stripe_account_id is None or payment.provider_ref is None:
             raise Conflict("payment has no connected charge to refund")
-        prior = (
-            await self.db.execute(
-                select(Payment.id).where(
-                    Payment.parent_payment_id == payment.id, Payment.kind == "refund"
-                )
-            )
-        ).scalar_one_or_none()
-        if prior is not None:
-            raise Conflict("this payment was already refunded")
         account_id = business.stripe_account_id
         provider_ref = payment.provider_ref
 
         async def run(cmd: Command) -> RefundOut:
+            # inside the command so a same-key retry replays the stored response before this guard;
+            # a genuine second refund (fresh key) still finds the prior row and 409s.
+            prior = (
+                await self.db.execute(
+                    select(Payment.id).where(
+                        Payment.parent_payment_id == payment.id, Payment.kind == "refund"
+                    )
+                )
+            ).scalar_one_or_none()
+            if prior is not None:
+                raise Conflict("this payment was already refunded")
             result = await self.gateway.refund(
                 account_id,
                 payment_intent_id=provider_ref,
@@ -350,7 +354,12 @@ class PaymentService:
             return RefundOut(refund_id=refund.id, status=result.status)
 
         return await run_command(
-            self.db, self.principal, action="payment.refund", run=run, response_model=RefundOut
+            self.db,
+            self.principal,
+            action="payment.refund",
+            run=run,
+            response_model=RefundOut,
+            idempotency_key=idempotency_key,
         )
 
     async def request_interac(

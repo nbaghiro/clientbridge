@@ -114,8 +114,9 @@ async def refund_payment(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RefundOut:
-    out = await PaymentService(db, principal, gateway).refund_payment(payment_id)
+    out = await PaymentService(db, principal, gateway).refund_payment(payment_id, idempotency_key)
     await Notifier(email, sms, push).on_refund(db, out.refund_id)
     return out
 
