@@ -11,6 +11,7 @@ from typing import Protocol
 from clientbridge.core.config import get_settings
 
 _EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
+_POSTMARK_URL = "https://api.postmarkapp.com/email"
 
 
 @dataclass(frozen=True)
@@ -25,14 +26,36 @@ class EmailSender(Protocol):
 
 
 class ConsoleEmailSender:
-    """Default impl — no real delivery (a real provider is not wired yet)."""
+    """Default — no real delivery (used until a Postmark token + from-address are configured)."""
 
     async def send(self, email: Email) -> None:
         return None
 
 
+class PostmarkEmailSender:  # pragma: no cover - real Postmark, faked in tests
+    def __init__(self, server_token: str, from_address: str) -> None:
+        self._token = server_token
+        self._from = from_address
+
+    async def send(self, email: Email) -> None:
+        import httpx
+
+        payload = {
+            "From": self._from,
+            "To": email.to,
+            "Subject": email.subject,
+            "TextBody": email.body,
+            "MessageStream": "outbound",
+        }
+        headers = {"X-Postmark-Server-Token": self._token, "Accept": "application/json"}
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(_POSTMARK_URL, json=payload, headers=headers)
+
+
 def get_email_sender() -> EmailSender:
-    """FastAPI dependency; tests override it with a recording fake."""
+    s = get_settings()
+    if s.postmark_server_token and s.email_from:
+        return PostmarkEmailSender(s.postmark_server_token, s.email_from)
     return ConsoleEmailSender()
 
 

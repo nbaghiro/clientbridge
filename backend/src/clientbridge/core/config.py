@@ -43,7 +43,9 @@ class Settings(BaseSettings):
     sms_webhook_secret: str = ""  # shared secret for the inbound SMS (Twilio-style) webhook
 
     # Outreach channels — empty → the no-op Console sender (tests use recording fakes); set creds in
-    # prod to swap in real Twilio/Expo. SMS + email reach clients, push reaches staff devices.
+    # prod to swap in real providers. SMS + email reach clients, push reaches staff devices.
+    postmark_server_token: str = ""  # set with email_from → real transactional email (else no-op)
+    email_from: str = ""  # verified sender address, e.g. "Clientbridge <no-reply@clientbridge.app>"
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_sms_from: str = ""
