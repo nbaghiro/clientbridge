@@ -80,7 +80,6 @@ async def test_services_expose_connected_account_when_onboarded(
     assert after["stripe_account_id"] == "acct_test"
 
 
-# ── services + staff ─────────────────────────────────────────────────────────────────────────
 async def test_services_lists_only_online_bookable(api: httpx.AsyncClient) -> None:
     res = await api.get(f"/book/{SLUG}/services")
     assert res.status_code == 200, res.text
@@ -99,7 +98,6 @@ async def test_services_bad_slug_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/book/nope/services")).status_code == 404
 
 
-# ── slots ────────────────────────────────────────────────────────────────────────────────────
 async def test_slots_inside_availability(api: httpx.AsyncClient) -> None:
     res = await api.get(
         f"/book/{SLUG}/slots",
@@ -185,7 +183,6 @@ async def test_slots_bad_date_422(api: httpx.AsyncClient) -> None:
     assert res.status_code == 422
 
 
-# ── book ─────────────────────────────────────────────────────────────────────────────────────
 async def test_book_creates_online_booking_and_notifies(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
@@ -282,7 +279,6 @@ async def test_book_find_or_create_reuses_client(api: httpx.AsyncClient, db: Asy
     assert count == 1
 
 
-# ── tenant correctness + rate limit ────────────────────────────────────────────────────────────
 async def test_slug_scopes_to_one_business(
     api: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:

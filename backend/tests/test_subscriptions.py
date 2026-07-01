@@ -97,7 +97,6 @@ def _body(cid: str, item_id: str, pm_id: str) -> dict[str, str]:
     return {"client_id": cid, "item_id": item_id, "payment_method_id": pm_id}
 
 
-# ── create / cancel ──────────────────────────────────────────────────────────────────────────
 async def test_create_subscription_happy(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
@@ -114,7 +113,8 @@ async def test_create_subscription_happy(
     assert row.provider_ref is not None and row.provider_ref.startswith("sub_fake")
     assert row.provider_ref in gateway.created_subscriptions
     assert row.payment_method_id == pm.id
-    assert row.current_period_start is not None and row.current_period_end is not None
+    assert row.current_period_start == datetime(2030, 1, 1, tzinfo=UTC)
+    assert row.current_period_end == datetime(2030, 2, 1, tzinfo=UTC)
     cached = (await db.execute(select(Item.stripe_price_id).where(Item.id == item.id))).scalar_one()
     assert cached is not None and cached.startswith("price_fake")
     assert len(gateway.created_prices) == 1
@@ -298,7 +298,6 @@ async def test_cancel_cross_tenant_404(
     assert res.status_code == 404
 
 
-# ── PAD setup-intent + bank_eft mandate recording ────────────────────────────────────────────
 async def test_pad_setup_intent_returns_client_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -356,7 +355,6 @@ async def test_acss_debit_records_bank_eft_mandate(
     assert pm.brand == "TD Canada Trust" and pm.last4 == "0001"
 
 
-# ── recurring lifecycle webhooks ─────────────────────────────────────────────────────────────
 def _sub_event(event_id: str, event_type: str, obj: dict[str, object]) -> str:
     return json.dumps(
         {"id": event_id, "type": event_type, "account": "acct_test", "data": {"object": obj}}
@@ -396,7 +394,9 @@ async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: Asy
     assert res.status_code == 200
     row = (await db.execute(select(Subscription).where(Subscription.id == sub.id))).scalar_one()
     assert row.status == "past_due"
-    assert row.current_period_start is not None and row.current_period_end is not None
+    # the epoch timestamps parsed into the exact period, not just "something non-null"
+    assert row.current_period_start == datetime(2025, 1, 1, tzinfo=UTC)
+    assert row.current_period_end == datetime(2025, 2, 1, tzinfo=UTC)
 
 
 async def test_invoice_payment_succeeded_records_payment(

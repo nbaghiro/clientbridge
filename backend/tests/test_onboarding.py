@@ -1,4 +1,4 @@
-"""P1.3: onboarding — atomic business + owner staff + province tax_rates."""
+"""Onboarding — atomic business + owner staff + province tax_rates."""
 
 import httpx
 from sqlalchemy import text

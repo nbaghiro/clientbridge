@@ -1,10 +1,11 @@
-"""P1.6: real sync identity + JWKS — /sync/token from session, RS256 public key + roundtrip."""
+"""Sync identity + JWKS — /sync/token from session, RS256 public key + roundtrip, prod auth gate."""
 
 import json
 import time
 
 import httpx
 import jwt
+import pytest
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from jwt.algorithms import RSAAlgorithm
 
@@ -54,6 +55,15 @@ async def test_sync_token_tolerates_empty_bearer(api: httpx.AsyncClient) -> None
         res = await api.get("/sync/token", headers={"Authorization": header})
         assert res.status_code == 200, header
         assert res.json()["token"]
+
+
+async def test_sync_token_prod_requires_a_real_bearer(
+    api: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # the empty-bearer dev-user mint is dev-only — outside dev, a missing token must 401
+    monkeypatch.setattr(get_settings(), "env", "prod")
+    res = await api.get("/sync/token", headers={"Authorization": "Bearer "})
+    assert res.status_code == 401
 
 
 async def test_sync_token_rejects_malformed_token(api: httpx.AsyncClient) -> None:

@@ -1,4 +1,4 @@
-"""P1.1: the server-only auth tables exist and are excluded from the client AppSchema."""
+"""The server-only auth tables exist and are excluded from the client AppSchema."""
 
 from pathlib import Path
 

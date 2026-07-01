@@ -36,7 +36,6 @@ async def _a_file(db: AsyncSession, *, business_id: str = BIZ) -> File:
     return file
 
 
-# ── create returns a presigned upload URL ──────────────────────────────────────────────────────
 async def test_create_returns_presigned_upload_url(
     as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:
@@ -70,7 +69,6 @@ async def test_any_member_can_create(as_staff: httpx.AsyncClient, db: AsyncSessi
     assert res.status_code == 201, res.text
 
 
-# ── download URL ───────────────────────────────────────────────────────────────────────────────
 async def test_download_url(
     as_owner: httpx.AsyncClient, db: AsyncSession, storage: FakeFileStorage
 ) -> None:

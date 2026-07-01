@@ -108,7 +108,6 @@ async def _a_request(db: AsyncSession, *, booking_id: str | None = None) -> str:
     return request.token
 
 
-# ── request command + notification ───────────────────────────────────────────────────────────
 async def test_request_creates_request_and_notifies(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
@@ -145,7 +144,6 @@ async def test_request_requires_admin(as_staff: httpx.AsyncClient, db: AsyncSess
     assert (await as_staff.post("/v1/reviews/request", json={"client_id": cid})).status_code == 403
 
 
-# ── public submission (surface #4) ───────────────────────────────────────────────────────────
 async def test_public_get_returns_context(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_request(db)
     body = (await api.get(f"/review/{token}")).json()
@@ -198,7 +196,6 @@ async def test_public_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSessi
     assert (await api.get(f"/review/{token}")).status_code == 429
 
 
-# ── moderation (commands) ────────────────────────────────────────────────────────────────────
 async def test_respond_sets_response_and_timestamp(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -236,7 +233,6 @@ async def test_moderation_is_tenant_isolated(
     assert (await as_owner.post(f"/v1/reviews/{rid}/hide")).status_code == 404
 
 
-# ── rating summary (scoped aggregate) ────────────────────────────────────────────────────────
 async def test_summary_counts_published_only(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     base = (
         await db.execute(

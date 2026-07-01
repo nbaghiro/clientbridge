@@ -57,7 +57,6 @@ async def _settle(api: httpx.AsyncClient, db: AsyncSession, payment_id: str, eve
     assert res.status_code == 200, res.text
 
 
-# ── purchase: charge now, grant pending, activate (+ notify recipient) on settlement ──────────
 async def test_purchase_off_session_creates_pending_card_and_payment(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
@@ -254,7 +253,6 @@ async def test_purchase_non_gift_item_409(as_owner: httpx.AsyncClient, db: Async
     assert res.status_code == 409
 
 
-# ── redeem lifecycle on an already-active card ────────────────────────────────────────────────
 async def test_redeem_partial_then_balance(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     card = await _active_card(db, code="REDEEMCODE01", balance=5000)
     res = await as_owner.post(
@@ -300,7 +298,6 @@ async def test_redeem_to_zero_marks_redeemed(as_owner: httpx.AsyncClient, db: As
     assert again.status_code == 409
 
 
-# ── role + tenancy + idempotency ──────────────────────────────────────────────────────────────
 async def test_staff_cannot_purchase_403(as_staff: httpx.AsyncClient) -> None:
     res = await as_staff.post(
         "/v1/gift-cards", json={"amount_cents": 5000, "purchaser_client_id": PURCHASER}

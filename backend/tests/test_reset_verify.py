@@ -1,4 +1,4 @@
-"""P1.5: password reset + email verification — one-time tokens, no enumeration."""
+"""Password reset + email verification — one-time tokens, no enumeration."""
 
 import httpx
 from sqlalchemy import text
