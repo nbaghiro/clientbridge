@@ -17,9 +17,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column("gift_cards", sa.Column("payment_id", sa.String(), nullable=True))
-    op.create_foreign_key(
-        "fk_gift_cards_payment", "gift_cards", "payments", ["payment_id"], ["id"]
-    )
+    op.create_foreign_key("fk_gift_cards_payment", "gift_cards", "payments", ["payment_id"], ["id"])
     op.drop_constraint("ck_gift_cards_status", "gift_cards", type_="check")
     op.create_check_constraint(
         "ck_gift_cards_status",

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Fast pre-commit gate: format-check + lint (ruff + mypy · eslint + tsc + prettier). No tests here —
+# run `make check` before pushing for the full suite. Install with `make hooks`.
+#
+# Default a writable uv cache: this machine's ~/.cache/uv can be root-owned, which breaks `uv run`
+# from inside a hook. Respects an already-exported UV_CACHE_DIR.
+export UV_CACHE_DIR="${UV_CACHE_DIR:-/tmp/uv-cache}"
+
+exec make precommit

@@ -18,9 +18,7 @@ depends_on = None
 def upgrade() -> None:
     op.add_column(
         "bookings",
-        sa.Column(
-            "deposit_amount_cents", sa.BigInteger(), nullable=False, server_default="0"
-        ),
+        sa.Column("deposit_amount_cents", sa.BigInteger(), nullable=False, server_default="0"),
     )
 
 

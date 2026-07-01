@@ -16,9 +16,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_subscriptions_provider_ref", "subscriptions", ["provider_ref"], unique=True
-    )
+    op.create_index("ix_subscriptions_provider_ref", "subscriptions", ["provider_ref"], unique=True)
     op.create_index(
         "ix_subscriptions_active_unique",
         "subscriptions",

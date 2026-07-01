@@ -1,7 +1,13 @@
 name: ci
 on:
   push:
+    branches: [main]
   pull_request:
+
+# One run per ref; a new push cancels the previous in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -35,6 +41,34 @@ jobs:
       - run: uv run python -m scripts.seed_demo     # seed the demo (tests act as its owner)
       - run: uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
 
+  contract:
+    # The Stripe contract tier: the real StripeGateway against the OpenAPI mock. Marker-gated out of
+    # the default suite (they need the mock service), so they run as their own job here.
+    runs-on: ubuntu-latest
+    services:
+      stripe-mock:
+        image: stripemock/stripe-mock:latest
+        ports: ["8708:12111"]
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - name: wait for stripe-mock
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8708/v1/accounts -H "Authorization: Bearer sk_test_ci" >/dev/null; then
+              echo "stripe-mock ready"; exit 0
+            fi
+            sleep 1
+          done
+          echo "stripe-mock did not become ready"; exit 1
+      - run: STRIPE_MOCK_URL=http://localhost:8708 uv run pytest -m contract -q
+
   frontend:
     runs-on: ubuntu-latest
     defaults:
@@ -54,10 +88,11 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm format:check
+      - run: pnpm test
 
-  schema-drift:
-    # The PowerSync client schema is generated from the models — fail if it's out of date.
-    # (run `make gen-sync-schema` and commit the result.)
+  codegen-drift:
+    # The generated api-client + PowerSync client schema come from the backend — fail if either is
+    # stale. (run `make gen-api` / `make gen-sync-schema` and commit the result.)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,6 +111,10 @@ jobs:
         working-directory: backend
       - run: pnpm install --frozen-lockfile --ignore-scripts
         working-directory: frontend
+      - run: make gen-api
       - run: make gen-sync-schema
-      - name: fail if schema.ts is stale
-        run: git diff --exit-code frontend/packages/sync/src/schema.ts
+      - name: fail if the generated client/schema are stale
+        run: >-
+          git diff --exit-code
+          frontend/packages/api-client/src/generated.ts
+          frontend/packages/sync/src/schema.ts
