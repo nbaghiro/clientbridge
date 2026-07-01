@@ -16,9 +16,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "bookings", sa.Column("reminded_at", sa.DateTime(timezone=True), nullable=True)
-    )
+    op.add_column("bookings", sa.Column("reminded_at", sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:

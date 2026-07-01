@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install dev-api dev-web dev-mobile migrate revision seed gen-api gen-sync-schema test test-contract test-e2e stripe-mock lint typecheck format format-check check worker
+.PHONY: help up down logs-sync install web-install dev-api dev-web dev-mobile migrate revision seed gen-api gen-sync-schema test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -21,7 +21,9 @@ help:
 	@echo "typecheck      mypy (backend) · tsc (frontend)"
 	@echo "format         ruff format · prettier --write"
 	@echo "format-check   ruff format --check · prettier --check"
-	@echo "check          lint + test"
+	@echo "precommit      format-check + lint (the fast pre-commit gate)"
+	@echo "hooks          install the versioned git hooks (.githooks)"
+	@echo "check          lint + test (the full local CI gate)"
 
 up:
 	docker compose up -d postgres
@@ -104,5 +106,13 @@ format:
 format-check:
 	cd backend && uv run ruff format --check .
 	cd frontend && pnpm format:check
+
+# The fast gate the pre-commit hook runs (no tests).
+precommit: format-check lint
+
+# Point git at the versioned hooks (run once per clone).
+hooks:
+	git config core.hooksPath .githooks
+	@echo "git hooks installed → .githooks (pre-commit = format-check + lint)"
 
 check: lint test

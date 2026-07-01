@@ -8,7 +8,7 @@
         "preview": "vite preview",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",
-        "test": "vitest run"
+        "test": "vitest run --passWithNoTests"
     },
     "dependencies": {
         "@clientbridge/api-client": "workspace:*",

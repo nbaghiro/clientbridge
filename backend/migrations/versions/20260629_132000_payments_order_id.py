@@ -17,9 +17,7 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column("payments", sa.Column("order_id", sa.String(), nullable=True))
-    op.create_foreign_key(
-        "fk_payments_order", "payments", "orders", ["order_id"], ["id"]
-    )
+    op.create_foreign_key("fk_payments_order", "payments", "orders", ["order_id"], ["id"])
     op.create_index("ix_payments_order", "payments", ["order_id"], unique=False)
 
 

@@ -1,0 +1,10 @@
+# Build output & caches
+.turbo/
+dist/
+coverage/
+
+# Generated — must stay byte-for-byte as the generator emits it (the codegen-drift CI job diffs
+# generated.ts against raw openapi-typescript output). schema.ts is prettier-formatted by its
+# generator, so it is intentionally NOT ignored.
+packages/api-client/src/generated.ts
+packages/api-client/openapi.json

@@ -25,9 +25,7 @@ def upgrade() -> None:
         sa.Column("platform", sa.String(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
-        sa.CheckConstraint(
-            "platform IN ('ios','android','web')", name="ck_device_tokens_platform"
-        ),
+        sa.CheckConstraint("platform IN ('ios','android','web')", name="ck_device_tokens_platform"),
     )
     op.create_index("ix_device_tokens_token", "device_tokens", ["token"], unique=True)
     op.create_index("ix_device_tokens_business", "device_tokens", ["business_id"])
