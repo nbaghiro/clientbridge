@@ -4,7 +4,7 @@ Single source of truth for the visual system. Tokens are platform-agnostic; the 
 consumers (CSS variables · Tailwind · React Native) below are generated from the same set.
 Open `clientbridge-design-system.html` to see them applied.
 
-> **Aesthetic POV:** *Engineered calm — Canadian structural warmth.* Bridge-engineering
+> **Aesthetic POV:** *Engineered calm — structural warmth.* Bridge-engineering
 > precision + the warmth of a craftsperson's studio. Pine = structure/trust, Honey = the
 > human connection + CTA, Clay = craft warmth, Paper = warm neutrals.
 

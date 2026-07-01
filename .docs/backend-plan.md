@@ -97,14 +97,14 @@ Stand up surface #3 and tighten surface #2.
 - **Stripe Connect:** account onboarding (account links); PaymentIntents (cards/tap-to-pay); refunds; **webhooks** (`payment_intent.succeeded/failed`, `payout.paid`) → `payments`/`payouts` + reconciliation; idempotent + signature-verified via `webhook_events`.
 - **Interac e-Transfer:** request + **auto-match by reference code** (the wedge) — reconcile inbound notifications to invoices.
 - **EFT/PAD** for recurring; payout **allocations** (staff splits, `payout_allocations`).
-- **Remittance:** computed GST/HST "set aside" (Σ tax on paid invoices). No ledger/custody — Stripe holds funds (avoids FINTRAC MSB).
+- **Remittance:** computed tax "set aside" (Σ tax on paid invoices). No ledger/custody — Stripe holds funds (avoids money-transmitter licensing).
 - **Exit:** Stripe test card → invoice paid → payout mirrored → staff split recorded; Interac auto-match demoable.
 
 ### Phase 7 — Jobs, Messaging, Notifications (server-initiated everything)
 - **arq worker** on Redis: scheduled + retryable + idempotent job patterns.
 - Jobs: booking **reminders**, **recurring** booking/invoice generation, **payout reconciliation**, **consent expiry**, **review requests**, schedule-window roll-forward.
 - **Notifications:** transactional **email** + **Twilio SMS** (confirmations, reminders, receipts).
-- **Messaging/Inbox:** threads/messages; inbound SMS webhook → thread; **broadcasts** (CASL: only to consented recipients).
+- **Messaging/Inbox:** threads/messages; inbound SMS webhook → thread; **broadcasts** (only to consented recipients).
 - Proves **server-initiated push**: a job/webhook writes → WAL → client updates live (no client poll).
 - **Exit:** a reminder job sends SMS and the booking change appears on the device instantly via sync.
 
@@ -117,7 +117,7 @@ Stand up surface #3 and tighten surface #2.
 
 ### Phase 9 — Compliance, Security, Observability, Prod-readiness
 - **Postgres RLS** (defense-in-depth): per-request `SET LOCAL` business/user; `business_id` `WITH CHECK` on writes (belt-and-suspenders with `WRITE_POLICY`).
-- **Compliance:** CASL consent enforcement; **Law 25 / PIPEDA** data export + deletion (right-to-be-forgotten) + retention; complete audit coverage.
+- **Compliance:** consent enforcement; data export + deletion (right-to-be-forgotten) + retention; complete audit coverage.
 - **Security:** rate limiting, brute-force/lockout, secrets management, RS256/JWKS in prod, dependency scanning.
 - **Observability:** error tracking (Sentry/Rollbar), metrics, tracing, readiness/liveness, slow-query + index audit, sync-rule perf.
 - **Deployment:** prod containers, migration gating, backups, PowerSync prod topology + monitoring.

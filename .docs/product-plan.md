@@ -79,7 +79,7 @@ write via `POST /v1/clients`. Proved the local-first loop across both platforms.
   **webhooks** → `payments`/`payouts` + reconciliation, idempotent + signature-verified via
   `webhook_events`); **Interac e-Transfer** (request + **auto-match by reference code** — the wedge);
   EFT/PAD; payout **allocations** (staff splits); **GST/HST remittance** set-aside (Σ tax on paid
-  invoices). No fund custody — Stripe holds funds (avoids FINTRAC MSB).
+  invoices). No fund custody — Stripe holds funds (avoids money-transmitter licensing).
 - **Web:** take payment, pay link, Stripe onboarding, payment/payout status.
 - **Mobile:** take payment, payment status.
 - **Invariant:** Stripe test card → invoice paid → payout mirrored → staff split recorded; Interac
@@ -95,7 +95,7 @@ write via `POST /v1/clients`. Proved the local-first loop across both platforms.
 ### Slice 7 — Inbox & Notifications (server-initiated everything)
 - **Backend:** **arq worker** on Redis (reminders, recurring generation, payout reconciliation, consent
   expiry, review requests, schedule-window roll-forward); **email + Twilio SMS**; messaging/inbox
-  (threads, inbound SMS webhook → thread, **broadcasts** with CASL consent).
+  (threads, inbound SMS webhook → thread, **broadcasts** with consent gating).
 - **Web:** Inbox (threads), notification settings.
 - **Mobile:** Inbox tab.
 - **Proof:** a reminder job sends SMS and the booking change appears on-device instantly via sync.
@@ -107,8 +107,8 @@ write via `POST /v1/clients`. Proved the local-first loop across both platforms.
 - **Mobile:** forms, file attach.
 
 ### Slice 9 — Hardening & Prod (continuous; dedicated pass at the end)
-- Postgres **RLS** (per-request `SET LOCAL` + `business_id WITH CHECK`); **CASL / Law 25 / PIPEDA**
-  (consent, export, right-to-be-forgotten, retention); rate limiting + lockout + RS256/JWKS in prod;
+- Postgres **RLS** (per-request `SET LOCAL` + `business_id WITH CHECK`); **consent + data-subject
+  rights** (consent gating, export, right-to-be-forgotten, retention); rate limiting + lockout + RS256/JWKS in prod;
   observability (Sentry, metrics, tracing, slow-query/index/sync-rule audit); deployment (prod
   containers, migration gating, backups, PowerSync prod topology).
 
