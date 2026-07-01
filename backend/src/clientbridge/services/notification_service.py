@@ -46,6 +46,13 @@ def _receipt(locale: str, business_name: str, amount: str) -> tuple[str, str, st
     )
 
 
+def _dispute_alert(locale: str, amount: str) -> str:
+    """Staff push body when a charge is disputed — the owner must respond in Stripe."""
+    if locale == "fr":
+        return f"Paiement contesté : {amount} — répondez dans Stripe."
+    return f"Payment disputed: {amount} — respond in Stripe."
+
+
 def _invoice_sent(
     locale: str, number: int | None, amount: str, business_name: str, link: str
 ) -> tuple[str, str]:
@@ -383,6 +390,19 @@ class Notifier:
         amount = _money(payment.amount_cents, payment.currency)
         subject, body = _payment_failed(business.locale, amount, business.name)
         await self._to_client(db, payment.client_id, subject, body)
+
+    async def on_payment_disputed(self, db: AsyncSession, payment_id: str) -> None:
+        """Alert the provider's staff that a charge was disputed — they must respond in Stripe."""
+        payment = await db.get(Payment, payment_id)
+        if payment is None:
+            return
+        business = await db.get(Business, payment.business_id)
+        if business is None:
+            return
+        amount = _money(payment.amount_cents, payment.currency)
+        await self._alert_staff(
+            db, business, _dispute_alert(business.locale, amount), {"type": "dispute"}
+        )
 
     async def on_subscription_past_due(self, db: AsyncSession, subscription_id: str) -> None:
         sub = await db.get(Subscription, subscription_id)

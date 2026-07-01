@@ -43,7 +43,8 @@ from clientbridge.services.lines import tax_for_lines
 class WebhookOutcome:
     """A post-commit client notification the webhook route fires (mirrors the receipt path)."""
 
-    notify: str  # payment | payment_failed | gift_card_issued | subscription_{past_due,canceled}
+    notify: str  # payment | payment_failed | refund | payment_disputed | gift_card_issued |
+    # subscription_{past_due,canceled}
     target_id: str
 
 
@@ -860,6 +861,105 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
     business.kyc_status = derive_kyc_status(status)
 
 
+async def _update_payment_method(
+    db: AsyncSession, account_id: str | None, data: dict[str, object]
+) -> None:
+    """Stripe auto-updated a saved card (reissue / new expiry) — refresh our brand + last4."""
+    if account_id is None:
+        return
+    biz = (
+        await db.execute(select(Business.id).where(Business.stripe_account_id == account_id))
+    ).scalar_one_or_none()
+    if biz is None:
+        return
+    pm = (
+        await db.execute(
+            select(PaymentMethod).where(
+                PaymentMethod.business_id == biz,
+                PaymentMethod.provider_ref == str(data.get("id")),
+            )
+        )
+    ).scalar_one_or_none()
+    if pm is None:
+        return
+    card = data.get("card")
+    card = card if isinstance(card, dict) else {}
+    if isinstance(card.get("brand"), str):
+        pm.brand = card["brand"]
+    if isinstance(card.get("last4"), str):
+        pm.last4 = card["last4"]
+    await db.flush()
+
+
+async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | None:
+    """A charge was refunded on Stripe's side (e.g. the dashboard) — mirror it as a refund payment
+    and reconcile, unless our own refund command already recorded one (deduped on parent)."""
+    intent = data.get("payment_intent")
+    if not isinstance(intent, str):
+        return None
+    payment = (
+        await db.execute(
+            select(Payment).where(Payment.provider_ref == intent, Payment.kind != "refund")
+        )
+    ).scalar_one_or_none()
+    if payment is None or payment.status != "succeeded":
+        return None
+    prior = (
+        await db.execute(
+            select(Payment.id).where(
+                Payment.parent_payment_id == payment.id, Payment.kind == "refund"
+            )
+        )
+    ).scalar_one_or_none()
+    if prior is not None:
+        return None  # our refund command (or a replayed event) already recorded it
+    amount = data.get("amount_refunded")
+    refunds = data.get("refunds")
+    rows = refunds.get("data") if isinstance(refunds, dict) else None
+    ref_id = (
+        rows[0].get("id") if isinstance(rows, list) and rows and isinstance(rows[0], dict) else None
+    )
+    refund = Payment(
+        id=new_id("payment"),
+        business_id=payment.business_id,
+        client_id=payment.client_id,
+        kind="refund",
+        parent_payment_id=payment.id,
+        invoice_id=payment.invoice_id,
+        order_id=payment.order_id,
+        booking_id=payment.booking_id,
+        amount_cents=int(amount) if isinstance(amount, int) else payment.amount_cents,
+        currency=payment.currency,
+        method=payment.method,
+        provider="stripe",
+        provider_ref=str(ref_id) if isinstance(ref_id, str) else f"re_{intent}",
+        status="succeeded",
+        paid_at=datetime.now(UTC),
+    )
+    db.add(refund)
+    await db.flush()
+    if payment.invoice_id is not None:
+        await _reconcile_invoice(db, payment.invoice_id)
+    if payment.order_id is not None:
+        await _reconcile_order(db, payment.order_id)
+    if payment.booking_id is not None and payment.kind == "deposit":
+        await _reverse_booking_deposit(db, payment.booking_id)
+    await _reverse_entitlement(db, payment)
+    return refund.id
+
+
+async def _flag_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
+    """A chargeback was opened — locate the disputed payment so the business can be alerted."""
+    intent = data.get("payment_intent")
+    if not isinstance(intent, str):
+        return None
+    return (
+        await db.execute(
+            select(Payment.id).where(Payment.provider_ref == intent, Payment.kind != "refund")
+        )
+    ).scalar_one_or_none()
+
+
 async def _dispatch(db: AsyncSession, event: GatewayEvent) -> WebhookOutcome | None:
     if event.type == "account.updated":
         account_id = event.data.get("id")
@@ -889,6 +989,14 @@ async def _dispatch(db: AsyncSession, event: GatewayEvent) -> WebhookOutcome | N
         await _record_payout(db, event.account, event.data)
     elif event.type == "payment_method.attached":
         await _record_payment_method(db, event.account, event.data)
+    elif event.type == "payment_method.automatically_updated":
+        await _update_payment_method(db, event.account, event.data)
+    elif event.type == "charge.refunded":
+        refunded = await _reconcile_refund(db, event.data)
+        return WebhookOutcome("refund", refunded) if refunded is not None else None
+    elif event.type == "charge.dispute.created":
+        disputed = await _flag_dispute(db, event.data)
+        return WebhookOutcome("payment_disputed", disputed) if disputed is not None else None
     elif event.type == "customer.subscription.updated":
         await _update_subscription(db, event.data)
     elif event.type == "customer.subscription.deleted":

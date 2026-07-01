@@ -47,6 +47,10 @@ async def stripe_webhook(
             await notifier.on_gift_card_issued(db, outcome.target_id)
         elif outcome.notify == "payment_failed":
             await notifier.on_payment_failed(db, outcome.target_id)
+        elif outcome.notify == "refund":
+            await notifier.on_refund(db, outcome.target_id)
+        elif outcome.notify == "payment_disputed":
+            await notifier.on_payment_disputed(db, outcome.target_id)
         elif outcome.notify == "subscription_past_due":
             await notifier.on_subscription_past_due(db, outcome.target_id)
         elif outcome.notify == "subscription_canceled":
