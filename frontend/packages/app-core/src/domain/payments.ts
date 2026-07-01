@@ -171,7 +171,11 @@ export function refundPayment(
     api: ApiLike,
     paymentId: string,
 ): Promise<{ refund_id: string; status: string }> {
-    return api.post<{ refund_id: string; status: string }>(`/v1/payments/${paymentId}/refund`, {});
+    return api.post<{ refund_id: string; status: string }>(
+        `/v1/payments/${paymentId}/refund`,
+        {},
+        { idempotencyKey: newIdempotencyKey() },
+    );
 }
 
 export interface PaymentRow {

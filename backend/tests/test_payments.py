@@ -2,7 +2,7 @@ import json
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
@@ -159,7 +159,33 @@ async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSess
     )
     assert (await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")).status_code == 200
     again = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
-    assert again.status_code == 409  # already refunded — no second real refund
+    assert again.status_code == 409  # a fresh-key second refund — no second real refund
+
+
+async def test_refund_same_idempotency_key_replays(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # a retried refund (same Idempotency-Key) replays the original 200, not a 409, and mints one row
+    await _enable_payments(db)
+    inv_id = await _invoice(db)
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    await as_owner.post(
+        "/webhooks/stripe", content=_pi_event("evt_ri", pi_id), headers={"Stripe-Signature": "good"}
+    )
+    headers = {"Idempotency-Key": "refund-key-1"}
+    first = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", headers=headers)
+    second = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", headers=headers)
+    assert first.status_code == 200 and second.status_code == 200, second.text
+    assert first.json()["refund_id"] == second.json()["refund_id"]
+    refunds = (
+        await db.execute(
+            select(func.count())
+            .select_from(Payment)
+            .where(Payment.parent_payment_id == pay["payment_id"], Payment.kind == "refund")
+        )
+    ).scalar_one()
+    assert refunds == 1
 
 
 async def test_pending_payment_blocks_overpay(
