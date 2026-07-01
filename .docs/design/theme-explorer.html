@@ -335,7 +335,7 @@
                   <div class="row"><div class="search" style="min-width:260px"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search by name, phone, tag…</div><span class="chip">VIP</span><span class="chip">Owing</span></div>
                   <button class="btn btn-primary btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> Add client</button>
                 </div>
-                <section class="card"><table class="tbl"><thead><tr><th>Client</th><th>Phone</th><th class="num">Visits</th><th class="num">Lifetime</th><th class="num">Balance</th><th>Last seen</th><th>Consent</th></tr></thead><tbody id="clientrows"></tbody></table></section>
+                <section class="card"><table class="tbl"><thead><tr><th>Client</th><th>Phone</th><th class="num">Visits</th><th class="num">Lifetime</th><th class="num">Balance</th><th>Last seen</th></tr></thead><tbody id="clientrows"></tbody></table></section>
               </div>
 
               <!-- INVOICE -->
@@ -361,7 +361,7 @@
                     </div>
                   </section>
                   <div style="display:flex;flex-direction:column;gap:16px">
-                    <section class="card"><div class="card-h"><h3>Client</h3></div><div style="padding:14px 17px"><div class="who"><div class="av" style="width:38px;height:38px;background:#C2613F">JM</div><div><div class="nm" style="font-size:14px">Jordan Mackenzie</div><div class="sb">12 visits · $1,240 lifetime</div></div></div><div class="row" style="gap:6px;margin-top:11px"><span class="chip">VIP</span><span class="chip">Consent ✓</span></div></div></section>
+                    <section class="card"><div class="card-h"><h3>Client</h3></div><div style="padding:14px 17px"><div class="who"><div class="av" style="width:38px;height:38px;background:#C2613F">JM</div><div><div class="nm" style="font-size:14px">Jordan Mackenzie</div><div class="sb">12 visits · $1,240 lifetime</div></div></div><div class="row" style="gap:6px;margin-top:11px"><span class="chip">VIP</span></div></div></section>
                     <section class="card"><div class="card-h"><h3>Activity</h3></div><div style="padding:8px 17px 14px">
                       <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">Invoice created</div><div class="sb">Today · 9:10a</div></div></div>
                       <div class="tline"><span class="tdot" style="background:var(--accent-weak)">↗</span><div><div class="nm" style="font-size:12.5px">Sent to client</div><div class="sb">Today · 9:11a · email + SMS</div></div></div>
@@ -388,7 +388,7 @@
                   <div class="thread">
                     <div class="card-h">
                       <div class="who"><div class="av" style="width:36px;height:36px;background:#7C5AA6">SR</div><div><div class="nm" style="font-size:14px">Sofia Russo</div><div class="sb">SMS · (604) 555-0166</div></div></div>
-                      <div class="row"><span class="badge b-ok">✓ Consent</span><button class="btn btn-out btn-sm">Reschedule</button></div>
+                      <div class="row"><button class="btn btn-out btn-sm">Reschedule</button></div>
                     </div>
                     <div class="thbody">
                       <div class="msg out"><div class="mh">You · Mon 8:02a · SMS</div>Hi Sofia — confirming your 60-min massage today at 5:00 PM. Reply STOP to opt out.</div>
@@ -516,9 +516,8 @@
   document.getElementById("schedrows").innerHTML=rows.map(r=>`<tr><td><span class="tm">${r.tm}</span></td><td><div class="who"><div class="av" style="width:30px;height:30px;background:${r.c};font-size:11px">${r.in}</div><div><div class="nm">${r.nm}</div><div class="sb">${r.sb}</div></div></div></td><td>${r.sv}</td><td class="num"><span class="amt ${r.amt==='incl.'?'mut':''}" style="font-size:13px;${r.amt==='incl.'?'color:var(--muted)':''}">${r.amt}</span></td><td>${payChip(r.pay)}</td><td><span class="pill ${r.st}">${r.lbl}</span></td></tr>`).join("");
 
   document.getElementById("clientrows").innerHTML=clients.map(c=>{
-    const cons=c.tag==="new"?`<span class="badge b-muted">Pending</span>`:`<span class="badge b-ok">✓ Consent</span>`;
     const bal=c.bal==="—"?`<span class="amt mut" style="color:var(--muted)">—</span>`:`<span class="amt" style="color:${c.tag==='over'?'var(--dan-fg)':'var(--ink)'}">${c.bal}</span>`;
-    return `<tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:${c.c};font-size:11px">${c.in}</div><div><div class="nm">${c.nm}</div><div class="sb">${c.em}</div></div></div></td><td class="tm">${c.ph}</td><td class="num">${c.v}</td><td class="num"><span class="amt">${c.lt}</span></td><td class="num">${bal}</td><td>${c.ls}</td><td>${cons}</td></tr>`;
+    return `<tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:${c.c};font-size:11px">${c.in}</div><div><div class="nm">${c.nm}</div><div class="sb">${c.em}</div></div></div></td><td class="tm">${c.ph}</td><td class="num">${c.v}</td><td class="num"><span class="amt">${c.lt}</span></td><td class="num">${bal}</td><td>${c.ls}</td></tr>`;
   }).join("");
 
   document.getElementById("m-sched").innerHTML=rows.slice(0,4).map(r=>{
