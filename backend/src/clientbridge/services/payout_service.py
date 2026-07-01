@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Conflict, Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.scoping import scoped
 from clientbridge.models.payments import PayoutAllocation
 from clientbridge.schemas.payouts import PayoutAllocationOut
@@ -63,8 +63,9 @@ class PayoutService:
         )
 
     def _assert_admin(self) -> None:
-        if self.principal.role not in ("owner", "admin"):
-            raise Forbidden("only an owner or admin can manage payouts")
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can manage payouts"
+        )
 
     async def _allocation(self, allocation_id: str) -> PayoutAllocation:
         row = (

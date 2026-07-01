@@ -19,6 +19,11 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   rules) · sync-write (`/sync/upload` + `WRITE_POLICY`) · command/RPC (FastAPI `POST`) · webhook/public ·
   job. A **server-only invariant** (uniqueness/numbering, capacity, money, secrets, cross-tenant) → a
   **command, NOT a sync write**.
+- **Role gates** live in one of two places by shape: a router where *every* endpoint is admin-only
+  gates once at the router (`require_role("owner","admin")` via an `AdminPrincipal` alias); a service
+  whose methods *vary* in who may call them (e.g. POS order-create is staff, void is admin) gates
+  per-method in the service via `assert_role(self.principal, …, message=…)` (`core/deps`). Don't
+  hand-write `if principal.role not in (...)`.
 - Data: prefixed-ULID PKs (`core/ids.py`) · integer cents + currency · text+CHECK enums (`enum_check`) ·
   `business_id` on scoped rows · `created_at/updated_at` · soft-delete `deleted_at`.
 - Models declare **no `relationship()`s** → the unit-of-work can't FK-order inserts; **flush the parent

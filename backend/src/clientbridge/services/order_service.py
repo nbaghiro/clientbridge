@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Conflict, Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
@@ -159,8 +159,9 @@ class OrderService:
         return ConnectionTokenOut(secret=secret, location_id=business.stripe_terminal_location_id)
 
     def _assert_admin(self) -> None:
-        if self.principal.role not in ("owner", "admin"):
-            raise Forbidden("only an owner or admin can void an order")
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can void an order"
+        )
 
     async def _apply_totals(self, order: Order, lines: list[Line]) -> None:
         result = await tax_for_lines(self.db, self.biz, lines)

@@ -6,8 +6,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Conflict, Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
@@ -295,8 +295,9 @@ class BillingService:
         )
 
     def _assert_admin(self) -> None:
-        if self.principal.role not in ("owner", "admin"):
-            raise Forbidden("only an owner or admin can manage billing")
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can manage billing"
+        )
 
     async def _apply_totals(self, parent: Invoice | Estimate, lines: list[Line]) -> None:
         result = await tax_for_lines(self.db, self.biz, lines)

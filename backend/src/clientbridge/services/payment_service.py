@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Conflict, Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.payments import (
@@ -404,8 +404,9 @@ class PaymentService:
         )
 
     def _assert_admin(self) -> None:
-        if self.principal.role not in ("owner", "admin"):
-            raise Forbidden("only an owner or admin can manage payments")
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can manage payments"
+        )
 
     async def _business(self) -> Business:
         row = await self.db.get(Business, self.biz)
