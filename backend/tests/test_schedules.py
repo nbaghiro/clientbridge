@@ -13,9 +13,6 @@ ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured (all hours open)
 
 
-# ── expand_occurrences (pure) ─────────────────────────────────────────────────────────────────
-
-
 def test_expand_weekly_count() -> None:
     out = expand_occurrences(
         start_date=date(2027, 3, 1), frequency="weekly", interval=1, byday=None, count=4, until=None
@@ -77,9 +74,6 @@ def test_expand_caps_unbounded() -> None:
         until=None,
     )
     assert len(out) == 60  # the hard cap
-
-
-# ── POST /v1/schedules (command + expansion) ──────────────────────────────────────────────────
 
 
 async def _client_and_item(db: AsyncSession) -> tuple[str, str]:

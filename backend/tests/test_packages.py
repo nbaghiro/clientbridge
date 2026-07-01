@@ -77,7 +77,6 @@ async def _settle(api: httpx.AsyncClient, db: AsyncSession, payment_id: str, eve
     assert res.status_code == 200, res.text
 
 
-# ── purchase: charge now, grant pending, activate on settlement ───────────────────────────────
 async def test_purchase_off_session_creates_pending_package_and_payment(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
@@ -204,7 +203,6 @@ async def test_purchase_package_without_sessions_422(
     assert res.status_code == 422
 
 
-# ── consume lifecycle on an already-active package ────────────────────────────────────────────
 async def test_consume_unknown_404(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/packages/pkg_nope/consume")
     assert res.status_code == 404
@@ -228,7 +226,6 @@ async def test_consume_active_but_exhausted_409(
     assert res.status_code == 409
 
 
-# ── role + tenancy ────────────────────────────────────────────────────────────────────────────
 async def test_staff_cannot_purchase_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     res = await as_staff.post("/v1/packages", json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM})
     assert res.status_code == 403

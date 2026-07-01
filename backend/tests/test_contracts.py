@@ -69,7 +69,6 @@ async def _a_file(db: AsyncSession, *, business_id: str = BIZ) -> str:
     return file.id
 
 
-# ── send command + notification ────────────────────────────────────────────────────────────────
 async def test_send_creates_pending_and_notifies(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
@@ -118,7 +117,6 @@ async def test_send_is_tenant_isolated(
     assert res.status_code == 404
 
 
-# ── public signing (surface #4) ──────────────────────────────────────────────────────────────
 async def test_public_get_returns_context(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_signature(db)
     body = (await api.get(f"/contract/{token}")).json()

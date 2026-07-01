@@ -1,11 +1,19 @@
-"""P1.2: password auth + JWT sessions — register/login, refresh rotation + reuse, logout."""
+"""Password auth + JWT sessions: register/login, refresh rotation/reuse, logout, token rejection."""
+
+import time
 
 import httpx
+import jwt
 
-from tests.conftest import Factory
+from clientbridge.core.config import get_settings
+from clientbridge.core.security import issue_access_token, issue_powersync_token
+from tests.conftest import OWNER_USER, Factory
 
 
-# ── register ──────────────────────────────────────────────────────────────────────────────
+def _auth(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
 async def test_register_returns_token_pair(api: httpx.AsyncClient) -> None:
     res = await api.post(
         "/auth/register", json={"email": "new@test.ca", "password": "pw-123456", "name": "New"}
@@ -23,7 +31,6 @@ async def test_register_duplicate_email_409(api: httpx.AsyncClient, factory: Fac
     assert res.status_code == 409
 
 
-# ── login ─────────────────────────────────────────────────────────────────────────────────
 async def test_login_seeded_user(api: httpx.AsyncClient) -> None:
     res = await api.post(
         "/auth/login", json={"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
@@ -61,7 +68,6 @@ async def test_access_token_authorizes(api: httpx.AsyncClient, factory: Factory)
     assert res.json()["total"] == 0  # fresh business → no clients
 
 
-# ── refresh rotation + reuse-detection ────────────────────────────────────────────────────
 async def _login(api: httpx.AsyncClient, factory: Factory) -> tuple[str, str]:
     await factory.user(email="rot@test.ca", password="pw-123456")
     res = await api.post("/auth/login", json={"email": "rot@test.ca", "password": "pw-123456"})
@@ -96,7 +102,6 @@ async def test_refresh_reuse_revokes_family(api: httpx.AsyncClient, factory: Fac
     assert after.status_code == 401
 
 
-# ── logout ────────────────────────────────────────────────────────────────────────────────
 async def test_logout_revokes(api: httpx.AsyncClient, factory: Factory) -> None:
     _, refresh = await _login(api, factory)
     res = await api.post("/auth/logout", json={"refresh_token": refresh})
@@ -109,3 +114,43 @@ async def test_logout_unknown_token_204(api: httpx.AsyncClient) -> None:
     # no info leak — logging out an unknown token still 204s
     res = await api.post("/auth/logout", json={"refresh_token": "whatever"})
     assert res.status_code == 204
+
+
+async def test_tampered_access_token_rejected(api: httpx.AsyncClient) -> None:
+    good = issue_access_token(OWNER_USER)
+    tampered = good[:-1] + ("A" if good[-1] != "A" else "B")
+    assert (await api.get("/v1/clients", headers=_auth(tampered))).status_code == 401
+
+
+async def test_expired_access_token_rejected(api: httpx.AsyncClient) -> None:
+    s = get_settings()
+    now = int(time.time())
+    expired = jwt.encode(
+        {
+            "sub": OWNER_USER,
+            "type": "access",
+            "iss": s.jwt_issuer,
+            "iat": now - 100,
+            "exp": now - 10,
+        },
+        s.jwt_secret,
+        algorithm="HS256",
+    )
+    assert (await api.get("/v1/clients", headers=_auth(expired))).status_code == 401
+
+
+async def test_forged_signature_rejected(api: httpx.AsyncClient) -> None:
+    s = get_settings()
+    now = int(time.time())
+    forged = jwt.encode(
+        {"sub": OWNER_USER, "type": "access", "iss": s.jwt_issuer, "iat": now, "exp": now + 300},
+        "not-the-real-signing-secret-but-plenty-long-enough",
+        algorithm="HS256",
+    )
+    assert (await api.get("/v1/clients", headers=_auth(forged))).status_code == 401
+
+
+async def test_sync_token_rejected_on_api_route(api: httpx.AsyncClient) -> None:
+    # a PowerSync token (aud=powersync, no iss) must not authorize a /v1 API route
+    sync_token = issue_powersync_token(OWNER_USER)
+    assert (await api.get("/v1/clients", headers=_auth(sync_token))).status_code == 401

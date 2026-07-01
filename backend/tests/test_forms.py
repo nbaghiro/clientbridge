@@ -55,7 +55,6 @@ async def _a_response(db: AsyncSession, *, form_id: str = SATISFACTION) -> str:
     return response.token
 
 
-# ── send command + notification ────────────────────────────────────────────────────────────────
 async def test_send_creates_draft_and_notifies(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
@@ -100,7 +99,6 @@ async def test_send_is_tenant_isolated(
     assert res.status_code == 404
 
 
-# ── public submission (surface #4) ───────────────────────────────────────────────────────────
 async def test_public_get_returns_form_and_fields(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_response(db)
     body = (await api.get(f"/form/{token}")).json()

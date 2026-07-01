@@ -2,7 +2,7 @@ import json
 from datetime import UTC, date, datetime, time
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
@@ -54,7 +54,21 @@ async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSessi
     client_id, item_id = await _client_and_item(db)
     body = _body(client_id, item_id, "2027-03-02T10:00:00Z")
     assert (await as_owner.post("/v1/bookings", json=body)).status_code == 201
-    assert (await as_owner.post("/v1/bookings", json=body)).status_code == 409
+    dup = await as_owner.post("/v1/bookings", json=body)
+    assert dup.status_code == 409
+    assert "already booked" in dup.text.lower()  # the overlap check, not some other 409
+    # the first booking persisted; the clash created no second session at that slot
+    n = (
+        await db.execute(
+            select(func.count())
+            .select_from(Session)
+            .where(
+                Session.staff_id == ST_OWNER,
+                Session.starts_at == datetime(2027, 3, 2, 10, tzinfo=UTC),
+            )
+        )
+    ).scalar_one()
+    assert n == 1
 
 
 async def test_cancel_frees_the_slot(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -76,6 +90,13 @@ async def test_reschedule_moves_session(as_owner: httpx.AsyncClient, db: AsyncSe
     moved = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-03-04T14:00:00Z"})
     assert moved.status_code == 200
     assert moved.json()["starts_at"].startswith("2027-03-04T14:00")
+    # the move persisted on the session, not just echoed in the response
+    session = (
+        await db.execute(
+            select(Session).join(Booking, Booking.session_id == Session.id).where(Booking.id == bid)
+        )
+    ).scalar_one()
+    assert session.starts_at == datetime(2027, 3, 4, 14, tzinfo=UTC)
 
 
 async def test_staff_cannot_book_another_staff(
@@ -395,7 +416,6 @@ async def test_foreign_business_session_does_not_block(
     assert res.status_code == 201
 
 
-# ── deposits ──────────────────────────────────────────────────────────────────────────────────
 CL_AMELIE = "cl_amelie"  # seeded client with email + phone
 SEEDED_CARD = "pm_demo_4242"  # cl_amelie's seeded default-card provider ref
 

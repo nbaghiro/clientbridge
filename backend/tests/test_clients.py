@@ -1,4 +1,4 @@
-"""Phase 0 reference vertical: the clients REST endpoints, end-to-end against the seeded DB."""
+"""The clients REST endpoints, end-to-end against the seeded DB."""
 
 import httpx
 from sqlalchemy import text

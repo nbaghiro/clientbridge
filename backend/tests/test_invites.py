@@ -1,4 +1,4 @@
-"""P1.4: staff invites — owner/admin create + email; invitee accepts → active staff."""
+"""Staff invites — owner/admin create + email; invitee accepts → active staff."""
 
 import httpx
 from sqlalchemy import select, text

@@ -37,6 +37,11 @@ async def test_multi_business_requires_header(api: httpx.AsyncClient, factory: F
     res = await api.get("/v1/clients", headers={"X-Business-Id": b1.id})
     assert res.json()["total"] == 1
 
+    # a client in the user's OTHER business never leaks into b1's scope
+    await factory.client(business=b2)
+    res = await api.get("/v1/clients", headers={"X-Business-Id": b1.id})
+    assert res.json()["total"] == 1
+
 
 async def test_foreign_business_header_forbidden(api: httpx.AsyncClient, factory: Factory) -> None:
     user = await factory.user()

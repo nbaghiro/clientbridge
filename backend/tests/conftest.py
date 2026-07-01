@@ -57,7 +57,6 @@ OWNER_USER = "us_dev"
 STAFF_USER = "us_diego"
 
 
-# ── DB: one rolled-back transaction per test ─────────────────────────────────────────────────
 @pytest.fixture
 async def db() -> AsyncIterator[AsyncSession]:
     conn = await engine.connect()
@@ -74,7 +73,6 @@ async def db() -> AsyncIterator[AsyncSession]:
         await engine.dispose()  # function-scoped loop → clear the pool for the next test
 
 
-# ── Recording email fake (the boundary pattern) ──────────────────────────────────────────────
 class FakeEmailSender:
     def __init__(self) -> None:
         self.sent: list[Email] = []
@@ -114,7 +112,6 @@ def push() -> FakePushSender:
     return FakePushSender()
 
 
-# ── Recording object-storage fake: deterministic presigned URLs, no network ───────────────────
 class FakeFileStorage:
     def __init__(self) -> None:
         self.uploads: list[tuple[str, str]] = []
@@ -134,7 +131,6 @@ def storage() -> FakeFileStorage:
     return FakeFileStorage()
 
 
-# ── OAuth fake: id_token == the email; "invalid" → 401 (lets tests control the profile) ───────
 class FakeOAuthVerifier:
     async def verify_google(self, id_token: str) -> OAuthProfile:
         if id_token == "invalid":
@@ -144,7 +140,6 @@ class FakeOAuthVerifier:
         )
 
 
-# ── Payment-gateway fake: a webhook verifies only with signature "good"; payload IS the event ──
 class FakePaymentGateway:
     def __init__(self) -> None:
         self.created_accounts: list[str] = []
@@ -328,7 +323,6 @@ def gateway() -> FakePaymentGateway:
     return FakePaymentGateway()
 
 
-# ── In-process HTTP client sharing the test's transaction + the boundary fakes ───────────────
 @pytest.fixture
 async def api(
     db: AsyncSession,
@@ -391,7 +385,6 @@ def unauth(api: httpx.AsyncClient) -> httpx.AsyncClient:
     return api
 
 
-# ── Factories: valid, business-scoped rows built in the test transaction ─────────────────────
 class Factory:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db

@@ -9,6 +9,7 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
+from tests.conftest import Factory
 
 BIZ = "bz_birchbark"
 
@@ -50,6 +51,35 @@ async def test_summary_returns_three_money_figures(
     assert res.status_code == 200
     body = res.json()
     assert {"today_revenue_cents", "awaiting_payment_cents", "gst_hst_set_aside_cents"} <= set(body)
+
+
+async def test_summary_excludes_other_business(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    before = (await as_owner.get("/v1/dashboard/summary")).json()
+    # a succeeded payment today in a DIFFERENT business must not inflate our figures
+    other = await factory.business()
+    other_client = await factory.client(business=other)
+    db.add(
+        Payment(
+            id=new_id("payment"),
+            business_id=other.id,
+            client_id=other_client.id,
+            kind="payment",
+            amount_cents=999_00,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref=f"pi_{new_id('payment')[3:14]}",
+            status="succeeded",
+            paid_at=datetime.now(UTC),
+        )
+    )
+    await db.flush()
+    after = (await as_owner.get("/v1/dashboard/summary")).json()
+    assert after["today_revenue_cents"] == before["today_revenue_cents"]
+    assert after["awaiting_payment_cents"] == before["awaiting_payment_cents"]
+    assert after["gst_hst_set_aside_cents"] == before["gst_hst_set_aside_cents"]
 
 
 async def test_today_revenue_counts_todays_succeeded_payment(

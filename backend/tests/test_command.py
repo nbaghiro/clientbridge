@@ -1,4 +1,4 @@
-"""Phase 2 — the command() helper: atomic, audited, idempotent mutations."""
+"""The command() helper: atomic, audited, idempotent mutations."""
 
 from collections.abc import Awaitable, Callable
 

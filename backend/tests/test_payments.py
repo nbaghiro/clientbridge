@@ -97,6 +97,26 @@ async def test_succeeded_webhook_marks_invoice_paid(
     assert inv.amount_paid_cents == 11200
 
 
+async def test_settlement_records_application_fee_and_net(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # the fee drives payout math, so a dropped/mis-parsed fee must not settle net == amount
+    await _enable_payments(db)
+    inv_id = await _invoice(db)
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    res = await as_owner.post(
+        "/webhooks/stripe",
+        content=_pi_event("evt_fee", pi_id, fee=250),
+        headers={"Stripe-Signature": "good"},
+    )
+    assert res.status_code == 200
+    row = (await db.execute(select(Payment).where(Payment.id == pay["payment_id"]))).scalar_one()
+    assert row.status == "succeeded"
+    assert row.fee_cents == 250
+    assert row.net_cents == 11200 - 250
+
+
 async def test_partial_payment_marks_invoice_partial(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

@@ -1,4 +1,4 @@
-"""P1.7: Google OAuth — verify (faked) → find-or-create user → session."""
+"""Google OAuth — verify (faked) → find-or-create user → session."""
 
 import httpx
 from sqlalchemy import select, text
