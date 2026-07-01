@@ -31,6 +31,7 @@ import { ComingSoon } from "./src/screens/Placeholder";
 import { POSScreen } from "./src/screens/POS";
 import { ReportsScreen } from "./src/screens/Reports";
 import { ReviewsScreen } from "./src/screens/Reviews";
+import { SchedulingScreen } from "./src/screens/Scheduling";
 import { SettingsScreen } from "./src/screens/Settings";
 import { TaxesScreen } from "./src/screens/Taxes";
 import { TeamScreen } from "./src/screens/Team";
@@ -180,7 +181,7 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                         />
                         <RootStack.Screen
                             name="Scheduling"
-                            component={ComingSoon}
+                            component={SchedulingScreen}
                             options={{ title: "Scheduling" }}
                         />
                         <RootStack.Screen

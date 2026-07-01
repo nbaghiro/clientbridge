@@ -241,3 +241,94 @@ async def test_item_field_edit_still_works(as_owner: httpx.AsyncClient, db: Asyn
     )
     assert res.status_code == 200
     assert await _scalar(db, "SELECT name FROM items WHERE id='it_groom_sm'") == "Renamed Groom"
+
+
+async def test_availability_recurring_put_and_delete(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # PUT — owner sets a recurring Monday window for a staff member (Time coerced from "HH:MM:SS")
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "availability",
+                    "id": "av_test_mon",
+                    "data": {
+                        "business_id": BIZ,
+                        "staff_id": "st_diego",
+                        "type": "recurring",
+                        "weekday": 0,
+                        "start_time": "09:00:00",
+                        "end_time": "17:00:00",
+                        "is_available": 1,
+                    },
+                }
+            ]
+        },
+    )
+    assert res.status_code == 200
+    assert await _scalar(db, "SELECT weekday FROM availability WHERE id='av_test_mon'") == 0
+    assert str(await _scalar(db, "SELECT start_time FROM availability WHERE id='av_test_mon'")) == (
+        "09:00:00"
+    )
+
+    # DELETE — availability has no soft-delete column, so the row is hard-deleted (replace-all path)
+    res = await as_owner.post(
+        "/sync/upload",
+        json={"ops": [{"op": "DELETE", "type": "availability", "id": "av_test_mon"}]},
+    )
+    assert res.status_code == 200
+    assert await _scalar(db, "SELECT id FROM availability WHERE id='av_test_mon'") is None
+
+
+async def test_staff_sets_own_availability(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
+    # own_only: a non-admin staff may write their OWN availability (st_diego == us_diego)
+    res = await as_staff.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "availability",
+                    "id": "av_diego_own",
+                    "data": {
+                        "business_id": BIZ,
+                        "staff_id": "st_diego",
+                        "type": "recurring",
+                        "weekday": 2,
+                        "start_time": "10:00:00",
+                        "end_time": "16:00:00",
+                        "is_available": 1,
+                    },
+                }
+            ]
+        },
+    )
+    assert res.status_code == 200
+    assert await _scalar(db, "SELECT weekday FROM availability WHERE id='av_diego_own'") == 2
+
+
+async def test_staff_cannot_set_others_availability(as_staff: httpx.AsyncClient) -> None:
+    # own_only: a non-admin staff cannot touch another staff member's availability
+    res = await as_staff.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "availability",
+                    "id": "av_owner_x",
+                    "data": {
+                        "business_id": BIZ,
+                        "staff_id": "st_owner",
+                        "type": "recurring",
+                        "weekday": 0,
+                        "is_available": 0,
+                    },
+                }
+            ]
+        },
+    )
+    assert res.status_code == 403

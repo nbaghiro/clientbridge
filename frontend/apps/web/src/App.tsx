@@ -22,7 +22,6 @@ import { Invoices } from "./pages/Invoices";
 import { Onboarding } from "./pages/Onboarding";
 import { PaymentsSettings } from "./pages/PaymentsSettings";
 import { Payouts } from "./pages/Payouts";
-import { Placeholder } from "./pages/Placeholder";
 import { POS } from "./pages/POS";
 import { PublicBooking } from "./pages/PublicBooking";
 import { PublicContract } from "./pages/PublicContract";
@@ -30,6 +29,7 @@ import { PublicForm } from "./pages/PublicForm";
 import { PublicPay } from "./pages/PublicPay";
 import { Reports } from "./pages/Reports";
 import { Reviews } from "./pages/Reviews";
+import { Scheduling } from "./pages/Scheduling";
 import { SettingsLayout } from "./pages/Settings";
 import { TaxSettings } from "./pages/TaxSettings";
 import { Team } from "./pages/Team";
@@ -121,7 +121,7 @@ function AppRoutes({
                             <Route path="taxes" element={<TaxSettings />} />
                             <Route path="payments" element={<PaymentsSettings />} />
                             <Route path="team" element={<Team />} />
-                            <Route path="scheduling" element={<Placeholder title="Scheduling" />} />
+                            <Route path="scheduling" element={<Scheduling />} />
                             <Route path="booking" element={<BookingForms />} />
                         </Route>
                         <Route path="*" element={<Navigate to="/clients" replace />} />
