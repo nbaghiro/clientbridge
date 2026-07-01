@@ -198,23 +198,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/sync/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Sync Upload */
-        post: operations["sync_upload_sync_upload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/sync/keys": {
         parameters: {
             query?: never;
@@ -229,6 +212,23 @@ export interface paths {
         get: operations["jwks_sync_keys_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sync/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sync Upload */
+        post: operations["sync_upload_sync_upload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3332,6 +3332,30 @@ export interface operations {
             };
         };
     };
+    jwks_sync_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: {
+                            [key: string]: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     sync_upload_sync_upload_post: {
         parameters: {
             query?: never;
@@ -3365,30 +3389,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    jwks_sync_keys_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: {
-                            [key: string]: string;
-                        }[];
-                    };
                 };
             };
         };
