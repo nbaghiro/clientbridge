@@ -24,7 +24,7 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment, PaymentMethod, Payout, PayoutAllocation
 from clientbridge.models.platform import WebhookEvent
-from clientbridge.models.scheduling import Booking
+from clientbridge.models.scheduling import Booking, Session
 from clientbridge.schemas.payments import (
     ConnectStatus,
     DetachResult,
@@ -1438,6 +1438,28 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
     return invoice.id
 
 
+async def _allocation_split(
+    db: AsyncSession, staff: Staff, line_cents: int, booking: Booking
+) -> tuple[str, int] | None:
+    """The (basis, cents) a payee earns on a booking line, by rate type. `default_rate` is
+    percentage-points for `percent` (a share of the line) and dollars otherwise: `fixed` = a flat
+    amount per booking, `hourly` = rate * the session's hours."""
+    rate = staff.default_rate
+    if rate is None:
+        return None
+    if staff.rate_type == "percent":
+        return "percent", round(line_cents * rate / 100)
+    if staff.rate_type == "fixed":
+        return "fixed", round(rate * 100)
+    if staff.rate_type == "hourly":
+        session = await db.get(Session, booking.session_id)
+        if session is None:
+            return None
+        hours = (session.ends_at - session.starts_at).total_seconds() / 3600
+        return "rate", round(rate * hours * 100)
+    return None
+
+
 async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
     """On a fully-paid invoice, record a pending payout split for each payee staff on its booking
     lines (percent of the line). Idempotent — skips bookings already allocated."""
@@ -1478,13 +1500,12 @@ async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
         if booking is None or booking.staff_id is None:
             continue
         staff = await db.get(Staff, booking.staff_id)
-        if (
-            staff is None
-            or not staff.is_payee
-            or staff.rate_type != "percent"
-            or staff.default_rate is None
-        ):
+        if staff is None or not staff.is_payee or staff.default_rate is None:
             continue
+        split = await _allocation_split(db, staff, line.amount_cents, booking)
+        if split is None or split[1] <= 0:
+            continue
+        basis, amount = split
         db.add(
             PayoutAllocation(
                 id=new_id("payout_allocation"),
@@ -1492,9 +1513,9 @@ async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
                 staff_id=staff.id,
                 source_type="booking",
                 source_id=booking_id,
-                basis="percent",
+                basis=basis,
                 rate=staff.default_rate,
-                amount_cents=round(line.amount_cents * staff.default_rate / 100),
+                amount_cents=amount,
                 status="pending",
             )
         )
