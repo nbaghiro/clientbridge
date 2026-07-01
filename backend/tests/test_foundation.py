@@ -4,7 +4,7 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.integrations.email import Email
+from clientbridge.integrations.notifications import Email
 from clientbridge.models.crm import Client
 from tests.conftest import Factory, FakeEmailSender
 

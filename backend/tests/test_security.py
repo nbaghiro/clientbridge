@@ -1,7 +1,7 @@
 """Unit tests for pure security/adapter helpers."""
 
 from clientbridge.core.security import hash_password, verify_password
-from clientbridge.integrations.email import ConsoleEmailSender, Email, get_email_sender
+from clientbridge.integrations.notifications import ConsoleEmailSender, Email, get_email_sender
 
 
 def test_password_hash_roundtrip() -> None:

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
-import type { Intent } from "../util/intent";
+import type { Intent } from "../util/primitives";
 import { useInteractivePurchase } from "./payments";
 
 export interface GiftCardRow {

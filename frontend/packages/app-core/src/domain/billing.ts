@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
-import type { Intent } from "../util/intent";
+import type { Intent } from "../util/primitives";
 
 export interface InvoiceRow {
     id: string;

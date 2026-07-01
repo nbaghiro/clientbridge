@@ -6,9 +6,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
-from clientbridge.integrations.email import Email, EmailSender
-from clientbridge.integrations.push import Push, PushSender
-from clientbridge.integrations.sms import Sms, SmsSender
+from clientbridge.integrations.notifications import (
+    Email,
+    EmailSender,
+    Push,
+    PushSender,
+    Sms,
+    SmsSender,
+)
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.crm import Client, Consent

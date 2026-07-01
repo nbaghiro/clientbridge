@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
-import type { Intent } from "../util/intent";
+import type { Intent } from "../util/primitives";
 import type { ItemRow } from "./catalog";
 
 export interface OrderLineInput {

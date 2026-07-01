@@ -2,7 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
 import type { ApiLike } from "../util/api";
-import type { Intent } from "../util/intent";
+import type { Intent } from "../util/primitives";
 import { useInteractivePurchase } from "./payments";
 
 export interface PackageRow {

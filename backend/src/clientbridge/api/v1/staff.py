@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header
 
 from clientbridge.core.deps import DbSession, Principal, require_role
-from clientbridge.integrations.email import EmailSender, get_email_sender
+from clientbridge.integrations.notifications import EmailSender, get_email_sender
 from clientbridge.schemas.identity import InviteBody, InviteOut
 from clientbridge.services.staff_service import StaffService
 

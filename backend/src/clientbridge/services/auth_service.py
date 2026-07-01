@@ -20,7 +20,7 @@ from clientbridge.core.security import (
     issue_access_token,
     verify_password,
 )
-from clientbridge.integrations.email import Email, EmailSender
+from clientbridge.integrations.notifications import Email, EmailSender
 from clientbridge.integrations.oauth import OAuthProfile
 from clientbridge.models.auth import AuthSession, AuthToken
 from clientbridge.models.identity import User

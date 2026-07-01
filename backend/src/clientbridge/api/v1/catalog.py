@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, Principal, require_role
-from clientbridge.core.pagination import Page, PageQuery
+from clientbridge.core.scoping import Page, PageQuery
 from clientbridge.schemas.catalog import ItemCreate, ItemOut, ItemUpdate
 from clientbridge.services.catalog_service import CatalogService
 

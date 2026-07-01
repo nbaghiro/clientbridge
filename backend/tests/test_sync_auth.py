@@ -9,8 +9,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 from jwt.algorithms import RSAAlgorithm
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.keys import sign_rs256
-from clientbridge.core.security import issue_access_token
+from clientbridge.core.security import issue_access_token, sign_rs256
 from tests.conftest import Factory
 
 

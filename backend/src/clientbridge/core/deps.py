@@ -10,12 +10,17 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import get_session
 from clientbridge.core.errors import AppError, Forbidden, Unauthorized
 from clientbridge.core.security import decode_jwt
-from clientbridge.integrations.email import EmailSender, get_email_sender
+from clientbridge.integrations.notifications import (
+    EmailSender,
+    PushSender,
+    SmsSender,
+    get_email_sender,
+    get_push_sender,
+    get_sms_sender,
+)
 from clientbridge.integrations.oauth import OAuthVerifier, get_oauth_verifier
 from clientbridge.integrations.payments import PaymentGateway, get_payment_gateway
-from clientbridge.integrations.push import PushSender, get_push_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
-from clientbridge.integrations.sms import SmsSender, get_sms_sender
 from clientbridge.models.identity import Staff, User
 
 DbSession = Annotated[AsyncSession, Depends(get_session)]
