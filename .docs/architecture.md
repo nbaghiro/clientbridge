@@ -59,14 +59,14 @@ Domains: `identity · crm · catalog · scheduling · billing · payments · mes
 ## Auth
 Owners/staff: **email + password + Google OAuth**. Clients **book without an account** (name/phone/email on the public page); a client may later be linked to a `user` if they self-serve. Sessions: JWT access + refresh (or server sessions — TBD in core/auth).
 
-## Payments (Canada-first)
+## Payments
 - **Stripe Connect** — cards / tap-to-pay, payouts, refunds.
 - **Interac e-Transfer** — request + **auto-match** by reference code (the differentiator).
 - **EFT / PAD** — pre-authorized debit for recurring (subscriptions / recurring plans).
 - Schema models methods/payments **provider-agnostically**; provider refs stored per row.
-- **No platform-held funds / no general ledger (v1).** Stripe Connect custodies each provider's balance and **pays out to their linked bank on a schedule** (daily/weekly) we configure — the platform never transmits funds (avoids FINTRAC MSB licensing). We **record** `payments` (fee/net/status) and **mirror** Stripe `payouts` via webhook. Balances come from Stripe; "GST/HST set aside" is a computed remittance figure (Σ tax on paid invoices), not segregated cash. Revisit a ledger only if we ever hold funds or ship in-app bookkeeping.
+- **No platform-held funds / no general ledger (v1).** Stripe Connect custodies each provider's balance and **pays out to their linked bank on a schedule** (daily/weekly) we configure — the platform never transmits funds (avoids money-transmitter licensing). We **record** `payments` (fee/net/status) and **mirror** Stripe `payouts` via webhook. Balances come from Stripe; "GST/HST set aside" is a computed remittance figure (Σ tax on paid invoices), not segregated cash. Revisit a ledger only if we ever hold funds or ship in-app bookkeeping.
 
-## Tax (Canada-first)
+## Tax
 GST/HST/PST/QST computed per **province** at the **line level**; the business stores its registration numbers (GST/HST, QST). Small-supplier (<$30k) mode hides tax until registered. See `tax_rates` + `billing`.
 
 ## v1 scope

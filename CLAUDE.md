@@ -1,13 +1,11 @@
 # Clientbridge — repo conventions
 
-Canada-first, bilingual (EN/FR) all-in-one business OS for solo/small service providers (a PocketSuite
-analog). Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + turbo: web +
-mobile) · `infra/` · `.docs/`.
+Bilingual (EN/FR) all-in-one business OS for solo/small service providers (a PocketSuite analog).
+Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + turbo: web + mobile) ·
+`infra/` · `.docs/`.
 
 ## Commits
 - **Single-line, concise, imperative subject. No body.** e.g. `Add Phase 1 auth: sessions, invites, OAuth`.
-- End every commit message with this trailer (after a blank line):
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
 - Commit or push **only when asked**.
 
 ## Backend — layer-first, domain-as-filename

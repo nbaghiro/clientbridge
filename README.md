@@ -2,19 +2,19 @@
 
 **The bridge between you and your clients.**
 
-Clientbridge is a Canada-first, bilingual (EN/FR) all-in-one business operating system for solo and
-small **service providers** — booking, invoicing, CAD-native payments (Interac e-Transfer, EFT/PAD,
-cards), GST/HST/QST tax, clients/CRM, messaging, packages & subscriptions, contracts, POS, and light
-team tools. It is a net-new product (not a fork) inspired by PocketSuite, rebuilt for Canada from the
-ground up — CRA-aware tax + reporting, Interac/EFT rails, and PIPEDA / Québec Law 25 / CASL / Bill 96
-compliance baked in.
+Clientbridge is a bilingual (EN/FR) all-in-one business operating system for solo and small **service
+providers** — booking, invoicing, payments (cards + Interac e-Transfer / EFT-PAD), sales tax,
+clients/CRM, messaging, packages & subscriptions, contracts, POS, and light team tools. It is a
+net-new product (not a fork) inspired by PocketSuite, built around a first-class configurable tax
+engine, modern payment rails, consent-aware messaging, and data-subject rights (export / delete /
+retention).
 
 ## Positioning
 
 - **Horizontal from day one** — a vertical-pluggable core; the same engine serves beauty, wellness,
   cleaning, trades, tutoring, pet care, photography and more.
-- **The moat is Canada** — the tax, payments, compliance, and bilingual surface that US incumbents
-  (Square, Vagaro, HoneyBook) structurally don't match.
+- **Depth where incumbents are shallow** — a first-class tax, payments, consent/compliance, and
+  bilingual surface that big horizontal tools (Square, Vagaro, HoneyBook) treat as afterthoughts.
 - **White space** — beauty/personal-care + multi-discipline wellness solos + cleaning, where Jane App
   (clinical health) and Jobber (home services) don't reach.
 
@@ -118,4 +118,4 @@ live services. Naming and theme (**Pewter**) are decided.
 
 ---
 
-🍁 Built for Canadian service pros.
+Built for independent service providers.

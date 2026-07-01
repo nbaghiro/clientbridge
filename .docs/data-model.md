@@ -42,7 +42,7 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 |---|---|
 | **clients** *(soft-del)* | `name`, `email`, `phone`, `user_id?`, `tags text[]`, `status`, `lifetime_value_cents`, `custom_fields jsonb` |
 | **subjects** | pet/vehicle/child/property: `client_id`, `kind`, `name`, `attributes jsonb` |
-| **consents** | CASL: `client_id`, `channel` (sms/email), `basis` (express/implied), `status`, `source`, `captured_at`, `expires_at` |
+| **consents** | consent tracking: `client_id`, `channel` (sms/email), `basis` (express/implied), `status`, `source`, `captured_at`, `expires_at` |
 | **notes** | generic: `parent_type`, `parent_id`, `author_user_id`, `body`, `pinned` |
 
 ## catalog (4)
@@ -83,7 +83,7 @@ forms = typed `form_fields` + jsonb answers · numbering via sequences.
 |---|---|
 | **threads** | inbox: `client_id`, `channel` (sms/email/chat), `last_message_at`, `unread_count`, `status` |
 | **messages** | `thread_id`, `direction` (in/out), `channel`, `sender_user_id?`, `body`, `status` (draft/sent/delivered/read/failed), `broadcast_id?`, `provider_ref`, `attachments jsonb` |
-| **broadcasts** | bulk SMS/email to a segment (CASL-gated): `name`, `channel`, `audience jsonb`, `status`, `scheduled_at` |
+| **broadcasts** | bulk SMS/email to a segment (consent-gated): `name`, `channel`, `audience jsonb`, `status`, `scheduled_at` |
 
 ## documents (5) — intake forms + contracts/e-sign
 | Table | Key columns |
