@@ -2,6 +2,7 @@ import {
     type PublicContract as PublicContractData,
     createPublicContractClient,
     signatureStatusIntent,
+    strings,
     usePublicContractSign,
 } from "@clientbridge/app-core";
 import type { FormEvent } from "react";
@@ -21,24 +22,26 @@ export function PublicContract() {
     const form = usePublicContractSign(contracts, token);
     const contract = form.contract;
 
-    if (form.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
+    if (form.status === "loading")
+        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
 
     if (form.status === "not-found")
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Contract not found</h1>
-                <p className="mt-2 text-sm text-muted">
-                    This signing link is invalid or has expired. Please check with the business that
-                    sent it to you.
-                </p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.publicContract.notFoundTitle}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.publicContract.notFoundBody}</p>
             </Frame>
         );
 
     if (form.status === "error" || contract === null)
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">Please try again later.</p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.common.somethingWrong}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
             </Frame>
         );
 
@@ -67,7 +70,7 @@ export function PublicContract() {
 
             <form onSubmit={sign} className="mt-6 space-y-3">
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Type your full name to sign
+                    {strings.publicContract.typeNameToSign}
                     <input
                         value={form.typedName}
                         onChange={(e) => {
@@ -78,7 +81,7 @@ export function PublicContract() {
                     />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Or upload a signature image
+                    {strings.publicContract.uploadSignature}
                     <input
                         type="file"
                         accept="image/*"
@@ -86,7 +89,9 @@ export function PublicContract() {
                         className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
                     />
                     {form.imageName !== "" ? (
-                        <span className="text-xs text-ok-fg">Attached: {form.imageName}</span>
+                        <span className="text-xs text-ok-fg">
+                            {strings.publicContract.attached(form.imageName)}
+                        </span>
                     ) : null}
                 </label>
                 {form.error !== null ? (
@@ -98,7 +103,7 @@ export function PublicContract() {
                         disabled={form.busy}
                         className="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Working…" : "Sign contract"}
+                        {form.busy ? strings.common.working : strings.publicContract.sign}
                     </button>
                     <button
                         type="button"
@@ -106,12 +111,10 @@ export function PublicContract() {
                         disabled={form.busy}
                         className="rounded-md border border-line px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
-                        Decline
+                        {strings.publicContract.decline}
                     </button>
                 </div>
-                <p className="text-xs text-muted">
-                    By typing your name and signing, you agree this is your electronic signature.
-                </p>
+                <p className="text-xs text-muted">{strings.publicContract.esignConsent}</p>
             </form>
         </Frame>
     );
@@ -131,7 +134,9 @@ function ResolvedState({ contract }: { contract: PublicContractData }) {
                 </span>
                 <div className="mt-4 flex items-center justify-center gap-2">
                     <h1 className="font-display text-xl font-bold text-ink">
-                        {signed ? "Contract signed" : "Contract declined"}
+                        {signed
+                            ? strings.publicContract.signedStatus
+                            : strings.publicContract.declinedStatus}
                     </h1>
                     <StatusPill
                         status={contract.status}

@@ -132,7 +132,10 @@ function PayoutItem({ row }: { row: PayoutRow }) {
             </span>
             <StatusPill status={row.status} intent={paymentStatusIntent(row.status)} />
             {row.bank_last4 !== null ? (
-                <span className="text-xs text-muted">to ····{row.bank_last4}</span>
+                <span className="text-xs text-muted">
+                    {strings.home.payoutToPrefix}
+                    {row.bank_last4}
+                </span>
             ) : null}
             {row.arrival_at !== null ? (
                 <span className="ml-auto shrink-0 text-xs text-muted">

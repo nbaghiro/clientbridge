@@ -1,4 +1,4 @@
-import { type UploadTarget, fileDownloadUrl, useFileUpload } from "@clientbridge/app-core";
+import { type UploadTarget, fileDownloadUrl, strings, useFileUpload } from "@clientbridge/app-core";
 import { type ChangeEvent, useRef, useState } from "react";
 
 import { api } from "../lib/api";
@@ -9,7 +9,7 @@ import { api } from "../lib/api";
 export function FileUploadField({
     target,
     accept,
-    label = "Upload file",
+    label = strings.fileUpload.uploadFile,
     onUploaded,
 }: {
     target: UploadTarget;
@@ -53,7 +53,7 @@ export function FileUploadField({
                     disabled={busy}
                     className="rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                 >
-                    {busy ? "Uploading…" : label}
+                    {busy ? strings.fileUpload.uploading : label}
                 </button>
                 {name !== null ? <span className="truncate text-sm text-muted">{name}</span> : null}
             </div>
@@ -63,7 +63,7 @@ export function FileUploadField({
                     onClick={openDownload}
                     className="text-sm font-medium text-accent hover:underline"
                 >
-                    View uploaded file
+                    {strings.fileUpload.viewUploadedFile}
                 </button>
             ) : null}
             {error !== null ? <p className="text-sm text-danger">{error}</p> : null}

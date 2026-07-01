@@ -1,4 +1,4 @@
-import { useAsyncAction } from "@clientbridge/app-core";
+import { strings, useAsyncAction } from "@clientbridge/app-core";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
 import { type FormEvent, useMemo } from "react";
@@ -36,25 +36,19 @@ export function CardConfirm({
         if (onCancel !== undefined)
             return (
                 <div className="mt-3 rounded-md border border-line bg-bg p-4">
-                    <p className="text-sm text-danger">
-                        Card payments aren’t configured. Charge a saved card instead.
-                    </p>
+                    <p className="text-sm text-danger">{strings.card.notConfiguredSavedCard}</p>
                     <div className="mt-3 flex justify-end">
                         <button
                             type="button"
                             onClick={onCancel}
                             className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
                         >
-                            Back
+                            {strings.card.back}
                         </button>
                     </div>
                 </div>
             );
-        return (
-            <p className="text-sm text-danger-fg">
-                Card payments aren't configured. Please contact the business.
-            </p>
-        );
+        return <p className="text-sm text-danger-fg">{strings.card.notConfiguredContact}</p>;
     }
 
     const elements = (
@@ -89,12 +83,12 @@ function CardForm({
             async () => {
                 const result = await stripe.confirmPayment({ elements, redirect: "if_required" });
                 if (result.error) {
-                    setError(result.error.message ?? "Payment failed. Please try again.");
+                    setError(result.error.message ?? strings.card.paymentFailed);
                     return;
                 }
                 onPaid();
             },
-            { errorMessage: "Payment failed. Please try again." },
+            { errorMessage: strings.card.paymentFailed },
         );
     };
 
@@ -112,10 +106,10 @@ function CardForm({
                         onClick={onCancel}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button type="submit" disabled={busy || !stripe} className={submitClass}>
-                        {busy ? "Charging…" : `Charge ${amountLabel}`}
+                        {busy ? strings.card.charging : strings.card.charge(amountLabel)}
                     </button>
                 </div>
             ) : (
@@ -124,7 +118,7 @@ function CardForm({
                     disabled={busy || !stripe}
                     className={`w-full ${submitClass}`}
                 >
-                    {busy ? "Working…" : `Pay ${amountLabel}`}
+                    {busy ? strings.common.working : strings.card.pay(amountLabel)}
                 </button>
             )}
         </form>

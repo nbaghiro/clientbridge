@@ -93,7 +93,7 @@ export function HomeScreen() {
                         ]}
                     />
                     <Text style={styles.status}>
-                        PowerSync · {connected ? "connected" : "offline"}
+                        PowerSync · {connected ? strings.home.connected : strings.home.offline}
                     </Text>
                 </View>
 
@@ -231,7 +231,10 @@ function PayoutItem({ row, divider }: { row: PayoutRow; divider: boolean }) {
             <Text style={styles.amount}>{formatMoneyWithCurrency(row.amount_cents, "CAD")}</Text>
             <StatusBadge status={row.status} intent={paymentStatusIntent(row.status)} />
             {row.bank_last4 !== null ? (
-                <Text style={styles.meta}>to ····{row.bank_last4}</Text>
+                <Text style={styles.meta}>
+                    {strings.home.payoutToPrefix}
+                    {row.bank_last4}
+                </Text>
             ) : null}
             {row.arrival_at !== null ? (
                 <Text style={styles.arrival}>{formatMonthDay(parseTimestamp(row.arrival_at))}</Text>

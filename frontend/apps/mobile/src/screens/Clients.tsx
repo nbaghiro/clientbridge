@@ -243,7 +243,7 @@ function AddMethodPanel({ flow }: { flow: AddPaymentMethod }) {
                 <Text style={styles.setupTitle}>{strings.clients.authorizePad}</Text>
                 <Text style={styles.setupNote}>{strings.clients.padNotWired}</Text>
                 <Text style={styles.setupSecret} numberOfLines={1}>
-                    SetupIntent: {intent.client_secret}
+                    {strings.clients.setupIntentLabel} {intent.client_secret}
                 </Text>
                 <View style={styles.setupActions}>
                     <Pressable style={styles.cancel} onPress={flow.cancel}>

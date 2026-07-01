@@ -1,3 +1,4 @@
+import { strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { type ReactElement, useState } from "react";
@@ -73,7 +74,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     }}
                 >
                     <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-                        <Text style={styles.sheetTitle}>Create</Text>
+                        <Text style={styles.sheetTitle}>{strings.nav.createMenu}</Text>
                         <Pressable
                             style={styles.menuRow}
                             onPress={() => {
@@ -81,7 +82,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <IconClients size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>New client</Text>
+                            <Text style={styles.menuText}>{strings.nav.newClient}</Text>
                         </Pressable>
                         <Pressable
                             style={styles.menuRow}
@@ -91,7 +92,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <IconCalendar size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>New booking</Text>
+                            <Text style={styles.menuText}>{strings.nav.newBooking}</Text>
                         </Pressable>
                         <Pressable
                             style={styles.menuRow}
@@ -100,7 +101,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <IconInbox size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>Invoices</Text>
+                            <Text style={styles.menuText}>{strings.nav.invoices}</Text>
                         </Pressable>
                         <Pressable
                             style={styles.menuRow}
@@ -109,7 +110,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <IconPos size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>New sale</Text>
+                            <Text style={styles.menuText}>{strings.nav.newSale}</Text>
                         </Pressable>
                     </View>
                 </Pressable>

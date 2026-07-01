@@ -1,4 +1,9 @@
-import { type AddPaymentMethod, useAsyncAction, useStripeAccountId } from "@clientbridge/app-core";
+import {
+    type AddPaymentMethod,
+    strings,
+    useAsyncAction,
+    useStripeAccountId,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import {
     CardField,
@@ -128,13 +133,11 @@ export function CardSetupConfirm({ flow }: { flow: AddPaymentMethod }) {
     if (stripePublishableKey.length === 0) {
         return (
             <View style={styles.box}>
-                <Text style={styles.title}>Add card</Text>
-                <Text style={styles.note}>
-                    Card entry needs the native Stripe SDK (not wired in this build).
-                </Text>
+                <Text style={styles.title}>{strings.card.addCard}</Text>
+                <Text style={styles.note}>{strings.card.entryNotWired}</Text>
                 <View style={styles.actions}>
                     <Pressable style={styles.cancel} onPress={flow.cancel}>
-                        <Text style={styles.cancelText}>Cancel</Text>
+                        <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                     </Pressable>
                 </View>
             </View>
@@ -158,19 +161,19 @@ function SetupForm({ flow, clientSecret }: { flow: AddPaymentMethod; clientSecre
             },
             {
                 onSuccess: flow.complete,
-                errorMessage: "Couldn’t save the card. Please check the details and try again.",
+                errorMessage: strings.card.saveError,
             },
         );
     };
 
     return (
         <View style={styles.box}>
-            <Text style={styles.title}>Add card</Text>
+            <Text style={styles.title}>{strings.card.addCard}</Text>
             <CardEntry onReady={setReady} />
             {error !== null ? <Text style={styles.error}>{error}</Text> : null}
             <View style={styles.actions}>
                 <Pressable style={styles.cancel} onPress={flow.cancel} disabled={busy}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                 </Pressable>
                 <Pressable
                     style={[styles.save, (!ready || busy) && styles.disabled]}
@@ -180,7 +183,7 @@ function SetupForm({ flow, clientSecret }: { flow: AddPaymentMethod; clientSecre
                     {busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>Save card</Text>
+                        <Text style={styles.saveText}>{strings.card.saveCard}</Text>
                     )}
                 </Pressable>
             </View>
