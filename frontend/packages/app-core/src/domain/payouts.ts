@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
+import { strings } from "../strings";
 
 export interface AllocationRow {
     id: string;
@@ -135,13 +136,13 @@ export function useAllocationActions(
     const approve = (): void => {
         void run(() => approveAllocation(api, row.id), {
             onSuccess: () => onDone?.(),
-            errorMessage: "Couldn't approve this payout. Please try again.",
+            errorMessage: strings.payouts.approveError,
         });
     };
     const pay = (): void => {
         void run(() => payAllocation(api, row.id), {
             onSuccess: () => onDone?.(),
-            errorMessage: "Couldn't mark this payout paid. Please try again.",
+            errorMessage: strings.payouts.markPaidError,
         });
     };
 

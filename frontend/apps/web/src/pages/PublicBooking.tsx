@@ -9,6 +9,7 @@ import {
     formatMoneyWithCurrency,
     formatTime,
     parseTimestamp,
+    strings,
     usePublicBookingForm,
 } from "@clientbridge/app-core";
 import { type FormEvent, useState } from "react";
@@ -27,23 +28,26 @@ export function PublicBooking() {
     const page = form.page;
     const service = form.service;
 
-    if (form.status === "loading") return <Frame>{<Centered>Loading…</Centered>}</Frame>;
+    if (form.status === "loading")
+        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
 
     if (form.status === "not-found")
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Booking page not found</h1>
-                <p className="mt-2 text-sm text-muted">
-                    This link is invalid or the business isn't accepting online bookings right now.
-                </p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.publicBooking.notFoundTitle}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.publicBooking.notFoundBody}</p>
             </Frame>
         );
 
     if (form.status === "error" || page === null)
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Something went wrong</h1>
-                <p className="mt-2 text-sm text-muted">Please try again later.</p>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.common.somethingWrong}
+                </h1>
+                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
             </Frame>
         );
 
@@ -57,11 +61,11 @@ export function PublicBooking() {
 
     return (
         <Frame>
-            <p className="text-sm text-muted">Book an appointment with</p>
+            <p className="text-sm text-muted">{strings.publicBooking.bookWith}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">{page.business_name}</h1>
 
             <form onSubmit={submit} className="mt-6 space-y-5">
-                <Labeled label="Service">
+                <Labeled label={strings.publicBooking.service}>
                     <select
                         value={form.itemId}
                         onChange={(e) => {
@@ -69,7 +73,7 @@ export function PublicBooking() {
                         }}
                         className={field}
                     >
-                        <option value="">Select a service</option>
+                        <option value="">{strings.publicBooking.selectService}</option>
                         {page.services.map((s) => (
                             <option key={s.id} value={s.id}>
                                 {serviceLabel(s)}
@@ -80,7 +84,7 @@ export function PublicBooking() {
 
                 {service !== null ? (
                     <>
-                        <Labeled label="With">
+                        <Labeled label={strings.publicBooking.with}>
                             <select
                                 value={form.staffId}
                                 onChange={(e) => {
@@ -88,7 +92,7 @@ export function PublicBooking() {
                                 }}
                                 className={field}
                             >
-                                <option value="">Select a team member</option>
+                                <option value="">{strings.publicBooking.selectStaff}</option>
                                 {page.staff.map((st) => (
                                     <option key={st.id} value={st.id}>
                                         {staffLabel(st)}
@@ -97,7 +101,7 @@ export function PublicBooking() {
                             </select>
                         </Labeled>
 
-                        <Labeled label="Date">
+                        <Labeled label={strings.publicBooking.date}>
                             <input
                                 type="date"
                                 value={form.date}
@@ -125,49 +129,47 @@ export function PublicBooking() {
 
                 {form.startsAt !== "" && service !== null ? (
                     <div className="space-y-3 border-t border-line pt-4">
-                        <Labeled label="Your name">
+                        <Labeled label={strings.publicBooking.yourName}>
                             <input
                                 value={form.name}
                                 onChange={(e) => {
                                     form.setName(e.target.value);
                                 }}
-                                placeholder="Full name"
+                                placeholder={strings.publicBooking.fullNamePlaceholder}
                                 className={field}
                             />
                         </Labeled>
-                        <Labeled label="Email">
+                        <Labeled label={strings.publicBooking.email}>
                             <input
                                 value={form.email}
                                 onChange={(e) => {
                                     form.setEmail(e.target.value);
                                 }}
                                 inputMode="email"
-                                placeholder="you@example.com"
+                                placeholder={strings.publicBooking.emailPlaceholder}
                                 className={field}
                             />
                         </Labeled>
-                        <Labeled label="Phone">
+                        <Labeled label={strings.publicBooking.phone}>
                             <input
                                 value={form.phone}
                                 onChange={(e) => {
                                     form.setPhone(e.target.value);
                                 }}
                                 inputMode="tel"
-                                placeholder="(555) 555-5555"
+                                placeholder={strings.publicBooking.phonePlaceholder}
                                 className={field}
                             />
                         </Labeled>
-                        <p className="text-xs text-muted">
-                            Add an email or phone so the business can reach you.
-                        </p>
+                        <p className="text-xs text-muted">{strings.publicBooking.reachYouNote}</p>
                         {service.deposit_required ? (
                             <p className="rounded-md bg-accent-weak px-3 py-2 text-xs text-accent-strong">
-                                A deposit of{" "}
-                                {formatMoneyWithCurrency(
-                                    service.deposit_amount_cents,
-                                    service.currency,
-                                )}{" "}
-                                is required to confirm this booking.
+                                {strings.publicBooking.depositRequired(
+                                    formatMoneyWithCurrency(
+                                        service.deposit_amount_cents,
+                                        service.currency,
+                                    ),
+                                )}
                             </p>
                         ) : null}
 
@@ -176,7 +178,9 @@ export function PublicBooking() {
                             disabled={form.busy || !form.canBook}
                             className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {form.busy ? "Booking…" : "Confirm booking"}
+                            {form.busy
+                                ? strings.publicBooking.booking
+                                : strings.publicBooking.confirmBooking}
                         </button>
                     </div>
                 ) : null}
@@ -191,12 +195,13 @@ export function PublicBooking() {
 
 function serviceLabel(s: PublicService): string {
     const price = formatMoneyWithCurrency(s.price_cents, s.currency);
-    const mins = s.duration_min !== null ? ` · ${s.duration_min} min` : "";
+    const mins =
+        s.duration_min !== null ? strings.publicBooking.durationSuffix(s.duration_min) : "";
     return `${s.name} — ${price}${mins}`;
 }
 
 function staffLabel(st: PublicStaff): string {
-    return st.name ?? st.title ?? "Any available";
+    return st.name ?? st.title ?? strings.publicBooking.anyAvailable;
 }
 
 function Slots({
@@ -212,13 +217,15 @@ function Slots({
 }) {
     return (
         <div>
-            <p className="mb-2 text-sm font-medium text-ink-soft">Open times</p>
+            <p className="mb-2 text-sm font-medium text-ink-soft">
+                {strings.publicBooking.openTimes}
+            </p>
             {error !== null ? (
                 <p className="text-sm text-danger-fg">{error}</p>
             ) : slots === null ? (
-                <p className="text-sm text-muted">Loading times…</p>
+                <p className="text-sm text-muted">{strings.publicBooking.loadingTimes}</p>
             ) : slots.length === 0 ? (
-                <p className="text-sm text-muted">No open times that day. Try another date.</p>
+                <p className="text-sm text-muted">{strings.publicBooking.noOpenTimes}</p>
             ) : (
                 <div className="grid grid-cols-3 gap-2">
                     {slots.map((slot) => {
@@ -262,13 +269,14 @@ function BookedState({
         const amount =
             service !== null
                 ? formatMoneyWithCurrency(service.deposit_amount_cents, service.currency)
-                : "the deposit";
+                : strings.publicBooking.theDeposit;
         return (
             <Frame>
-                <h1 className="font-display text-xl font-bold text-ink">Hold your spot</h1>
+                <h1 className="font-display text-xl font-bold text-ink">
+                    {strings.publicBooking.holdSpotTitle}
+                </h1>
                 <p className="mt-2 text-sm text-muted">
-                    Your time with {page.business_name} is reserved. Pay the {amount} deposit to
-                    confirm it.
+                    {strings.publicBooking.holdSpotBody(page.business_name, amount)}
                 </p>
                 <div className="mt-5">
                     <CardConfirm
@@ -290,15 +298,15 @@ function BookedState({
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓
                 </span>
-                <h1 className="mt-4 font-display text-xl font-bold text-ink">You're booked</h1>
+                <h1 className="mt-4 font-display text-xl font-bold text-ink">
+                    {strings.publicBooking.bookedTitle}
+                </h1>
                 <p className="mt-2 text-sm text-muted">
-                    Your appointment with {page.business_name} is confirmed. They'll be in touch
-                    with any details.
+                    {strings.publicBooking.bookedBody(page.business_name)}
                 </p>
                 {result.deposit_client_secret !== null && result.stripe_account_id === null ? (
                     <p className="mt-4 rounded-md bg-accent-weak px-3 py-2 text-sm text-accent-strong">
-                        A deposit is required to hold this booking — a secure payment link will
-                        follow by email or text.
+                        {strings.publicBooking.depositLinkNote}
                     </p>
                 ) : null}
             </div>

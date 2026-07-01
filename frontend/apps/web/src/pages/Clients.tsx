@@ -24,6 +24,7 @@ import {
     savedCardLabel,
     sessionsRemaining,
     setDefaultCard,
+    strings,
     subscriptionPlans,
     subscriptionStatusIntent,
     useAddPaymentMethod,
@@ -64,8 +65,10 @@ export function Clients() {
         <div className="mx-auto max-w-5xl px-8 py-8">
             <header className="flex items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-2xl font-bold">Clients</h1>
-                    <p className="mt-0.5 text-sm text-muted">{clients.length} total</p>
+                    <h1 className="font-display text-2xl font-bold">{strings.clients.title}</h1>
+                    <p className="mt-0.5 text-sm text-muted">
+                        {strings.clients.total(clients.length)}
+                    </p>
                 </div>
                 <button
                     type="button"
@@ -74,7 +77,7 @@ export function Clients() {
                     }}
                     className="flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                 >
-                    <IconPlus className="h-4 w-4" /> Add client
+                    <IconPlus className="h-4 w-4" /> {strings.clients.add}
                 </button>
             </header>
 
@@ -85,7 +88,7 @@ export function Clients() {
                     onChange={(e) => {
                         setQ(e.target.value);
                     }}
-                    placeholder="Search clients…"
+                    placeholder={strings.clients.searchPlaceholder}
                     className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
                 />
             </div>
@@ -94,10 +97,12 @@ export function Clients() {
                 <table className="w-full text-sm">
                     <thead>
                         <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">Name</th>
-                            <th className="px-4 py-3 font-semibold">Phone</th>
-                            <th className="px-4 py-3 font-semibold">Status</th>
-                            <th className="px-4 py-3 text-right font-semibold">Lifetime</th>
+                            <th className="px-4 py-3 font-semibold">{strings.clients.colName}</th>
+                            <th className="px-4 py-3 font-semibold">{strings.clients.colPhone}</th>
+                            <th className="px-4 py-3 font-semibold">{strings.clients.colStatus}</th>
+                            <th className="px-4 py-3 text-right font-semibold">
+                                {strings.clients.colLifetime}
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -122,7 +127,9 @@ export function Clients() {
                                         </div>
                                     </div>
                                 </td>
-                                <td className="px-4 py-3 text-ink-soft">{c.phone ?? "—"}</td>
+                                <td className="px-4 py-3 text-ink-soft">
+                                    {c.phone ?? strings.clients.dash}
+                                </td>
                                 <td className="px-4 py-3">
                                     <StatusPill
                                         status={c.status}
@@ -140,7 +147,7 @@ export function Clients() {
                                     colSpan={4}
                                     className="px-4 py-12 text-center text-sm text-muted"
                                 >
-                                    {q ? "No clients match your search." : "No clients yet."}
+                                    {q ? strings.clients.emptySearch : strings.clients.empty}
                                 </td>
                             </tr>
                         ) : null}
@@ -193,7 +200,7 @@ function ClientDetailModal({ client, onClose }: { client: ClientRow | null; onCl
                                 {client.name}
                             </h2>
                             <p className="mt-0.5 text-sm text-muted">
-                                {client.email ?? client.phone ?? "—"}
+                                {client.email ?? client.phone ?? strings.clients.dash}
                             </p>
                         </div>
                     </div>
@@ -207,10 +214,7 @@ function ClientDetailModal({ client, onClose }: { client: ClientRow | null; onCl
                             <PackagesSection clientId={client.id} />
                         </>
                     ) : (
-                        <p className="text-sm text-muted">
-                            Only owners and admins can manage payment methods, subscriptions, and
-                            packages.
-                        </p>
+                        <p className="text-sm text-muted">{strings.clients.manageRestricted}</p>
                     )}
                 </div>
                 <div className="flex justify-end border-t border-line px-6 py-4">
@@ -219,7 +223,7 @@ function ClientDetailModal({ client, onClose }: { client: ClientRow | null; onCl
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                     >
-                        Close
+                        {strings.common.close}
                     </button>
                 </div>
             </div>
@@ -234,10 +238,10 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
     return (
         <section>
             <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Payment methods
+                {strings.clients.paymentMethods}
             </h3>
             {cards.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">No saved payment methods yet.</p>
+                <p className="mt-2 text-sm text-muted">{strings.clients.noPaymentMethods}</p>
             ) : (
                 <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
                     {cards.map((card) => (
@@ -258,7 +262,9 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
                         }}
                         className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
-                        {flow.busy && flow.kind === "card" ? "Starting…" : "Add card"}
+                        {flow.busy && flow.kind === "card"
+                            ? strings.clients.starting
+                            : strings.clients.addCard}
                     </button>
                     <button
                         type="button"
@@ -269,8 +275,8 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
                         className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
                         {flow.busy && flow.kind === "bank"
-                            ? "Starting…"
-                            : "Add bank (pre-authorized debit)"}
+                            ? strings.clients.starting
+                            : strings.clients.addBankWeb}
                     </button>
                 </div>
             )}
@@ -285,14 +291,14 @@ function CardRow({ card }: { card: SavedCardRow }) {
 
     const makeDefault = (): void => {
         void run(() => setDefaultCard(api, card.id), {
-            errorMessage: "Couldn't set the default. Please try again.",
+            errorMessage: strings.clients.setDefaultError,
         });
     };
 
     const remove = (): void => {
-        if (!window.confirm("Remove this payment method?")) return;
+        if (!window.confirm(strings.clients.removeMethodConfirm)) return;
         void run(() => detachCard(api, card.id), {
-            errorMessage: "Couldn't remove this method. Please try again.",
+            errorMessage: strings.clients.removeMethodError,
         });
     };
 
@@ -302,7 +308,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
                 <span className="font-medium text-ink">{savedCardLabel(card)}</span>
                 {isDefault ? (
                     <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
-                        Default
+                        {strings.clients.defaultTag}
                     </span>
                 ) : null}
                 {isMandate(card) ? (
@@ -319,7 +325,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
                             onClick={makeDefault}
                             className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                         >
-                            Make default
+                            {strings.clients.makeDefault}
                         </button>
                     ) : null}
                     <button
@@ -328,7 +334,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
                         onClick={remove}
                         className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
-                        Remove
+                        {strings.clients.remove}
                     </button>
                 </div>
             </div>
@@ -351,11 +357,7 @@ function SetupCardPanel({ flow }: { flow: AddPaymentMethod }) {
 
     if (intent === null) return null;
     if (stripePromise === null)
-        return (
-            <p className="mt-3 text-sm text-danger">
-                Card setup isn’t configured. Please set a Stripe publishable key.
-            </p>
-        );
+        return <p className="mt-3 text-sm text-danger">{strings.clients.stripeNotConfigured}</p>;
 
     return (
         <div className="mt-3 rounded-md border border-line bg-bg p-4">
@@ -370,7 +372,7 @@ function SetupForm({ flow }: { flow: AddPaymentMethod }) {
     const stripe = useStripe();
     const elements = useElements();
     const { busy, error, setError, run } = useAsyncAction();
-    const noun = flow.kind === "bank" ? "bank account" : "card";
+    const noun = flow.kind === "bank" ? strings.clients.bankAccountNoun : strings.clients.cardNoun;
 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
@@ -379,12 +381,12 @@ function SetupForm({ flow }: { flow: AddPaymentMethod }) {
             async () => {
                 const result = await stripe.confirmSetup({ elements, redirect: "if_required" });
                 if (result.error) {
-                    setError(result.error.message ?? `Couldn’t save the ${noun}.`);
+                    setError(result.error.message ?? strings.clients.saveMethodShortError(noun));
                     return;
                 }
                 flow.complete();
             },
-            { errorMessage: `Couldn’t save the ${noun}. Please try again.` },
+            { errorMessage: strings.clients.saveMethodError(noun) },
         );
     };
 
@@ -398,14 +400,14 @@ function SetupForm({ flow }: { flow: AddPaymentMethod }) {
                     onClick={flow.cancel}
                     className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
                 >
-                    Cancel
+                    {strings.common.cancel}
                 </button>
                 <button
                     type="submit"
                     disabled={busy || !stripe}
                     className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                 >
-                    {busy ? "Saving…" : `Save ${noun}`}
+                    {busy ? strings.common.saving : strings.clients.saveMethod(noun)}
                 </button>
             </div>
         </form>
@@ -423,7 +425,7 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
         <section>
             <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Subscriptions
+                    {strings.clients.subscriptions}
                 </h3>
                 {!starting ? (
                     <button
@@ -433,13 +435,13 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
                         }}
                         className="text-sm font-medium text-accent transition hover:opacity-80"
                     >
-                        + Start subscription
+                        {strings.clients.startSubscriptionLink}
                     </button>
                 ) : null}
             </div>
 
             {subs.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">No subscriptions yet.</p>
+                <p className="mt-2 text-sm text-muted">{strings.clients.noSubscriptions}</p>
             ) : (
                 <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
                     {subs.map((sub) => (
@@ -468,9 +470,9 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
         sub.current_period_end !== null ? formatDate(parseTimestamp(sub.current_period_end)) : null;
 
     const cancel = (): void => {
-        if (!window.confirm("Cancel this subscription?")) return;
+        if (!window.confirm(strings.clients.cancelSubscriptionConfirm)) return;
         void run(() => cancelSubscription(api, sub.id), {
-            errorMessage: "Couldn't cancel this subscription. Please try again.",
+            errorMessage: strings.clients.cancelSubscriptionError,
         });
     };
 
@@ -478,9 +480,13 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
         <div className="px-3 py-2.5 text-sm">
             <div className="flex items-center gap-2">
                 <div className="min-w-0">
-                    <div className="font-medium text-ink">{sub.item_name ?? "Subscription"}</div>
+                    <div className="font-medium text-ink">
+                        {sub.item_name ?? strings.clients.subscriptionFallback}
+                    </div>
                     {nextCharge !== null ? (
-                        <div className="text-xs text-muted">Next charge {nextCharge}</div>
+                        <div className="text-xs text-muted">
+                            {strings.clients.nextCharge(nextCharge)}
+                        </div>
                     ) : null}
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -492,7 +498,7 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
                             onClick={cancel}
                             className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                         >
-                            {busy ? "Canceling…" : "Cancel"}
+                            {busy ? strings.clients.canceling : strings.common.cancel}
                         </button>
                     ) : null}
                 </div>
@@ -524,7 +530,7 @@ function StartSubscriptionForm({
             className="mt-3 space-y-3 rounded-md border border-line bg-bg p-4"
         >
             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                Plan
+                {strings.clients.planLabel}
                 <select
                     value={form.itemId}
                     onChange={(e) => {
@@ -532,7 +538,7 @@ function StartSubscriptionForm({
                     }}
                     className={field}
                 >
-                    <option value="">Select a subscription plan</option>
+                    <option value="">{strings.clients.selectPlan}</option>
                     {plans.map((p) => (
                         <option key={p.id} value={p.id}>
                             {p.name} — {formatMoney(p.price_cents)}
@@ -541,7 +547,7 @@ function StartSubscriptionForm({
                 </select>
             </label>
             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                Payment method
+                {strings.clients.paymentMethodLabel}
                 <select
                     value={form.paymentMethodId}
                     onChange={(e) => {
@@ -549,7 +555,7 @@ function StartSubscriptionForm({
                     }}
                     className={field}
                 >
-                    <option value="">Select a saved method</option>
+                    <option value="">{strings.clients.selectSavedMethod}</option>
                     {cards.map((card) => (
                         <option key={card.id} value={card.id}>
                             {savedCardLabel(card)}
@@ -558,10 +564,10 @@ function StartSubscriptionForm({
                 </select>
             </label>
             {plans.length === 0 ? (
-                <p className="text-xs text-muted">Add a subscription item in your catalog first.</p>
+                <p className="text-xs text-muted">{strings.clients.addSubscriptionItemFirst}</p>
             ) : null}
             {cards.length === 0 ? (
-                <p className="text-xs text-muted">Add a payment method above first.</p>
+                <p className="text-xs text-muted">{strings.clients.addPaymentMethodFirst}</p>
             ) : null}
             {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
             <div className="flex justify-end gap-2">
@@ -570,14 +576,14 @@ function StartSubscriptionForm({
                     onClick={onClose}
                     className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
                 >
-                    Cancel
+                    {strings.common.cancel}
                 </button>
                 <button
                     type="submit"
                     disabled={form.busy}
                     className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                 >
-                    {form.busy ? "Starting…" : "Start subscription"}
+                    {form.busy ? strings.clients.starting : strings.clients.startSubscription}
                 </button>
             </div>
         </form>
@@ -595,7 +601,7 @@ function PackagesSection({ clientId }: { clientId: string }) {
         <section>
             <div className="flex items-center justify-between">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Packages
+                    {strings.clients.packages}
                 </h3>
                 {!selling ? (
                     <button
@@ -605,13 +611,13 @@ function PackagesSection({ clientId }: { clientId: string }) {
                         }}
                         className="text-sm font-medium text-accent transition hover:opacity-80"
                     >
-                        + Sell package
+                        {strings.clients.sellPackageLink}
                     </button>
                 ) : null}
             </div>
 
             {packages.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">No packages yet.</p>
+                <p className="mt-2 text-sm text-muted">{strings.clients.noPackages}</p>
             ) : (
                 <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
                     {packages.map((pkg) => (
@@ -639,7 +645,7 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
 
     const consume = (): void => {
         void run(() => consumeSession(api, pkg.id), {
-            errorMessage: "Couldn't consume a session. Please try again.",
+            errorMessage: strings.clients.consumeSessionError,
         });
     };
 
@@ -647,9 +653,11 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
         <div className="px-3 py-2.5 text-sm">
             <div className="flex items-center gap-2">
                 <div className="min-w-0">
-                    <div className="font-medium text-ink">{pkg.item_name ?? "Package"}</div>
+                    <div className="font-medium text-ink">
+                        {pkg.item_name ?? strings.clients.packageFallback}
+                    </div>
                     <div className="text-xs text-muted">
-                        {sessionsRemaining(pkg)} of {pkg.sessions_total} sessions left
+                        {strings.clients.sessionsLeft(sessionsRemaining(pkg), pkg.sessions_total)}
                     </div>
                 </div>
                 <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -661,7 +669,7 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
                             onClick={consume}
                             className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                         >
-                            {busy ? "…" : "Consume session"}
+                            {busy ? strings.clients.busyEllipsis : strings.clients.consumeSession}
                         </button>
                     ) : null}
                 </div>
@@ -691,7 +699,11 @@ function SellPackageForm({
             <CardConfirm
                 clientSecret={form.clientSecret}
                 stripeAccount={stripeAccount}
-                amountLabel={offering ? formatMoney(offering.price_cents) : "package"}
+                amountLabel={
+                    offering
+                        ? formatMoney(offering.price_cents)
+                        : strings.clients.packageAmountFallback
+                }
                 onPaid={form.complete}
                 onCancel={form.cancel}
             />
@@ -707,7 +719,7 @@ function SellPackageForm({
             className="mt-3 space-y-3 rounded-md border border-line bg-bg p-4"
         >
             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                Package
+                {strings.clients.packageLabel}
                 <select
                     value={form.itemId}
                     onChange={(e) => {
@@ -715,7 +727,7 @@ function SellPackageForm({
                     }}
                     className={field}
                 >
-                    <option value="">Select a package</option>
+                    <option value="">{strings.clients.selectPackage}</option>
                     {offerings.map((o) => (
                         <option key={o.id} value={o.id}>
                             {o.name} — {formatMoney(o.price_cents)}
@@ -724,7 +736,7 @@ function SellPackageForm({
                 </select>
             </label>
             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                Payment
+                {strings.clients.paymentLabel}
                 <select
                     value={form.paymentMethodId}
                     onChange={(e) => {
@@ -732,7 +744,7 @@ function SellPackageForm({
                     }}
                     className={field}
                 >
-                    <option value="">Pay with a new card</option>
+                    <option value="">{strings.clients.payWithNewCard}</option>
                     {cards.map((card) => (
                         <option key={card.id} value={card.id}>
                             {savedCardLabel(card)}
@@ -741,7 +753,7 @@ function SellPackageForm({
                 </select>
             </label>
             {offerings.length === 0 ? (
-                <p className="text-xs text-muted">Add a package item in your catalog first.</p>
+                <p className="text-xs text-muted">{strings.clients.addPackageItemFirst}</p>
             ) : null}
             {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
             <div className="flex justify-end gap-2">
@@ -750,14 +762,14 @@ function SellPackageForm({
                     onClick={onClose}
                     className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
                 >
-                    Cancel
+                    {strings.common.cancel}
                 </button>
                 <button
                     type="submit"
                     disabled={form.busy}
                     className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                 >
-                    {form.busy ? "Selling…" : "Sell package"}
+                    {form.busy ? strings.clients.selling : strings.clients.sellPackage}
                 </button>
             </div>
         </form>
@@ -777,10 +789,12 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                 onSubmit={submit}
                 className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"
             >
-                <h2 className="font-display text-lg font-bold text-ink">Add client</h2>
+                <h2 className="font-display text-lg font-bold text-ink">
+                    {strings.clients.addClientTitle}
+                </h2>
                 <div className="mt-4 flex flex-col gap-3">
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Name
+                        {strings.clients.nameLabel}
                         <input
                             value={form.name}
                             onChange={(e) => {
@@ -791,7 +805,7 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                         />
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Email
+                        {strings.clients.emailLabel}
                         <input
                             type="email"
                             value={form.email}
@@ -802,7 +816,7 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                         />
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        Phone
+                        {strings.clients.phoneLabel}
                         <input
                             value={form.phone}
                             onChange={(e) => {
@@ -819,14 +833,14 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Adding…" : "Add client"}
+                        {form.busy ? strings.clients.adding : strings.clients.addClient}
                     </button>
                 </div>
             </form>

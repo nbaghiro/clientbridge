@@ -9,6 +9,7 @@ import {
     isRefundRow,
     parseTimestamp,
     paymentStatusIntent,
+    strings,
     useDashboardSummary,
     useRecentActivity,
     useRecentPayouts,
@@ -76,7 +77,7 @@ export function HomeScreen() {
             </View>
 
             <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-                <Text style={styles.heading}>Today</Text>
+                <Text style={styles.heading}>{strings.home.title}</Text>
 
                 {canManagePayments(role) ? <MoneySection /> : null}
 
@@ -102,7 +103,7 @@ export function HomeScreen() {
                         nav.navigate("Invoices");
                     }}
                 >
-                    <Text style={styles.linkLabel}>Invoices</Text>
+                    <Text style={styles.linkLabel}>{strings.home.invoices}</Text>
                     <IconChevron size={18} color={theme.colors.muted} />
                 </Pressable>
 
@@ -112,7 +113,7 @@ export function HomeScreen() {
                         nav.navigate("POS");
                     }}
                 >
-                    <Text style={styles.linkLabel}>Point of sale</Text>
+                    <Text style={styles.linkLabel}>{strings.home.pointOfSale}</Text>
                     <IconChevron size={18} color={theme.colors.muted} />
                 </Pressable>
 
@@ -152,32 +153,32 @@ function MoneySection() {
     return (
         <>
             {summary === "error" ? (
-                <Text style={styles.errorText}>Couldn’t load your numbers.</Text>
+                <Text style={styles.errorText}>{strings.home.numbersError}</Text>
             ) : (
                 <View style={styles.cards}>
                     <MoneyCard
-                        label="Today's revenue"
+                        label={strings.home.todayRevenue}
                         cents={summary === null ? null : summary.today_revenue_cents}
-                        caption="received today"
+                        caption={strings.home.todayRevenueCaption}
                         tone="success"
                     />
                     <MoneyCard
-                        label="Awaiting payment"
+                        label={strings.home.awaitingPayment}
                         cents={summary === null ? null : summary.awaiting_payment_cents}
-                        caption="outstanding invoices"
+                        caption={strings.home.awaitingPaymentCaption}
                     />
                     <MoneyCard
-                        label="GST/HST set aside"
+                        label={strings.home.gstSetAside}
                         cents={summary === null ? null : summary.gst_hst_set_aside_cents}
-                        caption="remit to CRA"
+                        caption={strings.home.gstSetAsideCaption}
                     />
                 </View>
             )}
 
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recent activity</Text>
+                <Text style={styles.sectionTitle}>{strings.home.recentActivity}</Text>
                 {activity.length === 0 ? (
-                    <Text style={styles.emptyText}>No payments yet.</Text>
+                    <Text style={styles.emptyText}>{strings.home.noPayments}</Text>
                 ) : (
                     <View style={styles.list}>
                         {activity.map((row, i) => (
@@ -188,9 +189,9 @@ function MoneySection() {
             </View>
 
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Payouts</Text>
+                <Text style={styles.sectionTitle}>{strings.home.payouts}</Text>
                 {payouts.length === 0 ? (
-                    <Text style={styles.emptyText}>No payouts yet.</Text>
+                    <Text style={styles.emptyText}>{strings.home.noPayouts}</Text>
                 ) : (
                     <View style={styles.list}>
                         {payouts.map((row, i) => (

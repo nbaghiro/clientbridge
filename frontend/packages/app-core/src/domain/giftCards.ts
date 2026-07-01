@@ -5,6 +5,7 @@ import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/primitives";
+import { strings } from "../strings";
 import { giftItems, useCatalogItems } from "./catalog";
 import { useInteractivePurchase } from "./payments";
 
@@ -80,8 +81,8 @@ export type GiftSaleMode = "preset" | "custom";
 
 export const GIFT_SALE_MODES: GiftSaleMode[] = ["preset", "custom"];
 export const GIFT_SALE_MODE_LABEL: Record<GiftSaleMode, string> = {
-    preset: "Preset card",
-    custom: "Custom amount",
+    preset: strings.giftCards.modePreset,
+    custom: strings.giftCards.modeCustom,
 };
 
 export interface GiftCardSaleForm {
@@ -136,19 +137,19 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
 
     const submit = (): void => {
         if (purchaserClientId === "") {
-            purchase.setError("Choose a purchaser");
+            purchase.setError(strings.giftCards.choosePurchaser);
             return;
         }
         let face: { item_id: string } | { amount_cents: number };
         if (mode === "preset") {
             if (itemId === "") {
-                purchase.setError("Choose a gift card");
+                purchase.setError(strings.giftCards.chooseGiftCard);
                 return;
             }
             face = { item_id: itemId };
         } else {
             if (faceAmountCents === null) {
-                purchase.setError("Enter a gift card amount");
+                purchase.setError(strings.giftCards.enterAmount);
                 return;
             }
             face = { amount_cents: faceAmountCents };
@@ -167,7 +168,7 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
                     idempotencyKey,
                 ),
             interactive,
-            "Couldn't sell this gift card. Please try again.",
+            strings.giftCards.sellError,
         );
     };
 
@@ -212,12 +213,12 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
 
     const submit = (): void => {
         if (code.trim() === "") {
-            setError("Enter a gift card code");
+            setError(strings.giftCards.enterCode);
             return;
         }
         const cents = Math.round(Number(amount) * 100);
         if (!Number.isFinite(cents) || cents <= 0) {
-            setError("Enter a redemption amount");
+            setError(strings.giftCards.enterRedeemAmount);
             return;
         }
         void run(
@@ -228,7 +229,7 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
                     setAmount("");
                     onDone();
                 },
-                errorMessage: "Couldn't redeem this gift card. Please try again.",
+                errorMessage: strings.giftCards.redeemError,
             },
         );
     };

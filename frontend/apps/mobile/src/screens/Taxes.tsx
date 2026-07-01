@@ -1,4 +1,4 @@
-import { useTaxRates } from "@clientbridge/app-core";
+import { strings, useTaxRates } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -9,13 +9,11 @@ export function TaxesScreen() {
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <Text style={styles.note}>
-                Sales tax applied to your invoices, based on your province.
-            </Text>
+            <Text style={styles.note}>{strings.taxes.subtitle}</Text>
             {rates === null ? (
                 <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
             ) : rates.length === 0 ? (
-                <Text style={styles.empty}>No tax rates set for your province yet.</Text>
+                <Text style={styles.empty}>{strings.taxes.empty}</Text>
             ) : (
                 <View style={styles.group}>
                     {rates.map((r, i) => (

@@ -24,6 +24,7 @@ import {
     savedCardLabel,
     sessionsRemaining,
     setDefaultCard,
+    strings,
     subscriptionPlans,
     subscriptionStatusIntent,
     useAddPaymentMethod,
@@ -73,8 +74,8 @@ export function ClientsScreen() {
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.title}>Clients</Text>
-                    <Text style={styles.count}>{clients.length} total</Text>
+                    <Text style={styles.title}>{strings.clients.title}</Text>
+                    <Text style={styles.count}>{strings.clients.total(clients.length)}</Text>
                 </View>
                 <Pressable
                     style={styles.add}
@@ -83,7 +84,7 @@ export function ClientsScreen() {
                     }}
                 >
                     <IconPlus size={16} color={theme.colors.accentInk} />
-                    <Text style={styles.addText}>Add</Text>
+                    <Text style={styles.addText}>{strings.clients.addShort}</Text>
                 </Pressable>
             </View>
 
@@ -93,7 +94,7 @@ export function ClientsScreen() {
                     style={styles.search}
                     value={q}
                     onChangeText={setQ}
-                    placeholder="Search clients…"
+                    placeholder={strings.clients.searchPlaceholder}
                     placeholderTextColor={theme.colors.muted}
                     autoCapitalize="none"
                 />
@@ -113,7 +114,7 @@ export function ClientsScreen() {
                 )}
                 ListEmptyComponent={
                     <Text style={styles.empty}>
-                        {q ? "No clients match your search." : "No clients yet."}
+                        {q ? strings.clients.emptySearch : strings.clients.empty}
                     </Text>
                 }
             />
@@ -146,7 +147,7 @@ function ClientRowView({ cl, onPress }: { cl: ClientRow; onPress: () => void }) 
                     {cl.name}
                 </Text>
                 <Text style={styles.rowSub} numberOfLines={1}>
-                    {cl.email ?? cl.phone ?? "—"}
+                    {cl.email ?? cl.phone ?? strings.clients.dash}
                 </Text>
             </View>
             <View style={styles.rowRight}>
@@ -178,7 +179,7 @@ function ClientDetailSheet({ client, onClose }: { client: ClientRow | null; onCl
                                             {client.name}
                                         </Text>
                                         <Text style={styles.rowSub} numberOfLines={1}>
-                                            {client.email ?? client.phone ?? "—"}
+                                            {client.email ?? client.phone ?? strings.clients.dash}
                                         </Text>
                                     </View>
                                 </View>
@@ -196,14 +197,13 @@ function ClientDetailSheet({ client, onClose }: { client: ClientRow | null; onCl
                                     </>
                                 ) : (
                                     <Text style={styles.note}>
-                                        Only owners and admins can manage payment methods,
-                                        subscriptions, and packages.
+                                        {strings.clients.manageRestricted}
                                     </Text>
                                 )}
                             </ScrollView>
                             <View style={styles.actions}>
                                 <Pressable style={styles.cancel} onPress={onClose}>
-                                    <Text style={styles.cancelText}>Close</Text>
+                                    <Text style={styles.cancelText}>{strings.common.close}</Text>
                                 </Pressable>
                             </View>
                         </>
@@ -220,9 +220,9 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
 
     return (
         <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Payment methods</Text>
+            <Text style={styles.sectionLabel}>{strings.clients.paymentMethods}</Text>
             {cards.length === 0 ? (
-                <Text style={styles.note}>No saved payment methods yet.</Text>
+                <Text style={styles.note}>{strings.clients.noPaymentMethods}</Text>
             ) : (
                 cards.map((card) => <CardRow key={card.id} card={card} />)
             )}
@@ -240,16 +240,14 @@ function AddMethodPanel({ flow }: { flow: AddPaymentMethod }) {
         if (flow.kind === "card") return <CardSetupConfirm flow={flow} />;
         return (
             <View style={styles.setupBox}>
-                <Text style={styles.setupTitle}>Authorize pre-authorized debit</Text>
-                <Text style={styles.setupNote}>
-                    Bank (PAD) entry needs the native Stripe SDK (not wired in this build).
-                </Text>
+                <Text style={styles.setupTitle}>{strings.clients.authorizePad}</Text>
+                <Text style={styles.setupNote}>{strings.clients.padNotWired}</Text>
                 <Text style={styles.setupSecret} numberOfLines={1}>
                     SetupIntent: {intent.client_secret}
                 </Text>
                 <View style={styles.setupActions}>
                     <Pressable style={styles.cancel} onPress={flow.cancel}>
-                        <Text style={styles.cancelText}>Cancel</Text>
+                        <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                     </Pressable>
                 </View>
             </View>
@@ -268,7 +266,7 @@ function AddMethodPanel({ flow }: { flow: AddPaymentMethod }) {
                 {flow.busy && flow.kind === "card" ? (
                     <ActivityIndicator color={c.inkSoft} />
                 ) : (
-                    <Text style={styles.outlineBtnText}>Add card</Text>
+                    <Text style={styles.outlineBtnText}>{strings.clients.addCard}</Text>
                 )}
             </Pressable>
             <Pressable
@@ -281,7 +279,7 @@ function AddMethodPanel({ flow }: { flow: AddPaymentMethod }) {
                 {flow.busy && flow.kind === "bank" ? (
                     <ActivityIndicator color={c.inkSoft} />
                 ) : (
-                    <Text style={styles.outlineBtnText}>Add bank (PAD)</Text>
+                    <Text style={styles.outlineBtnText}>{strings.clients.addBankShort}</Text>
                 )}
             </Pressable>
         </View>
@@ -294,19 +292,19 @@ function CardRow({ card }: { card: SavedCardRow }) {
 
     const makeDefault = (): void => {
         void run(() => setDefaultCard(api, card.id), {
-            errorMessage: "Couldn't set the default. Please try again.",
+            errorMessage: strings.clients.setDefaultError,
         });
     };
 
     const remove = (): void => {
-        Alert.alert("Remove payment method", "Remove this payment method?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(strings.clients.removeMethodTitle, strings.clients.removeMethodConfirm, [
+            { text: strings.common.cancel, style: "cancel" },
             {
-                text: "Remove",
+                text: strings.clients.remove,
                 style: "destructive",
                 onPress: () =>
                     void run(() => detachCard(api, card.id), {
-                        errorMessage: "Couldn't remove this method. Please try again.",
+                        errorMessage: strings.clients.removeMethodError,
                     }),
             },
         ]);
@@ -319,7 +317,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
                 <View style={styles.methodTags}>
                     {isDefault ? (
                         <View style={styles.defaultTag}>
-                            <Text style={styles.defaultTagText}>Default</Text>
+                            <Text style={styles.defaultTagText}>{strings.clients.defaultTag}</Text>
                         </View>
                     ) : null}
                     {isMandate(card) ? (
@@ -333,11 +331,11 @@ function CardRow({ card }: { card: SavedCardRow }) {
             <View style={styles.methodActions}>
                 {!isDefault ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={makeDefault}>
-                        <Text style={styles.miniBtnText}>Make default</Text>
+                        <Text style={styles.miniBtnText}>{strings.clients.makeDefault}</Text>
                     </Pressable>
                 ) : null}
                 <Pressable style={styles.miniBtn} disabled={busy} onPress={remove}>
-                    <Text style={styles.miniBtnText}>Remove</Text>
+                    <Text style={styles.miniBtnText}>{strings.clients.remove}</Text>
                 </Pressable>
             </View>
             {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -355,19 +353,19 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
     return (
         <View style={styles.section}>
             <View style={styles.sectionHead}>
-                <Text style={styles.sectionLabel}>Subscriptions</Text>
+                <Text style={styles.sectionLabel}>{strings.clients.subscriptions}</Text>
                 {!starting ? (
                     <Pressable
                         onPress={() => {
                             setStarting(true);
                         }}
                     >
-                        <Text style={styles.linkText}>+ Start subscription</Text>
+                        <Text style={styles.linkText}>{strings.clients.startSubscriptionLink}</Text>
                     </Pressable>
                 ) : null}
             </View>
             {subs.length === 0 ? (
-                <Text style={styles.note}>No subscriptions yet.</Text>
+                <Text style={styles.note}>{strings.clients.noSubscriptions}</Text>
             ) : (
                 subs.map((sub) => <SubscriptionRowItem key={sub.id} sub={sub} />)
             )}
@@ -391,32 +389,40 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
         sub.current_period_end !== null ? formatDate(parseTimestamp(sub.current_period_end)) : null;
 
     const cancel = (): void => {
-        Alert.alert("Cancel subscription", "Cancel this subscription?", [
-            { text: "Keep", style: "cancel" },
-            {
-                text: "Cancel subscription",
-                style: "destructive",
-                onPress: () =>
-                    void run(() => cancelSubscription(api, sub.id), {
-                        errorMessage: "Couldn't cancel this subscription. Please try again.",
-                    }),
-            },
-        ]);
+        Alert.alert(
+            strings.clients.cancelSubscriptionTitle,
+            strings.clients.cancelSubscriptionConfirm,
+            [
+                { text: strings.clients.keep, style: "cancel" },
+                {
+                    text: strings.clients.cancelSubscriptionTitle,
+                    style: "destructive",
+                    onPress: () =>
+                        void run(() => cancelSubscription(api, sub.id), {
+                            errorMessage: strings.clients.cancelSubscriptionError,
+                        }),
+                },
+            ],
+        );
     };
 
     return (
         <View style={styles.methodRow}>
             <View style={styles.methodMain}>
-                <Text style={styles.methodLabel}>{sub.item_name ?? "Subscription"}</Text>
+                <Text style={styles.methodLabel}>
+                    {sub.item_name ?? strings.clients.subscriptionFallback}
+                </Text>
                 {nextCharge !== null ? (
-                    <Text style={styles.rowSub}>Next charge {nextCharge}</Text>
+                    <Text style={styles.rowSub}>{strings.clients.nextCharge(nextCharge)}</Text>
                 ) : null}
             </View>
             <View style={styles.methodActions}>
                 <StatusBadge status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
                 {isCancelable(sub.status) ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={cancel}>
-                        <Text style={styles.miniBtnText}>{busy ? "…" : "Cancel"}</Text>
+                        <Text style={styles.miniBtnText}>
+                            {busy ? strings.clients.busyEllipsis : strings.common.cancel}
+                        </Text>
                     </Pressable>
                 ) : null}
             </View>
@@ -440,9 +446,9 @@ function StartSubscriptionForm({
 
     return (
         <View style={styles.setupBox}>
-            <Text style={styles.fieldLabel}>Plan</Text>
+            <Text style={styles.fieldLabel}>{strings.clients.planLabel}</Text>
             {plans.length === 0 ? (
-                <Text style={styles.note}>Add a subscription item in your catalog first.</Text>
+                <Text style={styles.note}>{strings.clients.addSubscriptionItemFirst}</Text>
             ) : (
                 <View style={styles.chipWrap}>
                     {plans.map((p) => (
@@ -463,9 +469,11 @@ function StartSubscriptionForm({
                 </View>
             )}
 
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Payment method</Text>
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                {strings.clients.paymentMethodLabel}
+            </Text>
             {cards.length === 0 ? (
-                <Text style={styles.note}>Add a payment method above first.</Text>
+                <Text style={styles.note}>{strings.clients.addPaymentMethodFirst}</Text>
             ) : (
                 <View style={styles.chipWrap}>
                     {cards.map((card) => (
@@ -492,13 +500,13 @@ function StartSubscriptionForm({
             {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
             <View style={styles.setupActions}>
                 <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                 </Pressable>
                 <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
                     {form.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>Start</Text>
+                        <Text style={styles.saveText}>{strings.clients.startShort}</Text>
                     )}
                 </Pressable>
             </View>
@@ -516,19 +524,19 @@ function PackagesSection({ clientId }: { clientId: string }) {
     return (
         <View style={styles.section}>
             <View style={styles.sectionHead}>
-                <Text style={styles.sectionLabel}>Packages</Text>
+                <Text style={styles.sectionLabel}>{strings.clients.packages}</Text>
                 {!selling ? (
                     <Pressable
                         onPress={() => {
                             setSelling(true);
                         }}
                     >
-                        <Text style={styles.linkText}>+ Sell package</Text>
+                        <Text style={styles.linkText}>{strings.clients.sellPackageLink}</Text>
                     </Pressable>
                 ) : null}
             </View>
             {packages.length === 0 ? (
-                <Text style={styles.note}>No packages yet.</Text>
+                <Text style={styles.note}>{strings.clients.noPackages}</Text>
             ) : (
                 packages.map((pkg) => <PackageRowItem key={pkg.id} pkg={pkg} />)
             )}
@@ -551,23 +559,27 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
 
     const consume = (): void => {
         void run(() => consumeSession(api, pkg.id), {
-            errorMessage: "Couldn't consume a session. Please try again.",
+            errorMessage: strings.clients.consumeSessionError,
         });
     };
 
     return (
         <View style={styles.methodRow}>
             <View style={styles.methodMain}>
-                <Text style={styles.methodLabel}>{pkg.item_name ?? "Package"}</Text>
+                <Text style={styles.methodLabel}>
+                    {pkg.item_name ?? strings.clients.packageFallback}
+                </Text>
                 <Text style={styles.rowSub}>
-                    {sessionsRemaining(pkg)} of {pkg.sessions_total} left
+                    {strings.clients.sessionsLeftShort(sessionsRemaining(pkg), pkg.sessions_total)}
                 </Text>
             </View>
             <View style={styles.methodActions}>
                 <StatusBadge status={pkg.status} intent={packageStatusIntent(pkg.status)} />
                 {canConsume(pkg) ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={consume}>
-                        <Text style={styles.miniBtnText}>{busy ? "…" : "Consume"}</Text>
+                        <Text style={styles.miniBtnText}>
+                            {busy ? strings.clients.busyEllipsis : strings.clients.consumeShort}
+                        </Text>
                     </Pressable>
                 ) : null}
             </View>
@@ -601,9 +613,9 @@ function SellPackageForm({
 
     return (
         <View style={styles.setupBox}>
-            <Text style={styles.fieldLabel}>Package</Text>
+            <Text style={styles.fieldLabel}>{strings.clients.packageLabel}</Text>
             {offerings.length === 0 ? (
-                <Text style={styles.note}>Add a package item in your catalog first.</Text>
+                <Text style={styles.note}>{strings.clients.addPackageItemFirst}</Text>
             ) : (
                 <View style={styles.chipWrap}>
                     {offerings.map((o) => (
@@ -624,7 +636,9 @@ function SellPackageForm({
                 </View>
             )}
 
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>Payment</Text>
+            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                {strings.clients.paymentLabel}
+            </Text>
             <View style={styles.chipWrap}>
                 <Pressable
                     style={[styles.chip, form.paymentMethodId === "" && styles.chipOn]}
@@ -635,7 +649,7 @@ function SellPackageForm({
                     <Text
                         style={[styles.chipText, form.paymentMethodId === "" && styles.chipTextOn]}
                     >
-                        New card
+                        {strings.clients.newCard}
                     </Text>
                 </Pressable>
                 {cards.map((card) => (
@@ -661,13 +675,13 @@ function SellPackageForm({
             {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
             <View style={styles.setupActions}>
                 <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                 </Pressable>
                 <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
                     {form.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>Sell</Text>
+                        <Text style={styles.saveText}>{strings.clients.sellShort}</Text>
                     )}
                 </Pressable>
             </View>
@@ -695,25 +709,29 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.modalBackdrop}>
                 <View style={styles.modal}>
-                    <Text style={styles.modalTitle}>Add client</Text>
+                    <Text style={styles.modalTitle}>{strings.clients.addClientTitle}</Text>
                     <ModalField
-                        label="Name"
+                        label={strings.clients.nameLabel}
                         value={form.name}
                         onChangeText={form.setName}
                         autoFocus
                     />
                     <ModalField
-                        label="Email"
+                        label={strings.clients.emailLabel}
                         value={form.email}
                         onChangeText={form.setEmail}
                         keyboardType="email-address"
                         autoCapitalize="none"
                     />
-                    <ModalField label="Phone" value={form.phone} onChangeText={form.setPhone} />
+                    <ModalField
+                        label={strings.clients.phoneLabel}
+                        value={form.phone}
+                        onChangeText={form.setPhone}
+                    />
                     {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
                     <View style={styles.modalActions}>
                         <Pressable style={styles.cancel} onPress={onClose}>
-                            <Text style={styles.cancelText}>Cancel</Text>
+                            <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                         </Pressable>
                         <Pressable
                             style={styles.save}
@@ -725,7 +743,7 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
                             {form.busy ? (
                                 <ActivityIndicator color={theme.colors.accentInk} />
                             ) : (
-                                <Text style={styles.saveText}>Add client</Text>
+                                <Text style={styles.saveText}>{strings.clients.addClient}</Text>
                             )}
                         </Pressable>
                     </View>

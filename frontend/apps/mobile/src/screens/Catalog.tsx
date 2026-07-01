@@ -3,6 +3,7 @@ import {
     KIND_LABEL,
     filterItems,
     formatMoney,
+    strings,
     useCatalogItems,
     useItemForm,
     useSearch,
@@ -37,7 +38,7 @@ export function CatalogScreen() {
                         style={styles.search}
                         value={q}
                         onChangeText={setQ}
-                        placeholder="Search catalog…"
+                        placeholder={strings.catalog.searchPlaceholder}
                         placeholderTextColor={theme.colors.muted}
                         autoCapitalize="none"
                     />
@@ -64,7 +65,9 @@ export function CatalogScreen() {
                             </Text>
                             <Text style={styles.rowSub}>
                                 {KIND_LABEL[item.kind] ?? item.kind}
-                                {item.duration_min ? ` · ${String(item.duration_min)} min` : ""}
+                                {item.duration_min
+                                    ? strings.catalog.durationSep(item.duration_min)
+                                    : ""}
                             </Text>
                         </View>
                         <Text style={styles.rowPrice}>{formatMoney(item.price_cents)}</Text>
@@ -72,7 +75,7 @@ export function CatalogScreen() {
                 )}
                 ListEmptyComponent={
                     <Text style={styles.empty}>
-                        {q ? "No items match your search." : "No catalog items yet."}
+                        {q ? strings.catalog.noMatch : strings.catalog.empty}
                     </Text>
                 }
             />
@@ -94,7 +97,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.backdrop}>
                 <View style={styles.modal}>
-                    <Text style={styles.modalTitle}>Add item</Text>
+                    <Text style={styles.modalTitle}>{strings.catalog.addItem}</Text>
                     <View style={styles.kindRow}>
                         {ITEM_KINDS.map((k) => (
                             <Pressable
@@ -122,7 +125,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                         style={styles.input}
                         value={form.name}
                         onChangeText={form.setName}
-                        placeholder="Name"
+                        placeholder={strings.catalog.name}
                         placeholderTextColor={theme.colors.muted}
                         autoFocus
                     />
@@ -131,7 +134,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                             style={[styles.input, styles.col]}
                             value={form.price}
                             onChangeText={form.setPrice}
-                            placeholder="Price ($)"
+                            placeholder={strings.catalog.priceLabel}
                             placeholderTextColor={theme.colors.muted}
                             keyboardType="decimal-pad"
                         />
@@ -139,7 +142,7 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                             style={[styles.input, styles.col]}
                             value={form.duration}
                             onChangeText={form.setDuration}
-                            placeholder="Duration (min)"
+                            placeholder={strings.catalog.durationLabel}
                             placeholderTextColor={theme.colors.muted}
                             keyboardType="number-pad"
                         />
@@ -147,13 +150,13 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
                     {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
                     <View style={styles.actions}>
                         <Pressable style={styles.cancel} onPress={onClose}>
-                            <Text style={styles.cancelText}>Cancel</Text>
+                            <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                         </Pressable>
                         <Pressable style={styles.save} onPress={form.submit} disabled={form.busy}>
                             {form.busy ? (
                                 <ActivityIndicator color={theme.colors.accentInk} />
                             ) : (
-                                <Text style={styles.saveText}>Add item</Text>
+                                <Text style={styles.saveText}>{strings.catalog.addItem}</Text>
                             )}
                         </Pressable>
                     </View>

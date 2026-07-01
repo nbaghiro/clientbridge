@@ -6,6 +6,7 @@ import {
     formatRelativeTime,
     reviewStatusIntent,
     roundedRating,
+    strings,
     useClients,
     useRequestReviewForm,
     useReviewActions,
@@ -28,7 +29,7 @@ export function ReviewsScreen() {
     if (!canManagePayments(role)) {
         return (
             <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>Reviews are available to owners and admins.</Text>
+                <Text style={styles.muted}>{strings.reviews.restrictedShort}</Text>
             </View>
         );
     }
@@ -49,17 +50,17 @@ function ReviewsBody() {
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <View style={styles.summary}>
                 {summary === null ? (
-                    <Text style={styles.muted}>Loading rating…</Text>
+                    <Text style={styles.muted}>{strings.reviews.loadingRating}</Text>
                 ) : summary === "error" ? (
-                    <Text style={styles.error}>Couldn't load your rating.</Text>
+                    <Text style={styles.error}>{strings.reviews.ratingLoadError}</Text>
                 ) : summary.count === 0 ? (
-                    <Text style={styles.muted}>No published reviews yet.</Text>
+                    <Text style={styles.muted}>{strings.reviews.noPublishedReviews}</Text>
                 ) : (
                     <>
                         <Text style={styles.average}>{formatAverageRating(summary.average)}</Text>
                         <Stars rating={roundedRating(summary.average)} />
                         <Text style={styles.muted}>
-                            {summary.count} published review{summary.count === 1 ? "" : "s"}
+                            {strings.reviews.publishedCount(summary.count)}
                         </Text>
                     </>
                 )}
@@ -71,7 +72,9 @@ function ReviewsBody() {
                     setRequesting((r) => !r);
                 }}
             >
-                <Text style={styles.requestText}>{requesting ? "Close" : "Request a review"}</Text>
+                <Text style={styles.requestText}>
+                    {requesting ? strings.common.close : strings.reviews.requestReviewLong}
+                </Text>
             </Pressable>
 
             {requesting ? (
@@ -83,7 +86,7 @@ function ReviewsBody() {
             ) : null}
 
             {reviews.length === 0 ? (
-                <Text style={styles.muted}>No reviews yet.</Text>
+                <Text style={styles.muted}>{strings.reviews.noReviews}</Text>
             ) : (
                 reviews.map((review) => (
                     <ReviewItem key={review.id} review={review} onDone={refreshSummary} />
@@ -115,7 +118,9 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
         <View style={styles.card}>
             <View style={styles.cardTop}>
                 <Stars rating={review.rating} />
-                <Text style={styles.client}>{review.client_name ?? "Client"}</Text>
+                <Text style={styles.client}>
+                    {review.client_name ?? strings.reviews.clientFallback}
+                </Text>
                 <Text style={styles.time}>{formatRelativeTime(review.created_at)}</Text>
                 <View style={styles.badge}>
                     <StatusBadge
@@ -129,7 +134,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
 
             {review.response !== null && !editing ? (
                 <View style={styles.reply}>
-                    <Text style={styles.replyLabel}>Your reply</Text>
+                    <Text style={styles.replyLabel}>{strings.reviews.yourReply}</Text>
                     <Text style={styles.replyText}>{review.response}</Text>
                 </View>
             ) : null}
@@ -139,7 +144,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                     <TextInput
                         value={reply}
                         onChangeText={setReply}
-                        placeholder="Write a public reply…"
+                        placeholder={strings.reviews.replyPlaceholder}
                         placeholderTextColor={c.muted}
                         multiline
                         style={styles.input}
@@ -152,7 +157,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                                 setEditing(false);
                             }}
                         >
-                            <Text style={styles.secondaryText}>Cancel</Text>
+                            <Text style={styles.secondaryText}>{strings.common.cancel}</Text>
                         </Pressable>
                         <Pressable
                             style={[styles.primaryBtn, busy && styles.btnBusy]}
@@ -163,7 +168,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             }}
                         >
                             <Text style={styles.primaryText}>
-                                {busy ? "Saving…" : "Post reply"}
+                                {busy ? strings.common.saving : strings.reviews.postReply}
                             </Text>
                         </Pressable>
                     </View>
@@ -177,7 +182,9 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                         }}
                     >
                         <Text style={styles.secondaryText}>
-                            {review.response !== null ? "Edit reply" : "Reply"}
+                            {review.response !== null
+                                ? strings.reviews.editReply
+                                : strings.reviews.reply}
                         </Text>
                     </Pressable>
                     {canPublish ? (
@@ -186,7 +193,9 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             disabled={busy}
                             onPress={publish}
                         >
-                            <Text style={styles.primaryText}>{busy ? "Working…" : "Publish"}</Text>
+                            <Text style={styles.primaryText}>
+                                {busy ? strings.common.working : strings.reviews.publish}
+                            </Text>
                         </Pressable>
                     ) : null}
                     {canHide ? (
@@ -195,7 +204,9 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             disabled={busy}
                             onPress={hide}
                         >
-                            <Text style={styles.secondaryText}>{busy ? "Working…" : "Hide"}</Text>
+                            <Text style={styles.secondaryText}>
+                                {busy ? strings.common.working : strings.reviews.hide}
+                            </Text>
                         </Pressable>
                     ) : null}
                 </View>
@@ -212,9 +223,9 @@ function RequestReview({ onClose }: { onClose: () => void }) {
 
     return (
         <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Request a review</Text>
+            <Text style={styles.panelTitle}>{strings.reviews.requestTitle}</Text>
             {clients.length === 0 ? (
-                <Text style={styles.muted}>Add a client first.</Text>
+                <Text style={styles.muted}>{strings.reviews.addClientFirst}</Text>
             ) : (
                 <View style={styles.chipWrap}>
                     {clients.map((cl) => (
@@ -243,7 +254,9 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                 disabled={form.busy}
                 onPress={form.submit}
             >
-                <Text style={styles.primaryText}>{form.busy ? "Sending…" : "Send request"}</Text>
+                <Text style={styles.primaryText}>
+                    {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
+                </Text>
             </Pressable>
         </View>
     );

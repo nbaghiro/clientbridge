@@ -1,4 +1,4 @@
-import { useLogin } from "@clientbridge/app-core";
+import { strings, useLogin } from "@clientbridge/app-core";
 import { type FormEvent } from "react";
 
 import { api } from "../lib/api";
@@ -29,25 +29,22 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 
                 <div className="relative">
                     <h2 className="font-display text-[2rem] font-bold leading-[1.15] tracking-tight">
-                        The bridge between you
+                        {strings.auth.heroHeadlineLine1}
                         <br />
-                        and your clients.
+                        {strings.auth.heroHeadlineLine2}
                     </h2>
                     <p className="mt-4 max-w-md text-[15px] leading-relaxed text-white/70">
-                        Bookings, invoices, payments, and messaging — synced to every device, online
-                        or off. Built for Canadian service pros.
+                        {strings.auth.heroSubtitle}
                     </p>
                     <div className="mt-8 flex flex-wrap gap-2">
-                        {["Scheduling", "Invoicing", "Payments", "GST/HST", "Bilingual"].map(
-                            (f) => (
-                                <span
-                                    key={f}
-                                    className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80"
-                                >
-                                    {f}
-                                </span>
-                            ),
-                        )}
+                        {strings.auth.heroFeatures.map((f) => (
+                            <span
+                                key={f}
+                                className="rounded-full border border-white/20 px-3 py-1 text-xs font-medium text-white/80"
+                            >
+                                {f}
+                            </span>
+                        ))}
                     </div>
                 </div>
             </aside>
@@ -62,12 +59,14 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                     </div>
 
                     <h1 className="font-display text-2xl font-bold text-ink">
-                        {login.mode === "signin" ? "Sign in" : "Create your account"}
+                        {login.mode === "signin"
+                            ? strings.auth.signInTitle
+                            : strings.auth.signUpTitle}
                     </h1>
                     <p className="mt-1 text-sm text-muted">
                         {login.mode === "signin"
-                            ? "Welcome back."
-                            : "Start running your practice in minutes."}
+                            ? strings.auth.signInSubtitle
+                            : strings.auth.signUpSubtitle}
                     </p>
 
                     <form
@@ -79,13 +78,13 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                     >
                         {login.mode === "signup" ? (
                             <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                                Name
+                                {strings.auth.name}
                                 <input
                                     value={login.name}
                                     onChange={(e) => {
                                         login.setName(e.target.value);
                                     }}
-                                    placeholder="Hannah Bauer"
+                                    placeholder={strings.auth.namePlaceholder}
                                     autoComplete="name"
                                     className={field}
                                 />
@@ -93,28 +92,28 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                         ) : null}
 
                         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            Email
+                            {strings.auth.email}
                             <input
                                 type="email"
                                 value={login.email}
                                 onChange={(e) => {
                                     login.setEmail(e.target.value);
                                 }}
-                                placeholder="you@example.com"
+                                placeholder={strings.auth.emailPlaceholder}
                                 autoComplete="email"
                                 className={field}
                             />
                         </label>
 
                         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            Password
+                            {strings.auth.password}
                             <input
                                 type="password"
                                 value={login.password}
                                 onChange={(e) => {
                                     login.setPassword(e.target.value);
                                 }}
-                                placeholder="••••••••"
+                                placeholder={strings.auth.passwordPlaceholder}
                                 autoComplete={
                                     login.mode === "signin" ? "current-password" : "new-password"
                                 }
@@ -133,17 +132,17 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                         >
                             {login.busy
                                 ? login.mode === "signin"
-                                    ? "Signing in…"
-                                    : "Creating account…"
+                                    ? strings.auth.signingIn
+                                    : strings.auth.creatingAccount
                                 : login.mode === "signin"
-                                  ? "Sign in"
-                                  : "Create account"}
+                                  ? strings.auth.signIn
+                                  : strings.auth.createAccount}
                         </button>
                     </form>
 
                     <div className="my-5 flex items-center gap-3 text-xs text-muted">
                         <span className="h-px flex-1 bg-line" />
-                        or
+                        {strings.auth.or}
                         <span className="h-px flex-1 bg-line" />
                     </div>
 
@@ -153,19 +152,19 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                         className="flex w-full items-center justify-center gap-2.5 rounded-md border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-bg"
                     >
                         <GoogleIcon className="h-5 w-5" />
-                        Continue with Google
+                        {strings.auth.continueWithGoogle}
                     </button>
 
                     <p className="mt-6 text-center text-sm text-muted">
-                        {login.mode === "signin"
-                            ? "New to Clientbridge?"
-                            : "Already have an account?"}{" "}
+                        {login.mode === "signin" ? strings.auth.newToApp : strings.auth.haveAccount}{" "}
                         <button
                             type="button"
                             onClick={login.flip}
                             className="font-semibold text-accent hover:underline"
                         >
-                            {login.mode === "signin" ? "Create an account" : "Sign in"}
+                            {login.mode === "signin"
+                                ? strings.auth.createAnAccount
+                                : strings.auth.signIn}
                         </button>
                     </p>
                 </div>

@@ -19,6 +19,7 @@ import {
     payLinkUrl,
     paymentStatusIntent,
     refundPayment,
+    strings,
     useAsyncAction,
     useClients,
     useDocForm,
@@ -72,9 +73,9 @@ export function InvoicesScreen() {
         <SafeAreaView style={styles.screen} edges={["top"]}>
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.title}>Billing</Text>
+                    <Text style={styles.title}>{strings.invoices.title}</Text>
                     <Text style={styles.count}>
-                        {invoices.length} invoices · {estimates.length} estimates
+                        {strings.invoices.countSummary(invoices.length, estimates.length)}
                     </Text>
                 </View>
                 <Pressable
@@ -84,7 +85,7 @@ export function InvoicesScreen() {
                     }}
                 >
                     <IconPlus size={16} color={c.accentInk} />
-                    <Text style={styles.addText}>New</Text>
+                    <Text style={styles.addText}>{strings.invoices.newShort}</Text>
                 </Pressable>
             </View>
 
@@ -108,7 +109,7 @@ export function InvoicesScreen() {
                     style={styles.search}
                     value={q}
                     onChangeText={setQ}
-                    placeholder={`Search ${tab}…`}
+                    placeholder={strings.invoices.searchPlaceholder(tab)}
                     placeholderTextColor={c.muted}
                     autoCapitalize="none"
                 />
@@ -127,7 +128,9 @@ export function InvoicesScreen() {
                     >
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName}>
-                                {item.number !== null ? `#${item.number}` : "Draft"}
+                                {item.number !== null
+                                    ? `#${item.number}`
+                                    : strings.invoices.draftRow}
                             </Text>
                             <Text style={styles.rowSub} numberOfLines={1}>
                                 {item.client_name ?? "—"}
@@ -148,7 +151,7 @@ export function InvoicesScreen() {
                 )}
                 ListEmptyComponent={
                     <Text style={styles.empty}>
-                        {q ? `No ${tab} match your search.` : `No ${tab} yet.`}
+                        {q ? strings.invoices.searchEmpty(tab) : strings.invoices.empty(tab)}
                     </Text>
                 }
             />
@@ -182,10 +185,10 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
             <Pressable style={styles.backdrop} onPress={onClose}>
                 <View style={styles.sheet} onStartShouldSetResponder={() => true}>
                     <Text style={styles.sheetTitle}>
-                        New {kind === "invoices" ? "invoice" : "estimate"}
+                        {strings.invoices.newButton(kind === "invoices" ? "invoice" : "estimate")}
                     </Text>
                     <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
-                        <Text style={styles.sectionLabel}>Client</Text>
+                        <Text style={styles.sectionLabel}>{strings.invoices.clientLabel}</Text>
                         <ScrollView
                             horizontal
                             showsHorizontalScrollIndicator={false}
@@ -211,7 +214,9 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                             ))}
                         </ScrollView>
 
-                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>Lines</Text>
+                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>
+                            {strings.invoices.linesLabel}
+                        </Text>
                         {form.lines.map((l) => (
                             <View key={l.key} style={styles.lineEdit}>
                                 <TextInput
@@ -220,7 +225,7 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                     onChangeText={(v) => {
                                         form.setLine(l.key, { description: v });
                                     }}
-                                    placeholder="Service or item"
+                                    placeholder={strings.invoices.lineDescriptionPlaceholder}
                                     placeholderTextColor={c.muted}
                                 />
                                 <TextInput
@@ -230,7 +235,7 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                         form.setLine(l.key, { quantity: v });
                                     }}
                                     keyboardType="decimal-pad"
-                                    placeholder="Qty"
+                                    placeholder={strings.invoices.lineQty}
                                     placeholderTextColor={c.muted}
                                 />
                                 <TextInput
@@ -240,7 +245,7 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                         form.setLine(l.key, { unit: v });
                                     }}
                                     keyboardType="decimal-pad"
-                                    placeholder="0.00"
+                                    placeholder={strings.invoices.linePricePlaceholder}
                                     placeholderTextColor={c.muted}
                                 />
                                 <Pressable
@@ -259,16 +264,18 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                 form.addLine();
                             }}
                         >
-                            <Text style={styles.addLine}>+ Add line</Text>
+                            <Text style={styles.addLine}>{strings.invoices.addLine}</Text>
                         </Pressable>
 
-                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>Notes</Text>
+                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>
+                            {strings.invoices.notesLabel}
+                        </Text>
                         <TextInput
                             style={styles.notesInput}
                             value={form.notes}
                             onChangeText={form.setNotes}
                             multiline
-                            placeholder="Optional"
+                            placeholder={strings.invoices.notesPlaceholder}
                             placeholderTextColor={c.muted}
                         />
                     </ScrollView>
@@ -277,15 +284,15 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                     ) : null}
                     <View style={styles.createFoot}>
                         <Text style={styles.subtotal}>
-                            Subtotal{" "}
+                            {strings.invoices.subtotal}{" "}
                             <Text style={styles.subtotalValue}>
                                 {formatMoney(form.subtotalCents)}
                             </Text>
-                            <Text style={styles.subtotalTax}> + tax</Text>
+                            <Text style={styles.subtotalTax}>{strings.invoices.plusTax}</Text>
                         </Text>
                         <View style={styles.actions}>
                             <Pressable style={styles.cancel} onPress={onClose}>
-                                <Text style={styles.cancelText}>Cancel</Text>
+                                <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                             </Pressable>
                             <Pressable
                                 style={styles.save}
@@ -295,7 +302,9 @@ function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                 {form.busy ? (
                                     <ActivityIndicator color={c.accentInk} />
                                 ) : (
-                                    <Text style={styles.saveText}>Save draft</Text>
+                                    <Text style={styles.saveText}>
+                                        {strings.invoices.saveDraft}
+                                    </Text>
                                 )}
                             </Pressable>
                         </View>
@@ -339,8 +348,12 @@ function DetailModal({
                             <View style={styles.sheetHead}>
                                 <View>
                                     <Text style={styles.sheetTitle}>
-                                        {isInvoice ? "Invoice" : "Estimate"}{" "}
-                                        {row.number !== null ? `#${row.number}` : "(draft)"}
+                                        {isInvoice
+                                            ? strings.invoices.invoiceHeading
+                                            : strings.invoices.estimateHeading}{" "}
+                                        {row.number !== null
+                                            ? `#${row.number}`
+                                            : strings.invoices.draftHeading}
                                     </Text>
                                     <Text style={styles.rowSub}>{row.client_name ?? "—"}</Text>
                                 </View>
@@ -365,7 +378,7 @@ function DetailModal({
                                     </View>
                                 ))}
                                 <View style={styles.totalRow}>
-                                    <Text style={styles.totalLabel}>Total</Text>
+                                    <Text style={styles.totalLabel}>{strings.invoices.total}</Text>
                                     <Text style={styles.totalValue}>
                                         {formatMoney(row.total_cents)}
                                     </Text>
@@ -380,7 +393,7 @@ function DetailModal({
                             {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
                             <View style={styles.actions}>
                                 <Pressable style={styles.cancel} onPress={onClose}>
-                                    <Text style={styles.cancelText}>Close</Text>
+                                    <Text style={styles.cancelText}>{strings.common.close}</Text>
                                 </Pressable>
                                 {actions.map((a) => (
                                     <Pressable
@@ -390,9 +403,9 @@ function DetailModal({
                                         onPress={() =>
                                             void run(a.run, {
                                                 onSuccess: onClose,
-                                                errorMessage: `Couldn't ${DOC_ACTION_LABEL[
-                                                    a.key
-                                                ].toLowerCase()} — please try again.`,
+                                                errorMessage: strings.invoices.actionError(
+                                                    DOC_ACTION_LABEL[a.key].toLowerCase(),
+                                                ),
                                             })
                                         }
                                     >
@@ -421,13 +434,13 @@ function PayLinkRow({ token }: { token: string }) {
     };
     return (
         <View style={styles.payLink}>
-            <Text style={styles.sectionLabel}>Pay link</Text>
+            <Text style={styles.sectionLabel}>{strings.invoices.payLink}</Text>
             <View style={styles.payLinkRow}>
                 <Text style={styles.payLinkUrl} numberOfLines={1}>
                     {url}
                 </Text>
                 <Pressable style={styles.shareBtn} onPress={share}>
-                    <Text style={styles.shareText}>Share</Text>
+                    <Text style={styles.shareText}>{strings.invoices.share}</Text>
                 </Pressable>
             </View>
         </View>
@@ -439,7 +452,7 @@ function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefun
     if (payments.length === 0) return null;
     return (
         <View style={styles.payments}>
-            <Text style={styles.sectionLabel}>Payments</Text>
+            <Text style={styles.sectionLabel}>{strings.invoices.payments}</Text>
             {payments.map((p) => (
                 <PaymentRowItem key={p.id} payment={p} payments={payments} canRefund={canRefund} />
             ))}
@@ -461,14 +474,14 @@ function PaymentRowItem({
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
-        Alert.alert("Refund payment", "Refund this payment? This can't be undone.", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(strings.invoices.refundTitle, strings.invoices.refundConfirm, [
+            { text: strings.common.cancel, style: "cancel" },
             {
-                text: "Refund",
+                text: strings.invoices.refund,
                 style: "destructive",
                 onPress: () =>
                     void run(() => refundPayment(api, payment.id), {
-                        errorMessage: "Couldn't refund this payment. Please try again.",
+                        errorMessage: strings.invoices.refundError,
                     }),
             },
         ]);
@@ -481,11 +494,15 @@ function PaymentRowItem({
                     {isRefund ? "−" : ""}
                     {formatMoneyWithCurrency(payment.amount_cents, payment.currency)}
                 </Text>
-                <Text style={styles.paymentMethod}>{isRefund ? "Refund" : payment.method}</Text>
+                <Text style={styles.paymentMethod}>
+                    {isRefund ? strings.invoices.refundBadge : payment.method}
+                </Text>
                 <StatusBadge status={payment.status} intent={paymentStatusIntent(payment.status)} />
                 {showRefund ? (
                     <Pressable style={styles.refundBtn} disabled={busy} onPress={refund}>
-                        <Text style={styles.refundText}>{busy ? "…" : "Refund"}</Text>
+                        <Text style={styles.refundText}>
+                            {busy ? strings.invoices.refundingShort : strings.invoices.refund}
+                        </Text>
                     </Pressable>
                 ) : null}
             </View>

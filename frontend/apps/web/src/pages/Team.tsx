@@ -6,6 +6,7 @@ import {
     canManageStaff,
     decodeJwtSub,
     staffDisplayName,
+    strings,
     useCurrentRole,
     useInviteForm,
     usePendingInvites,
@@ -26,14 +27,12 @@ export function Team() {
 
     return (
         <div className="max-w-2xl">
-            <h1 className="font-display text-xl font-bold text-ink">Team</h1>
-            <p className="mt-1 text-sm text-muted">
-                Invite colleagues and manage who can access your business.
-            </p>
+            <h1 className="font-display text-xl font-bold text-ink">{strings.team.title}</h1>
+            <p className="mt-1 text-sm text-muted">{strings.team.subtitle}</p>
 
             <section className="mt-6 rounded-lg border border-line bg-surface">
                 <h2 className="border-b border-line px-4 py-3 text-sm font-semibold text-ink">
-                    Members
+                    {strings.team.members}
                 </h2>
                 <ul>
                     {staff.map((s) => (
@@ -46,7 +45,7 @@ export function Team() {
                                     {staffDisplayName(s)}
                                     {s.user_id !== null && s.user_id === myUserId ? (
                                         <span className="ml-2 rounded-full bg-accent-weak px-2 py-0.5 text-xs font-semibold text-accent">
-                                            You
+                                            {strings.team.youBadge}
                                         </span>
                                     ) : null}
                                 </p>
@@ -65,7 +64,7 @@ export function Team() {
             {pending.length > 0 ? (
                 <section className="mt-6 rounded-lg border border-line bg-surface">
                     <h2 className="border-b border-line px-4 py-3 text-sm font-semibold text-ink">
-                        Pending invites
+                        {strings.team.pending}
                     </h2>
                     <ul>
                         {pending.map((s) => (
@@ -75,7 +74,7 @@ export function Team() {
                             >
                                 <p className="text-sm text-ink">{s.invite_email ?? "—"}</p>
                                 <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold capitalize text-warn-fg">
-                                    {s.role} · invited
+                                    {strings.team.invitedBadge(s.role)}
                                 </span>
                             </li>
                         ))}
@@ -86,9 +85,7 @@ export function Team() {
             {canManageStaff(role) ? (
                 <InviteForm invite={invite} />
             ) : (
-                <p className="mt-6 text-sm text-muted">
-                    Only owners and admins can invite teammates.
-                </p>
+                <p className="mt-6 text-sm text-muted">{strings.team.cannotInvite}</p>
             )}
         </div>
     );
@@ -97,7 +94,7 @@ export function Team() {
 function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
     return (
         <section className="mt-6 rounded-lg border border-line bg-surface p-4">
-            <h2 className="text-sm font-semibold text-ink">Invite a teammate</h2>
+            <h2 className="text-sm font-semibold text-ink">{strings.team.inviteHeading}</h2>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -106,19 +103,19 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                 className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
             >
                 <label className="flex flex-1 flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                    Email
+                    {strings.team.email}
                     <input
                         type="email"
                         value={invite.email}
                         onChange={(e) => {
                             invite.setEmail(e.target.value);
                         }}
-                        placeholder="teammate@example.com"
+                        placeholder={strings.team.emailPlaceholder}
                         className="w-full rounded-md border border-line bg-bg px-3 py-2 text-ink outline-none transition placeholder:text-muted focus:border-accent"
                     />
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                    Role
+                    {strings.team.role}
                     <select
                         value={invite.role}
                         onChange={(e) => {
@@ -138,7 +135,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                     disabled={invite.busy}
                     className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                 >
-                    {invite.busy ? "Inviting…" : "Send invite"}
+                    {invite.busy ? strings.team.inviting : strings.team.sendInvite}
                 </button>
             </form>
 
@@ -161,7 +158,7 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
     return (
         <div className="mt-3 rounded-md border border-accent-line bg-accent-weak p-3">
             <p className="text-sm font-medium text-ink">
-                Invite sent to {invite.email}. Share this link so they can join:
+                {strings.team.inviteSentWeb(invite.email)}
             </p>
             <div className="mt-2 flex items-center gap-2">
                 <input
@@ -174,14 +171,14 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
                     onClick={copy}
                     className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90"
                 >
-                    {copied ? "Copied" : "Copy"}
+                    {copied ? strings.team.copied : strings.team.copy}
                 </button>
                 <button
                     type="button"
                     onClick={onDone}
                     className="rounded-md px-2 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-surface"
                 >
-                    Done
+                    {strings.common.done}
                 </button>
             </div>
         </div>

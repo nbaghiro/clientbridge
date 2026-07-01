@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useBusinessId } from "../hooks/primitives";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey, newRowId } from "../util/primitives";
 
@@ -80,11 +81,11 @@ export function useSendFormForm(api: ApiLike, onSent: () => void): SendFormForm 
 
     const submit = (): void => {
         if (formId === "") {
-            setError("Select a form");
+            setError(strings.bookingForms.selectForm);
             return;
         }
         if (clientId === "") {
-            setError("Select a client");
+            setError(strings.bookingForms.selectClient);
             return;
         }
         void run(() => sendForm(api, { form_id: formId, client_id: clientId }), {
@@ -93,7 +94,7 @@ export function useSendFormForm(api: ApiLike, onSent: () => void): SendFormForm 
                 setClientId("");
                 onSent();
             },
-            errorMessage: "Couldn't send the form. Please try again.",
+            errorMessage: strings.bookingForms.sendFormError,
         });
     };
 
@@ -114,22 +115,22 @@ export const BUILDER_FIELD_TYPES = [
 ] as const;
 
 export const FIELD_TYPE_LABEL: Record<string, string> = {
-    text: "Short text",
-    longtext: "Paragraph",
-    email: "Email",
-    phone: "Phone",
-    number: "Number",
-    currency: "Amount",
-    date: "Date",
-    time: "Time",
-    select: "Dropdown",
-    multiselect: "Multi-select",
-    checkbox: "Checkbox",
-    address: "Address",
-    rating: "Rating",
-    file: "File",
-    image: "Image",
-    signature: "Signature",
+    text: strings.bookingForms.fieldTypeText,
+    longtext: strings.bookingForms.fieldTypeLongtext,
+    email: strings.bookingForms.fieldTypeEmail,
+    phone: strings.bookingForms.fieldTypePhone,
+    number: strings.bookingForms.fieldTypeNumber,
+    currency: strings.bookingForms.fieldTypeCurrency,
+    date: strings.bookingForms.fieldTypeDate,
+    time: strings.bookingForms.fieldTypeTime,
+    select: strings.bookingForms.fieldTypeSelect,
+    multiselect: strings.bookingForms.fieldTypeMultiselect,
+    checkbox: strings.bookingForms.fieldTypeCheckbox,
+    address: strings.bookingForms.fieldTypeAddress,
+    rating: strings.bookingForms.fieldTypeRating,
+    file: strings.bookingForms.fieldTypeFile,
+    image: strings.bookingForms.fieldTypeImage,
+    signature: strings.bookingForms.fieldTypeSignature,
 };
 
 export function hasOptions(type: string): boolean {
@@ -199,16 +200,16 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
 
     const submit = (): void => {
         if (businessId === null) {
-            setError("Still syncing — try again in a moment.");
+            setError(strings.common.stillSyncing);
             return;
         }
         if (name.trim().length === 0) {
-            setError("Name is required");
+            setError(strings.bookingForms.formNameRequired);
             return;
         }
         const usable = fields.filter((f) => f.label.trim().length > 0);
         if (usable.length === 0) {
-            setError("Add at least one field");
+            setError(strings.bookingForms.addFieldError);
             return;
         }
         const taken = new Set<string>();
@@ -264,7 +265,7 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
                     setFields([newDraftField()]);
                     onCreated();
                 },
-                errorMessage: "Couldn't save the form. Please try again.",
+                errorMessage: strings.bookingForms.saveFormError,
             },
         );
     };
@@ -354,7 +355,8 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
             const headers: Record<string, string> = {};
             if (file.type) headers["Content-Type"] = file.type;
             const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
-            if (!put.ok) throw new PublicFormError(put.status, "the file upload failed");
+            if (!put.ok)
+                throw new PublicFormError(put.status, strings.bookingForms.fileUploadFailedDetail);
             return meta.file_id;
         },
     };
@@ -457,21 +459,21 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
             async () => {
                 setAnswer(name, await forms.upload(token, file));
             },
-            { errorMessage: "We couldn't upload that file. Please try again." },
+            { errorMessage: strings.bookingForms.fileUploadError },
         );
     };
 
     const submit = (): void => {
         const missing = form?.fields.find((f) => f.required && isAnswerMissing(answers[f.name]));
         if (missing !== undefined) {
-            setError(`“${missing.label}” is required.`);
+            setError(strings.bookingForms.answerRequired(missing.label));
             return;
         }
         void run(
             async () => {
                 setForm(await forms.submit(token, answers));
             },
-            { errorMessage: "We couldn't submit your answers. Please try again." },
+            { errorMessage: strings.bookingForms.submitAnswersError },
         );
     };
 

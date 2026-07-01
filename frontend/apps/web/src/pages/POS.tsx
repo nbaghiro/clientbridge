@@ -6,6 +6,7 @@ import {
     formatMoney,
     orderStatusIntent,
     sellableItems,
+    strings,
     useCart,
     useCatalogItems,
     useConnectionToken,
@@ -27,8 +28,8 @@ export function POS() {
     return (
         <div className="mx-auto flex h-full max-w-6xl gap-6 px-8 py-8">
             <section className="min-w-0 flex-1">
-                <h1 className="font-display text-2xl font-bold text-ink">Point of sale</h1>
-                <p className="mt-0.5 text-sm text-muted">Ring up a sale and charge the reader.</p>
+                <h1 className="font-display text-2xl font-bold text-ink">{strings.pos.title}</h1>
+                <p className="mt-0.5 text-sm text-muted">{strings.pos.subtitle}</p>
 
                 <div className="relative mt-5">
                     <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
@@ -37,7 +38,7 @@ export function POS() {
                         onChange={(e) => {
                             setQ(e.target.value);
                         }}
-                        placeholder="Search catalog…"
+                        placeholder={strings.pos.searchPlaceholder}
                         className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
                     />
                 </div>
@@ -63,7 +64,7 @@ export function POS() {
                     ))}
                     {filtered.length === 0 ? (
                         <p className="col-span-full py-12 text-center text-sm text-muted">
-                            {q ? "No items match your search." : "No sellable catalog items yet."}
+                            {q ? strings.pos.searchEmpty : strings.pos.emptyCatalog}
                         </p>
                     ) : null}
                 </div>
@@ -94,23 +95,21 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
     return (
         <div className="flex max-h-[calc(100vh-4rem)] flex-col rounded-lg border border-line bg-surface shadow-card">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                <h2 className="font-display text-base font-bold text-ink">Cart</h2>
+                <h2 className="font-display text-base font-bold text-ink">{strings.pos.cart}</h2>
                 {cart.isEmpty ? null : (
                     <button
                         type="button"
                         onClick={cart.clear}
                         className="text-xs font-medium text-muted transition hover:text-danger"
                     >
-                        Clear
+                        {strings.pos.clear}
                     </button>
                 )}
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-2">
                 {cart.isEmpty ? (
-                    <p className="py-10 text-center text-sm text-muted">
-                        Tap a catalog item to add it.
-                    </p>
+                    <p className="py-10 text-center text-sm text-muted">{strings.pos.cartEmpty}</p>
                 ) : (
                     cart.lines.map((line) => (
                         <CartLineRow
@@ -138,17 +137,17 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                             className="mt-3 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
                             {cart.busy
-                                ? "Starting…"
-                                : `Charge ${formatMoney(cart.order.total_cents)}`}
+                                ? strings.pos.starting
+                                : strings.pos.charge(formatMoney(cart.order.total_cents))}
                         </button>
                     </>
                 ) : (
                     <>
                         <div className="flex justify-between text-sm">
-                            <span className="text-muted">Subtotal</span>
+                            <span className="text-muted">{strings.pos.subtotal}</span>
                             <span className="font-medium tabular-nums text-ink">
                                 {formatMoney(cart.subtotalCents)}
-                                <span className="text-xs text-muted"> + tax</span>
+                                <span className="text-xs text-muted">{strings.pos.plusTax}</span>
                             </span>
                         </div>
                         <button
@@ -157,7 +156,7 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                             disabled={cart.busy || cart.isEmpty}
                             className="mt-3 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {cart.busy ? "Totalling…" : "Review total"}
+                            {cart.busy ? strings.pos.totalling : strings.pos.reviewTotal}
                         </button>
                     </>
                 )}
@@ -183,7 +182,7 @@ function CartLineRow({
             <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-ink">{line.description}</p>
                 <p className="text-xs tabular-nums text-muted">
-                    {formatMoney(line.unitAmountCents)} each
+                    {strings.pos.unitEach(formatMoney(line.unitAmountCents))}
                 </p>
             </div>
             <div className="flex items-center gap-1">
@@ -229,10 +228,10 @@ function CartLineRow({
 function Totals({ order }: { order: Order }) {
     return (
         <div className="space-y-1 text-sm">
-            <Row label="Subtotal" cents={order.subtotal_cents} />
-            <Row label="Tax" cents={order.tax_total_cents} />
+            <Row label={strings.pos.subtotal} cents={order.subtotal_cents} />
+            <Row label={strings.pos.tax} cents={order.tax_total_cents} />
             <div className="flex justify-between border-t border-line-soft pt-1 font-semibold">
-                <span className="text-ink">Total</span>
+                <span className="text-ink">{strings.pos.total}</span>
                 <span className="tabular-nums text-ink">{formatMoney(order.total_cents)}</span>
             </div>
         </div>
@@ -267,18 +266,20 @@ function ReaderPanel({
 
     return (
         <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
-            <h2 className="font-display text-base font-bold text-ink">Charge on reader</h2>
+            <h2 className="font-display text-base font-bold text-ink">{strings.pos.readerTitle}</h2>
             <p className="mt-1 text-sm text-muted">
-                Tap, insert, or swipe the card on the reader to collect{" "}
+                {strings.pos.readerCollectLead}{" "}
                 <span className="font-semibold text-ink">{formatMoney(order.total_cents)}</span>.
             </p>
             <div className="mt-4 rounded-md border border-dashed border-accent-line bg-accent-weak p-4 text-center">
-                <p className="text-sm font-medium text-accent-strong">Waiting for card…</p>
-                <p className="mt-1 text-xs text-muted">
-                    Card-present capture needs the native Terminal SDK (not wired in this build).
+                <p className="text-sm font-medium text-accent-strong">
+                    {strings.pos.waitingForCard}
                 </p>
+                <p className="mt-1 text-xs text-muted">{strings.pos.readerNotWired}</p>
             </div>
-            <p className="mt-3 truncate text-xs text-muted">PaymentIntent: {clientSecret}</p>
+            <p className="mt-3 truncate text-xs text-muted">
+                {strings.pos.paymentIntentLabel} {clientSecret}
+            </p>
             <div className="mt-4 flex gap-2">
                 <button
                     type="button"
@@ -287,14 +288,14 @@ function ReaderPanel({
                     }}
                     className="flex-1 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                 >
-                    Pair reader
+                    {strings.pos.pairReader}
                 </button>
                 <button
                     type="button"
                     onClick={onDone}
                     className="flex-1 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                 >
-                    New sale
+                    {strings.pos.newSale}
                 </button>
             </div>
             <button
@@ -303,7 +304,7 @@ function ReaderPanel({
                 disabled={busy}
                 className="mt-2 w-full rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:text-danger disabled:opacity-60"
             >
-                Void this sale
+                {strings.pos.voidSale}
             </button>
         </div>
     );
@@ -315,12 +316,14 @@ function OpenOrders() {
 
     return (
         <section className="mt-8">
-            <h2 className="font-display text-base font-semibold text-ink">Open orders</h2>
+            <h2 className="font-display text-base font-semibold text-ink">
+                {strings.pos.openOrders}
+            </h2>
             <div className="mt-2 divide-y divide-line-soft rounded-lg border border-line bg-surface">
                 {orders.map((order: OpenOrderRow) => (
                     <div key={order.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                         <span className="min-w-0 flex-1 truncate text-ink">
-                            {order.client_name ?? "Walk-in"}
+                            {order.client_name ?? strings.pos.walkIn}
                         </span>
                         <StatusPill
                             status={order.status}

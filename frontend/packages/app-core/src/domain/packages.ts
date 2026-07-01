@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
 import { useInteractivePurchase } from "./payments";
@@ -101,7 +102,7 @@ export function usePackageSaleForm(
 
     const submit = (): void => {
         if (itemId === "") {
-            purchase.setError("Choose a package");
+            purchase.setError(strings.clients.choosePackage);
             return;
         }
         const interactive = paymentMethodId === "";
@@ -117,7 +118,7 @@ export function usePackageSaleForm(
                     idempotencyKey,
                 ),
             interactive,
-            "Couldn't sell this package. Please try again.",
+            strings.clients.sellPackageError,
         );
     };
 

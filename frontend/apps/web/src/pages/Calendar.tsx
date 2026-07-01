@@ -33,6 +33,7 @@ import {
     startOfDay,
     startOfMonth,
     statusIntent,
+    strings,
     useBookingForm,
     useCalendarEvents,
     useCancelBooking,
@@ -60,11 +61,11 @@ const HOUR_PX = 48;
 const MIN_HOUR_PX = 44;
 
 const VIEWS: { key: CalendarView; label: string }[] = [
-    { key: "day", label: "Day" },
-    { key: "week", label: "Week" },
-    { key: "month", label: "Month" },
-    { key: "staff", label: "Staff" },
-    { key: "agenda", label: "Agenda" },
+    { key: "day", label: strings.calendar.viewDay },
+    { key: "week", label: strings.calendar.viewWeek },
+    { key: "month", label: strings.calendar.viewMonth },
+    { key: "staff", label: strings.calendar.viewStaff },
+    { key: "agenda", label: strings.calendar.viewAgenda },
 ];
 
 interface Lane {
@@ -163,7 +164,7 @@ export function Calendar() {
                             }}
                             className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg"
                         >
-                            Today
+                            {strings.calendar.today}
                         </button>
                         <div className="flex items-center">
                             <button
@@ -211,7 +212,7 @@ export function Calendar() {
                             }}
                             className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong"
                         >
-                            + New booking
+                            {strings.calendar.newBookingButton}
                         </button>
                     </div>
                 </header>
@@ -513,7 +514,7 @@ function MonthView({
                                 ))}
                                 {dayEvents.length > 3 ? (
                                     <div className="px-1 text-[11px] text-muted">
-                                        +{dayEvents.length - 3} more
+                                        {strings.calendar.moreCount(dayEvents.length - 3)}
                                     </div>
                                 ) : null}
                             </div>
@@ -544,7 +545,7 @@ function AgendaView({
                 return (
                     <div key={day.toISOString()} className="border-b border-line py-3">
                         <div className="mb-2 text-sm font-semibold text-ink">
-                            {sameDay(day, now) ? "Today · " : ""}
+                            {sameDay(day, now) ? strings.calendar.todayPrefix : ""}
                             {formatFullDate(day)}
                         </div>
                         <div className="space-y-1">
@@ -630,9 +631,9 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
     return (
         <Overlay onClose={onClose}>
             <form onSubmit={submit} className="space-y-3">
-                <h2 className="text-lg font-semibold text-ink">New booking</h2>
+                <h2 className="text-lg font-semibold text-ink">{strings.calendar.newBooking}</h2>
                 <label className="block">
-                    <span className="text-sm text-muted">Client</span>
+                    <span className="text-sm text-muted">{strings.calendar.client}</span>
                     <select
                         value={form.clientId}
                         onChange={(e) => {
@@ -640,7 +641,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         }}
                         className={fieldClass}
                     >
-                        <option value="">Select a client</option>
+                        <option value="">{strings.calendar.selectClient}</option>
                         {form.clients.map((cl) => (
                             <option key={cl.id} value={cl.id}>
                                 {cl.name}
@@ -649,7 +650,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                     </select>
                 </label>
                 <label className="block">
-                    <span className="text-sm text-muted">Service</span>
+                    <span className="text-sm text-muted">{strings.calendar.service}</span>
                     <select
                         value={form.itemId}
                         onChange={(e) => {
@@ -657,7 +658,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         }}
                         className={fieldClass}
                     >
-                        <option value="">Select a service</option>
+                        <option value="">{strings.calendar.selectService}</option>
                         {form.items.map((it) => (
                             <option key={it.id} value={it.id}>
                                 {it.name}
@@ -667,7 +668,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                 </label>
                 {form.staff.length > 1 ? (
                     <label className="block">
-                        <span className="text-sm text-muted">Staff</span>
+                        <span className="text-sm text-muted">{strings.calendar.staff}</span>
                         <select
                             value={form.effStaff}
                             onChange={(e) => {
@@ -685,7 +686,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                 ) : null}
                 <div className="flex gap-2">
                     <label className="block flex-1">
-                        <span className="text-sm text-muted">Date</span>
+                        <span className="text-sm text-muted">{strings.calendar.date}</span>
                         <input
                             type="date"
                             value={date}
@@ -696,7 +697,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         />
                     </label>
                     <label className="block flex-1">
-                        <span className="text-sm text-muted">Time</span>
+                        <span className="text-sm text-muted">{strings.calendar.time}</span>
                         <input
                             type="time"
                             value={time}
@@ -716,12 +717,12 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         }}
                         className="accent-accent"
                     />
-                    Repeat this booking
+                    {strings.calendar.repeatBooking}
                 </label>
                 {form.repeat ? (
                     <div className="flex items-end gap-2">
                         <label className="block w-20">
-                            <span className="text-sm text-muted">Every</span>
+                            <span className="text-sm text-muted">{strings.calendar.every}</span>
                             <input
                                 type="number"
                                 min={1}
@@ -733,7 +734,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                             />
                         </label>
                         <label className="block flex-1">
-                            <span className="text-sm text-muted">Frequency</span>
+                            <span className="text-sm text-muted">{strings.calendar.frequency}</span>
                             <select
                                 value={form.frequency}
                                 onChange={(e) => {
@@ -749,7 +750,9 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                             </select>
                         </label>
                         <label className="block w-24">
-                            <span className="text-sm text-muted">Occurrences</span>
+                            <span className="text-sm text-muted">
+                                {strings.calendar.occurrences}
+                            </span>
                             <input
                                 type="number"
                                 min={1}
@@ -773,14 +776,18 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                         onClick={onClose}
                         className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:text-ink"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={form.busy}
                         className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong disabled:opacity-50"
                     >
-                        {form.busy ? "Booking…" : form.repeat ? "Book series" : "Book"}
+                        {form.busy
+                            ? strings.calendar.booking
+                            : form.repeat
+                              ? strings.calendar.bookSeries
+                              : strings.calendar.book}
                     </button>
                 </div>
             </form>
@@ -813,7 +820,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                         onClick={onClose}
                         className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:text-ink"
                     >
-                        Close
+                        {strings.common.close}
                     </button>
                     {event.bookingId !== null && event.status !== "canceled" ? (
                         <button
@@ -822,7 +829,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                             disabled={busy}
                             className="rounded-lg border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger hover:text-surface disabled:opacity-50"
                         >
-                            {busy ? "Canceling…" : "Cancel booking"}
+                            {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
                         </button>
                     ) : null}
                 </div>
@@ -845,7 +852,9 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
     if (deposit.clientSecret !== null) {
         return (
             <div className="rounded-lg border border-line bg-bg p-3">
-                <p className="text-sm font-medium text-ink">Collect deposit · {amountLabel}</p>
+                <p className="text-sm font-medium text-ink">
+                    {strings.calendar.collectDepositTitle(amountLabel)}
+                </p>
                 <CardConfirm
                     clientSecret={deposit.clientSecret}
                     stripeAccount={stripeAccount}
@@ -861,7 +870,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
         <div className="rounded-lg border border-line bg-bg p-3">
             <div className="flex items-center justify-between gap-3">
                 <div>
-                    <p className="text-sm font-medium text-ink">Deposit</p>
+                    <p className="text-sm font-medium text-ink">{strings.calendar.deposit}</p>
                     <p className="text-sm text-muted">{amountLabel}</p>
                 </div>
                 <StatusPill
@@ -878,7 +887,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                         }}
                         className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
                     >
-                        <option value="">Pay with a new card</option>
+                        <option value="">{strings.calendar.payNewCard}</option>
                         {cards.map((card) => (
                             <option key={card.id} value={card.id}>
                                 {savedCardLabel(card)}
@@ -896,7 +905,9 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                         disabled={deposit.busy}
                         className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {deposit.busy ? "Collecting…" : `Collect ${amountLabel}`}
+                        {deposit.busy
+                            ? strings.calendar.collecting
+                            : strings.calendar.collectAmount(amountLabel)}
                     </button>
                 </div>
             ) : null}

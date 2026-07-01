@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 
 // The 13 Canadian provinces/territories the backend seeds tax rates for; an unknown code is a 422.
@@ -25,19 +26,19 @@ export interface Province {
 }
 
 export const PROVINCES: Province[] = [
-    { code: "AB", name: "Alberta" },
-    { code: "BC", name: "British Columbia" },
-    { code: "MB", name: "Manitoba" },
-    { code: "NB", name: "New Brunswick" },
-    { code: "NL", name: "Newfoundland and Labrador" },
-    { code: "NS", name: "Nova Scotia" },
-    { code: "NT", name: "Northwest Territories" },
-    { code: "NU", name: "Nunavut" },
-    { code: "ON", name: "Ontario" },
-    { code: "PE", name: "Prince Edward Island" },
-    { code: "QC", name: "Quebec" },
-    { code: "SK", name: "Saskatchewan" },
-    { code: "YT", name: "Yukon" },
+    { code: "AB", name: strings.onboarding.provinceAB },
+    { code: "BC", name: strings.onboarding.provinceBC },
+    { code: "MB", name: strings.onboarding.provinceMB },
+    { code: "NB", name: strings.onboarding.provinceNB },
+    { code: "NL", name: strings.onboarding.provinceNL },
+    { code: "NS", name: strings.onboarding.provinceNS },
+    { code: "NT", name: strings.onboarding.provinceNT },
+    { code: "NU", name: strings.onboarding.provinceNU },
+    { code: "ON", name: strings.onboarding.provinceON },
+    { code: "PE", name: strings.onboarding.provincePE },
+    { code: "QC", name: strings.onboarding.provinceQC },
+    { code: "SK", name: strings.onboarding.provinceSK },
+    { code: "YT", name: strings.onboarding.provinceYT },
 ];
 
 export interface OnboardInput {
@@ -117,18 +118,18 @@ export function useOnboardingForm(
 
     const submit = (): void => {
         if (name.trim().length === 0) {
-            setError("Business name is required");
+            setError(strings.onboarding.nameRequired);
             return;
         }
         if (slug.length === 0) {
-            setError("A web address is required");
+            setError(strings.onboarding.slugRequired);
             return;
         }
         void run(
             async () => {
                 onCreated(await onboard(api, { name, slug, province }));
             },
-            { errorMessage: "Couldn’t create your business — that web address may be taken." },
+            { errorMessage: strings.onboarding.createError },
         );
     };
 

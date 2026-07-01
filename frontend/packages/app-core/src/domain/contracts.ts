@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { useBusinessId } from "../hooks/primitives";
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey, newRowId } from "../util/primitives";
 import type { Intent } from "../util/primitives";
@@ -79,11 +80,11 @@ export function useSendContractForm(api: ApiLike, onSent: () => void): SendContr
 
     const submit = (): void => {
         if (contractId === "") {
-            setError("Select a contract");
+            setError(strings.bookingForms.selectContract);
             return;
         }
         if (clientId === "") {
-            setError("Select a client");
+            setError(strings.bookingForms.selectClient);
             return;
         }
         void run(() => sendContract(api, { contract_id: contractId, client_id: clientId }), {
@@ -92,7 +93,7 @@ export function useSendContractForm(api: ApiLike, onSent: () => void): SendContr
                 setClientId("");
                 onSent();
             },
-            errorMessage: "Couldn't send the contract. Please try again.",
+            errorMessage: strings.bookingForms.sendContractError,
         });
     };
 
@@ -120,15 +121,15 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
 
     const submit = (): void => {
         if (businessId === null) {
-            setError("Still syncing — try again in a moment.");
+            setError(strings.common.stillSyncing);
             return;
         }
         if (name.trim().length === 0) {
-            setError("Name is required");
+            setError(strings.bookingForms.contractNameRequired);
             return;
         }
         if (body.trim().length === 0) {
-            setError("Contract text is required");
+            setError(strings.bookingForms.contractTextRequired);
             return;
         }
         void run(
@@ -144,7 +145,7 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
                     setBody("");
                     onCreated();
                 },
-                errorMessage: "Couldn't save the contract. Please try again.",
+                errorMessage: strings.bookingForms.saveContractError,
             },
         );
     };
@@ -221,7 +222,11 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
             const headers: Record<string, string> = {};
             if (file.type) headers["Content-Type"] = file.type;
             const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
-            if (!put.ok) throw new PublicContractError(put.status, "the signature upload failed");
+            if (!put.ok)
+                throw new PublicContractError(
+                    put.status,
+                    strings.bookingForms.signatureUploadFailedDetail,
+                );
             return meta.file_id;
         },
     };
@@ -294,7 +299,7 @@ export function usePublicContractSign(
 
     const sign = (): void => {
         if (typedName.trim().length === 0 && imageId === null) {
-            setError("Type your full name or upload a signature image to sign.");
+            setError(strings.bookingForms.signPrompt);
             return;
         }
         void run(
@@ -306,7 +311,7 @@ export function usePublicContractSign(
                     }),
                 );
             },
-            { errorMessage: "We couldn't record your signature. Please try again." },
+            { errorMessage: strings.bookingForms.signError },
         );
     };
 
@@ -316,7 +321,7 @@ export function usePublicContractSign(
                 setImageId(await contracts.upload(token, file));
                 setImageName(name);
             },
-            { errorMessage: "We couldn't upload that signature image. Please try again." },
+            { errorMessage: strings.bookingForms.signatureUploadError },
         );
     };
 
@@ -325,7 +330,7 @@ export function usePublicContractSign(
             async () => {
                 setContract(await contracts.decline(token));
             },
-            { errorMessage: "We couldn't record that. Please try again." },
+            { errorMessage: strings.bookingForms.recordError },
         );
     };
 

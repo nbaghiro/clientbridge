@@ -1,4 +1,4 @@
-import { useAcceptInviteForm } from "@clientbridge/app-core";
+import { strings, useAcceptInviteForm } from "@clientbridge/app-core";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { Logo } from "../components/icons";
@@ -28,15 +28,13 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                     <span className="text-lg font-bold tracking-tight text-ink">Clientbridge</span>
                 </div>
 
-                <h1 className="font-display text-2xl font-bold text-ink">Accept your invite</h1>
-                <p className="mt-1 text-sm text-muted">
-                    Set a password to join your team and start collaborating.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.auth.inviteTitle}
+                </h1>
+                <p className="mt-1 text-sm text-muted">{strings.auth.inviteSubtitle}</p>
 
                 {token.length === 0 ? (
-                    <p className="mt-6 text-sm text-danger-fg">
-                        This invite link is missing its code. Please use the link from your email.
-                    </p>
+                    <p className="mt-6 text-sm text-danger-fg">{strings.auth.inviteMissingCode}</p>
                 ) : (
                     <form
                         onSubmit={(e) => {
@@ -46,27 +44,27 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                         className="mt-6 flex flex-col gap-4"
                     >
                         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            Your name
+                            {strings.auth.inviteName}
                             <input
                                 value={form.name}
                                 onChange={(e) => {
                                     form.setName(e.target.value);
                                 }}
-                                placeholder="Hannah Bauer"
+                                placeholder={strings.auth.namePlaceholder}
                                 autoComplete="name"
                                 className={field}
                             />
                         </label>
 
                         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            Password
+                            {strings.auth.password}
                             <input
                                 type="password"
                                 value={form.password}
                                 onChange={(e) => {
                                     form.setPassword(e.target.value);
                                 }}
-                                placeholder="••••••••"
+                                placeholder={strings.auth.passwordPlaceholder}
                                 autoComplete="new-password"
                                 className={field}
                             />
@@ -79,7 +77,7 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                             disabled={form.busy}
                             className="mt-1 rounded-md bg-accent px-4 py-2.5 font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {form.busy ? "Joining…" : "Join team"}
+                            {form.busy ? strings.auth.joining : strings.auth.joinTeam}
                         </button>
                     </form>
                 )}

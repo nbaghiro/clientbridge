@@ -1,4 +1,4 @@
-import { useTaxRates } from "@clientbridge/app-core";
+import { strings, useTaxRates } from "@clientbridge/app-core";
 
 import { api } from "../lib/api";
 
@@ -7,24 +7,26 @@ export function TaxSettings() {
 
     return (
         <div>
-            <h1 className="font-display text-2xl font-bold text-ink">Taxes</h1>
-            <p className="mt-1 text-sm text-muted">
-                Sales tax applied to your invoices, based on your province.
-            </p>
+            <h1 className="font-display text-2xl font-bold text-ink">{strings.taxes.title}</h1>
+            <p className="mt-1 text-sm text-muted">{strings.taxes.subtitle}</p>
 
             <div className="mt-6 overflow-hidden rounded-lg border border-line bg-surface">
                 {rates === null ? (
-                    <p className="px-4 py-10 text-center text-sm text-muted">Loading…</p>
+                    <p className="px-4 py-10 text-center text-sm text-muted">
+                        {strings.common.loading}
+                    </p>
                 ) : rates.length === 0 ? (
                     <p className="px-4 py-10 text-center text-sm text-muted">
-                        No tax rates set for your province yet.
+                        {strings.taxes.empty}
                     </p>
                 ) : (
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                                <th className="px-4 py-3 font-semibold">Tax</th>
-                                <th className="px-4 py-3 font-semibold">Province</th>
+                                <th className="px-4 py-3 font-semibold">{strings.taxes.colTax}</th>
+                                <th className="px-4 py-3 font-semibold">
+                                    {strings.taxes.colProvince}
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -44,10 +46,7 @@ export function TaxSettings() {
                 )}
             </div>
 
-            <p className="mt-3 text-xs text-muted">
-                Rates are seeded per province; small-supplier and registration settings come with
-                the payments slice.
-            </p>
+            <p className="mt-3 text-xs text-muted">{strings.taxes.footnote}</p>
         </div>
     );
 }

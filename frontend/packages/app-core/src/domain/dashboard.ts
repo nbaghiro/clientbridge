@@ -1,6 +1,7 @@
 import { useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
+import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { isRefundRow } from "./payments";
 
@@ -50,11 +51,11 @@ export function useRecentActivity(): ActivityRow[] {
 }
 
 export function activityLabel(row: ActivityRow): string {
-    if (isRefundRow(row)) return "Refund";
-    if (row.kind === "deposit") return "Deposit received";
-    if (row.method === "interac") return "Interac received";
-    if (row.method === "card") return "Card payment";
-    return "Payment";
+    if (isRefundRow(row)) return strings.home.activityRefund;
+    if (row.kind === "deposit") return strings.home.activityDepositReceived;
+    if (row.method === "interac") return strings.home.activityInteracReceived;
+    if (row.method === "card") return strings.home.activityCardPayment;
+    return strings.home.activityPayment;
 }
 
 export interface PayoutRow {

@@ -9,6 +9,7 @@ import {
     canManagePayments,
     hasOptions,
     signatureStatusIntent,
+    strings,
     useClients,
     useContractDraftForm,
     useContracts,
@@ -33,10 +34,10 @@ export function BookingForms() {
     if (!canManagePayments(role)) {
         return (
             <div className="max-w-3xl">
-                <h1 className="font-display text-2xl font-bold text-ink">Booking & forms</h1>
-                <p className="mt-1 text-sm text-muted">
-                    Only owners and admins can manage forms and contracts.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.bookingForms.title}
+                </h1>
+                <p className="mt-1 text-sm text-muted">{strings.bookingForms.ownerAdminOnly}</p>
             </div>
         );
     }
@@ -44,10 +45,10 @@ export function BookingForms() {
     return (
         <div className="max-w-3xl space-y-10">
             <div>
-                <h1 className="font-display text-2xl font-bold text-ink">Booking & forms</h1>
-                <p className="mt-1 text-sm text-muted">
-                    Build intake forms and contracts, then send them to clients to complete.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.bookingForms.title}
+                </h1>
+                <p className="mt-1 text-sm text-muted">{strings.bookingForms.intro}</p>
             </div>
             <FormsSection />
             <ContractsSection />
@@ -62,15 +63,15 @@ function FormsSection() {
     return (
         <section>
             <SectionHead
-                title="Intake forms"
+                title={strings.bookingForms.intakeForms}
                 onCreate={() => {
                     setMode((m) => (m === "create" ? "none" : "create"));
                 }}
                 onSend={() => {
                     setMode((m) => (m === "send" ? "none" : "send"));
                 }}
-                createLabel="New form"
-                sendLabel="Send form"
+                createLabel={strings.bookingForms.newForm}
+                sendLabel={strings.bookingForms.sendForm}
                 canSend={forms.length > 0}
             />
 
@@ -92,7 +93,7 @@ function FormsSection() {
 
             <div className="mt-4 space-y-2">
                 {forms.length === 0 ? (
-                    <Empty>No forms yet. Create one to send to clients.</Empty>
+                    <Empty>{strings.bookingForms.emptyForms}</Empty>
                 ) : (
                     forms.map((f) => <FormRowItem key={f.id} form={f} />)
                 )}
@@ -108,8 +109,8 @@ function FormRowItem({ form }: { form: FormRow }) {
             <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink">{form.name}</p>
                 <p className="text-xs text-muted">
-                    {fields.length} field{fields.length === 1 ? "" : "s"}
-                    {form.require_signature === 1 ? " · signature required" : ""}
+                    {strings.bookingForms.fieldCount(fields.length)}
+                    {form.require_signature === 1 ? strings.bookingForms.signatureRequired : ""}
                 </p>
             </div>
             {form.active === 1 ? (
@@ -126,8 +127,8 @@ function SendForm({ forms, onDone }: { forms: FormRow[]; onDone: () => void }) {
     const clients = useClients();
 
     return (
-        <Panel title="Send a form">
-            <PickerRow label="Form">
+        <Panel title={strings.bookingForms.sendFormTitle}>
+            <PickerRow label={strings.bookingForms.form}>
                 <select
                     value={send.formId}
                     onChange={(e) => {
@@ -135,7 +136,7 @@ function SendForm({ forms, onDone }: { forms: FormRow[]; onDone: () => void }) {
                     }}
                     className={field}
                 >
-                    <option value="">Select a form</option>
+                    <option value="">{strings.bookingForms.selectForm}</option>
                     {forms.map((f) => (
                         <option key={f.id} value={f.id}>
                             {f.name}
@@ -143,7 +144,7 @@ function SendForm({ forms, onDone }: { forms: FormRow[]; onDone: () => void }) {
                     ))}
                 </select>
             </PickerRow>
-            <PickerRow label="Client">
+            <PickerRow label={strings.bookingForms.client}>
                 <select
                     value={send.clientId}
                     onChange={(e) => {
@@ -151,7 +152,7 @@ function SendForm({ forms, onDone }: { forms: FormRow[]; onDone: () => void }) {
                     }}
                     className={field}
                 >
-                    <option value="">Select a client</option>
+                    <option value="">{strings.bookingForms.selectClient}</option>
                     {clients.map((cl) => (
                         <option key={cl.id} value={cl.id}>
                             {cl.name}
@@ -164,7 +165,7 @@ function SendForm({ forms, onDone }: { forms: FormRow[]; onDone: () => void }) {
                 onCancel={onDone}
                 busy={send.busy}
                 onSubmit={send.submit}
-                label="Send form"
+                label={strings.bookingForms.sendForm}
             />
         </Panel>
     );
@@ -174,14 +175,14 @@ function FormBuilderPanel({ onDone }: { onDone: () => void }) {
     const builder = useFormBuilder(onDone);
 
     return (
-        <Panel title="New form">
-            <PickerRow label="Form name">
+        <Panel title={strings.bookingForms.newForm}>
+            <PickerRow label={strings.bookingForms.formName}>
                 <input
                     value={builder.name}
                     onChange={(e) => {
                         builder.setName(e.target.value);
                     }}
-                    placeholder="New client intake"
+                    placeholder={strings.bookingForms.formNamePlaceholder}
                     className={field}
                 />
             </PickerRow>
@@ -211,7 +212,7 @@ function FormBuilderPanel({ onDone }: { onDone: () => void }) {
                 onClick={builder.addField}
                 className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-bg"
             >
-                + Add field
+                {strings.bookingForms.addField}
             </button>
 
             <label className="flex items-center gap-2 text-sm text-ink-soft">
@@ -223,7 +224,7 @@ function FormBuilderPanel({ onDone }: { onDone: () => void }) {
                     }}
                     className="h-4 w-4"
                 />
-                Require a signature
+                {strings.bookingForms.requireSignature}
             </label>
 
             {builder.error !== null ? <p className="text-sm text-danger">{builder.error}</p> : null}
@@ -231,7 +232,7 @@ function FormBuilderPanel({ onDone }: { onDone: () => void }) {
                 onCancel={onDone}
                 busy={builder.busy}
                 onSubmit={builder.submit}
-                label="Create form"
+                label={strings.bookingForms.createForm}
             />
         </Panel>
     );
@@ -252,7 +253,7 @@ function FieldEditor({
         <div className="rounded-md border border-line bg-bg p-3">
             <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Field {index + 1}
+                    {strings.bookingForms.fieldN(index + 1)}
                 </span>
                 {onRemove !== undefined ? (
                     <button
@@ -260,7 +261,7 @@ function FieldEditor({
                         onClick={onRemove}
                         className="text-xs font-medium text-danger hover:underline"
                     >
-                        Remove
+                        {strings.bookingForms.remove}
                     </button>
                 ) : null}
             </div>
@@ -270,7 +271,7 @@ function FieldEditor({
                     onChange={(e) => {
                         onChange({ label: e.target.value });
                     }}
-                    placeholder="Field label"
+                    placeholder={strings.bookingForms.fieldLabelPlaceholder}
                     className={`${field} flex-1`}
                 />
                 <select
@@ -293,7 +294,7 @@ function FieldEditor({
                     onChange={(e) => {
                         onChange({ options: e.target.value });
                     }}
-                    placeholder="Options, comma separated"
+                    placeholder={strings.bookingForms.optionsPlaceholder}
                     className={`${field} mt-2`}
                 />
             ) : null}
@@ -306,7 +307,7 @@ function FieldEditor({
                     }}
                     className="h-3.5 w-3.5"
                 />
-                Required
+                {strings.bookingForms.required}
             </label>
         </div>
     );
@@ -319,15 +320,15 @@ function ContractsSection() {
     return (
         <section>
             <SectionHead
-                title="Contracts"
+                title={strings.bookingForms.contracts}
                 onCreate={() => {
                     setMode((m) => (m === "create" ? "none" : "create"));
                 }}
                 onSend={() => {
                     setMode((m) => (m === "send" ? "none" : "send"));
                 }}
-                createLabel="New contract"
-                sendLabel="Send for signature"
+                createLabel={strings.bookingForms.newContract}
+                sendLabel={strings.bookingForms.sendForSignature}
                 canSend={contracts.length > 0}
             />
 
@@ -349,7 +350,7 @@ function ContractsSection() {
 
             <div className="mt-4 space-y-2">
                 {contracts.length === 0 ? (
-                    <Empty>No contracts yet. Create one to send for signature.</Empty>
+                    <Empty>{strings.bookingForms.emptyContracts}</Empty>
                 ) : (
                     contracts.map((cnt) => <ContractRowItem key={cnt.id} contract={cnt} />)
                 )}
@@ -363,7 +364,9 @@ function ContractRowItem({ contract }: { contract: ContractRow }) {
         <ListRow>
             <div className="min-w-0">
                 <p className="truncate text-sm font-semibold text-ink">{contract.name}</p>
-                <p className="text-xs text-muted">Version {contract.version}</p>
+                <p className="text-xs text-muted">
+                    {strings.bookingForms.version(contract.version)}
+                </p>
             </div>
             {contract.active === 1 ? (
                 <StatusPill status="active" intent="success" />
@@ -379,8 +382,8 @@ function SendContract({ contracts, onDone }: { contracts: ContractRow[]; onDone:
     const clients = useClients();
 
     return (
-        <Panel title="Send for signature">
-            <PickerRow label="Contract">
+        <Panel title={strings.bookingForms.sendForSignature}>
+            <PickerRow label={strings.bookingForms.contract}>
                 <select
                     value={send.contractId}
                     onChange={(e) => {
@@ -388,7 +391,7 @@ function SendContract({ contracts, onDone }: { contracts: ContractRow[]; onDone:
                     }}
                     className={field}
                 >
-                    <option value="">Select a contract</option>
+                    <option value="">{strings.bookingForms.selectContract}</option>
                     {contracts.map((cnt) => (
                         <option key={cnt.id} value={cnt.id}>
                             {cnt.name}
@@ -396,7 +399,7 @@ function SendContract({ contracts, onDone }: { contracts: ContractRow[]; onDone:
                     ))}
                 </select>
             </PickerRow>
-            <PickerRow label="Client">
+            <PickerRow label={strings.bookingForms.client}>
                 <select
                     value={send.clientId}
                     onChange={(e) => {
@@ -404,7 +407,7 @@ function SendContract({ contracts, onDone }: { contracts: ContractRow[]; onDone:
                     }}
                     className={field}
                 >
-                    <option value="">Select a client</option>
+                    <option value="">{strings.bookingForms.selectClient}</option>
                     {clients.map((cl) => (
                         <option key={cl.id} value={cl.id}>
                             {cl.name}
@@ -413,10 +416,14 @@ function SendContract({ contracts, onDone }: { contracts: ContractRow[]; onDone:
                 </select>
             </PickerRow>
             {send.error !== null ? <p className="text-sm text-danger">{send.error}</p> : null}
-            <PanelActions onCancel={onDone} busy={send.busy} onSubmit={send.submit} label="Send" />
+            <PanelActions
+                onCancel={onDone}
+                busy={send.busy}
+                onSubmit={send.submit}
+                label={strings.bookingForms.send}
+            />
             <p className="text-xs text-muted">
-                The client signs on a secure link. Status appears here once they respond.{" "}
-                <SignatureStatusLegend />
+                {strings.bookingForms.secureLinkNotice} <SignatureStatusLegend />
             </p>
         </Panel>
     );
@@ -436,25 +443,25 @@ function ContractDraftPanel({ onDone }: { onDone: () => void }) {
     const draft = useContractDraftForm(onDone);
 
     return (
-        <Panel title="New contract">
-            <PickerRow label="Name">
+        <Panel title={strings.bookingForms.newContract}>
+            <PickerRow label={strings.bookingForms.name}>
                 <input
                     value={draft.name}
                     onChange={(e) => {
                         draft.setName(e.target.value);
                     }}
-                    placeholder="Service agreement"
+                    placeholder={strings.bookingForms.contractNamePlaceholder}
                     className={field}
                 />
             </PickerRow>
-            <PickerRow label="Contract text">
+            <PickerRow label={strings.bookingForms.contractText}>
                 <textarea
                     value={draft.body}
                     onChange={(e) => {
                         draft.setBody(e.target.value);
                     }}
                     rows={8}
-                    placeholder="Paste or write the contract the client will sign…"
+                    placeholder={strings.bookingForms.contractTextPlaceholder}
                     className={`${field} resize-y`}
                 />
             </PickerRow>
@@ -463,7 +470,7 @@ function ContractDraftPanel({ onDone }: { onDone: () => void }) {
                 onCancel={onDone}
                 busy={draft.busy}
                 onSubmit={draft.submit}
-                label="Create contract"
+                label={strings.bookingForms.createContract}
             />
         </Panel>
     );
@@ -545,7 +552,7 @@ function PanelActions({
                 onClick={onCancel}
                 className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
             >
-                Cancel
+                {strings.common.cancel}
             </button>
             <button
                 type="button"
@@ -553,7 +560,7 @@ function PanelActions({
                 disabled={busy}
                 className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
             >
-                {busy ? "Working…" : label}
+                {busy ? strings.common.working : label}
             </button>
         </div>
     );

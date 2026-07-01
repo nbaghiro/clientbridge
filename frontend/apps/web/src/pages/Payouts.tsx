@@ -5,6 +5,7 @@ import {
     canManagePayments,
     formatMoney,
     formatRelativeTime,
+    strings,
     useAllocationActions,
     usePayoutFilter,
     useStaffPayouts,
@@ -21,10 +22,10 @@ export function Payouts() {
     if (!canManagePayments(role)) {
         return (
             <div className="mx-auto max-w-5xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold text-ink">Payouts</h1>
-                <p className="mt-0.5 text-sm text-muted">
-                    Only owners and admins can manage staff payouts.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.payouts.title}
+                </h1>
+                <p className="mt-0.5 text-sm text-muted">{strings.payouts.noAccessWeb}</p>
             </div>
         );
     }
@@ -38,10 +39,8 @@ function PayoutsView() {
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
-            <h1 className="font-display text-2xl font-bold text-ink">Payouts</h1>
-            <p className="mt-0.5 text-sm text-muted">
-                Approve staff earnings, then mark them paid out.
-            </p>
+            <h1 className="font-display text-2xl font-bold text-ink">{strings.payouts.title}</h1>
+            <p className="mt-0.5 text-sm text-muted">{strings.payouts.subtitle}</p>
 
             <div className="mt-6 flex gap-1 rounded-md border border-line bg-surface p-1 text-sm font-medium">
                 {filters.map((f) => (
@@ -55,14 +54,14 @@ function PayoutsView() {
                             filter === f ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
                         }`}
                     >
-                        {f} ({countOf(f)})
+                        {strings.payouts.filterTab(f, countOf(f))}
                     </button>
                 ))}
             </div>
 
             {shown.length === 0 ? (
                 <p className="mt-8 text-center text-sm text-muted">
-                    No {filter === "all" ? "" : `${filter} `}payouts.
+                    {strings.payouts.empty(filter)}
                 </p>
             ) : (
                 <div className="mt-4 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
@@ -99,7 +98,7 @@ function AllocationItem({ row }: { row: AllocationRow }) {
                         onClick={approve}
                         className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {busy ? "Approving…" : "Approve"}
+                        {busy ? strings.payouts.approving : strings.payouts.approve}
                     </button>
                 ) : null}
                 {canPay ? (
@@ -109,7 +108,7 @@ function AllocationItem({ row }: { row: AllocationRow }) {
                         onClick={pay}
                         className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {busy ? "Saving…" : "Mark paid"}
+                        {busy ? strings.common.saving : strings.payouts.markPaid}
                     </button>
                 ) : null}
             </div>

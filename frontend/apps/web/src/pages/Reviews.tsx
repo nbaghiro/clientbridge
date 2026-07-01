@@ -6,6 +6,7 @@ import {
     formatRelativeTime,
     reviewStatusIntent,
     roundedRating,
+    strings,
     useClients,
     useRequestReviewForm,
     useReviewActions,
@@ -27,10 +28,10 @@ export function Reviews() {
     if (!canManagePayments(role)) {
         return (
             <div className="mx-auto max-w-3xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold text-ink">Reviews</h1>
-                <p className="mt-0.5 text-sm text-muted">
-                    Only owners and admins can manage reviews.
-                </p>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.reviews.title}
+                </h1>
+                <p className="mt-0.5 text-sm text-muted">{strings.reviews.restricted}</p>
             </div>
         );
     }
@@ -52,10 +53,10 @@ function ReviewsView() {
         <div className="mx-auto max-w-3xl px-8 py-8">
             <header className="flex items-center justify-between gap-4">
                 <div>
-                    <h1 className="font-display text-2xl font-bold text-ink">Reviews</h1>
-                    <p className="mt-0.5 text-sm text-muted">
-                        Reply to feedback and choose what shows publicly.
-                    </p>
+                    <h1 className="font-display text-2xl font-bold text-ink">
+                        {strings.reviews.title}
+                    </h1>
+                    <p className="mt-0.5 text-sm text-muted">{strings.reviews.subtitle}</p>
                 </div>
                 <button
                     type="button"
@@ -64,7 +65,7 @@ function ReviewsView() {
                     }}
                     className="shrink-0 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
                 >
-                    Request review
+                    {strings.reviews.requestReview}
                 </button>
             </header>
 
@@ -79,7 +80,7 @@ function ReviewsView() {
             ) : null}
 
             {reviews.length === 0 ? (
-                <p className="mt-8 text-center text-sm text-muted">No reviews yet.</p>
+                <p className="mt-8 text-center text-sm text-muted">{strings.reviews.noReviews}</p>
             ) : (
                 <div className="mt-6 space-y-3">
                     {reviews.map((review) => (
@@ -95,11 +96,11 @@ function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummar
     return (
         <div className="mt-6 flex items-center gap-4 rounded-lg border border-line bg-surface px-5 py-4 shadow-card">
             {summary === null ? (
-                <p className="text-sm text-muted">Loading rating…</p>
+                <p className="text-sm text-muted">{strings.reviews.loadingRating}</p>
             ) : summary === "error" ? (
-                <p className="text-sm text-danger">Couldn't load your rating.</p>
+                <p className="text-sm text-danger">{strings.reviews.ratingLoadError}</p>
             ) : summary.count === 0 ? (
-                <p className="text-sm text-muted">No published reviews yet.</p>
+                <p className="text-sm text-muted">{strings.reviews.noPublishedReviews}</p>
             ) : (
                 <>
                     <div className="flex items-baseline gap-1">
@@ -109,7 +110,7 @@ function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummar
                         <Stars rating={roundedRating(summary.average)} />
                     </div>
                     <p className="text-sm text-muted">
-                        {summary.count} published review{summary.count === 1 ? "" : "s"}
+                        {strings.reviews.publishedCount(summary.count)}
                     </p>
                 </>
             )}
@@ -140,7 +141,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
             <div className="flex items-center gap-3">
                 <Stars rating={review.rating} />
                 <span className="text-sm font-medium text-ink">
-                    {review.client_name ?? "Client"}
+                    {review.client_name ?? strings.reviews.clientFallback}
                 </span>
                 <span className="text-xs text-muted">{formatRelativeTime(review.created_at)}</span>
                 <span className="ml-auto">
@@ -155,7 +156,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
             {review.response !== null && !editing ? (
                 <div className="mt-3 rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink-soft">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                        Your reply
+                        {strings.reviews.yourReply}
                     </p>
                     <p className="mt-1 leading-relaxed">{review.response}</p>
                 </div>
@@ -169,7 +170,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             setReply(e.target.value);
                         }}
                         rows={3}
-                        placeholder="Write a public reply…"
+                        placeholder={strings.reviews.replyPlaceholder}
                         className={field}
                     />
                     <div className="flex justify-end gap-2">
@@ -181,7 +182,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             }}
                             className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg"
                         >
-                            Cancel
+                            {strings.common.cancel}
                         </button>
                         <button
                             type="button"
@@ -192,7 +193,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             }}
                             className="rounded-md bg-accent px-3.5 py-1.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {busy ? "Saving…" : "Post reply"}
+                            {busy ? strings.common.saving : strings.reviews.postReply}
                         </button>
                     </div>
                 </div>
@@ -205,7 +206,9 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                         }}
                         className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-bg"
                     >
-                        {review.response !== null ? "Edit reply" : "Reply"}
+                        {review.response !== null
+                            ? strings.reviews.editReply
+                            : strings.reviews.reply}
                     </button>
                     {canPublish ? (
                         <button
@@ -214,7 +217,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             onClick={publish}
                             className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
-                            {busy ? "Working…" : "Publish"}
+                            {busy ? strings.common.working : strings.reviews.publish}
                         </button>
                     ) : null}
                     {canHide ? (
@@ -224,7 +227,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             onClick={hide}
                             className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-bg disabled:opacity-60"
                         >
-                            {busy ? "Working…" : "Hide"}
+                            {busy ? strings.common.working : strings.reviews.hide}
                         </button>
                     ) : null}
                 </div>
@@ -241,7 +244,9 @@ function RequestReview({ onClose }: { onClose: () => void }) {
 
     return (
         <section className="mt-5 rounded-lg border border-line bg-surface p-5 shadow-card">
-            <h2 className="mb-3 font-display text-base font-bold text-ink">Request a review</h2>
+            <h2 className="mb-3 font-display text-base font-bold text-ink">
+                {strings.reviews.requestTitle}
+            </h2>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -250,7 +255,7 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    Client
+                    {strings.reviews.clientLabel}
                     <select
                         value={form.clientId}
                         onChange={(e) => {
@@ -258,7 +263,7 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                         }}
                         className={field}
                     >
-                        <option value="">Select a client</option>
+                        <option value="">{strings.reviews.selectClient}</option>
                         {clients.map((cl) => (
                             <option key={cl.id} value={cl.id}>
                                 {cl.name}
@@ -273,14 +278,14 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                         onClick={onClose}
                         className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                     >
-                        Cancel
+                        {strings.common.cancel}
                     </button>
                     <button
                         type="submit"
                         disabled={form.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {form.busy ? "Sending…" : "Send request"}
+                        {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
                     </button>
                 </div>
             </form>

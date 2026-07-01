@@ -5,6 +5,7 @@ import {
     canManagePayments,
     formatMoney,
     formatRelativeTime,
+    strings,
     useAllocationActions,
     usePayoutFilter,
     useStaffPayouts,
@@ -25,7 +26,7 @@ export function PayoutsScreen() {
     if (!canManagePayments(role)) {
         return (
             <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>Payouts are available to owners and admins.</Text>
+                <Text style={styles.muted}>{strings.payouts.noAccessMobile}</Text>
             </View>
         );
     }
@@ -48,14 +49,14 @@ function PayoutsBody() {
                         }}
                     >
                         <Text style={[styles.tabText, filter === f && styles.tabTextActive]}>
-                            {f} ({countOf(f)})
+                            {strings.payouts.filterTab(f, countOf(f))}
                         </Text>
                     </Pressable>
                 ))}
             </View>
 
             {shown.length === 0 ? (
-                <Text style={styles.muted}>No {filter === "all" ? "" : `${filter} `}payouts.</Text>
+                <Text style={styles.muted}>{strings.payouts.empty(filter)}</Text>
             ) : (
                 <View style={styles.list}>
                     {shown.map((row, i) => (
@@ -92,11 +93,11 @@ function AllocationItem({ row, divider }: { row: AllocationRow; divider: boolean
                     <Text style={styles.actionText}>
                         {busy
                             ? canApprove
-                                ? "Approving…"
-                                : "Saving…"
+                                ? strings.payouts.approving
+                                : strings.common.saving
                             : canApprove
-                              ? "Approve"
-                              : "Mark paid"}
+                              ? strings.payouts.approve
+                              : strings.payouts.markPaid}
                     </Text>
                 </Pressable>
             ) : null}

@@ -2,6 +2,7 @@ import {
     type StaffRow,
     WEEKDAYS,
     staffLabel,
+    strings,
     useAvailabilityEditor,
     useStaff,
 } from "@clientbridge/app-core";
@@ -27,12 +28,10 @@ export function SchedulingScreen() {
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <Text style={styles.note}>
-                Set each team member’s weekly working hours. Bookings are held to these windows.
-            </Text>
+            <Text style={styles.note}>{strings.scheduling.subtitle}</Text>
 
             {selected === null ? (
-                <Text style={styles.empty}>No team members yet.</Text>
+                <Text style={styles.empty}>{strings.scheduling.noStaff}</Text>
             ) : (
                 <>
                     {staff.length > 1 ? (
@@ -95,31 +94,31 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                                     onChangeText={(v) => {
                                         editor.setTime(d.weekday, "start", v);
                                     }}
-                                    placeholder="09:00"
+                                    placeholder={strings.scheduling.startHint}
                                     placeholderTextColor={c.muted}
                                     keyboardType="numbers-and-punctuation"
                                 />
-                                <Text style={styles.to}>to</Text>
+                                <Text style={styles.to}>{strings.scheduling.to}</Text>
                                 <TextInput
                                     style={styles.time}
                                     value={d.end}
                                     onChangeText={(v) => {
                                         editor.setTime(d.weekday, "end", v);
                                     }}
-                                    placeholder="17:00"
+                                    placeholder={strings.scheduling.endHint}
                                     placeholderTextColor={c.muted}
                                     keyboardType="numbers-and-punctuation"
                                 />
                             </View>
                         ) : (
-                            <Text style={styles.closed}>Closed</Text>
+                            <Text style={styles.closed}>{strings.scheduling.closed}</Text>
                         )}
                     </View>
                 );
             })}
 
             {editor.error !== null ? <Text style={styles.error}>{editor.error}</Text> : null}
-            {editor.saved ? <Text style={styles.saved}>Saved.</Text> : null}
+            {editor.saved ? <Text style={styles.saved}>{strings.common.saved}</Text> : null}
 
             <Pressable
                 style={({ pressed }) => [styles.submit, (editor.busy || pressed) && styles.dim]}
@@ -129,7 +128,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                 {editor.busy ? (
                     <ActivityIndicator color="#fff" />
                 ) : (
-                    <Text style={styles.submitText}>Save hours</Text>
+                    <Text style={styles.submitText}>{strings.scheduling.saveHours}</Text>
                 )}
             </Pressable>
         </View>
