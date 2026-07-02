@@ -5,6 +5,7 @@ import { useEmbedResize } from "./embed";
 import { PublicBooking } from "./pages/PublicBooking";
 import { PublicContract } from "./pages/PublicContract";
 import { PublicForm } from "./pages/PublicForm";
+import { PublicLanding } from "./pages/PublicLanding";
 import { PublicPay } from "./pages/PublicPay";
 import { PublicReview } from "./pages/PublicReview";
 
@@ -15,6 +16,7 @@ export function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/b/:slug" element={<PublicLanding />} />
                 <Route path="/book/:slug" element={<PublicBooking />} />
                 <Route path="/pay/:token" element={<PublicPay />} />
                 <Route path="/form/:token" element={<PublicForm />} />

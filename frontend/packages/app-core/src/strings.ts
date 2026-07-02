@@ -907,6 +907,12 @@ export const strings = {
         notFoundTitle: "Page not found",
         notFoundBody: "Check the link the business sent you, or contact them directly.",
     },
+    publicLanding: {
+        book: "Book an appointment",
+        servicesTitle: "Services",
+        notFoundTitle: "Business not found",
+        notFoundBody: "This link is invalid or the business is no longer taking bookings here.",
+    },
     fileUpload: {
         uploadFile: "Upload file",
         uploading: "Uploading…",
