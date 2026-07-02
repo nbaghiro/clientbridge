@@ -5,8 +5,31 @@ import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
-import { type PayMethod, payMethods } from "./payments";
+import type { Intent } from "../util/primitives";
 import type { PublicBrand } from "./publicBrand";
+
+export type PayMethod = "interac" | "card";
+
+/** Ranked pay methods for the public page: Interac first (no fee), card only when enabled. */
+export function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
+    return invoice.accepts_card ? ["interac", "card"] : ["interac"];
+}
+
+// The status → visual-intent decision is shared; each platform maps the intent to its own tokens.
+export function invoiceStatusIntent(status: string): Intent {
+    switch (status) {
+        case "paid":
+            return "success";
+        case "sent":
+            return "accent";
+        case "partial":
+            return "warning";
+        case "overdue":
+            return "danger";
+        default:
+            return "neutral"; // draft, void
+    }
+}
 
 export interface PublicInvoice {
     number: number | null;

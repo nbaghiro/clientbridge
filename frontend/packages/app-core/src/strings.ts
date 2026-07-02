@@ -881,6 +881,20 @@ export const strings = {
         doneTitle: "Thanks — all done",
         doneBody: (businessName: string) => `Your responses have been sent to ${businessName}.`,
     },
+    publicReview: {
+        prompt: (businessName: string) => `How was your experience with ${businessName}?`,
+        ratingLabel: "Your rating",
+        notePlaceholder: "Add a note (optional)",
+        submit: "Submit review",
+        submitting: "Submitting…",
+        pickRating: "Please pick a rating.",
+        submitError: "Couldn't submit your review. Please try again.",
+        notFoundTitle: "Review not found",
+        notFoundBody:
+            "This link is invalid or has expired. Please check with the business that sent it to you.",
+        doneTitle: "Thanks for the feedback",
+        doneBody: (businessName: string) => `Your review has been shared with ${businessName}.`,
+    },
     fileUpload: {
         uploadFile: "Upload file",
         uploading: "Uploading…",
