@@ -26,9 +26,18 @@
     "use strict";
 
     var thisScript = document.currentScript;
-    var DEFAULT_BASE =
-        window.CONNECT_BASE ||
-        (thisScript ? new URL(thisScript.src).origin : window.location.origin);
+    // Normalize to a bare origin (scheme://host:port) — tolerates a configured base with a trailing
+    // slash or path, which would otherwise fail the `e.origin === base` check + double-slash the src.
+    function originOf(u) {
+        try {
+            return new URL(u).origin;
+        } catch (e) {
+            return u;
+        }
+    }
+    var DEFAULT_BASE = originOf(
+        window.CONNECT_BASE || (thisScript ? thisScript.src : window.location.href),
+    );
 
     var TYPES = {
         "connect-booking": { path: "/book/", attr: "slug", title: "Book an appointment" },
@@ -48,14 +57,16 @@
             class extends HTMLElement {
                 connectedCallback() {
                     if (this._iframe) return;
-                    var base = this.getAttribute("base") || DEFAULT_BASE;
+                    var base = originOf(this.getAttribute("base") || DEFAULT_BASE);
                     var id = this.getAttribute(cfg.attr) || "";
                     var iframe = document.createElement("iframe");
                     iframe.src = base + cfg.path + encodeURIComponent(id) + "?embed=1";
                     iframe.title = cfg.title;
                     iframe.setAttribute("allow", "payment");
+                    // Initial height only (a pre-message flash); the resize protocol sets it precisely
+                    // and must be free to shrink, so no min-height floor here.
                     iframe.style.cssText =
-                        "width:100%;border:0;display:block;overflow:hidden;min-height:200px;";
+                        "width:100%;border:0;display:block;overflow:hidden;height:200px;";
                     if (this.style.display === "") this.style.display = "block";
                     this.appendChild(iframe);
                     this._iframe = iframe;

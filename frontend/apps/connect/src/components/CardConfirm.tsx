@@ -5,25 +5,21 @@ import { type FormEvent, useMemo } from "react";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
-/** A Stripe Elements card confirm for a Connect direct charge — Elements targets the connected
- *  account and the PaymentIntent `clientSecret` is server-minted. `stripeAccount` is passed in (public
- *  pages render outside the sync context, so they can't read it from the replica). Pass `onCancel` for
- *  the framed, cancellable "charge a card" variant on authed screens; omit it for the bare public-pay
- *  variant. */
+/** Stripe Elements card confirm for a Connect direct charge — Elements targets the connected account
+ *  and the PaymentIntent `clientSecret` is server-minted. `stripeAccount` is passed in (the public
+ *  pages render outside any sync context, so they can't read it from a replica). The Connect copy is
+ *  the bare public variant only; the provider app keeps its own framed/cancellable variant. */
 export function CardConfirm({
     clientSecret,
     stripeAccount,
     amountLabel,
     onPaid,
-    onCancel,
 }: {
     clientSecret: string;
     stripeAccount: string;
     amountLabel: string;
     onPaid: () => void;
-    onCancel?: () => void;
 }) {
-    const framed = onCancel !== undefined;
     const stripePromise = useMemo<Promise<Stripe | null> | null>(
         () =>
             PUBLISHABLE_KEY && stripeAccount
@@ -32,46 +28,17 @@ export function CardConfirm({
         [stripeAccount],
     );
 
-    if (stripePromise === null) {
-        if (onCancel !== undefined)
-            return (
-                <div className="mt-3 rounded-md border border-line bg-bg p-4">
-                    <p className="text-sm text-danger">{strings.card.notConfiguredSavedCard}</p>
-                    <div className="mt-3 flex justify-end">
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                        >
-                            {strings.card.back}
-                        </button>
-                    </div>
-                </div>
-            );
+    if (stripePromise === null)
         return <p className="text-sm text-danger-fg">{strings.card.notConfiguredContact}</p>;
-    }
 
-    const elements = (
+    return (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
-            <CardForm amountLabel={amountLabel} onPaid={onPaid} onCancel={onCancel} />
+            <CardForm amountLabel={amountLabel} onPaid={onPaid} />
         </Elements>
-    );
-    return framed ? (
-        <div className="mt-3 rounded-md border border-line bg-bg p-4">{elements}</div>
-    ) : (
-        elements
     );
 }
 
-function CardForm({
-    amountLabel,
-    onPaid,
-    onCancel,
-}: {
-    amountLabel: string;
-    onPaid: () => void;
-    onCancel: (() => void) | undefined;
-}) {
+function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => void }) {
     const stripe = useStripe();
     const elements = useElements();
     const { busy, error, setError, run } = useAsyncAction();
@@ -92,35 +59,17 @@ function CardForm({
         );
     };
 
-    const submitClass =
-        "rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60";
-
     return (
         <form onSubmit={submit} className="space-y-3">
             <PaymentElement />
             {error !== null ? <p className="text-sm text-danger-fg">{error}</p> : null}
-            {onCancel !== undefined ? (
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                    >
-                        {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={busy || !stripe} className={submitClass}>
-                        {busy ? strings.card.charging : strings.card.charge(amountLabel)}
-                    </button>
-                </div>
-            ) : (
-                <button
-                    type="submit"
-                    disabled={busy || !stripe}
-                    className={`w-full ${submitClass}`}
-                >
-                    {busy ? strings.common.working : strings.card.pay(amountLabel)}
-                </button>
-            )}
+            <button
+                type="submit"
+                disabled={busy || !stripe}
+                className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+            >
+                {busy ? strings.common.working : strings.card.pay(amountLabel)}
+            </button>
         </form>
     );
 }

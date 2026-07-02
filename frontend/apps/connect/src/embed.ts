@@ -28,14 +28,16 @@ function postToParent(message: EmbedMessage): void {
     window.parent.postMessage({ source: SOURCE, ...message }, "*");
 }
 
-/** Continuously report the content height so the host can size the iframe to fit (no inner scrollbar). */
+/** Continuously report the content height so the host can size the iframe to fit (no inner scrollbar).
+ *  Measures the body's rendered box (embed mode sets `height:auto`, so it tracks content and can
+ *  shrink) — NOT `documentElement.scrollHeight`, which is viewport-floored and would never shrink. */
 export function useEmbedResize(): void {
     useEffect(() => {
         if (!isEmbedded()) return undefined;
         const post = (): void => {
             postToParent({
                 type: "resize",
-                height: Math.ceil(document.documentElement.scrollHeight),
+                height: Math.ceil(document.body.getBoundingClientRect().height),
             });
         };
         post();
@@ -48,11 +50,18 @@ export function useEmbedResize(): void {
 }
 
 /** Fire a one-shot `success` up to the host when a flow completes (booking booked, invoice paid, …),
- *  so the embedder can show its own confirmation / fire a conversion pixel / redirect. */
+ *  so the embedder can show its own confirmation / fire a conversion pixel / redirect. Fires only on a
+ *  completion that happens this session — not when a customer merely reopens an already-done link
+ *  (that would re-fire the host's conversion pixel for a non-event). */
 export function useEmbedSuccess(active: boolean, widget: string): void {
     const sent = useRef(false);
+    const seenInactive = useRef(false);
     useEffect(() => {
-        if (active && !sent.current) {
+        if (!active) {
+            seenInactive.current = true;
+            return;
+        }
+        if (seenInactive.current && !sent.current) {
             sent.current = true;
             postToParent({ type: "success", widget });
         }

@@ -5,14 +5,11 @@ import {
     formatMoneyWithCurrency,
     invoiceStatusIntent,
     strings,
-    useAsyncAction,
     usePublicPayForm,
 } from "@clientbridge/app-core/public";
-import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { type Stripe, loadStripe } from "@stripe/stripe-js";
-import { type FormEvent, useMemo } from "react";
 import { useParams } from "react-router-dom";
 
+import { CardConfirm } from "../components/CardConfirm";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { StatusPill } from "../components/StatusPill";
 import { useEmbedSuccess } from "../embed";
@@ -130,7 +127,7 @@ export function PublicPay() {
                         </PrimaryButton>
                     )
                 ) : form.card ? (
-                    <CardPay
+                    <CardConfirm
                         clientSecret={form.card.client_secret}
                         stripeAccount={form.card.stripe_account_id}
                         amountLabel={formatMoneyWithCurrency(
@@ -204,18 +201,16 @@ function PrimaryButton({
     children,
     onClick,
     busy,
-    disabled,
 }: {
     children: React.ReactNode;
-    onClick?: () => void;
+    onClick: () => void;
     busy?: boolean;
-    disabled?: boolean;
 }) {
     return (
         <button
-            type={onClick ? "button" : "submit"}
+            type="button"
             onClick={onClick}
-            disabled={busy ?? disabled ?? false}
+            disabled={busy ?? false}
             className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
         >
             {busy ? strings.common.working : children}
@@ -245,65 +240,6 @@ function InteracInstructions({ result, currency }: { result: InteracRequest; cur
             )}
             <p className="mt-3 text-xs text-muted">{strings.publicPay.interacConfirmNote}</p>
         </div>
-    );
-}
-
-function CardPay({
-    clientSecret,
-    stripeAccount,
-    amountLabel,
-    onPaid,
-}: {
-    clientSecret: string;
-    stripeAccount: string;
-    amountLabel: string;
-    onPaid: () => void;
-}) {
-    // Connect direct charge: the Elements instance must target the connected account.
-    const stripePromise = useMemo<Promise<Stripe | null> | null>(
-        () => (PUBLISHABLE_KEY ? loadStripe(PUBLISHABLE_KEY, { stripeAccount }) : null),
-        [stripeAccount],
-    );
-
-    if (!stripePromise)
-        return <p className="text-sm text-danger-fg">{strings.publicPay.cardNotConfigured}</p>;
-
-    return (
-        <Elements stripe={stripePromise} options={{ clientSecret }}>
-            <CardForm amountLabel={amountLabel} onPaid={onPaid} />
-        </Elements>
-    );
-}
-
-function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => void }) {
-    const stripe = useStripe();
-    const elements = useElements();
-    const { busy, error, setError, run } = useAsyncAction();
-
-    const submit = (e: FormEvent): void => {
-        e.preventDefault();
-        if (!stripe || !elements) return;
-        void run(
-            async () => {
-                const result = await stripe.confirmPayment({ elements, redirect: "if_required" });
-                if (result.error) {
-                    setError(result.error.message ?? strings.publicPay.paymentFailed);
-                    return;
-                }
-                onPaid();
-            },
-            { errorMessage: strings.publicPay.paymentFailed },
-        );
-    };
-
-    return (
-        <form onSubmit={submit} className="space-y-4">
-            <PaymentElement />
-            {error ? <p className="text-sm text-danger-fg">{error}</p> : null}
-            <PrimaryButton busy={busy} disabled={!stripe}>
-                {strings.publicPay.payAmount(amountLabel)}
-            </PrimaryButton>
-        </form>
     );
 }
 
