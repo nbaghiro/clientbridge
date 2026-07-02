@@ -2,8 +2,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-# The 13 Canadian provinces/territories — onboarding seeds per-code tax rates, so an unknown code
-# can't be stored (it would silently get no GST/PST). Rejected at the boundary (422).
+# The 13 Canadian provinces/territories — tax rates are derived per province, so an unknown code
+# would silently collect no tax. Rejected at the boundary (422).
 ProvinceCode = Literal["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]
 
 
@@ -32,7 +32,7 @@ class BusinessOut(BaseModel):
 
 class BusinessSettingsUpdate(BaseModel):
     """Editable account fields (partial — only sent keys are applied). Slug + province are fixed
-    here (province drives seeded tax rates); the tax numbers accept "" to clear."""
+    here (province drives the derived tax rates); the tax numbers accept "" to clear."""
 
     name: str | None = None
     timezone: str | None = None

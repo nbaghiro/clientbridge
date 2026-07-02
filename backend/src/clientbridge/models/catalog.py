@@ -37,7 +37,6 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     duration_min: Mapped[int | None] = mapped_column(Integer)
     capacity: Mapped[int | None] = mapped_column(Integer)
-    tax_rate_id: Mapped[str | None] = mapped_column(ForeignKey("tax_rates.id"))
     category: Mapped[str | None] = mapped_column(String)
     color: Mapped[str | None] = mapped_column(String)
     online_bookable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

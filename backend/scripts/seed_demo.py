@@ -19,7 +19,7 @@ from sqlalchemy import text
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.security import hash_password
-from clientbridge.models.billing import Estimate, Invoice, Line, TaxRate
+from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
@@ -172,27 +172,10 @@ def seed_identity() -> tuple[str, str]:
     return owner_id, "st_diego"
 
 
-# ─────────────────────────────────────────── tax + catalog ──────────────────────────────────────
-GST = "tx_gst"
-PST = "tx_pst_bc"
-
-
-def seed_tax() -> None:
-    rows.append(
-        TaxRate(
-            id=GST, business_id=None, jurisdiction="GST", province="BC", rate_bps=500, name="GST 5%"
-        )
-    )
-    rows.append(
-        TaxRate(
-            id=PST,
-            business_id=None,
-            jurisdiction="PST",
-            province="BC",
-            rate_bps=700,
-            name="PST (BC) 7%",
-        )
-    )
+# ─────────────────────────────────────────── catalog ────────────────────────────────────────────
+# tax markers driving the line-tax math below (rates are derived at runtime — no table to seed)
+GST = "gst"
+PST = "pst"
 
 
 # item_id, kind, name, price_cents, duration_min, capacity, tax, category, desc
@@ -333,7 +316,8 @@ ITEMS = [
 
 
 def seed_items(owner: str) -> None:
-    for iid, kind, name, price, dur, cap, tax, cat, desc in ITEMS:
+    # the tax marker (item[6]) drives the line-tax math in seed_billing, not the item row itself
+    for iid, kind, name, price, dur, cap, _tax, cat, desc in ITEMS:
         rows.append(
             Item(
                 id=iid,
@@ -346,7 +330,6 @@ def seed_items(owner: str) -> None:
                 currency="CAD",
                 duration_min=dur,
                 capacity=cap,
-                tax_rate_id=tax,
                 category=cat,
                 color="#3F5E80",
                 online_bookable=kind in {"service", "class"},
@@ -776,7 +759,6 @@ def _invoice_for(
             quantity=1,
             unit_amount_cents=price,
             amount_cents=price,
-            tax_rate_id=tax,
             tax_amount_cents=tax_amt,
             position=0,
         )
@@ -1011,7 +993,6 @@ def seed_estimates() -> None:
             quantity=3,
             unit_amount_cents=7500,
             amount_cents=22500,
-            tax_rate_id=GST,
             tax_amount_cents=1125,
             position=0,
         )
@@ -1027,7 +1008,6 @@ def seed_estimates() -> None:
             quantity=1,
             unit_amount_cents=6000,
             amount_cents=6000,
-            tax_rate_id=GST,
             tax_amount_cents=300,
             position=1,
         )
@@ -1043,7 +1023,6 @@ def seed_estimates() -> None:
             quantity=1,
             unit_amount_cents=2400,
             amount_cents=2400,
-            tax_rate_id=PST,
             tax_amount_cents=168,
             position=2,
         )
@@ -1572,7 +1551,6 @@ def seed_platform(owner: str) -> None:
 # FK dependency order — parents before children (models define no relationships, so the
 # unit-of-work cannot order inserts itself).
 INSERT_ORDER = [
-    TaxRate,
     Business,
     User,
     Staff,
@@ -1613,7 +1591,6 @@ INSERT_ORDER = [
 
 async def main() -> None:
     owner, _ = seed_identity()
-    seed_tax()
     seed_items(owner)
     seed_clients(owner)
     seed_resources_availability()

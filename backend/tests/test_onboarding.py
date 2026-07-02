@@ -1,4 +1,4 @@
-"""Onboarding — atomic business + owner staff + province tax_rates."""
+"""Onboarding — atomic business + owner staff; the province drives the derived tax rates."""
 
 import httpx
 from sqlalchemy import text
@@ -33,34 +33,21 @@ async def test_onboard_creates_business_owner_and_taxes(
     ).scalar()
     assert role == "owner"
 
-    rates = (
-        (
-            await db.execute(
-                text("SELECT jurisdiction FROM tax_rates WHERE business_id = :b"), {"b": biz["id"]}
-            )
-        )
-        .scalars()
-        .all()
-    )
-    assert set(rates) == {"GST", "PST"}
+    # rates aren't stored — they're derived from the business's province at request time. Assert the
+    # exact ordered list (not a set) so a duplicate/wrong-count regression can't slip through.
+    rates = (await api.get("/v1/tax-rates")).json()
+    assert [(r["jurisdiction"], r["rate_bps"]) for r in rates] == [("GST", 500), ("PST", 700)]
 
 
-async def test_onboard_province_drives_taxes(
-    api: httpx.AsyncClient, factory: Factory, db: AsyncSession
-) -> None:
+async def test_onboard_province_drives_taxes(api: httpx.AsyncClient, factory: Factory) -> None:
     user = await factory.user()
     _auth(api, user.id)
     res = await api.post(
         "/v1/onboarding", json={"name": "ON Biz", "slug": "on-biz", "province": "ON"}
     )
     assert res.status_code == 201
-    rows = (
-        await db.execute(
-            text("SELECT jurisdiction, rate_bps FROM tax_rates WHERE business_id = :b"),
-            {"b": res.json()["id"]},
-        )
-    ).all()
-    assert [tuple(r) for r in rows] == [("HST", 1300)]
+    rates = (await api.get("/v1/tax-rates")).json()
+    assert [(r["jurisdiction"], r["rate_bps"]) for r in rates] == [("HST", 1300)]
 
 
 async def test_onboard_owner_can_access_scoped_clients(

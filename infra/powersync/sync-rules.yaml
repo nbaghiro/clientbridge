@@ -18,7 +18,6 @@ bucket_definitions:
       - SELECT * FROM packages        WHERE business_id = bucket.business_id
       - SELECT * FROM subscriptions   WHERE business_id = bucket.business_id
       - SELECT * FROM gift_cards      WHERE business_id = bucket.business_id
-      - SELECT * FROM tax_rates       WHERE business_id = bucket.business_id
       - SELECT * FROM resources       WHERE business_id = bucket.business_id
       - SELECT * FROM forms           WHERE business_id = bucket.business_id
       - SELECT * FROM form_fields     WHERE business_id = bucket.business_id
@@ -67,9 +66,3 @@ bucket_definitions:
       - SELECT * FROM reviews            WHERE business_id = bucket.business_id
       - SELECT * FROM review_requests    WHERE business_id = bucket.business_id
       - SELECT * FROM audit_logs         WHERE business_id = bucket.business_id
-
-  # 4) GLOBAL — system reference data with no tenant (the GST/PST/QST rate table). A parameterless
-  #    bucket syncs to every authenticated user. (Per-business tax_rates ride in business_shared.)
-  global_reference:
-    data:
-      - SELECT * FROM tax_rates WHERE business_id IS NULL
