@@ -11,7 +11,7 @@ import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { StatusPill } from "../components/StatusPill";
-import { useEmbedSuccess } from "../embed";
+import { isEmbedded, useEmbedSuccess } from "../embed";
 
 const contracts = createPublicContractClient(
     import.meta.env.VITE_API_URL ?? "http://localhost:8701",
@@ -68,7 +68,11 @@ export function PublicContract() {
                 {contract.contract_name}
             </h1>
 
-            <div className="mt-5 max-h-[50vh] overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-bg px-5 py-4 text-sm leading-relaxed text-ink-soft">
+            <div
+                className={`mt-5 overflow-y-auto whitespace-pre-wrap rounded-lg border border-line bg-bg px-5 py-4 text-sm leading-relaxed text-ink-soft ${
+                    isEmbedded() ? "max-h-[32rem]" : "max-h-[50vh]"
+                }`}
+            >
                 {contract.body}
             </div>
 
