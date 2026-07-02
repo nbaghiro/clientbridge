@@ -107,8 +107,9 @@ per-business client rows). Embed model = snippet + iframe fallback. Customers = 
 ### Phase 2 — Lean, branded client bundle *(the big UX + perf win; prerequisite for widgets)*
 - ✅ **Brand read+render** (`bc2bd0c`): validated `PublicBrand` on all 5 public contexts + a shared
   `PublicFrame` rendering logo/tagline + runtime `--accent` theming across the 4 pages.
-- **Brand edit path** (todo): editable in provider Account (logo upload via `file_service`, colour,
-  tagline) through the command path + `BusinessSettingsUpdate`.
+- ✅ **Brand edit path** (`f4899aa`): editable in provider Account (logo URL, colour picker, tagline)
+  via `BrandInput` (validated) on `BusinessSettingsUpdate`. Logo *file upload* deferred — needs
+  durable public file serving (today's file URLs are short-lived presigned).
 - ✅ **New app `apps/connect`** (`c90fb15` carve-out, `68567d4` app) — customer surfaces now in
   their own lean Vite app (port 8709, no COEP, no PowerSync). Bundle 232 KB vs web's 643 KB;
   verified PowerSync-free. Includes the previously-missing **Review page** (Phase-1 404 fixed).
