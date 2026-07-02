@@ -148,6 +148,7 @@ async def test_public_get_returns_context(api: httpx.AsyncClient, db: AsyncSessi
     token = await _a_request(db)
     body = (await api.get(f"/review/{token}")).json()
     assert body["business_name"] and body["completed"] is False
+    assert body["brand"]["primary"] == "#3F5E80"  # brand exposed on the review surface
 
 
 async def test_public_submit_creates_published_review(

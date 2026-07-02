@@ -103,6 +103,7 @@ async def test_public_get_returns_form_and_fields(api: httpx.AsyncClient, db: As
     token = await _a_response(db)
     body = (await api.get(f"/form/{token}")).json()
     assert body["form_name"] == "Grooming Satisfaction" and body["completed"] is False
+    assert body["brand"]["primary"] == "#3F5E80"  # brand exposed on the form surface
     names = {f["name"] for f in body["fields"]}
     assert "rating" in names and "comments" in names
 

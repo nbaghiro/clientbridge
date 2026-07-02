@@ -74,6 +74,7 @@ async def test_public_invoice_by_token(api: httpx.AsyncClient, db: AsyncSession)
     body = (await api.get(f"/pay/{token}")).json()
     assert body["balance_cents"] == 8000
     assert body["business_name"]
+    assert body["brand"]["primary"] == "#3F5E80"  # the business brand is exposed on the pay surface
     assert body["status"] == "sent"
 
 

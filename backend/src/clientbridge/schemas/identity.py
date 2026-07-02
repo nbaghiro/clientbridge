@@ -1,9 +1,8 @@
-import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-_HEX = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+from clientbridge.schemas.public_common import HEX_COLOR
 
 # The 13 Canadian provinces/territories — tax rates are derived per province, so an unknown code
 # would silently collect no tax. Rejected at the boundary (422).
@@ -58,7 +57,7 @@ class BrandInput(BaseModel):
         v = (v or "").strip()
         if v == "":
             return None
-        if _HEX.match(v) is None:
+        if HEX_COLOR.match(v) is None:
             raise ValueError("colour must be a hex value like #3F5E80")
         return v
 
