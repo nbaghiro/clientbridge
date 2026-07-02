@@ -52,7 +52,7 @@ async def test_create_booking(as_owner: httpx.AsyncClient, db: AsyncSession) -> 
 
 async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
-    body = _body(client_id, item_id, "2027-03-02T10:00:00Z")
+    body = _body(client_id, item_id, "2027-03-02T18:00:00Z")
     assert (await as_owner.post("/v1/bookings", json=body)).status_code == 201
     dup = await as_owner.post("/v1/bookings", json=body)
     assert dup.status_code == 409
@@ -64,7 +64,7 @@ async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSessi
             .select_from(Session)
             .where(
                 Session.staff_id == ST_OWNER,
-                Session.starts_at == datetime(2027, 3, 2, 10, tzinfo=UTC),
+                Session.starts_at == datetime(2027, 3, 2, 18, tzinfo=UTC),
             )
         )
     ).scalar_one()
@@ -104,7 +104,7 @@ async def test_resource_double_book_conflicts(
 
 async def test_cancel_frees_the_slot(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
-    body = _body(client_id, item_id, "2027-03-03T10:00:00Z")
+    body = _body(client_id, item_id, "2027-03-03T18:00:00Z")
     bid = (await as_owner.post("/v1/bookings", json=body)).json()["id"]
     canceled = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
     assert canceled.status_code == 200
@@ -115,19 +115,19 @@ async def test_cancel_frees_the_slot(as_owner: httpx.AsyncClient, db: AsyncSessi
 async def test_reschedule_moves_session(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     created = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, item_id, "2027-03-04T10:00:00Z")
+        "/v1/bookings", json=_body(client_id, item_id, "2027-03-04T18:00:00Z")
     )
     bid = created.json()["id"]
-    moved = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-03-04T14:00:00Z"})
+    moved = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-03-04T22:00:00Z"})
     assert moved.status_code == 200
-    assert moved.json()["starts_at"].startswith("2027-03-04T14:00")
+    assert moved.json()["starts_at"].startswith("2027-03-04T22:00")
     # the move persisted on the session, not just echoed in the response
     session = (
         await db.execute(
             select(Session).join(Booking, Booking.session_id == Session.id).where(Booking.id == bid)
         )
     ).scalar_one()
-    assert session.starts_at == datetime(2027, 3, 4, 14, tzinfo=UTC)
+    assert session.starts_at == datetime(2027, 3, 4, 22, tzinfo=UTC)
 
 
 async def test_staff_cannot_book_another_staff(
@@ -197,11 +197,11 @@ async def test_cannot_book_another_business_client(
 async def test_reschedule_into_conflict_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     first = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, item_id, "2027-04-01T10:00:00Z")
+        "/v1/bookings", json=_body(client_id, item_id, "2027-04-01T17:00:00Z")
     )
-    await as_owner.post("/v1/bookings", json=_body(client_id, item_id, "2027-04-01T14:00:00Z"))
+    await as_owner.post("/v1/bookings", json=_body(client_id, item_id, "2027-04-01T21:00:00Z"))
     moved = await as_owner.patch(
-        f"/v1/bookings/{first.json()['id']}", json={"starts_at": "2027-04-01T14:00:00Z"}
+        f"/v1/bookings/{first.json()['id']}", json={"starts_at": "2027-04-01T21:00:00Z"}
     )
     assert moved.status_code == 409
 
@@ -209,7 +209,7 @@ async def test_reschedule_into_conflict_409(as_owner: httpx.AsyncClient, db: Asy
 async def test_double_cancel_is_idempotent(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     bid = (
-        await as_owner.post("/v1/bookings", json=_body(client_id, item_id, "2027-04-02T10:00:00Z"))
+        await as_owner.post("/v1/bookings", json=_body(client_id, item_id, "2027-04-02T17:00:00Z"))
     ).json()["id"]
     first = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
     second = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
@@ -280,12 +280,12 @@ async def test_booking_within_buffer_conflicts(
     # it_groom_sm is a 75-min service with a seeded 10-min after-buffer.
     client_id, _ = await _client_and_item(db)
     first = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T10:00:00Z")
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T18:00:00Z")
     )
     assert first.status_code == 201
     # 11:15 butts against the prior booking inside its 10-min after-buffer.
     second = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T11:15:00Z")
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T19:15:00Z")
     )
     assert second.status_code == 409
 
@@ -293,12 +293,12 @@ async def test_booking_within_buffer_conflicts(
 async def test_booking_outside_buffer_ok(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, _ = await _client_and_item(db)
     first = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T10:00:00Z")
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T18:00:00Z")
     )
     assert first.status_code == 201
     # 11:25 clears the 10-min buffer after the 11:15 end.
     second = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T11:25:00Z")
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T19:25:00Z")
     )
     assert second.status_code == 201
 
@@ -332,13 +332,25 @@ async def test_booking_within_window_ok_outside_409(
     )
     await db.flush()
     inside = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, item_id, "2027-09-15T12:00:00Z", ST_PRIYA)
+        "/v1/bookings", json=_body(client_id, item_id, "2027-09-15T18:00:00Z", ST_PRIYA)
     )
     assert inside.status_code == 201
     outside = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, item_id, "2027-09-15T20:00:00Z", ST_PRIYA)
+        "/v1/bookings", json=_body(client_id, item_id, "2027-09-15T15:00:00Z", ST_PRIYA)
     )
     assert outside.status_code == 409
+
+
+async def test_availability_windows_are_business_local_not_utc(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # regression guard: 12:00 UTC is inside the 09:00-17:00 window if read as UTC, but it's early
+    # morning in America/Vancouver (the seed tz) — outside local hours → must be rejected.
+    client_id, item_id = await _client_and_item(db)
+    res = await as_owner.post(
+        "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T12:00:00Z")
+    )
+    assert res.status_code == 409, res.text
 
 
 async def test_availability_closure_blocks_booking(
@@ -378,7 +390,7 @@ async def test_class_bookings_share_session_until_full(
     )
     db.add(cls)
     await db.flush()
-    body = _body(client_id, cls.id, "2027-03-02T10:00:00Z", ST_PRIYA)
+    body = _body(client_id, cls.id, "2027-03-02T18:00:00Z", ST_PRIYA)
     first = await as_owner.post("/v1/bookings", json=body)
     second = await as_owner.post("/v1/bookings", json=body)
     third = await as_owner.post("/v1/bookings", json=body)
@@ -398,7 +410,7 @@ async def test_non_class_item_mints_single_capacity_session(
 ) -> None:
     client_id, item_id = await _client_and_item(db)
     res = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T09:00:00Z")
+        "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T17:00:00Z")
     )
     assert res.status_code == 201
     sess = (
@@ -432,8 +444,8 @@ async def test_foreign_business_session_does_not_block(
             business_id=other.id,
             item_id=other_item.id,
             staff_id=other_staff.id,
-            starts_at=datetime(2027, 3, 2, 10, 0, tzinfo=UTC),
-            ends_at=datetime(2027, 3, 2, 11, 15, tzinfo=UTC),
+            starts_at=datetime(2027, 3, 2, 18, 0, tzinfo=UTC),
+            ends_at=datetime(2027, 3, 2, 19, 15, tzinfo=UTC),
             capacity=1,
             booked_count=1,
             status="scheduled",
@@ -442,7 +454,7 @@ async def test_foreign_business_session_does_not_block(
     await db.flush()
     # our owner books the same slot; the cross-tenant session must not block (scoped by business).
     res = await as_owner.post(
-        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T10:00:00Z")
+        "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T18:00:00Z")
     )
     assert res.status_code == 201
 
@@ -481,7 +493,9 @@ async def _deposit_booking(
     )
     db.add(item)
     await db.flush()
-    res = await api.post("/v1/bookings", json=_body(client_id, item.id, starts))
+    # book on ST_PRIYA (no availability rows → unconfigured → any time), so these deposit/no-show
+    # tests don't depend on the business's local working hours
+    res = await api.post("/v1/bookings", json=_body(client_id, item.id, starts, ST_PRIYA))
     assert res.status_code == 201, res.text
     return str(res.json()["id"])
 
