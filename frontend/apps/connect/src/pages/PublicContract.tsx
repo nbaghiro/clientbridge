@@ -11,6 +11,7 @@ import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { StatusPill } from "../components/StatusPill";
+import { useEmbedSuccess } from "../embed";
 
 const contracts = createPublicContractClient(
     import.meta.env.VITE_API_URL ?? "http://localhost:8701",
@@ -23,6 +24,7 @@ export function PublicContract() {
     const { token = "" } = useParams<{ token: string }>();
     const form = usePublicContractSign(contracts, token);
     const contract = form.contract;
+    useEmbedSuccess(contract?.status === "signed", "contract");
 
     if (form.status === "loading")
         return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;

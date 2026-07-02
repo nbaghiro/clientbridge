@@ -16,14 +16,17 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Clientbridge API", version="0.1.0")
     app.add_exception_handler(AppError, app_error_handler)
 
-    # Dev: web (8700) + Expo clients call /sync/token and /sync/upload cross-origin.
-    if settings.env == "dev":
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origin_regex=r"http://localhost:\d+",
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    # Cross-origin callers: the web/Connect apps and Expo clients hit /sync/* and the public
+    # surfaces from another origin. Dev allows any localhost port; prod allows the configured
+    # origins (the Connect origin, so embedded widgets can reach the public API).
+    extra_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=extra_origins,
+        allow_origin_regex=r"http://localhost:\d+" if settings.env == "dev" else None,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.get("/health")
     async def health() -> dict[str, object]:

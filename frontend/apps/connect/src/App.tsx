@@ -1,6 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { useEmbedResize } from "./embed";
 import { PublicBooking } from "./pages/PublicBooking";
 import { PublicContract } from "./pages/PublicContract";
 import { PublicForm } from "./pages/PublicForm";
@@ -10,6 +11,7 @@ import { PublicReview } from "./pages/PublicReview";
 /** Connect — the unauthenticated customer surfaces. Each route's URL token/slug is the only
  *  credential; there is no session and no PowerSync. */
 export function App() {
+    useEmbedResize();
     return (
         <BrowserRouter>
             <Routes>

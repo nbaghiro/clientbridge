@@ -16,3 +16,12 @@ body {
     font-family: "Schibsted Grotesk", sans-serif;
     -webkit-font-smoothing: antialiased;
 }
+
+/* Embedded: the widget sizes to its content inside the host's iframe, so drop the page background
+   and any forced full height — the host page provides the surrounding chrome. */
+html[data-embed],
+html[data-embed] body,
+html[data-embed] #root {
+    height: auto;
+    background: transparent;
+}

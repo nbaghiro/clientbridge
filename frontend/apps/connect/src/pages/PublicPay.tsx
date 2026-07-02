@@ -15,6 +15,7 @@ import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { StatusPill } from "../components/StatusPill";
+import { useEmbedSuccess } from "../embed";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 const pay = createPublicPayClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
@@ -23,6 +24,7 @@ export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();
     const form = usePublicPayForm(pay, token);
     const invoice = form.invoice;
+    useEmbedSuccess(form.status === "paid", "pay");
 
     if (form.status === "loading")
         return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;

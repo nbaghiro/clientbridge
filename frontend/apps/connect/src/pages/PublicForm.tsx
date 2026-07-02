@@ -12,6 +12,7 @@ import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { useEmbedSuccess } from "../embed";
 
 const forms = createPublicFormClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
@@ -23,6 +24,7 @@ export function PublicForm() {
     const fill = usePublicFormFill(forms, token);
     const form = fill.form;
     const answers = fill.answers;
+    useEmbedSuccess(fill.status === "done", "form");
 
     if (fill.status === "loading")
         return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
