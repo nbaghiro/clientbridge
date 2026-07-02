@@ -5,10 +5,9 @@ import { isEmbedded } from "../embed";
 
 const WIDTHS = { md: "max-w-md", xl: "max-w-xl", "2xl": "max-w-2xl" } as const;
 
-/** The card shell shared by every public customer surface. Applies the business's brand colour
- *  (as the `--accent` token) and shows its logo + tagline, falling back to plain Pewter when
- *  unbranded. When embedded it drops the full-screen chrome and sizes to its content so the host
- *  iframe can fit it. */
+/** The card shell shared by every public customer surface. Applies the business's brand colour (as
+ *  the `--accent` token) + shows its logo + tagline, falling back to plain Pewter when unbranded.
+ *  When embedded it drops the full-screen chrome and sizes to its content so the host iframe fits it. */
 export function PublicFrame({
     brand,
     size = "md",
@@ -34,12 +33,7 @@ export function PublicFrame({
                 {logoUrl !== null || tagline !== null ? (
                     <div className="mb-6 flex flex-col items-center gap-2 text-center">
                         {logoUrl !== null ? (
-                            <img
-                                src={logoUrl}
-                                crossOrigin="anonymous"
-                                alt=""
-                                className="h-12 w-auto"
-                            />
+                            <img src={logoUrl} alt="" className="h-12 w-auto" />
                         ) : null}
                         {tagline !== null ? <p className="text-xs text-muted">{tagline}</p> : null}
                     </div>
