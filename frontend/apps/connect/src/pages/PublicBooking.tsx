@@ -18,6 +18,7 @@ import { useParams } from "react-router-dom";
 
 import { CardConfirm } from "../components/CardConfirm";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { useEmbedSuccess } from "../embed";
 
 const booking = createPublicBookingClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
@@ -29,6 +30,7 @@ export function PublicBooking() {
     const form = usePublicBookingForm(booking, slug);
     const page = form.page;
     const service = form.service;
+    useEmbedSuccess(form.result !== null, "booking");
 
     if (form.status === "loading")
         return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;

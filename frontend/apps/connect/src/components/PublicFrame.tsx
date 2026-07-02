@@ -1,11 +1,14 @@
 import type { PublicBrand } from "@clientbridge/app-core/public";
 import type { CSSProperties, ReactNode } from "react";
 
+import { isEmbedded } from "../embed";
+
 const WIDTHS = { md: "max-w-md", xl: "max-w-xl", "2xl": "max-w-2xl" } as const;
 
 /** The card shell shared by every public customer surface. Applies the business's brand colour
  *  (as the `--accent` token) and shows its logo + tagline, falling back to plain Pewter when
- *  unbranded. The logo loads cross-origin (CORS) so it renders under the app's COEP policy. */
+ *  unbranded. When embedded it drops the full-screen chrome and sizes to its content so the host
+ *  iframe can fit it. */
 export function PublicFrame({
     brand,
     size = "md",
@@ -19,12 +22,12 @@ export function PublicFrame({
     const logoUrl = brand?.logo_url ?? null;
     const tagline = brand?.tagline ?? null;
     const style = primary !== null ? ({ "--accent": primary } as CSSProperties) : undefined;
+    const outer = isEmbedded()
+        ? "flex justify-center p-2"
+        : "flex min-h-screen items-center justify-center bg-bg px-4 py-10";
 
     return (
-        <div
-            style={style}
-            className="flex min-h-screen items-center justify-center bg-bg px-4 py-10"
-        >
+        <div style={style} className={outer}>
             <div
                 className={`w-full rounded-xl border border-line bg-surface p-7 shadow-card ${WIDTHS[size]}`}
             >

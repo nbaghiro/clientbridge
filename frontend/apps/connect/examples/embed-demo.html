@@ -1,0 +1,128 @@
+<!doctype html>
+<!--
+  Connect embed demo — a stand-in for a business's own website.
+
+  Serve it from a DIFFERENT origin than Connect so it exercises real cross-origin framing + CORS:
+
+    cd frontend/apps/connect/examples && python3 -m http.server 8899
+    open http://localhost:8899/embed-demo.html
+
+  Requires the local stack up: API on 8701, Connect on 8709 (make dev-api / dev-connect), seed loaded.
+  The booking widget uses the seeded "birchbark" slug; paste real tokens for the others.
+-->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Acme Grooming — demo host site</title>
+        <style>
+            body {
+                font-family: system-ui, sans-serif;
+                margin: 0;
+                background: #f4f4f5;
+                color: #18181b;
+            }
+            header {
+                background: #1b232e;
+                color: #fff;
+                padding: 24px 20px;
+            }
+            main {
+                max-width: 760px;
+                margin: 0 auto;
+                padding: 24px 20px 60px;
+            }
+            section {
+                background: #fff;
+                border: 1px solid #e4e4e7;
+                border-radius: 12px;
+                padding: 20px;
+                margin-top: 20px;
+            }
+            h2 {
+                margin: 0 0 12px;
+                font-size: 18px;
+            }
+            input,
+            select,
+            button {
+                font: inherit;
+                padding: 8px 10px;
+                border: 1px solid #d4d4d8;
+                border-radius: 8px;
+            }
+            button {
+                background: #1b232e;
+                color: #fff;
+                cursor: pointer;
+            }
+            #log {
+                font-family: ui-monospace, monospace;
+                font-size: 13px;
+                background: #fafafa;
+                border: 1px solid #e4e4e7;
+                border-radius: 8px;
+                padding: 12px;
+                min-height: 40px;
+                white-space: pre-wrap;
+            }
+        </style>
+    </head>
+    <body>
+        <header>
+            <strong>Acme Grooming</strong> — a demo of a business's own website embedding Connect
+        </header>
+        <main>
+            <section>
+                <h2>Book an appointment</h2>
+                <connect-booking slug="birchbark"></connect-booking>
+            </section>
+
+            <section>
+                <h2>Embed a token-based widget</h2>
+                <p>Paste a real token from a seeded pay/form/contract/review link.</p>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                    <select id="kind">
+                        <option value="pay">pay</option>
+                        <option value="form">form</option>
+                        <option value="contract">contract</option>
+                        <option value="review">review</option>
+                    </select>
+                    <input id="token" placeholder="token" style="flex: 1; min-width: 200px" />
+                    <button id="embed">Embed</button>
+                </div>
+                <div id="slot" style="margin-top: 16px"></div>
+            </section>
+
+            <section>
+                <h2>Host page event log</h2>
+                <div id="log">Waiting for connect:success events…</div>
+            </section>
+        </main>
+
+        <!-- The Connect origin. Inferred from this script's src, so the widgets need no `base`. -->
+        <script src="http://localhost:8709/embed.js" async></script>
+        <script>
+            document.addEventListener("connect:success", function (e) {
+                var log = document.getElementById("log");
+                log.textContent =
+                    "✓ connect:success — widget=" +
+                    e.detail.widget +
+                    " @ " +
+                    new Date().toLocaleTimeString() +
+                    "\n" +
+                    log.textContent;
+            });
+            document.getElementById("embed").addEventListener("click", function () {
+                var kind = document.getElementById("kind").value;
+                var token = document.getElementById("token").value.trim();
+                if (!token) return;
+                var el = document.createElement("connect-" + kind);
+                el.setAttribute("token", token);
+                var slot = document.getElementById("slot");
+                slot.innerHTML = "";
+                slot.appendChild(el);
+            });
+        </script>
+    </body>
+</html>
