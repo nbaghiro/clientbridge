@@ -11,11 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Invoice, Order, TaxRate
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment, PayoutAllocation
 from clientbridge.schemas.reports import GstHstReport, IncomeReport, T4ARow
-from clientbridge.services.tax_rates import rates_for_business
+from clientbridge.services.tax_rates import ProvinceRate, rates_for_business
 from clientbridge.services.tax_service import effective_rate
 
 _INCOME_KINDS = ("payment", "deposit")
@@ -122,7 +122,7 @@ class ReportService:
         )
 
     @staticmethod
-    def _provincial_split(total_tax: int, rates: Sequence[TaxRate]) -> tuple[int, int]:
+    def _provincial_split(total_tax: int, rates: Sequence[ProvinceRate]) -> tuple[int, int]:
         """PST and QST portions of the period's total tax, apportioned by the active rate ratio; the
         rest is federal GST/HST. PST/QST file separately from the CRA return, so lumping them in
         over-reports what's owed to the CRA."""

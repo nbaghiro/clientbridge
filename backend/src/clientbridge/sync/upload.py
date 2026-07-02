@@ -37,7 +37,7 @@ class UploadBody(BaseModel):
 # table -> (min_tier, own_only). tier "team" = any active staff; "admin" = owner/admin only.
 # own_only: a non-admin staff may only touch rows assigned to them (staff_id == theirs).
 # Tables absent here are NOT writable via sync (server-authoritative): payments, payouts,
-# payout_allocations, payment_methods, packages, subscriptions, gift_cards, tax_rates, businesses,
+# payout_allocations, payment_methods, packages, subscriptions, gift_cards, businesses,
 # staff, users, audit_logs, webhook_events, files.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),

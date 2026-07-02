@@ -14,7 +14,6 @@ class ItemBase(BaseModel):
     currency: str = Field(default="CAD", min_length=3, max_length=3)
     duration_min: int | None = Field(default=None, ge=0)
     capacity: int | None = Field(default=None, ge=0)
-    tax_rate_id: str | None = None
     category: str | None = None
     color: str | None = None
     online_bookable: bool = True
@@ -33,7 +32,6 @@ class ItemUpdate(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     duration_min: int | None = Field(default=None, ge=0)
     capacity: int | None = Field(default=None, ge=0)
-    tax_rate_id: str | None = None
     category: str | None = None
     color: str | None = None
     online_bookable: bool | None = None

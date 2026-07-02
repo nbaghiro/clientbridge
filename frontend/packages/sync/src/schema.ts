@@ -134,7 +134,6 @@ const items = new Table(
         currency: column.text,
         duration_min: column.integer,
         capacity: column.integer,
-        tax_rate_id: column.text,
         category: column.text,
         color: column.text,
         online_bookable: column.integer,
@@ -225,24 +224,6 @@ const gift_cards = new Table(
     {
         indexes: {
             gift_cards_business_id: ["business_id"],
-        },
-    },
-);
-
-const tax_rates = new Table(
-    {
-        business_id: column.text,
-        jurisdiction: column.text,
-        province: column.text,
-        rate_bps: column.integer,
-        name: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            tax_rates_business_id: ["business_id"],
-            tax_rates_province: ["province", "jurisdiction"],
         },
     },
 );
@@ -671,7 +652,6 @@ const lines = new Table(
         quantity: column.real,
         unit_amount_cents: column.integer,
         amount_cents: column.integer,
-        tax_rate_id: column.text,
         tax_amount_cents: column.integer,
         position: column.integer,
         business_id: column.text,
@@ -839,7 +819,6 @@ export const AppSchema = new Schema({
     packages,
     subscriptions,
     gift_cards,
-    tax_rates,
     resources,
     forms,
     form_fields,

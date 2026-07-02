@@ -9,11 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Invoice, Order, TaxRate
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment, PayoutAllocation
 from clientbridge.services.report_service import ReportService
+from clientbridge.services.tax_rates import ProvinceRate, rates_for_province
 
 BIZ = "bz_birchbark"
 WIDE = "start=2000-01-01&end=2100-01-01"
@@ -149,16 +150,28 @@ async def _new_payee(db: AsyncSession, *, name: str) -> str:
 
 
 def test_provincial_split_by_jurisdiction() -> None:
+    def rate(jurisdiction: str, bps: int) -> ProvinceRate:
+        return ProvinceRate(
+            jurisdiction=jurisdiction, province="XX", rate_bps=bps, name=jurisdiction
+        )
+
     # BC: GST 5% + PST 7% → $12.00 tax = 500 federal + 700 PST, no QST
-    bc = [TaxRate(jurisdiction="GST", rate_bps=500), TaxRate(jurisdiction="PST", rate_bps=700)]
-    assert ReportService._provincial_split(1200, bc) == (700, 0)
+    assert ReportService._provincial_split(1200, [rate("GST", 500), rate("PST", 700)]) == (700, 0)
     # QC: GST 5% + QST 9.975% (computed precisely) → of $14.98, QST ≈ 998, rest federal
-    qc = [TaxRate(jurisdiction="GST", rate_bps=500), TaxRate(jurisdiction="QST", rate_bps=998)]
-    pst, qst = ReportService._provincial_split(1498, qc)
-    assert (pst, qst) == (0, 998)
+    assert ReportService._provincial_split(1498, [rate("GST", 500), rate("QST", 998)]) == (0, 998)
     # ON: HST-only → nothing provincial (all federal)
-    on = [TaxRate(jurisdiction="HST", rate_bps=1300)]
-    assert ReportService._provincial_split(1300, on) == (0, 0)
+    assert ReportService._provincial_split(1300, [rate("HST", 1300)]) == (0, 0)
+
+
+def test_rates_for_province_derivation() -> None:
+    assert [(r.jurisdiction, r.rate_bps) for r in rates_for_province("BC")] == [
+        ("GST", 500),
+        ("PST", 700),
+    ]
+    assert [(r.jurisdiction, r.rate_bps) for r in rates_for_province("ON")] == [("HST", 1300)]
+    # a business with no province, or one outside the table, collects no tax (empty, not an error)
+    assert rates_for_province(None) == []
+    assert rates_for_province("ZZ") == []
 
 
 async def test_income_summary_nets_payments_and_refunds(

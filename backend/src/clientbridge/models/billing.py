@@ -100,22 +100,5 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
     quantity: Mapped[float] = mapped_column(Numeric, default=1, nullable=False)
     unit_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    tax_rate_id: Mapped[str | None] = mapped_column(ForeignKey("tax_rates.id"))
     tax_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-
-class TaxRate(PKMixin, TimestampMixin, Base):
-    """System-seeded; business_id NULL = global default."""
-
-    __tablename__ = "tax_rates"
-    __table_args__ = (
-        enum_check("tax_rates", "jurisdiction", "GST", "HST", "PST", "QST"),
-        Index("ix_tax_rates_province", "province", "jurisdiction"),
-    )
-
-    business_id: Mapped[str | None] = mapped_column(ForeignKey("businesses.id"), index=True)
-    jurisdiction: Mapped[str] = mapped_column(String, nullable=False)
-    province: Mapped[str] = mapped_column(String, nullable=False)
-    rate_bps: Mapped[int] = mapped_column(Integer, nullable=False)
-    name: Mapped[str] = mapped_column(String, nullable=False)

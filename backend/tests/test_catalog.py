@@ -85,6 +85,8 @@ async def test_tax_rates_list(as_owner: httpx.AsyncClient) -> None:
     assert len(rates) >= 1
     assert {r["jurisdiction"] for r in rates} <= {"GST", "HST", "PST", "QST"}
     assert all(r["rate_bps"] > 0 for r in rates)
+    # the derived rate carries a populated synthetic id (province_jurisdiction) + province
+    assert all(r["id"] == f"{r['province']}_{r['jurisdiction']}" for r in rates)
 
 
 async def test_staff_cannot_write_catalog(as_staff: httpx.AsyncClient) -> None:

@@ -42,7 +42,6 @@ class CatalogService:
             currency=data.currency,
             duration_min=data.duration_min,
             capacity=data.capacity,
-            tax_rate_id=data.tax_rate_id,
             category=data.category,
             color=data.color,
             online_bookable=data.online_bookable,

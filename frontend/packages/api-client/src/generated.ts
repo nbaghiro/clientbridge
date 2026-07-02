@@ -2273,8 +2273,6 @@ export interface components {
             duration_min?: number | null;
             /** Capacity */
             capacity?: number | null;
-            /** Tax Rate Id */
-            tax_rate_id?: string | null;
             /** Category */
             category?: string | null;
             /** Color */
@@ -2316,8 +2314,6 @@ export interface components {
             duration_min?: number | null;
             /** Capacity */
             capacity?: number | null;
-            /** Tax Rate Id */
-            tax_rate_id?: string | null;
             /** Category */
             category?: string | null;
             /** Color */
@@ -2363,8 +2359,6 @@ export interface components {
             duration_min?: number | null;
             /** Capacity */
             capacity?: number | null;
-            /** Tax Rate Id */
-            tax_rate_id?: string | null;
             /** Category */
             category?: string | null;
             /** Color */
