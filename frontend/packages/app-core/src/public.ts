@@ -10,6 +10,7 @@ export * from "./domain/publicContract";
 export * from "./domain/publicReview";
 export * from "./domain/publicBrand";
 export * from "./util/datetime";
+export * from "./util/format";
 export { strings } from "./strings";
 export { useAsyncAction } from "./hooks/useAsyncAction";
 export type { Intent } from "./util/primitives";

@@ -7,7 +7,7 @@ import {
     strings,
     useAsyncAction,
     usePublicPayForm,
-} from "@clientbridge/app-core";
+} from "@clientbridge/app-core/public";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
 import { type FormEvent, useMemo } from "react";

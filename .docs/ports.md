@@ -4,10 +4,10 @@ Clientbridge claims the **87xx** block so it runs **simultaneously** with the ot
 `~/Documents/code` (+ `~/PocketSuite`). Every host port below is unique across those projects
 (verified 2026-06-24). Update this file when adding a service.
 
-## Clientbridge — 8700–8708
+## Clientbridge — 8700–8709
 | Port | Service | Maps to | Set in |
 |---|---|---|---|
-| **8700** | Web (Vite dev) | — | `frontend/apps/web` vite.config (strictPort) · Makefile `dev-web` |
+| **8700** | Web (Vite dev) — provider app | — | `frontend/apps/web` vite.config (strictPort) · Makefile `dev-web` |
 | **8701** | Backend API (FastAPI/uvicorn) | — | Makefile `dev-api` · `API_PORT` |
 | **8702** | Postgres (source DB + `powersync_storage`) | container `5432` | docker-compose · `DATABASE_URL` |
 | **8703** | Redis | container `6379` | docker-compose · `REDIS_URL` |
@@ -16,6 +16,7 @@ Clientbridge claims the **87xx** block so it runs **simultaneously** with the ot
 | **8706** | MinIO — console | container `9001` | docker-compose |
 | **8707** | Expo / Metro (mobile) | — | Makefile `dev-mobile` |
 | **8708** | stripe-mock (contract tests only) | container `12111` | docker-compose `profiles: [test]` · `make stripe-mock` |
+| **8709** | Connect (Vite dev) — customer surfaces | — | `frontend/apps/connect` vite.config (strictPort) |
 
 *Container-internal ports stay conventional (5432/6379/8080/9000); only host mappings use 87xx.*
 
