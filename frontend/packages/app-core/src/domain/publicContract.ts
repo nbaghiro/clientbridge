@@ -2,12 +2,13 @@
 // plain `fetch` (never the authed session) against a base URL each platform supplies. PowerSync-free
 // so it can ship in the lean Connect bundle (`@clientbridge/app-core/public`).
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import type { Intent } from "../util/primitives";
 import type { PublicBrand } from "./publicBrand";
+import { usePublicResource } from "./publicResource";
 
 /** Visual tone for a signature lifecycle status (pending | signed | declined | expired). */
 export function signatureStatusIntent(status: string): Intent {
@@ -48,7 +49,7 @@ export class PublicContractError extends Error {
 }
 
 export interface PublicContractClient {
-    getContract(token: string): Promise<PublicContract>;
+    getContract: (token: string) => Promise<PublicContract>;
     sign(token: string, input: SignInput): Promise<PublicContract>;
     decline(token: string): Promise<PublicContract>;
     upload(token: string, file: Blob): Promise<string>; // returns a file_id to pass as signature_image_id
@@ -126,47 +127,27 @@ export function usePublicContractSign(
     contracts: PublicContractClient,
     token: string,
 ): PublicContractSign {
-    const [contract, setContract] = useState<PublicContract | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState(false);
+    const {
+        status: load,
+        data: contract,
+        setData: setContract,
+    } = usePublicResource(contracts.getContract, token);
     const [typedName, setTypedName] = useState("");
     const [imageId, setImageId] = useState<string | null>(null);
     const [imageName, setImageName] = useState("");
+    const seededName = useRef(false);
     const { busy, error, setError, run } = useAsyncAction();
 
+    // Seed the typed-name field once from the loaded contract's known signer (not on later updates).
     useEffect(() => {
-        let live = true;
-        setLoading(true);
-        contracts
-            .getContract(token)
-            .then((c) => {
-                if (!live) return;
-                setContract(c);
-                if (c.signer_name !== null) setTypedName(c.signer_name);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicContractError && err.status === 404) setNotFound(true);
-                else setLoadError(true);
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [contracts, token]);
+        if (!seededName.current && contract?.signer_name != null) {
+            seededName.current = true;
+            setTypedName(contract.signer_name);
+        }
+    }, [contract]);
 
-    const status: PublicContractStatus = loading
-        ? "loading"
-        : notFound
-          ? "not-found"
-          : loadError || contract === null
-            ? "error"
-            : contract.status !== "pending"
-              ? "resolved"
-              : "pending";
+    const status: PublicContractStatus =
+        load !== "ready" ? load : contract?.status !== "pending" ? "resolved" : "pending";
 
     const sign = (): void => {
         if (typedName.trim().length === 0 && imageId === null) {

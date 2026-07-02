@@ -2,11 +2,12 @@
 // plain `fetch` (never the authed session) against a base URL each platform supplies. PowerSync-free
 // so it can ship in the lean Connect bundle (`@clientbridge/app-core/public`).
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import type { PublicBrand } from "./publicBrand";
+import { usePublicResource } from "./publicResource";
 
 export interface PublicReviewContext {
     business_name: string;
@@ -31,7 +32,7 @@ export class PublicReviewError extends Error {
 }
 
 export interface PublicReviewClient {
-    getContext(token: string): Promise<PublicReviewContext>;
+    getContext: (token: string) => Promise<PublicReviewContext>;
     submit(token: string, input: PublicReviewSubmit): Promise<PublicReviewContext>;
 }
 
@@ -76,44 +77,17 @@ export interface PublicReviewForm {
 /** View-model for the public review page: load the request context, capture a 1–5 rating + optional
  *  note, then submit. The star picker + textarea render per-platform. */
 export function usePublicReview(reviews: PublicReviewClient, token: string): PublicReviewForm {
-    const [context, setContext] = useState<PublicReviewContext | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState(false);
+    const {
+        status: load,
+        data: context,
+        setData: setContext,
+    } = usePublicResource(reviews.getContext, token);
     const [rating, setRating] = useState(0);
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
 
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        reviews
-            .getContext(token)
-            .then((c) => {
-                if (live) setContext(c);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicReviewError && err.status === 404) setNotFound(true);
-                else setLoadError(true);
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [reviews, token]);
-
-    const status: PublicReviewStatus = loading
-        ? "loading"
-        : notFound
-          ? "not-found"
-          : loadError || context === null
-            ? "error"
-            : context.completed
-              ? "done"
-              : "ready";
+    const status: PublicReviewStatus =
+        load !== "ready" ? load : context?.completed ? "done" : "ready";
 
     const submit = (): void => {
         if (rating < 1) {

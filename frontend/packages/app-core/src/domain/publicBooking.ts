@@ -8,6 +8,7 @@ import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import { dateKey } from "../util/datetime";
 import type { PublicBrand } from "./publicBrand";
+import { usePublicResource } from "./publicResource";
 
 export interface PublicService {
     id: string;
@@ -66,7 +67,7 @@ export class PublicBookingError extends Error {
 }
 
 export interface PublicBookingClient {
-    getServices(slug: string): Promise<PublicBookingPage>;
+    getServices: (slug: string) => Promise<PublicBookingPage>;
     getSlots(
         slug: string,
         params: { itemId: string; staffId: string; date: string },
@@ -158,40 +159,8 @@ export interface PublicBusiness {
 /** Lean loader for the business landing page (`/b/:slug`): just the profile + brand + services, no
  *  booking-form state. Reuses the booking-page endpoint. */
 export function usePublicBusiness(booking: PublicBookingClient, slug: string): PublicBusiness {
-    const [page, setPage] = useState<PublicBookingPage | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState(false);
-
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        booking
-            .getServices(slug)
-            .then((p) => {
-                if (live) setPage(p);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicBookingError && err.status === 404) setNotFound(true);
-                else setLoadError(true);
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [booking, slug]);
-
-    const status: PublicBusinessStatus = loading
-        ? "loading"
-        : notFound
-          ? "not-found"
-          : loadError || page === null
-            ? "error"
-            : "ready";
-    return { status, page };
+    const { status, data } = usePublicResource(booking.getServices, slug);
+    return { status, page: data };
 }
 
 /** View-model for the public online-booking wizard: load the page, pick service/staff/date (which
@@ -201,10 +170,7 @@ export function usePublicBookingForm(
     booking: PublicBookingClient,
     slug: string,
 ): PublicBookingForm {
-    const [page, setPage] = useState<PublicBookingPage | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState(false);
+    const { status: load, data: page } = usePublicResource(booking.getServices, slug);
     const [itemId, setItemId] = useState("");
     const [staffId, setStaffId] = useState("");
     const [date, setDate] = useState(() => dateKey(new Date()));
@@ -216,27 +182,6 @@ export function usePublicBookingForm(
     const [phone, setPhone] = useState("");
     const [result, setResult] = useState<PublicBookingResult | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
-
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        booking
-            .getServices(slug)
-            .then((p) => {
-                if (live) setPage(p);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicBookingError && err.status === 404) setNotFound(true);
-                else setLoadError(true);
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [booking, slug]);
 
     useEffect(() => {
         setStartsAt("");
@@ -265,15 +210,8 @@ export function usePublicBookingForm(
         name.trim().length > 0 &&
         (email.trim().length > 0 || phone.trim().length > 0);
 
-    const status: PublicBookingStatus = loading
-        ? "loading"
-        : notFound
-          ? "not-found"
-          : loadError || page === null
-            ? "error"
-            : result !== null
-              ? "booked"
-              : "ready";
+    const status: PublicBookingStatus =
+        load !== "ready" ? load : result !== null ? "booked" : "ready";
 
     const submit = (): void => {
         if (!canBook) {
