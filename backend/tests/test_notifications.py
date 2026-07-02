@@ -284,7 +284,7 @@ async def test_booking_create_notifies_client(
 ) -> None:
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     item_id = await _bookable_item(db)
-    body = _booking_body(cid, item_id, "2027-05-01T10:00:00Z")
+    body = _booking_body(cid, item_id, "2027-05-01T17:00:00Z")
     res = await as_owner.post("/v1/bookings", json=body)
     assert res.status_code == 201, res.text
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
@@ -302,7 +302,7 @@ async def test_booking_cancel_notifies_client(
     item_id = await _bookable_item(db)
     bid = (
         await as_owner.post(
-            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-02T10:00:00Z")
+            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-02T17:00:00Z")
         )
     ).json()["id"]
     email.sent.clear()
@@ -323,12 +323,12 @@ async def test_booking_reschedule_notifies_client(
     item_id = await _bookable_item(db)
     bid = (
         await as_owner.post(
-            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-01T10:00:00Z")
+            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-01T17:00:00Z")
         )
     ).json()["id"]
     email.sent.clear()
     sms.sent.clear()
-    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-05-02T10:00:00Z"})
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-05-02T17:00:00Z"})
     assert res.status_code == 200, res.text
     assert len(email.sent) == 1 and "2027-05-02" in email.sent[0].body  # the new time, in tz
     assert len(sms.sent) == 1
@@ -390,7 +390,7 @@ async def test_booking_noncancel_patch_sends_no_cancel_notice(
     item_id = await _bookable_item(db)
     bid = (
         await as_owner.post(
-            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-03T10:00:00Z")
+            "/v1/bookings", json=_booking_body(cid, item_id, "2027-05-03T17:00:00Z")
         )
     ).json()["id"]
     email.sent.clear()

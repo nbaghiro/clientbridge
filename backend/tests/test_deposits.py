@@ -54,7 +54,7 @@ async def test_booking_flags_deposit_required(
         update(Item).where(Item.id == iid).values(deposit_type="percent", deposit_value=20)
     )
     await db.flush()
-    res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-01T10:00:00Z"))
+    res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-01T17:00:00Z"))
     assert res.status_code == 201, res.text
     bk = (await db.execute(select(Booking).where(Booking.id == res.json()["id"]))).scalar_one()
     assert bk.deposit_required is True
@@ -66,7 +66,7 @@ async def test_booking_no_deposit_when_item_has_none(
     cid, iid = await _client_and_item(db)
     await db.execute(update(Item).where(Item.id == iid).values(deposit_type="none"))
     await db.flush()
-    res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-02T10:00:00Z"))
+    res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-02T17:00:00Z"))
     assert res.status_code == 201
     bk = (await db.execute(select(Booking).where(Booking.id == res.json()["id"]))).scalar_one()
     assert bk.deposit_required is False
@@ -142,7 +142,7 @@ async def test_deposit_amount_computed_from_item(
         .values(price_cents=5000, deposit_type="percent", deposit_value=20)
     )
     await db.flush()
-    res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-03T10:00:00Z"))
+    res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-03T17:00:00Z"))
     assert res.status_code == 201, res.text
     assert res.json()["deposit_amount_cents"] == 1000  # 20% of $50
 

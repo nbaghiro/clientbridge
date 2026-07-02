@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.catalog import Item
-from clientbridge.services.availability_service import open_windows
+from clientbridge.services.availability_service import business_tz, open_windows
 from clientbridge.services.booking_service import conflicting_session
 
 
@@ -23,11 +23,13 @@ async def open_slots(
     windows = await open_windows(db, staff_id, business_id, on_date)
     if not windows:
         return []
+    tz = await business_tz(db, business_id)
     step = duration + item.buffer_before_min + item.buffer_after_min
     slots: list[datetime] = []
     for window_start, window_end in windows:
-        start = datetime.combine(on_date, window_start, tzinfo=UTC)
-        limit = datetime.combine(on_date, window_end, tzinfo=UTC)
+        # window times are local wall-clock; anchor them in the business tz, then work in UTC
+        start = datetime.combine(on_date, window_start, tzinfo=tz).astimezone(UTC)
+        limit = datetime.combine(on_date, window_end, tzinfo=tz).astimezone(UTC)
         while start + timedelta(minutes=duration) <= limit:
             end = start + timedelta(minutes=duration)
             if not await conflicting_session(db, business_id, item, staff_id, start, end):
