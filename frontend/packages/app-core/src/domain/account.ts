@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
@@ -101,10 +101,12 @@ export function useAccountForm(api: ApiLike): AccountForm {
     const { busy, error, setError, run } = useAsyncAction();
     const [fields, setFields] = useState<AccountFields | null>(null);
     const [saved, setSaved] = useState(false);
+    const loadedBrand = useRef<Brand>({ logo_url: "", primary: "", tagline: "" });
 
     useEffect(() => {
         if (row !== null && fields === null) {
             const brand = parseBrand(row.brand);
+            loadedBrand.current = brand;
             setFields({
                 name: row.name,
                 timezone: row.timezone,
@@ -130,16 +132,20 @@ export function useAccountForm(api: ApiLike): AccountForm {
             setError(strings.account.nameRequired);
             return;
         }
+        // Only send `brand` when it actually changed, so an untouched brand (always the case on the
+        // mobile Account screen, which has no brand UI) is omitted and the server preserves it rather
+        // than replacing it with stale/empty values.
         const { logo_url, primary, tagline, ...text } = fields;
-        void run(
-            () => api.patch("/v1/business", { ...text, brand: { logo_url, primary, tagline } }),
-            {
-                onSuccess: () => {
-                    setSaved(true);
-                },
-                errorMessage: strings.account.saveError,
+        const b = loadedBrand.current;
+        const brandChanged =
+            logo_url !== b.logo_url || primary !== b.primary || tagline !== b.tagline;
+        const body = brandChanged ? { ...text, brand: { logo_url, primary, tagline } } : text;
+        void run(() => api.patch("/v1/business", body), {
+            onSuccess: () => {
+                setSaved(true);
             },
-        );
+            errorMessage: strings.account.saveError,
+        });
     };
 
     return { fields, set, busy, error, saved, submit };
