@@ -135,11 +135,15 @@ per-business client rows). Embed model = snippet + iframe fallback. Customers = 
 - Result: fast, on-brand, embeddable-ready hosted client pages.
 
 ### Phase 3 — Embeddable widgets *(the "PocketSuite widgets" deliverable)*
-- Production CORS allowlist (per-business origins).
-- Embeddable JS snippet + web-component + iframe fallback (`postMessage` resize/success). "Book Now" /
-  "Pay" / "Request review" embeds a business drops on its own site.
-- Bot protection (Turnstile/CAPTCHA) on the booking/pay `POST`s; Redis-backed rate limiting; token TTLs +
-  an aging job; trustworthy client-IP. (These are the M3/M4 hardening items, scoped to the public edge.)
+- ✅ **Embed mechanism** (`c60a8a6`): `public/embed.js` registers `<connect-booking|pay|form|contract|
+  review>` web components; each mounts the matching Connect page in an `<iframe>?embed=1`,
+  auto-resizes via `postMessage`, and emits a bubbling `connect:success` DOM event. Connect has an
+  embed mode (compact, transparent, height-reporting). A bare `<iframe>` works as the no-JS fallback.
+  Config-driven CORS allowlist (`cors_allow_origins`) so the prod Connect origin can reach the public
+  API. Cross-origin QA harness at `apps/connect/examples/embed-demo.html`.
+- **Deferred hardening** (before wide production): bot protection (Turnstile/CAPTCHA) on booking/pay
+  `POST`s; Redis-backed rate limiting; token TTLs + aging; trustworthy client-IP; per-business
+  `frame-ancestors` CSP + iframe `sandbox`. (M3/M4 public-edge items — do once.)
 
 ### Phase 4 — Authenticated client portal (cross-business)
 The largest piece — a net-new **customer identity tier** (the business logic underneath is already
