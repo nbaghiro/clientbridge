@@ -5,12 +5,10 @@ the second public face of the product (alongside the marketing site). This plan 
 state (from a 2026-07-02 three-part audit) and a phased path to a branded, embeddable, client-rendered
 experience. The provider/admin app is out of scope here except where it edits customer-facing config.
 
-## Working name
-The provider product is **Clientbridge** ("the bridge between you and your clients"). The customer-facing
-layer is the client's side of that bridge. Proposed umbrella name: **Connect** (Clientbridge Connect) —
-covering the embeddable **widgets** and the **client portal**. Alternatives: **Bridge** (brand the
-customer experience itself — "Powered by Bridge", removed under white-label) or **Frontdesk**. Decision
-pending; "Connect" used below as a placeholder.
+## Name — Connect (decided 2026-07-02)
+The provider product is **Clientbridge**; the customer-facing layer is **Connect** (Clientbridge
+Connect) — the umbrella for the embeddable **widgets** and the **client portal**. White-label removes
+the "Powered by Connect" chrome.
 
 ## Current state (audited, cited)
 
@@ -83,19 +81,23 @@ identity/auth/scoped-read + packaging + branding tiers — not a logic rewrite.*
   `file_service`) through the server-authoritative command path (`businesses` is not sync-writable),
   exposed in every public context, rendered, and driving runtime CSS-variable theming on web (override
   `--accent`/`--primary`). Mobile theming refactor is deferred (customers have no mobile app).
-- **Client auth = magic-link/OTP, single-business first.** Start with a client logging into **one
-  business's** portal (a login → that business's one `clients` row), which sidesteps the cross-business
-  identity problem entirely; add a cross-business identity layer only if demand appears. Wire
-  `clients.user_id`, add a `ClientPrincipal` + client-session issuance (can mirror the refresh-token
-  families), and client-scoped-by-`client_id` reads.
+- **Client auth = magic-link/OTP, cross-business from day one (decided).** One login represents a
+  *person* who may be a customer of many businesses, so the portal needs a **`customers` identity layer
+  above the per-business `clients` rows**: a customer account (verified email/phone) linked to N
+  `clients` rows (one per business). Wire `clients.user_id` (or a `clients.customer_id` FK to the new
+  identity table), add a `ClientPrincipal`/`CustomerPrincipal` + magic-link/OTP session issuance
+  (mirroring the refresh-token families), client-scoped-by-`client_id` reads that fan out across the
+  customer's linked businesses, and a **link/claim flow** (a customer proves ownership of an email/phone
+  → claims the matching `clients` rows across businesses). This is the largest single piece of the plan
+  — see the dependency + risk note under Phase 4.
 - **Web/PWA for customers, not a native client app.** Customers get a responsive, installable web
   experience; the Expo app stays provider-only.
 
 ## Phased plan
 
-### Phase 0 — Decisions
-Name (Connect / Bridge / Frontdesk); single-business vs cross-business portal (recommend single-business
-first); embed model (recommend snippet + iframe fallback); confirm web/PWA-only for customers.
+### Phase 0 — Decisions ✅ (2026-07-02)
+Name = **Connect**. Portal identity = **cross-business from day one** (customer identity layer over
+per-business client rows). Embed model = snippet + iframe fallback. Customers = web/PWA (no native app).
 
 ### Phase 1 — Complete + fix the current surfaces *(days; immediate value, no new infra)*
 - **Build the missing `PublicReview` page** + `/review/:token` route + `createPublicReviewClient`/
@@ -116,14 +118,29 @@ first); embed model (recommend snippet + iframe fallback); confirm web/PWA-only 
 - Bot protection (Turnstile/CAPTCHA) on the booking/pay `POST`s; Redis-backed rate limiting; token TTLs +
   an aging job; trustworthy client-IP. (These are the M3/M4 hardening items, scoped to the public edge.)
 
-### Phase 4 — Authenticated client portal
-- Client identity + magic-link/OTP auth; `ClientPrincipal`; wire `clients.user_id` (single-business).
-- Client-scoped reads: appointments (upcoming/past), invoices + payments, saved cards, package/
-  subscription balances, message threads.
-- Client-initiated actions: rebook (reuse `create_booking_core`), pay any open invoice (reuse
-  `open_card_payment`, discovered by client not by `pay_token`), reply in messaging.
-- Dedup hardening: normalize email/phone, reconcile the pay/form/review flows that today never touch
-  client identity.
+### Phase 4 — Authenticated client portal (cross-business)
+The largest piece — a net-new **customer identity tier** (the business logic underneath is already
+shared). Sub-steps, roughly ordered:
+1. **Identity + auth.** A `customers` account (verified email/phone) + magic-link/OTP session +
+   `CustomerPrincipal`. Link a customer → the per-business `clients` rows they own (via a
+   `clients.customer_id` FK, backfilled by a claim flow).
+2. **Dedup + normalization (prerequisite for correct linking).** Normalize email/phone on `clients`;
+   reconcile the pay/form/review flows that never touch client identity today; a claim flow where a
+   customer proves an email/phone and adopts the matching `clients` rows across businesses.
+3. **Client-scoped reads** (scoped by the customer's linked `client_id`s, fanning across businesses):
+   appointments (upcoming/past), invoices + payments, saved cards, package/subscription balances,
+   message threads — all net-new read services over existing data.
+4. **Client-initiated writes:** rebook (reuse `create_booking_core`), pay any open invoice (reuse
+   `open_card_payment`, discovered by customer not by `pay_token`), reply in messaging.
+5. **Session security:** revocation, TTLs, CSRF for the cookie/session surface (the token pages don't
+   need it, a logged-in portal does).
+
+**Risk / cost note:** cross-business identity is materially larger than a single-business portal —
+the fan-out reads, the claim/link flow, and dedup reconciliation are the bulk of the work, and a
+mis-linked account leaks one customer's data across businesses, so this phase needs its own security
+pass (the tenant-isolation invariant now spans *customer → many businesses*, not just one business).
+Consider shipping a **single-business slice first internally** (one login, one business) to de-risk the
+auth/session plumbing, then layer the cross-business linking on top — same end state, safer path.
 
 ### Phase 5 — Richness, PWA, white-label
 - Richer pickers (real slot/calendar, multi-item cart), conditional forms, countersign (overlaps the M4
