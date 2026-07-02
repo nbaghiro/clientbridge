@@ -884,6 +884,7 @@ export const strings = {
     publicReview: {
         prompt: (businessName: string) => `How was your experience with ${businessName}?`,
         ratingLabel: "Your rating",
+        stars: (n: number) => `${n} star${n === 1 ? "" : "s"}`,
         notePlaceholder: "Add a note (optional)",
         submit: "Submit review",
         submitting: "Submitting…",
@@ -894,6 +895,10 @@ export const strings = {
             "This link is invalid or has expired. Please check with the business that sent it to you.",
         doneTitle: "Thanks for the feedback",
         doneBody: (businessName: string) => `Your review has been shared with ${businessName}.`,
+    },
+    connect: {
+        notFoundTitle: "Page not found",
+        notFoundBody: "Check the link the business sent you, or contact them directly.",
     },
     fileUpload: {
         uploadFile: "Upload file",

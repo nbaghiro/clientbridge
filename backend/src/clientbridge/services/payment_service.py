@@ -71,7 +71,7 @@ class PaymentService:
                 business.stripe_account_id = await self.gateway.create_connected_account(
                     business_name=business.name,
                     email=business.billing_email,
-                    url=f"{settings.web_base_url}/book/{business.slug}",
+                    url=f"{settings.connect_base_url}/book/{business.slug}",
                 )
                 await self.db.flush()
                 cmd.record("connect.account_created", entity_type="business", entity_id=business.id)

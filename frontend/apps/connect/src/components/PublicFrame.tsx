@@ -1,4 +1,4 @@
-import type { PublicBrand } from "@clientbridge/app-core";
+import type { PublicBrand } from "@clientbridge/app-core/public";
 import type { CSSProperties, ReactNode } from "react";
 
 const WIDTHS = { md: "max-w-md", xl: "max-w-xl", "2xl": "max-w-2xl" } as const;

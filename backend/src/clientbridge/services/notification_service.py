@@ -204,7 +204,11 @@ class Notifier:
         if business is None:
             return
         amount = _money(invoice.total_cents, invoice.currency)
-        link = f"{get_settings().web_base_url}/pay/{invoice.pay_token}" if invoice.pay_token else ""
+        link = (
+            f"{get_settings().connect_base_url}/pay/{invoice.pay_token}"
+            if invoice.pay_token
+            else ""
+        )
         subject, body = _invoice_sent(invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 
@@ -216,7 +220,11 @@ class Notifier:
         if business is None:
             return
         amount = _money(invoice.balance_cents, invoice.currency)
-        link = f"{get_settings().web_base_url}/pay/{invoice.pay_token}" if invoice.pay_token else ""
+        link = (
+            f"{get_settings().connect_base_url}/pay/{invoice.pay_token}"
+            if invoice.pay_token
+            else ""
+        )
         subject, body = _invoice_overdue(invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 
@@ -396,7 +404,7 @@ class Notifier:
         business = await db.get(Business, request.business_id)
         if business is None:
             return
-        link = f"{get_settings().web_base_url}/review/{request.token}"
+        link = f"{get_settings().connect_base_url}/review/{request.token}"
         subject, body = _review_requested(business.name, link)
         await self._to_client(db, request.client_id, subject, body)
 
@@ -408,7 +416,7 @@ class Notifier:
         business = await db.get(Business, response.business_id)
         if form is None or business is None:
             return
-        link = f"{get_settings().web_base_url}/form/{response.token}"
+        link = f"{get_settings().connect_base_url}/form/{response.token}"
         subject, body = _form_sent(business.name, form.name, link)
         await self._to_client(db, response.client_id, subject, body)
 
@@ -420,7 +428,7 @@ class Notifier:
         business = await db.get(Business, signature.business_id)
         if contract is None or business is None:
             return
-        link = f"{get_settings().web_base_url}/contract/{signature.token}"
+        link = f"{get_settings().connect_base_url}/contract/{signature.token}"
         subject, body = _contract_sent(business.name, contract.name, link)
         await self._to_client(db, signature.client_id, subject, body)
 

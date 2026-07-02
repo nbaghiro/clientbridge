@@ -1,0 +1,18 @@
+@import "@clientbridge/tokens/themes.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Schibsted Grotesk", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}

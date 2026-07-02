@@ -12,7 +12,7 @@ import {
     parseTimestamp,
     strings,
     usePublicBookingForm,
-} from "@clientbridge/app-core";
+} from "@clientbridge/app-core/public";
 import { type FormEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 

@@ -7,7 +7,7 @@ import {
     optionPair,
     strings,
     usePublicFormFill,
-} from "@clientbridge/app-core";
+} from "@clientbridge/app-core/public";
 import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 

@@ -23,10 +23,6 @@ import { Onboarding } from "./pages/Onboarding";
 import { PaymentsSettings } from "./pages/PaymentsSettings";
 import { Payouts } from "./pages/Payouts";
 import { POS } from "./pages/POS";
-import { PublicBooking } from "./pages/PublicBooking";
-import { PublicContract } from "./pages/PublicContract";
-import { PublicForm } from "./pages/PublicForm";
-import { PublicPay } from "./pages/PublicPay";
 import { Reports } from "./pages/Reports";
 import { Reviews } from "./pages/Reviews";
 import { Scheduling } from "./pages/Scheduling";
@@ -86,13 +82,7 @@ function AppRoutes({
 
     return (
         <Routes>
-            {/* Public pay-link page — renders regardless of auth (the URL token is the credential). */}
-            <Route path="/pay/:token" element={<PublicPay />} />
-            {/* Public online-booking page — unauth (the booking slug is the credential). */}
-            <Route path="/book/:slug" element={<PublicBooking />} />
-            {/* Public e-sign + form-fill pages — unauth (the URL token is the credential). */}
-            <Route path="/contract/:token" element={<PublicContract />} />
-            <Route path="/form/:token" element={<PublicForm />} />
+            {/* The customer surfaces (book/pay/form/contract/review) live in the Connect app. */}
             {/* Public accept-invite page — the emailed token is the credential; success starts a session. */}
             <Route path="/accept-invite" element={<AcceptInvite onAuthed={onAuthed} />} />
             {authed ? (

@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"
-    web_base_url: str = "http://localhost:8601"  # onboarding return/refresh targets
+    web_base_url: str = "http://localhost:8601"  # provider app — onboarding return/refresh targets
+    connect_base_url: str = "http://localhost:8709"  # Connect app — customer link surfaces
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""  # shared secret for the inbound e-Transfer auto-match webhook
     sms_webhook_secret: str = ""  # shared secret for the inbound SMS (Twilio-style) webhook
