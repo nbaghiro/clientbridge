@@ -1767,7 +1767,7 @@ export interface components {
         /**
          * BusinessSettingsUpdate
          * @description Editable account fields (partial — only sent keys are applied). Slug + province are fixed
-         *     here (province drives seeded tax rates); the tax numbers accept "" to clear.
+         *     here (province drives the derived tax rates); the tax numbers accept "" to clear.
          */
         BusinessSettingsUpdate: {
             /** Name */
