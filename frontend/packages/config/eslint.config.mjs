@@ -29,6 +29,31 @@ export default tseslint.config(
         rules: { "local/no-inline-ui-string": "off" },
     },
     {
+        // The lean-bundle boundary: the Connect app and the `@clientbridge/app-core/public` subpath
+        // must never pull the PowerSync replica stack (that's the whole point of the carve-out). This
+        // is the enforcement — without it, one stray import silently re-drags PowerSync + wa-sqlite
+        // into the customer bundle with no CI signal.
+        files: [
+            "**/apps/connect/src/**/*.{ts,tsx}",
+            "**/packages/app-core/src/public.ts",
+            "**/packages/app-core/src/domain/public*.ts",
+        ],
+        rules: {
+            "@typescript-eslint/no-restricted-imports": [
+                "error",
+                {
+                    patterns: [
+                        {
+                            group: ["@powersync/*", "@clientbridge/sync"],
+                            message:
+                                "PowerSync must not reach the Connect bundle — keep this file on the app-core/public (PowerSync-free) surface.",
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
         ignores: [
             "**/dist/**",
             "**/public/**", // static assets served as-is (e.g. the vanilla embed loader)
