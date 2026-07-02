@@ -12,6 +12,7 @@ from clientbridge.models.platform import File
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.services.file_service import mint_upload
+from clientbridge.services.public_common import public_brand
 
 
 class PublicContractService:
@@ -40,6 +41,7 @@ class PublicContractService:
         return PublicContractContext(
             contract_name=contract.name,
             business_name=business.name,
+            brand=public_brand(business),
             body=signature.signed_body or contract.body,
             signer_name=client.name if client is not None else None,
             status=signature.status,
@@ -91,6 +93,7 @@ class PublicContractService:
         return PublicContractContext(
             contract_name=contract.name,
             business_name=business.name,
+            brand=public_brand(business),
             body=signature.signed_body or contract.body,
             signer_name=client.name if client is not None else None,
             status=signature.status,

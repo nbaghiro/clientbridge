@@ -6,10 +6,12 @@ import { useEffect, useState } from "react";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import { type PayMethod, payMethods } from "./payments";
+import type { PublicBrand } from "./publicBrand";
 
 export interface PublicInvoice {
     number: number | null;
     business_name: string;
+    brand: PublicBrand;
     currency: string;
     total_cents: number;
     balance_cents: number;

@@ -30,6 +30,7 @@ export * from "./domain/reviews";
 export * from "./domain/messaging";
 export * from "./domain/contracts";
 export * from "./domain/forms";
+export * from "./domain/publicBrand";
 export * from "./domain/publicPay";
 export * from "./domain/publicBooking";
 export * from "./domain/files";

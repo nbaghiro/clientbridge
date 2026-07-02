@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from clientbridge.schemas.public_common import PublicBrand
+
 
 class ContractSend(BaseModel):
     contract_id: str
@@ -21,6 +23,7 @@ class SignatureOut(BaseModel):
 class PublicContractContext(BaseModel):
     contract_name: str
     business_name: str
+    brand: PublicBrand
     body: str
     signer_name: str | None
     status: str

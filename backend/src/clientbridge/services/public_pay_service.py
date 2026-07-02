@@ -14,6 +14,7 @@ from clientbridge.services.payment_service import (
     open_card_payment,
     open_interac_payment,
 )
+from clientbridge.services.public_common import public_brand
 
 
 class PublicPayService:
@@ -40,6 +41,7 @@ class PublicPayService:
         return PublicInvoice(
             number=invoice.number,
             business_name=business.name,
+            brand=public_brand(business),
             currency=invoice.currency,
             total_cents=invoice.total_cents,
             balance_cents=invoice.balance_cents,

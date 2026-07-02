@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import { dateKey } from "../util/datetime";
+import type { PublicBrand } from "./publicBrand";
 
 export interface PublicService {
     id: string;
@@ -27,6 +28,7 @@ export interface PublicStaff {
 
 export interface PublicBookingPage {
     business_name: string;
+    brand: PublicBrand;
     services: PublicService[];
     staff: PublicStaff[];
     stripe_account_id: string | null; // connected account to mount the deposit Elements, when onboarded

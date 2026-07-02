@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, model_validator
 
+from clientbridge.schemas.public_common import PublicBrand
+
 
 class PublicService(BaseModel):
     id: str
@@ -22,6 +24,7 @@ class PublicStaff(BaseModel):
 
 class PublicBookingPage(BaseModel):
     business_name: str
+    brand: PublicBrand
     services: list[PublicService]
     staff: list[PublicStaff]
     stripe_account_id: str | None = None  # connected account to mount Elements, when onboarded

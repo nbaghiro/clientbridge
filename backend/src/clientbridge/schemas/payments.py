@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 
+from clientbridge.schemas.public_common import PublicBrand
+
 
 class OnboardingLink(BaseModel):
     url: str
@@ -66,6 +68,7 @@ class RemittanceSummary(BaseModel):
 class PublicInvoice(BaseModel):
     number: int | None
     business_name: str
+    brand: PublicBrand
     currency: str
     total_cents: int
     balance_cents: int

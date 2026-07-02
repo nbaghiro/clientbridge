@@ -2630,6 +2630,7 @@ export interface components {
         PublicBookingPage: {
             /** Business Name */
             business_name: string;
+            brand: components["schemas"]["PublicBrand"];
             /** Services */
             services: components["schemas"]["PublicService"][];
             /** Staff */
@@ -2646,6 +2647,21 @@ export interface components {
             /** Stripe Account Id */
             stripe_account_id?: string | null;
         };
+        /**
+         * PublicBrand
+         * @description A business's public-facing brand, rendered across the customer surfaces (book/pay/form/…).
+         *
+         *     Fields are None when unset or malformed; `primary` is a validated hex colour and `logo_url` an
+         *     http(s) URL, so the client can apply them directly without re-validating.
+         */
+        PublicBrand: {
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Primary */
+            primary?: string | null;
+            /** Tagline */
+            tagline?: string | null;
+        };
         /** PublicCardIntent */
         PublicCardIntent: {
             /** Client Secret */
@@ -2659,6 +2675,7 @@ export interface components {
             contract_name: string;
             /** Business Name */
             business_name: string;
+            brand: components["schemas"]["PublicBrand"];
             /** Body */
             body: string;
             /** Signer Name */
@@ -2693,6 +2710,7 @@ export interface components {
             form_name: string;
             /** Business Name */
             business_name: string;
+            brand: components["schemas"]["PublicBrand"];
             /** Completed */
             completed: boolean;
             /** Fields */
@@ -2734,6 +2752,7 @@ export interface components {
             number: number | null;
             /** Business Name */
             business_name: string;
+            brand: components["schemas"]["PublicBrand"];
             /** Currency */
             currency: string;
             /** Total Cents */
@@ -2751,6 +2770,7 @@ export interface components {
         PublicReviewContext: {
             /** Business Name */
             business_name: string;
+            brand: components["schemas"]["PublicBrand"];
             /** Completed */
             completed: boolean;
             /** Rating */

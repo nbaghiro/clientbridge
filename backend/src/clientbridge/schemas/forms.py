@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from clientbridge.schemas.public_common import PublicBrand
+
 
 class FormSend(BaseModel):
     form_id: str
@@ -33,6 +35,7 @@ class PublicFormField(BaseModel):
 class PublicFormContext(BaseModel):
     form_name: str
     business_name: str
+    brand: PublicBrand
     completed: bool
     fields: list[PublicFormField]
 
