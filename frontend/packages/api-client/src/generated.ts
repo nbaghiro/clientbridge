@@ -1710,6 +1710,19 @@ export interface components {
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
         };
+        /**
+         * BrandInput
+         * @description The public-facing brand a business sets on its Connect surfaces. Values are validated +
+         *     trimmed here (empty → cleared) so what's stored is what the customer client applies directly.
+         */
+        BrandInput: {
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Primary */
+            primary?: string | null;
+            /** Tagline */
+            tagline?: string | null;
+        };
         /** BroadcastOut */
         BroadcastOut: {
             /** Id */
@@ -1763,6 +1776,10 @@ export interface components {
             gst_hst_number: string | null;
             /** Qst Number */
             qst_number: string | null;
+            /** Brand */
+            brand: {
+                [key: string]: unknown;
+            };
         };
         /**
          * BusinessSettingsUpdate
@@ -1782,6 +1799,7 @@ export interface components {
             gst_hst_number?: string | null;
             /** Qst Number */
             qst_number?: string | null;
+            brand?: components["schemas"]["BrandInput"] | null;
         };
         /** CheckoutOut */
         CheckoutOut: {

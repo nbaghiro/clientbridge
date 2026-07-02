@@ -60,6 +60,63 @@ export function Account() {
                                 </select>
                             </label>
                         ) : null}
+                        <div className="border-t border-line pt-4">
+                            <h2 className="font-display text-sm font-semibold text-ink">
+                                {strings.account.brandTitle}
+                            </h2>
+                            <p className="mt-0.5 text-xs text-muted">
+                                {strings.account.brandSubtitle}
+                            </p>
+                            <div className="mt-3 space-y-4">
+                                <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+                                    {strings.account.logoUrlLabel}
+                                    <input
+                                        type="url"
+                                        value={fields.logo_url}
+                                        onChange={(e) => {
+                                            form.set("logo_url", e.target.value);
+                                        }}
+                                        placeholder={strings.account.logoUrlPlaceholder}
+                                        className={FIELD}
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+                                    {strings.account.primaryLabel}
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="color"
+                                            value={fields.primary || "#3f5e80"}
+                                            onChange={(e) => {
+                                                form.set("primary", e.target.value);
+                                            }}
+                                            aria-label={strings.account.primaryLabel}
+                                            className="h-10 w-14 shrink-0 rounded-md border border-line bg-bg"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={fields.primary}
+                                            onChange={(e) => {
+                                                form.set("primary", e.target.value);
+                                            }}
+                                            placeholder="#3F5E80"
+                                            className={FIELD}
+                                        />
+                                    </div>
+                                </label>
+                                <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+                                    {strings.account.taglineLabel}
+                                    <input
+                                        type="text"
+                                        value={fields.tagline}
+                                        onChange={(e) => {
+                                            form.set("tagline", e.target.value);
+                                        }}
+                                        placeholder={strings.account.taglinePlaceholder}
+                                        className={FIELD}
+                                    />
+                                </label>
+                            </div>
+                        </div>
                         {form.error !== null && <p className="text-sm text-danger">{form.error}</p>}
                         {form.saved && (
                             <p className="text-sm text-success">{strings.common.saved}</p>

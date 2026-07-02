@@ -501,6 +501,13 @@ export const strings = {
         qstPlaceholder: "1234567890TQ0001",
         nameRequired: "Business name is required",
         saveError: "Could not save account settings",
+        brandTitle: "Brand",
+        brandSubtitle: "Shown to your clients on booking, pay, and other links.",
+        logoUrlLabel: "Logo URL",
+        logoUrlPlaceholder: "https://…/logo.png",
+        primaryLabel: "Primary colour",
+        taglineLabel: "Tagline",
+        taglinePlaceholder: "Calm, careful grooming on the island.",
     },
     scheduling: {
         title: "Scheduling",

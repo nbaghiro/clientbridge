@@ -12,6 +12,7 @@ interface AccountRow {
     billing_email: string | null;
     gst_hst_number: string | null;
     qst_number: string | null;
+    brand: string | null; // JSON text in the replica: {logo_url?, primary?, tagline?}
 }
 
 export interface AccountFields {
@@ -21,6 +22,29 @@ export interface AccountFields {
     billing_email: string;
     gst_hst_number: string;
     qst_number: string;
+    logo_url: string;
+    primary: string;
+    tagline: string;
+}
+
+interface Brand {
+    logo_url: string;
+    primary: string;
+    tagline: string;
+}
+
+function parseBrand(raw: string | null): Brand {
+    if (raw === null || raw === "") return { logo_url: "", primary: "", tagline: "" };
+    try {
+        const b = JSON.parse(raw) as Record<string, unknown>;
+        return {
+            logo_url: typeof b.logo_url === "string" ? b.logo_url : "",
+            primary: typeof b.primary === "string" ? b.primary : "",
+            tagline: typeof b.tagline === "string" ? b.tagline : "",
+        };
+    } catch {
+        return { logo_url: "", primary: "", tagline: "" };
+    }
 }
 
 /** The editable business-profile text fields, shared so web + mobile render the same set + labels. */
@@ -68,7 +92,7 @@ export interface AccountForm {
 }
 
 const SQL =
-    "SELECT name, timezone, locale, billing_email, gst_hst_number, qst_number FROM businesses LIMIT 1";
+    "SELECT name, timezone, locale, billing_email, gst_hst_number, qst_number, brand FROM businesses LIMIT 1";
 
 /** Account-settings view-model: seed the form from the synced `businesses` row, PATCH the changes.
  *  The saved row flows back via sync, so the form reflects the server on the next render. */
@@ -80,6 +104,7 @@ export function useAccountForm(api: ApiLike): AccountForm {
 
     useEffect(() => {
         if (row !== null && fields === null) {
+            const brand = parseBrand(row.brand);
             setFields({
                 name: row.name,
                 timezone: row.timezone,
@@ -87,6 +112,9 @@ export function useAccountForm(api: ApiLike): AccountForm {
                 billing_email: row.billing_email ?? "",
                 gst_hst_number: row.gst_hst_number ?? "",
                 qst_number: row.qst_number ?? "",
+                logo_url: brand.logo_url,
+                primary: brand.primary,
+                tagline: brand.tagline,
             });
         }
     }, [row, fields]);
@@ -102,12 +130,16 @@ export function useAccountForm(api: ApiLike): AccountForm {
             setError(strings.account.nameRequired);
             return;
         }
-        void run(() => api.patch("/v1/business", fields), {
-            onSuccess: () => {
-                setSaved(true);
+        const { logo_url, primary, tagline, ...text } = fields;
+        void run(
+            () => api.patch("/v1/business", { ...text, brand: { logo_url, primary, tagline } }),
+            {
+                onSuccess: () => {
+                    setSaved(true);
+                },
+                errorMessage: strings.account.saveError,
             },
-            errorMessage: strings.account.saveError,
-        });
+        );
     };
 
     return { fields, set, busy, error, saved, submit };
