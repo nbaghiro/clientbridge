@@ -2,11 +2,12 @@
 // a plain `fetch` (never the authed session) against a base URL each platform supplies. PowerSync-free
 // so it can ship in the lean Connect bundle (`@clientbridge/app-core/public`).
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import type { PublicBrand } from "./publicBrand";
+import { usePublicResource } from "./publicResource";
 
 export interface PublicFormField {
     id: string;
@@ -42,7 +43,7 @@ export class PublicFormError extends Error {
 }
 
 export interface PublicFormClient {
-    getForm(token: string): Promise<PublicForm>;
+    getForm: (token: string) => Promise<PublicForm>;
     submit(token: string, answers: Record<string, FormAnswer>): Promise<PublicForm>;
     upload(token: string, file: Blob): Promise<string>; // returns a file_id to store as the answer
 }
@@ -135,43 +136,11 @@ export interface PublicFormFill {
 /** View-model for the public form-fill page: load the form, track answers by field name, upload
  *  file-fields, validate required fields, and submit. The field inputs render per-platform. */
 export function usePublicFormFill(forms: PublicFormClient, token: string): PublicFormFill {
-    const [form, setForm] = useState<PublicForm | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [notFound, setNotFound] = useState(false);
-    const [loadError, setLoadError] = useState(false);
+    const { status: load, data: form, setData: setForm } = usePublicResource(forms.getForm, token);
     const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
     const { busy, error, setError, run } = useAsyncAction();
 
-    useEffect(() => {
-        let live = true;
-        setLoading(true);
-        forms
-            .getForm(token)
-            .then((f) => {
-                if (live) setForm(f);
-            })
-            .catch((err: unknown) => {
-                if (!live) return;
-                if (err instanceof PublicFormError && err.status === 404) setNotFound(true);
-                else setLoadError(true);
-            })
-            .finally(() => {
-                if (live) setLoading(false);
-            });
-        return () => {
-            live = false;
-        };
-    }, [forms, token]);
-
-    const status: PublicFormStatus = loading
-        ? "loading"
-        : notFound
-          ? "not-found"
-          : loadError || form === null
-            ? "error"
-            : form.completed
-              ? "done"
-              : "ready";
+    const status: PublicFormStatus = load !== "ready" ? load : form?.completed ? "done" : "ready";
 
     const setAnswer = (name: string, value: FormAnswer): void => {
         setAnswers((a) => ({ ...a, [name]: value }));

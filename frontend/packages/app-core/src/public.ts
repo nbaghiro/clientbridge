@@ -3,6 +3,7 @@
 // never pulls the provider replica stack. Everything re-exported here must stay free of
 // `@powersync/*` imports.
 
+export * from "./domain/publicResource";
 export * from "./domain/publicBooking";
 export * from "./domain/publicPay";
 export * from "./domain/publicForm";
