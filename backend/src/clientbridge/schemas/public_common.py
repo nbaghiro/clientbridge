@@ -1,4 +1,10 @@
+import re
+
 from pydantic import BaseModel
+
+# Shared hex-colour rule for the brand (write-validated in `BrandInput`, read-validated in
+# `public_brand`). `\Z` (not `$`) so a trailing newline can't slip through.
+HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
 
 
 class PublicBrand(BaseModel):

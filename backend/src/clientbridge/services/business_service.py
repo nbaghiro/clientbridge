@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.errors import NotFound
 from clientbridge.models.identity import Business
 from clientbridge.schemas.identity import BusinessSettingsUpdate
 
@@ -13,8 +13,12 @@ class BusinessService:
 
     async def update_settings(self, data: BusinessSettingsUpdate) -> Business:
         """Owner/admin edit of the acting business's account fields (the principal's business)."""
-        if self.principal.role not in ("owner", "admin"):
-            raise Forbidden("only an owner or admin can change account settings")
+        assert_role(
+            self.principal,
+            "owner",
+            "admin",
+            message="only an owner or admin can change account settings",
+        )
         business = await self.db.get(Business, self.principal.business_id)
         if business is None:
             raise NotFound("business not found")

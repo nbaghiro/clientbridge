@@ -121,6 +121,7 @@ async def test_public_get_returns_context(api: httpx.AsyncClient, db: AsyncSessi
     token = await _a_signature(db)
     body = (await api.get(f"/contract/{token}")).json()
     assert body["contract_name"] and body["status"] == "pending"
+    assert body["brand"]["primary"] == "#3F5E80"  # brand exposed on the contract surface
     assert "authorize" in body["body"] and body["signer_name"]
 
 

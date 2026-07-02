@@ -1,11 +1,7 @@
 """Shared builders for the unauthenticated customer surfaces (#4)."""
 
-import re
-
 from clientbridge.models.identity import Business
-from clientbridge.schemas.public_common import PublicBrand
-
-_HEX = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+from clientbridge.schemas.public_common import HEX_COLOR, PublicBrand
 
 
 def public_brand(business: Business) -> PublicBrand:
@@ -21,7 +17,9 @@ def public_brand(business: Business) -> PublicBrand:
     tagline = brand.get("tagline")
     return PublicBrand(
         logo_url=logo_url if isinstance(logo_url, str) and _is_http(logo_url) else None,
-        primary=primary if isinstance(primary, str) and _HEX.match(primary) is not None else None,
+        primary=(
+            primary if isinstance(primary, str) and HEX_COLOR.match(primary) is not None else None
+        ),
         tagline=(tagline.strip() or None) if isinstance(tagline, str) else None,
     )
 
