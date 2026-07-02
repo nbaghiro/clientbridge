@@ -109,7 +109,11 @@ per-business client rows). Embed model = snippet + iframe fallback. Customers = 
   `PublicFrame` rendering logo/tagline + runtime `--accent` theming across the 4 pages.
 - **Brand edit path** (todo): editable in provider Account (logo upload via `file_service`, colour,
   tagline) through the command path + `BusinessSettingsUpdate`.
-- **New app `apps/connect`** (decided 2026-07-02) — the customer surfaces get their own lean Vite app:
+- ✅ **New app `apps/connect`** (`c90fb15` carve-out, `68567d4` app) — customer surfaces now in
+  their own lean Vite app (port 8709, no COEP, no PowerSync). Bundle 232 KB vs web's 643 KB;
+  verified PowerSync-free. Includes the previously-missing **Review page** (Phase-1 404 fixed).
+  Backend `connect_base_url` repoints the customer notification links. Remaining: production
+  deploy/hosting wiring for the new origin (environment-specific).
   - **Separate app, not a 2nd Vite entry** — its own origin/deploy so it can drop the COEP
     `require-corp` header (`apps/web` needs it for PowerSync OPFS; it fights embedding + logos).
   - No PowerSync, no provider pages, no auth gate. Port 8710 (confirm vs `.docs/ports.md`).
