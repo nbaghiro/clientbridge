@@ -186,8 +186,8 @@ async def _allocate_for(
     rate: float,
     end_hour: int = 16,
     end_min: int = 0,
-) -> PayoutAllocation:
-    """Set Diego's payee rate, run a $100 booking line through pay+settle, return its allocation."""
+) -> tuple[PayoutAllocation, str]:
+    """Set Diego's payee rate; pay+settle a $100 booking line; return (alloc, payment_id)."""
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
@@ -267,13 +267,14 @@ async def _allocate_for(
         }
     )
     await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
-    return (
+    alloc = (
         await db.execute(select(PayoutAllocation).where(PayoutAllocation.source_id == booking.id))
     ).scalar_one()
+    return alloc, pay["payment_id"]
 
 
 async def test_hourly_payee_allocation(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    alloc = await _allocate_for(
+    alloc, _ = await _allocate_for(
         as_owner, db, rate_type="hourly", rate=22.0, end_hour=16, end_min=30
     )
     assert alloc.amount_cents == 3300  # $22/hr x 1.5h (15:00-16:30)
@@ -281,6 +282,19 @@ async def test_hourly_payee_allocation(as_owner: httpx.AsyncClient, db: AsyncSes
 
 
 async def test_fixed_payee_allocation(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    alloc = await _allocate_for(as_owner, db, rate_type="fixed", rate=15.0)
+    alloc, _ = await _allocate_for(as_owner, db, rate_type="fixed", rate=15.0)
     assert alloc.amount_cents == 1500  # a flat $15 per booking, independent of the line
     assert alloc.basis == "fixed"
+
+
+async def test_refund_reverses_allocation(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    # refunding a paid booking must drop its pending payout split, so staff aren't credited for it
+    alloc, payment_id = await _allocate_for(as_owner, db, rate_type="percent", rate=60.0)
+    assert alloc.status == "pending"
+    booking_id = alloc.source_id
+    refunded = await as_owner.post(f"/v1/payments/{payment_id}/refund")
+    assert refunded.status_code == 200
+    gone = (
+        await db.execute(select(PayoutAllocation).where(PayoutAllocation.source_id == booking_id))
+    ).scalar_one_or_none()
+    assert gone is None
