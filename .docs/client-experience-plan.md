@@ -105,11 +105,29 @@ per-business client rows). Embed model = snippet + iframe fallback. Customers = 
 - Small correctness/polish on the four existing pages while they're open.
 
 ### Phase 2 — Lean, branded client bundle *(the big UX + perf win; prerequisite for widgets)*
-- Split the client surfaces into their own bundle (no PowerSync, no admin pages, no COEP), reusing the
-  `usePublic*` hooks + tokens.
-- Wire `businesses.brand` end-to-end: editable in Account (+ logo upload), exposed in every public API
-  context, rendered on the pages, and driving runtime CSS-var theming (the business's primary color).
-- Result: fast, on-brand hosted client pages.
+- ✅ **Brand read+render** (`bc2bd0c`): validated `PublicBrand` on all 5 public contexts + a shared
+  `PublicFrame` rendering logo/tagline + runtime `--accent` theming across the 4 pages.
+- **Brand edit path** (todo): editable in provider Account (logo upload via `file_service`, colour,
+  tagline) through the command path + `BusinessSettingsUpdate`.
+- **New app `apps/connect`** (decided 2026-07-02) — the customer surfaces get their own lean Vite app:
+  - **Separate app, not a 2nd Vite entry** — its own origin/deploy so it can drop the COEP
+    `require-corp` header (`apps/web` needs it for PowerSync OPFS; it fights embedding + logos).
+  - No PowerSync, no provider pages, no auth gate. Port 8710 (confirm vs `.docs/ports.md`).
+  - Holds the 5 public pages (Booking/Pay/Form/Contract + the **new Review** page, folding in the
+    Phase-1 404 fix) + a connect-local `PublicFrame`.
+  - **Sharing = packages only, never app→app.** Reuses `@clientbridge/app-core` (public subset),
+    `@clientbridge/tokens`, `@clientbridge/config`. The heavy PowerSync drivers (`@powersync/web`,
+    `wa-sqlite`) already live in `apps/web/lib`, not `app-core`, so Connect gets the lean bundle by
+    simply not importing `apps/web`.
+  - **`StatusPill` + `CardConfirm` are duplicated into Connect** (decided) — small, stable; no shared
+    UI package, no provider churn.
+  - **Carve `@clientbridge/app-core/public`** (decided) — a PowerSync-free subpath barrel. Extract the
+    public form/contract clients out of the mixed `forms.ts`/`contracts.ts` into `publicForm.ts`/
+    `publicContract.ts`; move payment-display helpers (`payMethods`, `invoiceStatusIntent`) into
+    `publicPay.ts`; add `publicReview.ts`. Guarantees zero PowerSync in the Connect bundle.
+  - Backend: add `connect_base_url`; repoint the customer notification links (`/pay`, `/form`,
+    `/contract`, `/review`) to it.
+- Result: fast, on-brand, embeddable-ready hosted client pages.
 
 ### Phase 3 — Embeddable widgets *(the "PocketSuite widgets" deliverable)*
 - Production CORS allowlist (per-business origins).

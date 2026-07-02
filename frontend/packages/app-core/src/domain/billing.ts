@@ -95,22 +95,6 @@ export function filterEstimates(rows: EstimateRow[], q: string): EstimateRow[] {
     );
 }
 
-// The status → visual-intent decision is shared; each platform maps the intent to its own tokens.
-export function invoiceStatusIntent(status: string): Intent {
-    switch (status) {
-        case "paid":
-            return "success";
-        case "sent":
-            return "accent";
-        case "partial":
-            return "warning";
-        case "overdue":
-            return "danger";
-        default:
-            return "neutral"; // draft, void
-    }
-}
-
 export function estimateStatusIntent(status: string): Intent {
     switch (status) {
         case "accepted":

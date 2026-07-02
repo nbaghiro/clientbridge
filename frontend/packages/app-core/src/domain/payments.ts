@@ -243,13 +243,6 @@ export function isPayable(row: { status: string; balance_cents: number | null })
     );
 }
 
-export type PayMethod = "interac" | "card";
-
-/** Ranked pay methods for the public page: Interac first (no fee), card only when enabled. */
-export function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
-    return invoice.accepts_card ? ["interac", "card"] : ["interac"];
-}
-
 /** Public pay-page URL for an invoice token. `base` is the public-web origin each app supplies
  *  (web `window.location.origin`; mobile a configured URL). */
 export function payLinkUrl(base: string, token: string): string {
