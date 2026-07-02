@@ -98,7 +98,7 @@ export function Account() {
                                             onChange={(e) => {
                                                 form.set("primary", e.target.value);
                                             }}
-                                            placeholder="#3F5E80"
+                                            placeholder={strings.account.primaryPlaceholder}
                                             className={FIELD}
                                         />
                                     </div>

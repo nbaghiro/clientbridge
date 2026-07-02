@@ -80,7 +80,7 @@ export function PublicContract() {
                         onChange={(e) => {
                             form.setTypedName(e.target.value);
                         }}
-                        placeholder="Full legal name"
+                        placeholder={strings.publicContract.fullNamePlaceholder}
                         className={field}
                     />
                 </label>
@@ -149,8 +149,14 @@ function ResolvedState({ contract }: { contract: PublicContractData }) {
                 </div>
                 <p className="mt-2 text-sm text-muted">
                     {signed
-                        ? `Thank you. Your signature on “${contract.contract_name}” for ${contract.business_name} is recorded.`
-                        : `You declined “${contract.contract_name}”. Contact ${contract.business_name} if this was a mistake.`}
+                        ? strings.publicContract.signedThanks(
+                              contract.contract_name,
+                              contract.business_name,
+                          )
+                        : strings.publicContract.declinedNote(
+                              contract.contract_name,
+                              contract.business_name,
+                          )}
                 </p>
             </div>
         </Frame>

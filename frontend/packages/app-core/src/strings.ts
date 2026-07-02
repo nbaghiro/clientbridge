@@ -506,6 +506,7 @@ export const strings = {
         logoUrlLabel: "Logo URL",
         logoUrlPlaceholder: "https://…/logo.png",
         primaryLabel: "Primary colour",
+        primaryPlaceholder: "#3F5E80",
         taglineLabel: "Tagline",
         taglinePlaceholder: "Calm, careful grooming on the island.",
     },
@@ -867,6 +868,11 @@ export const strings = {
         sign: "Sign contract",
         signedStatus: "Contract signed",
         declinedStatus: "Contract declined",
+        fullNamePlaceholder: "Full legal name",
+        signedThanks: (contractName: string, businessName: string) =>
+            `Thank you. Your signature on “${contractName}” for ${businessName} is recorded.`,
+        declinedNote: (contractName: string, businessName: string) =>
+            `You declined “${contractName}”. Contact ${businessName} if this was a mistake.`,
         notFoundTitle: "Contract not found",
         notFoundBody:
             "This signing link is invalid or has expired. Please check with the business that sent it to you.",
