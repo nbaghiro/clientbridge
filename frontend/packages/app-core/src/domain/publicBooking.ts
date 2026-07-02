@@ -148,6 +148,52 @@ export interface PublicBookingForm {
     setError: (message: string | null) => void;
 }
 
+export type PublicBusinessStatus = "loading" | "not-found" | "error" | "ready";
+
+export interface PublicBusiness {
+    status: PublicBusinessStatus;
+    page: PublicBookingPage | null;
+}
+
+/** Lean loader for the business landing page (`/b/:slug`): just the profile + brand + services, no
+ *  booking-form state. Reuses the booking-page endpoint. */
+export function usePublicBusiness(booking: PublicBookingClient, slug: string): PublicBusiness {
+    const [page, setPage] = useState<PublicBookingPage | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [notFound, setNotFound] = useState(false);
+    const [loadError, setLoadError] = useState(false);
+
+    useEffect(() => {
+        let live = true;
+        setLoading(true);
+        booking
+            .getServices(slug)
+            .then((p) => {
+                if (live) setPage(p);
+            })
+            .catch((err: unknown) => {
+                if (!live) return;
+                if (err instanceof PublicBookingError && err.status === 404) setNotFound(true);
+                else setLoadError(true);
+            })
+            .finally(() => {
+                if (live) setLoading(false);
+            });
+        return () => {
+            live = false;
+        };
+    }, [booking, slug]);
+
+    const status: PublicBusinessStatus = loading
+        ? "loading"
+        : notFound
+          ? "not-found"
+          : loadError || page === null
+            ? "error"
+            : "ready";
+    return { status, page };
+}
+
 /** View-model for the public online-booking wizard: load the page, pick service/staff/date (which
  *  refetches open slots), pick a time, enter contact details, then book. The deposit-card Elements
  *  render per-platform from `result.deposit_client_secret`. */

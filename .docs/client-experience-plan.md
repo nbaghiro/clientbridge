@@ -112,9 +112,10 @@ per-business client rows). Embed model = snippet + iframe fallback. Customers = 
   durable public file serving (today's file URLs are short-lived presigned).
 - ✅ **New app `apps/connect`** (`c90fb15` carve-out, `68567d4` app) — customer surfaces now in
   their own lean Vite app (port 8709, no COEP, no PowerSync). Bundle 232 KB vs web's 643 KB;
-  verified PowerSync-free. Includes the previously-missing **Review page** (Phase-1 404 fixed).
-  Backend `connect_base_url` repoints the customer notification links. Remaining: production
-  deploy/hosting wiring for the new origin (environment-specific).
+  verified PowerSync-free. Includes the previously-missing **Review page** (Phase-1 404 fixed) and a
+  per-business **landing page** (`/b/:slug`) — a branded home with a services preview + Book CTA
+  (link-in-bio target), reusing the booking-page profile. Backend `connect_base_url` repoints the
+  customer notification links. Remaining: production deploy/hosting wiring (environment-specific).
   - **Separate app, not a 2nd Vite entry** — its own origin/deploy so it can drop the COEP
     `require-corp` header (`apps/web` needs it for PowerSync OPFS; it fights embedding + logos).
   - No PowerSync, no provider pages, no auth gate. Port 8710 (confirm vs `.docs/ports.md`).
