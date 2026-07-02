@@ -1,18 +1,22 @@
 import csv
 import io
+from collections.abc import Sequence
 from datetime import UTC, date, datetime, time
+from decimal import ROUND_HALF_UP, Decimal
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import Subquery, case, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.billing import Invoice, Order, TaxRate
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment, PayoutAllocation
 from clientbridge.schemas.reports import GstHstReport, IncomeReport, T4ARow
+from clientbridge.services.tax_rates import rates_for_business
+from clientbridge.services.tax_service import effective_rate
 
 _INCOME_KINDS = ("payment", "deposit")
 _PAYABLE = ("approved", "paid")
@@ -76,35 +80,65 @@ class ReportService:
     async def gst_hst_return(self, start: date, end: date) -> GstHstReport:
         business = await self._business()
         lo, hi = _bounds(start, end, ZoneInfo(business.timezone))
+        rates = await rates_for_business(self.db, self.biz)
         invoices = (
-            scoped(Invoice, self.biz)
-            .where(Invoice.status == "paid", Invoice.paid_at >= lo, Invoice.paid_at <= hi)
-            .subquery()
+            (
+                await self.db.execute(
+                    scoped(Invoice, self.biz).where(
+                        Invoice.status == "paid", Invoice.paid_at >= lo, Invoice.paid_at <= hi
+                    )
+                )
+            )
+            .scalars()
+            .all()
         )
         orders = (
-            scoped(Order, self.biz)
-            .where(Order.status == "paid", Order.paid_at >= lo, Order.paid_at <= hi)
-            .subquery()
+            (
+                await self.db.execute(
+                    scoped(Order, self.biz).where(
+                        Order.status == "paid", Order.paid_at >= lo, Order.paid_at <= hi
+                    )
+                )
+            )
+            .scalars()
+            .all()
         )
-        inv_tax, inv_sales = await self._tax_totals(invoices)
-        ord_tax, ord_sales = await self._tax_totals(orders)
+        taxed = [(i.tax_total_cents, i.total_cents) for i in invoices]
+        taxed += [(o.tax_total_cents, o.total_cents) for o in orders]
+        gst_hst = pst = qst = taxable_sales = 0
+        # split each row's tax individually — additive, so the period split is the sum of rows'
+        for tax_total, total in taxed:
+            row_pst, row_qst = self._provincial_split(tax_total, rates)
+            pst += row_pst
+            qst += row_qst
+            gst_hst += tax_total - row_pst - row_qst
+            taxable_sales += total - tax_total
         return GstHstReport(
-            tax_collected_cents=inv_tax + ord_tax,
-            taxable_sales_cents=inv_sales + ord_sales,
+            tax_collected_cents=gst_hst,  # federal GST/HST only — PST/QST file separately
+            pst_cents=pst,
+            qst_cents=qst,
+            taxable_sales_cents=taxable_sales,
             gst_hst_number=business.gst_hst_number,
         )
 
-    async def _tax_totals(self, sub: Subquery) -> tuple[int, int]:
-        """Σ tax and Σ pre-tax sales (total minus tax) over a paid invoice/order subquery."""
-        row = (
-            await self.db.execute(
-                select(
-                    func.coalesce(func.sum(sub.c.tax_total_cents), 0),
-                    func.coalesce(func.sum(sub.c.total_cents - sub.c.tax_total_cents), 0),
-                )
-            )
-        ).one()
-        return int(row[0]), int(row[1])
+    @staticmethod
+    def _provincial_split(total_tax: int, rates: Sequence[TaxRate]) -> tuple[int, int]:
+        """PST and QST portions of the period's total tax, apportioned by the active rate ratio; the
+        rest is federal GST/HST. PST/QST file separately from the CRA return, so lumping them in
+        over-reports what's owed to the CRA."""
+        eff = {r.jurisdiction: effective_rate(r.jurisdiction, r.rate_bps) for r in rates}
+        total_rate = sum(eff.values(), Decimal(0))
+        if total_tax == 0 or total_rate == 0:
+            return 0, 0
+
+        def portion(jurisdiction: str) -> int:
+            rate = eff.get(jurisdiction)
+            if rate is None:
+                return 0
+            share = Decimal(total_tax) * rate / total_rate
+            return int(share.quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+        return portion("PST"), portion("QST")
 
     async def t4a_summary(self, year: int) -> list[T4ARow]:
         business = await self._business()
@@ -154,9 +188,23 @@ class ReportService:
         report = await self.gst_hst_return(start, end)
         buf = io.StringIO()
         writer = csv.writer(buf)
-        writer.writerow(["tax_collected_cents", "taxable_sales_cents", "gst_hst_number"])
         writer.writerow(
-            [report.tax_collected_cents, report.taxable_sales_cents, report.gst_hst_number]
+            [
+                "tax_collected_cents",
+                "pst_cents",
+                "qst_cents",
+                "taxable_sales_cents",
+                "gst_hst_number",
+            ]
+        )
+        writer.writerow(
+            [
+                report.tax_collected_cents,
+                report.pst_cents,
+                report.qst_cents,
+                report.taxable_sales_cents,
+                report.gst_hst_number,
+            ]
         )
         return buf.getvalue()
 

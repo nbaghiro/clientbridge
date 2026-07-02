@@ -11,7 +11,8 @@ from decimal import ROUND_HALF_UP, Decimal
 _PRECISE: dict[str, Decimal] = {"QST": Decimal("0.09975")}
 
 
-def _rate(jurisdiction: str, rate_bps: int) -> Decimal:
+def effective_rate(jurisdiction: str, rate_bps: int) -> Decimal:
+    """The exact decimal rate for a jurisdiction (QST is 9.975%, finer than a whole basis point)."""
     return _PRECISE.get(jurisdiction, Decimal(rate_bps) / Decimal(10000))
 
 
@@ -73,14 +74,18 @@ def _line(line: TaxLine, rates: Sequence[TaxComponent], inclusive: bool) -> Line
     if inclusive:
         total_rate = Decimal(0)
         for r in rates:
-            total_rate += _rate(r.jurisdiction, r.rate_bps)
+            total_rate += effective_rate(r.jurisdiction, r.rate_bps)
         base = Decimal(line.amount_cents) / (Decimal(1) + total_rate)
-        by_jur = {r.jurisdiction: _cents(base * _rate(r.jurisdiction, r.rate_bps)) for r in rates}
+        by_jur = {
+            r.jurisdiction: _cents(base * effective_rate(r.jurisdiction, r.rate_bps)) for r in rates
+        }
         tax = sum(by_jur.values())
         return LineTax(line.amount_cents - tax, tax, by_jur)
 
     by_jur = {
-        r.jurisdiction: _cents(Decimal(line.amount_cents) * _rate(r.jurisdiction, r.rate_bps))
+        r.jurisdiction: _cents(
+            Decimal(line.amount_cents) * effective_rate(r.jurisdiction, r.rate_bps)
+        )
         for r in rates
     }
     tax = sum(by_jur.values())

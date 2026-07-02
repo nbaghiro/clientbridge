@@ -12,7 +12,9 @@ export interface IncomeReport {
 }
 
 export interface GstHstReport {
-    tax_collected_cents: number;
+    tax_collected_cents: number; // federal GST/HST only
+    pst_cents: number; // provincial PST (BC/SK/MB), filed separately
+    qst_cents: number; // QST, filed with Revenu Québec
     taxable_sales_cents: number;
     gst_hst_number: string | null;
 }

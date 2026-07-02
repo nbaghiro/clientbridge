@@ -160,6 +160,18 @@ function ReportsView() {
                                         cents={gstHst.tax_collected_cents}
                                         tone="success"
                                     />
+                                    {gstHst.pst_cents > 0 ? (
+                                        <Figure
+                                            label={strings.reports.pstCollected}
+                                            cents={gstHst.pst_cents}
+                                        />
+                                    ) : null}
+                                    {gstHst.qst_cents > 0 ? (
+                                        <Figure
+                                            label={strings.reports.qstCollected}
+                                            cents={gstHst.qst_cents}
+                                        />
+                                    ) : null}
                                     <Figure
                                         label={strings.reports.taxableSales}
                                         cents={gstHst.taxable_sales_cents}
