@@ -45,12 +45,12 @@ JWKS path, i18n string catalog (English), income/GST-HST/T4A reports + CSV, 3 da
 
 ---
 
-## 🟠 Correctness bugs (silently wrong — fix ASAP)
-- [M] **Availability ignores business timezone.** `availability.start/end` are treated as UTC wall-clock (`open_slots` combines with `tzinfo=UTC`), while notifications convert to `business.timezone` — the two disagree. Every non-UTC business (all, given the Toronto default) gets wrong hours, wrong online slots, and DST bugs.
-- [M] **Refund doesn't reverse the payout allocation.** Settlement creates `PayoutAllocation`s; refund flips invoice status back but never deletes/reverses them → staff are overpaid and T4A is overstated for refunded work.
-- [M] **GST/HST return conflates PST/QST.** `report_service` sums total `tax_total_cents` into `tax_collected_cents`; the engine's per-jurisdiction breakdown is computed then discarded. PST (BC/SK/MB) and QST (filed with Revenu Québec) are lumped into the federal figure → wrong CRA number for any PST/QST province.
-- [M] **Client lifetime value is always $0.** `lifetime_value_cents` is rendered prominently but never written by any payment/settlement path.
-- [M] **Resources are never conflict-checked.** `resource_id` is stored on sessions but the overlap check (and the GiST exclusion constraint) key on staff only → the same room/chair/equipment can be double-booked.
+## 🟠 Correctness bugs — ✅ ALL FIXED (2026-07-02)
+- ✅ **Availability ignored business timezone.** Now interpreted in `business.timezone` (`is_within_availability` + `open_slots`), DST-safe, with a regression guard. (`d50e44c`)
+- ✅ **Refund didn't reverse the payout allocation.** `_reconcile_invoice` now removes pending, not-yet-paid-out booking allocations when a refund drops the invoice below fully-paid. (`5f03709`)
+- ✅ **GST/HST return conflated PST/QST.** The report now apportions each paid row's tax by the active rate ratio; `tax_collected_cents` is federal-only, with separate `pst_cents`/`qst_cents` (web + mobile show them). (`76e4bae`)
+- ✅ **Client lifetime value was always $0.** `_recompute_client_ltv` now rolls it up from settled payments (minus refunds) at every settle/refund point, plus a backfill migration. (`5f03709`)
+- ✅ **Resources weren't conflict-checked.** `create_booking_core` now rejects an overlapping same-resource session, backed by a GiST exclusion constraint. (`cd2b39f`)
 
 ---
 
