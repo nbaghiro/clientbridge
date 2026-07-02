@@ -2,7 +2,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +11,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
-from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
 from clientbridge.integrations.payments import (
     ConnectAccount,
     GatewayEvent,
@@ -350,6 +350,7 @@ class PaymentService:
             if payment.booking_id is not None and payment.kind == "deposit":
                 await _reverse_booking_deposit(self.db, payment.booking_id)
             await _reverse_entitlement(self.db, payment)
+            await _recompute_client_ltv(self.db, refund.client_id)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
             return RefundOut(refund_id=refund.id, status=result.status)
 
@@ -952,6 +953,7 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | 
     if payment.booking_id is not None and payment.kind == "deposit":
         await _reverse_booking_deposit(db, payment.booking_id)
     await _reverse_entitlement(db, payment)
+    await _recompute_client_ltv(db, refund.client_id)
     return refund.id
 
 
@@ -1038,6 +1040,7 @@ async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -
     if payment.booking_id is not None and payment.kind == "deposit":
         await _settle_booking_deposit(db, payment.booking_id)
     gift_card_id = await _settle_entitlement(db, payment)
+    await _recompute_client_ltv(db, payment.client_id)
     return _Settled(payment.id, gift_card_id)
 
 
@@ -1163,6 +1166,8 @@ async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:
     await db.flush()
     if invoice.status == "paid":
         await _ensure_allocations(db, invoice)
+    else:
+        await _reverse_allocations(db, invoice)
 
 
 async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[str, object]) -> None:
@@ -1391,6 +1396,7 @@ async def _record_recurring_payment(db: AsyncSession, data: dict[str, object]) -
     )
     db.add(payment)
     await db.flush()
+    await _recompute_client_ltv(db, payment.client_id)
     return payment.id
 
 
@@ -1519,6 +1525,65 @@ async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
     await db.flush()
 
 
+async def _reverse_allocations(db: AsyncSession, invoice: Invoice) -> None:
+    """When a refund drops an invoice below fully-paid, remove the pending (not-yet-paid-out) payout
+    splits made for its bookings so staff aren't credited (nor T4A inflated) for refunded work.
+    Allocations already on a payout are left alone (a paid-out clawback is out of scope)."""
+    booking_ids = [
+        b
+        for b in (
+            await db.execute(
+                select(Line.booking_id).where(
+                    Line.parent_type == "invoice",
+                    Line.parent_id == invoice.id,
+                    Line.booking_id.isnot(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+        if b is not None
+    ]
+    if not booking_ids:
+        return
+    await db.execute(
+        scoped_delete(PayoutAllocation, invoice.business_id).where(
+            PayoutAllocation.source_type == "booking",
+            PayoutAllocation.source_id.in_(booking_ids),
+            PayoutAllocation.status == "pending",
+            PayoutAllocation.payout_id.is_(None),
+        )
+    )
+    await db.flush()
+
+
+async def _recompute_client_ltv(db: AsyncSession, client_id: str | None) -> None:
+    """Recompute the client's lifetime value from their settled payments (payments and deposits
+    less refunds), so it stays right on every settle/refund. No-op for walk-ins."""
+    if client_id is None:
+        return
+    client = await db.get(Client, client_id)
+    if client is None:
+        return
+    total = (
+        await db.execute(
+            select(
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (Payment.kind == "refund", -Payment.amount_cents),
+                            else_=Payment.amount_cents,
+                        )
+                    ),
+                    0,
+                )
+            ).where(Payment.client_id == client_id, Payment.status == "succeeded")
+        )
+    ).scalar_one()
+    client.lifetime_value_cents = int(total)
+    await db.flush()
+
+
 async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int) -> str | None:
     """Match an inbound e-Transfer to its pending payment by reference code (no fee — the wedge).
     reference_code is globally unique, so the lookup needs no tenant scope. Returns the matched
@@ -1540,6 +1605,7 @@ async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int
     await db.flush()
     if payment.invoice_id is not None:
         await _reconcile_invoice(db, payment.invoice_id)
+    await _recompute_client_ltv(db, payment.client_id)
     return payment.id
 
 

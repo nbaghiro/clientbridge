@@ -149,6 +149,43 @@ async def test_refund_reverts_invoice(as_owner: httpx.AsyncClient, db: AsyncSess
     assert inv.balance_cents == 11200
 
 
+async def test_client_lifetime_value_tracks_settle_and_refund(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # a fresh client starts at $0; settling a payment rolls it up, refunding rolls it back
+    await _enable_payments(db)
+    client = Client(id=new_id("client"), business_id=BIZ, name="LTV Probe")
+    db.add(client)
+    await db.flush()
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=client.id,
+        number=9500,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=5000,
+        tax_total_cents=0,
+        total_cents=5000,
+        balance_cents=5000,
+    )
+    db.add(inv)
+    await db.flush()
+    pay = (await as_owner.post(f"/v1/payments/invoice/{inv.id}")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    await as_owner.post(
+        "/webhooks/stripe",
+        content=_pi_event("evt_ltv", pi_id),
+        headers={"Stripe-Signature": "good"},
+    )
+    await db.refresh(client)
+    assert client.lifetime_value_cents == 5000
+
+    await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
+    await db.refresh(client)
+    assert client.lifetime_value_cents == 0
+
+
 async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _enable_payments(db)
     inv_id = await _invoice(db)
