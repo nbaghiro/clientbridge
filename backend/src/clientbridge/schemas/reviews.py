@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from clientbridge.schemas.public_common import PublicBrand
+
 
 class ReviewRequestCreate(BaseModel):
     client_id: str
@@ -44,6 +46,7 @@ class ReviewSummary(BaseModel):
 
 class PublicReviewContext(BaseModel):
     business_name: str
+    brand: PublicBrand
     completed: bool
     rating: int | None = None
 

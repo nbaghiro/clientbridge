@@ -96,6 +96,15 @@ async def test_services_lists_only_online_bookable(api: httpx.AsyncClient) -> No
     assert body["staff"]  # active groomers are listed
 
 
+async def test_services_expose_brand(api: httpx.AsyncClient) -> None:
+    # the customer surfaces render the business's brand (logo, colour, tagline — seeded)
+    body = (await api.get(f"/book/{SLUG}/services")).json()
+    brand = body["brand"]
+    assert brand["primary"] == "#3F5E80"
+    assert brand["tagline"] == "Calm, careful grooming on Vancouver Island."
+    assert brand["logo_url"].startswith("http")
+
+
 async def test_services_bad_slug_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/book/nope/services")).status_code == 404
 

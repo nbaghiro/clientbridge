@@ -1,5 +1,6 @@
 import {
     type InteracRequest,
+    type PublicBrand,
     createPublicPayClient,
     formatMoneyWithCurrency,
     invoiceStatusIntent,
@@ -12,6 +13,7 @@ import { type Stripe, loadStripe } from "@stripe/stripe-js";
 import { type FormEvent, useMemo } from "react";
 import { useParams } from "react-router-dom";
 
+import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { StatusPill } from "../components/StatusPill";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -23,7 +25,7 @@ export function PublicPay() {
     const invoice = form.invoice;
 
     if (form.status === "loading")
-        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
+        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
 
     if (form.status === "not-found")
         return (
@@ -45,7 +47,8 @@ export function PublicPay() {
             </Frame>
         );
 
-    if (form.status === "paid") return <PaidState businessName={invoice.business_name} />;
+    if (form.status === "paid")
+        return <PaidState businessName={invoice.business_name} brand={invoice.brand} />;
 
     const runCard = (): void => {
         if (!PUBLISHABLE_KEY) {
@@ -56,7 +59,7 @@ export function PublicPay() {
     };
 
     return (
-        <Frame>
+        <Frame brand={invoice.brand}>
             <p className="text-sm text-muted">
                 {strings.publicPay.requestingPayment(invoice.business_name)}
             </p>
@@ -145,18 +148,14 @@ export function PublicPay() {
     );
 }
 
-function Frame({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-            <div className="w-full max-w-md rounded-xl border border-line bg-surface p-7 shadow-card">
-                {children}
-            </div>
-        </div>
-    );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-    return <p className="py-8 text-center text-sm text-muted">{children}</p>;
+function Frame({
+    brand = null,
+    children,
+}: {
+    brand?: PublicBrand | null;
+    children: React.ReactNode;
+}) {
+    return <PublicFrame brand={brand}>{children}</PublicFrame>;
 }
 
 function MethodOption({
@@ -306,9 +305,15 @@ function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => 
     );
 }
 
-function PaidState({ businessName }: { businessName: string }) {
+function PaidState({
+    businessName,
+    brand = null,
+}: {
+    businessName: string;
+    brand?: PublicBrand | null;
+}) {
     return (
-        <Frame>
+        <Frame brand={brand}>
             <div className="py-4 text-center">
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓

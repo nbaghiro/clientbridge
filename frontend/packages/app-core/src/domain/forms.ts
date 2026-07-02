@@ -6,6 +6,7 @@ import { useBusinessId } from "../hooks/primitives";
 import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey, newRowId } from "../util/primitives";
+import type { PublicBrand } from "./publicBrand";
 
 export interface FormRow {
     id: string;
@@ -300,6 +301,7 @@ export interface PublicFormField {
 export interface PublicForm {
     form_name: string;
     business_name: string;
+    brand: PublicBrand;
     completed: boolean;
     fields: PublicFormField[];
 }

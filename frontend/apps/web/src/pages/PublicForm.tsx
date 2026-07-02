@@ -1,5 +1,6 @@
 import {
     type FormAnswer,
+    type PublicBrand,
     type PublicFormField,
     createPublicFormClient,
     isFileField,
@@ -9,6 +10,8 @@ import {
 } from "@clientbridge/app-core";
 import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
+
+import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 
 const forms = createPublicFormClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
@@ -22,7 +25,7 @@ export function PublicForm() {
     const answers = fill.answers;
 
     if (fill.status === "loading")
-        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
+        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
 
     if (fill.status === "not-found")
         return (
@@ -44,7 +47,8 @@ export function PublicForm() {
             </Frame>
         );
 
-    if (fill.status === "done") return <DoneState businessName={form.business_name} />;
+    if (fill.status === "done")
+        return <DoneState businessName={form.business_name} brand={form.brand} />;
 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
@@ -52,7 +56,7 @@ export function PublicForm() {
     };
 
     return (
-        <Frame wide>
+        <Frame wide brand={form.brand}>
             <p className="text-sm text-muted">{form.business_name}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">{form.form_name}</h1>
 
@@ -280,9 +284,15 @@ function FieldView({
     );
 }
 
-function DoneState({ businessName }: { businessName: string }) {
+function DoneState({
+    businessName,
+    brand = null,
+}: {
+    businessName: string;
+    brand?: PublicBrand | null;
+}) {
     return (
-        <Frame>
+        <Frame brand={brand}>
             <div className="py-4 text-center">
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓
@@ -298,20 +308,18 @@ function DoneState({ businessName }: { businessName: string }) {
     );
 }
 
-function Frame({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
+function Frame({
+    brand = null,
+    children,
+    wide = false,
+}: {
+    brand?: PublicBrand | null;
+    children: React.ReactNode;
+    wide?: boolean;
+}) {
     return (
-        <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-            <div
-                className={`w-full rounded-xl border border-line bg-surface p-7 shadow-card ${
-                    wide ? "max-w-xl" : "max-w-md"
-                }`}
-            >
-                {children}
-            </div>
-        </div>
+        <PublicFrame brand={brand} size={wide ? "xl" : "md"}>
+            {children}
+        </PublicFrame>
     );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-    return <p className="py-8 text-center text-sm text-muted">{children}</p>;
 }

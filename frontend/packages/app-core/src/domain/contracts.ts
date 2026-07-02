@@ -7,6 +7,7 @@ import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { newIdempotencyKey, newRowId } from "../util/primitives";
 import type { Intent } from "../util/primitives";
+import type { PublicBrand } from "./publicBrand";
 
 export interface ContractRow {
     id: string;
@@ -156,6 +157,7 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
 export interface PublicContract {
     contract_name: string;
     business_name: string;
+    brand: PublicBrand;
     body: string;
     signer_name: string | null;
     status: string;

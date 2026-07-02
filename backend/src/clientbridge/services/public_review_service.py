@@ -8,6 +8,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.identity import Business
 from clientbridge.models.reviews import Review, ReviewRequest
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
+from clientbridge.services.public_common import public_brand
 
 
 class PublicReviewService:
@@ -32,7 +33,10 @@ class PublicReviewService:
         request, business = await self._resolve(token)
         rating = await self._submitted_rating(request)
         return PublicReviewContext(
-            business_name=business.name, completed=request.status == "completed", rating=rating
+            business_name=business.name,
+            brand=public_brand(business),
+            completed=request.status == "completed",
+            rating=rating,
         )
 
     async def submit(self, token: str, data: PublicReviewSubmit) -> PublicReviewContext:
@@ -63,7 +67,10 @@ class PublicReviewService:
             request.sent_at = datetime.now(UTC)
         await self.db.commit()
         return PublicReviewContext(
-            business_name=business.name, completed=True, rating=review.rating
+            business_name=business.name,
+            brand=public_brand(business),
+            completed=True,
+            rating=review.rating,
         )
 
     async def _submitted_rating(self, request: ReviewRequest) -> int | None:

@@ -1,4 +1,5 @@
 import {
+    type PublicBrand,
     type PublicContract as PublicContractData,
     createPublicContractClient,
     signatureStatusIntent,
@@ -8,6 +9,7 @@ import {
 import type { FormEvent } from "react";
 import { useParams } from "react-router-dom";
 
+import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { StatusPill } from "../components/StatusPill";
 
 const contracts = createPublicContractClient(
@@ -23,7 +25,7 @@ export function PublicContract() {
     const contract = form.contract;
 
     if (form.status === "loading")
-        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
+        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
 
     if (form.status === "not-found")
         return (
@@ -58,7 +60,7 @@ export function PublicContract() {
     };
 
     return (
-        <Frame wide>
+        <Frame wide brand={contract.brand}>
             <p className="text-sm text-muted">{contract.business_name}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">
                 {contract.contract_name}
@@ -123,7 +125,7 @@ export function PublicContract() {
 function ResolvedState({ contract }: { contract: PublicContractData }) {
     const signed = contract.status === "signed";
     return (
-        <Frame>
+        <Frame brand={contract.brand}>
             <div className="py-4 text-center">
                 <span
                     className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-2xl ${
@@ -153,20 +155,18 @@ function ResolvedState({ contract }: { contract: PublicContractData }) {
     );
 }
 
-function Frame({ children, wide = false }: { children: React.ReactNode; wide?: boolean }) {
+function Frame({
+    brand = null,
+    children,
+    wide = false,
+}: {
+    brand?: PublicBrand | null;
+    children: React.ReactNode;
+    wide?: boolean;
+}) {
     return (
-        <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-            <div
-                className={`w-full rounded-xl border border-line bg-surface p-7 shadow-card ${
-                    wide ? "max-w-2xl" : "max-w-md"
-                }`}
-            >
-                {children}
-            </div>
-        </div>
+        <PublicFrame brand={brand} size={wide ? "2xl" : "md"}>
+            {children}
+        </PublicFrame>
     );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-    return <p className="py-8 text-center text-sm text-muted">{children}</p>;
 }

@@ -1,6 +1,7 @@
 import {
     type PublicBookingPage,
     type PublicBookingResult,
+    type PublicBrand,
     type PublicService,
     type PublicSlot,
     type PublicStaff,
@@ -16,6 +17,7 @@ import { type FormEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { CardConfirm } from "../components/CardConfirm";
+import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 
 const booking = createPublicBookingClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
@@ -29,7 +31,7 @@ export function PublicBooking() {
     const service = form.service;
 
     if (form.status === "loading")
-        return <Frame>{<Centered>{strings.common.loading}</Centered>}</Frame>;
+        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
 
     if (form.status === "not-found")
         return (
@@ -60,7 +62,7 @@ export function PublicBooking() {
     };
 
     return (
-        <Frame>
+        <Frame brand={page.brand}>
             <p className="text-sm text-muted">{strings.publicBooking.bookWith}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">{page.business_name}</h1>
 
@@ -271,7 +273,7 @@ function BookedState({
                 ? formatMoneyWithCurrency(service.deposit_amount_cents, service.currency)
                 : strings.publicBooking.theDeposit;
         return (
-            <Frame>
+            <Frame brand={page.brand}>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.publicBooking.holdSpotTitle}
                 </h1>
@@ -293,7 +295,7 @@ function BookedState({
     }
 
     return (
-        <Frame>
+        <Frame brand={page.brand}>
             <div className="py-4 text-center">
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓
@@ -323,16 +325,12 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
     );
 }
 
-function Frame({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-            <div className="w-full max-w-md rounded-xl border border-line bg-surface p-7 shadow-card">
-                {children}
-            </div>
-        </div>
-    );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-    return <p className="py-8 text-center text-sm text-muted">{children}</p>;
+function Frame({
+    brand = null,
+    children,
+}: {
+    brand?: PublicBrand | null;
+    children: React.ReactNode;
+}) {
+    return <PublicFrame brand={brand}>{children}</PublicFrame>;
 }

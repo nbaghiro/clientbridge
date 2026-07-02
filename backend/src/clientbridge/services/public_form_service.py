@@ -14,6 +14,7 @@ from clientbridge.schemas.forms import (
     PublicFormSubmit,
 )
 from clientbridge.services.file_service import mint_upload
+from clientbridge.services.public_common import public_brand
 
 
 class PublicFormService:
@@ -55,6 +56,7 @@ class PublicFormService:
         return PublicFormContext(
             form_name=form.name,
             business_name=business.name,
+            brand=public_brand(business),
             completed=response.status == "submitted",
             fields=[_field_out(f) for f in fields],
         )
@@ -89,6 +91,7 @@ class PublicFormService:
         return PublicFormContext(
             form_name=form.name,
             business_name=business.name,
+            brand=public_brand(business),
             completed=True,
             fields=[_field_out(f) for f in fields],
         )

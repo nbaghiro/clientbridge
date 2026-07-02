@@ -24,6 +24,7 @@ from clientbridge.schemas.public_booking import (
 )
 from clientbridge.services.booking_service import _deposit_cents, create_booking_core
 from clientbridge.services.payment_service import open_booking_deposit
+from clientbridge.services.public_common import public_brand
 from clientbridge.services.scheduling_service import open_slots
 
 
@@ -79,6 +80,7 @@ class PublicBookingService:
         ).all()
         return PublicBookingPage(
             business_name=business.name,
+            brand=public_brand(business),
             services=[_service_out(i) for i in items],
             staff=[PublicStaff(id=r[0].id, name=r[1], title=r[0].title) for r in staff_rows],
             stripe_account_id=_account(business),
