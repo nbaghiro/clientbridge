@@ -9,10 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.billing import Invoice, Order, TaxRate
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment, PayoutAllocation
+from clientbridge.services.report_service import ReportService
 
 BIZ = "bz_birchbark"
 WIDE = "start=2000-01-01&end=2100-01-01"
@@ -147,6 +148,19 @@ async def _new_payee(db: AsyncSession, *, name: str) -> str:
     return staff.id
 
 
+def test_provincial_split_by_jurisdiction() -> None:
+    # BC: GST 5% + PST 7% → $12.00 tax = 500 federal + 700 PST, no QST
+    bc = [TaxRate(jurisdiction="GST", rate_bps=500), TaxRate(jurisdiction="PST", rate_bps=700)]
+    assert ReportService._provincial_split(1200, bc) == (700, 0)
+    # QC: GST 5% + QST 9.975% (computed precisely) → of $14.98, QST ≈ 998, rest federal
+    qc = [TaxRate(jurisdiction="GST", rate_bps=500), TaxRate(jurisdiction="QST", rate_bps=998)]
+    pst, qst = ReportService._provincial_split(1498, qc)
+    assert (pst, qst) == (0, 998)
+    # ON: HST-only → nothing provincial (all federal)
+    on = [TaxRate(jurisdiction="HST", rate_bps=1300)]
+    assert ReportService._provincial_split(1300, on) == (0, 0)
+
+
 async def test_income_summary_nets_payments_and_refunds(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -173,7 +187,10 @@ async def test_gst_hst_return_sums_paid_invoice_tax(
     await _add_invoice(db, number=9603, status="paid", subtotal=8000, tax=777, paid_at=OUT_RANGE)
     after = (await as_owner.get(f"/v1/reports/gst-hst?{WIDE}")).json()
 
-    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 1200
+    # BC = GST 5% + PST 7%; the $12.00 tax splits 500 GST/HST + 700 PST (not all federal)
+    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 500
+    assert after["pst_cents"] - before["pst_cents"] == 700
+    assert after["qst_cents"] - before["qst_cents"] == 0
     assert after["taxable_sales_cents"] - before["taxable_sales_cents"] == 10000
     assert after["gst_hst_number"] == "84720 1539 RT0001"
 
@@ -187,7 +204,9 @@ async def test_gst_hst_return_includes_paid_orders(
     await _add_order(db, status="paid", subtotal=2000, tax=250, paid_at=OUT_RANGE)  # out of range
     after = (await as_owner.get(f"/v1/reports/gst-hst?{WIDE}")).json()
 
-    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 600
+    # the $6.00 order tax splits 250 GST/HST + 350 PST
+    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 250
+    assert after["pst_cents"] - before["pst_cents"] == 350
     assert after["taxable_sales_cents"] - before["taxable_sales_cents"] == 5000
 
 
@@ -207,7 +226,9 @@ async def test_gst_hst_period_bounds_use_business_timezone(
     q3_after = (await as_owner.get(f"/v1/reports/gst-hst?{q3}")).json()
 
     # files in Q2 (business tz), not the adjacent Q3 it would land in under UTC bounds
-    assert q2_after["tax_collected_cents"] - q2_before["tax_collected_cents"] == 1300
+    # 1300 tax splits 542 GST/HST + 758 PST (round(1300*7/12)); Q3 sees nothing
+    assert q2_after["tax_collected_cents"] - q2_before["tax_collected_cents"] == 542
+    assert q2_after["pst_cents"] - q2_before["pst_cents"] == 758
     assert q3_after["tax_collected_cents"] - q3_before["tax_collected_cents"] == 0
 
 
@@ -257,8 +278,14 @@ async def test_gst_hst_csv_returns_text_csv(as_owner: httpx.AsyncClient) -> None
     assert res.headers["content-type"].startswith("text/csv")
     assert "attachment; filename=gst-hst.csv" in res.headers["content-disposition"]
     reader = list(csv.reader(io.StringIO(res.text)))
-    assert reader[0] == ["tax_collected_cents", "taxable_sales_cents", "gst_hst_number"]
-    assert reader[1][2] == "84720 1539 RT0001"
+    assert reader[0] == [
+        "tax_collected_cents",
+        "pst_cents",
+        "qst_cents",
+        "taxable_sales_cents",
+        "gst_hst_number",
+    ]
+    assert reader[1][4] == "84720 1539 RT0001"
 
 
 @pytest.mark.parametrize(

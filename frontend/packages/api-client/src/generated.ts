@@ -2120,6 +2120,10 @@ export interface components {
         GstHstReport: {
             /** Tax Collected Cents */
             tax_collected_cents: number;
+            /** Pst Cents */
+            pst_cents: number;
+            /** Qst Cents */
+            qst_cents: number;
             /** Taxable Sales Cents */
             taxable_sales_cents: number;
             /** Gst Hst Number */

@@ -9,7 +9,9 @@ class IncomeReport(BaseModel):
 
 
 class GstHstReport(BaseModel):
-    tax_collected_cents: int  # Σ tax on paid invoices — the GST/HST to remit
+    tax_collected_cents: int  # Σ GST/HST on paid invoices/orders — the federal amount to remit
+    pst_cents: int  # Σ PST (BC/SK/MB) — filed separately with the province
+    qst_cents: int  # Σ QST — filed separately with Revenu Québec
     taxable_sales_cents: int  # pre-tax sales (total minus tax) on those invoices
     gst_hst_number: str | None
 

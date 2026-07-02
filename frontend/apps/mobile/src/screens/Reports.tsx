@@ -155,6 +155,12 @@ function GstBody({ report }: { report: GstHstReport }) {
                 cents={report.tax_collected_cents}
                 tone="success"
             />
+            {report.pst_cents > 0 ? (
+                <Figure label={strings.reports.pstCollected} cents={report.pst_cents} />
+            ) : null}
+            {report.qst_cents > 0 ? (
+                <Figure label={strings.reports.qstCollected} cents={report.qst_cents} />
+            ) : null}
             <Figure label={strings.reports.taxableSales} cents={report.taxable_sales_cents} />
             <View style={styles.line}>
                 <Text style={styles.lineLabel}>{strings.reports.gstNumberLabel}</Text>

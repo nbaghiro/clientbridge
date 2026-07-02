@@ -476,7 +476,9 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     assert inv.status == "paid" and inv.paid_at is not None
     assert inv.subtotal_cents == 5000 and inv.tax_total_cents == 600 and inv.total_cents == 5600
     after = (await as_owner.get(f"/v1/reports/gst-hst?start={start}&end={end}")).json()
-    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 600
+    # BC 12% tax on $50 = 600, split 250 federal GST/HST + 350 PST
+    assert after["tax_collected_cents"] - before["tax_collected_cents"] == 250
+    assert after["pst_cents"] - before["pst_cents"] == 350
     # re-delivery must not mint a second invoice/payment
     res2 = await as_owner.post(
         "/webhooks/stripe",
