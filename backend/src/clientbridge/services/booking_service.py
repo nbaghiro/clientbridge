@@ -25,6 +25,7 @@ from clientbridge.services.payment_service import (
 )
 
 _OVERLAP = "that staff member is already booked at that time"
+_RESOURCE_BUSY = "that resource is already booked at that time"
 _OUTSIDE_HOURS = "outside the provider's available hours"
 _CLASS_FULL = "that class is full"
 _ALREADY_IN_CLASS = "you already have a booking for this class"
@@ -107,6 +108,27 @@ async def assert_free(
         raise Conflict(_OVERLAP)
 
 
+async def conflicting_resource(
+    db: AsyncSession,
+    business_id: str,
+    resource_id: str,
+    starts_at: datetime,
+    ends_at: datetime,
+    exclude: str | None = None,
+) -> bool:
+    """Whether a non-canceled session already holds this resource (room/equipment) over the
+    ``[starts_at, ends_at]`` window. Plain overlap — a resource can't be in two places at once."""
+    q = scoped(Session, business_id).where(
+        Session.resource_id == resource_id,
+        Session.status != "canceled",
+        Session.starts_at < ends_at,
+        Session.ends_at > starts_at,
+    )
+    if exclude is not None:
+        q = q.where(Session.id != exclude)
+    return (await db.execute(q.limit(1))).first() is not None
+
+
 async def open_class_session(
     db: AsyncSession, business_id: str, item_id: str, staff_id: str, starts_at: datetime
 ) -> Session | None:
@@ -173,6 +195,10 @@ async def create_booking_core(
             await db.flush()
     if session is None:
         await assert_free(db, business_id, item, staff_id, starts_at, ends_at)
+        if resource_id is not None and await conflicting_resource(
+            db, business_id, resource_id, starts_at, ends_at
+        ):
+            raise Conflict(_RESOURCE_BUSY)
         session = Session(
             id=new_id("session"),
             business_id=business_id,

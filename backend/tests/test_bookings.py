@@ -71,6 +71,37 @@ async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSessi
     assert n == 1
 
 
+async def test_resource_double_book_conflicts(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # a resource (room/equipment) can't be held by two overlapping sessions, even across staff
+    client_id, item_id = await _client_and_item(db)
+    held = Session(
+        id=new_id("session"),
+        business_id=BIZ,
+        item_id=item_id,
+        staff_id="st_diego",
+        resource_id="rs_station_a",
+        starts_at=datetime(2027, 3, 1, 9, tzinfo=UTC),
+        ends_at=datetime(2027, 3, 1, 12, tzinfo=UTC),
+        capacity=1,
+        booked_count=1,
+        status="scheduled",
+    )
+    db.add(held)
+    await db.flush()
+    # st_owner is free + available at 10:00, but Station A is taken → a resource conflict, not staff
+    clash = _body(client_id, item_id, "2027-03-01T10:00:00Z") | {"resource_id": "rs_station_a"}
+    res = await as_owner.post("/v1/bookings", json=clash)
+    assert res.status_code == 409, res.text
+    assert "resource" in res.text.lower()  # the resource message, not the staff-overlap one
+    # same resource at a non-overlapping time, and a free resource at the clash time, both succeed
+    later = _body(client_id, item_id, "2027-03-01T14:00:00Z") | {"resource_id": "rs_station_a"}
+    assert (await as_owner.post("/v1/bookings", json=later)).status_code == 201, "non-overlap ok"
+    other = _body(client_id, item_id, "2027-03-01T10:00:00Z") | {"resource_id": "rs_station_b"}
+    assert (await as_owner.post("/v1/bookings", json=other)).status_code == 201, "free resource ok"
+
+
 async def test_cancel_frees_the_slot(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     body = _body(client_id, item_id, "2027-03-03T10:00:00Z")
