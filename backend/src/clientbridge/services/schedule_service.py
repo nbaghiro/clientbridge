@@ -1,6 +1,6 @@
 import calendar
 from collections.abc import Sequence
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from clientbridge.core.errors import AppError, Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.scheduling import Schedule
 from clientbridge.schemas.bookings import ScheduleCreate, ScheduleOccurrence, ScheduleOut
+from clientbridge.services.availability_service import business_tz
 from clientbridge.services.booking_service import (
     assert_can_act_as,
     create_booking_core,
@@ -91,6 +92,12 @@ class ScheduleService:
         await load_staff(self.db, self.biz, data.staff_id)
 
         base = data.starts_at
+        # Keep the intended wall-clock time (in the business tz) and re-localize it per occurrence
+        # date, so occurrences across a DST boundary land at the same local time — NOT at the first
+        # occurrence's fixed UTC offset (which would drift an hour after the transition).
+        tz = await business_tz(self.db, self.biz)
+        aware = base if base.tzinfo is not None else base.replace(tzinfo=UTC)
+        local_time = aware.astimezone(tz).time()
         occ_dates = expand_occurrences(
             start_date=base.date(),
             frequency=data.frequency,
@@ -121,7 +128,7 @@ class ScheduleService:
             occurrences: list[ScheduleOccurrence] = []
             created = 0
             for d in occ_dates:
-                starts_at = datetime.combine(d, base.timetz())
+                starts_at = datetime.combine(d, local_time, tzinfo=tz).astimezone(UTC)
                 try:
                     async with self.db.begin_nested():
                         booking, _ = await create_booking_core(

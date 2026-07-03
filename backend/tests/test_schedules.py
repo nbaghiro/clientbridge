@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import func, select
@@ -130,6 +131,30 @@ async def test_weekly_series_creates_bookings(
     first = datetime.fromisoformat(body["occurrences"][0]["starts_at"])
     second = datetime.fromisoformat(body["occurrences"][1]["starts_at"])
     assert (second - first).days == 7
+
+
+async def test_weekly_series_holds_local_time_across_dst(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    # A weekly series over a full year straddles both DST transitions. Invariant: every occurrence
+    # lands at the same business-local wall-clock time; the old fixed-offset bug drifted the ones in
+    # the other DST period by an hour (local time differs). Robust to whatever the env's tz db says.
+    client_id, item_id = await _client_and_item(db)
+    res = await as_owner.post("/v1/schedules", json=_body(client_id, item_id, count=53))
+    assert res.status_code == 201, res.text
+    starts = (
+        (
+            await db.execute(
+                select(Session.starts_at).where(Session.recurrence_id == res.json()["id"])
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(starts) == 53
+    tz = ZoneInfo("America/Vancouver")  # the seed business timezone
+    local_times = {s.astimezone(tz).time() for s in starts}
+    assert len(local_times) == 1  # same local time everywhere → no DST drift
 
 
 async def test_series_skips_conflicting_occurrence(
