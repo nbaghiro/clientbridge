@@ -30,7 +30,6 @@ async def test_put_patch_delete_client(as_owner: httpx.AsyncClient, db: AsyncSes
                         "status": "active",
                         "tags": "[]",
                         "custom_fields": "{}",
-                        "lifetime_value_cents": 0,
                     },
                 }
             ]
@@ -72,6 +71,49 @@ async def test_rejects_server_only_table(as_owner: httpx.AsyncClient) -> None:
         "/sync/upload",
         json={
             "ops": [{"op": "PUT", "type": "payments", "id": "pay_x", "data": {"business_id": BIZ}}]
+        },
+    )
+    assert res.status_code == 403
+
+
+async def test_rejects_forging_client_ltv(as_owner: httpx.AsyncClient) -> None:
+    # lifetime_value_cents is a server-computed rollup — a client can't forge it via sync
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "clients",
+                    "id": "cl_forge",
+                    "data": {
+                        "business_id": BIZ,
+                        "name": "Forger",
+                        "status": "active",
+                        "tags": "[]",
+                        "custom_fields": "{}",
+                        "lifetime_value_cents": 999999999,
+                    },
+                }
+            ]
+        },
+    )
+    assert res.status_code == 403
+
+
+async def test_rejects_broadcast_sync_write(as_owner: httpx.AsyncClient) -> None:
+    # sending broadcasts is the /v1/broadcasts command (audited + cron) — never a sync write
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "broadcasts",
+                    "id": "bc_x",
+                    "data": {"business_id": BIZ, "status": "scheduled", "channel": "sms"},
+                }
+            ]
         },
     )
     assert res.status_code == 403

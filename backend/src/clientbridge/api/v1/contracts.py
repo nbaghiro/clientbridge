@@ -20,6 +20,6 @@ async def send_contract(
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SignatureOut:
-    result = await ContractService(db, principal).send_contract(body, idempotency_key)
-    await Notifier(email, sms, push).on_contract_sent(db, result.id)
-    return result
+    return await ContractService(db, principal).send_contract(
+        body, idempotency_key, Notifier(email, sms, push)
+    )

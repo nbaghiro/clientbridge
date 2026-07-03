@@ -70,7 +70,8 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     # (POST/PATCH /v1/invoices, /v1/estimates).
     # payment_methods + payout_allocations are NOT sync-writable: the gateway/mandate fields and the
     # computed split amounts/status are server-authoritative (Stripe webhooks + the payout job).
-    "broadcasts": ("admin", False),
+    # broadcasts are NOT sync-writable: composing + sending is the audited `/v1/broadcasts` command,
+    # so a client can't sync-write a `scheduled` row for the cron job to blast.
     # reviews + review_requests are NOT sync-writable: the request token is a server-minted secret
     # and the review/request status lifecycle is command- + public-token-authoritative (request
     # command, public submission, moderation commands), so a client can't forge a review link or
@@ -83,7 +84,8 @@ SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 # Per-table fields only a command may write (numbering, money, counters); a sync op that sets one is
 # rejected.
 COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
-    "clients": frozenset({"stripe_customer_id"}),  # set by the payments command, never by a client
+    # stripe_customer_id + the lifetime_value_cents rollup are set by the payments command only
+    "clients": frozenset({"stripe_customer_id", "lifetime_value_cents"}),
     "items": frozenset({"stripe_price_id"}),  # the recurring Price cached by the subscription cmd
 }
 

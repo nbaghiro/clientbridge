@@ -11,6 +11,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.models.crm import Client
 from clientbridge.models.documents import Contract, Signature
 from clientbridge.schemas.contracts import ContractSend, SignatureOut
+from clientbridge.services.notification_service import Notifier
 
 
 class ContractService:
@@ -19,7 +20,9 @@ class ContractService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def send_contract(self, data: ContractSend, idempotency_key: str | None) -> SignatureOut:
+    async def send_contract(
+        self, data: ContractSend, idempotency_key: str | None, notify: Notifier
+    ) -> SignatureOut:
         self._assert_admin()
         await self._contract(data.contract_id)
         await self._client(data.client_id)
@@ -39,6 +42,8 @@ class ContractService:
             except IntegrityError as exc:
                 raise Conflict("could not mint a unique signing link") from exc
             cmd.record("contract.send", entity_type="signature", entity_id=signature.id)
+            # Inside the command so a same-key retry replays the response without re-notifying.
+            await notify.on_contract_sent(self.db, signature.id)
             return _signature_out(signature)
 
         return await run_command(

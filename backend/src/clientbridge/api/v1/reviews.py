@@ -26,9 +26,9 @@ async def request_review(
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> ReviewRequestOut:
-    result = await ReviewService(db, principal).request_review(body, idempotency_key)
-    await Notifier(email, sms, push).on_review_requested(db, result.id)
-    return result
+    return await ReviewService(db, principal).request_review(
+        body, idempotency_key, Notifier(email, sms, push)
+    )
 
 
 @router.get("/summary", response_model=ReviewSummary)

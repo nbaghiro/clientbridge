@@ -20,6 +20,6 @@ async def send_form(
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> FormResponseOut:
-    result = await FormService(db, principal).send_form(body, idempotency_key)
-    await Notifier(email, sms, push).on_form_sent(db, result.id)
-    return result
+    return await FormService(db, principal).send_form(
+        body, idempotency_key, Notifier(email, sms, push)
+    )
