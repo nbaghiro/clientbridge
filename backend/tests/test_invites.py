@@ -67,6 +67,31 @@ async def test_accept_invite_activates_staff(as_owner: httpx.AsyncClient, db: As
     assert row[1] is not None  # linked to a user
 
 
+async def test_accept_invite_for_existing_user_requires_their_password(
+    as_owner: httpx.AsyncClient, api: httpx.AsyncClient
+) -> None:
+    # A pre-existing account can only be joined by someone who knows ITS password — the raw invite
+    # token (also visible to the inviter) must not be enough to mint the victim's session.
+    reg = await api.post(
+        "/auth/register", json={"email": "victim@test.ca", "password": "victim-secret-1"}
+    )
+    assert reg.status_code == 201, reg.text
+    token = (
+        await as_owner.post("/v1/staff/invites", json={"email": "victim@test.ca", "role": "staff"})
+    ).json()["invite_token"]
+
+    wrong = await api.post(
+        "/auth/accept-invite", json={"token": token, "name": "X", "password": "not-the-password"}
+    )
+    assert wrong.status_code == 401  # takeover blocked
+
+    right = await api.post(
+        "/auth/accept-invite",
+        json={"token": token, "name": "Victim", "password": "victim-secret-1"},
+    )
+    assert right.status_code == 200 and right.json()["access_token"]
+
+
 async def test_accept_invite_grants_scoped_access(as_owner: httpx.AsyncClient) -> None:
     inv = await as_owner.post("/v1/staff/invites", json={"email": "j2@test.ca", "role": "staff"})
     token = inv.json()["invite_token"]

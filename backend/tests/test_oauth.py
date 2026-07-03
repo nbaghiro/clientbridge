@@ -31,6 +31,12 @@ async def test_oauth_links_existing_user(
     assert "google" in user.oauth
 
 
+async def test_oauth_unverified_email_rejected(api: httpx.AsyncClient) -> None:
+    # An unverified provider email must not sign in / link (it could assert a victim's address).
+    res = await api.post("/auth/oauth/google", json={"id_token": "unverified-victim@gmail.com"})
+    assert res.status_code == 401
+
+
 async def test_oauth_invalid_token_401(api: httpx.AsyncClient) -> None:
     res = await api.post("/auth/oauth/google", json={"id_token": "invalid"})
     assert res.status_code == 401
