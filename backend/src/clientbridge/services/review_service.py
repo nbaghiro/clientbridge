@@ -19,6 +19,7 @@ from clientbridge.schemas.reviews import (
     ReviewRequestOut,
     ReviewSummary,
 )
+from clientbridge.services.notification_service import Notifier
 
 _OPEN = ("sent", "opened")
 
@@ -47,7 +48,7 @@ class ReviewService:
         self.biz = principal.business_id
 
     async def request_review(
-        self, data: ReviewRequestCreate, idempotency_key: str | None
+        self, data: ReviewRequestCreate, idempotency_key: str | None, notify: Notifier
     ) -> ReviewRequestOut:
         self._assert_admin()
         await self._client(data.client_id)
@@ -65,6 +66,8 @@ class ReviewService:
             except IntegrityError as exc:
                 raise Conflict("a review request for that booking is already open") from exc
             cmd.record("review.request", entity_type="review_request", entity_id=request.id)
+            # Inside the command so a same-key retry replays the response without re-notifying.
+            await notify.on_review_requested(self.db, request.id)
             return _request_out(request)
 
         return await run_command(

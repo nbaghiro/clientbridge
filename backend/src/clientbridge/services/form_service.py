@@ -11,6 +11,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.models.crm import Client
 from clientbridge.models.documents import Form, FormResponse
 from clientbridge.schemas.forms import FormResponseOut, FormSend
+from clientbridge.services.notification_service import Notifier
 
 
 class FormService:
@@ -19,7 +20,9 @@ class FormService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def send_form(self, data: FormSend, idempotency_key: str | None) -> FormResponseOut:
+    async def send_form(
+        self, data: FormSend, idempotency_key: str | None, notify: Notifier
+    ) -> FormResponseOut:
         self._assert_admin()
         await self._form(data.form_id)
         await self._client(data.client_id)
@@ -39,6 +42,8 @@ class FormService:
             except IntegrityError as exc:
                 raise Conflict("could not mint a unique form link") from exc
             cmd.record("form.send", entity_type="form_response", entity_id=response.id)
+            # Inside the command so a same-key retry replays the response without re-notifying.
+            await notify.on_form_sent(self.db, response.id)
             return _response_out(response)
 
         return await run_command(

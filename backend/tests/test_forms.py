@@ -68,6 +68,23 @@ async def test_send_creates_draft_and_notifies(
     assert any(f"/form/{body['token']}" in m.body for m in email.sent)
 
 
+async def test_send_retry_notifies_once(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    # A same-key retry replays the cached response inside run_command → the client isn't re-emailed.
+    cid = await _fresh_client(db)
+    headers = {"Idempotency-Key": "form-send-retry-1"}
+    first = await as_owner.post(
+        "/v1/forms/send", json={"form_id": SATISFACTION, "client_id": cid}, headers=headers
+    )
+    second = await as_owner.post(
+        "/v1/forms/send", json={"form_id": SATISFACTION, "client_id": cid}, headers=headers
+    )
+    assert first.status_code == 201 and second.json()["id"] == first.json()["id"]
+    token = first.json()["token"]
+    assert sum(f"/form/{token}" in m.body for m in email.sent) == 1
+
+
 async def test_send_unknown_form_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     cid = await _a_client(db)
     res = await as_owner.post("/v1/forms/send", json={"form_id": "frm_nope", "client_id": cid})
