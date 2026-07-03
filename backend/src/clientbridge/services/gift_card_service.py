@@ -110,7 +110,7 @@ class GiftCardService:
         self, data: GiftCardRedeem, idempotency_key: str | None = None
     ) -> GiftCardOut:
         self._assert_admin()
-        card = await self._by_code(data.code)
+        card = await self._by_code(data.code, lock=True)
 
         async def run(cmd: Command) -> GiftCardOut:
             if card.status != "active":
@@ -178,10 +178,11 @@ class GiftCardService:
             raise NotFound("item not found")
         return row
 
-    async def _by_code(self, code: str) -> GiftCard:
-        row = (
-            await self.db.execute(scoped(GiftCard, self.biz).where(GiftCard.code == code))
-        ).scalar_one_or_none()
+    async def _by_code(self, code: str, *, lock: bool = False) -> GiftCard:
+        query = scoped(GiftCard, self.biz).where(GiftCard.code == code)
+        if lock:
+            query = query.with_for_update()  # serialize concurrent redemptions (no lost update)
+        row = (await self.db.execute(query)).scalar_one_or_none()
         if row is None:
             raise NotFound("gift card not found")
         return row

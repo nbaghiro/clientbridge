@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -179,6 +179,13 @@ async def create_booking_core(
     ``dedupe_client`` rejects a client who already holds a seat on the class session (the
     self-service double-submit guard); the authed path leaves it off so staff can seat one client
     multiple times."""
+    # Serialize all bookings for this staff within the transaction so the conflict + capacity checks
+    # and the insert are atomic against a concurrent booker — the DB exclusion constraints only
+    # catch raw overlap on a NEW session insert, not buffer erosion or a class-session increment.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+        {"key": f"{business_id}:{staff_id}"},
+    )
     ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
     if not await is_within_availability(db, staff_id, business_id, starts_at, ends_at):
         raise Conflict(_OUTSIDE_HOURS)
