@@ -89,6 +89,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm format:check
       - run: pnpm test
+      - run: pnpm build  # a broken Vite/tsc-b bundle must fail CI, not just tsc --noEmit
 
   codegen-drift:
     # The generated api-client + PowerSync client schema come from the backend — fail if either is
@@ -113,8 +114,11 @@ jobs:
         working-directory: frontend
       - run: make gen-api
       - run: make gen-sync-schema
-      - name: fail if the generated client/schema are stale
+      - run: make gen-themes
+      - name: fail if the generated client/schema/themes are stale
         run: >-
           git diff --exit-code
           frontend/packages/api-client/src/generated.ts
           frontend/packages/sync/src/schema.ts
+          frontend/packages/tokens/src/themes.css
+          frontend/packages/tokens/src/themes.ts

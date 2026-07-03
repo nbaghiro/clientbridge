@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install dev-api dev-web dev-connect dev-mobile migrate revision seed gen-api gen-sync-schema test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
+.PHONY: help up down logs-sync install web-install dev-api dev-web dev-connect dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -78,6 +78,10 @@ gen-api:
 gen-sync-schema:
 	cd backend && uv run python -m scripts.gen_sync_schema
 	cd frontend && pnpm exec prettier --write packages/sync/src/schema.ts
+
+gen-themes:
+	node frontend/packages/tokens/scripts/gen-themes.cjs
+	cd frontend && pnpm exec prettier --write packages/tokens/src/themes.css packages/tokens/src/themes.ts
 
 test:
 	cd backend && uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q
