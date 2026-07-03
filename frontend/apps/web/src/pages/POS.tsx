@@ -192,7 +192,7 @@ function CartLineRow({
                         onQuantity(line.quantity - 1);
                     }}
                     className="h-6 w-6 rounded border border-line text-sm text-ink-soft transition hover:bg-bg"
-                    aria-label="Decrease quantity"
+                    aria-label={strings.pos.decreaseQty}
                 >
                     −
                 </button>
@@ -205,7 +205,7 @@ function CartLineRow({
                         onQuantity(line.quantity + 1);
                     }}
                     className="h-6 w-6 rounded border border-line text-sm text-ink-soft transition hover:bg-bg"
-                    aria-label="Increase quantity"
+                    aria-label={strings.pos.increaseQty}
                 >
                     +
                 </button>
@@ -217,7 +217,7 @@ function CartLineRow({
                 type="button"
                 onClick={onRemove}
                 className="text-muted transition hover:text-danger"
-                aria-label="Remove line"
+                aria-label={strings.pos.removeLine}
             >
                 ×
             </button>

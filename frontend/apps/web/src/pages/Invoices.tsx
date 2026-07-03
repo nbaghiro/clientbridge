@@ -270,7 +270,7 @@ function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
                                         form.removeLine(l.key);
                                     }}
                                     className="w-5 text-muted transition hover:text-danger"
-                                    aria-label="Remove line"
+                                    aria-label={strings.invoices.removeLine}
                                 >
                                     ×
                                 </button>

@@ -172,7 +172,7 @@ export function Calendar() {
                                     setAnchor((a) => shift(view, a, -1));
                                 }}
                                 className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
-                                aria-label="Previous"
+                                aria-label={strings.calendar.prev}
                             >
                                 <Chevron dir="left" />
                             </button>
@@ -181,7 +181,7 @@ export function Calendar() {
                                     setAnchor((a) => shift(view, a, 1));
                                 }}
                                 className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
-                                aria-label="Next"
+                                aria-label={strings.calendar.next}
                             >
                                 <Chevron dir="right" />
                             </button>

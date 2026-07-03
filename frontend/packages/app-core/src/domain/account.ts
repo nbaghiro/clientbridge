@@ -142,6 +142,7 @@ export function useAccountForm(api: ApiLike): AccountForm {
         const body = brandChanged ? { ...text, brand: { logo_url, primary, tagline } } : text;
         void run(() => api.patch("/v1/business", body), {
             onSuccess: () => {
+                loadedBrand.current = { logo_url, primary, tagline }; // now what's on the server
                 setSaved(true);
             },
             errorMessage: strings.account.saveError,
