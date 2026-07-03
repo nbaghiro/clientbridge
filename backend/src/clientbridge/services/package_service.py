@@ -91,7 +91,7 @@ class PackageService:
         self, package_id: str, idempotency_key: str | None = None
     ) -> PackageOut:
         self._assert_admin()
-        package = await self._package(package_id)
+        package = await self._package(package_id, lock=True)
 
         async def run(cmd: Command) -> PackageOut:
             if package.status != "active":
@@ -143,10 +143,11 @@ class PackageService:
             raise NotFound("item not found")
         return row
 
-    async def _package(self, package_id: str) -> Package:
-        row = (
-            await self.db.execute(scoped(Package, self.biz).where(Package.id == package_id))
-        ).scalar_one_or_none()
+    async def _package(self, package_id: str, *, lock: bool = False) -> Package:
+        query = scoped(Package, self.biz).where(Package.id == package_id)
+        if lock:
+            query = query.with_for_update()  # serialize concurrent consumes (no over-consumption)
+        row = (await self.db.execute(query)).scalar_one_or_none()
         if row is None:
             raise NotFound("package not found")
         return row
