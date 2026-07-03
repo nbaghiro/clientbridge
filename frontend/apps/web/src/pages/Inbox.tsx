@@ -86,7 +86,9 @@ export function Inbox() {
 
                 <section className="min-w-0 flex-1 overflow-y-auto">
                     {selected !== null ? (
-                        <ThreadView thread={selected} />
+                        // key by thread so switching threads remounts the composer (its clientId +
+                        // channel seed once) — otherwise a reply could go to the previous client.
+                        <ThreadView key={selected.id} thread={selected} />
                     ) : (
                         <div className="flex h-full items-center justify-center">
                             <p className="text-sm text-muted">{strings.inbox.selectConversation}</p>

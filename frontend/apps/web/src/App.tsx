@@ -40,6 +40,17 @@ export function App() {
         setAuthed(false);
     }, []);
 
+    const handleAuthed = useCallback(async (): Promise<void> => {
+        // Switching identity while already signed in (accept-invite): the [authed] connect effect
+        // won't re-fire (authed stays true), so purge the previous tenant's replica + reconnect here
+        // rather than leaving stale rows (and a stale businessId) on the device.
+        if (authed) {
+            await db.disconnectAndClear();
+            await connectPowerSync(api.authFetch);
+        }
+        setAuthed(true);
+    }, [authed]);
+
     useEffect(() => {
         onSignedOut(() => {
             void handleSignOut();
@@ -56,12 +67,10 @@ export function App() {
                 <AppRoutes
                     authed={authed}
                     onSignOut={() => void handleSignOut()}
-                    onAuthed={() => {
-                        setAuthed(true);
-                    }}
+                    onAuthed={() => void handleAuthed()}
                 />
             </BrowserRouter>
-            {authed ? <DebugPanel /> : null}
+            {authed && import.meta.env.DEV ? <DebugPanel /> : null}
         </PowerSyncContext.Provider>
     );
 }
