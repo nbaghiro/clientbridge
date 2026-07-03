@@ -11,7 +11,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import AppError, Conflict, Unauthorized
 from clientbridge.core.ids import new_id
-from clientbridge.core.security import hash_password, hash_token
+from clientbridge.core.security import hash_password, hash_token, verify_password
 from clientbridge.integrations.notifications import Email, EmailSender
 from clientbridge.models.identity import Staff, User
 from clientbridge.models.platform import AuditLog
@@ -94,6 +94,11 @@ class StaffService:
             )
             self.db.add(user)
             await self.db.flush()
+        elif user.password_hash is None or not verify_password(password, user.password_hash):
+            # The invited address already has an account: the raw token alone must NOT mint its
+            # session (the token is also visible to the inviter), so the invitee proves ownership
+            # with their existing password before we link + log them in.
+            raise Unauthorized("enter your existing account password to accept this invite")
         staff.user_id = user.id
         staff.status = "active"
         # principal-less surface — the invitee becomes one only here, so record the audit directly.

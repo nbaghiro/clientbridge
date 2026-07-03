@@ -136,7 +136,10 @@ class FakeOAuthVerifier:
         if id_token == "invalid":
             raise Unauthorized("invalid google token")
         return OAuthProfile(
-            email=id_token, email_verified=True, name="OAuth User", sub=f"google-{id_token}"
+            email=id_token,
+            email_verified="unverified" not in id_token,
+            name="OAuth User",
+            sub=f"google-{id_token}",
         )
 
 

@@ -29,6 +29,10 @@ from clientbridge.schemas.auth import TokenPair
 RESET_TTL = timedelta(hours=1)
 VERIFY_TTL = timedelta(hours=24)
 
+# A valid hash to verify against when the account is missing/password-less, so login latency is
+# the same whether or not an email is registered (no account-enumeration timing oracle).
+_DUMMY_HASH = hash_password("clientbridge-timing-guard")
+
 
 class AuthService:
     def __init__(self, db: AsyncSession) -> None:
@@ -53,6 +57,10 @@ class AuthService:
 
     async def oauth_login(self, profile: OAuthProfile) -> User:
         """Find-or-create a user by the OAuth email, linking the provider identity."""
+        if not profile.email_verified:
+            # An unverified provider email could assert a victim's address and take over their
+            # password account, so we never sign in / link on an unverified email.
+            raise Unauthorized("your email address is not verified with the provider")
         user = (
             await self.db.execute(select(User).where(User.email == profile.email))
         ).scalar_one_or_none()
@@ -77,11 +85,9 @@ class AuthService:
 
     async def authenticate(self, email: str, password: str) -> User:
         user = (await self.db.execute(select(User).where(User.email == email))).scalar_one_or_none()
-        if (
-            user is None
-            or user.password_hash is None
-            or not verify_password(password, user.password_hash)
-        ):
+        stored = user.password_hash if user is not None and user.password_hash is not None else None
+        matched = verify_password(password, stored if stored is not None else _DUMMY_HASH)
+        if user is None or stored is None or not matched:
             raise Unauthorized("invalid email or password")
         return user
 
