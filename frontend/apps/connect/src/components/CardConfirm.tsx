@@ -46,7 +46,7 @@ function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
         if (!stripe || !elements) return;
-        void run(
+        run(
             async () => {
                 const result = await stripe.confirmPayment({ elements, redirect: "if_required" });
                 if (result.error) {

@@ -132,15 +132,14 @@ export function useAccountForm(api: ApiLike): AccountForm {
             setError(strings.account.nameRequired);
             return;
         }
-        // Only send `brand` when it actually changed, so an untouched brand (always the case on the
-        // mobile Account screen, which has no brand UI) is omitted and the server preserves it rather
-        // than replacing it with stale/empty values.
+        // Send `brand` only when it changed, so the mobile Account screen (no brand UI) doesn't
+        // overwrite it with empty values.
         const { logo_url, primary, tagline, ...text } = fields;
         const b = loadedBrand.current;
         const brandChanged =
             logo_url !== b.logo_url || primary !== b.primary || tagline !== b.tagline;
         const body = brandChanged ? { ...text, brand: { logo_url, primary, tagline } } : text;
-        void run(() => api.patch("/v1/business", body), {
+        run(() => api.patch("/v1/business", body), {
             onSuccess: () => {
                 loadedBrand.current = { logo_url, primary, tagline }; // now what's on the server
                 setSaved(true);

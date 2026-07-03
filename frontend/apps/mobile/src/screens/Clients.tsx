@@ -291,7 +291,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
     const isDefault = card.is_default === 1;
 
     const makeDefault = (): void => {
-        void run(() => setDefaultCard(api, card.id), {
+        run(() => setDefaultCard(api, card.id), {
             errorMessage: strings.clients.setDefaultError,
         });
     };
@@ -302,10 +302,11 @@ function CardRow({ card }: { card: SavedCardRow }) {
             {
                 text: strings.clients.remove,
                 style: "destructive",
-                onPress: () =>
-                    void run(() => detachCard(api, card.id), {
+                onPress: () => {
+                    run(() => detachCard(api, card.id), {
                         errorMessage: strings.clients.removeMethodError,
-                    }),
+                    });
+                },
             },
         ]);
     };
@@ -397,10 +398,11 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
                 {
                     text: strings.clients.cancelSubscriptionTitle,
                     style: "destructive",
-                    onPress: () =>
-                        void run(() => cancelSubscription(api, sub.id), {
+                    onPress: () => {
+                        run(() => cancelSubscription(api, sub.id), {
                             errorMessage: strings.clients.cancelSubscriptionError,
-                        }),
+                        });
+                    },
                 },
             ],
         );
@@ -558,7 +560,7 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
     const { busy, error, run } = useAsyncAction();
 
     const consume = (): void => {
-        void run(() => consumeSession(api, pkg.id), {
+        run(() => consumeSession(api, pkg.id), {
             errorMessage: strings.clients.consumeSessionError,
         });
     };

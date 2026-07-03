@@ -72,7 +72,7 @@ export function useSendContractForm(api: ApiLike, onSent: () => void): SendContr
             setError(strings.bookingForms.selectClient);
             return;
         }
-        void run(() => sendContract(api, { contract_id: contractId, client_id: clientId }), {
+        run(() => sendContract(api, { contract_id: contractId, client_id: clientId }), {
             onSuccess: () => {
                 setContractId("");
                 setClientId("");
@@ -117,7 +117,7 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
             setError(strings.bookingForms.contractTextRequired);
             return;
         }
-        void run(
+        run(
             async () => {
                 await db.execute(
                     "INSERT INTO contracts (id, business_id, name, body, version, always_require, active) VALUES (?, ?, ?, ?, ?, ?, ?)",

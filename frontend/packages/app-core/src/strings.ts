@@ -1,10 +1,5 @@
-// The app-wide string catalog (English). Every user-facing UI string lives here so the two apps stay
-// in lockstep and future localization is a matter of adding a locale layer over this one object —
-// `strings` is the seam (later: select a per-locale catalog off the user's locale). See CLAUDE.md.
-//
-// Values are either a literal string or a function of its interpolated parts. Screens render
-// `strings.<domain>.<key>` and never hold inline copy. Non-copy (SQL, class names, test ids,
-// technical enum values) stays out of here.
+// The app-wide English string catalog: every user-facing string lives here so web + mobile stay in
+// lockstep and localization is a later locale layer over this object. See CLAUDE.md.
 
 export const strings = {
     common: {

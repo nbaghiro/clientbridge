@@ -421,14 +421,14 @@ function DetailModal({
                             key={a.key}
                             type="button"
                             disabled={busy}
-                            onClick={() =>
-                                void run(a.run, {
+                            onClick={() => {
+                                run(a.run, {
                                     onSuccess: onClose,
                                     errorMessage: strings.invoices.actionError(
                                         DOC_ACTION_LABEL[a.key].toLowerCase(),
                                     ),
-                                })
-                            }
+                                });
+                            }}
                             className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                         >
                             {DOC_ACTION_LABEL[a.key]}
@@ -445,12 +445,15 @@ function PayLink({ token }: { token: string }) {
     const [copied, setCopied] = useState(false);
 
     const copy = (): void => {
-        void navigator.clipboard.writeText(url).then(() => {
-            setCopied(true);
-            window.setTimeout(() => {
-                setCopied(false);
-            }, 1500);
-        });
+        navigator.clipboard
+            .writeText(url)
+            .then(() => {
+                setCopied(true);
+                window.setTimeout(() => {
+                    setCopied(false);
+                }, 1500);
+            })
+            .catch(() => undefined);
     };
 
     return (
@@ -508,7 +511,7 @@ function PaymentRowItem({
 
     const refund = (): void => {
         if (!window.confirm(strings.invoices.refundConfirm)) return;
-        void run(() => refundPayment(api, payment.id), {
+        run(() => refundPayment(api, payment.id), {
             errorMessage: strings.invoices.refundError,
         });
     };

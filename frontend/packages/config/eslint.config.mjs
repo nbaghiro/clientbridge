@@ -14,6 +14,9 @@ export default tseslint.config(
         plugins: { local: { rules: { "no-inline-ui-string": noInlineUiString } } },
         rules: {
             "no-console": "error",
+            // Ban `void`; ignoreVoid:false so a floating promise needs a real .catch/await, not void.
+            "no-void": "error",
+            "@typescript-eslint/no-floating-promises": ["error", { ignoreVoid: false }],
             "@typescript-eslint/no-explicit-any": "error",
             // numbers (e.g. HTTP status codes) in template strings are fine; objects/any still banned.
             "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],

@@ -60,8 +60,7 @@ export function emptyStars(filled: number): number {
 export function useReviewSummary(api: ApiLike, reloadKey = 0): ReviewSummary | "error" | null {
     const [summary, setSummary] = useState<ReviewSummary | "error" | null>(null);
     useEffect(() => {
-        void api
-            .get<ReviewSummary>("/v1/reviews/summary")
+        api.get<ReviewSummary>("/v1/reviews/summary")
             .then(setSummary)
             .catch(() => {
                 setSummary("error");
@@ -156,19 +155,19 @@ export function useReviewActions(
     const respond = (text: string): void => {
         const trimmed = text.trim();
         if (trimmed.length === 0) return;
-        void run(() => respondToReview(api, review.id, trimmed), {
+        run(() => respondToReview(api, review.id, trimmed), {
             onSuccess: () => onDone?.(),
             errorMessage: strings.reviews.postReplyError,
         });
     };
     const hide = (): void => {
-        void run(() => hideReview(api, review.id), {
+        run(() => hideReview(api, review.id), {
             onSuccess: () => onDone?.(),
             errorMessage: strings.reviews.hideError,
         });
     };
     const publish = (): void => {
-        void run(() => publishReview(api, review.id), {
+        run(() => publishReview(api, review.id), {
             onSuccess: () => onDone?.(),
             errorMessage: strings.reviews.publishError,
         });
@@ -203,7 +202,7 @@ export function useRequestReviewForm(api: ApiLike, onSent: () => void): RequestR
             setError(strings.reviews.selectClient);
             return;
         }
-        void run(() => requestReview(api, { client_id: clientId }), {
+        run(() => requestReview(api, { client_id: clientId }), {
             onSuccess: () => {
                 setClientId("");
                 onSent();

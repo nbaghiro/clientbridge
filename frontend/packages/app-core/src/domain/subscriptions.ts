@@ -100,7 +100,7 @@ export function useSubscriptionForm(
         }
         keyRef.current ??= newIdempotencyKey();
         const key = keyRef.current;
-        void run(
+        run(
             () =>
                 createSubscription(
                     api,

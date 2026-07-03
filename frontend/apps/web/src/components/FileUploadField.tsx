@@ -30,9 +30,11 @@ export function FileUploadField({
 
     const openDownload = (): void => {
         if (fileId === null) return;
-        void fileDownloadUrl(api, fileId).then((url) => {
-            window.open(url, "_blank", "noopener");
-        });
+        fileDownloadUrl(api, fileId)
+            .then((url) => {
+                window.open(url, "_blank", "noopener");
+            })
+            .catch(() => undefined);
     };
 
     return (

@@ -127,7 +127,7 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
         load !== "ready" ? load : paid || invoice?.status === "paid" ? "paid" : "ready";
 
     const payInterac = (): void => {
-        void run(
+        run(
             async () => {
                 setInterac(await pay.payInterac(token));
             },
@@ -135,7 +135,7 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
         );
     };
     const payCard = (): void => {
-        void run(
+        run(
             async () => {
                 setCard(await pay.payCard(token));
             },

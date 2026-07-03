@@ -134,13 +134,13 @@ export function useAllocationActions(
     const { busy, error, run } = useAsyncAction();
 
     const approve = (): void => {
-        void run(() => approveAllocation(api, row.id), {
+        run(() => approveAllocation(api, row.id), {
             onSuccess: () => onDone?.(),
             errorMessage: strings.payouts.approveError,
         });
     };
     const pay = (): void => {
-        void run(() => payAllocation(api, row.id), {
+        run(() => payAllocation(api, row.id), {
             onSuccess: () => onDone?.(),
             errorMessage: strings.payouts.markPaidError,
         });

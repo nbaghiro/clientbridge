@@ -24,8 +24,7 @@ export interface ConnectStatus {
 export function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
     const [status, setStatus] = useState<ConnectStatus | "error" | null>(null);
     useEffect(() => {
-        void api
-            .get<ConnectStatus>("/v1/connect/status")
+        api.get<ConnectStatus>("/v1/connect/status")
             .then(setStatus)
             .catch(() => {
                 setStatus("error");
@@ -142,7 +141,7 @@ export function useConnectOnboarding(
     const payoutsEnabled = status !== null && status !== "error" && status.payouts_enabled;
 
     const connect = (): void => {
-        void run(
+        run(
             async () => {
                 const { url } = await startOnboarding(api);
                 openUrl(url);
@@ -361,7 +360,7 @@ export function useInteractivePurchase(onDone: () => void): InteractivePurchase 
     ): void => {
         keyRef.current ??= newIdempotencyKey();
         const key = keyRef.current;
-        void run(
+        run(
             async () => {
                 const { client_secret } = await purchase(key);
                 if (interactive) {
@@ -460,7 +459,7 @@ export function useAddPaymentMethod(
             attemptRef.current = { kind: next, key: newIdempotencyKey() };
         }
         const { key } = attemptRef.current;
-        void run(
+        run(
             async () => {
                 setIntent(
                     next === "card"

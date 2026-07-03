@@ -63,27 +63,30 @@ function Overlay({ onClose }: { onClose: () => void }) {
 
     // Run any read query against the local SQLite replica and show the result grid.
     const exec = useCallback(
-        async (query: string): Promise<void> => {
-            setLoading(true);
-            const started = performance.now();
-            try {
-                const result = await db.getAll<Record<string, unknown>>(query);
-                setRows(result);
-                setError(null);
-            } catch (e) {
-                setRows([]);
-                setError(e instanceof Error ? e.message : String(e));
-            } finally {
-                setMs(Math.round(performance.now() - started));
-                setLoading(false);
-            }
+        (query: string): void => {
+            const go = async (): Promise<void> => {
+                setLoading(true);
+                const started = performance.now();
+                try {
+                    const result = await db.getAll<Record<string, unknown>>(query);
+                    setRows(result);
+                    setError(null);
+                } catch (e) {
+                    setRows([]);
+                    setError(e instanceof Error ? e.message : String(e));
+                } finally {
+                    setMs(Math.round(performance.now() - started));
+                    setLoading(false);
+                }
+            };
+            go().catch(() => undefined);
         },
         [db],
     );
 
     // Drill into a table → SELECT * from it.
     useEffect(() => {
-        if (selected) void exec(`SELECT * FROM "${selected}" LIMIT 200`);
+        if (selected) exec(`SELECT * FROM "${selected}" LIMIT 200`);
     }, [selected, exec]);
 
     const reconnect = async (): Promise<void> => {
@@ -104,8 +107,8 @@ function Overlay({ onClose }: { onClose: () => void }) {
                 0,
             ],
         );
-        await refresh();
-        if (selected) void exec(`SELECT * FROM "${selected}" LIMIT 200`);
+        refresh();
+        if (selected) exec(`SELECT * FROM "${selected}" LIMIT 200`);
     };
 
     return (
@@ -135,19 +138,19 @@ function Overlay({ onClose }: { onClose: () => void }) {
                     <Tool
                         label="↻ refresh"
                         onClick={() => {
-                            void refresh();
+                            refresh();
                         }}
                     />
                     <Tool
                         label="⟳ reconnect"
                         onClick={() => {
-                            void reconnect();
+                            reconnect().catch(() => undefined);
                         }}
                     />
                     <Tool
                         label="＋ test write"
                         onClick={() => {
-                            void testWrite();
+                            testWrite().catch(() => undefined);
                         }}
                     />
                     <span className="mx-1 text-bg/20">|</span>
@@ -181,7 +184,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
                         sql={sql}
                         onChange={setSql}
                         onRun={() => {
-                            void exec(sql);
+                            exec(sql);
                         }}
                         rows={rows}
                         error={error}
@@ -200,7 +203,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
                             setError(null);
                         }}
                         onReload={() => {
-                            void exec(`SELECT * FROM "${selected}" LIMIT 200`);
+                            exec(`SELECT * FROM "${selected}" LIMIT 200`);
                         }}
                     />
                 ) : (

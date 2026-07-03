@@ -414,7 +414,7 @@ export function rescheduleByDrag(
     if (event.bookingId === null) return;
     const newStart = dragToStart(event.start, deltaPx, pxPerMin);
     if (newStart.getTime() === event.start.getTime()) return;
-    void rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
+    rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
 }
 
 export interface CancelBooking {
@@ -437,7 +437,7 @@ export function useCancelBooking(
             onDone();
             return;
         }
-        void run(() => setBookingStatus(api, bookingId, "canceled"), {
+        run(() => setBookingStatus(api, bookingId, "canceled"), {
             onSuccess: onDone,
             errorMessage: strings.calendar.cancelError,
         });
@@ -554,7 +554,7 @@ export interface BookingFormState {
     notice: string | null; // set after a series that skipped occurrences, so the user sees it
     busy: boolean;
     error: string | null;
-    submit: (startsAt: Date | null) => Promise<void>;
+    submit: (startsAt: Date | null) => void;
 }
 
 /** Shared new-booking form: client/service/staff selection, validation, and submit. The platform
@@ -575,7 +575,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
 
     const effStaff = staffId.length > 0 ? staffId : (staff.at(0)?.id ?? "");
 
-    const submit = async (startsAt: Date | null): Promise<void> => {
+    const submit = (startsAt: Date | null): void => {
         if (
             clientId.length === 0 ||
             itemId.length === 0 ||
@@ -589,7 +589,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
         setNotice(null);
         let created = 0;
         let skipped = 0;
-        await run(
+        run(
             async () => {
                 if (repeat) {
                     const result = await createSchedule(api, {

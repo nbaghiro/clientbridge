@@ -153,7 +153,7 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
     });
 
     useEffect(() => {
-        if (thread.unread_count > 0) void markThreadRead(api, thread.id);
+        if (thread.unread_count > 0) markThreadRead(api, thread.id).catch(() => undefined);
     }, [thread.id, thread.unread_count]);
 
     return (

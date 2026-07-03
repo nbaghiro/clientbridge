@@ -88,7 +88,7 @@ export function useSendFormForm(api: ApiLike, onSent: () => void): SendFormForm 
             setError(strings.bookingForms.selectClient);
             return;
         }
-        void run(() => sendForm(api, { form_id: formId, client_id: clientId }), {
+        run(() => sendForm(api, { form_id: formId, client_id: clientId }), {
             onSuccess: () => {
                 setFormId("");
                 setClientId("");
@@ -230,7 +230,7 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
         });
 
         const formId = newRowId("frm");
-        void run(
+        run(
             async () => {
                 await db.writeTransaction(async (tx) => {
                     await tx.execute(

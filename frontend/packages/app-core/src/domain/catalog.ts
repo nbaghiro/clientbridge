@@ -124,7 +124,7 @@ export function useItemForm(api: ApiLike, onCreated: () => void): ItemForm {
             setError(strings.catalog.nameRequired);
             return;
         }
-        void run(
+        run(
             () =>
                 createItem(api, {
                     kind,

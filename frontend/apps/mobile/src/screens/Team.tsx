@@ -34,9 +34,11 @@ const c = theme.colors;
 export function TeamScreen() {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     useEffect(() => {
-        void getTokens().then((t) => {
-            setAccessToken(t?.access_token ?? null);
-        });
+        getTokens()
+            .then((t) => {
+                setAccessToken(t?.access_token ?? null);
+            })
+            .catch(() => undefined);
     }, []);
 
     const role = useCurrentRole(accessToken);
@@ -154,7 +156,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
 function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) {
     const link = acceptInviteUrl(publicWebUrl, invite.invite_token);
     const share = (): void => {
-        void Share.share({ message: link });
+        Share.share({ message: link }).catch(() => undefined);
     };
     return (
         <View style={styles.linkBox}>

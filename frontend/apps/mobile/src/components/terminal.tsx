@@ -54,7 +54,7 @@ export function useTerminalCheckout(): TerminalCheckout {
 
     // Initialize + start discovering a Tap-to-Pay reader on mount.
     useEffect(() => {
-        void (async () => {
+        (async () => {
             await initialize();
             const res = await discoverReaders({
                 discoveryMethod: "tapToPay",
@@ -64,14 +64,14 @@ export function useTerminalCheckout(): TerminalCheckout {
                 setError(res.error.message);
                 setPhase("error");
             }
-        })();
+        })().catch(() => undefined);
     }, [initialize, discoverReaders]);
 
     // Connect the first discovered reader once we know which location to connect it under.
     useEffect(() => {
         const reader = discoveredReaders[0];
         if (connectedReader != null || reader === undefined || locationId === "") return;
-        void (async () => {
+        (async () => {
             const res = await connectReader({ discoveryMethod: "tapToPay", reader, locationId });
             if (res.error) {
                 setError(res.error.message);
@@ -80,12 +80,12 @@ export function useTerminalCheckout(): TerminalCheckout {
                 setError(null);
                 setPhase("ready");
             }
-        })();
+        })().catch(() => undefined);
     }, [discoveredReaders, connectedReader, connectReader, locationId]);
 
     const charge = useCallback(
         (clientSecret: string): void => {
-            void (async () => {
+            (async () => {
                 setPhase("collecting");
                 setError(null);
                 const retrieved = await retrievePaymentIntent(clientSecret);
@@ -111,7 +111,7 @@ export function useTerminalCheckout(): TerminalCheckout {
                     return;
                 }
                 setPhase("done");
-            })();
+            })().catch(() => undefined);
         },
         [retrievePaymentIntent, collectPaymentMethod, confirmPaymentIntent],
     );
