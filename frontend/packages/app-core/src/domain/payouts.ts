@@ -68,21 +68,21 @@ export function usePayoutFilter(rows: AllocationRow[]): PayoutFilterView {
 
 export function allocationStaffLabel(row: AllocationRow): string {
     const title = row.staff_title ?? "";
-    return title.length > 0 ? title : (row.staff_role ?? "Staff");
+    return title.length > 0 ? title : (row.staff_role ?? strings.payouts.staffFallback);
 }
 
 export function allocationSourceLabel(sourceType: string): string {
     switch (sourceType) {
         case "booking":
-            return "Booking";
+            return strings.payouts.sourceBooking;
         case "invoice_line":
-            return "Invoice";
+            return strings.payouts.sourceInvoice;
         case "class_session":
-            return "Class";
+            return strings.payouts.sourceClass;
         case "tip":
-            return "Tip";
+            return strings.payouts.sourceTip;
         case "sale":
-            return "Sale";
+            return strings.payouts.sourceSale;
         default:
             return sourceType;
     }

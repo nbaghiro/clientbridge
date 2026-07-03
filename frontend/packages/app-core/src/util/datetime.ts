@@ -1,4 +1,6 @@
 // Generic date utilities shared across the app (not calendar-specific).
+import { strings } from "../strings";
+
 const MS_PER_MIN = 60_000;
 
 /** PowerSync stores Postgres timestamptz as text ("2026-06-26 10:00:00+00"); parse it as UTC-safe. */
@@ -60,12 +62,12 @@ export function formatRelativeTime(
 ): string {
     const then = parseTimestamp(value);
     const mins = Math.floor((now.getTime() - then.getTime()) / MS_PER_MIN);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m`;
+    if (mins < 1) return strings.relativeTime.justNow;
+    if (mins < 60) return strings.relativeTime.minutes(mins);
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h`;
+    if (hours < 24) return strings.relativeTime.hours(hours);
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d`;
+    if (days < 7) return strings.relativeTime.days(days);
     return then.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
