@@ -1,6 +1,9 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_DEV_JWT_SECRET = "clientbridge-dev-secret-do-not-use-in-prod"
 
 
 class Settings(BaseSettings):
@@ -9,7 +12,7 @@ class Settings(BaseSettings):
     env: str = "dev"
     database_url: str = "postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge"
 
-    jwt_secret: str = "clientbridge-dev-secret-do-not-use-in-prod"  # matches infra/powersync jwks
+    jwt_secret: str = _DEV_JWT_SECRET  # matches infra/powersync jwks
     jwt_issuer: str = "clientbridge"
     jwt_ttl_seconds: int = 3600  # PowerSync token TTL
     access_token_ttl_seconds: int = 900  # app access token — 15 min
@@ -56,6 +59,21 @@ class Settings(BaseSettings):
     # Dev-only: /sync/token mints a token for this user when the request is unauthenticated,
     # so the client apps can connect before real auth exists.
     dev_user_id: str = "us_dev"
+
+    @model_validator(mode="after")
+    def _require_prod_secrets(self) -> "Settings":
+        """Fail closed outside dev: the JWT signing key and Stripe webhook secret must be set, so a
+        deploy that forgets them refuses to start rather than signing/verifying with a public key or
+        accepting unsigned webhooks (mirrors the interac/sms handlers' empty-secret rejection)."""
+        if self.env != "dev":
+            missing = []
+            if self.jwt_secret == _DEV_JWT_SECRET:
+                missing.append("JWT_SECRET")
+            if not self.stripe_webhook_secret:
+                missing.append("STRIPE_WEBHOOK_SECRET")
+            if missing:
+                raise ValueError(f"{', '.join(missing)} must be set when ENV is not 'dev'")
+        return self
 
 
 @lru_cache
