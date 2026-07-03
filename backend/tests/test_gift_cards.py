@@ -407,3 +407,27 @@ async def test_refund_voids_settled_gift_card(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "void"
+
+
+async def test_refund_partially_redeemed_gift_card_blocked(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    body = (
+        await as_owner.post(
+            "/v1/gift-cards",
+            json={
+                "amount_cents": 5000,
+                "purchaser_client_id": PURCHASER,
+                "payment_method_id": "default",
+            },
+        )
+    ).json()
+    await _settle(as_owner, db, body["payment_id"], "evt_gc_partial_refund")
+    redeemed = await as_owner.post(
+        "/v1/gift-cards/redeem", json={"code": body["code"], "amount_cents": 2000}
+    )
+    assert redeemed.status_code == 200, redeemed.text
+    # $20 of value already delivered → refunding the full $50 purchase must be blocked
+    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund")
+    assert refunded.status_code == 409

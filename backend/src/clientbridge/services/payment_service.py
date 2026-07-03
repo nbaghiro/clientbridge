@@ -120,11 +120,26 @@ class PaymentService:
 
     async def remittance_summary(self) -> RemittanceSummary:
         self._assert_admin()
-        paid = scoped(Invoice, self.biz).where(Invoice.status == "paid").subquery()
-        total = (
-            await self.db.execute(select(func.coalesce(func.sum(paid.c.tax_total_cents), 0)))
-        ).scalar_one()
-        return RemittanceSummary(tax_collected_cents=int(total))
+        invoices = (
+            (
+                await self.db.execute(
+                    scoped(Invoice, self.biz).where(
+                        Invoice.status.in_(("sent", "paid", "partial", "overdue")),
+                        Invoice.total_cents > 0,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        # CRA remittance is on tax actually COLLECTED, so pro-rate each invoice's tax by the
+        # fraction collected (total minus balance): a partial refund raises the balance + lowers it,
+        # rather than dropping the whole invoice's tax the moment it leaves "paid".
+        collected = sum(
+            round(i.tax_total_cents * (i.total_cents - i.balance_cents) / i.total_cents)
+            for i in invoices
+        )
+        return RemittanceSummary(tax_collected_cents=collected)
 
     async def pay_invoice(
         self,
@@ -302,6 +317,18 @@ class PaymentService:
             raise Conflict("payment has no connected charge to refund")
         account_id = business.stripe_account_id
         provider_ref = payment.provider_ref
+        # Don't over-refund a partially-delivered entitlement: refunding the full purchase after
+        # value was redeemed/consumed loses money, so require the gift card / package untouched.
+        card = (
+            await self.db.execute(select(GiftCard).where(GiftCard.payment_id == payment.id))
+        ).scalar_one_or_none()
+        if card is not None and card.balance_cents < card.initial_cents:
+            raise Conflict("can't refund a gift card that has already been partly redeemed")
+        pkg = (
+            await self.db.execute(select(Package).where(Package.payment_id == payment.id))
+        ).scalar_one_or_none()
+        if pkg is not None and pkg.sessions_used > 0:
+            raise Conflict("can't refund a package with sessions already used")
 
         async def run(cmd: Command) -> RefundOut:
             # inside the command so a same-key retry replays the stored response before this guard;
@@ -912,16 +939,26 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | 
     ).scalar_one_or_none()
     if payment is None or payment.status != "succeeded":
         return None
+    amount = data.get("amount_refunded")
+    cumulative = int(amount) if isinstance(amount, int) else payment.amount_cents
     prior = (
         await db.execute(
-            select(Payment.id).where(
-                Payment.parent_payment_id == payment.id, Payment.kind == "refund"
-            )
+            select(Payment).where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
         )
     ).scalar_one_or_none()
     if prior is not None:
-        return None  # our refund command (or a replayed event) already recorded it
-    amount = data.get("amount_refunded")
+        # `amount_refunded` is CUMULATIVE; a later, larger value means an additional partial refund
+        # on Stripe's side — grow our single refund row + re-reconcile instead of silently dropping
+        # it (which would overstate net collected). Equal/smaller = our own refund or replay: no-op.
+        if cumulative > prior.amount_cents:
+            prior.amount_cents = cumulative
+            await db.flush()
+            if payment.invoice_id is not None:
+                await _reconcile_invoice(db, payment.invoice_id)
+            if payment.order_id is not None:
+                await _reconcile_order(db, payment.order_id)
+            await _recompute_client_ltv(db, prior.client_id)
+        return prior.id
     refunds = data.get("refunds")
     rows = refunds.get("data") if isinstance(refunds, dict) else None
     ref_id = (
@@ -936,7 +973,7 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | 
         invoice_id=payment.invoice_id,
         order_id=payment.order_id,
         booking_id=payment.booking_id,
-        amount_cents=int(amount) if isinstance(amount, int) else payment.amount_cents,
+        amount_cents=cumulative,
         currency=payment.currency,
         method=payment.method,
         provider="stripe",
