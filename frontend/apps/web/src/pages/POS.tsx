@@ -284,7 +284,7 @@ function ReaderPanel({
                 <button
                     type="button"
                     onClick={() => {
-                        void tokenProvider();
+                        tokenProvider().catch(() => undefined);
                     }}
                     className="flex-1 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                 >

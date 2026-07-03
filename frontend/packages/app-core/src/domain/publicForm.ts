@@ -148,7 +148,7 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
     };
 
     const uploadFor = (name: string, file: Blob): void => {
-        void run(
+        run(
             async () => {
                 setAnswer(name, await forms.upload(token, file));
             },
@@ -162,7 +162,7 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
             setError(strings.bookingForms.answerRequired(missing.label));
             return;
         }
-        void run(
+        run(
             async () => {
                 setForm(await forms.submit(token, answers));
             },

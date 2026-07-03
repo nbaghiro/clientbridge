@@ -154,7 +154,7 @@ export function usePublicContractSign(
             setError(strings.bookingForms.signPrompt);
             return;
         }
-        void run(
+        run(
             async () => {
                 setContract(
                     await contracts.sign(token, {
@@ -168,7 +168,7 @@ export function usePublicContractSign(
     };
 
     const uploadImage = (file: Blob, name: string): void => {
-        void run(
+        run(
             async () => {
                 setImageId(await contracts.upload(token, file));
                 setImageName(name);
@@ -178,7 +178,7 @@ export function usePublicContractSign(
     };
 
     const decline = (): void => {
-        void run(
+        run(
             async () => {
                 setContract(await contracts.decline(token));
             },

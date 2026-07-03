@@ -19,8 +19,7 @@ export function useDashboardSummary(
 ): DashboardSummary | "error" | null {
     const [summary, setSummary] = useState<DashboardSummary | "error" | null>(null);
     useEffect(() => {
-        void api
-            .get<DashboardSummary>("/v1/dashboard/summary")
+        api.get<DashboardSummary>("/v1/dashboard/summary")
             .then(setSummary)
             .catch(() => {
                 setSummary("error");

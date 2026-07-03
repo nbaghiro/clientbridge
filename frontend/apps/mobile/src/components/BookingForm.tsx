@@ -45,7 +45,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
         const time = timeIdx !== null ? TIMES[timeIdx] : undefined;
         const day = days[dayIdx];
         const startsAt = time && day ? combineDayAndTime(day, `${time.h}:${time.m}`) : null;
-        void form.submit(startsAt);
+        form.submit(startsAt);
     };
 
     return (

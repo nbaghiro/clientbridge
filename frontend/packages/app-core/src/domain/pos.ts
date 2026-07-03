@@ -222,7 +222,7 @@ export function useCart(api: ApiLike): Cart {
             return;
         }
         const payload = cartLineInputs(lines);
-        void run(
+        run(
             async () => {
                 const result =
                     order === null
@@ -237,7 +237,7 @@ export function useCart(api: ApiLike): Cart {
 
     const charge = (): void => {
         if (order === null) return;
-        void run(
+        run(
             async () => {
                 const result = await checkout(api, order.id);
                 setCheckoutResult(result);
@@ -252,7 +252,7 @@ export function useCart(api: ApiLike): Cart {
             newSale();
             return;
         }
-        void run(() => voidOrder(api, order.id), {
+        run(() => voidOrder(api, order.id), {
             onSuccess: newSale,
             errorMessage: strings.pos.voidError,
         });

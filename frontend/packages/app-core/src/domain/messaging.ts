@@ -180,7 +180,7 @@ export function useComposeMessage(
             setError(strings.inbox.writeMessage);
             return;
         }
-        void run(() => sendMessage(api, { client_id: clientId, channel, body: body.trim() }), {
+        run(() => sendMessage(api, { client_id: clientId, channel, body: body.trim() }), {
             onSuccess: () => {
                 setBody("");
                 if (initial?.clientId === undefined) setClientId("");
@@ -244,7 +244,7 @@ export function useBroadcastForm(
             tagList.length > 0 ? { tags: tagList } : { all: true };
         const scheduled =
             scheduledAt.trim().length > 0 ? new Date(scheduledAt).toISOString() : null;
-        void run(
+        run(
             async () => {
                 const result = await sendBroadcast(api, {
                     name: name.trim(),

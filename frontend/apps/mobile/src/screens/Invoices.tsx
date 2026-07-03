@@ -400,14 +400,14 @@ function DetailModal({
                                         key={a.key}
                                         style={styles.save}
                                         disabled={busy}
-                                        onPress={() =>
-                                            void run(a.run, {
+                                        onPress={() => {
+                                            run(a.run, {
                                                 onSuccess: onClose,
                                                 errorMessage: strings.invoices.actionError(
                                                     DOC_ACTION_LABEL[a.key].toLowerCase(),
                                                 ),
-                                            })
-                                        }
+                                            });
+                                        }}
                                     >
                                         {busy ? (
                                             <ActivityIndicator color={c.accentInk} />
@@ -430,7 +430,7 @@ function DetailModal({
 function PayLinkRow({ token }: { token: string }) {
     const url = payLinkUrl(publicWebUrl, token);
     const share = (): void => {
-        void Share.share({ message: url });
+        Share.share({ message: url }).catch(() => undefined);
     };
     return (
         <View style={styles.payLink}>
@@ -479,10 +479,11 @@ function PaymentRowItem({
             {
                 text: strings.invoices.refund,
                 style: "destructive",
-                onPress: () =>
-                    void run(() => refundPayment(api, payment.id), {
+                onPress: () => {
+                    run(() => refundPayment(api, payment.id), {
                         errorMessage: strings.invoices.refundError,
-                    }),
+                    });
+                },
             },
         ]);
     };

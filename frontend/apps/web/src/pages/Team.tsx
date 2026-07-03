@@ -150,9 +150,12 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
     const link = acceptInviteUrl(window.location.origin, invite.invite_token);
 
     const copy = (): void => {
-        void navigator.clipboard.writeText(link).then(() => {
-            setCopied(true);
-        });
+        navigator.clipboard
+            .writeText(link)
+            .then(() => {
+                setCopied(true);
+            })
+            .catch(() => undefined);
     };
 
     return (

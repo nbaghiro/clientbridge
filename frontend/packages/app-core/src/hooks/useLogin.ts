@@ -43,7 +43,7 @@ export function useLogin(
     const { busy, error, setError, run } = useAsyncAction();
 
     const submit = (): void => {
-        void run(
+        run(
             async () => {
                 const path = mode === "signin" ? "/auth/login" : "/auth/register";
                 const body = mode === "signin" ? { email, password } : { email, password, name };

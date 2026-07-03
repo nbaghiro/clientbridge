@@ -32,10 +32,12 @@ export function FileUploadField({
 
     const run = (): void => {
         if (pickFile === undefined) return;
-        void pickFile().then((picked) => {
-            if (picked === null) return;
-            upload(picked.blob, target, picked.contentType, picked.sizeBytes);
-        });
+        pickFile()
+            .then((picked) => {
+                if (picked === null) return;
+                upload(picked.blob, target, picked.contentType, picked.sizeBytes);
+            })
+            .catch(() => undefined);
     };
 
     const disabled = pickFile === undefined || busy;

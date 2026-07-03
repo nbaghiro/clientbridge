@@ -221,17 +221,14 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
             setError(strings.giftCards.enterRedeemAmount);
             return;
         }
-        void run(
-            () => redeemGiftCard(api, { code: code.trim().toUpperCase(), amount_cents: cents }),
-            {
-                onSuccess: () => {
-                    setCode("");
-                    setAmount("");
-                    onDone();
-                },
-                errorMessage: strings.giftCards.redeemError,
+        run(() => redeemGiftCard(api, { code: code.trim().toUpperCase(), amount_cents: cents }), {
+            onSuccess: () => {
+                setCode("");
+                setAmount("");
+                onDone();
             },
-        );
+            errorMessage: strings.giftCards.redeemError,
+        });
     };
 
     return { code, setCode, amount, setAmount, busy, error, submit };

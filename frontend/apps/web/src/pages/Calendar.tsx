@@ -625,7 +625,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
 
     const submit = (e: FormEvent): void => {
         e.preventDefault();
-        void form.submit(combineDayAndTime(date, time));
+        form.submit(combineDayAndTime(date, time));
     };
 
     return (

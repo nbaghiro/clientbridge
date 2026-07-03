@@ -94,7 +94,7 @@ export function usePublicReview(reviews: PublicReviewClient, token: string): Pub
             setError(strings.publicReview.pickRating);
             return;
         }
-        void run(
+        run(
             async () => {
                 setContext(await reviews.submit(token, { rating, body: body.trim() || null }));
             },

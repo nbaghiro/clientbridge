@@ -14,7 +14,9 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
 
     const form = useAcceptInviteForm(api, token, setTokens, () => {
         onAuthed();
-        void navigate("/", { replace: true });
+        // RR types navigate as void | Promise<void>; handle the promise branch when there is one.
+        const navigated = navigate("/", { replace: true });
+        if (navigated) navigated.catch(() => undefined);
     });
 
     const field =

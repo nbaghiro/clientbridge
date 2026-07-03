@@ -125,7 +125,7 @@ export function useOnboardingForm(
             setError(strings.onboarding.slugRequired);
             return;
         }
-        void run(
+        run(
             async () => {
                 onCreated(await onboard(api, { name, slug, province }));
             },

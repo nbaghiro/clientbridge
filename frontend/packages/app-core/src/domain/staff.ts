@@ -122,7 +122,7 @@ export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void
             setError(strings.team.emailRequired);
             return;
         }
-        void run(
+        run(
             async () => {
                 const created = await inviteStaff(api, { email, role });
                 setInvite(created);
@@ -172,7 +172,7 @@ export function useAcceptInviteForm(
             setError(strings.team.passwordTooShort);
             return;
         }
-        void run(
+        run(
             async () => {
                 await setTokens(await acceptInvite(api, { token, name, password }));
             },

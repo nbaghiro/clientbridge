@@ -165,7 +165,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
 
     // Mark read once on open (and whenever the unread count changes for the open thread).
     useEffect(() => {
-        if (thread.unread_count > 0) void markThreadRead(api, thread.id);
+        if (thread.unread_count > 0) markThreadRead(api, thread.id).catch(() => undefined);
     }, [thread.id, thread.unread_count]);
 
     useEffect(() => {

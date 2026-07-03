@@ -152,7 +152,7 @@ function SetupForm({ flow, clientSecret }: { flow: AddPaymentMethod; clientSecre
     const [ready, setReady] = useState(false);
 
     const submit = (): void => {
-        void run(
+        run(
             async () => {
                 const { error: confirmError } = await confirmSetupIntent(clientSecret, {
                     paymentMethodType: "Card",

@@ -112,7 +112,7 @@ export function useAvailabilityEditor(staffId: string | null): AvailabilityEdito
                 return;
             }
         }
-        void run(
+        run(
             async () => {
                 await db.writeTransaction(async (tx) => {
                     await tx.execute(

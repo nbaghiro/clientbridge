@@ -290,14 +290,14 @@ function CardRow({ card }: { card: SavedCardRow }) {
     const isDefault = card.is_default === 1;
 
     const makeDefault = (): void => {
-        void run(() => setDefaultCard(api, card.id), {
+        run(() => setDefaultCard(api, card.id), {
             errorMessage: strings.clients.setDefaultError,
         });
     };
 
     const remove = (): void => {
         if (!window.confirm(strings.clients.removeMethodConfirm)) return;
-        void run(() => detachCard(api, card.id), {
+        run(() => detachCard(api, card.id), {
             errorMessage: strings.clients.removeMethodError,
         });
     };
@@ -377,7 +377,7 @@ function SetupForm({ flow }: { flow: AddPaymentMethod }) {
     const submit = (e: FormEvent): void => {
         e.preventDefault();
         if (!stripe || !elements) return;
-        void run(
+        run(
             async () => {
                 const result = await stripe.confirmSetup({ elements, redirect: "if_required" });
                 if (result.error) {
@@ -471,7 +471,7 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
 
     const cancel = (): void => {
         if (!window.confirm(strings.clients.cancelSubscriptionConfirm)) return;
-        void run(() => cancelSubscription(api, sub.id), {
+        run(() => cancelSubscription(api, sub.id), {
             errorMessage: strings.clients.cancelSubscriptionError,
         });
     };
@@ -644,7 +644,7 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
     const { busy, error, run } = useAsyncAction();
 
     const consume = (): void => {
-        void run(() => consumeSession(api, pkg.id), {
+        run(() => consumeSession(api, pkg.id), {
             errorMessage: strings.clients.consumeSessionError,
         });
     };

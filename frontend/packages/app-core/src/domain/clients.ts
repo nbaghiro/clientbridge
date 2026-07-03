@@ -77,7 +77,7 @@ export function useClientForm(api: ApiLike, onCreated: () => void): ClientForm {
             setError(strings.clients.nameRequired);
             return;
         }
-        void run(() => createClient(api, { name, email, phone }), {
+        run(() => createClient(api, { name, email, phone }), {
             onSuccess: () => {
                 setName("");
                 setEmail("");

@@ -76,7 +76,7 @@ export function useFileUpload(api: ApiLike, onUploaded?: (fileId: string) => voi
         contentType: string,
         sizeBytes?: number,
     ): void => {
-        void run(
+        run(
             async () => {
                 const { fileId: id, uploadUrl } = await requestUpload(
                     api,

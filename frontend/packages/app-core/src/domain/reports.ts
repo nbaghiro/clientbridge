@@ -70,7 +70,7 @@ export function useReports(api: ApiLike, range: ReportRange): ReportsView {
         setLoading(true);
         setError(false);
         const window = `start=${start}&end=${end}`;
-        void Promise.all([
+        Promise.all([
             api.get<IncomeReport>(`/v1/reports/income?${window}`),
             api.get<GstHstReport>(`/v1/reports/gst-hst?${window}`),
             api.get<T4ARow[]>(`/v1/reports/t4a?year=${year}`),
@@ -134,7 +134,7 @@ export function useReportDownload(
 
     const download = (kind: ReportCsvKind): void => {
         setDownloading(kind);
-        void run(
+        run(
             async () => {
                 const csv = await downloadReportCsv(api, kind, range);
                 await save(csv, reportCsvFilename(kind));

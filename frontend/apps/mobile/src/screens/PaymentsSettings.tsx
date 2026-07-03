@@ -27,7 +27,7 @@ export function PaymentsScreen() {
         connect,
         refresh,
     } = useConnectOnboarding(api, (url) => {
-        void Linking.openURL(url);
+        Linking.openURL(url).catch(() => undefined);
     });
 
     useFocusEffect(

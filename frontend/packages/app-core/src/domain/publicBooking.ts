@@ -218,7 +218,7 @@ export function usePublicBookingForm(
             setError(strings.publicBooking.incompleteForm);
             return;
         }
-        void run(
+        run(
             async () => {
                 setResult(
                     await booking.book(slug, {

@@ -29,7 +29,7 @@ export function PurchaseConfirmPanel({
 
     const runConfirm = (): void => {
         if (confirm === undefined) return;
-        void run(() => confirm(clientSecret), {
+        run(() => confirm(clientSecret), {
             onSuccess: onConfirmed,
             errorMessage: strings.purchase.confirmError,
         });

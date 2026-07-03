@@ -257,8 +257,7 @@ export interface TaxRate {
 export function useTaxRates(api: ApiLike): TaxRate[] | null {
     const [rates, setRates] = useState<TaxRate[] | null>(null);
     useEffect(() => {
-        void api
-            .get<TaxRate[]>("/v1/tax-rates")
+        api.get<TaxRate[]>("/v1/tax-rates")
             .then(setRates)
             .catch(() => {
                 setRates([]);
@@ -324,7 +323,7 @@ export function useDocForm(
             setError(strings.invoices.incompleteInvoice);
             return;
         }
-        void run(
+        run(
             () =>
                 kind === "invoice"
                     ? createInvoice(api, clientId, payload, notes)

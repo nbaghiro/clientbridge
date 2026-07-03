@@ -78,20 +78,22 @@ function Root() {
 
     useEffect(() => {
         onSignedOut(() => {
-            void handleSignOut();
+            handleSignOut().catch(() => undefined);
         });
     }, [handleSignOut]);
 
     useEffect(() => {
-        void getTokens().then((t) => {
-            setAuthed(t !== null);
-        });
+        getTokens()
+            .then((t) => {
+                setAuthed(t !== null);
+            })
+            .catch(() => undefined);
     }, []);
 
     useEffect(() => {
         if (authed) {
-            void connectPowerSync(api.authFetch);
-            void registerForPush();
+            connectPowerSync(api.authFetch).catch(() => undefined);
+            registerForPush().catch(() => undefined);
         }
     }, [authed]);
 
@@ -113,7 +115,11 @@ function Root() {
     }
     return (
         <PowerSyncContext.Provider value={db}>
-            <AuthedApp onSignOut={() => void handleSignOut()} />
+            <AuthedApp
+                onSignOut={() => {
+                    handleSignOut().catch(() => undefined);
+                }}
+            />
         </PowerSyncContext.Provider>
     );
 }
