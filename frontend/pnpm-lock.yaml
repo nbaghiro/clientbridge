@@ -280,6 +280,10 @@ importers:
       react:
         specifier: '>=18'
         version: 18.3.1
+    devDependencies:
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@26.0.1)(terser@5.48.0)
 
   packages/config:
     dependencies:

@@ -10,7 +10,11 @@
         "./public": "./src/public.ts"
     },
     "scripts": {
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run"
+    },
+    "devDependencies": {
+        "vitest": "^2.0.5"
     },
     "peerDependencies": {
         "react": ">=18",
