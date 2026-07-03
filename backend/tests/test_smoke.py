@@ -1,9 +1,19 @@
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
+from clientbridge.core.config import Settings
 from clientbridge.core.ids import new_id
 from clientbridge.main import app
 
 client = TestClient(app)
+
+
+def test_prod_requires_real_secrets() -> None:
+    # Fail closed: a non-dev env with the public dev jwt secret / empty stripe secret must refuse.
+    with pytest.raises(ValidationError):
+        Settings(env="prod")
+    assert Settings(env="dev").env == "dev"  # dev keeps the convenient defaults
 
 
 def test_health() -> None:
