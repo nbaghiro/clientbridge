@@ -264,7 +264,10 @@ interface Row {
     deposit_status: string | null;
 }
 
-// datetime() normalizes both the stored text and the ISO params to a comparable UTC form.
+// PowerSync stores timestamptz with a bare "+00" offset (e.g. "2026-06-26 10:00:00+00"), which
+// SQLite datetime() can't parse (it needs "+00:00"/"Z") and would return NULL for — silently
+// filtering out EVERY event. Appending ":00" makes it "+00:00" so datetime() parses it; the ISO
+// params (…Z) parse as-is. (Mirrors parseTimestamp's bare-offset fix.)
 const EVENTS_SQL = `
 SELECT s.id AS session_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.booked_count,
        s.status AS session_status, i.name AS item_name, i.color AS item_color,
@@ -276,8 +279,8 @@ JOIN items i ON i.id = s.item_id
 LEFT JOIN bookings b ON b.session_id = s.id AND b.deleted_at IS NULL
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE s.status != 'canceled'
-  AND datetime(s.starts_at) < datetime(?)
-  AND datetime(s.ends_at) > datetime(?)`;
+  AND datetime(s.starts_at || ':00') < datetime(?)
+  AND datetime(s.ends_at || ':00') > datetime(?)`;
 
 function toEvent(r: Row): CalendarEvent {
     return {
