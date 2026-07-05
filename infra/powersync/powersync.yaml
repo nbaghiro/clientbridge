@@ -1,4 +1,4 @@
-# PowerSync service config (local dev). See .docs/sync.md.
+# PowerSync service config (local dev). See .docs/architecture.md.
 # Prereqs (created by `make up`): wal_level=logical, a `powersync` publication on the source DB, and
 # a separate `powersync_storage` database for bucket storage.
 replication:

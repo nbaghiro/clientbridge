@@ -1,6 +1,6 @@
 # PowerSync Sync Rules = our row-level read authorization (the sync stream bypasses Postgres RLS).
 # Employee model: staff see their OWN calendar + the shared client book; owner/admin see everything.
-# See .docs/authorization.md. Writes are authorized separately in FastAPI /sync/upload.
+# See .docs/architecture.md. Writes are authorized separately in FastAPI /sync/upload.
 
 bucket_definitions:
   # 1) SHARED — reference data + the client book. Every active team member reads this.

@@ -1,7 +1,7 @@
 """Server-authoritative write path for PowerSync.
 
 The client's `uploadData()` POSTs its local write queue here. For each op we (1) resolve the acting
-user, (2) authorize against the `staff` role policy (see .docs/authorization.md), (3) enforce the
+user, (2) authorize against the `staff` role policy (see .docs/architecture.md), (3) enforce the
 write rules the schema can't (no cross-tenant moves; server-owned fields; locked rows), (4) coerce
 the client's SQLite types back to Postgres, and (5) apply — all in one transaction.
 """

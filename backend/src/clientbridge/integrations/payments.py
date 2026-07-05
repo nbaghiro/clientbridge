@@ -1,4 +1,4 @@
-"""Payment gateway adapter — the Stripe Connect boundary (see .docs/testing.md).
+"""Payment gateway adapter — the Stripe Connect boundary (see .docs/engineering.md).
 
 Production talks to Stripe; tests override `get_payment_gateway` with a recording fake, so the
 onboarding / charge / webhook logic is covered without the network. Connected accounts are Custom
