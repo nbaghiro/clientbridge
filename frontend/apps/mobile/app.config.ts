@@ -11,12 +11,19 @@ const config: ExpoConfig = {
     scheme: "clientbridge",
     version: "0.1.0",
     orientation: "portrait",
+    icon: "./assets/icon.png",
     ios: {
         supportsTablet: true,
         bundleIdentifier: "ca.clientbridge.app",
         infoPlist: { NSAppTransportSecurity: { NSAllowsLocalNetworking: true } },
     },
-    android: { package: "ca.clientbridge.app" },
+    android: {
+        package: "ca.clientbridge.app",
+        adaptiveIcon: {
+            foregroundImage: "./assets/adaptive-icon.png",
+            backgroundColor: "#3f5e80",
+        },
+    },
     plugins: [
         [
             "@stripe/stripe-react-native",
