@@ -1,138 +1,208 @@
-# Clientbridge — Gap-closure Roadmap / Backlog
+# Clientbridge — Roadmap
 
-Authoritative "what's left" list. Produced 2026-07-01 by a six-domain code audit (scheduling/booking ·
-billing/payments · CRM/messaging/reviews · catalog/subs/docs/dashboard · Phase-9 hardening ·
-unwired-model/product). This **supersedes** the stale slice/phase status in `product-plan.md` (only
-Slice 1 ticked) and `backend-plan.md` (only Phases 0–2 ticked) for the question "what's remaining."
+The authoritative **"what's left"** backlog and the **order** to close it. For *how it works* see
+[architecture.md](architecture.md); for *how we build* see [engineering.md](engineering.md).
+
+Milestones by priority: **M3** launch-blockers · **M4** completeness · **M5** depth & growth. Sizes `[S/M/L]`.
+This supersedes the historical phase/slice plans (now consolidated away — the built alpha outran them).
+
+---
 
 ## Baseline — what's already built (do not re-chase)
-Backend Phases 0–8 + M1 + M2-slice-1 are done and verified end-to-end: clients → catalog → scheduling →
-bookings (incl. **recurring series**) → invoices/estimates → payments/payouts → Stripe Connect (Custom,
-KYC sync, direct charges, saved cards, deposits, refunds full-amount), **mobile Tap-to-Pay** (real
-Terminal SDK), POS/Terminal orders, packages/subscriptions/gift-card sale+redeem, Interac request+match,
-public pay/book/form/contract/review token pages, forms/contracts/e-sign (text snapshot + IP + audit),
-reviews + review-request cron, broadcasts (scheduled fan-out), team invites/roles, inbound SMS→thread,
-6 arq crons (reminders/reap-unpaid/broadcasts/overdue-sweep/maintenance/review-requests), **mobile push**
-registration, webhook idempotency (Stripe signature verified), refresh rotation + reuse-detection, RS256/
-JWKS path, i18n string catalog (English), income/GST-HST/T4A reports + CSV, 3 dashboard KPIs.
 
-## Legend & milestones
-`[S/M/L]` = rough size. Priority is encoded by section:
-- **M3 — Launch blockers (P0):** cannot ship to real paying users without these.
-- **Correctness bugs:** silently wrong today; fix ASAP regardless of milestone.
-- **M4 — Completeness (P1):** needed to be a real, complete product (not just an alpha).
-- **M5 — Depth & growth (P2):** toward a mature PocketSuite-class OS.
+Backend + web + mobile are alpha-complete end-to-end: clients → catalog → scheduling → bookings (incl.
+**recurring series**) → invoices/estimates → payments/payouts → **Stripe Connect** (Custom, KYC sync, direct
+charges, saved cards, deposits, refunds) → **mobile Tap-to-Pay** (real Terminal SDK) → POS/Terminal orders →
+packages/subscriptions/gift-card sale+redeem → **Interac** request+match → public pay/book/form/contract/
+review token pages → forms/contracts/e-sign (text snapshot + IP + audit) → reviews + review-request cron →
+broadcasts (scheduled fan-out) → team invites/roles → inbound SMS→thread → **6 arq crons** → **mobile push**
+→ webhook idempotency (Stripe signature-verified) → refresh rotation + reuse-detection → RS256/JWKS →
+i18n string catalog (English) → income/GST-HST/T4A reports + CSV → dashboard KPIs. **Connect** customer app
+(lean, PowerSync-free, branded, embeddable widgets) ships the five public surfaces + a per-business landing.
+
+---
+
+## Recently hardened
+
+**Correctness bugs (2026-07-02) — ✅ all fixed:** availability now interpreted in the business timezone
+(DST-safe) · refund reverses its payout allocation · GST/HST return apportions PST/QST separately · client
+lifetime value rolls up from settled payments (+ backfill) · resources conflict-checked (GiST constraint).
+
+**Full-codebase security/correctness review (2026-07-02) — ✅ fixed:** staff-invite account-takeover (accept
+now requires the existing password) · unverified-OAuth-email login rejected · constant-time login (no
+enumeration timing oracle) · **fail-closed prod secrets** (startup validator — was M3) · gift-card/package
+lost-update row locks + a per-staff `pg_advisory_xact_lock` for booking capacity/buffer TOCTOU · over-refund
+of partly-used entitlements blocked · recurrence occurrences re-localized per date (DST drift) · the dead
+calendar query fixed (SQLite bare-`+00`) · Inbox wrong-recipient · accept-invite stale-replica reset ·
+broadcasts + client LTV made command-only · send-notifications moved inside the idempotent command · CI now
+runs the production build.
 
 ---
 
 ## 🔴 M3 — Launch blockers (P0)
 
+Cannot ship to real paying users without these.
+
 ### Security & secrets
-- [S] **Fail-fast on default secrets in prod.** `config.py` ships `jwt_secret="clientbridge-dev-secret-do-not-use-in-prod"` (also committed in `powersync.yaml`); app access tokens always sign HS256 with it. A deploy that forgets to override silently runs on a public key → token forgery. Add a startup assertion that all secrets are non-default when `env!=dev`.
-- [S] **Prod CORS + security headers.** `main.py` adds CORS only when `env=='dev'`, so the prod web app (separate origin) can't call the API at all; no HSTS/CSP/X-Frame/TrustedHost. Add a prod origin allowlist + baseline headers.
-- [S] **Verify the real Twilio HMAC on inbound SMS.** `webhooks.py` compares a static shared secret, not Twilio's request signature — spoofable, and won't work against real Twilio. (Interac uses the same static-secret pattern; revisit when a real provider lands.)
+- ✅ **Fail-fast on default secrets in prod.** *(done — `config.py` `_require_prod_secrets` refuses to boot
+  on the dev JWT default / empty Stripe secret when `env!=dev`.)*
+- [S] **Prod CORS + security headers.** `main.py` adds CORS only in dev, so the prod web app (separate origin)
+  can't call the API; no HSTS/CSP/X-Frame/TrustedHost. Add a prod origin allowlist + baseline headers.
+- [S] **Verify the real Twilio HMAC on inbound SMS.** `webhooks.py` compares a static shared secret, not
+  Twilio's request signature — spoofable. (Interac uses the same static-secret pattern; revisit with a real provider.)
 
 ### Ops / deploy
-- [M] **Production containers.** `infra/docker/` is empty; `dev-api` is uvicorn `--reload`. Need a prod API image + arq-worker image + prod server (gunicorn/uvicorn workers) + process manager.
-- [M] **DB backups + restore drill.** No backup/PITR for Postgres or `powersync_storage`; data (money + PII) is unrecoverable.
-- [S] **Error tracking (Sentry/Rollbar).** No capture/alerting on server, web, or mobile — prod failures are invisible.
+- [M] **Production containers.** `infra/docker/` is empty; `dev-api` is uvicorn `--reload`. Need a prod API
+  image + arq-worker image + prod server (gunicorn/uvicorn workers) + process manager.
+- [M] **DB backups + restore drill.** No backup/PITR for Postgres or `powersync_storage`; money + PII is unrecoverable.
+- [S] **Error tracking (Sentry/Rollbar).** No capture/alerting on server, web, or mobile.
 
 ### Functional-completeness blockers
-- [S] **Make tax collection enable-able.** `is_tax_registered` defaults False and is only set in the seed; it's absent from `BusinessSettingsUpdate` and onboarding. A live tenant collects **zero tax** with no way to turn it on — neuters the core Canadian-tax value prop.
-- [M] **Catalog editor exposes the full item shape.** The form posts only 5 of ~20 fields, so `session_count`/`interval`/`frequency`/deposit/capacity/validity can't be set — and `package_service`/`subscription_service` hard-raise without them. **Packages and subscriptions are unsellable end-to-end** until this is wired.
-- [L] **CASL/consent + opt-out.** The `consents` table was dropped; broadcasts blast every active client with no consent record, no unsubscribe link, no SMS STOP handling, no suppression list. Legal blocker for the marketing/broadcast feature in-region.
-- [L] **Two-way-SMS tenancy.** One global Twilio number shared across all businesses; inbound routes by matching client phone across tenants ("pick oldest" on collision). Needs per-business provisioned numbers + a number→business routing table, else cross-tenant leakage.
+- [S] **Make tax collection enable-able.** `is_tax_registered` defaults False and is absent from
+  `BusinessSettingsUpdate`/onboarding — a live tenant collects **zero tax** with no way to turn it on.
+- [M] **Catalog editor exposes the full item shape.** The form posts only 5 of ~20 fields, so
+  `session_count`/`interval`/`frequency`/deposit/capacity/validity can't be set — **packages and
+  subscriptions are unsellable end-to-end** until this is wired.
+- [L] **CASL/consent + opt-out.** Broadcasts blast every active client with no consent record, unsubscribe
+  link, SMS STOP handling, or suppression list. Legal blocker for the marketing feature in-region.
+- [L] **Two-way-SMS tenancy.** One global Twilio number across all businesses; inbound routes by matching
+  client phone across tenants. Needs per-business numbers + a number→business routing table (else cross-tenant leakage).
 
 ---
 
-## 🟠 Correctness bugs — ✅ ALL FIXED (2026-07-02)
-- ✅ **Availability ignored business timezone.** Now interpreted in `business.timezone` (`is_within_availability` + `open_slots`), DST-safe, with a regression guard. (`d50e44c`)
-- ✅ **Refund didn't reverse the payout allocation.** `_reconcile_invoice` now removes pending, not-yet-paid-out booking allocations when a refund drops the invoice below fully-paid. (`5f03709`)
-- ✅ **GST/HST return conflated PST/QST.** The report now apportions each paid row's tax by the active rate ratio; `tax_collected_cents` is federal-only, with separate `pst_cents`/`qst_cents` (web + mobile show them). (`76e4bae`)
-- ✅ **Client lifetime value was always $0.** `_recompute_client_ltv` now rolls it up from settled payments (minus refunds) at every settle/refund point, plus a backfill migration. (`5f03709`)
-- ✅ **Resources weren't conflict-checked.** `create_booking_core` now rejects an overlapping same-resource session, backed by a GiST exclusion constraint. (`cd2b39f`)
+## 🟠 M4 — Completeness (P1)
 
----
-
-## 🟡 M4 — Completeness (P1)
+Needed to be a real, complete product (not just an alpha). Grouped by domain; largely parallelizable.
 
 ### Payments & billing
-- [M] **Take/record payment in-app.** No UI hits `POST /payments/invoice/{id}` — can't charge a saved card, take a partial/deposit, or record cash/cheque/manual e-Transfer; payment only happens via the public link.
-- [M] **Partial & multiple refunds.** Backend refunds the full amount only; one-refund-per-payment unique index; UI sends no amount.
-- [M] **Tips.** No tip capture at any checkout (card/Terminal/pay-link) and no tip payout, though `payout_allocations` has a `tip` source and the UI labels it.
-- [M] **Discounts / promo codes.** No line- or order-level discount, no coupon model — anywhere.
-- [M] **Web POS card-present.** Web reader panel is a stub ("not wired in this build"); only mobile Tap-to-Pay works. Also: resume held orders into the cart; no physical-reader (WisePOS/BBPOS) discovery.
-- [M] **Interac ingestion + lifecycle.** Match logic exists but there's no real bank/Interac provider ingestion, no stale-request expiry (holds invoice "room" forever), no surplus handling; the authed per-invoice Interac request has no UI.
-- [M] **Payout splits beyond bookings.** Only booking lines allocate; POS sales, tips, and non-booking invoice lines never credit staff.
-- [M] **Invoice/estimate/receipt PDF.** No printable/downloadable document; clients get only a web link.
+- [M] **Take/record payment in-app** (no UI hits `POST /payments/invoice/{id}`; payment only via the public link).
+- [M] **Partial & multiple refunds** (backend refunds full amount only; UI sends no amount).
+- [M] **Tips** (no capture at any checkout; `payout_allocations` has a `tip` source but no path).
+- [M] **Discounts / promo codes** (none, line- or order-level).
+- [M] **Web POS card-present** (web reader panel is a stub; only mobile Tap-to-Pay works; no resume-held-order).
+- [M] **Interac ingestion + lifecycle** (match logic exists; no real bank ingestion, no stale-request expiry, no surplus handling; authed per-invoice Interac request has no UI).
+- [M] **Payout splits beyond bookings** (POS sales, tips, non-booking invoice lines never credit staff).
+- [M] **Invoice/estimate/receipt PDF** (clients get only a web link).
 
 ### Scheduling & booking
-- [M] **Recurring-series lifecycle (M2 deferred follow-ups):** edit-series, cancel-series, rolling-window top-up cron for unbounded series (hard-caps at 60 today), a single "series booked" confirmation (series create sends none), explicit detach-occurrence.
-- [M] **Time-off / blackout / date-exception UI.** Backend fully supports `type='date'` overrides; the only editor writes the weekly recurring grid — no way to mark a vacation/holiday/one-off-hours day.
-- [M] **Resource management UI + conflict enforcement.** (Also the correctness bug above — needs a create/list/pick UI plus resource-aware slotting.)
-- [M] **Mobile calendar parity.** Mobile has only agenda/day; web has day/week/month/staff. Shared helpers exist; mobile doesn't render week/month/staff.
-- [M] **Client self-service + lifecycle jobs.** Public clients can't cancel/reschedule their own booking; no cron auto-marks past bookings completed/no-show (stale "confirmed" leaks reporting + un-forfeited no-shows).
+- [M] **Recurring-series lifecycle:** edit/cancel series, rolling-window top-up cron (hard-caps at 60), a
+  single "series booked" confirmation, explicit detach-occurrence.
+- [M] **Time-off / blackout / date-exception UI** (backend supports `type='date'`; the only editor writes the weekly grid).
+- [M] **Resource management UI + conflict enforcement** (needs create/list/pick UI + resource-aware slotting).
+- [M] **Mobile calendar parity** (mobile has agenda/day; web has day/week/month/staff — shared helpers exist).
+- [M] **Client self-service + lifecycle jobs** (public clients can't cancel/reschedule; no cron auto-marks past bookings completed/no-show).
 
 ### CRM / messaging / reviews
-- [M] **Client edit/delete UI + tags/status/custom fields.** Backend accepts them; the app is add-only with name/email/phone. Tags are the only broadcast segment input yet can't be set.
-- [M] **Notes UI.** `notes` is modeled, synced, and write-authorized — no screen or hook.
-- [M] **Subjects UI** (pets/vehicles/children/property). Modeled + synced + `bookings.subject_id` — no UI (vertical differentiator, unreachable).
-- [M] **Client 360 view.** Detail shows only payment methods/subs/packages; no booking/invoice/message/note history.
-- [L] **Client merge/dedupe.** Duplicates accumulate (online booking OR-match, inbound SMS phone-match, manual) with no combine.
-- [M] **Message templates / merge fields / quick replies.** Compose + broadcast are free-text only.
-- [M] **Broadcast depth.** Real segmentation (status/LTV/recency/service/subject, not just tags), pre-send recipient preview, and no silent 500-recipient truncation; draft/edit/cancel a scheduled broadcast; retry/throttle on delivery.
-- [M] **Review gating/moderation.** Submissions auto-publish regardless of rating (a 1-star goes public instantly); "send to Google" is an unwired flag with no real GBP/Facebook integration.
-- [L] **Client-facing portal.** `clients.user_id` is unused; every client interaction is a one-shot emailed token page. No login, history, rebook, invoice list, or messaging.
+- [M] **Client edit/delete UI + tags/status/custom fields** (app is add-only; tags are the only broadcast segment yet can't be set).
+- [M] **Notes UI** · [M] **Subjects UI** (pets/vehicles/…) — both modeled, synced, write-authorized, no screen (a vertical differentiator, unreachable).
+- [M] **Client 360 view** (detail shows only payment methods/subs/packages; no booking/invoice/message/note history).
+- [L] **Client merge/dedupe** (duplicates accumulate with no combine).
+- [M] **Message templates / merge fields / quick replies** (compose + broadcast are free-text only).
+- [M] **Broadcast depth** (real segmentation, recipient preview, no silent 500-cap, draft/cancel, retry/throttle).
+- [M] **Review gating/moderation** (submissions auto-publish regardless of rating; "send to Google" is unwired).
+- [L] **Client-facing portal** — see *Connect* below.
 
-### Documents / files
-- [M] **Signed-contract PDF** (with audit block) for both parties; text-only snapshot today.
-- [M] **File upload limits.** No server-enforced max size / content-type allowlist / malware scan on uploads, including the unauthenticated token-gated form/contract upload surfaces.
-
-### Dashboard / analytics
-- [S] **Today page: add today's-schedule section + surface the GST filing-due date** (both absent from the hero screen).
-- [L] **Business analytics.** Reporting is CRA-compliance-only; no revenue trends, top services, new-vs-returning, retention/churn, utilization, or no-show/cancellation rates.
-
-### Compliance / audit
-- [M] **Data export** (PIPEDA/Law 25 subject access + portability). None.
-- [L] **Right-to-be-forgotten / erasure / account deletion.** Only soft-delete exists; PII (incl. in PowerSync bucket storage) persists forever.
-- [M] **Audit the sync-write path.** Command services write `audit_logs`; the `/sync/upload` PUT/PATCH/DELETE path (clients, notes, availability, messages…) writes none → incomplete activity feed / forensic trail.
+### Documents / files / dashboard / compliance
+- [M] **Signed-contract PDF** (with audit block); text-only snapshot today.
+- [M] **File upload limits** (no max size / content-type allowlist / malware scan, incl. the token-gated public upload surfaces).
+- [S] **Today page:** add today's-schedule section + surface the GST filing-due date.
+- [L] **Business analytics** (reporting is CRA-compliance-only; no trends, top services, retention, utilization, no-show rates).
+- [M] **Data export** (PIPEDA/Law 25 subject access) · [L] **Right-to-be-forgotten / erasure / account deletion** (only soft-delete exists; PII incl. in PowerSync storage persists forever).
+- [M] **Audit the sync-write path** (`/sync/upload` writes no `audit_logs` → incomplete forensic trail).
 
 ### Ops (P1 tier)
-- [L] **Postgres RLS** (per-request `SET LOCAL` + `business_id WITH CHECK`) as defense-in-depth behind app-layer `scoped()`.
-- [M] **Rate limiting for real.** In-process limiter (resets per replica) covering only 5 public routes; move to Redis and cover auth + commands.
-- [M] **Auth brute-force lockout / backoff** on login/refresh/forgot-password.
-- [S] **Structured logging + request-id correlation;** [S] **readiness/liveness** checks (health is static, doesn't touch PG/Redis/PowerSync/S3).
-- [M] **arq worker: retry/DLQ/supervision** + a supervised prod worker process; [M] **CD + migration gating;** [M] **PowerSync prod topology** (RS256/JWKS wired, TLS, isolated storage, replication-slot resilience); [S] **dependency/security scanning** in CI.
-- [S] **React error boundaries** (web + mobile) — one render error white-screens the app today.
-- [M] **Data import / migrate-from-competitor** (clients/services/history CSV) — biggest switching-cost reducer.
+- [L] **Postgres RLS** (defense-in-depth behind app-layer `scoped()`).
+- [M] **Redis-backed rate limiting** (in-process resets per replica, covers only 5 public routes) + [M] **auth brute-force lockout/backoff**.
+- [S] **Structured logging + request-id** · [S] **readiness/liveness** (health is static).
+- [M] **arq worker retry/DLQ/supervision** · [M] **CD + migration gating** · [M] **PowerSync prod topology** (RS256/JWKS wired, TLS, isolated storage, replication-slot resilience) · [S] **dependency/security scanning** in CI.
+- [S] **React error boundaries** (one render error white-screens the app).
+- [M] **Data import / migrate-from-competitor** (biggest switching-cost reducer).
 - [S] **Broaden push** to the events staff want (new booking, new message, cancellation).
 
 ---
 
 ## 🟢 M5 — Depth & growth (P2)
 
-- [L] **Multi-location** (`parent_business_id` is fully dead — no hierarchy/switcher/cross-location reporting).
-- [L] **Memberships / loyalty / rewards** (points, tiers, member pricing, referrals).
-- [M] **Waitlists** for full slots/classes + auto-promote when a hold is reaped.
-- [L] **Online store** — public product catalog/cart/checkout + **inventory** (products are POS-only, no stock tracking).
-- [M] **Embeddable booking widget** (only a hosted `/book/{slug}` page today).
-- [L] **Public/developer API + API keys + outbound webhooks** (`webhook_events` is inbound-only).
-- [M] **Platform-admin (cross-tenant) role + support console;** [M] **granular/custom permissions** (`contractor` role is currently cosmetic — same perms as `staff`).
-- [M] **Subscription pause/resume/trial/plan-change** (`paused`/`trial_end_at` unreachable); **package auto-consume on booking** + **expiry wiring** (`expires_at` never set → expiry sweep is dead).
-- [M] **Gift cards: online purchase + balance check + apply-at-checkout** (redemption is a bare balance decrement, disconnected from the ledger — no `method='gift_card'` payment) + expiry.
-- [M] **Cancellation policy + late-cancel fee;** [M] **configurable/multiple reminders** (single fixed 24h today).
-- [L] **Calendar sync** (Google/iCal export feed + external-busy import).
-- [M] **Group/class scheduling UI + roster** (classes are lazily created on first booking; no published empty class); **per-staff/travel buffers**.
-- [M] **Forms: conditional/branching fields + full server-side validation** (only `required` is enforced); **contracts: countersign/multi-party + draw-signature pad** (signing can succeed with neither typed name nor image).
-- [M] **Tax depth:** place-of-supply (per-client province), inclusive pricing, per-line exempt/override, compound-tax support, rate-edit + registered/small-supplier UI, remittance-summary UI.
-- [L] **Reports:** ITCs/expenses → net profit, real T4A slip (box 048)/CRA e-file, client statements.
-- [M] **Dunning cadence** (day 7/14/30) + subscription retry/card-update prompt/auto-cancel; **dispute lifecycle** tracking (record, funds-on-hold, evidence, won/lost) + `payout.failed`/`payment_intent.processing` handlers.
-- [S] **Access-token revocation / jti denylist** (de-provisioned staff keep access up to 15 min); [M] **retention/PII purge;** [M] **metrics/tracing;** [M] **slow-query/index/sync-rule perf audit;** [S] **DB pool tuning;** [M] **blue-green/rollback.**
-- [M] **Multi-currency** (CAD hardcoded on create despite a currency column); [S] **`businesses.status` suspend/offboard** for the product's own SaaS dunning; [S] **decide `custom_fields`** (wire a field-builder or drop the vestigial jsonb columns); [M] **accessibility pass** + jsx-a11y gate; [M] **offline-conflict UX** (sync is last-write-wins with no surfacing); [S] **Stripe onboarding:** surface pending-verification + payout-bank detail.
+Standing backlog, pulled by demand — not a blocking milestone.
+
+- **Growth/commerce:** multi-location (`parent_business_id` is fully dead) · memberships/loyalty/rewards ·
+  waitlists + auto-promote · online store + inventory · online gift-card purchase + balance-check +
+  apply-at-checkout.
+- **Platform/scale:** public/developer API + keys + outbound webhooks (`webhook_events` is inbound-only) ·
+  platform-admin (cross-tenant) role + support console · granular/custom permissions (`contractor` is
+  cosmetic) · `businesses.status` suspend/offboard.
+- **Feature depth:** subscription pause/resume/trial/plan-change · package auto-consume-on-booking + expiry
+  wiring · cancellation policy + late-cancel fee · configurable/multiple reminders · calendar sync
+  (Google/iCal) · group/class scheduling UI + roster + per-staff/travel buffers · conditional form fields +
+  full validation · countersign/multi-party e-sign + draw-signature pad.
+- **Tax/reporting depth:** place-of-supply (per-client province) · inclusive pricing · per-line exempt/
+  override · compound-tax · rate-edit + remittance UI · ITCs/expenses → net profit · real T4A slip/e-file ·
+  client statements · dunning cadence + subscription retry/auto-cancel · dispute lifecycle tracking.
+- **Platform hygiene:** access-token revocation/jti denylist (de-provisioned staff keep access ≤15 min) ·
+  retention/PII purge · metrics/tracing · slow-query/index/sync-rule perf audit · DB pool tuning ·
+  blue-green/rollback · multi-currency (CAD hardcoded on create) · decide `custom_fields` (wire a builder or
+  drop) · accessibility pass + jsx-a11y gate · offline-conflict UX · Stripe onboarding pending-verification detail.
 
 ---
 
-## Housekeeping
-- **Refresh the stale docs** (deferred; separate task): `product-plan.md` (only Slice 1 ticked), `backend-plan.md` (only Phases 0–2 ticked), and `data-model.md`/`schema.md` (say 36 tables; live schema is **41** — adds `orders`, `device_tokens`, `idempotency_keys`, plus columns like `businesses.stripe_charges_enabled`/`kyc_status`, `items.stripe_price_id`, `bookings.deposit_status`/`reminded_at`, `invoices.pay_token`).
-</content>
-</invoke>
+## Execution order
+
+### Decision gates (resolve before the phases they block)
+| # | Decision | Blocks | Recommended default |
+|---|---|---|---|
+| D1 | **Hosting target** (Fly/Render/AWS/…) | prod deploy + PowerSync prod topology | a managed container host (Fly.io/Render) — smallest ops surface for a small team |
+| D2 | **Interac provider** (real bank/aggregator vs manual-confirm) | Interac ingestion polish; the "wedge" claim | ship manual-confirm + reference-match now; true bank ingestion is M5 |
+| D3 | **Client portal now or later** | Connect Phase 4 scope | defer the full portal to end of M4; do cheap self-serve cancel/reschedule first |
+| D4 | **Compliance depth for launch region(s)** | CASL + export/RTBF | CASL consent + export/erasure are M3/early-M4 if launching in Canada |
+
+### The two gates
+1. **🚦 Launch-ready** — M3 + correctness done → safe to onboard real paying tenants.
+2. **🚦 Complete product** — M4 done → competitive with the category incumbents on core.
+
+### Sequencing
+```
+D1..D4 decisions
+      │
+  M3: security+correctness ─┐  (correctness before features — a broken tax split/timezone/refund multiplies cleanup)
+      tax + catalog unblock ─┤ parallel tracks (mostly disjoint modules)
+      consent + SMS tenancy ─┤
+      deploy + observability ┘  ← needs D1
+      │  [Launch-ready gate]
+      │
+  M4: payments · scheduling · CRM/messaging · docs/analytics/compliance · ops-P1   (parallel; portal last, per D3)
+      │  [Complete-product gate]
+      │
+  M5 tracks (demand-pulled)
+```
+Every item follows the [engineering.md](engineering.md) conventions: layer-first, the 5 surfaces (invariant →
+command), role gates match `WRITE_POLICY`, the 4-part test matrix + 90% coverage, a milestone audit at each
+phase boundary, single-line commits → push → verify CI green.
+
+---
+
+## Connect — the customer experience
+
+The customer-facing layer (booking, pay, forms, contracts, reviews + a future client portal), branded
+**Connect**. Provider-facing config (brand editing) is in the provider app.
+
+**Done (Phases 0–3):** name + cross-business-identity decisions · brand read+render (validated `PublicBrand`
++ shared `PublicFrame` + runtime `--accent` theming) · brand edit path in provider Account · the lean
+`apps/connect` app (PowerSync-free, 232 KB vs web's 643 KB, no COEP so it embeds) with all five public pages
++ a per-business landing · the embed mechanism (`public/embed.js` web components + iframe + `postMessage`
+resize/success + a config-driven CORS allowlist).
+
+**Remaining:**
+- **Phase 4 — authenticated client portal (cross-business).** The largest piece: a net-new **customer
+  identity tier** (a `customers` account with magic-link/OTP, linked to the per-business `clients` rows via a
+  claim flow), client-scoped reads fanning across a customer's businesses (appointments, invoices/payments,
+  saved cards, package/sub balances, messages), and client-initiated writes (rebook, pay any open invoice,
+  reply). The underlying business logic (`create_booking_core`, the `open_*` payment helpers, `file_service`)
+  is already shared. **Risk:** a mis-linked account leaks one customer's data across businesses — the
+  tenant-isolation invariant now spans *customer → many businesses*; consider a single-business slice first to
+  de-risk the auth plumbing, then layer cross-business linking on top. *(Gated by D3.)*
+- **Phase 5 — richness, PWA, white-label.** Richer pickers (real slot/calendar, multi-item cart), conditional
+  forms, countersign (overlaps the M4 backlog); PWA install; custom domains + white-label (host-based tenant
+  resolution + chrome removal); a mobile ThemeContext refactor only if a branded mobile preview is needed.
+- **Public-edge hardening (do once, at the edge; overlaps M3/M4):** bot protection (Turnstile/CAPTCHA) on
+  booking/pay `POST`s · Redis-backed rate limiting · token TTLs + aging · trustworthy client-IP · per-business
+  `frame-ancestors` CSP + iframe `sandbox`.

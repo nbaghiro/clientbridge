@@ -7,7 +7,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
     plugins: [react()],
     server: {
-        port: 8709, // see .docs/ports.md
+        port: 8709, // see .docs/engineering.md (ports)
         strictPort: true,
     },
     preview: { port: 8709 },

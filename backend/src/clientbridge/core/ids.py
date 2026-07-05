@@ -1,4 +1,4 @@
-"""Prefixed-ULID identifiers. See docs/data-model.md for the prefix catalog."""
+"""Prefixed-ULID identifiers. See .docs/architecture.md for the prefix catalog."""
 
 from ulid import ULID
 

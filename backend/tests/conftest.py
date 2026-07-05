@@ -1,4 +1,4 @@
-"""Shared test fixtures (see .docs/testing.md).
+"""Shared test fixtures (see .docs/engineering.md).
 
 Integration tests run against the migrated + SEEDED dev DB. Each test runs inside a transaction
 rolled back at teardown (savepoint join + a `get_session` override), so the committed seed is the
