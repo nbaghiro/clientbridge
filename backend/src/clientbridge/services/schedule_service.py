@@ -5,19 +5,16 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
+from clientbridge.core.deps import Principal, assert_can_act_as
 from clientbridge.core.errors import AppError, Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.scheduling import Schedule
 from clientbridge.schemas.bookings import ScheduleCreate, ScheduleOccurrence, ScheduleOut
-from clientbridge.services.availability_service import business_tz
-from clientbridge.services.booking_service import (
-    assert_can_act_as,
-    create_booking_core,
-    load_client,
-    load_item,
-    load_staff,
-)
+from clientbridge.services.booking_service import create_booking_core
+from clientbridge.services.business_service import business_tz
+from clientbridge.services.catalog_service import load_item
+from clientbridge.services.client_service import load_client
+from clientbridge.services.staff_service import load_staff
 
 _WEEKDAY_CODES = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
 _MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules

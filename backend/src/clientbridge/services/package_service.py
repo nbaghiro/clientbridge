@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -162,3 +163,23 @@ def _out(package: Package) -> PackageOut:
         sessions_used=package.sessions_used,
         status=package.status,
     )
+
+
+async def activate_purchased(db: AsyncSession, payment_id: str) -> None:
+    """Activate the package a settled purchase charge paid for (pending → active)."""
+    package = (
+        await db.execute(select(Package).where(Package.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if package is not None and package.status == "pending":
+        package.status = "active"
+        await db.flush()
+
+
+async def void_purchased(db: AsyncSession, payment_id: str) -> None:
+    """Void the package a refunded purchase charge paid for (pending/active → canceled)."""
+    package = (
+        await db.execute(select(Package).where(Package.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if package is not None and package.status in ("pending", "active"):
+        package.status = "canceled"
+        await db.flush()

@@ -9,13 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal
-from clientbridge.core.errors import AppError, Conflict, Unauthorized
+from clientbridge.core.errors import AppError, Conflict, NotFound, Unauthorized
 from clientbridge.core.ids import new_id
-from clientbridge.core.security import hash_password, hash_token, verify_password
+from clientbridge.core.scoping import scoped
+from clientbridge.core.security import hash_token, verify_password
 from clientbridge.integrations.notifications import Email, EmailSender
 from clientbridge.models.identity import Staff, User
 from clientbridge.models.platform import AuditLog
 from clientbridge.schemas.identity import InviteOut
+from clientbridge.services.auth_service import build_user
 
 INVITE_TTL = timedelta(days=14)
 INVITABLE_ROLES = {"admin", "staff", "contractor"}  # never invite an owner
@@ -85,13 +87,7 @@ class StaffService:
                 await self.db.execute(select(User).where(User.email == staff.invite_email))
             ).scalar_one_or_none()
         if user is None:
-            user = User(
-                id=new_id("user"),
-                email=staff.invite_email or "",
-                password_hash=hash_password(password),
-                name=name,
-                oauth={},
-            )
+            user = build_user(email=staff.invite_email or "", password=password, name=name)
             self.db.add(user)
             await self.db.flush()
         elif user.password_hash is None or not verify_password(password, user.password_hash):
@@ -114,3 +110,14 @@ class StaffService:
         )
         await self.db.commit()
         return user
+
+
+async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
+    """Load an active staff member by id, else NotFound. Shared by the booking and scheduling
+    flows, which resolve the staff a booking is assigned to."""
+    row = (
+        await db.execute(scoped(Staff, biz).where(Staff.id == staff_id, Staff.status == "active"))
+    ).scalar_one_or_none()
+    if row is None:
+        raise NotFound("staff not found")
+    return row

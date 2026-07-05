@@ -127,6 +127,14 @@ def assert_role(principal: Principal, *roles: str, message: str) -> None:
         raise Forbidden(message)
 
 
+def assert_can_act_as(principal: Principal, staff_id: str | None) -> None:
+    """Owner/admin may act for anyone; other staff only for their own bookings/schedule."""
+    if principal.role in ("owner", "admin"):
+        return
+    if staff_id != principal.staff_id:
+        raise Forbidden("staff can only manage their own bookings")
+
+
 def require_role(*roles: str) -> Callable[..., Awaitable[Principal]]:
     """Dependency factory: 403 unless the actor's role is one of `roles`. For a router where every
     endpoint is admin-only; a service with mixed per-method access uses `assert_role` instead."""

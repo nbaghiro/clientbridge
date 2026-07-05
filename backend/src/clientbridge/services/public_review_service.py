@@ -3,12 +3,12 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.identity import Business
 from clientbridge.models.reviews import Review, ReviewRequest
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
-from clientbridge.services.public_common import public_brand
+from clientbridge.services.public_common import business_or_404, public_brand, resolve_by_token
 
 
 class PublicReviewService:
@@ -19,15 +19,10 @@ class PublicReviewService:
         self.db = db
 
     async def _resolve(self, token: str) -> tuple[ReviewRequest, Business]:
-        request = (
-            await self.db.execute(select(ReviewRequest).where(ReviewRequest.token == token))
-        ).scalar_one_or_none()
-        if request is None:
-            raise NotFound("review link not found")
-        business = await self.db.get(Business, request.business_id)
-        if business is None:
-            raise NotFound("review link not found")
-        return request, business
+        request = await resolve_by_token(
+            self.db, ReviewRequest, ReviewRequest.token == token, "review link not found"
+        )
+        return request, await business_or_404(self.db, request.business_id, "review link not found")
 
     async def context(self, token: str) -> PublicReviewContext:
         request, business = await self._resolve(token)

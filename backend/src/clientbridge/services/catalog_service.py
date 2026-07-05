@@ -21,14 +21,7 @@ class CatalogService:
         return items, await scoped_count(self.db, Item, biz)
 
     async def get(self, item_id: str) -> Item:
-        item = (
-            await self.db.execute(
-                scoped(Item, self.principal.business_id).where(Item.id == item_id)
-            )
-        ).scalar_one_or_none()
-        if item is None:
-            raise NotFound("item not found")
-        return item
+        return await load_item(self.db, self.principal.business_id, item_id, require_active=False)
 
     async def create(self, data: ItemCreate) -> Item:
         item = Item(
@@ -67,3 +60,26 @@ class CatalogService:
         item = await self.get(item_id)
         item.active = False
         await self.db.commit()
+
+
+async def load_item(
+    db: AsyncSession, biz: str, item_id: str, *, require_active: bool = True
+) -> Item:
+    """Load a catalog item by id (active-only by default), else NotFound. Shared by the booking and
+    scheduling flows, which resolve the item they operate on."""
+    q = scoped(Item, biz).where(Item.id == item_id)
+    if require_active:
+        q = q.where(Item.active.is_(True))
+    row = (await db.execute(q)).scalar_one_or_none()
+    if row is None:
+        raise NotFound("item not found")
+    return row
+
+
+def deposit_cents(item: Item) -> int:
+    """The deposit owed for a booking of this item: fixed cents, or a percent of its price."""
+    if item.deposit_type == "none" or item.deposit_value is None:
+        return 0
+    if item.deposit_type == "fixed":
+        return int(item.deposit_value)
+    return round(item.price_cents * float(item.deposit_value) / 100)

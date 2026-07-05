@@ -23,6 +23,7 @@ from clientbridge.schemas.payments import (
 )
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.payment_service import PaymentService
+from clientbridge.services.report_service import ReportService
 
 router = APIRouter(prefix="/connect", tags=["connect"])
 
@@ -122,10 +123,8 @@ async def refund_payment(
 
 
 @pay_router.get("/remittance", response_model=RemittanceSummary)
-async def remittance(
-    principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
-) -> RemittanceSummary:
-    return await PaymentService(db, principal, gateway).remittance_summary()
+async def remittance(principal: CurrentPrincipal, db: DbSession) -> RemittanceSummary:
+    return await ReportService(db, principal).remittance_summary()
 
 
 @pay_router.post("/invoice/{invoice_id}/interac", response_model=InteracRequest)

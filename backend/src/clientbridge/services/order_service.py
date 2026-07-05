@@ -19,7 +19,13 @@ from clientbridge.schemas.orders import (
     OrderOut,
     OrderUpdate,
 )
-from clientbridge.services.lines import fetch_lines, line_out, replace_lines, tax_for_lines
+from clientbridge.services.lines import (
+    apply_totals,
+    fetch_lines,
+    line_out,
+    replace_lines,
+    tax_for_lines,
+)
 from clientbridge.services.payment_service import open_terminal_payment
 
 
@@ -164,11 +170,7 @@ class OrderService:
         )
 
     async def _apply_totals(self, order: Order, lines: list[Line]) -> None:
-        result = await tax_for_lines(self.db, self.biz, lines)
-        order.subtotal_cents = result.subtotal_cents
-        order.tax_total_cents = result.tax_total_cents
-        order.total_cents = result.total_cents
-        order.balance_cents = result.total_cents - order.amount_paid_cents
+        apply_totals(order, await tax_for_lines(self.db, self.biz, lines))
 
     async def _order(self, order_id: str) -> Order:
         row = (

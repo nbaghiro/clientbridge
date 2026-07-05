@@ -1,5 +1,6 @@
 import secrets
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -196,3 +197,26 @@ def _out(card: GiftCard) -> GiftCardOut:
         balance_cents=card.balance_cents,
         status=card.status,
     )
+
+
+async def activate_purchased(db: AsyncSession, payment_id: str) -> str | None:
+    """Activate the gift card a settled purchase charge paid for (pending → active); returns its id
+    so the webhook can notify the recipient."""
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if card is not None and card.status == "pending":
+        card.status = "active"
+        await db.flush()
+        return card.id
+    return None
+
+
+async def void_purchased(db: AsyncSession, payment_id: str) -> None:
+    """Void the gift card a refunded purchase charge paid for (pending/active → void)."""
+    card = (
+        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
+    ).scalar_one_or_none()
+    if card is not None and card.status in ("pending", "active"):
+        card.status = "void"
+        await db.flush()

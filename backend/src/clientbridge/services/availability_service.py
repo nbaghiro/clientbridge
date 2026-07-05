@@ -1,21 +1,10 @@
 from datetime import UTC, date, datetime, time
-from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.scoping import scoped
-from clientbridge.models.identity import Business
 from clientbridge.models.scheduling import Availability
-
-
-async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
-    """The business's local timezone. Availability windows are stored as local wall-clock in it, so
-    every availability comparison converts session instants into this zone first."""
-    tz = (
-        await db.execute(select(Business.timezone).where(Business.id == business_id))
-    ).scalar_one_or_none()
-    return ZoneInfo(tz) if tz is not None else ZoneInfo("UTC")
+from clientbridge.services.business_service import business_tz
 
 
 async def open_windows(
