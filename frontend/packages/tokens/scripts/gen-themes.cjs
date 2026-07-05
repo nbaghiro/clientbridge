@@ -1,11 +1,11 @@
-// Regenerate themes.css + themes.ts from the design exploration's theme-explorer.html.
+// Regenerate themes.css + themes.ts from the design exploration's app-explorer.html.
 // Run: `node packages/tokens/scripts/gen-themes.cjs` from the frontend root (or anywhere).
 const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.resolve(__dirname, "../../../..");
 const SRC = path.resolve(__dirname, "../src");
-const html = fs.readFileSync(`${ROOT}/.docs/design/theme-explorer.html`, "utf8");
+const html = fs.readFileSync(`${ROOT}/.docs/design/app-explorer.html`, "utf8");
 
 const NAMES = {
     pewter: "Pewter",
@@ -34,7 +34,7 @@ const px = (v) => parseInt((v || "0").replace(/[^0-9]/g, ""), 10);
 const avatar = (v) => (v && v.includes("%") ? 999 : px(v));
 
 let css =
-    "/* AUTO-GENERATED from .docs/design/theme-explorer.html. :root = Pewter; set [data-theme] to switch. */\n\n";
+    "/* AUTO-GENERATED from .docs/design/app-explorer.html. :root = Pewter; set [data-theme] to switch. */\n\n";
 for (const key of ORDER) {
     const v = raw[key];
     if (!v) continue;
@@ -88,7 +88,7 @@ const themeObj = (v) => {
 };
 
 const j = (o) => JSON.stringify(o, null, 4).replace(/"([a-zA-Z0-9]+)":/g, "$1:");
-let ts = "// AUTO-GENERATED from .docs/design/theme-explorer.html — do not edit by hand.\n\n";
+let ts = "// AUTO-GENERATED from .docs/design/app-explorer.html — do not edit by hand.\n\n";
 ts += "export const THEME_KEYS = [" + ORDER.map((k) => `"${k}"`).join(", ") + "] as const;\n";
 ts += "export type ThemeKey = (typeof THEME_KEYS)[number];\n\n";
 ts += "export const THEME_LABELS: Record<ThemeKey, string> = " + j(NAMES) + ";\n\n";
