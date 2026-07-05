@@ -1,4 +1,3 @@
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
@@ -7,14 +6,13 @@ from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
-from clientbridge.models.payments import Payment
 from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
 from clientbridge.services.payment_service import (
     assert_payable,
     open_card_payment,
     open_interac_payment,
 )
-from clientbridge.services.public_common import public_brand
+from clientbridge.services.public_common import business_or_404, public_brand, resolve_by_token
 
 
 class PublicPayService:
@@ -26,15 +24,9 @@ class PublicPayService:
         self.gateway = gateway
 
     async def _resolve(self, token: str) -> tuple[Invoice, Business]:
-        invoice = (
-            await self.db.execute(select(Invoice).where(Invoice.pay_token == token))
-        ).scalar_one_or_none()
-        if invoice is None:
-            raise NotFound("payment link not found")
-        business = await self.db.get(Business, invoice.business_id)
-        if business is None:
-            raise NotFound("payment link not found")
-        return invoice, business
+        msg = "payment link not found"
+        invoice = await resolve_by_token(self.db, Invoice, Invoice.pay_token == token, msg)
+        return invoice, await business_or_404(self.db, invoice.business_id, msg)
 
     async def invoice(self, token: str) -> PublicInvoice:
         invoice, business = await self._resolve(token)
@@ -78,35 +70,13 @@ class PublicPayService:
     async def pay_interac(self, token: str) -> InteracRequest:
         invoice, business = await self._resolve(token)
         amount = assert_payable(invoice)
-        payment = await self._open_interac_payment(invoice, amount)
+        payment = await open_interac_payment(
+            self.db, business_id=invoice.business_id, invoice=invoice, amount=amount
+        )
         await self.db.commit()
         return InteracRequest(
             payment_id=payment.id,
             reference_code=payment.reference_code or "",
             send_to=business.billing_email,
             amount_cents=amount,
-        )
-
-    async def _open_interac_payment(self, invoice: Invoice, amount: int) -> Payment:
-        # Reuse an open request so a customer double-submit returns the same reference code.
-        existing = (
-            (
-                await self.db.execute(
-                    select(Payment)
-                    .where(
-                        Payment.invoice_id == invoice.id,
-                        Payment.provider == "interac",
-                        Payment.status == "pending",
-                    )
-                    .order_by(Payment.created_at)
-                    .limit(1)
-                )
-            )
-            .scalars()
-            .first()
-        )
-        if existing is not None:
-            return existing
-        return await open_interac_payment(
-            self.db, business_id=invoice.business_id, invoice=invoice, amount=amount
         )

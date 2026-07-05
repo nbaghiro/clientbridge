@@ -2,7 +2,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import case, func, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,9 +11,8 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
-from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
+from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.payments import (
-    ConnectAccount,
     GatewayEvent,
     PaymentGateway,
     account_status_from,
@@ -21,10 +20,10 @@ from clientbridge.integrations.payments import (
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business, Staff
+from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod, Payout, PayoutAllocation
 from clientbridge.models.platform import WebhookEvent
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.payments import (
     ConnectStatus,
     DetachResult,
@@ -33,10 +32,12 @@ from clientbridge.schemas.payments import (
     PayIntentOut,
     PaymentMethodOut,
     RefundOut,
-    RemittanceSummary,
     SetupIntentOut,
 )
-from clientbridge.services.lines import tax_for_lines
+from clientbridge.services.business_service import apply_account_status
+from clientbridge.services.client_service import recompute_ltv
+from clientbridge.services.lines import apply_totals, tax_for_amount, tax_for_lines
+from clientbridge.services.payout_service import ensure_allocations, reverse_allocations
 
 
 @dataclass(frozen=True)
@@ -117,29 +118,6 @@ class PaymentService:
             past_due=_due("past_due"),
             pending_verification=_due("pending_verification"),
         )
-
-    async def remittance_summary(self) -> RemittanceSummary:
-        self._assert_admin()
-        invoices = (
-            (
-                await self.db.execute(
-                    scoped(Invoice, self.biz).where(
-                        Invoice.status.in_(("sent", "paid", "partial", "overdue")),
-                        Invoice.total_cents > 0,
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-        # CRA remittance is on tax actually COLLECTED, so pro-rate each invoice's tax by the
-        # fraction collected (total minus balance): a partial refund raises the balance + lowers it,
-        # rather than dropping the whole invoice's tax the moment it leaves "paid".
-        collected = sum(
-            round(i.tax_total_cents * (i.total_cents - i.balance_cents) / i.total_cents)
-            for i in invoices
-        )
-        return RemittanceSummary(tax_collected_cents=collected)
 
     async def pay_invoice(
         self,
@@ -377,7 +355,7 @@ class PaymentService:
             if payment.booking_id is not None and payment.kind == "deposit":
                 await _reverse_booking_deposit(self.db, payment.booking_id)
             await _reverse_entitlement(self.db, payment)
-            await _recompute_client_ltv(self.db, refund.client_id)
+            await recompute_ltv(self.db, refund.client_id)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
             return RefundOut(refund_id=refund.id, status=result.status)
 
@@ -587,6 +565,32 @@ async def ensure_customer(
         await db.flush()
     assert locked.stripe_customer_id is not None
     return locked.stripe_customer_id
+
+
+async def ensure_subscription_price(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    account_id: str,
+    item: Item,
+    *,
+    interval_count: int,
+    frequency: str,
+) -> str:
+    """The item's Stripe recurring Price, created (and cached on the item) on first use. The Price
+    is the tax-inclusive total, since a recurring charge must collect GST/PST."""
+    if item.stripe_price_id is not None:
+        return item.stripe_price_id
+    tax = await tax_for_amount(db, item.business_id, item.price_cents)
+    price_id = await gateway.create_price(
+        account_id,
+        amount_cents=tax.total_cents,
+        currency=item.currency,
+        interval_count=interval_count,
+        frequency=frequency,
+    )
+    item.stripe_price_id = price_id
+    await db.flush()
+    return price_id
 
 
 async def open_card_payment(
@@ -818,7 +822,26 @@ async def open_terminal_payment(
 async def open_interac_payment(
     db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int, kind: str = "payment"
 ) -> Payment:
-    """A pending Interac Payment with a unique auto-match reference code (caller commits)."""
+    """A pending Interac Payment with a unique auto-match reference code (caller commits). Reuses an
+    open request for the invoice, so a double-submit returns the same code rather than a new one."""
+    existing = (
+        (
+            await db.execute(
+                select(Payment)
+                .where(
+                    Payment.invoice_id == invoice.id,
+                    Payment.provider == "interac",
+                    Payment.status == "pending",
+                )
+                .order_by(Payment.created_at)
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if existing is not None:
+        return existing
     await _assert_room(db, invoice, amount)
     payment = Payment(
         id=new_id("payment"),
@@ -867,36 +890,6 @@ async def process_stripe_event(
         await db.rollback()
         return None
     return outcome
-
-
-def derive_kyc_status(status: ConnectAccount) -> str:
-    """The provider-facing KYC state, derived from the Stripe account (the source of truth)."""
-    if status.disabled_reason is not None and status.disabled_reason.startswith("rejected"):
-        return "disabled"
-    if status.charges_enabled and not status.currently_due and not status.past_due:
-        return "enabled"
-    if not status.details_submitted:
-        return "not_started"  # account created, the provider hasn't finished the hosted flow
-    if status.currently_due or status.past_due:
-        return "restricted"  # Stripe needs more from the provider
-    if status.pending_verification:
-        return "pending"  # Stripe is reviewing
-    return "pending"
-
-
-def apply_account_status(business: Business, status: ConnectAccount) -> None:
-    """Mirror the connected-account KYC state onto the business (Stripe = source of truth)."""
-    business.stripe_charges_enabled = status.charges_enabled
-    business.stripe_payouts_enabled = status.payouts_enabled
-    business.stripe_details_submitted = status.details_submitted
-    business.stripe_requirements = {
-        "currently_due": status.currently_due,
-        "eventually_due": status.eventually_due,
-        "past_due": status.past_due,
-        "pending_verification": status.pending_verification,
-        "disabled_reason": status.disabled_reason,
-    }
-    business.kyc_status = derive_kyc_status(status)
 
 
 async def _update_payment_method(
@@ -957,7 +950,7 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | 
                 await _reconcile_invoice(db, payment.invoice_id)
             if payment.order_id is not None:
                 await _reconcile_order(db, payment.order_id)
-            await _recompute_client_ltv(db, prior.client_id)
+            await recompute_ltv(db, prior.client_id)
         return prior.id
     refunds = data.get("refunds")
     rows = refunds.get("data") if isinstance(refunds, dict) else None
@@ -990,7 +983,7 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | 
     if payment.booking_id is not None and payment.kind == "deposit":
         await _reverse_booking_deposit(db, payment.booking_id)
     await _reverse_entitlement(db, payment)
-    await _recompute_client_ltv(db, refund.client_id)
+    await recompute_ltv(db, refund.client_id)
     return refund.id
 
 
@@ -1077,66 +1070,43 @@ async def _settle_payment(db: AsyncSession, intent_id: str, *, fee_cents: int) -
     if payment.booking_id is not None and payment.kind == "deposit":
         await _settle_booking_deposit(db, payment.booking_id)
     gift_card_id = await _settle_entitlement(db, payment)
-    await _recompute_client_ltv(db, payment.client_id)
+    await recompute_ltv(db, payment.client_id)
     return _Settled(payment.id, gift_card_id)
 
 
 async def _settle_entitlement(db: AsyncSession, payment: Payment) -> str | None:
-    """Activate a pending package/gift card once its purchase charge settles (mirrors the deposit
-    settlement). Returns the gift card id whose recipient to notify, else None."""
+    """Activate a pending package/gift card once its purchase charge settles (only a pure
+    entitlement purchase has no invoice/order/booking). Returns the gift card id to notify."""
     if payment.invoice_id or payment.order_id or payment.booking_id:
         return None
-    package = (
-        await db.execute(select(Package).where(Package.payment_id == payment.id))
-    ).scalar_one_or_none()
-    if package is not None and package.status == "pending":
-        package.status = "active"
-        await db.flush()
-        return None
-    card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment.id))
-    ).scalar_one_or_none()
-    if card is not None and card.status == "pending":
-        card.status = "active"
-        await db.flush()
-        return card.id
-    return None
+    # deferred: package/gift_card import this module's builders, so a top-level import would cycle.
+    from clientbridge.services import gift_card_service, package_service
+
+    await package_service.activate_purchased(db, payment.id)
+    return await gift_card_service.activate_purchased(db, payment.id)
 
 
 async def _settle_booking_deposit(db: AsyncSession, booking_id: str) -> None:
-    """Mark a booking's deposit collected once its charge settles — but never downgrade one already
-    forfeited (a no-show capture marks forfeited up-front; its later settlement keeps it)."""
-    booking = await db.get(Booking, booking_id)
-    if booking is not None and booking.deposit_status in ("none", "pending"):
-        booking.deposit_status = "collected"
-        await db.flush()
+    from clientbridge.services import booking_service  # deferred: booking imports this module
+
+    await booking_service.settle_deposit(db, booking_id)
 
 
 async def _reverse_booking_deposit(db: AsyncSession, booking_id: str) -> None:
-    """Undo a collected deposit when its charge is refunded (no `refunded` enum value → `none`)."""
-    booking = await db.get(Booking, booking_id)
-    if booking is not None and booking.deposit_status == "collected":
-        booking.deposit_status = "none"
-        await db.flush()
+    from clientbridge.services import booking_service  # deferred: booking imports this module
+
+    await booking_service.reverse_deposit(db, booking_id)
 
 
 async def _reverse_entitlement(db: AsyncSession, payment: Payment) -> None:
     """Void a package/gift card whose purchase charge is refunded (mirrors _settle_entitlement)."""
     if payment.invoice_id or payment.order_id or payment.booking_id:
         return
-    package = (
-        await db.execute(select(Package).where(Package.payment_id == payment.id))
-    ).scalar_one_or_none()
-    if package is not None and package.status in ("pending", "active"):
-        package.status = "canceled"
-        await db.flush()
-        return
-    card = (
-        await db.execute(select(GiftCard).where(GiftCard.payment_id == payment.id))
-    ).scalar_one_or_none()
-    if card is not None and card.status in ("pending", "active"):
-        card.status = "void"
-        await db.flush()
+    # deferred: package/gift_card import this module's builders, so a top-level import would cycle.
+    from clientbridge.services import gift_card_service, package_service
+
+    await package_service.void_purchased(db, payment.id)
+    await gift_card_service.void_purchased(db, payment.id)
 
 
 async def _reconcile_order(db: AsyncSession, order_id: str) -> None:
@@ -1202,9 +1172,9 @@ async def _reconcile_invoice(db: AsyncSession, invoice_id: str) -> None:
         invoice.paid_at = None  # a partial refund un-pays the invoice
     await db.flush()
     if invoice.status == "paid":
-        await _ensure_allocations(db, invoice)
+        await ensure_allocations(db, invoice)
     else:
-        await _reverse_allocations(db, invoice)
+        await reverse_allocations(db, invoice)
 
 
 async def _record_payout(db: AsyncSession, account_id: str | None, data: dict[str, object]) -> None:
@@ -1433,7 +1403,7 @@ async def _record_recurring_payment(db: AsyncSession, data: dict[str, object]) -
     )
     db.add(payment)
     await db.flush()
-    await _recompute_client_ltv(db, payment.client_id)
+    await recompute_ltv(db, payment.client_id)
     return payment.id
 
 
@@ -1469,156 +1439,10 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
     )
     db.add(line)
     result = await tax_for_lines(db, sub.business_id, [line])
-    invoice.subtotal_cents = result.subtotal_cents
-    invoice.tax_total_cents = result.tax_total_cents
-    invoice.total_cents = result.total_cents
-    invoice.amount_paid_cents = result.total_cents
-    invoice.balance_cents = 0
+    invoice.amount_paid_cents = result.total_cents  # a subscription cycle is prepaid in full
+    apply_totals(invoice, result)  # balance = total - amount_paid = 0
     await db.flush()
     return invoice.id
-
-
-async def _allocation_split(
-    db: AsyncSession, staff: Staff, line_cents: int, booking: Booking
-) -> tuple[str, int] | None:
-    """The (basis, cents) a payee earns on a booking line, by rate type. `default_rate` is
-    percentage-points for `percent` (a share of the line) and dollars otherwise: `fixed` = a flat
-    amount per booking, `hourly` = rate * the session's hours."""
-    rate = staff.default_rate
-    if rate is None:
-        return None
-    if staff.rate_type == "percent":
-        return "percent", round(line_cents * rate / 100)
-    if staff.rate_type == "fixed":
-        return "fixed", round(rate * 100)
-    if staff.rate_type == "hourly":
-        session = await db.get(Session, booking.session_id)
-        if session is None:
-            return None
-        hours = (session.ends_at - session.starts_at).total_seconds() / 3600
-        return "rate", round(rate * hours * 100)
-    return None
-
-
-async def _ensure_allocations(db: AsyncSession, invoice: Invoice) -> None:
-    """On a fully-paid invoice, record a pending payout split for each payee staff on its booking
-    lines (percent of the line). Idempotent — skips bookings already allocated."""
-    lines = (
-        (
-            await db.execute(
-                select(Line).where(
-                    Line.parent_type == "invoice",
-                    Line.parent_id == invoice.id,
-                    Line.booking_id.isnot(None),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for line in lines:
-        booking_id = line.booking_id
-        if booking_id is None:
-            continue
-        seen = (
-            (
-                await db.execute(
-                    select(PayoutAllocation.id)
-                    .where(
-                        PayoutAllocation.source_type == "booking",
-                        PayoutAllocation.source_id == booking_id,
-                    )
-                    .limit(1)
-                )
-            )
-            .scalars()
-            .first()
-        )
-        if seen is not None:
-            continue
-        booking = await db.get(Booking, booking_id)
-        if booking is None or booking.staff_id is None:
-            continue
-        staff = await db.get(Staff, booking.staff_id)
-        if staff is None or not staff.is_payee or staff.default_rate is None:
-            continue
-        split = await _allocation_split(db, staff, line.amount_cents, booking)
-        if split is None or split[1] <= 0:
-            continue
-        basis, amount = split
-        db.add(
-            PayoutAllocation(
-                id=new_id("payout_allocation"),
-                business_id=invoice.business_id,
-                staff_id=staff.id,
-                source_type="booking",
-                source_id=booking_id,
-                basis=basis,
-                rate=staff.default_rate,
-                amount_cents=amount,
-                status="pending",
-            )
-        )
-    await db.flush()
-
-
-async def _reverse_allocations(db: AsyncSession, invoice: Invoice) -> None:
-    """When a refund drops an invoice below fully-paid, remove the pending (not-yet-paid-out) payout
-    splits made for its bookings so staff aren't credited (nor T4A inflated) for refunded work.
-    Allocations already on a payout are left alone (a paid-out clawback is out of scope)."""
-    booking_ids = [
-        b
-        for b in (
-            await db.execute(
-                select(Line.booking_id).where(
-                    Line.parent_type == "invoice",
-                    Line.parent_id == invoice.id,
-                    Line.booking_id.isnot(None),
-                )
-            )
-        )
-        .scalars()
-        .all()
-        if b is not None
-    ]
-    if not booking_ids:
-        return
-    await db.execute(
-        scoped_delete(PayoutAllocation, invoice.business_id).where(
-            PayoutAllocation.source_type == "booking",
-            PayoutAllocation.source_id.in_(booking_ids),
-            PayoutAllocation.status == "pending",
-            PayoutAllocation.payout_id.is_(None),
-        )
-    )
-    await db.flush()
-
-
-async def _recompute_client_ltv(db: AsyncSession, client_id: str | None) -> None:
-    """Recompute the client's lifetime value from their settled payments (payments and deposits
-    less refunds), so it stays right on every settle/refund. No-op for walk-ins."""
-    if client_id is None:
-        return
-    client = await db.get(Client, client_id)
-    if client is None:
-        return
-    total = (
-        await db.execute(
-            select(
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (Payment.kind == "refund", -Payment.amount_cents),
-                            else_=Payment.amount_cents,
-                        )
-                    ),
-                    0,
-                )
-            ).where(Payment.client_id == client_id, Payment.status == "succeeded")
-        )
-    ).scalar_one()
-    client.lifetime_value_cents = int(total)
-    await db.flush()
 
 
 async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int) -> str | None:
@@ -1642,7 +1466,7 @@ async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int
     await db.flush()
     if payment.invoice_id is not None:
         await _reconcile_invoice(db, payment.invoice_id)
-    await _recompute_client_ltv(db, payment.client_id)
+    await recompute_ltv(db, payment.client_id)
     return payment.id
 
 

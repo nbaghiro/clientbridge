@@ -12,8 +12,11 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import PaymentMethod
 from clientbridge.schemas.subscriptions import SubscriptionCreate, SubscriptionOut
-from clientbridge.services.lines import tax_for_amount
-from clientbridge.services.payment_service import ensure_customer, map_subscription_status
+from clientbridge.services.payment_service import (
+    ensure_customer,
+    ensure_subscription_price,
+    map_subscription_status,
+)
 
 
 class SubscriptionService:
@@ -49,19 +52,14 @@ class SubscriptionService:
 
         async def run(cmd: Command) -> SubscriptionOut:
             customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
-            price_id = item.stripe_price_id
-            if price_id is None:
-                # the recurring charge must collect GST/PST, so the Price is the tax-inclusive total
-                tax = await tax_for_amount(self.db, self.biz, item.price_cents)
-                price_id = await self.gateway.create_price(
-                    account_id,
-                    amount_cents=tax.total_cents,
-                    currency=item.currency,
-                    interval_count=interval_count,
-                    frequency=frequency,
-                )
-                item.stripe_price_id = price_id
-                await self.db.flush()
+            price_id = await ensure_subscription_price(
+                self.db,
+                self.gateway,
+                account_id,
+                item,
+                interval_count=interval_count,
+                frequency=frequency,
+            )
             result = await self.gateway.create_subscription(
                 account_id,
                 customer_id=customer_id,

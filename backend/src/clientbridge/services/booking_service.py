@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import Principal
-from clientbridge.core.errors import AppError, Conflict, Forbidden, NotFound
+from clientbridge.core.deps import Principal, assert_can_act_as
+from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
@@ -18,11 +18,14 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Session
 from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch, DepositOut
 from clientbridge.services.availability_service import is_within_availability
+from clientbridge.services.catalog_service import deposit_cents, load_item
+from clientbridge.services.client_service import load_client
 from clientbridge.services.payment_service import (
     default_method_ref,
     open_booking_deposit,
     resolve_saved_method_ref,
 )
+from clientbridge.services.staff_service import load_staff
 
 _OVERLAP = "that staff member is already booked at that time"
 _RESOURCE_BUSY = "that resource is already booked at that time"
@@ -30,15 +33,6 @@ _OUTSIDE_HOURS = "outside the provider's available hours"
 _CLASS_FULL = "that class is full"
 _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
-
-
-def _deposit_cents(item: Item) -> int:
-    """The deposit owed for a booking of this item: fixed cents, or a percent of its price."""
-    if item.deposit_type == "none" or item.deposit_value is None:
-        return 0
-    if item.deposit_type == "fixed":
-        return int(item.deposit_value)
-    return round(item.price_cents * float(item.deposit_value) / 100)
 
 
 def _booking_out(booking: Booking, session: Session) -> BookingOut:
@@ -236,7 +230,7 @@ async def create_booking_core(
         source=source,
         price_cents=item.price_cents,
         deposit_required=item.deposit_type != "none",
-        deposit_amount_cents=_deposit_cents(item),
+        deposit_amount_cents=deposit_cents(item),
         confirmed_at=datetime.now(UTC),
     )
     db.add(booking)
@@ -253,41 +247,21 @@ async def release_session_slot(db: AsyncSession, session: Session) -> None:
     await db.flush()
 
 
-def assert_can_act_as(principal: Principal, staff_id: str | None) -> None:
-    if principal.role in ("owner", "admin"):
-        return
-    if staff_id != principal.staff_id:
-        raise Forbidden("staff can only manage their own bookings")
+async def settle_deposit(db: AsyncSession, booking_id: str) -> None:
+    """Mark a booking's deposit collected once its charge settles — but never downgrade one already
+    forfeited (a no-show capture marks it forfeited up-front; its later settlement keeps it)."""
+    booking = await db.get(Booking, booking_id)
+    if booking is not None and booking.deposit_status in ("none", "pending"):
+        booking.deposit_status = "collected"
+        await db.flush()
 
 
-async def load_item(
-    db: AsyncSession, biz: str, item_id: str, *, require_active: bool = True
-) -> Item:
-    q = scoped(Item, biz).where(Item.id == item_id)
-    if require_active:
-        q = q.where(Item.active.is_(True))
-    row = (await db.execute(q)).scalar_one_or_none()
-    if row is None:
-        raise NotFound("item not found")
-    return row
-
-
-async def load_client(db: AsyncSession, biz: str, client_id: str) -> Client:
-    row = (
-        await db.execute(scoped(Client, biz, soft_delete=True).where(Client.id == client_id))
-    ).scalar_one_or_none()
-    if row is None:
-        raise NotFound("client not found")
-    return row
-
-
-async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
-    row = (
-        await db.execute(scoped(Staff, biz).where(Staff.id == staff_id, Staff.status == "active"))
-    ).scalar_one_or_none()
-    if row is None:
-        raise NotFound("staff not found")
-    return row
+async def reverse_deposit(db: AsyncSession, booking_id: str) -> None:
+    """Undo a collected deposit when its charge is refunded (no `refunded` enum value → `none`)."""
+    booking = await db.get(Booking, booking_id)
+    if booking is not None and booking.deposit_status == "collected":
+        booking.deposit_status = "none"
+        await db.flush()
 
 
 class BookingService:

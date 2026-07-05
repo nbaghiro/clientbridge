@@ -6,10 +6,9 @@ No `tax_rates` table — these are government-set, province-keyed rates, not per
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.identity import Business
+from clientbridge.services.business_service import business_province
 
 # province → [(jurisdiction, rate_bps, name)]
 PROVINCE_TAX_RATES: dict[str, list[tuple[str, int, str]]] = {
@@ -55,7 +54,4 @@ def rates_for_province(province: str | None) -> list[ProvinceRate]:
 
 async def rates_for_business(db: AsyncSession, business_id: str) -> Sequence[ProvinceRate]:
     """The rates a business collects — derived from its province."""
-    province = (
-        await db.execute(select(Business.province).where(Business.id == business_id))
-    ).scalar_one_or_none()
-    return rates_for_province(province)
+    return rates_for_province(await business_province(db, business_id))

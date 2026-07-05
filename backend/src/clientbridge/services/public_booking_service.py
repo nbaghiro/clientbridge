@@ -1,11 +1,10 @@
 from datetime import date, timedelta
 
-from sqlalchemy import ColumnElement, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
-from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.catalog import Item
@@ -22,7 +21,9 @@ from clientbridge.schemas.public_booking import (
     PublicSlots,
     PublicStaff,
 )
-from clientbridge.services.booking_service import _deposit_cents, create_booking_core
+from clientbridge.services.booking_service import create_booking_core
+from clientbridge.services.catalog_service import deposit_cents
+from clientbridge.services.client_service import find_or_create_by_contact
 from clientbridge.services.payment_service import open_booking_deposit
 from clientbridge.services.public_common import public_brand
 from clientbridge.services.scheduling_service import open_slots
@@ -42,7 +43,7 @@ def _service_out(item: Item) -> PublicService:
         price_cents=item.price_cents,
         currency=item.currency,
         deposit_required=item.deposit_type != "none",
-        deposit_amount_cents=_deposit_cents(item),
+        deposit_amount_cents=deposit_cents(item),
     )
 
 
@@ -143,35 +144,14 @@ class PublicBookingService:
         return client_secret
 
     async def _find_or_create_client(self, business_id: str, data: PublicBookingClient) -> Client:
-        match: list[ColumnElement[bool]] = []
-        if data.email:
-            match.append(Client.email == data.email)
-        if data.phone:
-            match.append(Client.phone == data.phone)
-        existing = (
-            (
-                await self.db.execute(
-                    scoped(Client, business_id, soft_delete=True).where(or_(*match)).limit(1)
-                )
-            )
-            .scalars()
-            .first()
-        )
-        if existing is not None:
-            return existing
-        client = Client(
-            id=new_id("client"),
-            business_id=business_id,
+        return await find_or_create_by_contact(
+            self.db,
+            business_id,
             name=data.name,
             email=data.email,
             phone=data.phone,
-            tags=[],
-            status="active",
-            custom_fields={"source": "online_booking"},
+            source="online_booking",
         )
-        self.db.add(client)
-        await self.db.flush()
-        return client
 
     async def _business(self, slug: str) -> Business:
         business = (

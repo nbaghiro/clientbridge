@@ -14,7 +14,7 @@ from clientbridge.schemas.forms import (
     PublicFormSubmit,
 )
 from clientbridge.services.file_service import mint_upload
-from clientbridge.services.public_common import public_brand
+from clientbridge.services.public_common import business_or_404, public_brand, resolve_by_token
 
 
 class PublicFormService:
@@ -26,15 +26,13 @@ class PublicFormService:
         self.db = db
 
     async def _resolve(self, token: str) -> tuple[FormResponse, Form, Business]:
-        response = (
-            await self.db.execute(select(FormResponse).where(FormResponse.token == token))
-        ).scalar_one_or_none()
-        if response is None:
-            raise NotFound("form link not found")
+        response = await resolve_by_token(
+            self.db, FormResponse, FormResponse.token == token, "form link not found"
+        )
         form = await self.db.get(Form, response.form_id)
-        business = await self.db.get(Business, response.business_id)
-        if form is None or business is None:
+        if form is None:
             raise NotFound("form link not found")
+        business = await business_or_404(self.db, response.business_id, "form link not found")
         return response, form, business
 
     async def _fields(self, form_id: str) -> list[FormField]:

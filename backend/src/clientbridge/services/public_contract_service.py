@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import Conflict, NotFound
@@ -12,7 +11,7 @@ from clientbridge.models.platform import File
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.services.file_service import mint_upload
-from clientbridge.services.public_common import public_brand
+from clientbridge.services.public_common import business_or_404, public_brand, resolve_by_token
 
 
 class PublicContractService:
@@ -24,15 +23,13 @@ class PublicContractService:
         self.db = db
 
     async def _resolve(self, token: str) -> tuple[Signature, Contract, Business]:
-        signature = (
-            await self.db.execute(select(Signature).where(Signature.token == token))
-        ).scalar_one_or_none()
-        if signature is None:
-            raise NotFound("signing link not found")
+        signature = await resolve_by_token(
+            self.db, Signature, Signature.token == token, "signing link not found"
+        )
         contract = await self.db.get(Contract, signature.contract_id)
-        business = await self.db.get(Business, signature.business_id)
-        if contract is None or business is None:
+        if contract is None:
             raise NotFound("signing link not found")
+        business = await business_or_404(self.db, signature.business_id, "signing link not found")
         return signature, contract, business
 
     async def context(self, token: str) -> PublicContractContext:

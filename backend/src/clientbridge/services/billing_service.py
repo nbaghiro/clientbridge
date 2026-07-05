@@ -21,7 +21,13 @@ from clientbridge.schemas.billing import (
     InvoiceUpdate,
     LineInput,
 )
-from clientbridge.services.lines import fetch_lines, line_out, replace_lines, tax_for_lines
+from clientbridge.services.lines import (
+    apply_totals,
+    fetch_lines,
+    line_out,
+    replace_lines,
+    tax_for_lines,
+)
 
 _DUE_DAYS = 30
 
@@ -300,12 +306,7 @@ class BillingService:
         )
 
     async def _apply_totals(self, parent: Invoice | Estimate, lines: list[Line]) -> None:
-        result = await tax_for_lines(self.db, self.biz, lines)
-        parent.subtotal_cents = result.subtotal_cents
-        parent.tax_total_cents = result.tax_total_cents
-        parent.total_cents = result.total_cents
-        if isinstance(parent, Invoice):
-            parent.balance_cents = result.total_cents - parent.amount_paid_cents
+        apply_totals(parent, await tax_for_lines(self.db, self.biz, lines))
 
     async def _replace_lines(
         self, parent_type: str, parent_id: str, inputs: list[LineInput]

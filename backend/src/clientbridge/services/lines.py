@@ -6,14 +6,13 @@ fetch its rows and run the pure tax engine, so the totals logic can't drift betw
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_delete
-from clientbridge.models.billing import Line
-from clientbridge.models.identity import Business
+from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.schemas.billing import LineInput, LineOut
+from clientbridge.services.business_service import business_tax_registered
 from clientbridge.services.tax_rates import rates_for_business
 from clientbridge.services.tax_service import TaxComponent, TaxLine, TaxResult, compute_tax
 
@@ -92,11 +91,7 @@ async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -
     """Run the tax engine for a parent's lines, writing each line's tax_amount_cents. The caller
     applies the subtotal/tax/total rollups to its parent (invoice/estimate/order)."""
     rates = await rates_for_business(db, business_id)
-    registered = bool(
-        (
-            await db.execute(select(Business.is_tax_registered).where(Business.id == business_id))
-        ).scalar_one()
-    )
+    registered = await business_tax_registered(db, business_id)
     result = compute_tax(
         [TaxLine(amount_cents=ln.amount_cents) for ln in lines],
         [TaxComponent(jurisdiction=r.jurisdiction, rate_bps=r.rate_bps) for r in rates],
@@ -105,3 +100,13 @@ async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -
     for ln, line_tax in zip(lines, result.lines, strict=True):
         ln.tax_amount_cents = line_tax.tax_cents
     return result
+
+
+def apply_totals(parent: Invoice | Estimate | Order, result: TaxResult) -> None:
+    """Write a tax result's rolled-up subtotal/tax/total onto its billing parent, plus the
+    outstanding balance for the billable parents (an estimate carries no balance)."""
+    parent.subtotal_cents = result.subtotal_cents
+    parent.tax_total_cents = result.tax_total_cents
+    parent.total_cents = result.total_cents
+    if not isinstance(parent, Estimate):
+        parent.balance_cents = result.total_cents - parent.amount_paid_cents

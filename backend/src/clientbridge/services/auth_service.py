@@ -34,6 +34,18 @@ VERIFY_TTL = timedelta(hours=24)
 _DUMMY_HASH = hash_password("clientbridge-timing-guard")
 
 
+def build_user(*, email: str, password: str, name: str | None) -> User:
+    """A new password account with the password hashed — the one place credentials are minted,
+    shared by registration and staff invite-acceptance."""
+    return User(
+        id=new_id("user"),
+        email=email,
+        password_hash=hash_password(password),
+        name=name,
+        oauth={},
+    )
+
+
 class AuthService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -44,13 +56,7 @@ class AuthService:
         ).scalar_one_or_none()
         if existing is not None:
             raise Conflict("email already registered")
-        user = User(
-            id=new_id("user"),
-            email=email,
-            password_hash=hash_password(password),
-            name=name,
-            oauth={},
-        )
+        user = build_user(email=email, password=password, name=name)
         self.db.add(user)
         await self.db.flush()
         return user

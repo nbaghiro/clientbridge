@@ -1,7 +1,31 @@
 """Shared builders for the unauthenticated customer surfaces (#4)."""
 
+from sqlalchemy import ColumnElement, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from clientbridge.core.db import Base
+from clientbridge.core.errors import NotFound
 from clientbridge.models.identity import Business
 from clientbridge.schemas.public_common import HEX_COLOR, PublicBrand
+
+
+async def resolve_by_token[M: Base](
+    db: AsyncSession, model: type[M], criterion: ColumnElement[bool], message: str
+) -> M:
+    """The single row matching a public-link token criterion, else 404 with `message`."""
+    row = (await db.execute(select(model).where(criterion))).scalar_one_or_none()
+    if row is None:
+        raise NotFound(message)
+    return row
+
+
+async def business_or_404(db: AsyncSession, business_id: str, message: str) -> Business:
+    """A public link's owning business, else 404 with the same `message` — a link whose business
+    vanished reads as a dead link, not a different error."""
+    business = await db.get(Business, business_id)
+    if business is None:
+        raise NotFound(message)
+    return business
 
 
 def public_brand(business: Business) -> PublicBrand:

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import cast
 
 from clientbridge.integrations.payments import account_status_from
-from clientbridge.services.payment_service import derive_kyc_status
+from clientbridge.services.business_service import derive_kyc_status
 
 FIXTURES = Path(__file__).parent / "fixtures" / "stripe"
 

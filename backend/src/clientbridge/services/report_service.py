@@ -8,12 +8,13 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.deps import Principal
+from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment, PayoutAllocation
+from clientbridge.schemas.payments import RemittanceSummary
 from clientbridge.schemas.reports import GstHstReport, IncomeReport, T4ARow
 from clientbridge.services.tax_rates import ProvinceRate, rates_for_business
 from clientbridge.services.tax_service import effective_rate
@@ -33,11 +34,25 @@ def _bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
     )
 
 
+def next_gst_filing(today: date) -> date:
+    """Next CRA GST/HST remittance due date — quarterly filers remit one month after each quarter
+    end (Apr 30 · Jul 31 · Oct 31 · Jan 31). A sensible default until filing frequency is stored."""
+    due = [
+        date(today.year, 1, 31),
+        date(today.year, 4, 30),
+        date(today.year, 7, 31),
+        date(today.year, 10, 31),
+        date(today.year + 1, 1, 31),
+    ]
+    return next(d for d in due if d >= today)
+
+
 class ReportService:
     """Read-only CRA-filing aggregates (income, GST/HST, T4A) — owner/admin, gated at the route."""
 
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
         self.db = db
+        self.principal = principal
         self.biz = principal.business_id
 
     async def _business(self) -> Business:
@@ -45,6 +60,31 @@ class ReportService:
         if business is None:
             raise NotFound("business not found")
         return business
+
+    async def remittance_summary(self) -> RemittanceSummary:
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can view remittance"
+        )
+        invoices = (
+            (
+                await self.db.execute(
+                    scoped(Invoice, self.biz).where(
+                        Invoice.status.in_(("sent", "paid", "partial", "overdue")),
+                        Invoice.total_cents > 0,
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        # CRA remittance is on tax actually COLLECTED, so pro-rate each invoice's tax by the
+        # fraction collected (total minus balance): a partial refund raises the balance + lowers it,
+        # rather than dropping the whole invoice's tax the moment it leaves "paid".
+        collected = sum(
+            round(i.tax_total_cents * (i.total_cents - i.balance_cents) / i.total_cents)
+            for i in invoices
+        )
+        return RemittanceSummary(tax_collected_cents=collected)
 
     async def income_summary(self, start: date, end: date) -> IncomeReport:
         lo, hi = _bounds(start, end, ZoneInfo((await self._business()).timezone))
