@@ -20,8 +20,8 @@ export default tseslint.config(
             "@typescript-eslint/no-explicit-any": "error",
             // numbers (e.g. HTTP status codes) in template strings are fine; objects/any still banned.
             "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
-            // Keep user-facing copy in the shared `strings` catalog (see CLAUDE.md → Localization).
-            // `allow` = brand/product tokens that are legitimately inline, not localizable copy.
+            // Keep user-facing copy in the shared `strings` catalog (see CLAUDE.md → Copy).
+            // `allow` = brand/product tokens that are legitimately inline, not catalog copy.
             "local/no-inline-ui-string": ["error", { allow: ["Clientbridge", "PowerSync"] }],
         },
     },

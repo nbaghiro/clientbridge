@@ -1,5 +1,5 @@
-// The app-wide English string catalog: every user-facing string lives here so web + mobile stay in
-// lockstep and localization is a later locale layer over this object. See CLAUDE.md.
+// The app-wide string catalog: every user-facing string lives here so web + mobile stay in lockstep
+// and copy never sits inline in components. See CLAUDE.md.
 
 export const strings = {
     common: {
