@@ -31,8 +31,8 @@ def _money(cents: int, currency: str) -> str:
     return f"${cents // 100}.{cents % 100:02d} {currency.upper()}"
 
 
-# The notification copy catalog: every user-facing notification string (English), in one place. To
-# localize later, wrap these builders in a locale dimension off `businesses.locale`. See CLAUDE.md.
+# The notification copy catalog: every user-facing notification string lives here, in one place, so
+# backend copy never sits inline in the services that send it. See CLAUDE.md.
 def _receipt(business_name: str, amount: str) -> tuple[str, str, str]:
     """(email subject, email+sms body, push body) for a payment receipt."""
     return (

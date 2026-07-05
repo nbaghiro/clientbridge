@@ -1,6 +1,6 @@
 // Custom ESLint rule: flag inline user-facing strings so copy stays in the shared catalog.
 //
-// Every user-facing string belongs in `packages/app-core/src/strings.ts` (see CLAUDE.md → Localization),
+// Every user-facing string belongs in `packages/app-core/src/strings.ts` (see CLAUDE.md → Copy),
 // rendered as `strings.<domain>.<key>`. This rule catches the two ways new copy sneaks back inline:
 //   1. JSX text / string-literal children  — `<Text>Save</Text>`, `<p>{"Save"}</p>`
 //   2. the app-core copy sinks             — `setError("…")`, `{ errorMessage: "…" }`
@@ -51,8 +51,8 @@ export default {
                 "Disallow inline user-facing strings; move copy into the shared `strings` catalog.",
         },
         messages: {
-            jsx: "Inline UI string. Move this copy into the `strings` catalog (packages/app-core/src/strings.ts) and render `strings.<domain>.<key>`. See CLAUDE.md → Localization.",
-            sink: "Inline UI string passed to `{{sink}}`. Move this copy into the `strings` catalog and reference `strings.<domain>.<key>`. See CLAUDE.md → Localization.",
+            jsx: "Inline UI string. Move this copy into the `strings` catalog (packages/app-core/src/strings.ts) and render `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
+            sink: "Inline UI string passed to `{{sink}}`. Move this copy into the `strings` catalog and reference `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
         },
         schema: [
             {

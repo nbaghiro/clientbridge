@@ -77,8 +77,7 @@ export const ACCOUNT_TEXT_FIELDS: {
 ];
 
 /**
- * Supported UI languages. English-only for now; adding a second entry re-enables the account
- * language picker (which renders only when more than one locale exists). See strings.ts / CLAUDE.md.
+ * The account's selectable UI languages. The picker renders only when more than one is listed.
  */
 export const LOCALES: { code: string; label: string }[] = [{ code: "en", label: "English" }];
 

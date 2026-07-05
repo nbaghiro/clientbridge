@@ -2,18 +2,17 @@
 
 **The bridge between you and your clients.**
 
-Clientbridge is a bilingual (EN/FR) all-in-one business operating system for solo and small **service
+Clientbridge is an all-in-one business operating system for solo and small **service
 providers** — booking, invoicing, payments (cards + Interac e-Transfer / EFT-PAD), sales tax,
 clients/CRM, messaging, packages & subscriptions, contracts, POS, and light team tools. It is a
-net-new product (not a fork) inspired by PocketSuite, built around a first-class configurable tax
-engine and modern payment rails.
+net-new product, built around a first-class configurable tax engine and modern payment rails.
 
 ## Positioning
 
 - **Horizontal from day one** — a vertical-pluggable core; the same engine serves beauty, wellness,
   cleaning, trades, tutoring, pet care, photography and more.
-- **Depth where incumbents are shallow** — a first-class tax, payments, compliance, and
-  bilingual surface that big horizontal tools (Square, Vagaro, HoneyBook) treat as afterthoughts.
+- **Depth where incumbents are shallow** — a first-class tax, payments, and compliance
+  surface that big horizontal tools (Square, Vagaro, HoneyBook) treat as afterthoughts.
 - **White space** — beauty/personal-care + multi-discipline wellness solos + cleaning, where Jane App
   (clinical health) and Jobber (home services) don't reach.
 
@@ -42,7 +41,7 @@ clientbridge/
 ├── Makefile · docker-compose.yml   root orchestration + local infra (87xx ports)
 ├── .github/workflows/ci.yml        CI: backend · contract · frontend · codegen-drift
 ├── .githooks/                      versioned git hooks (pre-commit = format-check + lint)
-├── .docs/                          specs (architecture · data-model · sync · testing · ports · …)
+├── .docs/                          architecture · engineering · roadmap · design/
 ├── backend/                        FastAPI app — src/clientbridge/{api,services,models,core,sync,tasks,integrations}
 ├── frontend/                       pnpm+turbo workspace
 │   ├── apps/{web (Vite), mobile (Expo)}
@@ -78,7 +77,7 @@ make worker                   # arq background jobs (reminders, sweeps, reconcil
 ```
 
 Host ports use the **87xx** block so it runs alongside sibling projects — see
-[`.docs/ports.md`](.docs/ports.md).
+[`.docs/engineering.md`](.docs/engineering.md#ports--the-87xx-block).
 
 ## Development
 
@@ -96,16 +95,19 @@ The **pre-commit hook** (`make hooks`) runs format-check + lint on every commit.
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` + PR, in four
 jobs: **backend** (lint · type · migrate · seed · pytest 90% branch), **contract** (stripe-mock),
 **frontend** (lint · type · prettier · tests), and **codegen-drift** (fails if the generated
-api-client / PowerSync schema are stale). Conventions live in
-[`.docs/code-style.md`](.docs/code-style.md) and [`.docs/testing.md`](.docs/testing.md).
+api-client / PowerSync schema / themes are stale). Conventions, the gate, and testing live in
+[`.docs/engineering.md`](.docs/engineering.md).
 
 ## Docs
 
-[`architecture`](.docs/architecture.md) · [`data-model`](.docs/data-model.md) ·
-[`schema`](.docs/schema.md) · [`sync`](.docs/sync.md) · [`authorization`](.docs/authorization.md) ·
-[`backend-plan`](.docs/backend-plan.md) · [`testing`](.docs/testing.md) ·
-[`repo-structure`](.docs/repo-structure.md) · [`ports`](.docs/ports.md) ·
-[`code-style`](.docs/code-style.md)
+Three consolidated docs, plus the design system:
+- [**architecture**](.docs/architecture.md) — the system: stack · the 5 surfaces · data model (40 tables /
+  10 domains) · sync · authorization · frontend. Visual companion:
+  [`codebase-atlas.html`](.docs/codebase-atlas.html).
+- [**engineering**](.docs/engineering.md) — the gate · CI · testing · the vertical-slice method ·
+  copy · ports · the demo/seed · conventions.
+- [**roadmap**](.docs/roadmap.md) — what's built · M3/M4/M5 backlog · execution order · Connect.
+- [`design/`](.docs/design/) — screens (IA) · tokens · the `app-explorer.html` source.
 
 ## Status
 
