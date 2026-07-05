@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clientbridge — Codebase Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Pewter — matches packages/tokens (.t-pewter) */
+    --paper:#F3F4F6; --paper-2:#EAECEF; --card:#FFFFFF; --card-2:#EDEFF2; --head:#F2F3F5;
+    --ink:#191D22; --soft:#3E454D; --faint:#6E757E;
+    --line:#DBDEE3; --line-soft:#E8EAEE;
+    --pine:#3F5E80; --pine-deep:#2E4A66; --pine-weak:#E4EAF1; --pine-line:#CCD7E3;
+    --primary:#3A4654;
+    --honey:#86621E; --honey-weak:#F3E8CC; --clay:#A2433A;
+    --s-read:#5B6B7A; --s-write:#86621E; --s-cmd:#3F5E80; --s-hook:#A2433A; --s-job:#5A5386;
+    --shadow:0 1px 2px rgba(20,25,30,.05);
+    --shadow-lift:0 2px 4px rgba(20,25,30,.05), 0 12px 28px rgba(20,25,30,.07);
+    --serif:"Schibsted Grotesk",system-ui,-apple-system,sans-serif;
+    --sans:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    font-size:15.5px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  a{color:var(--pine);text-decoration:none}
+  a:hover{text-decoration:underline;text-underline-offset:2px}
+  :focus-visible{outline:2px solid var(--pine);outline-offset:3px;border-radius:4px}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{transition:none!important}}
+
+  /* Top bar */
+  header.topbar{position:sticky;top:0;z-index:40;background:rgba(243,244,246,.82);
+    backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+  .topbar-in{max-width:1220px;margin:0 auto;padding:0 28px;height:56px;display:flex;align-items:center;gap:13px}
+  .brand{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:700;font-size:15px;color:var(--ink)}
+  .brand .mark{width:25px;height:25px;border-radius:7px;background:var(--pine);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700}
+  .topbar .tag{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.03em;
+    padding-left:13px;margin-left:2px;border-left:1px solid var(--line)}
+  .topbar .spacer{flex:1}
+  .topbar .src{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  @media (max-width:720px){.topbar .tag,.topbar .src{display:none}}
+
+  /* Shell: sidebar + content */
+  .shell{max-width:1220px;margin:0 auto;padding:0 28px;display:grid;
+    grid-template-columns:232px minmax(0,1fr);gap:52px;align-items:start}
+  nav.toc{position:sticky;top:56px;max-height:calc(100vh - 56px);overflow:auto;
+    padding:30px 0 40px;font-size:.855rem;scrollbar-width:thin}
+  nav.toc .grp{font:600 .7rem/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;
+    color:var(--faint);margin:22px 0 8px;padding-left:12px}
+  nav.toc .grp:first-child{margin-top:2px}
+  nav.toc a{display:block;color:var(--soft);padding:5px 12px;border-left:2px solid var(--line-soft);
+    margin-left:1px;line-height:1.4;transition:color .15s,border-color .15s,background .15s}
+  nav.toc a:hover{color:var(--pine);border-left-color:var(--pine-line);text-decoration:none}
+  nav.toc a.active{color:var(--pine-deep);border-left-color:var(--pine);background:var(--pine-weak);font-weight:600}
+
+  main{min-width:0;padding:0 0 96px;max-width:840px}
+
+  /* Page head (docs title block, not a hero) */
+  .page-head{padding:38px 0 28px;margin-bottom:8px;border-bottom:1px solid var(--line)}
+  .eyebrow{font:600 .7rem/1 var(--sans);letter-spacing:.15em;text-transform:uppercase;color:var(--pine);margin:0 0 12px}
+  h1{font-family:var(--serif);font-weight:700;font-size:2.05rem;line-height:1.1;margin:0 0 12px;
+    letter-spacing:-.02em;text-wrap:balance}
+  .lede{font-size:1.04rem;color:var(--soft);max-width:64ch;margin:0 0 22px;text-wrap:pretty}
+  .stats{display:flex;flex-wrap:wrap;gap:8px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 13px;
+    display:flex;align-items:baseline;gap:7px}
+  .stat b{font-family:var(--mono);font-size:.92rem;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .stat span{font-size:.68rem;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+
+  /* Sections as docs entries with a hairline divider */
+  section{margin:38px 0 0;padding-top:34px;border-top:1px solid var(--line-soft);scroll-margin-top:74px}
+  section:first-of-type{border-top:0;padding-top:26px}
+  .sec-eye{font:600 .68rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--pine);margin:0 0 8px}
+  h2{font-family:var(--serif);font-weight:700;font-size:1.55rem;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+  h2 + .intro{margin-top:11px}
+  h3{font-size:1.04rem;font-weight:600;margin:30px 0 10px;letter-spacing:-.01em;color:var(--ink)}
+  p{margin:0 0 13px;max-width:74ch}
+  .intro{color:var(--soft);max-width:74ch}
+  ul{margin:0 0 13px;padding-left:20px;max-width:74ch}
+  li{margin:5px 0}
+  li::marker{color:var(--pine)}
+  strong{color:var(--ink);font-weight:600}
+  .hr{height:1px;background:var(--line);border:0;margin:22px 0}
+
+  .path,code{font-family:var(--mono);font-size:.82em;background:var(--card-2);border:1px solid var(--line-soft);
+    padding:.08em .38em;border-radius:5px;color:var(--pine-deep);white-space:nowrap}
+  code.plain{color:var(--ink)}
+
+  /* Tables */
+  .tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--card);margin:15px 0}
+  table{border-collapse:collapse;width:100%;font-size:.885rem;min-width:520px}
+  th,td{text-align:left;padding:10px 15px;vertical-align:top;border-bottom:1px solid var(--line-soft)}
+  thead th{background:var(--head);font:600 .68rem/1.3 var(--sans);letter-spacing:.06em;text-transform:uppercase;
+    color:var(--faint)}
+  tbody tr:hover{background:var(--card-2)}
+  tbody tr:last-child td{border-bottom:0}
+  td:first-child{white-space:nowrap}
+  td .path,th .path{background:transparent;border:0;padding:0;color:var(--pine-deep);font-size:.86em}
+  td.dim{color:var(--soft)}
+
+  /* Cards / callouts */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:14px 0}
+  .note{background:var(--pine-weak);border:1px solid var(--pine-line);border-left:3px solid var(--pine);
+    border-radius:9px;padding:14px 17px;margin:16px 0;font-size:.92rem}
+  .note b{color:var(--pine-deep)}
+  .warn{background:var(--honey-weak);border-color:#E6D5A8;border-left-color:var(--honey)}
+  .warn b{color:var(--honey)}
+
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:14px;margin:15px 0}
+  .grid2 .card{margin:0;transition:border-color .18s,box-shadow .18s}
+  .grid2 .card:hover{border-color:var(--pine-line);box-shadow:var(--shadow-lift)}
+  .card h4{margin:0 0 7px;font-size:.98rem;display:flex;align-items:center;gap:9px}
+  .card p{font-size:.89rem;color:var(--soft);margin:0}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;font:600 .72rem/1 var(--sans);letter-spacing:.02em;
+    padding:3px 9px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--soft);white-space:nowrap}
+  .chip.pine{background:var(--pine-weak);border-color:var(--pine-line);color:var(--pine-deep)}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+
+  /* directory tree */
+  pre.tree{font-family:var(--mono);font-size:.79rem;line-height:1.62;background:var(--card);color:var(--ink);
+    border:1px solid var(--line);border-radius:var(--radius);padding:19px 21px;overflow-x:auto;margin:15px 0}
+  pre.tree .c{color:var(--faint)}
+  pre.tree .d{color:var(--pine-deep);font-weight:600}
+
+  /* surfaces */
+  .surfaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin:16px 0}
+  .surf{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;
+    border-left:4px solid var(--s-cmd);transition:border-color .18s,box-shadow .18s}
+  .surf:hover{box-shadow:var(--shadow-lift)}
+  .surf .k{font-family:var(--mono);font-size:.66rem;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
+  .surf h4{margin:3px 0 6px;font-size:.98rem}
+  .surf p{font-size:.84rem;color:var(--soft);margin:0}
+
+  /* flow */
+  .flow{display:flex;flex-wrap:wrap;align-items:center;gap:9px;font-family:var(--mono);font-size:.8rem;
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:15px 0;overflow-x:auto}
+  .flow .b{background:var(--card-2);border:1px solid var(--line-soft);border-radius:7px;padding:7px 11px;white-space:nowrap;color:var(--soft)}
+  .flow .b.hl{background:var(--pine-weak);border-color:var(--pine-line);color:var(--pine-deep);font-weight:600}
+  .flow .ar{color:var(--pine);font-weight:700}
+
+  footer{border-top:1px solid var(--line);margin-top:46px}
+  .footer-in{max-width:1220px;margin:0 auto;padding:26px 28px 64px;color:var(--faint);font-size:.84rem}
+
+  /* back to top */
+  .totop{position:fixed;bottom:22px;right:20px;z-index:30;width:40px;height:40px;border-radius:50%;
+    background:var(--card);border:1px solid var(--line);color:var(--pine);cursor:pointer;box-shadow:var(--shadow-lift);
+    display:flex;align-items:center;justify-content:center;opacity:0;transform:translateY(10px);pointer-events:none;
+    transition:opacity .25s,transform .25s,border-color .2s}
+  .totop.show{opacity:1;transform:translateY(0);pointer-events:auto}
+  .totop:hover{border-color:var(--pine)}
+
+  @media (max-width:880px){
+    .shell{grid-template-columns:1fr;gap:8px}
+    nav.toc{position:static;max-height:none;overflow:visible;border-bottom:1px solid var(--line);
+      padding:16px 0 20px;margin-bottom:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(146px,1fr));gap:2px 20px}
+    nav.toc .grp{grid-column:1/-1;margin-top:12px}
+    section{scroll-margin-top:16px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <span class="brand"><span class="mark">◆</span> Clientbridge</span>
+    <span class="tag">Codebase Atlas</span>
+    <span class="spacer"></span>
+    <span class="src">read from source</span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="toc" aria-label="Contents">
+    <div class="grp">Orientation</div>
+    <a href="#picture">The big picture</a>
+    <a href="#tree">Directory tree</a>
+    <a href="#surfaces">The 5 surfaces</a>
+    <div class="grp">Backend · Python</div>
+    <a href="#be-core">Entry &amp; core</a>
+    <a href="#be-models">models — 10 domains</a>
+    <a href="#be-schemas">schemas — DTOs</a>
+    <a href="#be-services">services — the brain</a>
+    <a href="#be-api">api — routers</a>
+    <a href="#be-sync">sync — write path</a>
+    <a href="#be-integrations">integrations</a>
+    <a href="#be-tasks">tasks — jobs</a>
+    <a href="#be-migrations">migrations</a>
+    <a href="#be-tests">tests &amp; the gate</a>
+    <div class="grp">Frontend · TypeScript</div>
+    <a href="#fe-arch">The architecture</a>
+    <a href="#fe-appcore">app-core</a>
+    <a href="#fe-packages">sync · api-client · tokens · config</a>
+    <a href="#fe-apps">web · mobile · connect</a>
+    <div class="grp">Platform</div>
+    <a href="#infra">Infra &amp; ops</a>
+    <a href="#docs">The .docs library</a>
+    <a href="#patterns">Cross-cutting patterns</a>
+  </nav>
+
+  <main>
+    <div class="page-head">
+      <p class="eyebrow">Codebase Atlas</p>
+      <h1>Clientbridge, module by module</h1>
+      <p class="lede">A local-first business OS for solo &amp; small service providers — a polyglot monorepo
+        where an idiomatic Python backend and three TypeScript apps meet at exactly three generated bridges.
+        This is the full layout, read from the code.</p>
+      <div class="stats">
+        <div class="stat"><b>2</b><span>ecosystems</span></div>
+        <div class="stat"><b>10</b><span>domains</span></div>
+        <div class="stat"><b>40</b><span>tables</span></div>
+        <div class="stat"><b>5</b><span>surfaces</span></div>
+        <div class="stat"><b>~40</b><span>services</span></div>
+        <div class="stat"><b>3</b><span>apps</span></div>
+        <div class="stat"><b>5</b><span>packages</span></div>
+        <div class="stat"><b>90%</b><span>cov gate</span></div>
+      </div>
+    </div>
+
+    <section id="picture">
+      <p class="sec-eye">Orientation</p>
+      <h2>The big picture</h2>
+      <p class="intro">Clientbridge is <strong>offline-first</strong>: every device holds a tenant-scoped
+      SQLite replica kept live by <strong>PowerSync</strong>. Screens read that local replica instantly;
+      writes travel back to the server, which owns every invariant. The repo is a clean polyglot split —
+      each ecosystem idiomatic — joined only by generated artifacts.</p>
+
+      <div class="grid2">
+        <div class="card">
+          <h4><span class="dot" style="background:var(--pine)"></span>backend/ · Python</h4>
+          <p>uv · FastAPI · async SQLAlchemy · Postgres · Alembic · arq jobs · Stripe Connect. Layer-first,
+          one file per domain, per layer.</p>
+        </div>
+        <div class="card">
+          <h4><span class="dot" style="background:var(--honey)"></span>frontend/ · TypeScript</h4>
+          <p>pnpm + turbo monorepo. Three apps (web, mobile, connect) over five <code class="plain">@clientbridge/*</code>
+          packages. Share the view-model, render per platform.</p>
+        </div>
+        <div class="card">
+          <h4><span class="dot" style="background:var(--s-read)"></span>infra/ · Ops</h4>
+          <p>Docker Compose (Postgres · PowerSync · Redis · MinIO), PowerSync service config + read-authorization
+          sync rules, on the 87xx port block.</p>
+        </div>
+        <div class="card">
+          <h4><span class="dot" style="background:var(--s-job)"></span>.docs/ · Specs</h4>
+          <p>Three consolidated docs — architecture, engineering, roadmap — plus the design explorers that
+          <em>generate</em> the theme.</p>
+        </div>
+      </div>
+
+      <h3>The boundary is crossed by exactly three bridges</h3>
+      <p>No source is shared between Python and TypeScript. Everything that must agree is <strong>generated</strong>
+      from a single source, with a CI drift gate that fails if the committed output diverges.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Bridge</th><th>Source of truth</th><th>Generated into</th><th>Command</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Sync schema</strong></td><td class="dim">SQLAlchemy models + <span class="path">sync-rules.yaml</span></td><td><span class="path">packages/sync/src/schema.ts</span></td><td><code>make gen-sync-schema</code></td></tr>
+          <tr><td><strong>API client</strong></td><td class="dim">FastAPI OpenAPI</td><td><span class="path">packages/api-client/src/generated.ts</span></td><td><code>make gen-api</code></td></tr>
+          <tr><td><strong>Design tokens</strong></td><td class="dim"><span class="path">.docs/design/app-explorer.html</span></td><td><span class="path">packages/tokens/src/themes.{ts,css}</span></td><td><code>make gen-themes</code></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="tree">
+      <p class="sec-eye">Orientation</p>
+      <h2>Directory tree</h2>
+      <p class="intro">The load-bearing directories, with heavy/generated folders omitted.</p>
+<pre class="tree"><span class="d">clientbridge/</span>
+├─ Makefile  docker-compose.yml  .env.example  <span class="c">— root orchestration + infra</span>
+├─ <span class="d">backend/</span>                    <span class="c">Python · uv · FastAPI</span>
+│  ├─ migrations/versions/       <span class="c">Alembic (squashed initial + linear increments)</span>
+│  ├─ scripts/                   <span class="c">seed_demo · gen_sync_schema · export_openapi</span>
+│  ├─ tests/                     <span class="c">integration files + contract/ + e2e/</span>
+│  └─ src/clientbridge/
+│     ├─ main.py                 <span class="c">FastAPI app factory (ASGI entry)</span>
+│     ├─ core/                   <span class="c">command · scoping · deps · config · security · …</span>
+│     ├─ models/                 <span class="c">SQLAlchemy · 10 domains + auth + base</span>
+│     ├─ schemas/                <span class="c">Pydantic DTOs · one file per domain</span>
+│     ├─ services/               <span class="c">business logic · the brain · ~40 files</span>
+│     ├─ api/                    <span class="c">router.py · v1/ (25 routers) · public.py · webhooks.py</span>
+│     ├─ sync/                   <span class="c">auth.py (token/jwks) · upload.py (WRITE_POLICY)</span>
+│     ├─ integrations/           <span class="c">notifications · oauth · payments · s3 (adapters)</span>
+│     └─ tasks/                  <span class="c">arq worker + cron jobs</span>
+├─ <span class="d">frontend/</span>                   <span class="c">TypeScript · pnpm + turbo</span>
+│  ├─ apps/
+│  │  ├─ web/                    <span class="c">React + Vite · provider/admin · :8700</span>
+│  │  ├─ mobile/                 <span class="c">Expo RN · provider/admin · :8707</span>
+│  │  └─ connect/                <span class="c">public customer app · PowerSync-free · :8709</span>
+│  └─ packages/
+│     ├─ app-core/               <span class="c">shared view-model hooks + strings + icons</span>
+│     ├─ sync/                   <span class="c">PowerSync AppSchema + backend connector</span>
+│     ├─ api-client/             <span class="c">generated types + session (refresh/sign-out)</span>
+│     ├─ tokens/                 <span class="c">Pewter design system → Tailwind + RN</span>
+│     └─ config/                 <span class="c">shared eslint/prettier + custom lint rule</span>
+├─ <span class="d">infra/</span>
+│  └─ powersync/                 <span class="c">powersync.yaml · sync-rules.yaml (read authz)</span>
+└─ <span class="d">.docs/</span>                      <span class="c">architecture · engineering · roadmap + design/</span>
+</pre>
+    </section>
+
+    <section id="surfaces">
+      <p class="sec-eye">Orientation</p>
+      <h2>The 5 surfaces</h2>
+      <p class="intro">Every capability is <strong>exactly one</strong> of five surfaces. The rule that decides
+      which: a <strong>server-only invariant</strong> — numbering, capacity, money, secrets, uniqueness,
+      cross-tenant — must be a <em>command</em>, never a sync-write.</p>
+      <div class="surfaces">
+        <div class="surf" style="border-left-color:var(--s-read)"><div class="k">surface 1</div><h4>Sync-read</h4><p>PowerSync streams a scoped SQLite replica per device. Screens <code>useQuery</code> it. Server-only tables are excluded from the client schema.</p></div>
+        <div class="surf" style="border-left-color:var(--s-write)"><div class="k">surface 2</div><h4>Sync-write</h4><p><span class="path">POST /sync/upload</span> gated by <code>WRITE_POLICY</code> — only low-risk, client-owned tables; role + ownership + no-cross-tenant + field allowlist enforced.</p></div>
+        <div class="surf" style="border-left-color:var(--s-cmd)"><div class="k">surface 3</div><h4>Command / RPC</h4><p>FastAPI <code>POST/PATCH/DELETE</code> under <span class="path">/v1/*</span>, each wrapped in <code>run_command</code> — atomic + audited + idempotency-replay. Home of every invariant.</p></div>
+        <div class="surf" style="border-left-color:var(--s-hook)"><div class="k">surface 4</div><h4>Webhook / public</h4><p><span class="path">api/webhooks.py</span> (Stripe/Interac/SMS, signature-verified) + <span class="path">api/public.py</span> (book/pay/form/contract/review, token-authed, rate-limited).</p></div>
+        <div class="surf" style="border-left-color:var(--s-job)"><div class="k">surface 5</div><h4>Job</h4><p>The <code>arq</code> worker — reminders, reap-unpaid, due broadcasts, overdue sweep, review requests, daily maintenance. Idempotent; each opens its own session.</p></div>
+      </div>
+      <h3>How a request flows through the backend</h3>
+      <div class="flow">
+        <span class="b">HTTP</span><span class="ar">→</span>
+        <span class="b hl">api/v1/…</span><span class="ar">→</span>
+        <span class="b">schemas/ (DTO)</span><span class="ar">→</span>
+        <span class="b hl">services/ (logic + txn)</span><span class="ar">→</span>
+        <span class="b">core/scoping · command</span><span class="ar">→</span>
+        <span class="b">models/</span><span class="ar">→</span>
+        <span class="b">Postgres</span><span class="ar">→</span>
+        <span class="b">WAL</span><span class="ar">→</span>
+        <span class="b">PowerSync</span><span class="ar">→</span>
+        <span class="b">device</span>
+      </div>
+      <p>Routers are thin and <strong>never query</strong> — they resolve dependencies, construct a
+      <code>Service(db, principal, …)</code>, call one method with the validated DTO, and return a response
+      schema. All querying and the transaction live in the service. Any raised <code>AppError</code> renders
+      as <code>{error, message}</code> with the subclass's status.</p>
+    </section>
+
+    <section id="be-core">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>Entry &amp; the cross-cutting core</h2>
+      <p class="intro"><span class="path">main.py</span> is the app factory: <code>create_app()</code> builds the
+      FastAPI app, registers the single <code>AppError</code> handler and CORS, then mounts the routers —
+      <span class="path">/auth</span>, <span class="path">/sync</span>, <span class="path">/webhooks</span>, the five public
+      routers, and <span class="path">/v1/*</span>. Everything domain-agnostic lives in <span class="path">core/</span>.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>File</th><th>Responsibility</th></tr></thead>
+        <tbody>
+          <tr><td><span class="path">core/command.py</span></td><td>The <strong>command wrapper</strong>. <code>run_command(db, principal, action, run, response_model, idempotency_key)</code> — replays a stored response for a repeated key, stages <code>Command.record(...)</code> audit rows, then commits mutation + audit + idempotency key as <strong>one atomic unit</strong> (rollback on any error).</td></tr>
+          <tr><td><span class="path">core/scoping.py</span></td><td>The <strong>one place</strong> the tenancy filter lives: <code>scoped(Model, business_id, soft_delete=…)</code> plus <code>scoped_page</code>/<code>scoped_count</code>/<code>scoped_update</code>/<code>scoped_delete</code> and the <code>Page[T]</code> envelope. Services never hand-write a <code>business_id</code> filter.</td></tr>
+          <tr><td><span class="path">core/deps.py</span></td><td>DI hub: DB session, adapter aliases (<code>EmailDep</code>, <code>GatewayDep</code>, <code>StorageDep</code>…), the auth chain (<code>current_principal</code> re-derives business/role from the DB every request, honoring <code>X-Business-Id</code>), and role gates (<code>assert_role</code> per-method, <code>require_role</code> per-router).</td></tr>
+          <tr><td><span class="path">core/config.py</span></td><td>Pydantic-settings. Fails <strong>closed</strong> in prod: refuses to boot if the JWT secret is still the dev default or the Stripe webhook secret is empty when <code>env != dev</code>.</td></tr>
+          <tr><td><span class="path">core/security.py</span></td><td>Argon2 password hashing, SHA-256 opaque-token hashing, HS256 access tokens, and the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod).</td></tr>
+          <tr><td><span class="path">core/ids.py</span></td><td>Prefixed-ULID PKs (<code>bz_…</code>, <code>bk_…</code>). Time-sortable, so <code>scoped_page</code> can order <code>id DESC</code> for newest-first.</td></tr>
+          <tr><td><span class="path">core/errors.py</span></td><td><code>AppError</code> taxonomy → HTTP status (<code>NotFound</code> 404, <code>Conflict</code> 409, <code>CardDeclined</code> 402, <code>TooManyRequests</code> 429…).</td></tr>
+          <tr><td><span class="path">core/ratelimit.py</span></td><td>In-process fixed-window limiter for the five public surfaces (30/60s each).</td></tr>
+          <tr><td><span class="path">core/db.py</span></td><td>Async engine + <code>SessionLocal</code> + the <code>Base</code> metadata that <span class="path">sync/upload.py</span> reflects over.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="be-models">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>models/ — the 10 domains</h2>
+      <p class="intro">SQLAlchemy, one file per domain. <span class="path">base.py</span> holds mixins only
+      (<code>PKMixin</code>, <code>TimestampMixin</code>, <code>BusinessScoped</code>, <code>SoftDelete</code>,
+      <code>enum_check</code>). <strong>No <code>relationship()</code> appears anywhere</strong> — so the
+      unit-of-work can't FK-order inserts, and services flush the parent before its FK children.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Domain</th><th>Main tables</th><th>Notable</th></tr></thead>
+        <tbody>
+          <tr><td><span class="path">identity</span></td><td class="dim">Business · User · Staff</td><td>All Stripe-Connect/KYC + Canadian tax fields live on <code>Business</code>; unique <code>slug</code>. <code>Staff.role</code> + payout config.</td></tr>
+          <tr><td><span class="path">crm</span></td><td class="dim">Client · Subject · Note</td><td><code>Client</code> soft-deletes; <code>Subject</code> = pet/vehicle/child/property; <code>Note</code> polymorphic.</td></tr>
+          <tr><td><span class="path">catalog</span></td><td class="dim">Item · Package · Subscription · GiftCard</td><td><code>Item.kind</code> ∈ service/class/product/package/subscription/gift — one table drives the whole catalog.</td></tr>
+          <tr><td><span class="path">scheduling</span></td><td class="dim">Session · Booking · Availability · Resource · Schedule</td><td><code>Session</code> carries class capacity/booked_count; <code>Booking</code> soft-deletes; <code>Schedule</code> = recurrence rule.</td></tr>
+          <tr><td><span class="path">billing</span></td><td class="dim">Invoice · Estimate · Order · Line</td><td>Per-business unique <code>number</code>; <code>Order</code> = POS/Terminal sale; <code>Line</code> polymorphic across all three parents.</td></tr>
+          <tr><td><span class="path">payments</span></td><td class="dim">Payment · PaymentMethod · Payout · PayoutAllocation</td><td>Unique <code>provider_ref</code> (one row per Stripe object), one-refund-per-payment, Interac <code>reference_code</code>.</td></tr>
+          <tr><td><span class="path">messaging</span></td><td class="dim">Thread · Message · Broadcast</td><td>Unique thread per (business, client, channel); broadcast audience JSONB + schedule.</td></tr>
+          <tr><td><span class="path">documents</span></td><td class="dim">Form · FormField · FormResponse · Contract · Signature</td><td>17 field types; public-link tokens on responses + signatures; signatures snapshot the body + capture IP.</td></tr>
+          <tr><td><span class="path">reviews</span></td><td class="dim">Review · ReviewRequest</td><td>Rating 1–5; partial-unique "one open request per booking".</td></tr>
+          <tr><td><span class="path">platform</span></td><td class="dim">File · AuditLog · WebhookEvent · DeviceToken · IdempotencyKey</td><td>Cross-cutting infra; <code>IdempotencyKey</code> unique (business, scope, key) backs <code>run_command</code> replay.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note"><b>40 tables total</b> — 38 across the 10 domains + 2 server-only auth-infra tables
+      (<code>auth_sessions</code>, <code>auth_tokens</code>). <b>Conventions:</b> prefixed-ULID PKs · integer
+      <em>cents</em> + currency · text + <code>CHECK</code> enums · soft-delete only on <strong>Client</strong>
+      and <strong>Booking</strong> · no <code>tax_rates</code> table (rates hardcoded per province in
+      <span class="path">services/tax_rates.py</span>) · a lone FK cycle broken with <code>use_alter=True</code>.</div>
+    </section>
+
+    <section id="be-schemas">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>schemas/ — the DTOs</h2>
+      <p class="intro">23 Pydantic files, fanned out finer than models — <span class="path">billing.py</span>
+      covers invoices + estimates + lines, and several are per-surface (<span class="path">public_booking</span>,
+      <span class="path">dashboard</span>, <span class="path">payouts</span>).</p>
+      <ul>
+        <li><strong>Requests</strong> name by verb: <code>*Create</code>/<code>*Update</code>, <code>*Patch</code>,
+        <code>*Body</code> (auth), <code>*Send</code>/<code>*Purchase</code>/<code>*Redeem</code>. Validation via
+        <code>Field(ge=…)</code>, <code>Literal[…]</code> enums, and <code>@field_validator</code>/<code>@model_validator</code>.</li>
+        <li><strong>Responses</strong> are <code>*Out</code> — mostly hand-mapped by service <code>_out(...)</code> builders; a few opt into <code>from_attributes=True</code>.</li>
+        <li><strong>Public</strong> <code>Public*</code> DTOs are deliberately slim projections for the unauthenticated surfaces.</li>
+      </ul>
+    </section>
+
+    <section id="be-services">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>services/ — the brain</h2>
+      <p class="intro">~40 files, one per domain concern. The rule of thumb: <strong>money / uniqueness /
+      cross-tenant</strong> paths go through <code>run_command</code>; plain CRUD (catalog, client) just uses
+      <code>scoped()</code> + <code>db.commit()</code>. Admin-only methods call <code>assert_role(...)</code>.</p>
+
+      <h3>Scheduling — four files, two easily confused</h3>
+      <div class="tbl-wrap"><table><tbody>
+        <tr><td><span class="path">availability_service</span></td><td>Pure helpers: <code>open_windows</code> (date rows override weekday rows; <code>None</code>=unrestricted, <code>[]</code>=closed) + tz-aware <code>is_within_availability</code> (uses <code>business_tz</code> from <span class="path">business_service</span>).</td></tr>
+        <tr><td><span class="path">scheduling_service</span></td><td><strong>Read-only</strong> slot enumerator — <code>open_slots(...)</code> steps open windows by duration+buffers and drops conflicts. The read mirror of the write invariant.</td></tr>
+        <tr><td><span class="path">schedule_service</span></td><td><strong>Recurring series.</strong> <code>expand_occurrences</code> (RRULE-lite, 60 cap) then one booking per occurrence in a savepoint each, re-localized per date to survive DST. A command.</td></tr>
+        <tr><td><span class="path">booking_service</span></td><td>The invariant's home. <code>create_booking_core</code> takes a <code>pg_advisory_xact_lock(business:staff)</code>, checks availability, increments class capacity or asserts a free slot; a GiST exclusion constraint backstops concurrent overlap → <code>Conflict</code>.</td></tr>
+      </tbody></table></div>
+
+      <h3>Billing, POS &amp; tax</h3>
+      <div class="tbl-wrap"><table><tbody>
+        <tr><td><span class="path">billing_service</span></td><td>Invoice + estimate lifecycle (create/update/send/void/accept/decline/<strong>convert</strong>) — 10 commands; per-business numbering.</td></tr>
+        <tr><td><span class="path">lines</span></td><td>Shared parent-agnostic line + tax engine (<code>replace_lines</code>, <code>tax_for_lines</code>) reused by invoices, estimates, orders.</td></tr>
+        <tr><td><span class="path">order_service</span></td><td>POS <code>Order</code>: create (any staff) / void (admin) / <code>checkout</code> (Terminal) / <code>connection_token</code> — per-method role variance.</td></tr>
+        <tr><td><span class="path">tax_service</span> · <span class="path">tax_rates</span></td><td><strong>Pure, no DB.</strong> Line-level GST/HST/PST/QST (QST at exact 9.975%, half-up rounding, small-supplier collects nothing); rates hardcoded per province. Golden-tested.</td></tr>
+        <tr><td><span class="path">report_service</span> · <span class="path">dashboard_service</span></td><td>Read aggregates + CSV (income, GST/HST return, T4A) · the "Today" money tiles.</td></tr>
+      </tbody></table></div>
+
+      <h3>Payments — the money core</h3>
+      <p><span class="path">payment_service.py</span> is the largest file in the repo (~1680 lines): a
+      <code>PaymentService</code> class (onboarding, <code>pay_invoice</code>, card/PAD setup, <strong>refund_payment</strong>,
+      Interac) plus a body of module-level webhook + helper functions.</p>
+      <ul>
+        <li><strong>Refund guards over-refund</strong> — blocks refunding a partly-redeemed gift card or a package with sessions used; reverses deposit + entitlement, recomputes client LTV.</li>
+        <li><strong><code>open_*</code> builders</strong> (card / booking-deposit / entitlement / terminal / interac) are Stripe-idempotency-keyed + <code>provider_ref</code>-deduped, shared by services and the public surfaces.</li>
+        <li><strong>Webhook <code>_dispatch</code></strong> routes payment/refund/dispute/payout, KYC mirror, and the full recurring-billing lifecycle; <strong>payout allocations</strong> split each paid booking line to its payee staff, idempotently.</li>
+      </ul>
+      <div class="tbl-wrap"><table><tbody>
+        <tr><td><span class="path">payout_service</span></td><td>Manual allocation lifecycle: approve → pay. Admin, commands.</td></tr>
+        <tr><td><span class="path">subscription_service</span></td><td>Create (lazily mints a recurring Stripe price, one-active guard) / cancel.</td></tr>
+        <tr><td><span class="path">package_service</span> · <span class="path">gift_card_service</span></td><td>Purchase via <code>open_entitlement_payment</code> (pending until the webhook settles) / consume-or-redeem under a <code>with_for_update</code> lock so concurrent draws can't double-spend.</td></tr>
+      </tbody></table></div>
+
+      <h3>Documents, reviews, messaging &amp; files</h3>
+      <div class="tbl-wrap"><table><tbody>
+        <tr><td><span class="path">contract_service</span> · <span class="path">form_service</span></td><td>Each <code>send_*</code> mints a token'd row and notifies <em>inside</em> the command, so a same-key retry replays without re-sending.</td></tr>
+        <tr><td><span class="path">file_service</span></td><td>Mints a server-keyed <code>File</code> + presigned upload URL — the S3 key derives from the resolved business, never the caller.</td></tr>
+        <tr><td><span class="path">message_service</span></td><td><strong>Two-way conversational messaging</strong>: send / broadcast / mark-read + inbound-SMS webhook (SID dedup) + due-broadcast cron.</td></tr>
+        <tr><td><span class="path">notification_service</span></td><td><strong>One-way event notifications</strong> — a <code>Notifier</code> with ~24 <code>on_*</code> handlers, and the English copy builders that are the <strong>single home of backend copy</strong>.</td></tr>
+        <tr><td><span class="path">public_*</span> (6)</td><td>Unauthenticated surface — booking / pay / form / contract / review + <code>public_common</code>. No principal; an opaque token or slug scopes to one business.</td></tr>
+      </tbody></table></div>
+      <div class="note"><b>Service shapes:</b> a <code>XxxService(db, principal)</code> <b>class</b> holds the request-scoped
+      handlers (they need the principal + own the transaction); <b>module-level functions</b> hold everything called
+      <em>outside</em> a single authed request — shared cores (<code>create_booking_core</code>), webhook/job processors,
+      pure helpers (<code>business_tz</code>, tax math), and the private <code>_out</code> DTO mappers.</div>
+    </section>
+
+    <section id="be-api">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>api/ — thin routers</h2>
+      <p class="intro"><span class="path">api/router.py</span> mounts 25 domain routers under <span class="path">/v1</span>.
+      Every one is DTO-only and delegates to a service; mutations thread the <code>Idempotency-Key</code> header into
+      <code>run_command</code>. Uniformly-admin routers gate once with <code>AdminPrincipal = require_role("owner","admin")</code>.</p>
+      <div class="grid2">
+        <div class="card"><h4>Authed · <span class="path">/v1/*</span></h4><p>auth · business · catalog · clients · bookings · schedules · invoices · estimates · orders · terminal · payments · payouts · packages · subscriptions · gift-cards · forms · contracts · files · messaging · reviews · reports · tax · dashboard · devices · staff · onboarding.</p></div>
+        <div class="card"><h4>Public · <span class="path">api/public.py</span></h4><p>Five token/slug-authed, rate-limited routers — <span class="path">/book</span> · <span class="path">/pay</span> · <span class="path">/form</span> · <span class="path">/contract</span> · <span class="path">/review</span>.</p></div>
+        <div class="card"><h4>Webhooks · <span class="path">api/webhooks.py</span></h4><p>Stripe (signature-verified) · Interac + SMS (constant-time shared secret). Notifications fire <strong>post-commit</strong> so a delivery failure can't roll back a settlement.</p></div>
+      </div>
+    </section>
+
+    <section id="be-sync">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>sync/ — the server-authoritative write path</h2>
+      <p class="intro"><span class="path">sync/auth.py</span> exchanges the app JWT for a short-lived PowerSync token
+      and serves the RS256 JWKS. <span class="path">sync/upload.py</span> is where PowerSync's client queue lands —
+      the enforcement layer for what a device may write.</p>
+      <div class="note"><b><code>WRITE_POLICY</code></b> is an allowlist mapping <em>table → (min_tier, own_only)</em>.
+      Only <code>clients</code>, <code>subjects</code>, <code>notes</code>, <code>messages</code>, <code>availability</code>
+      (own-only), and the admin-writable <code>items</code>/<code>resources</code>/<code>forms</code>/<code>contracts</code> are
+      sync-writable. Everything money/capacity/secret is excluded, with a comment naming the server-only invariant
+      behind each. Each op is authorized by role + ownership, blocked from cross-tenant moves, stripped of
+      <code>SYSTEM_FIELDS</code> + <code>COMMAND_ONLY_FIELDS</code>, then applied in one transaction.</div>
+    </section>
+
+    <section id="be-integrations">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>integrations/ — external adapters</h2>
+      <p class="intro">Every external service is a <code>typing.Protocol</code> + a prod implementation + a
+      <code>get_*()</code> dependency that tests override with a recording fake — so the boundary is covered without
+      the network.</p>
+      <div class="tbl-wrap"><table><tbody>
+        <tr><td><span class="path">notifications.py</span></td><td>Three channels — Postmark email, Twilio SMS, Expo push — each a Protocol + console no-op default + a real provider chosen by config.</td></tr>
+        <tr><td><span class="path">payments.py</span></td><td><code>PaymentGateway</code> over <strong>Stripe Connect</strong> (Custom accounts, direct charges + app fee): KYC, card/PAD SetupIntents, recurring price + subscription, PaymentIntent/refund, and Stripe <strong>Terminal</strong>.</td></tr>
+        <tr><td><span class="path">oauth.py</span></td><td><code>GoogleOAuthVerifier</code> — verifies a real id_token against Google's JWKS → <code>OAuthProfile</code>.</td></tr>
+        <tr><td><span class="path">s3.py</span></td><td><code>FileStorage</code> presign up/down — S3 in prod, MinIO in dev.</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="be-tasks">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>tasks/ — the arq jobs</h2>
+      <p class="intro">Jobs aren't tenant-scoped — each row resolves its own business + locale. Every job is
+      idempotent via a status/timestamp dedup marker and opens its own session. <span class="path">worker.py</span>
+      registers the cron schedule.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Job</th><th>Cron</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td><span class="path">reminders</span></td><td class="dim">every 15m</td><td>Bookings starting within 24h not yet reminded; <code>reminded_at</code> dedups.</td></tr>
+          <tr><td><span class="path">booking_jobs</span></td><td class="dim">every 15m</td><td>Reap online bookings holding a slot past the 30-min deposit window; free the session.</td></tr>
+          <tr><td><span class="path">messaging_jobs</span></td><td class="dim">every 15m</td><td>Send due scheduled broadcasts.</td></tr>
+          <tr><td><span class="path">billing_jobs</span></td><td class="dim">07:00</td><td>Sent invoices past due → <code>overdue</code> + notify once.</td></tr>
+          <tr><td><span class="path">review_jobs</span></td><td class="dim">08:00</td><td>One review request per booking completed in the last 7d.</td></tr>
+          <tr><td><span class="path">maintenance</span></td><td class="dim">03:30</td><td>Prune stale device tokens; lapse expired estimates / gift cards / packages.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="be-migrations">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>migrations</h2>
+      <p class="intro">Alembic: the source of truth is the models; the chain is a <strong>squashed initial</strong>
+      (36 tables, 75 indexes, 41 CHECKs) + <strong>28 strictly-linear</strong> hand-tuned increments.
+      Concurrency invariants live in SQL — GiST exclusion constraints stop double-booking; partial-unique indexes
+      enforce business rules (one active subscription, one open review request, one refund per payment).</p>
+    </section>
+
+    <section id="be-tests">
+      <p class="sec-eye">Backend · Python</p>
+      <h2>tests &amp; the gate</h2>
+      <p class="intro"><strong>Integration-first:</strong> <code>httpx</code> → the real FastAPI app → a real
+      migrated + seeded Postgres. Unit tests are reserved for pure logic. "Don't mock our code" — only external
+      boundaries are faked.</p>
+      <div class="grid2">
+        <div class="card"><h4>The fixture spine</h4><p><span class="path">conftest.py</span>: a <strong>transactional-rollback-per-test</strong> session, auth clients <code>as_owner</code>/<code>as_staff</code>/<code>unauth</code>, boundary fakes (email/SMS/push/storage/oauth + an in-memory Stripe gateway that honors idempotency keys), and a <code>Factory</code> for multi-tenant isolation tests.</p></div>
+        <div class="card"><h4>The seed baseline</h4><p><span class="path">scripts/seed_demo.py</span> builds <strong>"Birchbark Pet Studio"</strong> (owner <code>us_dev</code>) — the committed fixture every integration test asserts against. ~300 rows exercising every implemented surface, TRUNCATE-then-insert, FK-safe.</p></div>
+      </div>
+      <div class="note warn"><b>Three Stripe test tiers:</b> the in-memory <b>fake</b> (fast, hermetic, the default run)
+      → <b>stripe-mock</b> (the real adapter validated against Stripe's OpenAPI spec, <code>tests/contract/</code>)
+      → <b>real test-mode</b> Stripe with a Test Clock (<code>tests/e2e/</code>, skipped without keys). The gate:
+      <code>ruff</code> + <code>ruff format</code> + <code>mypy --strict</code> + <code>pytest --cov-branch --cov-fail-under=90</code>,
+      on Python <strong>3.14</strong>.</div>
+    </section>
+
+    <section id="fe-arch">
+      <p class="sec-eye">Frontend · TypeScript</p>
+      <h2>The architecture: share the view-model</h2>
+      <p class="intro">All product logic lives in <code class="plain">@clientbridge/app-core</code>; each app is a thin
+      rendering + platform-binding layer. Only <strong>four things</strong> differ per platform.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Seam</th><th>web</th><th>mobile</th></tr></thead>
+        <tbody>
+          <tr><td><strong>SQLite driver</strong></td><td class="dim"><code>@powersync/web</code> (OPFS + wa-sqlite, COOP/COEP)</td><td class="dim"><code>@powersync/op-sqlite</code> (native)</td></tr>
+          <tr><td><strong>Token store</strong></td><td class="dim">localStorage (sync) + Web-Locks refresh</td><td class="dim">expo-secure-store (async), single-instance</td></tr>
+          <tr><td><strong>Config source</strong></td><td class="dim"><code>import.meta.env</code> (Vite)</td><td class="dim"><code>Constants.expoConfig.extra</code></td></tr>
+          <tr><td><strong>Rendering</strong></td><td class="dim">DOM + Tailwind</td><td class="dim">RN + StyleSheet from the token theme</td></tr>
+        </tbody>
+      </table></div>
+      <p>Everything else — SQL, mutations, validation, status→<code>Intent</code> decisions, copy, icon geometry — is
+      shared. The seams are narrow interfaces (<code>ApiLike</code>, <code>SessionStore</code>) each app satisfies.</p>
+    </section>
+
+    <section id="fe-appcore">
+      <p class="sec-eye">Frontend · TypeScript</p>
+      <h2>packages/app-core — the view-model layer</h2>
+      <p class="intro">Contains <strong>no JSX</strong> — only hooks, SQL strings, mutation functions, and decision
+      logic. Every feature is a hook; a screen is thin rendering over it.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Area</th><th>What's there</th></tr></thead>
+        <tbody>
+          <tr><td><span class="path">domain/*</span> (29)</td><td>The view-models. <strong>Reads</strong> = a <code>useX()</code> hook wrapping <code>useQuery</code> over a SQL constant against the replica. <strong>Writes</strong> = plain fns taking <code>(api: ApiLike, …)</code>. <strong>Forms</strong> = <code>useXForm</code> on the <code>useAsyncAction</code> primitive. Each exports a status→<code>Intent</code> mapper. Richest: <span class="path">payments.ts</span> (the <code>useInteractivePurchase</code> Stripe seam), <span class="path">calendar.ts</span> (~652 lines of layout math + booking).</td></tr>
+          <tr><td><span class="path">domain/public*</span> (7)</td><td>Back the unauthenticated surfaces — <strong>no PowerSync</strong>. Each is a <code>createPublicXClient(baseUrl)</code> factory doing plain <code>fetch</code> against token-authed endpoints.</td></tr>
+          <tr><td><span class="path">hooks/*</span></td><td><code>useAsyncAction</code> (the busy/error mutation primitive), <code>useBusinessId</code>/<code>useSearch</code>, <code>useClientState</code>, <code>useCurrentRole</code>, <code>useLogin</code>.</td></tr>
+          <tr><td><span class="path">util/*</span></td><td>The <code>ApiLike</code> write seam, <code>datetime</code> (the load-bearing <code>parseTimestamp</code> — the one unit-tested file), <code>format</code>, id primitives.</td></tr>
+          <tr><td><span class="path">strings.ts</span> · <span class="path">icons.ts</span></td><td>The copy catalog (one object, ~35 domain groups — the single home of UI copy) · icon geometry as data.</td></tr>
+          <tr><td><span class="path">index.ts</span> · <span class="path">public.ts</span></td><td>Two entrypoints. <span class="path">public.ts</span> is the <strong>PowerSync-free lean subpath</strong> the Connect app imports.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="fe-packages">
+      <p class="sec-eye">Frontend · TypeScript</p>
+      <h2>The other four packages</h2>
+      <div class="grid2">
+        <div class="card"><h4><span class="path">sync</span> · PowerSync bridge</h4><p><span class="path">schema.ts</span> is the <strong>generated</strong> <code>AppSchema</code>. <span class="path">connector.ts</span>: <code>fetchCredentials</code> (GET <span class="path">/sync/token</span>) + <code>uploadData</code> (drains the CRUD queue to <span class="path">/sync/upload</span>).</p></div>
+        <div class="card"><h4><span class="path">api-client</span> · OpenAPI bridge</h4><p><span class="path">generated.ts</span> is openapi-typescript output. <span class="path">session.ts</span> owns transparent <strong>token refresh</strong> (single-flight, retries once on 401, refreshes only on a definitive 401/403 so a blip doesn't wipe the replica).</p></div>
+        <div class="card"><h4><span class="path">tokens</span> · Pewter design system</h4><p>One source → both platforms. <span class="path">gen-themes.cjs</span> parses <span class="path">app-explorer.html</span> into <strong>generated</strong> <span class="path">themes.css</span> (web) + <span class="path">themes.ts</span> (RN). 6 themes.</p></div>
+        <div class="card"><h4><span class="path">config</span> · shared lint/format</h4><p><code>strictTypeChecked</code> + <code>no-console</code>/<code>no-void</code>/no-floating-promises. Ships <code>no-inline-ui-string</code> and the <strong>lean-bundle boundary</strong>: bans <code>@powersync/*</code> from Connect + <code>app-core/public</code>.</p></div>
+      </div>
+    </section>
+
+    <section id="fe-apps">
+      <p class="sec-eye">Frontend · TypeScript</p>
+      <h2>The three apps</h2>
+      <div class="grid2">
+        <div class="card"><h4><span class="chip pine">:8700</span> web — provider/admin</h4><p>React + Vite. <span class="path">App.tsx</span> gates on auth + <code>useBusinessId</code> inside a PowerSync provider; 20 thin pages over app-core hooks. Vite sets COOP/COEP for OPFS SQLite. Stripe via Elements.</p></div>
+        <div class="card"><h4><span class="chip pine">:8707</span> mobile — provider/admin</h4><p>Expo RN, native-module (dev/EAS build, not Expo Go). <span class="path">polyfills.ts</span> shims the sync stream; <span class="path">screens/</span> mirror the web pages over the <strong>same hooks</strong>. Native Stripe + <strong>Tap-to-Pay Terminal</strong> + push.</p></div>
+        <div class="card"><h4><span class="chip pine">:8709</span> connect — customer app</h4><p>Deliberately lean: imports only <code class="plain">@clientbridge/app-core/public</code> — <strong>no PowerSync, no api-client</strong>. Six public pages over plain-<code>fetch</code> clients. <span class="path">public/embed.js</span> is the host-side iframe loader.</p></div>
+      </div>
+    </section>
+
+    <section id="infra">
+      <p class="sec-eye">Platform</p>
+      <h2>Infra &amp; ops</h2>
+      <p class="intro">Local infra is Docker Compose on the <strong>87xx</strong> port block. The
+      <span class="path">Makefile</span> is the single entry point for every dev + CI task.</p>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Service</th><th>Port</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td>postgres 16</td><td class="dim">8702</td><td>Source DB, <code>wal_level=logical</code> for PowerSync.</td></tr>
+          <tr><td>powersync</td><td class="dim">8704</td><td>Reads the WAL, streams buckets to devices; storage in a separate DB.</td></tr>
+          <tr><td>redis 7</td><td class="dim">8703</td><td>arq job queue.</td></tr>
+          <tr><td>minio</td><td class="dim">8705/6</td><td>S3-compatible file storage (dev).</td></tr>
+          <tr><td>stripe-mock</td><td class="dim">8708</td><td>Test-profile only; the contract-test target.</td></tr>
+        </tbody>
+      </table></div>
+      <div class="note"><b>Sync-rules = read authorization.</b> PowerSync bypasses Postgres RLS, so
+      <span class="path">sync-rules.yaml</span> is the per-device read model, in three buckets:
+      <strong>business_shared</strong> (the client book every teammate sees) · <strong>staff_self</strong>
+      (a staff member's <em>own</em> calendar + earnings, by <code>staff_id</code>) · <strong>business_full</strong>
+      (owner/admin only — all workers' schedules, all money, the audit log). Writes are authorized separately in
+      <span class="path">/sync/upload</span>.</div>
+      <h3>CI — four parallel jobs</h3>
+      <div class="tbl-wrap"><table><tbody>
+        <tr><td><strong>backend</strong></td><td class="dim">ruff + ruff-format + mypy-strict + real migrate + seed + pytest ≥90% branch.</td></tr>
+        <tr><td><strong>frontend</strong></td><td class="dim">eslint (strictTypeChecked) + tsc + prettier + vitest + a real <code>pnpm build</code>.</td></tr>
+        <tr><td><strong>contract</strong></td><td class="dim">The real Stripe adapter against stripe-mock.</td></tr>
+        <tr><td><strong>codegen-drift</strong></td><td class="dim">Regenerate the api-client, sync schema, and themes; fail if any committed artifact differs.</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="docs">
+      <p class="sec-eye">Platform</p>
+      <h2>The .docs library</h2>
+      <p class="intro">Three consolidated docs — the canonical "why" — plus the design system.</p>
+      <div class="tbl-wrap"><table><tbody>
+        <tr><td><span class="path">architecture.md</span></td><td class="dim">The system: stack · the 5 surfaces · the data model · sync · authorization · the frontend architecture.</td></tr>
+        <tr><td><span class="path">engineering.md</span></td><td class="dim">The gate · CI · testing · the vertical-slice method · copy · ports · the demo/seed · conventions.</td></tr>
+        <tr><td><span class="path">roadmap.md</span></td><td class="dim">Built baseline · M3/M4/M5 backlog · execution order + gates · Connect's remaining portal work.</td></tr>
+        <tr><td><span class="path">design/app-explorer.html</span></td><td class="dim">The theme + screen playground — the <em>source</em> <code>make gen-themes</code> parses (every screen × 6 themes). This atlas is its companion.</td></tr>
+      </tbody></table></div>
+    </section>
+
+    <section id="patterns">
+      <p class="sec-eye">Platform</p>
+      <h2>Cross-cutting patterns</h2>
+      <p class="intro">The handful of ideas that, once internalized, explain most files.</p>
+      <div class="grid2">
+        <div class="card"><h4>Tenancy has one home</h4><p>Every tenant query goes through <code>core/scoping.scoped(...)</code>. A <code>business_id</code> filter is never hand-written; <code>Principal.business_id</code> is re-derived from the DB each request, never trusted from the token.</p></div>
+        <div class="card"><h4>Invariants are commands</h4><p><code>run_command</code> makes money/uniqueness/cross-tenant mutations atomic + audited + idempotent. Anything a client shouldn't forge is a command, not a sync-write.</p></div>
+        <div class="card"><h4>Generate, don't share</h4><p>Python and TS share no source. The sync schema, API client, and design tokens are generated from a single source with a CI drift gate.</p></div>
+        <div class="card"><h4>Copy lives in one place each</h4><p>All UI copy is in <code>strings.ts</code> (lint-enforced); all backend copy is in <code>notification_service.py</code>. Both are the single home of copy.</p></div>
+        <div class="card"><h4>The lean bundle is enforced</h4><p>Connect's PowerSync-free carve-out is real: a separate <code>public.ts</code> entry, optional peer deps, and an ESLint <code>no-restricted-imports</code> boundary with CI teeth.</p></div>
+        <div class="card"><h4>No relationships → flush order</h4><p>Models declare no <code>relationship()</code>, so services flush a parent before its FK children and the seed hand-orders inserts. IDs are prefixed ULIDs — time-sortable, powering newest-first paging.</p></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="footer-in">Clientbridge — Codebase Atlas · read from source across backend, frontend, infra &amp; docs.
+  The canonical text lives in <span class="path">.docs/architecture.md</span>; this is its visual companion.</div>
+</footer>
+
+<button class="totop" id="toTop" type="button" aria-label="Back to top">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+
+<script>
+  (function () {
+    // Scrollspy — highlight the current section in the TOC.
+    var links = {}, order = [];
+    document.querySelectorAll("nav.toc a").forEach(function (a) {
+      var id = a.getAttribute("href").slice(1); links[id] = a; order.push(id);
+    });
+    var current = null;
+    function mark(id) {
+      if (id === current || !links[id]) return;
+      if (current && links[current]) links[current].classList.remove("active");
+      links[id].classList.add("active"); current = id;
+    }
+    if ("IntersectionObserver" in window) {
+      var seen = {};
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) { seen[e.target.id] = e.isIntersecting; });
+        for (var i = 0; i < order.length; i++) { if (seen[order[i]]) { mark(order[i]); break; } }
+      }, { rootMargin: "-14% 0px -72% 0px", threshold: 0 });
+      document.querySelectorAll("main section").forEach(function (s) { io.observe(s); });
+    }
+
+    // Back to top.
+    var top = document.getElementById("toTop");
+    addEventListener("scroll", function () {
+      top.classList.toggle("show", scrollY > 640);
+    }, { passive: true });
+    top.addEventListener("click", function () {
+      scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -3,7 +3,23 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Clientbridge — Theme & Screen Explorer</title>
+<title>Clientbridge — App Explorer</title>
+<!--
+  Clientbridge — App Explorer  ·  design playground + theme source
+  ──────────────────────────────────────────────────────────────
+  • THEME SOURCE: `make gen-themes` parses the .t-<name>{…} blocks in <style> below to regenerate
+    packages/tokens/src/themes.{css,ts} (CI drift-gated). Edit a theme's tokens here, then run gen-themes.
+  • DESIGN LANGUAGE — "engineered calm, structural warmth": Pine = structure/trust · Honey = the human
+    connection + CTA · Clay = craft warmth · Paper = warm neutrals. Type pairs a display face + a friendly
+    grotesk + a mono for money (always tabular-nums).
+  • INFORMATION ARCHITECTURE — 6 primary destinations, identical on the web rail and the mobile tab+FAB:
+    Today · Calendar · Clients · Invoices · Inbox · Catalog. Global + (FAB) → quick-create.
+    A vertical-pluggable core: a "vertical pack" swaps presets only (services, forms, contracts, copy,
+    policies) — it never forks the data model. This demo runs the pet-care pack (Birchbark Pet Studio).
+  • Use the top bar to switch theme × screen; the same demo data renders on web (appwin) + mobile (phone).
+-->
+<meta name="description" content="Clientbridge app explorer — every screen, every theme.">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Libre+Franklin:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Playfair+Display:wght@400;500;600;700&family=Archivo:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&family=Albert+Sans:wght@400;500;600;700&family=Onest:wght@400;500;600;700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -40,7 +56,9 @@
   .chrome .url{margin-left:10px;height:24px;flex:0 1 360px;background:rgba(255,255,255,.1);border-radius:7px;display:flex;align-items:center;padding:0 12px;font-family:"DM Mono",monospace;font-size:11px;color:rgba(255,255,255,.66)}
   .appwin{display:grid;grid-template-columns:218px 1fr;height:712px;background:var(--bg);color:var(--ink);font-family:var(--font-ui)}
 
-  .side{background:var(--side);padding:15px 12px;display:flex;flex-direction:column;gap:5px}
+  .side{background:var(--side);padding:15px 12px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+  .side .navi{padding:8px 11px;font-size:13px}
+  .side .navi svg.ic{width:15px;height:15px}
   .brand{display:flex;align-items:center;gap:9px;padding:5px 8px 10px;color:#fff;font-family:var(--font-display);font-weight:var(--h2-weight);font-size:17px}
   .ws{display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);border-radius:9px;padding:9px 11px;font-size:12.5px;font-weight:600;color:#fff;margin-bottom:8px;cursor:pointer}
   .ws .sub{color:var(--side-ink);font-weight:400;font-size:11px}
@@ -67,6 +85,8 @@
   .canvas{flex:1;overflow:auto;padding:22px}
 
   .wscr{display:none}.wscr.on{display:block}
+  .cscr{display:none}.cscr.on{display:block}
+  .cfield{width:100%;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);margin-top:5px}
 
   /* generic bits */
   .eyebrow{font-family:var(--font-eyebrow);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 6px}
@@ -235,11 +255,23 @@
       <button class="tab scrtab" data-scr="clients">Clients</button>
       <button class="tab scrtab" data-scr="invoice">Invoice</button>
       <button class="tab scrtab" data-scr="inbox">Inbox</button>
+      <button class="tab scrtab" data-scr="catalog">Catalog</button>
+      <button class="tab scrtab" data-scr="pos">POS</button>
     </div>
-    <span class="barnote">same data · web + mobile · switch freely</span>
+    <div class="sep"></div>
+    <div class="grp"><span class="gl">Connect</span>
+      <button class="tab scrtab" data-scr="c-landing">Landing</button>
+      <button class="tab scrtab" data-scr="c-book">Book</button>
+      <button class="tab scrtab" data-scr="c-pay">Pay</button>
+      <button class="tab scrtab" data-scr="c-form">Form</button>
+      <button class="tab scrtab" data-scr="c-contract">Contract</button>
+      <button class="tab scrtab" data-scr="c-review">Review</button>
+    </div>
+    <span class="barnote">theme × screen · provider + customer</span>
   </div>
 
-  <div class="stagewrap"><div class="devrow" id="stage">
+  <div class="stagewrap"><div id="stage" style="width:100%;max-width:1500px">
+    <div class="devrow" id="provider-row">
     <!-- DESKTOP -->
     <div class="desktop">
       <p class="cap">desktop · web app</p>
@@ -248,19 +280,27 @@
         <div class="appwin">
           <aside class="side">
             <div class="brand"><svg viewBox="0 0 48 48" fill="none" stroke="var(--logo)" stroke-linecap="round" style="width:22px;height:22px"><use href="#i-bridge"/></svg> Clientbridge</div>
-            <div class="ws"><span>Stillwater Massage<br><span class="sub">Vancouver, BC</span></span><svg class="ic" style="width:14px;height:14px;color:var(--side-ink)"><use href="#i-set"/></svg></div>
+            <div class="ws"><span>Birchbark Pet Studio<br><span class="sub">Victoria, BC</span></span><svg class="ic" style="width:14px;height:14px;color:var(--side-ink)"><use href="#i-set"/></svg></div>
             <a class="navi" data-nav="dashboard"><svg class="ic"><use href="#i-grid"/></svg> Today</a>
             <a class="navi" data-nav="calendar"><svg class="ic"><use href="#i-cal"/></svg> Calendar</a>
             <a class="navi" data-nav="clients"><svg class="ic"><use href="#i-users"/></svg> Clients <span class="ct">428</span></a>
             <a class="navi" data-nav="invoice"><svg class="ic"><use href="#i-doc"/></svg> Invoices <span class="ct">3</span></a>
             <a class="navi" data-nav="inbox"><svg class="ic"><use href="#i-chat"/></svg> Inbox <span class="ct">2</span></a>
-            <a class="navi"><svg class="ic"><use href="#i-tag"/></svg> Catalog</a>
-            <div class="sfoot"><div class="av">SK</div><div><div class="nm">Sam Koh</div><div class="rl">Owner · RMT</div></div></div>
+            <a class="navi" data-nav="catalog"><svg class="ic"><use href="#i-tag"/></svg> Catalog</a>
+            <a class="navi" data-nav="pos"><svg class="ic"><use href="#i-grid"/></svg> POS</a>
+            <a class="navi" data-nav="giftcards"><svg class="ic"><use href="#i-tag"/></svg> Gift Cards</a>
+            <a class="navi" data-nav="payouts"><svg class="ic"><use href="#i-bolt"/></svg> Payouts <span class="ct">3</span></a>
+            <a class="navi" data-nav="reviews"><svg class="ic"><use href="#i-bell"/></svg> Reviews</a>
+            <a class="navi" data-nav="reports"><svg class="ic"><use href="#i-doc"/></svg> Reports</a>
+            <a class="navi" data-nav="scheduling"><svg class="ic"><use href="#i-cal"/></svg> Scheduling</a>
+            <a class="navi" data-nav="team"><svg class="ic"><use href="#i-users"/></svg> Team</a>
+            <a class="navi" data-nav="settings"><svg class="ic"><use href="#i-set"/></svg> Settings</a>
+            <div class="sfoot"><div class="av">HW</div><div><div class="nm">Hannah Wong</div><div class="rl">Owner · Groomer</div></div></div>
           </aside>
           <div class="main">
             <header class="topbar">
               <div><div class="eyebrow" id="tb-eye">Wednesday · June 24</div><h1 id="tb-title">Today</h1></div>
-              <div class="tr"><div class="search"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search clients, bookings…</div><div class="iconbtn"><svg class="ic"><use href="#i-bell"/></svg></div><div class="me">SK</div></div>
+              <div class="tr"><div class="search"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search clients, bookings…</div><div class="iconbtn"><svg class="ic"><use href="#i-bell"/></svg></div><div class="me">HW</div></div>
             </header>
             <div class="canvas">
 
@@ -281,17 +321,17 @@
                     <section class="card">
                       <div class="card-h"><h3>Awaiting payment</h3><span class="s">$437</span></div>
                       <div style="padding:6px 0">
-                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#C2613F;font-size:10px">JM</div><div><div class="nm">Jordan Mackenzie</div><div class="sb">Deposit · 90-min</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$80.00</span><button class="btn btn-primary btn-sm">Request</button></div></div>
-                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#7C5AA6;font-size:10px">SR</div><div><div class="nm">Sofia Russo</div><div class="sb">Unpaid · 60-min</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$126.00</span><button class="btn btn-primary btn-sm">Request</button></div></div>
-                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#2C8B7C;font-size:10px">MC</div><div><div class="nm">Marcus Chen</div><div class="sb">INV-0146 · overdue</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$231.00</span><button class="btn btn-out btn-sm">Remind</button></div></div>
+                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#2C8B7C;font-size:10px">MC</div><div><div class="nm">Marcus Chen</div><div class="sb">Deposit · Full Groom</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$61.60</span><button class="btn btn-primary btn-sm">Request</button></div></div>
+                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#7C5AA6;font-size:10px">SR</div><div><div class="nm">Sofia Russo</div><div class="sb">Unpaid · Nail Trim</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$33.60</span><button class="btn btn-primary btn-sm">Request</button></div></div>
+                        <div class="row" style="padding:9px 16px;justify-content:space-between"><div class="who"><div class="av" style="width:28px;height:28px;background:#1A6B5F;font-size:10px">DO</div><div><div class="nm">Daniel Okafor</div><div class="sb">INV-1146 · overdue</div></div></div><div class="row"><span class="amt" style="font-size:12.5px">$184.00</span><button class="btn btn-out btn-sm">Remind</button></div></div>
                       </div>
                     </section>
                     <section class="card">
                       <div class="card-h"><h3>Recent activity</h3><span class="s">today</span></div>
                       <div style="padding:6px 16px 12px">
-                        <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Interac received · $126.00</div><div class="sb">from Amélie Tremblay · 9:42a</div></div></div>
-                        <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">New booking confirmed</div><div class="sb">Noah Bélanger · Hot stone · 3:30p</div></div></div>
-                        <div class="tline"><span class="tdot" style="background:var(--warn-bg);color:var(--warn-fg)">★</span><div><div class="nm" style="font-size:12.5px">5-star review</div><div class="sb">Riley Khan · "Best in the city"</div></div></div>
+                        <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Interac received · $95.20</div><div class="sb">from Amélie Tremblay · 9:42a</div></div></div>
+                        <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">New booking confirmed</div><div class="sb">Noah Bélanger · Puppy's First · 2:00p</div></div></div>
+                        <div class="tline"><span class="tdot" style="background:var(--warn-bg);color:var(--warn-fg)">★</span><div><div class="nm" style="font-size:12.5px">5-star review</div><div class="sb">Riley Khan · "So gentle with Cooper"</div></div></div>
                       </div>
                     </section>
                   </div>
@@ -310,21 +350,21 @@
                     <div class="tl" style="grid-row:1">9 AM</div><div class="tl" style="grid-row:3">10</div><div class="tl" style="grid-row:5">11</div><div class="tl" style="grid-row:7">12 PM</div><div class="tl" style="grid-row:9">1</div><div class="tl" style="grid-row:11">2</div><div class="tl" style="grid-row:13">3</div><div class="tl" style="grid-row:15">4</div><div class="tl" style="grid-row:17">5</div>
                     <div class="daybg" style="grid-column:2"></div><div class="daybg" style="grid-column:3"></div><div class="daybg" style="grid-column:4"></div><div class="daybg" style="grid-column:5"></div><div class="daybg" style="grid-column:6"></div><div class="daybg" style="grid-column:7"></div><div class="daybg" style="grid-column:8"></div>
                     <!-- Mon -->
-                    <div class="event paid" style="grid-column:2;grid-row:3/span 2"><b>Priya P.</b>Massage 60</div>
-                    <div class="event" style="grid-column:2;grid-row:13/span 3"><b>Marcus C.</b>Deep tissue 90</div>
+                    <div class="event paid" style="grid-column:2;grid-row:3/span 2"><b>Daisy</b>Bath & Brush</div>
+                    <div class="event" style="grid-column:2;grid-row:13/span 3"><b>Rocky</b>Full Groom</div>
                     <!-- Tue -->
-                    <div class="event" style="grid-column:3;grid-row:5/span 2"><b>Lena W.</b>Hot stone 75</div>
+                    <div class="event" style="grid-column:3;grid-row:5/span 2"><b>Charlie</b>Nail Trim</div>
                     <!-- Wed (today) -->
-                    <div class="event paid" style="grid-column:4;grid-row:1/span 2"><b>Amélie T.</b>Massage 60</div>
-                    <div class="event due" style="grid-column:4;grid-row:5/span 3"><b>Jordan M.</b>Deep tissue 90</div>
-                    <div class="event accent" style="grid-column:4;grid-row:11/span 2"><b>Riley K.</b>Pkg 4/10</div>
-                    <div class="event" style="grid-column:4;grid-row:14/span 3"><b>Noah B.</b>Hot stone 75</div>
-                    <div class="event unp" style="grid-column:4;grid-row:17/span 2"><b>Sofia R.</b>Massage 60</div>
+                    <div class="event paid" style="grid-column:4;grid-row:1/span 2"><b>Bella</b>Full Groom</div>
+                    <div class="event due" style="grid-column:4;grid-row:5/span 3"><b>Rocky</b>Full Groom + de-shed</div>
+                    <div class="event accent" style="grid-column:4;grid-row:11/span 2"><b>Cooper</b>Pack 4/5</div>
+                    <div class="event" style="grid-column:4;grid-row:14/span 3"><b>Max</b>Puppy's First</div>
+                    <div class="event unp" style="grid-column:4;grid-row:17/span 2"><b>Luna</b>Nail Trim</div>
                     <!-- Thu/Fri -->
-                    <div class="event paid" style="grid-column:5;grid-row:7/span 2"><b>Dan O.</b>Massage 60</div>
-                    <div class="event" style="grid-column:6;grid-row:9/span 3"><b>Ines F.</b>Prenatal 90</div>
-                    <div class="event paid" style="grid-column:6;grid-row:15/span 2"><b>Tomás R.</b>Massage 60</div>
-                    <div class="event accent" style="grid-column:7;grid-row:3/span 2"><b>Group</b>Mobility class</div>
+                    <div class="event paid" style="grid-column:5;grid-row:7/span 2"><b>Bailey</b>Full Groom</div>
+                    <div class="event" style="grid-column:6;grid-row:9/span 3"><b>Milo</b>Full Groom</div>
+                    <div class="event paid" style="grid-column:6;grid-row:15/span 2"><b>Zoe</b>Bath & Brush</div>
+                    <div class="event accent" style="grid-column:7;grid-row:3/span 2"><b>Puppy class</b>6 pups · daycare</div>
                   </div>
                 </div>
               </div>
@@ -343,14 +383,14 @@
                 <div class="invwrap">
                   <section class="card">
                     <div class="card-h"><div><div class="eyebrow">Invoice</div><h3 style="font-size:17px">INV-2026-0148</h3></div><span class="badge b-warn"><span class="dot" style="background:var(--warn-fg)"></span>Awaiting payment</span></div>
-                    <div style="padding:14px 17px;display:flex;justify-content:space-between;font-size:12.5px"><div><div class="sb" style="color:var(--muted)">Billed to</div><div class="nm" style="margin-top:2px">Jordan Mackenzie</div><div class="sb">jordan@email.ca</div></div><div style="text-align:right"><div class="sb" style="color:var(--muted)">Issued · Due</div><div class="nm" style="margin-top:2px">Jun 24 · on receipt</div><div class="sb">GST 80012 3456 RT0001</div></div></div>
-                    <div class="lineitem"><div><div class="d">90-min Deep tissue massage</div><div class="m">Jun 24 · 11:00 AM</div></div><span class="amt">$140.00</span></div>
-                    <div class="lineitem"><div><div class="d">Hot-stone add-on</div><div class="m">Service add-on</div></div><span class="amt">$20.00</span></div>
+                    <div style="padding:14px 17px;display:flex;justify-content:space-between;font-size:12.5px"><div><div class="sb" style="color:var(--muted)">Billed to</div><div class="nm" style="margin-top:2px">Marcus Chen</div><div class="sb">marcus@email.ca · Rocky (golden retriever)</div></div><div style="text-align:right"><div class="sb" style="color:var(--muted)">Issued · Due</div><div class="nm" style="margin-top:2px">Jun 24 · on receipt</div><div class="sb">GST 80012 3456 RT0001</div></div></div>
+                    <div class="lineitem"><div><div class="d">Full Groom — large dog</div><div class="m">Jun 24 · 10:30 AM · with Diego</div></div><span class="amt">$85.00</span></div>
+                    <div class="lineitem"><div><div class="d">De-shed treatment</div><div class="m">Service add-on</div></div><span class="amt">$25.00</span></div>
                     <div class="totals">
-                      <div class="tr2"><span>Subtotal</span><span class="amt">$160.00</span></div>
-                      <div class="tr2"><span>GST (5%)</span><span class="amt">$8.00</span></div>
-                      <div class="tr2"><span>PST · BC (7%)</span><span class="amt">$11.20</span></div>
-                      <div class="tot"><span>Total CAD</span><span class="amt">$179.20</span></div>
+                      <div class="tr2"><span>Subtotal</span><span class="amt">$110.00</span></div>
+                      <div class="tr2"><span>GST (5%)</span><span class="amt">$5.50</span></div>
+                      <div class="tr2"><span>PST · BC (7%)</span><span class="amt">$7.70</span></div>
+                      <div class="tot"><span>Total CAD</span><span class="amt">$123.20</span></div>
                     </div>
                     <div style="padding:14px 17px">
                       <div class="eyebrow">How they'll pay</div>
@@ -361,7 +401,7 @@
                     </div>
                   </section>
                   <div style="display:flex;flex-direction:column;gap:16px">
-                    <section class="card"><div class="card-h"><h3>Client</h3></div><div style="padding:14px 17px"><div class="who"><div class="av" style="width:38px;height:38px;background:#C2613F">JM</div><div><div class="nm" style="font-size:14px">Jordan Mackenzie</div><div class="sb">12 visits · $1,240 lifetime</div></div></div><div class="row" style="gap:6px;margin-top:11px"><span class="chip">VIP</span></div></div></section>
+                    <section class="card"><div class="card-h"><h3>Client</h3></div><div style="padding:14px 17px"><div class="who"><div class="av" style="width:38px;height:38px;background:#2C8B7C">MC</div><div><div class="nm" style="font-size:14px">Marcus Chen</div><div class="sb">8 visits · $642 lifetime · Rocky</div></div></div><div class="row" style="gap:6px;margin-top:11px"><span class="chip">Regular</span></div></div></section>
                     <section class="card"><div class="card-h"><h3>Activity</h3></div><div style="padding:8px 17px 14px">
                       <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">Invoice created</div><div class="sb">Today · 9:10a</div></div></div>
                       <div class="tline"><span class="tdot" style="background:var(--accent-weak)">↗</span><div><div class="nm" style="font-size:12.5px">Sent to client</div><div class="sb">Today · 9:11a · email + SMS</div></div></div>
@@ -379,7 +419,7 @@
                 </div>
                 <div class="inbox">
                   <div class="convlist">
-                    <div class="conv sel"><div class="av" style="width:34px;height:34px;background:#7C5AA6">SR</div><div style="flex:1;min-width:0"><div class="nm">Sofia Russo</div><div class="pre">Could we push to 5:30 today?</div></div><div class="meta"><span class="tmtag">2m</span><span class="undot"></span></div></div>
+                    <div class="conv sel"><div class="av" style="width:34px;height:34px;background:#7C5AA6">SR</div><div style="flex:1;min-width:0"><div class="nm">Sofia Russo</div><div class="pre">Could we push Luna to 4:00 today?</div></div><div class="meta"><span class="tmtag">2m</span><span class="undot"></span></div></div>
                     <div class="conv"><div class="av" style="width:34px;height:34px;background:#2C8B7C">NB</div><div style="flex:1;min-width:0"><div class="nm">Noah Bélanger</div><div class="pre">Do you have any evening slots?</div></div><div class="meta"><span class="tmtag">18m</span><span class="undot"></span></div></div>
                     <div class="conv"><div class="av" style="width:34px;height:34px;background:#C2613F">JM</div><div style="flex:1;min-width:0"><div class="nm">Jordan Mackenzie</div><div class="pre">Sent the deposit ✓</div></div><div class="meta"><span class="tmtag">1h</span></div></div>
                     <div class="conv"><div class="av" style="width:34px;height:34px;background:#1A6B5F">AT</div><div style="flex:1;min-width:0"><div class="nm">Amélie Tremblay</div><div class="pre">Thank you, see you next month!</div></div><div class="meta"><span class="tmtag">3h</span></div></div>
@@ -391,11 +431,300 @@
                       <div class="row"><button class="btn btn-out btn-sm">Reschedule</button></div>
                     </div>
                     <div class="thbody">
-                      <div class="msg out"><div class="mh">You · Mon 8:02a · SMS</div>Hi Sofia — confirming your 60-min massage today at 5:00 PM. Reply STOP to opt out.</div>
-                      <div class="msg in"><div class="mh">Sofia · 4:41p</div>Hi! Something came up at work — could we push to 5:30 instead?</div>
-                      <div class="msg out" style="border-style:dashed"><div class="mh">Draft · suggested</div>No problem, Sofia — I've moved you to 5:30 PM today. See you then! 🌿</div>
+                      <div class="msg out"><div class="mh">You · Mon 8:02a · SMS</div>Hi Sofia — confirming Luna's Nail Trim today at 3:30 PM. Reply STOP to opt out.</div>
+                      <div class="msg in"><div class="mh">Sofia · 2:41p</div>Hi! Something came up at work — could we push Luna to 4:00 instead?</div>
+                      <div class="msg out" style="border-style:dashed"><div class="mh">Draft · suggested</div>No problem, Sofia — I've moved Luna to 4:00 PM today. See you both then! 🐾</div>
                     </div>
                     <div class="composer"><div class="cin">Write a reply…</div><button class="btn btn-out btn-sm">Use suggestion</button><button class="btn btn-primary btn-sm">Send</button></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CATALOG -->
+              <div class="wscr" data-scr="catalog">
+                <div class="row" style="justify-content:space-between;margin-bottom:14px">
+                  <div class="row"><div class="search" style="min-width:230px"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search items…</div><span class="chip">Services</span><span class="chip">Packages</span><span class="chip">Retail</span></div>
+                  <button class="btn btn-primary btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> Add item</button>
+                </div>
+                <section class="card"><table class="tbl">
+                  <thead><tr><th>Item</th><th>Type</th><th class="num">Price</th><th>Duration</th><th>Tax</th><th>Online</th></tr></thead>
+                  <tbody>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--accent)"></span><div><div class="nm">Full Groom</div><div class="sb">wash · cut · nails · ears</div></div></div></td><td><span class="badge b-accent">Service</span></td><td class="num"><span class="amt">$85.00</span></td><td class="tm">90 min</td><td><span class="chip">GST + PST</span></td><td><span class="pill ok">Bookable</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--accent)"></span><div><div class="nm">Bath & Brush</div><div class="sb">wash · blow-dry · brush-out</div></div></div></td><td><span class="badge b-accent">Service</span></td><td class="num"><span class="amt">$48.00</span></td><td class="tm">45 min</td><td><span class="chip">GST + PST</span></td><td><span class="pill ok">Bookable</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--accent)"></span><div><div class="nm">Nail Trim + Tidy</div><div class="sb">nails · paw tidy</div></div></div></td><td><span class="badge b-accent">Service</span></td><td class="num"><span class="amt">$25.00</span></td><td class="tm">20 min</td><td><span class="chip">GST + PST</span></td><td><span class="pill ok">Bookable</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--accent)"></span><div><div class="nm">Puppy's First Groom</div><div class="sb">gentle intro · under 6 mo</div></div></div></td><td><span class="badge b-accent">Service</span></td><td class="num"><span class="amt">$50.00</span></td><td class="tm">60 min</td><td><span class="chip">GST + PST</span></td><td><span class="pill ok">Bookable</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--ink-soft)"></span><div><div class="nm">Puppy Social Class</div><div class="sb">group · max 6 pups</div></div></div></td><td><span class="badge b-muted">Class</span></td><td class="num"><span class="amt">$28.00</span><span class="sb"> /seat</span></td><td class="tm">50 min</td><td><span class="chip">GST + PST</span></td><td><span class="pill ok">Bookable</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--ink-soft)"></span><div><div class="nm">Monthly Daycare</div><div class="sb">recurring · PAD / card</div></div></div></td><td><span class="badge b-muted">Subscription</span></td><td class="num"><span class="amt">$180.00</span><span class="sb"> /mo</span></td><td class="tm">—</td><td><span class="chip">GST + PST</span></td><td><span class="pill due">Recurring</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--ink-soft)"></span><div><div class="nm">5-Bath Package</div><div class="sb">5 baths · save 15%</div></div></div></td><td><span class="badge b-muted">Package</span></td><td class="num"><span class="amt">$204.00</span></td><td class="tm">5 sessions</td><td><span class="chip">GST + PST</span></td><td><span class="chip">Sold in app</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--ink-soft)"></span><div><div class="nm">Oatmeal Shampoo 250 ml</div><div class="sb">retail · 24 in stock</div></div></div></td><td><span class="badge b-muted">Product</span></td><td class="num"><span class="amt">$18.00</span></td><td class="tm">—</td><td><span class="chip">GST + PST</span></td><td><span class="chip">POS only</span></td></tr>
+                    <tr><td><div class="who"><span class="dot" style="width:9px;height:9px;background:var(--ink-soft)"></span><div><div class="nm">Gift Card</div><div class="sb">any amount</div></div></div></td><td><span class="badge b-muted">Gift</span></td><td class="num"><span class="amt">—</span></td><td class="tm">—</td><td><span class="chip" style="color:var(--muted)">No tax</span></td><td><span class="pill ok">Online</span></td></tr>
+                  </tbody>
+                </table></section>
+              </div>
+
+              <!-- POS -->
+              <div class="wscr" data-scr="pos">
+                <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start">
+                  <section class="card">
+                    <div class="card-h"><h3>Register</h3><div class="seg"><button class="on">All</button><button>Grooming</button><button>Retail</button></div></div>
+                    <div style="padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Full Groom</span><span class="amt">$85.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Bath & Brush</span><span class="amt">$48.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Nail Trim</span><span class="amt">$25.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Puppy Groom</span><span class="amt">$50.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Day Pass</span><span class="amt">$40.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Oatmeal Shampoo</span><span class="amt">$18.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Slicker Brush</span><span class="amt">$22.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">De-shed Add-on</span><span class="amt">$25.00</span></button>
+                      <button class="btn btn-out" style="flex-direction:column;align-items:flex-start;height:70px;justify-content:space-between;padding:11px 12px"><span class="nm">Gift Card</span><span class="sb">any amount</span></button>
+                    </div>
+                  </section>
+                  <section class="card" style="display:flex;flex-direction:column">
+                    <div class="card-h"><h3>Cart</h3><span class="s">Walk-in · Daisy</span></div>
+                    <div style="padding:4px 0">
+                      <div class="lineitem"><div><div class="d">Full Groom</div><div class="m">large dog · 1×</div></div><span class="amt">$85.00</span></div>
+                      <div class="lineitem"><div><div class="d">Oatmeal Shampoo 250 ml</div><div class="m">retail · 1×</div></div><span class="amt">$18.00</span></div>
+                    </div>
+                    <div class="totals">
+                      <div class="tr2"><span>Subtotal</span><span class="amt">$103.00</span></div>
+                      <div class="tr2"><span>GST (5%)</span><span class="amt">$5.15</span></div>
+                      <div class="tr2"><span>PST · BC (7%)</span><span class="amt">$7.21</span></div>
+                      <div class="tot"><span>Total CAD</span><span class="amt">$115.36</span></div>
+                    </div>
+                    <div style="padding:13px 16px;display:flex;gap:8px"><button class="btn btn-primary" style="flex:1;justify-content:center"><svg class="ic" style="width:14px;height:14px"><use href="#i-bolt"/></svg> Tap to pay</button><button class="btn btn-out">Cash</button></div>
+                    <div style="padding:0 16px 15px"><span class="badge b-ok"><span class="dot" style="background:var(--ok-fg)"></span>Terminal connected · Tap to Pay</span></div>
+                  </section>
+                </div>
+              </div>
+
+              <!-- PAYOUTS -->
+              <div class="wscr" data-scr="payouts">
+                <div class="stats">
+                  <div class="stat"><div class="l">This period</div><div class="v">$1,284</div><div class="t flat">Apr–Jun · 2 payees</div></div>
+                  <div class="stat"><div class="l">Pending approval</div><div class="v" style="color:var(--accent-strong)">$312</div><div class="t flat">3 allocations</div></div>
+                  <div class="stat"><div class="l">Paid this month</div><div class="v">$2,940</div><div class="t flat">via Stripe</div></div>
+                  <div class="stat"><div class="l">Next payout</div><div class="v" style="font-size:19px">Fri Jun 27</div><div class="t flat">daily schedule</div></div>
+                </div>
+                <section class="card">
+                  <div class="card-h"><h3>Staff earnings</h3><button class="btn btn-primary btn-sm">Approve all</button></div>
+                  <table class="tbl">
+                    <thead><tr><th>Staff</th><th>Source</th><th>Basis</th><th class="num">Earned</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                      <tr><td><div class="who"><div class="av" style="width:28px;height:28px;background:#2C8B7C;font-size:10px">DR</div><div class="nm">Diego Ramirez</div></div></td><td>Full Groom — Rocky</td><td class="tm">60%</td><td class="num"><span class="amt">$51.00</span></td><td><span class="pill due">Pending</span></td><td><button class="btn btn-out btn-sm">Approve</button></td></tr>
+                      <tr><td><div class="who"><div class="av" style="width:28px;height:28px;background:#2C8B7C;font-size:10px">DR</div><div class="nm">Diego Ramirez</div></div></td><td>Full Groom — Bella</td><td class="tm">60%</td><td class="num"><span class="amt">$57.12</span></td><td><span class="pill ok">Approved</span></td><td><button class="btn btn-primary btn-sm">Pay</button></td></tr>
+                      <tr><td><div class="who"><div class="av" style="width:28px;height:28px;background:#B26A12;font-size:10px">PP</div><div class="nm">Priya Patel</div></div></td><td>Bath & Brush — Daisy</td><td class="tm">$18 flat</td><td class="num"><span class="amt">$18.00</span></td><td><span class="pill paid">Paid</span></td><td><span class="tm">Jun 24</span></td></tr>
+                      <tr><td><div class="who"><div class="av" style="width:28px;height:28px;background:#2C8B7C;font-size:10px">DR</div><div class="nm">Diego Ramirez</div></div></td><td>Tip — Amélie</td><td class="tm">100%</td><td class="num"><span class="amt">$15.00</span></td><td><span class="pill due">Pending</span></td><td><button class="btn btn-out btn-sm">Approve</button></td></tr>
+                      <tr><td><div class="who"><div class="av" style="width:28px;height:28px;background:#B26A12;font-size:10px">PP</div><div class="nm">Priya Patel</div></div></td><td>Nail Trim — Luna</td><td class="tm">$12 flat</td><td class="num"><span class="amt">$12.00</span></td><td><span class="pill ok">Approved</span></td><td><button class="btn btn-primary btn-sm">Pay</button></td></tr>
+                    </tbody>
+                  </table>
+                </section>
+              </div>
+
+              <!-- REPORTS -->
+              <div class="wscr" data-scr="reports">
+                <div class="row" style="justify-content:space-between;margin-bottom:14px">
+                  <div class="seg"><button class="on">Income</button><button>GST / HST</button><button>T4A</button></div>
+                  <div class="row"><span class="chip">Q2 2026 · Apr–Jun</span><button class="btn btn-out btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-doc"/></svg> Export CSV</button></div>
+                </div>
+                <div class="stats" style="grid-template-columns:repeat(3,1fr)">
+                  <div class="stat"><div class="l">Revenue collected</div><div class="v">$18,240</div><div class="t">158 payments</div></div>
+                  <div class="stat"><div class="l">Sales tax collected</div><div class="v">$2,006</div><div class="t flat">GST $912 · PST $1,094</div></div>
+                  <div class="stat"><div class="l">Net after fees</div><div class="v">$17,020</div><div class="t flat">Stripe + Interac</div></div>
+                </div>
+                <div class="cols">
+                  <section class="card">
+                    <div class="card-h"><h3>Income by method</h3><span class="s">this quarter</span></div>
+                    <div style="padding:16px 17px;display:flex;flex-direction:column;gap:14px">
+                      <div><div class="row" style="justify-content:space-between;font-size:12.5px"><span>Card · tap</span><span class="amt">$11,300 · 62%</span></div><div style="height:8px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden"><div style="width:62%;height:100%;background:var(--accent)"></div></div></div>
+                      <div><div class="row" style="justify-content:space-between;font-size:12.5px"><span>Interac e-Transfer</span><span class="amt">$5,100 · 28%</span></div><div style="height:8px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden"><div style="width:28%;height:100%;background:var(--primary)"></div></div></div>
+                      <div><div class="row" style="justify-content:space-between;font-size:12.5px"><span>Cash</span><span class="amt">$1,840 · 10%</span></div><div style="height:8px;border-radius:99px;background:var(--surface2);margin-top:6px;overflow:hidden"><div style="width:10%;height:100%;background:var(--ink-soft)"></div></div></div>
+                    </div>
+                  </section>
+                  <section class="card">
+                    <div class="card-h"><h3>GST / HST return · Q2</h3></div>
+                    <div style="padding:14px 17px">
+                      <div class="row" style="justify-content:space-between;padding:5px 0;font-size:12.5px"><span>GST collected (5%) — federal</span><span class="amt">$912.00</span></div>
+                      <div class="row" style="justify-content:space-between;padding:5px 0;font-size:12.5px"><span>PST · BC (7%) — provincial *</span><span class="amt">$1,094.00</span></div>
+                      <div class="row" style="justify-content:space-between;padding:5px 0;font-size:12.5px;color:var(--muted)"><span>Input tax credits (ITCs)</span><span class="amt">−$142.00</span></div>
+                      <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:8px;padding-top:9px;font-weight:700;font-size:14px"><span>Net GST owing</span><span class="amt">$770.00</span></div>
+                      <div style="margin-top:13px"><span class="badge b-warn"><span class="dot" style="background:var(--warn-fg)"></span>Remittance due Jul 31 · auto set aside</span></div>
+                      <div class="sb" style="margin-top:9px;color:var(--muted)">* PST is filed separately with BC; the app reserves it too.</div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <!-- REVIEWS -->
+              <div class="wscr" data-scr="reviews">
+                <div class="stats">
+                  <div class="stat"><div class="l">Average rating</div><div class="v">4.8 ★</div><div class="t">42 reviews</div></div>
+                  <div class="stat"><div class="l">This month</div><div class="v">12</div><div class="t"><svg class="ic" style="width:11px;height:11px;display:inline;stroke-width:2.5"><use href="#i-up"/></svg> 3</div></div>
+                  <div class="stat"><div class="l">Response rate</div><div class="v">92%</div><div class="t flat">owner replies</div></div>
+                  <div class="stat"><div class="l">Requests sent</div><div class="v">34</div><div class="t flat">SMS + email</div></div>
+                </div>
+                <div class="cols">
+                  <section class="card">
+                    <div class="card-h"><h3>Recent reviews</h3><span class="s">newest first</span></div>
+                    <div style="padding:4px 16px 10px">
+                      <div class="tline" style="align-items:flex-start"><div class="av" style="width:32px;height:32px;background:#B26A12;font-size:11px">RK</div><div style="flex:1"><div class="row" style="justify-content:space-between"><div class="nm" style="font-size:13px">Riley Khan</div><span style="color:var(--warn-fg);font-size:12px">★★★★★</span></div><div class="sb" style="margin-top:3px">"So gentle with Cooper — best groom he's had."</div><div class="row" style="gap:6px;margin-top:6px"><span class="badge b-ok">Published</span><span class="badge b-muted">Replied</span></div></div></div>
+                      <div class="tline" style="align-items:flex-start"><div class="av" style="width:32px;height:32px;background:#1A6B5F;font-size:11px">AT</div><div style="flex:1"><div class="row" style="justify-content:space-between"><div class="nm" style="font-size:13px">Amélie Tremblay</div><span style="color:var(--warn-fg);font-size:12px">★★★★★</span></div><div class="sb" style="margin-top:3px">"Bella looks amazing every time. Sent to Google ✓"</div><div class="row" style="gap:6px;margin-top:6px"><span class="badge b-ok">Published</span></div></div></div>
+                      <div class="tline" style="align-items:flex-start"><div class="av" style="width:32px;height:32px;background:#1A6B5F;font-size:11px">DO</div><div style="flex:1"><div class="row" style="justify-content:space-between"><div class="nm" style="font-size:13px">Daniel Okafor</div><span style="color:var(--muted);font-size:12px">★★★☆☆</span></div><div class="sb" style="margin-top:3px">"Great groom, but the wait was long."</div><div class="row" style="gap:6px;margin-top:6px"><span class="badge b-warn"><span class="dot" style="background:var(--warn-fg)"></span>Held — respond before publish</span></div></div></div>
+                    </div>
+                  </section>
+                  <section class="card">
+                    <div class="card-h"><h3>Request a review</h3></div>
+                    <div style="padding:12px 16px">
+                      <div class="sb" style="color:var(--muted);margin-bottom:9px">Completed today · not yet asked</div>
+                      <div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft)"><div class="who"><div class="av" style="width:28px;height:28px;background:#1A6B5F;font-size:10px">AT</div><div><div class="nm">Amélie Tremblay</div><div class="sb">Bella · 9:00a</div></div></div><button class="btn btn-primary btn-sm">Ask</button></div>
+                      <div class="row" style="justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-soft)"><div class="who"><div class="av" style="width:28px;height:28px;background:#7C5AA6;font-size:10px">SR</div><div><div class="nm">Sofia Russo</div><div class="sb">Luna · 3:30p</div></div></div><button class="btn btn-primary btn-sm">Ask</button></div>
+                      <div class="sb" style="color:var(--muted);margin:12px 0 7px">Pending · request sent</div>
+                      <div class="row" style="justify-content:space-between;padding:6px 0"><div class="nm" style="font-size:12.5px">Noah Bélanger · Max</div><span class="badge b-muted">Opened · 2d</span></div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <!-- GIFT CARDS -->
+              <div class="wscr" data-scr="giftcards">
+                <div class="stats">
+                  <div class="stat"><div class="l">Outstanding balance</div><div class="v">$840</div><div class="t flat">14 active cards</div></div>
+                  <div class="stat"><div class="l">Sold this month</div><div class="v">$600</div><div class="t"><svg class="ic" style="width:11px;height:11px;display:inline;stroke-width:2.5"><use href="#i-up"/></svg> 8 cards</div></div>
+                  <div class="stat"><div class="l">Redeemed</div><div class="v">$180</div><div class="t flat">at checkout</div></div>
+                  <div class="stat"><div class="l">Breakage (est.)</div><div class="v">$92</div><div class="t flat">expired unused</div></div>
+                </div>
+                <section class="card">
+                  <div class="card-h"><h3>Gift cards</h3><button class="btn btn-primary btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> Sell a card</button></div>
+                  <table class="tbl">
+                    <thead><tr><th>Code</th><th>Purchaser</th><th class="num">Initial</th><th class="num">Balance</th><th>Status</th><th>Issued</th></tr></thead>
+                    <tbody>
+                      <tr><td><span class="amt">BARK-4F2A</span></td><td>Amélie Tremblay</td><td class="num"><span class="amt">$100.00</span></td><td class="num"><span class="amt">$100.00</span></td><td><span class="pill ok">Active</span></td><td class="tm">Jun 20</td></tr>
+                      <tr><td><span class="amt">BARK-9K1C</span></td><td>Marcus Chen</td><td class="num"><span class="amt">$50.00</span></td><td class="num"><span class="amt">$22.00</span></td><td><span class="pill ok">Active</span></td><td class="tm">May 12</td></tr>
+                      <tr><td><span class="amt">BARK-7Z3E</span></td><td>online · gift</td><td class="num"><span class="amt">$75.00</span></td><td class="num"><span class="amt" style="color:var(--muted)">$0.00</span></td><td><span class="pill paid">Redeemed</span></td><td class="tm">Apr 30</td></tr>
+                      <tr><td><span class="amt">BARK-2H8M</span></td><td>Priya (staff gift)</td><td class="num"><span class="amt">$40.00</span></td><td class="num"><span class="amt">$40.00</span></td><td><span class="pill ok">Active</span></td><td class="tm">Jun 24</td></tr>
+                    </tbody>
+                  </table>
+                </section>
+              </div>
+
+              <!-- TEAM -->
+              <div class="wscr" data-scr="team">
+                <section class="card">
+                  <div class="card-h"><h3>Team</h3><button class="btn btn-primary btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> Invite teammate</button></div>
+                  <table class="tbl">
+                    <thead><tr><th>Member</th><th>Role</th><th>Payout</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                      <tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:var(--primary);color:var(--primary-ink);font-size:11px">HW</div><div><div class="nm">Hannah Wong</div><div class="sb">hannah@birchbarkpets.ca</div></div></div></td><td><span class="badge b-accent">Owner</span></td><td class="tm">—</td><td><span class="pill ok">Active</span></td><td></td></tr>
+                      <tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:#2C8B7C;font-size:11px">DR</div><div><div class="nm">Diego Ramirez</div><div class="sb">diego@birchbarkpets.ca</div></div></div></td><td><span class="badge b-muted">Senior groomer</span></td><td class="tm">60% of service</td><td><span class="pill ok">Active</span></td><td><button class="btn btn-out btn-sm">Manage</button></td></tr>
+                      <tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:#B26A12;font-size:11px">PP</div><div><div class="nm">Priya Patel</div><div class="sb">priya@birchbarkpets.ca</div></div></div></td><td><span class="badge b-muted">Bather & desk</span></td><td class="tm">$18.00 / hr</td><td><span class="pill ok">Active</span></td><td><button class="btn btn-out btn-sm">Manage</button></td></tr>
+                      <tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:var(--surface2);color:var(--muted);font-size:11px">SP</div><div><div class="nm">Sam Park</div><div class="sb">sam@example.ca</div></div></div></td><td><span class="badge b-muted">Groomer</span></td><td class="tm">—</td><td><span class="pill due">Invited</span></td><td><button class="btn btn-out btn-sm">Resend</button></td></tr>
+                    </tbody>
+                  </table>
+                </section>
+                <section class="card" style="margin-top:16px"><div class="card-h"><h3>Roles</h3><span class="s">who can do what</span></div><div style="padding:12px 17px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;font-size:12px">
+                  <div><div class="nm" style="font-size:12.5px">Owner</div><div class="sb">everything · billing</div></div>
+                  <div><div class="nm" style="font-size:12.5px">Admin</div><div class="sb">all work + money</div></div>
+                  <div><div class="nm" style="font-size:12.5px">Staff</div><div class="sb">own calendar only</div></div>
+                  <div><div class="nm" style="font-size:12.5px">Contractor</div><div class="sb">own work + earnings</div></div>
+                </div></section>
+              </div>
+
+              <!-- SCHEDULING -->
+              <div class="wscr" data-scr="scheduling">
+                <div class="row" style="justify-content:space-between;margin-bottom:14px">
+                  <div class="row"><h3 style="font-family:var(--font-display);font-size:18px;margin:0 8px 0 0;font-weight:var(--h2-weight)">Availability</h3><div class="seg"><button>Hannah</button><button class="on">Diego</button><button>Priya</button></div></div>
+                  <button class="btn btn-out btn-sm"><svg class="ic" style="width:13px;height:13px"><use href="#i-plus"/></svg> Add time off</button>
+                </div>
+                <div class="cols">
+                  <section class="card">
+                    <div class="card-h"><h3>Weekly hours</h3><span class="s">America/Vancouver</span></div>
+                    <div style="padding:12px 17px;display:flex;flex-direction:column;gap:11px;font-size:12.5px">
+                      <div class="row"><span style="width:38px;color:var(--muted)">Mon</span><div style="flex:1;height:20px;border-radius:6px;background:var(--surface2);position:relative"><div style="position:absolute;left:0;width:80%;top:0;bottom:0;border-radius:6px;background:var(--accent-weak);border:1px solid var(--accent-line)"></div></div><span class="tm" style="width:120px;text-align:right">9:00a – 5:00p</span></div>
+                      <div class="row"><span style="width:38px;color:var(--muted)">Tue</span><div style="flex:1;height:20px;border-radius:6px;background:var(--surface2);position:relative"><div style="position:absolute;left:0;width:80%;top:0;bottom:0;border-radius:6px;background:var(--accent-weak);border:1px solid var(--accent-line)"></div></div><span class="tm" style="width:120px;text-align:right">9:00a – 5:00p</span></div>
+                      <div class="row"><span style="width:38px;color:var(--muted)">Wed</span><div style="flex:1;height:20px;border-radius:6px;background:var(--surface2);position:relative"><div style="position:absolute;left:0;width:92%;top:0;bottom:0;border-radius:6px;background:var(--accent-weak);border:1px solid var(--accent-line)"></div></div><span class="tm" style="width:120px;text-align:right">9:00a – 6:00p</span></div>
+                      <div class="row"><span style="width:38px;color:var(--muted)">Thu</span><div style="flex:1;height:20px;border-radius:6px;background:var(--surface2);position:relative"><div style="position:absolute;left:0;width:80%;top:0;bottom:0;border-radius:6px;background:var(--accent-weak);border:1px solid var(--accent-line)"></div></div><span class="tm" style="width:120px;text-align:right">9:00a – 5:00p</span></div>
+                      <div class="row"><span style="width:38px;color:var(--muted)">Fri</span><div style="flex:1;height:20px;border-radius:6px;background:var(--surface2);position:relative"><div style="position:absolute;left:0;width:66%;top:0;bottom:0;border-radius:6px;background:var(--accent-weak);border:1px solid var(--accent-line)"></div></div><span class="tm" style="width:120px;text-align:right">9:00a – 4:00p</span></div>
+                      <div class="row"><span style="width:38px;color:var(--muted)">Sat</span><div style="flex:1;height:20px;border-radius:6px;background:var(--surface2);position:relative"><div style="position:absolute;left:12%;width:44%;top:0;bottom:0;border-radius:6px;background:var(--accent-weak);border:1px solid var(--accent-line)"></div></div><span class="tm" style="width:120px;text-align:right">10:00a – 3:00p</span></div>
+                      <div class="row"><span style="width:38px;color:var(--muted)">Sun</span><div style="flex:1;height:20px;border-radius:6px;background:var(--surface2)"></div><span class="tm" style="width:120px;text-align:right;color:var(--muted)">Closed</span></div>
+                    </div>
+                  </section>
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <section class="card"><div class="card-h"><h3>Time off</h3></div><div style="padding:10px 16px 14px">
+                      <div class="row" style="justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border-soft)"><div><div class="nm" style="font-size:12.5px">Canada Day</div><div class="sb">Jul 1 · all day</div></div><span class="badge b-danger">Closed</span></div>
+                      <div class="row" style="justify-content:space-between;padding:7px 0"><div><div class="nm" style="font-size:12.5px">Vacation</div><div class="sb">Aug 12 – 16</div></div><span class="badge b-danger">Closed</span></div>
+                    </div></section>
+                    <section class="card"><div class="card-h"><h3>Booking rules</h3></div><div style="padding:10px 16px 14px;font-size:12.5px;color:var(--ink-soft)">
+                      <div class="row" style="justify-content:space-between;padding:5px 0"><span>Buffer between grooms</span><span class="chip">15 min</span></div>
+                      <div class="row" style="justify-content:space-between;padding:5px 0"><span>Online booking</span><span class="badge b-ok">On</span></div>
+                      <div class="row" style="justify-content:space-between;padding:5px 0"><span>Deposit to hold</span><span class="chip">50%</span></div>
+                    </div></section>
+                  </div>
+                </div>
+              </div>
+
+              <!-- SETTINGS -->
+              <div class="wscr" data-scr="settings">
+                <div style="display:grid;grid-template-columns:186px 1fr;gap:16px;align-items:start">
+                  <aside class="card" style="padding:7px">
+                    <a class="navi" style="color:var(--ink-soft)">Account</a>
+                    <a class="navi" style="color:var(--ink-soft)">Brand</a>
+                    <a class="navi on" style="background:var(--accent-weak);color:var(--accent-strong)">Tax</a>
+                    <a class="navi" style="color:var(--ink-soft)">Payments</a>
+                    <a class="navi" style="color:var(--ink-soft)">Booking page</a>
+                    <a class="navi" style="color:var(--ink-soft)">Data & privacy</a>
+                  </aside>
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <section class="card"><div class="card-h"><h3>Sales tax</h3><span class="badge b-ok"><span class="dot" style="background:var(--ok-fg)"></span>Collecting</span></div>
+                      <div style="padding:14px 17px;display:flex;flex-direction:column;gap:12px;font-size:12.5px">
+                        <div class="row" style="justify-content:space-between"><div><div class="nm" style="font-size:12.5px">Registered for GST/HST</div><div class="sb">turn off for small-supplier (&lt; $30k)</div></div><div style="width:40px;height:22px;border-radius:99px;background:var(--accent);position:relative"><span style="position:absolute;right:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff"></span></div></div>
+                        <div class="row" style="justify-content:space-between"><span>Province</span><span class="chip">British Columbia</span></div>
+                        <div class="row" style="justify-content:space-between"><span>GST/HST number</span><span class="amt">80012 3456 RT0001</span></div>
+                        <div class="row" style="justify-content:space-between"><span>Applied at checkout</span><span><span class="chip">GST 5%</span> <span class="chip">PST 7%</span></span></div>
+                      </div>
+                    </section>
+                    <section class="card"><div class="card-h"><h3>Payments</h3><span class="badge b-ok"><span class="dot" style="background:var(--ok-fg)"></span>Stripe connected</span></div>
+                      <div style="padding:14px 17px;display:flex;flex-direction:column;gap:11px;font-size:12.5px">
+                        <div class="row" style="justify-content:space-between"><span>Card payments</span><span class="badge b-ok">Enabled · 2.7%</span></div>
+                        <div class="row" style="justify-content:space-between"><span>Interac e-Transfer</span><span class="badge b-ok">Auto-match on</span></div>
+                        <div class="row" style="justify-content:space-between"><span>Payout schedule</span><span class="chip">Daily → RBC ••4471</span></div>
+                        <div class="row" style="justify-content:space-between"><span>Tap to Pay / Terminal</span><span class="badge b-ok">Ready</span></div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CLIENT 360 -->
+              <div class="wscr" data-scr="client">
+                <section class="card" style="margin-bottom:16px"><div style="padding:16px 18px">
+                  <div class="row" style="justify-content:space-between">
+                    <div class="who"><div class="av" style="width:46px;height:46px;background:#2C8B7C;font-size:15px">MC</div><div><div class="nm" style="font-size:16px;font-family:var(--font-display)">Marcus Chen</div><div class="sb">(778) 555-0177 · marcus@email.ca</div><div class="row" style="gap:5px;margin-top:5px"><span class="chip">Regular</span><span class="chip">Owing</span></div></div></div>
+                    <div class="row"><button class="btn btn-out btn-sm">Message</button><button class="btn btn-out btn-sm">Invoice</button><button class="btn btn-primary btn-sm">Book</button></div>
+                  </div>
+                  <div class="row" style="gap:0;margin-top:15px;border-top:1px solid var(--border-soft);padding-top:13px">
+                    <div style="flex:1"><div class="sb">Visits</div><div class="amt" style="font-size:18px">8</div></div>
+                    <div style="flex:1"><div class="sb">Lifetime value</div><div class="amt" style="font-size:18px">$642.00</div></div>
+                    <div style="flex:1"><div class="sb">Owing</div><div class="amt" style="font-size:18px;color:var(--dan-fg)">$61.60</div></div>
+                    <div style="flex:1"><div class="sb">Since</div><div class="amt" style="font-size:18px">2024</div></div>
+                  </div>
+                </div></section>
+                <div class="cols">
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <section class="card"><div class="card-h"><h3>Pet</h3><button class="btn btn-out btn-sm">Edit</button></div><div style="padding:13px 17px"><div class="who"><div class="av" style="width:40px;height:40px;background:#C2613F;font-size:13px">🐕</div><div><div class="nm" style="font-size:14px">Rocky</div><div class="sb">Golden Retriever · 32 kg · friendly</div></div></div><div class="row" style="gap:6px;margin-top:10px"><span class="chip">Vaccinated · Jun 2026</span><span class="chip">De-shed plan</span></div></div></section>
+                    <section class="card"><div class="card-h"><h3>Timeline</h3></div><div style="padding:8px 17px 14px">
+                      <div class="tline"><span class="tdot" style="background:var(--ok-bg);color:var(--ok-fg)">✓</span><div><div class="nm" style="font-size:12.5px">Interac received · $95.20</div><div class="sb">May 30 · Full Groom</div></div></div>
+                      <div class="tline"><span class="tdot">＋</span><div><div class="nm" style="font-size:12.5px">Booking · Full Groom + de-shed</div><div class="sb">Today 10:30a · deposit due</div></div></div>
+                      <div class="tline"><span class="tdot" style="background:var(--accent-weak)">✎</span><div><div class="nm" style="font-size:12.5px">Note · "Sensitive to dryer noise"</div><div class="sb">by Diego · Apr 12</div></div></div>
+                    </div></section>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:16px">
+                    <section class="card"><div class="card-h"><h3>Bookings</h3></div><div style="padding:6px 0">
+                      <div class="row" style="padding:9px 16px;justify-content:space-between"><div><div class="nm" style="font-size:12.5px">Full Groom + de-shed</div><div class="sb">Today · 10:30a</div></div><span class="pill due">Deposit due</span></div>
+                      <div class="row" style="padding:9px 16px;justify-content:space-between"><div><div class="nm" style="font-size:12.5px">Full Groom</div><div class="sb">May 30 · 9:00a</div></div><span class="pill paid">Completed</span></div>
+                    </div></section>
+                    <section class="card"><div class="card-h"><h3>Payment methods</h3></div><div style="padding:11px 16px 14px">
+                      <div class="pm sel"><span class="ico" style="background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Visa ••4242</div><div class="sb">default · exp 08/27</div></div></div>
+                      <div class="pm"><span class="pin">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">auto-matched</div></div></div>
+                    </div></section>
                   </div>
                 </div>
               </div>
@@ -421,8 +750,8 @@
           <div class="mbody">
             <div class="sect"><span>Needs attention</span><span style="color:var(--muted)">2</span></div>
             <div class="mcard">
-              <div class="mrow"><div class="av" style="width:30px;height:30px;background:#C2613F;font-size:11px">JM</div><div style="flex:1"><div class="nm">Jordan Mackenzie</div><div class="sb">Deposit due · 90-min</div></div><span class="amt" style="font-size:12px;margin-right:8px">$80</span><button class="mini">Request</button></div>
-              <div class="mrow"><div class="av" style="width:30px;height:30px;background:#7C5AA6;font-size:11px">SR</div><div style="flex:1"><div class="nm">Sofia Russo</div><div class="sb">Unpaid · 60-min</div></div><span class="amt" style="font-size:12px;margin-right:8px">$126</span><button class="mini">Request</button></div>
+              <div class="mrow"><div class="av" style="width:30px;height:30px;background:#2C8B7C;font-size:11px">MC</div><div style="flex:1"><div class="nm">Marcus Chen</div><div class="sb">Deposit due · Full Groom</div></div><span class="amt" style="font-size:12px;margin-right:8px">$62</span><button class="mini">Request</button></div>
+              <div class="mrow"><div class="av" style="width:30px;height:30px;background:#7C5AA6;font-size:11px">SR</div><div style="flex:1"><div class="nm">Sofia Russo</div><div class="sb">Unpaid · Nail Trim</div></div><span class="amt" style="font-size:12px;margin-right:8px">$34</span><button class="mini">Request</button></div>
             </div>
             <div class="sect"><span>Schedule · 6</span><span style="color:var(--muted)">$920</span></div>
             <div class="mcard" id="m-sched"></div>
@@ -457,12 +786,12 @@
           <div class="mhead"><div class="dt">INV-2026-0148 · awaiting</div><h3>Get paid</h3></div>
           <div class="mbody">
             <div class="mcard" style="padding:13px 14px">
-              <div class="row" style="justify-content:space-between"><div class="who"><div class="av" style="width:32px;height:32px;background:#C2613F;font-size:11px">JM</div><div><div class="nm">Jordan Mackenzie</div><div class="sb">90-min Deep tissue</div></div></div><span class="pill due">Awaiting</span></div>
+              <div class="row" style="justify-content:space-between"><div class="who"><div class="av" style="width:32px;height:32px;background:#2C8B7C;font-size:11px">MC</div><div><div class="nm">Marcus Chen</div><div class="sb">Full Groom · Rocky</div></div></div><span class="pill due">Awaiting</span></div>
               <div style="margin-top:12px">
-                <div class="mtot"><span>Subtotal</span><span class="amt">$160.00</span></div>
-                <div class="mtot"><span>GST (5%)</span><span class="amt">$8.00</span></div>
-                <div class="mtot"><span>PST · BC (7%)</span><span class="amt">$11.20</span></div>
-                <div class="mtot tot"><span>Total CAD</span><span class="amt">$179.20</span></div>
+                <div class="mtot"><span>Subtotal</span><span class="amt">$110.00</span></div>
+                <div class="mtot"><span>GST (5%)</span><span class="amt">$5.50</span></div>
+                <div class="mtot"><span>PST · BC (7%)</span><span class="amt">$7.70</span></div>
+                <div class="mtot tot"><span>Total CAD</span><span class="amt">$123.20</span></div>
               </div>
             </div>
             <div class="sect">How they'll pay</div>
@@ -481,7 +810,7 @@
           <div class="mbody">
             <div class="msearch"><svg class="ic" style="width:15px;height:15px"><use href="#i-search"/></svg> Search messages…</div>
             <div class="mcard">
-              <div class="mrow"><div class="av" style="width:34px;height:34px;background:#7C5AA6;font-size:11px">SR</div><div style="flex:1;min-width:0"><div class="nm">Sofia Russo</div><div class="sb">Could we push to 5:30 today?</div></div><span class="sdot" style="background:var(--accent)"></span></div>
+              <div class="mrow"><div class="av" style="width:34px;height:34px;background:#7C5AA6;font-size:11px">SR</div><div style="flex:1;min-width:0"><div class="nm">Sofia Russo</div><div class="sb">Could we push Luna to 4:00 today?</div></div><span class="sdot" style="background:var(--accent)"></span></div>
               <div class="mrow"><div class="av" style="width:34px;height:34px;background:#2C8B7C;font-size:11px">NB</div><div style="flex:1;min-width:0"><div class="nm">Noah Bélanger</div><div class="sb">Any evening slots?</div></div><span class="sdot" style="background:var(--accent)"></span></div>
               <div class="mrow"><div class="av" style="width:34px;height:34px;background:#C2613F;font-size:11px">JM</div><div style="flex:1;min-width:0"><div class="nm">Jordan Mackenzie</div><div class="sb">Sent the deposit ✓</div></div><span class="tm" style="font-size:10px">1h</span></div>
               <div class="mrow"><div class="av" style="width:34px;height:34px;background:#1A6B5F;font-size:11px">AT</div><div style="flex:1;min-width:0"><div class="nm">Amélie Tremblay</div><div class="sb">Thank you!</div></div><span class="tm" style="font-size:10px">3h</span></div>
@@ -493,15 +822,109 @@
 
       </div></div>
     </div>
+    </div>
+
+    <div class="devrow" id="connect-row" style="display:none;justify-content:center">
+      <div style="width:100%;max-width:940px">
+        <p class="cap">customer · connect — hosted page + embeddable widget</p>
+        <div class="browser">
+          <div class="chrome"><i></i><i></i><i></i><span class="url" id="curl">connect.clientbridge.ca/b/birchbark</span></div>
+          <div style="background:var(--bg);min-height:648px;display:flex;justify-content:center;padding:26px 16px;font-family:var(--font-ui)">
+            <div style="width:100%;max-width:432px">
+              <div style="text-align:center;margin-bottom:18px">
+                <div class="av" style="width:54px;height:54px;margin:0 auto;background:var(--accent);color:var(--accent-ink);border-radius:17px;font-size:22px">🐾</div>
+                <div style="font-family:var(--font-display);font-size:21px;font-weight:var(--h2-weight);margin-top:10px;color:var(--ink)">Birchbark Pet Studio</div>
+                <div class="sb">Victoria, BC · ★ 4.8 (42 reviews)</div>
+              </div>
+
+              <div class="cscr on" data-scr="c-landing">
+                <p style="text-align:center;color:var(--ink-soft);font-size:13px;margin:0 0 16px;line-height:1.5">Gentle, unhurried grooming for dogs &amp; cats. Book online in under a minute.</p>
+                <div class="card" style="margin-bottom:14px">
+                  <div class="row" style="justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border-soft)"><div><div class="nm">Full Groom</div><div class="sb">90 min · from $85</div></div><button class="btn btn-primary btn-sm">Book</button></div>
+                  <div class="row" style="justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border-soft)"><div><div class="nm">Bath &amp; Brush</div><div class="sb">45 min · from $48</div></div><button class="btn btn-primary btn-sm">Book</button></div>
+                  <div class="row" style="justify-content:space-between;padding:12px 14px"><div><div class="nm">Nail Trim + Tidy</div><div class="sb">20 min · $25</div></div><button class="btn btn-primary btn-sm">Book</button></div>
+                </div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center">See all services &amp; book</button>
+                <div class="row" style="justify-content:center;gap:15px;margin-top:15px;color:var(--muted);font-size:11.5px"><span>Mon–Sat</span><span>·</span><span>(250) 555-0123</span><span>·</span><span>Fernwood</span></div>
+              </div>
+
+              <div class="cscr" data-scr="c-book">
+                <div class="card" style="padding:13px 15px;margin-bottom:13px"><div class="row" style="justify-content:space-between"><div><div class="nm">Full Groom</div><div class="sb">90 min · $85 · with Diego</div></div><span class="badge b-accent">Selected</span></div></div>
+                <div class="eyebrow">Choose a day</div>
+                <div class="row" style="gap:7px;margin:6px 0 14px;overflow:auto">
+                  <span class="chip" style="padding:8px 12px">Wed 24</span><span class="chip" style="padding:8px 12px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)">Thu 25</span><span class="chip" style="padding:8px 12px">Fri 26</span><span class="chip" style="padding:8px 12px">Sat 27</span>
+                </div>
+                <div class="eyebrow">Available times</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:6px 0 14px">
+                  <button class="btn btn-out btn-sm" style="justify-content:center">9:00 AM</button>
+                  <button class="btn btn-out btn-sm" style="justify-content:center">10:30 AM</button>
+                  <button class="btn btn-primary btn-sm" style="justify-content:center">1:00 PM</button>
+                  <button class="btn btn-out btn-sm" style="justify-content:center">2:30 PM</button>
+                  <button class="btn btn-out btn-sm" style="justify-content:center">3:30 PM</button>
+                  <button class="btn btn-out btn-sm" style="justify-content:center;color:var(--muted)">Full</button>
+                </div>
+                <div class="badge b-accent" style="margin-bottom:12px;white-space:normal"><span class="pin">i⟁</span> $42.50 deposit holds your spot · Interac or card</div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center">Continue to deposit</button>
+              </div>
+
+              <div class="cscr" data-scr="c-pay">
+                <div class="eyebrow" style="text-align:center">Invoice INV-1148</div>
+                <div class="card" style="padding:14px 16px;margin:8px 0 14px">
+                  <div class="mtot"><span>Full Groom — Rocky</span><span class="amt">$85.00</span></div>
+                  <div class="mtot"><span>De-shed treatment</span><span class="amt">$25.00</span></div>
+                  <div class="mtot"><span>GST + PST (12%)</span><span class="amt">$13.20</span></div>
+                  <div class="mtot tot"><span>Total due</span><span class="amt">$123.20</span></div>
+                </div>
+                <div class="pm sel"><span class="pin" style="width:32px;height:32px">i⟁</span><div style="flex:1"><div class="nm">Interac e-Transfer</div><div class="sb">No fee · auto-matched</div></div><span class="badge b-ok">Best</span></div>
+                <div class="pm"><span class="ico" style="width:32px;height:32px;background:var(--surface2);color:var(--muted)">▭</span><div style="flex:1"><div class="nm">Credit / debit card</div><div class="sb">Visa · Mastercard · Amex</div></div></div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px">Pay $123.20</button>
+                <p class="sb" style="text-align:center;color:var(--muted);margin-top:10px">Secured by Stripe · a receipt is emailed</p>
+              </div>
+
+              <div class="cscr" data-scr="c-form">
+                <div class="eyebrow" style="text-align:center">New Pet Intake</div>
+                <div style="margin-top:10px;display:flex;flex-direction:column;gap:11px">
+                  <div><div class="sb">Pet's name</div><div class="cfield">Rocky</div></div>
+                  <div><div class="sb">Species</div><div class="cfield">Dog ▾</div></div>
+                  <div><div class="sb">Breed</div><div class="cfield">Golden Retriever</div></div>
+                  <div><div class="sb">Up to date on vaccinations?</div><div class="row" style="gap:8px;margin-top:5px"><span class="chip" style="background:var(--accent);color:var(--accent-ink);border-color:var(--accent);padding:7px 14px">Yes</span><span class="chip" style="padding:7px 14px">No</span></div></div>
+                  <div><div class="sb">Anything we should know?</div><div class="cfield" style="min-height:54px">Sensitive to dryer noise.</div></div>
+                </div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:15px">Submit intake</button>
+              </div>
+
+              <div class="cscr" data-scr="c-contract">
+                <div class="eyebrow" style="text-align:center">Grooming Waiver &amp; Consent</div>
+                <div class="card" style="padding:13px 15px;margin:9px 0 13px;max-height:180px;overflow:auto;font-size:12px;color:var(--ink-soft);line-height:1.6">
+                  I authorize Birchbark Pet Studio to groom my pet using standard equipment and handling. I confirm my pet is current on vaccinations and have disclosed any health or behavioural concerns. In a medical emergency I authorize the studio to seek veterinary care at my expense. I understand deposits are non-refundable within 24 hours of the appointment.
+                </div>
+                <div><div class="sb">Type your full name to sign</div><div class="cfield" style="font-family:var(--font-display);color:var(--ink);font-size:16px">Marcus Chen</div></div>
+                <div class="row" style="gap:8px;margin-top:12px"><button class="btn btn-out" style="flex:1;justify-content:center">Decline</button><button class="btn btn-primary" style="flex:1;justify-content:center">Agree &amp; sign</button></div>
+              </div>
+
+              <div class="cscr" data-scr="c-review">
+                <p style="text-align:center;font-family:var(--font-display);font-size:19px;color:var(--ink);margin:4px 0">How was Bella's visit?</p>
+                <p class="sb" style="text-align:center;color:var(--muted);margin:0 0 16px">Full Groom with Diego · Jun 24</p>
+                <div class="row" style="justify-content:center;gap:9px;font-size:30px;color:var(--warn-fg);margin-bottom:16px">★ ★ ★ ★ <span style="color:var(--border)">★</span></div>
+                <div class="cfield" style="min-height:68px">She was so calm and looks wonderful — thank you!</div>
+                <div class="row" style="gap:9px;margin-top:12px;font-size:12px;color:var(--ink-soft)"><span style="background:var(--accent);width:16px;height:16px;border-radius:5px;display:inline-block"></span> Also share on Google</div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:14px">Submit review</button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div></div>
 
 <script>
   const rows=[
-    {tm:"9:00a",in:"AT",c:"#1A6B5F",nm:"Amélie Tremblay",sb:"12th visit",sv:"60-min Massage",amt:"$126.00",pay:"interac",st:"paid",lbl:"Paid"},
-    {tm:"11:00a",in:"JM",c:"#C2613F",nm:"Jordan Mackenzie",sb:"deposit on file",sv:"90-min Deep tissue",amt:"$156.80",pay:"card",st:"due",lbl:"Deposit due"},
-    {tm:"2:00p",in:"RK",c:"#B26A12",nm:"Riley Khan",sb:"package 4/10",sv:"60-min Massage",amt:"incl.",pay:"pkg",st:"ok",lbl:"Confirmed"},
-    {tm:"3:30p",in:"NB",c:"#2C8B7C",nm:"Noah Bélanger",sb:"new client",sv:"75-min Hot stone",amt:"$147.00",pay:"interac",st:"ok",lbl:"Confirmed"},
-    {tm:"5:00p",in:"SR",c:"#7C5AA6",nm:"Sofia Russo",sb:"rebook",sv:"60-min Massage",amt:"$126.00",pay:"card",st:"unp",lbl:"Unpaid"},
+    {tm:"9:00a",in:"AT",c:"#1A6B5F",nm:"Amélie Tremblay",sb:"Bella · golden retriever",sv:"Full Groom",amt:"$95.20",pay:"interac",st:"paid",lbl:"Paid"},
+    {tm:"10:30a",in:"MC",c:"#C2613F",nm:"Marcus Chen",sb:"deposit on file · Rocky",sv:"Full Groom + de-shed",amt:"$123.20",pay:"card",st:"due",lbl:"Deposit due"},
+    {tm:"12:00p",in:"RK",c:"#B26A12",nm:"Riley Khan",sb:"5-bath pack 4/5 · Cooper",sv:"Bath & Brush",amt:"incl.",pay:"pkg",st:"ok",lbl:"Confirmed"},
+    {tm:"2:00p",in:"NB",c:"#2C8B7C",nm:"Noah Bélanger",sb:"new client · Max",sv:"Puppy's First Groom",amt:"$56.00",pay:"interac",st:"ok",lbl:"Confirmed"},
+    {tm:"3:30p",in:"SR",c:"#7C5AA6",nm:"Sofia Russo",sb:"rebook · Luna",sv:"Nail Trim + Tidy",amt:"$33.60",pay:"card",st:"unp",lbl:"Unpaid"},
   ];
   const clients=[
     {in:"AT",c:"#1A6B5F",nm:"Amélie Tremblay",em:"amelie@email.ca",ph:"(604) 555-0118",v:12,lt:"$1,840",bal:"—",ls:"Today",tag:"ok"},
@@ -517,7 +940,7 @@
 
   document.getElementById("clientrows").innerHTML=clients.map(c=>{
     const bal=c.bal==="—"?`<span class="amt mut" style="color:var(--muted)">—</span>`:`<span class="amt" style="color:${c.tag==='over'?'var(--dan-fg)':'var(--ink)'}">${c.bal}</span>`;
-    return `<tr><td><div class="who"><div class="av" style="width:30px;height:30px;background:${c.c};font-size:11px">${c.in}</div><div><div class="nm">${c.nm}</div><div class="sb">${c.em}</div></div></div></td><td class="tm">${c.ph}</td><td class="num">${c.v}</td><td class="num"><span class="amt">${c.lt}</span></td><td class="num">${bal}</td><td>${c.ls}</td></tr>`;
+    return `<tr onclick="setScreen('client')" style="cursor:pointer"><td><div class="who"><div class="av" style="width:30px;height:30px;background:${c.c};font-size:11px">${c.in}</div><div><div class="nm">${c.nm}</div><div class="sb">${c.em}</div></div></div></td><td class="tm">${c.ph}</td><td class="num">${c.v}</td><td class="num"><span class="amt">${c.lt}</span></td><td class="num">${bal}</td><td>${c.ls}</td></tr>`;
   }).join("");
 
   document.getElementById("m-sched").innerHTML=rows.slice(0,4).map(r=>{
@@ -534,7 +957,7 @@
 
   // switching
   const stage=document.getElementById("stage");
-  const titles={dashboard:["Wednesday · June 24","Today","app.clientbridge.ca/today"],calendar:["June 22 – 28","Calendar","app.clientbridge.ca/calendar"],clients:["428 clients · Stillwater Massage","Clients","app.clientbridge.ca/clients"],invoice:["Invoice · INV-2026-0148","Get paid","app.clientbridge.ca/invoices/0148"],inbox:["Conversations · 2 unread","Inbox","app.clientbridge.ca/inbox"]};
+  const titles={dashboard:["Wednesday · June 24","Today","app.clientbridge.ca/today"],calendar:["June 22 – 28","Calendar","app.clientbridge.ca/calendar"],clients:["Birchbark Pet Studio · 428 clients","Clients","app.clientbridge.ca/clients"],invoice:["Invoice · INV-2026-0148","Get paid","app.clientbridge.ca/invoices/0148"],inbox:["Conversations · 2 unread","Inbox","app.clientbridge.ca/inbox"],catalog:["9 items · services · packages · retail","Catalog","app.clientbridge.ca/catalog"],pos:["Register · Tap to Pay","Point of sale","app.clientbridge.ca/pos"],payouts:["Staff earnings · Q2","Payouts","app.clientbridge.ca/payouts"],reports:["Income · GST/HST · T4A","Reports","app.clientbridge.ca/reports"],reviews:["4.8 ★ · 42 reviews","Reviews","app.clientbridge.ca/reviews"],giftcards:["14 active cards","Gift Cards","app.clientbridge.ca/gift-cards"],team:["3 members · 1 invite","Team","app.clientbridge.ca/team"],scheduling:["Availability · Diego","Scheduling","app.clientbridge.ca/scheduling"],settings:["Tax · Payments · Brand","Settings","app.clientbridge.ca/settings/tax"],client:["Client profile","The bridge","app.clientbridge.ca/clients/marcus"],"c-landing":["","","connect.clientbridge.ca/b/birchbark"],"c-book":["","","connect.clientbridge.ca/book/birchbark"],"c-pay":["","","connect.clientbridge.ca/pay/inv-1148"],"c-form":["","","connect.clientbridge.ca/form/new-pet-intake"],"c-contract":["","","connect.clientbridge.ca/contract/waiver"],"c-review":["","","connect.clientbridge.ca/review/bella"]};
   document.querySelectorAll(".themetab").forEach(b=>b.onclick=()=>{
     document.querySelectorAll(".themetab").forEach(x=>x.classList.toggle("on",x===b));
     stage.querySelector(".desktop").parentElement; // noop
@@ -545,11 +968,20 @@
   document.querySelectorAll(".scrtab").forEach(b=>b.onclick=()=>setScreen(b.dataset.scr));
   document.querySelectorAll(".navi[data-nav]").forEach(n=>n.onclick=()=>setScreen(n.dataset.nav));
   function setScreen(s){
+    const cx=s.indexOf("c-")===0;
     document.querySelectorAll(".scrtab").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
     document.querySelectorAll(".navi[data-nav]").forEach(x=>x.classList.toggle("on",x.dataset.nav===s));
-    document.querySelectorAll(".wscr").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
-    document.querySelectorAll(".mscr").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
-    const t=titles[s]; document.getElementById("tb-eye").textContent=t[0]; document.getElementById("tb-title").textContent=t[1]; document.getElementById("url").textContent=t[2];
+    document.getElementById("provider-row").style.display=cx?"none":"";
+    document.getElementById("connect-row").style.display=cx?"flex":"none";
+    const t=titles[s];
+    if(cx){
+      document.querySelectorAll(".cscr").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
+      if(t)document.getElementById("curl").textContent=t[2];
+    }else{
+      document.querySelectorAll(".wscr").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
+      document.querySelectorAll(".mscr").forEach(x=>x.classList.toggle("on",x.dataset.scr===s));
+      if(t){document.getElementById("tb-eye").textContent=t[0];document.getElementById("tb-title").textContent=t[1];document.getElementById("url").textContent=t[2];}
+    }
   }
   setScreen("dashboard");
 </script>

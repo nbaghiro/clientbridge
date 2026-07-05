@@ -1,4 +1,4 @@
-// AUTO-GENERATED from .docs/design/theme-explorer.html — do not edit by hand.
+// AUTO-GENERATED from .docs/design/app-explorer.html — do not edit by hand.
 
 export const THEME_KEYS = ["pewter", "slate", "calm", "fjord", "birch", "moss"] as const;
 export type ThemeKey = (typeof THEME_KEYS)[number];
