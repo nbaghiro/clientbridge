@@ -3,8 +3,13 @@
 **Birchbark Pet Studio** — a pet grooming & daycare business in Victoria, BC. Owner = the dev user
 (`dev_user_id`), so the mobile/web apps stream this business's data via the dev sync token.
 
-Populates all 37 tables with realistic data, real copy, and stock photos (pravatar for people,
-picsum for pets/products). Idempotent: TRUNCATEs every table, then re-inserts.
+Populates every business table across all 10 domains with realistic data, real copy, and stock
+photos (pravatar for people, picsum for pets/products), exercising the full implemented surface:
+bookings + a group class, invoices/estimates (every status incl. converted), POS orders, payments
+(card/Interac/cash/EFT + deposit + refund), payout splits (booking/tip/sale/class), subscriptions,
+packages, gift cards, messaging (SMS/email/chat), forms (all field types), contracts, and reviews.
+Idempotent: TRUNCATEs every table, then re-inserts. (The `auth_*`, `idempotency_keys`, and
+`device_tokens` tables are runtime-only, so they stay empty.)
 
 Run: ``make seed``  (= ``uv run python -m scripts.seed_demo``). Requires the DB migrated.
 """
@@ -19,7 +24,7 @@ from sqlalchemy import text
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.security import hash_password
-from clientbridge.models.billing import Estimate, Invoice, Line
+from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
@@ -1221,6 +1226,11 @@ INTAKE_FIELDS = [
     ("behaviour", "multiselect", "Behaviour notes", False),
     ("vet_name", "text", "Veterinarian", False),
     ("emergency_phone", "phone", "Emergency contact", True),
+    ("owner_email", "email", "Your email", True),
+    ("home_address", "address", "Home address", False),
+    ("preferred_time", "time", "Preferred drop-off time", False),
+    ("grooming_budget", "currency", "Typical grooming budget", False),
+    ("vax_record", "file", "Vaccination record (PDF)", False),
     ("photo", "image", "A recent photo", False),
     (
         "matting_consent",
@@ -1550,6 +1560,588 @@ def seed_platform(owner: str) -> None:
 
 # FK dependency order — parents before children (models define no relationships, so the
 # unit-of-work cannot order inserts itself).
+def seed_coverage() -> None:
+    """Fill the remaining coverage gaps so the demo exercises every implemented surface: POS orders
+    (Terminal + cash + void), deposit + refund payments, a group class, the fuller invoice / estimate /
+    subscription / payout state space, extra rails, device tokens, and review states. Kept together so
+    the reference verticals above stay readable."""
+
+    # ── POS orders — Stripe Terminal (card) + cash + a void ──────────────
+    rows.append(
+        Order(
+            id="ord_1",
+            business_id=BIZ,
+            client_id="cl_grace",
+            staff_id="st_priya",
+            status="paid",
+            subtotal_cents=4800,
+            tax_total_cents=576,
+            total_cents=5376,
+            amount_paid_cents=5376,
+            balance_cents=0,
+            paid_at=at(-4, 15),
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_ord1_1",
+            business_id=BIZ,
+            parent_type="order",
+            parent_id="ord_1",
+            description="Nail Trim & File",
+            item_id="it_nails",
+            quantity=1,
+            unit_amount_cents=2400,
+            amount_cents=2400,
+            tax_amount_cents=288,
+            position=0,
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_ord1_2",
+            business_id=BIZ,
+            parent_type="order",
+            parent_id="ord_1",
+            description="Oatmeal Shampoo — retail",
+            item_id="it_shampoo",
+            quantity=1,
+            unit_amount_cents=2400,
+            amount_cents=2400,
+            tax_amount_cents=288,
+            position=1,
+        )
+    )
+    rows.append(
+        Payment(
+            id="pay_ord1",
+            business_id=BIZ,
+            client_id="cl_grace",
+            kind="payment",
+            order_id="ord_1",
+            amount_cents=5376,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref="pi_demo_ord1",
+            fee_cents=186,
+            net_cents=5190,
+            status="succeeded",
+            paid_at=at(-4, 15),
+        )
+    )
+    rows.append(
+        PayoutAllocation(
+            id="pal_sale",
+            business_id=BIZ,
+            staff_id="st_diego",
+            source_type="sale",
+            source_id="ord_1",
+            basis="percent",
+            rate=0.10,
+            amount_cents=480,
+            status="pending",
+        )
+    )
+
+    rows.append(
+        Order(
+            id="ord_2",
+            business_id=BIZ,
+            client_id="cl_noah",
+            staff_id="st_owner",
+            status="paid",
+            subtotal_cents=2600,
+            tax_total_cents=312,
+            total_cents=2912,
+            amount_paid_cents=2912,
+            balance_cents=0,
+            paid_at=at(-1, 16),
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_ord2_1",
+            business_id=BIZ,
+            parent_type="order",
+            parent_id="ord_2",
+            description="Nail Trim & File",
+            item_id="it_nails",
+            quantity=1,
+            unit_amount_cents=2600,
+            amount_cents=2600,
+            tax_amount_cents=312,
+            position=0,
+        )
+    )
+    rows.append(
+        Payment(
+            id="pay_ord2",
+            business_id=BIZ,
+            client_id="cl_noah",
+            kind="payment",
+            order_id="ord_2",
+            amount_cents=2912,
+            currency="CAD",
+            method="cash",
+            provider="manual",
+            status="succeeded",
+            paid_at=at(-1, 16),
+        )
+    )
+
+    rows.append(
+        Order(
+            id="ord_3",
+            business_id=BIZ,
+            client_id=None,
+            staff_id="st_priya",
+            status="void",
+            subtotal_cents=1800,
+            tax_total_cents=216,
+            total_cents=2016,
+            amount_paid_cents=0,
+            balance_cents=0,
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_ord3_1",
+            business_id=BIZ,
+            parent_type="order",
+            parent_id="ord_3",
+            description="Slicker Brush — retail",
+            item_id="it_shampoo",
+            quantity=1,
+            unit_amount_cents=1800,
+            amount_cents=1800,
+            tax_amount_cents=216,
+            position=0,
+        )
+    )
+
+    # ── a group PUPPY CLASS (capacity 6, 3 booked) + a deposit + class-session & tip payouts ──
+    rows.append(
+        Session(
+            id="ses_class",
+            business_id=BIZ,
+            item_id="it_puppy",
+            staff_id="st_owner",
+            resource_id="rs_station_b",
+            starts_at=at(4, 11),
+            ends_at=at(4, 11) + timedelta(minutes=60),
+            capacity=6,
+            booked_count=3,
+            recurrence_id="sch_puppy",
+            status="scheduled",
+        )
+    )
+    for j, (cl, pet) in enumerate(
+        [("cl_sophie", "sj_mochi"), ("cl_noah", "sj_cooper"), ("cl_liam", "sj_maple")]
+    ):
+        rows.append(
+            Booking(
+                id=f"bk_class_{j}",
+                business_id=BIZ,
+                session_id="ses_class",
+                staff_id="st_owner",
+                client_id=cl,
+                subject_id=pet,
+                status="confirmed",
+                source="online",
+                price_cents=2800,
+                deposit_required=True,
+                confirmed_at=at(1, 12),
+                custom_fields={"class": "puppy_social"},
+            )
+        )
+    rows.append(
+        Payment(
+            id="pay_dep_class",
+            business_id=BIZ,
+            client_id="cl_sophie",
+            kind="deposit",
+            booking_id="bk_class_0",
+            amount_cents=1400,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref="pi_demo_dep_class",
+            fee_cents=71,
+            net_cents=1329,
+            status="succeeded",
+            paid_at=at(1, 12),
+        )
+    )
+    rows.append(
+        PayoutAllocation(
+            id="pal_class",
+            business_id=BIZ,
+            staff_id="st_owner",
+            source_type="class_session",
+            source_id="ses_class",
+            basis="fixed",
+            rate=1.0,
+            amount_cents=4200,
+            status="approved",
+        )
+    )
+    rows.append(
+        PayoutAllocation(
+            id="pal_tip",
+            business_id=BIZ,
+            staff_id="st_diego",
+            source_type="tip",
+            source_id="bk_001",
+            basis="percent",
+            rate=1.0,
+            amount_cents=1000,
+            status="paid",
+            payout_id="po_w1",
+        )
+    )
+
+    # ── a completed groom that was fully refunded (goodwill) ─────────────
+    rows.append(
+        Session(
+            id="ses_refund",
+            business_id=BIZ,
+            item_id="it_groom_sm",
+            staff_id="st_diego",
+            resource_id="rs_station_a",
+            starts_at=at(-9, 14),
+            ends_at=at(-9, 14) + timedelta(minutes=60),
+            capacity=1,
+            booked_count=1,
+            status="completed",
+        )
+    )
+    rows.append(
+        Booking(
+            id="bk_refund",
+            business_id=BIZ,
+            session_id="ses_refund",
+            staff_id="st_diego",
+            client_id="cl_olivia",
+            subject_id="sj_bandit",
+            status="completed",
+            source="manual",
+            price_cents=7500,
+            deposit_required=False,
+            confirmed_at=at(-10, 12),
+            completed_at=at(-9, 15),
+            invoice_id="inv_1099",
+            custom_fields={},
+        )
+    )
+    rows.append(
+        Invoice(
+            id="inv_1099",
+            business_id=BIZ,
+            client_id="cl_olivia",
+            number=1099,
+            status="paid",
+            currency="CAD",
+            subtotal_cents=7500,
+            tax_total_cents=900,
+            total_cents=8400,
+            amount_paid_cents=8400,
+            balance_cents=0,
+            issued_at=at(-9, 15),
+            due_at=at(5, 17),
+            paid_at=at(-9, 16),
+            notes="Groom for Bandit.",
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_1099_1",
+            business_id=BIZ,
+            parent_type="invoice",
+            parent_id="inv_1099",
+            description="Full Groom — Small Dog",
+            item_id="it_groom_sm",
+            booking_id="bk_refund",
+            quantity=1,
+            unit_amount_cents=7500,
+            amount_cents=7500,
+            tax_amount_cents=900,
+            position=0,
+        )
+    )
+    rows.append(
+        Payment(
+            id="pay_refo",
+            business_id=BIZ,
+            client_id="cl_olivia",
+            kind="payment",
+            invoice_id="inv_1099",
+            booking_id="bk_refund",
+            amount_cents=8400,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref="pi_demo_1099",
+            fee_cents=274,
+            net_cents=8126,
+            status="succeeded",
+            paid_at=at(-9, 16),
+        )
+    )
+    rows.append(
+        Payment(
+            id="pay_refr",
+            business_id=BIZ,
+            client_id="cl_olivia",
+            kind="refund",
+            parent_payment_id="pay_refo",
+            invoice_id="inv_1099",
+            booking_id="bk_refund",
+            amount_cents=8400,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref="re_demo_1099",
+            fee_cents=0,
+            net_cents=8400,
+            status="succeeded",
+            paid_at=at(-8, 10),
+        )
+    )
+
+    # ── invoice state coverage: draft · sent · void ──────────────────────
+    for iid, num, st in [
+        ("inv_void", 1096, "void"),
+        ("inv_draft", 1097, "draft"),
+        ("inv_sent", 1098, "sent"),
+    ]:
+        rows.append(
+            Invoice(
+                id=iid,
+                business_id=BIZ,
+                client_id="cl_ethan",
+                number=num,
+                status=st,
+                currency="CAD",
+                subtotal_cents=4800,
+                tax_total_cents=576,
+                total_cents=5376,
+                amount_paid_cents=0,
+                balance_cents=0 if st == "void" else 5376,
+                issued_at=None if st == "draft" else at(-2, 10),
+                due_at=at(12, 17),
+                voided_at=at(-1, 9) if st == "void" else None,
+                notes="Bath & tidy for Willow.",
+            )
+        )
+        rows.append(
+            Line(
+                id=f"ln_{iid}",
+                business_id=BIZ,
+                parent_type="invoice",
+                parent_id=iid,
+                description="Bath & Brush",
+                item_id="it_bath",
+                quantity=1,
+                unit_amount_cents=4800,
+                amount_cents=4800,
+                tax_amount_cents=576,
+                position=0,
+            )
+        )
+
+    # ── estimate coverage: declined + accepted-and-converted (links its invoice) ──
+    rows.append(
+        Estimate(
+            id="est_1003",
+            business_id=BIZ,
+            client_id="cl_yuki",
+            number=3,
+            status="declined",
+            subtotal_cents=9000,
+            tax_total_cents=1080,
+            total_cents=10080,
+            valid_until=at(-5).date(),
+            declined_at=at(-6, 14),
+            notes="Two-cat spa day.",
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_est3",
+            business_id=BIZ,
+            parent_type="estimate",
+            parent_id="est_1003",
+            description="Cat Groom ×2",
+            item_id="it_cat",
+            quantity=2,
+            unit_amount_cents=4500,
+            amount_cents=9000,
+            tax_amount_cents=1080,
+            position=0,
+        )
+    )
+    rows.append(
+        Invoice(
+            id="inv_1095",
+            business_id=BIZ,
+            client_id="cl_sophie",
+            number=1095,
+            status="sent",
+            currency="CAD",
+            subtotal_cents=7500,
+            tax_total_cents=900,
+            total_cents=8400,
+            amount_paid_cents=0,
+            balance_cents=8400,
+            issued_at=at(-1, 11),
+            due_at=at(13, 17),
+            notes="Converted from estimate #4.",
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_1095",
+            business_id=BIZ,
+            parent_type="invoice",
+            parent_id="inv_1095",
+            description="Full Groom — Small Dog",
+            item_id="it_groom_sm",
+            quantity=1,
+            unit_amount_cents=7500,
+            amount_cents=7500,
+            tax_amount_cents=900,
+            position=0,
+        )
+    )
+    rows.append(
+        Estimate(
+            id="est_1004",
+            business_id=BIZ,
+            client_id="cl_sophie",
+            number=4,
+            status="accepted",
+            subtotal_cents=7500,
+            tax_total_cents=900,
+            total_cents=8400,
+            valid_until=at(10).date(),
+            accepted_at=at(-2, 10),
+            converted_invoice_id="inv_1095",
+            notes="Approved by Sophie — converted to an invoice.",
+        )
+    )
+
+    # ── subscription coverage: canceled + past_due + a PAD/EFT payment ───
+    rows.append(
+        Subscription(
+            id="sub_canceled",
+            business_id=BIZ,
+            client_id="cl_grace",
+            item_id="it_daycare",
+            status="canceled",
+            current_period_start=at(-40, 0),
+            current_period_end=at(-10, 0),
+            provider_ref="sub_demo_grace",
+        )
+    )
+    rows.append(
+        Subscription(
+            id="sub_pastdue",
+            business_id=BIZ,
+            client_id="cl_ethan",
+            item_id="it_daycare",
+            status="past_due",
+            current_period_start=at(-8, 0),
+            current_period_end=at(22, 0),
+            provider_ref="sub_demo_ethan",
+        )
+    )
+    rows.append(
+        Payment(
+            id="pay_sub_david",
+            business_id=BIZ,
+            client_id="cl_david",
+            kind="payment",
+            amount_cents=18000,
+            currency="CAD",
+            method="eft",
+            provider="stripe",
+            provider_ref="pi_demo_sub_david",
+            fee_cents=0,
+            net_cents=18000,
+            status="succeeded",
+            paid_at=at(-6, 6),
+        )
+    )
+
+    # ── a saved Interac payment method + a chat-channel thread ───────────
+    rows.append(
+        PaymentMethod(
+            id="pm_amelie_interac",
+            business_id=BIZ,
+            client_id="cl_amelie",
+            type="interac",
+            provider="interac",
+            is_default=False,
+            mandate_status="none",
+            status="active",
+        )
+    )
+    rows.append(
+        Thread(
+            id="th_chat",
+            business_id=BIZ,
+            client_id="cl_sophie",
+            channel="chat",
+            last_message_at=at(-1, 13),
+            unread_count=0,
+            status="open",
+        )
+    )
+    rows.append(
+        Message(
+            id="msg_chat",
+            business_id=BIZ,
+            thread_id="th_chat",
+            direction="in",
+            channel="chat",
+            body="Hi! Does Mochi need a bath before the puppy class?",
+            status="read",
+            attachments=[],
+        )
+    )
+
+    # ── review coverage: a low rating (published) + a hidden one ─────────
+    rows.append(
+        Review(
+            id="rv_low",
+            business_id=BIZ,
+            client_id="cl_david",
+            booking_id="bk_008",
+            rating=2,
+            body="Groom was fine but I waited 20 minutes past my slot.",
+            response="So sorry about the wait, David — we've adjusted the schedule.",
+            responded_at=at(-6, 10),
+            sent_to_google=False,
+            status="published",
+        )
+    )
+    rows.append(
+        Review(
+            id="rv_hidden",
+            business_id=BIZ,
+            client_id="cl_olivia",
+            booking_id="bk_refund",
+            rating=1,
+            body="[flagged as spam]",
+            response=None,
+            responded_at=None,
+            sent_to_google=False,
+            status="hidden",
+        )
+    )
+
+
 INSERT_ORDER = [
     Business,
     User,
@@ -1573,9 +2165,10 @@ INSERT_ORDER = [
     FormResponse,
     Signature,
     Thread,
-    Estimate,
     Session,
     Invoice,
+    Order,
+    Estimate,
     Booking,
     Message,
     Line,
@@ -1603,6 +2196,7 @@ async def main() -> None:
     seed_documents(owner)
     seed_reviews(owner)
     seed_platform(owner)
+    seed_coverage()
 
     table_list = ", ".join(Base.metadata.tables)
     async with engine.begin() as conn:
