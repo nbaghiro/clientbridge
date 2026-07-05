@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clientbridge — Manual QA: Service-Layer Refactor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3F4F6; --paper-2:#EAECEF; --card:#FFFFFF; --card-2:#EDEFF2; --head:#F2F3F5;
+    --ink:#191D22; --soft:#3E454D; --faint:#6E757E;
+    --line:#DBDEE3; --line-soft:#E8EAEE;
+    --accent:#3F5E80; --accent-deep:#2E4A66; --accent-weak:#E4EAF1; --accent-line:#CCD7E3;
+    --p0:#A2433A; --p0-weak:#F6E4E1;    /* critical */
+    --p1:#86621E; --p1-weak:#F3E8CC;    /* important */
+    --p2:#5B6B7A; --p2-weak:#E7EBEE;    /* regression */
+    --pass:#2E7A5A; --pass-weak:#DCEDE4;
+    --fail:#A2433A; --fail-weak:#F6E4E1;
+    --block:#6E757E; --block-weak:#E7E9EC;
+    --shadow:0 1px 2px rgba(20,25,30,.05);
+    --shadow-lift:0 2px 4px rgba(20,25,30,.05), 0 12px 28px rgba(20,25,30,.07);
+    --serif:"Schibsted Grotesk",system-ui,-apple-system,sans-serif;
+    --sans:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline;text-underline-offset:2px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{transition:none!important}}
+
+  header.topbar{position:sticky;top:0;z-index:40;background:rgba(243,244,246,.86);
+    backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+  .topbar-in{max-width:1280px;margin:0 auto;padding:0 26px;height:56px;display:flex;align-items:center;gap:13px}
+  .brand{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:700;font-size:15px}
+  .brand .mark{width:25px;height:25px;border-radius:7px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700}
+  .topbar .tag{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.03em;
+    padding-left:13px;margin-left:2px;border-left:1px solid var(--line)}
+  .topbar .spacer{flex:1}
+  .topbar .actions{display:flex;gap:8px}
+  .btn{font:600 12px/1 var(--sans);letter-spacing:.02em;padding:8px 12px;border-radius:7px;
+    border:1px solid var(--line);background:var(--card);color:var(--soft);cursor:pointer;transition:border-color .15s,color .15s}
+  .btn:hover{border-color:var(--accent-line);color:var(--accent-deep)}
+  @media (max-width:760px){.topbar .tag{display:none}}
+
+  .shell{max-width:1280px;margin:0 auto;padding:0 26px;display:grid;
+    grid-template-columns:236px minmax(0,1fr);gap:44px;align-items:start}
+  nav.toc{position:sticky;top:56px;max-height:calc(100vh - 56px);overflow:auto;
+    padding:24px 0 40px;font-size:.85rem;scrollbar-width:thin}
+  nav.toc .grp{font:600 .68rem/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;
+    color:var(--faint);margin:20px 0 8px;padding-left:12px}
+  nav.toc .grp:first-child{margin-top:2px}
+  nav.toc a{display:flex;align-items:center;gap:8px;color:var(--soft);padding:5px 12px;
+    border-left:2px solid var(--line-soft);line-height:1.35;transition:color .15s,border-color .15s,background .15s}
+  nav.toc a:hover{color:var(--accent);border-left-color:var(--accent-line);text-decoration:none}
+  nav.toc a.active{color:var(--accent-deep);border-left-color:var(--accent);background:var(--accent-weak);font-weight:600}
+  nav.toc a .n{margin-left:auto;font:600 .62rem/1 var(--mono);color:var(--faint);
+    background:var(--card-2);border:1px solid var(--line-soft);border-radius:20px;padding:2px 6px;font-variant-numeric:tabular-nums}
+
+  main{min-width:0;padding:0 0 96px;max-width:900px}
+
+  .page-head{padding:36px 0 22px;border-bottom:1px solid var(--line)}
+  .eyebrow{font:600 .68rem/1 var(--sans);letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+  h1{font-family:var(--serif);font-weight:700;font-size:2rem;line-height:1.1;margin:0 0 12px;letter-spacing:-.02em;text-wrap:balance}
+  .lede{font-size:1.02rem;color:var(--soft);max-width:66ch;margin:0 0 4px;text-wrap:pretty}
+
+  /* progress dashboard */
+  .dash{position:sticky;top:56px;z-index:20;background:rgba(243,244,246,.92);backdrop-filter:blur(8px);
+    border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin:22px 0 6px;box-shadow:var(--shadow)}
+  .dash-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  .meter{flex:1;min-width:180px;height:9px;border-radius:6px;background:var(--card-2);overflow:hidden;border:1px solid var(--line-soft);display:flex}
+  .meter i{display:block;height:100%}
+  .meter .m-pass{background:var(--pass)} .meter .m-fail{background:var(--fail)} .meter .m-block{background:var(--block)}
+  .tallies{display:flex;gap:6px;flex-wrap:wrap}
+  .tally{font:600 .72rem/1 var(--sans);padding:5px 10px;border-radius:20px;border:1px solid var(--line);
+    background:var(--card);color:var(--soft);display:flex;align-items:baseline;gap:6px}
+  .tally b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .tally.pass{background:var(--pass-weak);border-color:#B9DAC7;color:#1F5B41}
+  .tally.fail{background:var(--fail-weak);border-color:#E6C4BF;color:#7E322B}
+  .tally.block{background:var(--block-weak);border-color:#CFD3D8;color:#4C525A}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .filters .fbtn{font:600 .68rem/1 var(--sans);letter-spacing:.02em;padding:6px 10px;border-radius:20px;
+    border:1px solid var(--line);background:var(--card);color:var(--soft);cursor:pointer}
+  .filters .fbtn[aria-pressed="true"]{background:var(--accent-weak);border-color:var(--accent-line);color:var(--accent-deep)}
+
+  section.grp{margin:30px 0 0;padding-top:26px;border-top:1px solid var(--line-soft);scroll-margin-top:130px}
+  section.grp:first-of-type{border-top:0}
+  .grp-eye{font:600 .66rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 7px}
+  h2{font-family:var(--serif);font-weight:700;font-size:1.4rem;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+  .grp-note{color:var(--soft);font-size:.92rem;margin:0 0 6px;max-width:74ch}
+
+  /* prose blocks (env setup) */
+  h3{font-size:1.02rem;font-weight:600;margin:26px 0 9px;letter-spacing:-.01em}
+  p{margin:0 0 12px;max-width:76ch}
+  ul,ol{margin:0 0 12px;padding-left:22px;max-width:76ch}
+  li{margin:5px 0}
+  li::marker{color:var(--accent)}
+  code{font-family:var(--mono);font-size:.82em;background:var(--card-2);border:1px solid var(--line-soft);
+    padding:.06em .36em;border-radius:5px;color:var(--accent-deep);white-space:nowrap}
+  pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;background:#20262E;color:#E7EAEE;
+    border-radius:var(--radius);padding:15px 17px;overflow-x:auto;margin:12px 0}
+  pre code{background:none;border:0;padding:0;color:inherit;white-space:pre;font-size:1em}
+  .note{background:var(--accent-weak);border:1px solid var(--accent-line);border-left:3px solid var(--accent);
+    border-radius:9px;padding:13px 16px;margin:14px 0;font-size:.9rem}
+  .note b{color:var(--accent-deep)}
+  .note.warn{background:var(--p1-weak);border-color:#E6D5A8;border-left-color:var(--p1)}
+  .note.warn b{color:var(--p1)}
+
+  /* test cards */
+  .case{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--p2);
+    border-radius:var(--radius);margin:12px 0;overflow:hidden;box-shadow:var(--shadow)}
+  .case[data-pri="P0"]{border-left-color:var(--p0)}
+  .case[data-pri="P1"]{border-left-color:var(--p1)}
+  .case.done-pass{border-left-color:var(--pass)}
+  .case.done-fail{border-left-color:var(--fail)}
+  .case.done-block{border-left-color:var(--block)}
+  .case-head{display:flex;align-items:center;gap:10px;padding:12px 15px;flex-wrap:wrap}
+  .cid{font:600 .72rem/1 var(--mono);color:var(--faint);background:var(--card-2);border:1px solid var(--line-soft);
+    padding:4px 7px;border-radius:6px;letter-spacing:.02em}
+  .ctitle{font-weight:600;font-size:.98rem;flex:1;min-width:200px;letter-spacing:-.01em}
+  .pchip{font:700 .62rem/1 var(--sans);letter-spacing:.05em;padding:4px 8px;border-radius:20px;text-transform:uppercase}
+  .pchip.P0{background:var(--p0-weak);color:var(--p0);border:1px solid #E6C4BF}
+  .pchip.P1{background:var(--p1-weak);color:var(--p1);border:1px solid #E6D5A8}
+  .pchip.P2{background:var(--p2-weak);color:var(--p2);border:1px solid #CFD6DC}
+  .status-seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .status-seg button{font:600 .68rem/1 var(--sans);padding:6px 9px;border:0;background:var(--card);color:var(--faint);cursor:pointer;border-left:1px solid var(--line)}
+  .status-seg button:first-child{border-left:0}
+  .status-seg button[aria-pressed="true"][data-s="pass"]{background:var(--pass);color:#fff}
+  .status-seg button[aria-pressed="true"][data-s="fail"]{background:var(--fail);color:#fff}
+  .status-seg button[aria-pressed="true"][data-s="block"]{background:var(--block);color:#fff}
+  .case-body{padding:0 15px 15px;border-top:1px solid var(--line-soft)}
+  .validates{font-size:.82rem;color:var(--soft);background:var(--card-2);border-radius:7px;padding:9px 12px;margin:13px 0;border:1px solid var(--line-soft)}
+  .validates b{color:var(--accent-deep);font-weight:600}
+  .field{margin:12px 0 0}
+  .field > .lab{font:600 .64rem/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 6px;display:block}
+  .steps{margin:0;padding-left:20px}
+  .steps li{margin:5px 0;font-size:.9rem}
+  .expect{margin:0;padding-left:20px}
+  .expect li{margin:5px 0;font-size:.9rem}
+  .expect li::marker{content:"✓  ";color:var(--pass);font-weight:700}
+  .notes{width:100%;margin-top:12px;font-family:var(--sans);font-size:.86rem;color:var(--ink);
+    background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:9px 11px;resize:vertical;min-height:38px}
+  .notes::placeholder{color:var(--faint)}
+  .notes:focus{outline:none;border-color:var(--accent-line);background:var(--card)}
+
+  footer{border-top:1px solid var(--line);margin-top:44px}
+  .footer-in{max-width:1280px;margin:0 auto;padding:24px 26px 60px;color:var(--faint);font-size:.83rem}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr;gap:6px}
+    nav.toc{position:static;max-height:none;overflow:visible;border-bottom:1px solid var(--line);
+      padding:14px 0 18px;margin-bottom:6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:2px 18px}
+    nav.toc .grp{grid-column:1/-1;margin-top:10px}
+    .dash{top:56px}
+    section.grp{scroll-margin-top:16px}
+  }
+  @media print{
+    header.topbar,nav.toc,.dash,.filters,.status-seg,footer .footer-in a{display:none!important}
+    .shell{display:block;padding:0}
+    .case{break-inside:avoid;box-shadow:none}
+    .case-body{display:block!important}
+    body{font-size:11px}
+    .notes{min-height:26px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <span class="brand"><span class="mark">✓</span> Clientbridge QA</span>
+    <span class="tag">Service-Layer Refactor</span>
+    <span class="spacer"></span>
+    <div class="actions">
+      <button class="btn" id="expandAll" type="button">Expand all</button>
+      <button class="btn" id="resetAll" type="button">Reset</button>
+      <button class="btn" id="printBtn" type="button">Print / PDF</button>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Test groups"></nav>
+
+  <main>
+    <div class="page-head">
+      <p class="eyebrow">Manual QA Plan</p>
+      <h1>Service-layer refactor — manual verification</h1>
+      <p class="lede">A behavior-preserving reorganization moved ~14 pieces of logic between backend
+      service files (payout splits, client LTV, KYC mirror, entitlement + deposit transitions, tax
+      accessors, subscription price provisioning, public-surface helpers, and more). Automated tests
+      pass at 91.8% coverage — this plan is the hands-on pass to confirm no user-facing behavior
+      shifted in a running environment.</p>
+    </div>
+
+    <div class="dash" id="dash">
+      <div class="dash-row">
+        <div class="meter" title="pass / fail / blocked out of total">
+          <i class="m-pass" id="mPass" style="width:0"></i>
+          <i class="m-fail" id="mFail" style="width:0"></i>
+          <i class="m-block" id="mBlock" style="width:0"></i>
+        </div>
+        <div class="tallies">
+          <span class="tally"><b id="tTotal">0</b> total</span>
+          <span class="tally pass">✅ <b id="tPass">0</b></span>
+          <span class="tally fail">❌ <b id="tFail">0</b></span>
+          <span class="tally block">⊘ <b id="tBlock">0</b></span>
+          <span class="tally">☐ <b id="tOpen">0</b> open</span>
+        </div>
+      </div>
+      <div class="filters" id="filters">
+        <button class="fbtn" data-f="all" aria-pressed="true" type="button">All</button>
+        <button class="fbtn" data-f="P0" aria-pressed="false" type="button">P0 only</button>
+        <button class="fbtn" data-f="P1" aria-pressed="false" type="button">P0 + P1</button>
+        <button class="fbtn" data-f="open" aria-pressed="false" type="button">Untested</button>
+        <button class="fbtn" data-f="fail" aria-pressed="false" type="button">Failed / blocked</button>
+      </div>
+    </div>
+
+    <!-- ENVIRONMENT (static) -->
+    <section class="grp" id="setup">
+      <p class="grp-eye">Before you start</p>
+      <h2>Environment &amp; preflight</h2>
+      <p class="grp-note">Everything below runs against a locally-seeded stack. On staging, swap the
+      hostnames/ports for the deployed URLs and use that environment's own Stripe test keys — the steps
+      are identical.</p>
+
+      <h3>1 · Bring the stack up (localhost)</h3>
+      <pre><code>cd ~/Documents/code/clientbridge
+make up          # Postgres :8702 · PowerSync :8704 · Redis :8703 · MinIO :8705 · stripe-mock :8708
+make migrate     # apply the schema
+make seed        # load "Birchbark Pet Studio" — the fixture every test starts from
+make dev-api     # FastAPI on http://localhost:8701
+make dev-web     # provider/admin app on http://localhost:8700   (separate terminal)
+# Connect (customer) app runs on http://localhost:8709 — start it if you test public links.</code></pre>
+      <p><b>Ports:</b> API <code>8701</code> · Web/provider <code>8700</code> · Connect/customer <code>8709</code> · Expo/mobile <code>8707</code> · Postgres <code>8702</code>.</p>
+
+      <h3>2 · Accounts (all seeded, password <code>demo1234</code>)</h3>
+      <ul>
+        <li><b>Owner</b> — <code>hannah@birchbarkpets.ca</code> — full access (money, reports, settings).</li>
+        <li><b>Staff</b> — <code>diego@birchbarkpets.ca</code> and <code>priya@birchbarkpets.ca</code> — limited role, used for permission tests.</li>
+        <li><b>Business:</b> "Birchbark Pet Studio", slug <code>birchbark</code> → public booking page at <code>http://localhost:8709/book/birchbark</code>.</li>
+        <li><b>Pending invite:</b> <code>sam.newhire@example.com</code> (for the staff-invite test).</li>
+      </ul>
+
+      <h3>3 · Getting an API token (for the curl-based steps)</h3>
+      <pre><code>API=http://localhost:8701
+TOKEN=$(curl -s $API/auth/login -H 'content-type: application/json' \
+  -d '{"email":"hannah@birchbarkpets.ca","password":"demo1234"}' | jq -r .access_token)
+# use it as:  -H "Authorization: Bearer $TOKEN"
+# For staff-permission tests, repeat with diego@birchbarkpets.ca to get a STAFF_TOKEN.</code></pre>
+      <p>Every mutation endpoint also accepts an <code>Idempotency-Key</code> header; reuse the same
+      key on a retry to confirm the response replays rather than double-acting.</p>
+
+      <h3>4 · Firing Stripe webhooks (needed for every settlement test)</h3>
+      <p>Card payments, package/gift-card activation, subscription billing, refunds, and payout
+      allocations all complete <b>only when Stripe's webhook is delivered</b> — not the moment you click
+      pay. In a real environment use the Stripe CLI to forward events to the API:</p>
+      <pre><code># one terminal — forwards live test-mode events to the local API
+stripe listen --forward-to localhost:8701/webhooks/stripe
+# it prints a signing secret (whsec_…); put it in the API env as STRIPE_WEBHOOK_SECRET and restart the API.</code></pre>
+      <p>Then pay with test card <code>4242 4242 4242 4242</code> (any future expiry / any CVC) in the
+      web or Connect UI. The webhook fires within a second or two; refresh to see the settled state.
+      For ACSS/PAD (Interac-adjacent) use Stripe's test PAD flow. To advance recurring subscriptions,
+      use a Stripe <b>Test Clock</b> (Dashboard → test clocks) or the CLI to trigger
+      <code>invoice.payment_succeeded</code>.</p>
+      <div class="note warn"><b>If webhooks aren't wired</b>, settlement-dependent tests (F, G, H, J, K,
+      L, and the deposit half of I) will sit in "pending" forever — that's an environment gap, not a
+      bug. Mark them <b>blocked</b> and note it. The Interac and totals/report tests do not need Stripe.</div>
+
+      <h3>5 · What "validates" means on each card</h3>
+      <p>Each test names the moved function it exercises, so a failure points straight at the batch to
+      inspect. The refactor's two intentional behavior refinements are called out inline: <b>Interac is
+      now idempotent on the authed path too</b> (M3) and <b>remittance is served by ReportService</b>
+      behind the same route + gate (P-series).</p>
+    </section>
+
+    <!-- test groups render here -->
+    <div id="groups"></div>
+  </main>
+</div>
+
+<footer>
+  <div class="footer-in">
+    Clientbridge — manual QA companion to the service-layer refactor. Progress (pass/fail/notes) is saved
+    in this browser only (localStorage); use <b>Print / PDF</b> to hand off a filled report. Source of
+    truth for the moved logic: <code>.docs/codebase-atlas.html</code> and the batch summary.
+  </div>
+</footer>
+
+<script>
+const TESTS = [
+  { id:"auth", eye:"Identity", title:"Auth, onboarding & KYC", note:"Login/register share a new build_user() credential factory; Connect onboarding mirrors Stripe KYC state onto the business (moved to business_service).", cases:[
+    { id:"AUTH-1", pri:"P2", title:"Owner login succeeds", validates:"Regression around auth_service.register / login (build_user extraction).",
+      pre:["Stack up, seed loaded."],
+      steps:["In the web app (:8700) sign in as `hannah@birchbarkpets.ca` / `demo1234`.","Or via API: `POST /auth/login` as in setup step 3."],
+      expect:["Login returns an access + refresh token pair; the dashboard loads.","No 500s; token authorizes a follow-up `GET /v1/clients`."] },
+    { id:"AUTH-2", pri:"P1", title:"Register a brand-new account", validates:"build_user() (auth_service) — the shared password-account factory.",
+      pre:["Use an email not already seeded, e.g. `qa+new@example.com`."],
+      steps:["`POST /auth/register` with a fresh email, password `demo1234`, and a name.","Then `POST /auth/login` with the same credentials."],
+      expect:["Register returns 201 + a token pair.","The new user can log in.","Re-registering the SAME email returns 409 'email already registered'."] },
+    { id:"AUTH-3", pri:"P1", title:"Staff invite → accept", validates:"staff_service.accept_invite now calls build_user() for new invitees; existing-account link path unchanged.",
+      pre:["Seeded pending invite for `sam.newhire@example.com`. As owner, (re)send/find the invite token (Settings → Team, or the invite in the seed)."],
+      steps:["As a NEW person: `POST /auth/accept-invite` with the invite token, a name, and a password.","Separately, invite a second address that ALREADY has an account and accept it with that account's existing password."],
+      expect:["New invitee: a User is created (password hashed via build_user), Staff becomes active, a token pair is returned.","Existing-account invitee: acceptance REQUIRES the existing password; a wrong password returns 401 'enter your existing account password…'.","An audit log row `staff.accept` is recorded."] },
+    { id:"AUTH-4", pri:"P0", title:"Connect onboarding writes KYC state", validates:"apply_account_status / derive_kyc_status (moved payment_service → business_service).",
+      pre:["As owner, business not yet onboarded (fresh seed)."],
+      steps:["Settings → Payments → 'Connect Stripe' (or `POST /v1/connect/onboard`).","Complete (or start) the Stripe hosted onboarding in test mode.","Return to the app; check `GET /v1/connect/status`."],
+      expect:["`kyc_status` reflects Stripe (`not_started` → `pending`/`restricted`/`enabled`).","`charges_enabled`, `payouts_enabled`, `details_submitted`, and the requirements list mirror the Stripe account.","The `account.updated` webhook keeps status in sync after further changes."] },
+  ]},
+
+  { id:"tax", eye:"Catalog & tax", title:"Tax configuration", note:"Tax registration + province are now read through business_service accessors (business_tax_registered / business_province); the tax engine no longer imports the Business model.", cases:[
+    { id:"TAX-1", pri:"P1", title:"Small-supplier collects no tax", validates:"business_tax_registered() accessor feeding lines.tax_for_lines.",
+      pre:["As owner, set the business to NOT tax-registered (Settings → Tax, `is_tax_registered = false`)."],
+      steps:["Create an invoice with a $100 service line and view its totals."],
+      expect:["Tax total is $0.00; total equals subtotal.","Flip `is_tax_registered = true` and re-check a new invoice: GST/HST now applies per province."] },
+    { id:"TAX-2", pri:"P2", title:"Province drives the right rate", validates:"business_province() accessor → rates_for_business.",
+      pre:["Business tax-registered."],
+      steps:["Set province to ON, create a taxable $100 invoice → expect HST 13%.","Set province to QC → expect GST 5% + QST 9.975%.","Set province to AB → expect GST 5% only.","Check `GET /v1/tax-rates` reflects the province."],
+      expect:["Each province yields the correct component breakdown and total.","No import/500 errors from the tax path."] },
+  ]},
+
+  { id:"billing", eye:"Billing", title:"Invoices, estimates & totals", note:"The subtotal/tax/total rollup is now a single shared lines.apply_totals() used by invoices, estimates, and POS orders.", cases:[
+    { id:"BILL-1", pri:"P0", title:"Invoice totals roll up correctly", validates:"lines.apply_totals() (invoice branch: sets balance = total − amount_paid).",
+      pre:["Owner; tax-registered business."],
+      steps:["Create an invoice with 2–3 line items (mix quantities/unit prices).","Save and open it."],
+      expect:["Subtotal = Σ(qty×unit); tax computed per province; total = subtotal + tax.","Balance equals total (nothing paid yet).","Per-line tax amounts are populated."] },
+    { id:"BILL-2", pri:"P0", title:"Estimate carries no balance", validates:"lines.apply_totals() (estimate branch skips balance).",
+      pre:["Owner."],
+      steps:["Create an estimate with line items; open it."],
+      expect:["Subtotal / tax / total are present and correct.","No balance field is set/expected (estimates aren't billed).","No attribute errors in the totals path."] },
+    { id:"BILL-3", pri:"P1", title:"Accept estimate → convert to invoice", validates:"billing_service convert lifecycle (regression around apply_totals reuse).",
+      pre:["An estimate exists (BILL-2)."],
+      steps:["Mark the estimate accepted, then convert it to an invoice."],
+      expect:["A new invoice is created with matching lines + totals and its own number.","The estimate references the converted invoice."] },
+  ]},
+
+  { id:"pos", eye:"POS", title:"Orders & terminal", note:"Order totals use the same shared apply_totals() rollup.", cases:[
+    { id:"POS-1", pri:"P0", title:"POS order totals + tax", validates:"order_service._apply_totals → lines.apply_totals (order branch).",
+      pre:["Owner (or staff for create)."],
+      steps:["Create a POS order with a couple of product lines.","Open it."],
+      expect:["Subtotal/tax/total correct; balance = total − amount paid.","Matches an equivalent invoice's math for the same lines."] },
+    { id:"POS-2", pri:"P2", title:"Void an order (admin only)", validates:"order_service.void role gate (regression).",
+      pre:["An open order with no successful payment."],
+      steps:["As owner, void the order.","As STAFF, attempt to void an order."],
+      expect:["Owner void succeeds → status voided.","Staff void is rejected (403)."] },
+  ]},
+
+  { id:"pay", eye:"Money", title:"Card payments & settlement", note:"Settlement fans out to the moved helpers: client LTV (client_service.recompute_ltv), invoice reconcile, and payout allocations. Needs Stripe webhooks.", cases:[
+    { id:"PAY-1", pri:"P0", title:"Pay invoice by card → settles", validates:"open_card_payment + webhook settle + client_service.recompute_ltv.",
+      pre:["Onboarded business (AUTH-4); Stripe webhooks forwarded; an unpaid invoice with a client."],
+      steps:["Pay the full balance with card `4242…` (web app invoice → Pay, or Connect pay-link).","Wait for the webhook; refresh the invoice and the client."],
+      expect:["Invoice → `paid`, balance 0, `amount_paid` = total, `paid_at` set.","The client's lifetime value increases by the paid amount.","A repeated webhook delivery is a no-op (idempotent)."] },
+    { id:"PAY-2", pri:"P1", title:"Partial payment", validates:"invoice reconcile (partial status) + LTV.",
+      pre:["Unpaid invoice, webhooks on."],
+      steps:["Pay less than the balance; let it settle."],
+      expect:["Invoice → `partial`; balance = total − paid; LTV rises by the partial amount."] },
+  ]},
+
+  { id:"refund", eye:"Money", title:"Refunds & reconciliation", note:"Refund reverses the deposit/entitlement transitions and recomputes LTV downward — all via the relocated helpers.", cases:[
+    { id:"REF-1", pri:"P0", title:"Refund a paid invoice", validates:"reverse paths + client_service.recompute_ltv (subtracts refunds).",
+      pre:["A fully-paid invoice (PAY-1); webhooks on."],
+      steps:["Refund the payment (full or partial) from the payment detail.","Let the refund webhook settle; refresh invoice + client."],
+      expect:["Invoice balance/status reflects the refund; a `refund` payment row exists (positive amount, `kind=refund`).","Client LTV DROPS by the refunded amount.","Refunding more than remaining is blocked."] },
+  ]},
+
+  { id:"payout", eye:"Money", title:"Payout allocations", note:"The payout-split rule + allocation create/reverse moved payment_service → payout_service. Triggered when an invoice with a payee's booking line is fully paid.", cases:[
+    { id:"PO-1", pri:"P0", title:"Paid booking invoice creates a pending allocation", validates:"payout_service.ensure_allocations + _allocation_split.",
+      pre:["A staff member set as a payee with a rate (e.g. Diego, percent/fixed/hourly). An invoice whose line is a booking with that staff. Webhooks on."],
+      steps:["Fully pay that invoice; let it settle.","As owner, open Payouts."],
+      expect:["A `pending` PayoutAllocation appears for the payee, amount computed by their rate type (percent of line / flat / hourly×session-hours).","Paying the same invoice's webhook again does NOT duplicate the allocation (idempotent)."] },
+    { id:"PO-2", pri:"P1", title:"Refund below fully-paid removes the pending allocation", validates:"payout_service.reverse_allocations.",
+      pre:["The allocation from PO-1 exists and is still `pending` (not yet approved/paid)."],
+      steps:["Refund enough of the invoice to drop it below fully paid; let it settle.","Re-open Payouts."],
+      expect:["The pending, not-yet-paid-out allocation is removed.","An allocation already approved/on a payout is left untouched."] },
+    { id:"PO-3", pri:"P2", title:"Approve → pay an allocation", validates:"payout_service lifecycle (regression).",
+      pre:["A pending allocation."],
+      steps:["As owner, approve it, then mark it paid.","Try each transition as STAFF."],
+      expect:["pending → approved → paid succeeds for owner; only a pending one can be approved, only an approved one paid.","Staff attempts are 403."] },
+  ]},
+
+  { id:"deposit", eye:"Scheduling", title:"Booking deposits", note:"Deposit settle/reverse transitions moved payment_service → booking_service (settle_deposit / reverse_deposit), called from the webhook via a deferred import.", cases:[
+    { id:"DEP-1", pri:"P0", title:"Online booking deposit collected on settle", validates:"booking_service.settle_deposit.",
+      pre:["A bookable service with a deposit configured; onboarded business; webhooks on; Connect app running."],
+      steps:["On `/book/birchbark` (Connect), book that service as a customer and pay the deposit with `4242…`.","Let the webhook settle; check the booking (provider app)."],
+      expect:["Booking created; `deposit_status` moves none/pending → `collected`.","Deposit amount matches the item's deposit config (catalog deposit_cents)."] },
+    { id:"DEP-2", pri:"P1", title:"Refunded deposit reverts status", validates:"booking_service.reverse_deposit.",
+      pre:["A booking with a collected deposit (DEP-1); webhooks on."],
+      steps:["Refund the deposit payment; let it settle."],
+      expect:["`deposit_status` returns to `none`."] },
+    { id:"DEP-3", pri:"P1", title:"Forfeited deposit is NOT downgraded by a late settle", validates:"settle_deposit guard (never overrides a forfeited deposit).",
+      pre:["A booking marked no-show with a forfeited deposit whose charge later settles."],
+      steps:["Trigger the settlement webhook for that booking's deposit."],
+      expect:["`deposit_status` stays `forfeited` (settle only promotes none/pending → collected)."] },
+  ]},
+
+  { id:"package", eye:"Entitlements", title:"Packages", note:"Package pending→active (settle) and →canceled (refund) transitions moved payment_service → package_service (activate_purchased / void_purchased).", cases:[
+    { id:"PKG-1", pri:"P0", title:"Purchase a package → active on settle", validates:"package_service.activate_purchased (via webhook).",
+      pre:["A package item; a client; onboarded business; webhooks on."],
+      steps:["Purchase the package for the client (pay with `4242…`).","Let the webhook settle; open the client's packages."],
+      expect:["Package is created `pending`, then flips to `active` after settlement.","Sessions total/used are correct."] },
+    { id:"PKG-2", pri:"P1", title:"Refund package purchase → canceled", validates:"package_service.void_purchased.",
+      pre:["An active purchased package (PKG-1); webhooks on."],
+      steps:["Refund the package's purchase payment; let it settle."],
+      expect:["Package status → `canceled`."] },
+    { id:"PKG-3", pri:"P2", title:"Consume a session", validates:"package_service.consume_session (regression).",
+      pre:["An active package with sessions remaining."],
+      steps:["Consume a session (redeem against a booking)."],
+      expect:["sessions_used increments; when exhausted, status → `used`; no over-consumption under concurrent attempts."] },
+  ]},
+
+  { id:"gift", eye:"Entitlements", title:"Gift cards", note:"Gift-card activation returns the card id so the webhook can notify the recipient (moved to gift_card_service.activate_purchased); void on refund.", cases:[
+    { id:"GC-1", pri:"P0", title:"Purchase gift card → active + recipient notified", validates:"gift_card_service.activate_purchased (returns id to notify).",
+      pre:["A gift-card item; onboarded business; webhooks on; email fake/inbox visible."],
+      steps:["Purchase a gift card (pay with `4242…`); let the webhook settle."],
+      expect:["Card is `pending` then `active` after settlement.","The recipient receives the 'gift card issued' notification (the activation returns the card id specifically so this fires)."] },
+    { id:"GC-2", pri:"P1", title:"Refund gift-card purchase → void", validates:"gift_card_service.void_purchased.",
+      pre:["An active purchased gift card; webhooks on."],
+      steps:["Refund the purchase payment; let it settle."],
+      expect:["Card status → `void`."] },
+    { id:"GC-3", pri:"P2", title:"Redeem against balance", validates:"gift_card_service.redeem (regression).",
+      pre:["An active gift card with balance."],
+      steps:["Redeem part of the balance."],
+      expect:["Balance decrements; status flips to redeemed when exhausted; concurrent redeems can't double-spend."] },
+  ]},
+
+  { id:"sub", eye:"Recurring", title:"Subscriptions", note:"Stripe Price provisioning moved subscription_service → payment_service.ensure_subscription_price; recurring-cycle invoice uses the prepaid apply_totals path.", cases:[
+    { id:"SUB-1", pri:"P0", title:"Create a subscription provisions a price", validates:"ensure_subscription_price (first use creates + caches the tax-inclusive Stripe Price).",
+      pre:["A subscription item with interval/frequency + price; a client with a saved payment method; onboarded business."],
+      steps:["Create a subscription for the client on that item."],
+      expect:["Subscription is created and active/valid.","The item's `stripe_price_id` is populated (tax-inclusive amount).","A duplicate active subscription for the same client+item is rejected (409)."] },
+    { id:"SUB-2", pri:"P1", title:"Second subscriber reuses the cached price", validates:"ensure_subscription_price early-return when stripe_price_id is set.",
+      pre:["SUB-1 done (item now has a price id); a second client with a saved method."],
+      steps:["Create a subscription for the second client on the same item."],
+      expect:["No new Stripe Price is created — the cached `stripe_price_id` is reused.","Subscription succeeds."] },
+    { id:"SUB-3", pri:"P1", title:"Recurring cycle records a paid invoice", validates:"_recurring_invoice + apply_totals (prepaid: amount_paid = total, balance 0).",
+      pre:["An active subscription; advance a billing cycle via a Stripe Test Clock (or trigger invoice.payment_succeeded)."],
+      steps:["Advance one cycle; check the client's invoices and the GST/HST report."],
+      expect:["A `paid` internal invoice + line is recorded for the cycle; balance 0, amount_paid = total, tax computed.","The recurring revenue shows up in the tax report."] },
+    { id:"SUB-4", pri:"P2", title:"Cancel a subscription", validates:"subscription_service.cancel (regression).",
+      pre:["An active subscription."],
+      steps:["Cancel it."],
+      expect:["Status → canceled at Stripe and locally; cancelling an already-canceled one is rejected."] },
+  ]},
+
+  { id:"interac", eye:"Money", title:"Interac e-Transfer", note:"open_interac_payment is now retry-safe for BOTH the public pay-link and the authed request path (M3 is the behavior refinement to confirm).", cases:[
+    { id:"INT-1", pri:"P1", title:"Public pay-link Interac request", validates:"public_pay → payment_service.open_interac_payment.",
+      pre:["An unpaid invoice with a pay-link (`pay_token`); business billing email set."],
+      steps:["Open `http://localhost:8709/pay/<pay_token>` and choose Interac.","Note the returned reference code + send-to email."],
+      expect:["A `pending` interac Payment is created with a unique reference code and the business billing email as the destination."] },
+    { id:"INT-2", pri:"P1", title:"Double-submit reuses the same reference code", validates:"open_interac_payment reuse of an open pending request.",
+      pre:["INT-1 done for an invoice."],
+      steps:["Request Interac again for the SAME invoice (refresh + resubmit)."],
+      expect:["The SAME reference code is returned — no second pending payment is created."] },
+    { id:"INT-3", pri:"P0", title:"Authed request_interac is now idempotent too", validates:"BEHAVIOR REFINEMENT — the reuse guard now also covers the authed path.",
+      pre:["Owner; an unpaid invoice."],
+      steps:["`POST /v1/payments/{id}/interac` (or provider-app 'request e-Transfer') twice for the same invoice."],
+      expect:["Both calls return the SAME reference code / pending payment — the second does not create a duplicate.","(Pre-refactor this could create two; confirm the new single-request behavior is acceptable for the provider UI.)"] },
+    { id:"INT-4", pri:"P1", title:"Inbound Interac webhook matches & settles", validates:"match_interac / process_interac_event (unchanged; regression).",
+      pre:["A pending interac payment (INT-1)."],
+      steps:["Post the inbound Interac webhook with the matching reference code + amount and the shared secret header."],
+      expect:["The pending payment matches by reference code and settles; a duplicate delivery is a no-op."] },
+  ]},
+
+  { id:"booking", eye:"Scheduling", title:"Bookings & schedules", note:"Entity loaders moved out of booking_service into their owners (catalog/client/staff); the ownership gate moved to core/deps.assert_can_act_as; recurrence still re-localizes per business_tz.", cases:[
+    { id:"BK-1", pri:"P0", title:"Create a booking", validates:"create_booking_core resolving item/client/staff via the relocated loaders.",
+      pre:["Owner; an active bookable service, a client, an active staff member."],
+      steps:["Create a booking (provider app calendar, or `POST /v1/bookings`)."],
+      expect:["Booking + session created at the chosen slot; capacity/overlap invariants enforced (double-book → conflict)."] },
+    { id:"BK-2", pri:"P1", title:"Inactive service can't be booked", validates:"catalog_service.load_item active-filter default.",
+      pre:["Deactivate a service."],
+      steps:["Attempt to book the inactive service."],
+      expect:["404 'item not found' (the loader filters to active by default)."] },
+    { id:"BK-3", pri:"P1", title:"Staff can only manage their own bookings", validates:"core/deps.assert_can_act_as (moved from booking_service).",
+      pre:["STAFF token (Diego)."],
+      steps:["As Diego, create/modify a booking assigned to Diego (allowed).","As Diego, try to create/modify one assigned to Priya."],
+      expect:["Own booking: allowed.","Other staff's booking: 403 'staff can only manage their own bookings'.","Owner/admin can manage anyone's."] },
+    { id:"BK-4", pri:"P1", title:"Recurring schedule expands correctly", validates:"schedule_service using the relocated loaders + business_tz DST re-localization.",
+      pre:["Owner; a service with a duration; a client + staff."],
+      steps:["Create a weekly recurring schedule spanning several weeks (ideally across a DST boundary).","Inspect the generated bookings."],
+      expect:["One booking per occurrence (bounded by count/until + the 60 cap).","Occurrences keep the same LOCAL wall-clock time across DST (not a drifting UTC offset).","Clashing occurrences are skipped + reported, not fatal."] },
+    { id:"BK-5", pri:"P1", title:"Online booking dedups the customer", validates:"client_service.find_or_create_by_contact (moved from public_booking).",
+      pre:["Connect app; a client already exists with a known email/phone."],
+      steps:["On `/book/birchbark`, book as a customer using that SAME email/phone.","Then book as a genuinely new email/phone."],
+      expect:["Existing contact → reuses the existing client (no duplicate).","New contact → creates a client tagged `source: online_booking`."] },
+  ]},
+
+  { id:"public", eye:"Customer surfaces", title:"Public (Connect) links", note:"The four public services now share resolve_by_token + business_or_404 from public_common; behavior (incl. 404 copy) must be unchanged.", cases:[
+    { id:"PUB-1", pri:"P1", title:"Pay-link resolves & renders", validates:"public_pay resolve via public_common helpers.",
+      pre:["An invoice with a pay-link."],
+      steps:["Open the pay-link in Connect; view the invoice summary."],
+      expect:["Business name/brand, amounts, and accepted methods render; card + Interac options reflect the business's Stripe status."] },
+    { id:"PUB-2", pri:"P2", title:"Form fill + submit", validates:"public_form resolve + required-field validation.",
+      pre:["A form sent to a client (token link)."],
+      steps:["Open the form link, leave a required field blank and submit, then fill it and submit."],
+      expect:["Blank required field → validation error; complete submission saves the response."] },
+    { id:"PUB-3", pri:"P2", title:"Contract sign", validates:"public_contract resolve + signed-body snapshot.",
+      pre:["A contract sent to a client (token link)."],
+      steps:["Open the signing link, sign with a typed name."],
+      expect:["Status → signed; the signed body snapshot + timestamp are captured; a signed contract can't be re-signed."] },
+    { id:"PUB-4", pri:"P2", title:"Review submit", validates:"public_review resolve + review creation.",
+      pre:["A review request sent (token link)."],
+      steps:["Open the review link, submit a rating + comment."],
+      expect:["Review is created (published); the request is marked completed; it can't be submitted twice."] },
+    { id:"PUB-5", pri:"P1", title:"Invalid / dead token → 404", validates:"resolve_by_token + business_or_404 error copy.",
+      pre:["Any public surface."],
+      steps:["Open each public link type with a garbage token."],
+      expect:["Each returns a 404 with the surface's own message (payment/form/signing/review 'link not found') — copy unchanged from before."] },
+  ]},
+
+  { id:"reports", eye:"Reporting", title:"Reports & dashboard", note:"Remittance moved PaymentService → ReportService (same /v1/payments/remittance route + owner/admin gate); the GST filing-date helper moved to report_service.", cases:[
+    { id:"RPT-1", pri:"P0", title:"Remittance endpoint returns tax collected", validates:"ReportService.remittance_summary behind the unchanged route.",
+      pre:["Owner; some paid/sent taxable invoices."],
+      steps:["`GET /v1/payments/remittance` as owner (or the provider-app remittance view)."],
+      expect:["Returns `tax_collected_cents` = tax pro-rated by the collected fraction of each open/paid invoice.","Value matches a hand-check against the seeded/created invoices."] },
+    { id:"RPT-2", pri:"P1", title:"Remittance is owner/admin-only", validates:"ReportService self-asserts admin (gate preserved after the move).",
+      pre:["STAFF token."],
+      steps:["`GET /v1/payments/remittance` with the staff token."],
+      expect:["403 — staff cannot view remittance (same as before the move)."] },
+    { id:"RPT-3", pri:"P2", title:"GST/HST report + next filing date", validates:"report_service (incl. relocated next_gst_filing) + dashboard.",
+      pre:["Owner; tax-registered business."],
+      steps:["Open Reports → GST/HST for a period; open the dashboard/Today tiles."],
+      expect:["Report totals compute; the dashboard's 'GST/HST filing due' shows the next quarterly date (Jan 31 / Apr 30 / Jul 31 / Oct 31), and is null when not tax-registered."] },
+    { id:"RPT-4", pri:"P2", title:"Dashboard money tiles", validates:"dashboard_service.summary (regression; now imports next_gst_filing from report_service).",
+      pre:["Owner."],
+      steps:["Open the Today dashboard."],
+      expect:["Today's revenue, awaiting-payment, and GST/HST set-aside tiles render with sensible numbers; no import errors."] },
+  ]},
+];
+
+// ---------- render ----------
+const root = document.getElementById("groups");
+const toc = document.getElementById("toc");
+const store = {
+  get(id){ try { return JSON.parse(localStorage.getItem("qa:"+id)||"{}"); } catch(e){ return {}; } },
+  set(id,v){ localStorage.setItem("qa:"+id, JSON.stringify(v)); },
+};
+function inlineCode(s){
+  // escape then turn `code` into <code>
+  const esc = s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return esc.replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+function li(items, cls){ return items.map(t=>`<li>${inlineCode(t)}</li>`).join(""); }
+
+let totalCases = 0;
+// setup group anchor in TOC first
+const tocGroups = [{id:"setup", eye:"Before you start", title:"Environment & preflight", cases:[]}].concat(TESTS);
+
+TESTS.forEach(g=>{
+  totalCases += g.cases.length;
+  const sec = document.createElement("section");
+  sec.className = "grp"; sec.id = g.id;
+  sec.innerHTML = `<p class="grp-eye">${g.eye}</p><h2>${g.title}</h2><p class="grp-note">${inlineCode(g.note)}</p>`;
+  g.cases.forEach(c=>{
+    const saved = store.get(c.id);
+    const st = saved.status || "";
+    const el = document.createElement("div");
+    el.className = "case" + (st?(" done-"+st):"");
+    el.dataset.pri = c.pri; el.dataset.status = st; el.id = c.id;
+    el.innerHTML = `
+      <div class="case-head">
+        <span class="cid">${c.id}</span>
+        <span class="ctitle">${inlineCode(c.title)}</span>
+        <span class="pchip ${c.pri}">${c.pri}</span>
+        <div class="status-seg" role="group" aria-label="status">
+          <button type="button" data-s="pass" aria-pressed="${st==='pass'}">✅ Pass</button>
+          <button type="button" data-s="fail" aria-pressed="${st==='fail'}">❌ Fail</button>
+          <button type="button" data-s="block" aria-pressed="${st==='block'}">⊘ Block</button>
+        </div>
+      </div>
+      <div class="case-body">
+        <div class="validates"><b>Validates:</b> ${inlineCode(c.validates)}</div>
+        <div class="field"><span class="lab">Preconditions</span><ul class="steps">${li(c.pre)}</ul></div>
+        <div class="field"><span class="lab">Steps</span><ol class="steps">${li(c.steps)}</ol></div>
+        <div class="field"><span class="lab">Expected</span><ul class="expect">${li(c.expect)}</ul></div>
+        <textarea class="notes" placeholder="Notes / observed behavior / bug link…">${(saved.notes||"").replace(/</g,"&lt;")}</textarea>
+      </div>`;
+    // wire status buttons
+    el.querySelectorAll(".status-seg button").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const cur = store.get(c.id);
+        const next = (cur.status===b.dataset.s) ? "" : b.dataset.s;
+        cur.status = next; store.set(c.id, cur);
+        el.dataset.status = next;
+        el.className = "case" + (next?(" done-"+next):"");
+        el.querySelectorAll(".status-seg button").forEach(x=>x.setAttribute("aria-pressed", x.dataset.s===next));
+        refresh();
+      });
+    });
+    const ta = el.querySelector(".notes");
+    ta.addEventListener("input", ()=>{ const cur = store.get(c.id); cur.notes = ta.value; store.set(c.id, cur); });
+    sec.appendChild(el);
+  });
+  root.appendChild(sec);
+});
+
+// TOC
+tocGroups.forEach(g=>{
+  const a = document.createElement("a");
+  a.href = "#"+g.id;
+  const count = (g.cases||[]).length;
+  a.innerHTML = `<span>${g.title}</span>` + (count?`<span class="n" data-grp="${g.id}">0/${count}</span>`:"");
+  toc.appendChild(a);
+});
+
+// ---------- progress ----------
+function refresh(){
+  let pass=0, fail=0, block=0;
+  const perGrp = {};
+  TESTS.forEach(g=>{ perGrp[g.id]={done:0,total:g.cases.length}; g.cases.forEach(c=>{
+    const s = store.get(c.id).status;
+    if(s==="pass"){pass++;perGrp[g.id].done++;}
+    else if(s==="fail"){fail++;perGrp[g.id].done++;}
+    else if(s==="block"){block++;perGrp[g.id].done++;}
+  }); });
+  const open = totalCases - pass - fail - block;
+  document.getElementById("tTotal").textContent = totalCases;
+  document.getElementById("tPass").textContent = pass;
+  document.getElementById("tFail").textContent = fail;
+  document.getElementById("tBlock").textContent = block;
+  document.getElementById("tOpen").textContent = open;
+  document.getElementById("mPass").style.width = (pass/totalCases*100)+"%";
+  document.getElementById("mFail").style.width = (fail/totalCases*100)+"%";
+  document.getElementById("mBlock").style.width = (block/totalCases*100)+"%";
+  Object.keys(perGrp).forEach(id=>{
+    const n = document.querySelector('.n[data-grp="'+id+'"]');
+    if(n){ n.textContent = perGrp[id].done+"/"+perGrp[id].total; }
+  });
+}
+refresh();
+
+// ---------- filters ----------
+let activeFilter = "all";
+document.querySelectorAll("#filters .fbtn").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    activeFilter = b.dataset.f;
+    document.querySelectorAll("#filters .fbtn").forEach(x=>x.setAttribute("aria-pressed", x===b));
+    applyFilter();
+  });
+});
+function applyFilter(){
+  document.querySelectorAll(".case").forEach(el=>{
+    const pri = el.dataset.pri, st = el.dataset.status || "";
+    let show = true;
+    if(activeFilter==="P0") show = pri==="P0";
+    else if(activeFilter==="P1") show = pri==="P0"||pri==="P1";
+    else if(activeFilter==="open") show = st==="";
+    else if(activeFilter==="fail") show = st==="fail"||st==="block";
+    el.style.display = show ? "" : "none";
+  });
+}
+
+// ---------- toolbar ----------
+document.getElementById("expandAll").addEventListener("click", ()=>{
+  activeFilter="all";
+  document.querySelectorAll("#filters .fbtn").forEach(x=>x.setAttribute("aria-pressed", x.dataset.f==="all"));
+  applyFilter();
+});
+document.getElementById("printBtn").addEventListener("click", ()=>window.print());
+document.getElementById("resetAll").addEventListener("click", ()=>{
+  if(!confirm("Clear all pass/fail marks and notes on this device?")) return;
+  TESTS.forEach(g=>g.cases.forEach(c=>localStorage.removeItem("qa:"+c.id)));
+  location.reload();
+});
+
+// ---------- scrollspy ----------
+const links = {};
+document.querySelectorAll("nav.toc a").forEach(a=>{ links[a.getAttribute("href").slice(1)] = a; });
+let current=null;
+if("IntersectionObserver" in window){
+  const seen={};
+  const order = Array.from(document.querySelectorAll("section.grp")).map(s=>s.id);
+  const io = new IntersectionObserver(es=>{
+    es.forEach(e=>seen[e.target.id]=e.isIntersecting);
+    for(const id of order){ if(seen[id]){ if(current&&links[current])links[current].classList.remove("active"); if(links[id]){links[id].classList.add("active");current=id;} break; } }
+  }, {rootMargin:"-20% 0px -70% 0px"});
+  document.querySelectorAll("section.grp").forEach(s=>io.observe(s));
+}
+</script>
+</body>
+</html>

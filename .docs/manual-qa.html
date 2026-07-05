@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clientbridge — Full Product Manual QA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3F4F6; --paper-2:#EAECEF; --card:#FFFFFF; --card-2:#EDEFF2; --head:#F2F3F5;
+    --ink:#191D22; --soft:#3E454D; --faint:#6E757E;
+    --line:#DBDEE3; --line-soft:#E8EAEE;
+    --accent:#3F5E80; --accent-deep:#2E4A66; --accent-weak:#E4EAF1; --accent-line:#CCD7E3;
+    --p0:#A2433A; --p0-weak:#F6E4E1;
+    --p1:#86621E; --p1-weak:#F3E8CC;
+    --p2:#5B6B7A; --p2-weak:#E7EBEE;
+    --pass:#2E7A5A; --pass-weak:#DCEDE4;
+    --fail:#A2433A; --fail-weak:#F6E4E1;
+    --block:#6E757E; --block-weak:#E7E9EC;
+    --shadow:0 1px 2px rgba(20,25,30,.05);
+    --shadow-lift:0 2px 4px rgba(20,25,30,.05), 0 12px 28px rgba(20,25,30,.07);
+    --serif:"Schibsted Grotesk",system-ui,-apple-system,sans-serif;
+    --sans:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"Geist Mono",ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline;text-underline-offset:2px}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{transition:none!important}}
+
+  header.topbar{position:sticky;top:0;z-index:40;background:rgba(243,244,246,.86);
+    backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+  .topbar-in{max-width:1300px;margin:0 auto;padding:0 26px;height:56px;display:flex;align-items:center;gap:13px}
+  .brand{display:flex;align-items:center;gap:9px;font-family:var(--serif);font-weight:700;font-size:15px}
+  .brand .mark{width:25px;height:25px;border-radius:7px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700}
+  .topbar .tag{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.03em;
+    padding-left:13px;margin-left:2px;border-left:1px solid var(--line)}
+  .topbar .spacer{flex:1}
+  .topbar .actions{display:flex;gap:8px}
+  .btn{font:600 12px/1 var(--sans);letter-spacing:.02em;padding:8px 12px;border-radius:7px;
+    border:1px solid var(--line);background:var(--card);color:var(--soft);cursor:pointer;transition:border-color .15s,color .15s}
+  .btn:hover{border-color:var(--accent-line);color:var(--accent-deep)}
+  @media (max-width:760px){.topbar .tag{display:none}}
+
+  .shell{max-width:1300px;margin:0 auto;padding:0 26px;display:grid;
+    grid-template-columns:250px minmax(0,1fr);gap:44px;align-items:start}
+  nav.toc{position:sticky;top:56px;max-height:calc(100vh - 56px);overflow:auto;
+    padding:24px 0 40px;font-size:.84rem;scrollbar-width:thin}
+  nav.toc .grp{font:600 .66rem/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;
+    color:var(--faint);margin:18px 0 7px;padding-left:12px}
+  nav.toc .grp:first-child{margin-top:2px}
+  nav.toc a{display:flex;align-items:center;gap:8px;color:var(--soft);padding:4px 12px;
+    border-left:2px solid var(--line-soft);line-height:1.3;transition:color .15s,border-color .15s,background .15s}
+  nav.toc a:hover{color:var(--accent);border-left-color:var(--accent-line);text-decoration:none}
+  nav.toc a.active{color:var(--accent-deep);border-left-color:var(--accent);background:var(--accent-weak);font-weight:600}
+  nav.toc a .lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  nav.toc a .n{font:600 .6rem/1 var(--mono);color:var(--faint);
+    background:var(--card-2);border:1px solid var(--line-soft);border-radius:20px;padding:2px 6px;font-variant-numeric:tabular-nums}
+
+  main{min-width:0;padding:0 0 96px;max-width:920px}
+
+  .page-head{padding:36px 0 22px;border-bottom:1px solid var(--line)}
+  .eyebrow{font:600 .68rem/1 var(--sans);letter-spacing:.15em;text-transform:uppercase;color:var(--accent);margin:0 0 12px}
+  h1{font-family:var(--serif);font-weight:700;font-size:2rem;line-height:1.1;margin:0 0 12px;letter-spacing:-.02em;text-wrap:balance}
+  .lede{font-size:1.02rem;color:var(--soft);max-width:68ch;margin:0 0 4px;text-wrap:pretty}
+
+  .dash{position:sticky;top:56px;z-index:20;background:rgba(243,244,246,.92);backdrop-filter:blur(8px);
+    border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;margin:22px 0 6px;box-shadow:var(--shadow)}
+  .dash-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  .meter{flex:1;min-width:180px;height:9px;border-radius:6px;background:var(--card-2);overflow:hidden;border:1px solid var(--line-soft);display:flex}
+  .meter i{display:block;height:100%}
+  .meter .m-pass{background:var(--pass)} .meter .m-fail{background:var(--fail)} .meter .m-block{background:var(--block)}
+  .tallies{display:flex;gap:6px;flex-wrap:wrap}
+  .tally{font:600 .72rem/1 var(--sans);padding:5px 10px;border-radius:20px;border:1px solid var(--line);
+    background:var(--card);color:var(--soft);display:flex;align-items:baseline;gap:6px}
+  .tally b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .tally.pass{background:var(--pass-weak);border-color:#B9DAC7;color:#1F5B41}
+  .tally.fail{background:var(--fail-weak);border-color:#E6C4BF;color:#7E322B}
+  .tally.block{background:var(--block-weak);border-color:#CFD3D8;color:#4C525A}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .filters .fbtn{font:600 .68rem/1 var(--sans);letter-spacing:.02em;padding:6px 10px;border-radius:20px;
+    border:1px solid var(--line);background:var(--card);color:var(--soft);cursor:pointer}
+  .filters .fbtn[aria-pressed="true"]{background:var(--accent-weak);border-color:var(--accent-line);color:var(--accent-deep)}
+
+  section.grp{margin:30px 0 0;padding-top:26px;border-top:1px solid var(--line-soft);scroll-margin-top:150px}
+  section.grp:first-of-type{border-top:0}
+  .grp-eye{font:600 .66rem/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 7px}
+  h2{font-family:var(--serif);font-weight:700;font-size:1.4rem;letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+  .grp-note{color:var(--soft);font-size:.92rem;margin:0 0 6px;max-width:76ch}
+
+  h3{font-size:1.02rem;font-weight:600;margin:26px 0 9px;letter-spacing:-.01em}
+  p{margin:0 0 12px;max-width:78ch}
+  ul,ol{margin:0 0 12px;padding-left:22px;max-width:78ch}
+  li{margin:5px 0}
+  li::marker{color:var(--accent)}
+  code{font-family:var(--mono);font-size:.82em;background:var(--card-2);border:1px solid var(--line-soft);
+    padding:.06em .36em;border-radius:5px;color:var(--accent-deep);white-space:nowrap}
+  pre{font-family:var(--mono);font-size:.8rem;line-height:1.6;background:#20262E;color:#E7EAEE;
+    border-radius:var(--radius);padding:15px 17px;overflow-x:auto;margin:12px 0}
+  pre code{background:none;border:0;padding:0;color:inherit;white-space:pre;font-size:1em}
+  .note{background:var(--accent-weak);border:1px solid var(--accent-line);border-left:3px solid var(--accent);
+    border-radius:9px;padding:13px 16px;margin:14px 0;font-size:.9rem}
+  .note b{color:var(--accent-deep)}
+  .note.warn{background:var(--p1-weak);border-color:#E6D5A8;border-left-color:var(--p1)}
+  .note.warn b{color:var(--p1)}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+  .legend span{font:600 .72rem/1 var(--sans);padding:6px 10px;border-radius:20px;border:1px solid var(--line);background:var(--card);color:var(--soft)}
+
+  .case{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--p2);
+    border-radius:var(--radius);margin:12px 0;overflow:hidden;box-shadow:var(--shadow)}
+  .case[data-pri="P0"]{border-left-color:var(--p0)}
+  .case[data-pri="P1"]{border-left-color:var(--p1)}
+  .case.done-pass{border-left-color:var(--pass)}
+  .case.done-fail{border-left-color:var(--fail)}
+  .case.done-block{border-left-color:var(--block)}
+  .case-head{display:flex;align-items:center;gap:9px;padding:12px 15px;flex-wrap:wrap}
+  .cid{font:600 .72rem/1 var(--mono);color:var(--faint);background:var(--card-2);border:1px solid var(--line-soft);
+    padding:4px 7px;border-radius:6px;letter-spacing:.02em}
+  .ctitle{font-weight:600;font-size:.98rem;flex:1;min-width:180px;letter-spacing:-.01em}
+  .plat{font:600 .58rem/1 var(--mono);letter-spacing:.04em;padding:4px 7px;border-radius:6px;background:var(--paper-2);border:1px solid var(--line-soft);color:var(--faint);text-transform:uppercase}
+  .pchip{font:700 .62rem/1 var(--sans);letter-spacing:.05em;padding:4px 8px;border-radius:20px;text-transform:uppercase}
+  .pchip.P0{background:var(--p0-weak);color:var(--p0);border:1px solid #E6C4BF}
+  .pchip.P1{background:var(--p1-weak);color:var(--p1);border:1px solid #E6D5A8}
+  .pchip.P2{background:var(--p2-weak);color:var(--p2);border:1px solid #CFD6DC}
+  .status-seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .status-seg button{font:600 .68rem/1 var(--sans);padding:6px 9px;border:0;background:var(--card);color:var(--faint);cursor:pointer;border-left:1px solid var(--line)}
+  .status-seg button:first-child{border-left:0}
+  .status-seg button[aria-pressed="true"][data-s="pass"]{background:var(--pass);color:#fff}
+  .status-seg button[aria-pressed="true"][data-s="fail"]{background:var(--fail);color:#fff}
+  .status-seg button[aria-pressed="true"][data-s="block"]{background:var(--block);color:#fff}
+  .case-body{padding:0 15px 15px;border-top:1px solid var(--line-soft)}
+  .checks{font-size:.82rem;color:var(--soft);background:var(--card-2);border-radius:7px;padding:9px 12px;margin:13px 0;border:1px solid var(--line-soft)}
+  .checks b{color:var(--accent-deep);font-weight:600}
+  .field{margin:12px 0 0}
+  .field > .lab{font:600 .64rem/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 6px;display:block}
+  .steps{margin:0;padding-left:20px}
+  .steps li{margin:5px 0;font-size:.9rem}
+  .expect{margin:0;padding-left:20px}
+  .expect li{margin:5px 0;font-size:.9rem}
+  .expect li::marker{content:"✓  ";color:var(--pass);font-weight:700}
+  .notes{width:100%;margin-top:12px;font-family:var(--sans);font-size:.86rem;color:var(--ink);
+    background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:9px 11px;resize:vertical;min-height:38px}
+  .notes::placeholder{color:var(--faint)}
+  .notes:focus{outline:none;border-color:var(--accent-line);background:var(--card)}
+
+  footer{border-top:1px solid var(--line);margin-top:44px}
+  .footer-in{max-width:1300px;margin:0 auto;padding:24px 26px 60px;color:var(--faint);font-size:.83rem}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr;gap:6px}
+    nav.toc{position:static;max-height:none;overflow:visible;border-bottom:1px solid var(--line);
+      padding:14px 0 18px;margin-bottom:6px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:2px 18px}
+    nav.toc .grp{grid-column:1/-1;margin-top:10px}
+    .dash{top:56px}
+    section.grp{scroll-margin-top:16px}
+  }
+  @media print{
+    header.topbar,nav.toc,.dash,.filters,.status-seg,footer .footer-in a{display:none!important}
+    .shell{display:block;padding:0}
+    .case{break-inside:avoid;box-shadow:none}
+    .case-body{display:block!important}
+    body{font-size:11px}
+    .notes{min-height:26px}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <span class="brand"><span class="mark">✓</span> Clientbridge QA</span>
+    <span class="tag">Full Product · Manual Test Plan</span>
+    <span class="spacer"></span>
+    <div class="actions">
+      <button class="btn" id="expandAll" type="button">Show all</button>
+      <button class="btn" id="resetAll" type="button">Reset</button>
+      <button class="btn" id="printBtn" type="button">Print / PDF</button>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="toc" id="toc" aria-label="Test areas"></nav>
+
+  <main>
+    <div class="page-head">
+      <p class="eyebrow">Manual QA · whole product</p>
+      <h1>Clientbridge — full product test plan</h1>
+      <p class="lede">An end-to-end manual regression suite for the entire business OS — the provider
+      app (web + mobile), the Connect customer app, every money and scheduling flow, plus the
+      cross-cutting concerns: permissions, multi-tenant isolation, offline sync, background jobs, and
+      idempotency. Hand this to any engineer; every case names its platform, priority, and the exact
+      behavior it checks, with steps and expected results.</p>
+    </div>
+
+    <div class="dash" id="dash">
+      <div class="dash-row">
+        <div class="meter" title="pass / fail / blocked out of total">
+          <i class="m-pass" id="mPass" style="width:0"></i>
+          <i class="m-fail" id="mFail" style="width:0"></i>
+          <i class="m-block" id="mBlock" style="width:0"></i>
+        </div>
+        <div class="tallies">
+          <span class="tally"><b id="tTotal">0</b> total</span>
+          <span class="tally pass">✅ <b id="tPass">0</b></span>
+          <span class="tally fail">❌ <b id="tFail">0</b></span>
+          <span class="tally block">⊘ <b id="tBlock">0</b></span>
+          <span class="tally">☐ <b id="tOpen">0</b> open</span>
+        </div>
+      </div>
+      <div class="filters" id="filters">
+        <button class="fbtn" data-f="all" aria-pressed="true" type="button">All</button>
+        <button class="fbtn" data-f="P0" aria-pressed="false" type="button">P0 (smoke)</button>
+        <button class="fbtn" data-f="P1" aria-pressed="false" type="button">P0 + P1</button>
+        <button class="fbtn" data-f="open" aria-pressed="false" type="button">Untested</button>
+        <button class="fbtn" data-f="fail" aria-pressed="false" type="button">Failed / blocked</button>
+      </div>
+    </div>
+
+    <section class="grp" id="setup">
+      <p class="grp-eye">Before you start</p>
+      <h2>Environment, accounts &amp; conventions</h2>
+      <p class="grp-note">The whole suite runs against a seeded stack. On staging, swap hostnames/ports
+      for the deployed URLs and use that environment's own Stripe/Twilio/Postmark test keys — the steps
+      are identical.</p>
+
+      <h3>1 · Bring everything up (localhost)</h3>
+      <pre><code>cd ~/Documents/code/clientbridge
+make up          # Postgres :8702 · PowerSync :8704 · Redis :8703 · MinIO :8705 · stripe-mock :8708
+make migrate     # apply the schema
+make seed        # load "Birchbark Pet Studio" — the fixture every case starts from
+make dev-api     # FastAPI on http://localhost:8701     (terminal 1)
+make dev-web     # provider/admin app :8700             (terminal 2)
+make dev-mobile  # Expo dev build (device/simulator)    (terminal 3, for mobile cases)
+# Connect (customer) app on http://localhost:8709 — start it for public-link cases.</code></pre>
+      <p><b>Surfaces &amp; ports:</b> API <code>8701</code> · Provider web <code>8700</code> · Provider
+      mobile (Expo) <code>8707</code> · Connect/customer <code>8709</code>.</p>
+
+      <h3>2 · Seeded accounts — password <code>demo1234</code></h3>
+      <ul>
+        <li><b>Owner</b> — <code>hannah@birchbarkpets.ca</code> — everything (money, reports, team, settings).</li>
+        <li><b>Staff</b> — <code>diego@birchbarkpets.ca</code>, <code>priya@birchbarkpets.ca</code> — limited role (for permission cases).</li>
+        <li><b>Business</b> — "Birchbark Pet Studio", slug <code>birchbark</code>. Public booking: <code>http://localhost:8709/book/birchbark</code>.</li>
+        <li><b>Pending invite</b> — <code>sam.newhire@example.com</code>.</li>
+      </ul>
+      <p>The seed contains realistic data across every table (clients, pets, services/classes/products,
+      packages, subscriptions, gift cards, bookings, invoices in all statuses, estimates, POS orders,
+      payments, payouts, reviews, forms, contracts, threads). Re-run <code>make seed</code> to reset
+      between runs (it truncates + re-inserts).</p>
+
+      <h3>3 · API token (for curl-based checks)</h3>
+      <pre><code>API=http://localhost:8701
+TOKEN=$(curl -s $API/auth/login -H 'content-type: application/json' \
+  -d '{"email":"hannah@birchbarkpets.ca","password":"demo1234"}' | jq -r .access_token)
+# owner:  -H "Authorization: Bearer $TOKEN"     (repeat with diego@… for a STAFF_TOKEN)</code></pre>
+
+      <h3>4 · Simulating external events</h3>
+      <ul>
+        <li><b>Stripe (payments, subs, refunds, payouts):</b> forward test-mode webhooks with
+          <code>stripe listen --forward-to localhost:8701/webhooks/stripe</code>, set the printed
+          <code>whsec_…</code> as <code>STRIPE_WEBHOOK_SECRET</code>, restart the API. Pay with card
+          <code>4242 4242 4242 4242</code>. Advance subscriptions with a Stripe <b>Test Clock</b>.</li>
+        <li><b>Inbound SMS &amp; Interac:</b> POST to the webhook endpoints with the shared-secret header
+          (see <code>.env</code>) to simulate an incoming text or a matched e-Transfer.</li>
+        <li><b>Notifications (email/SMS/push):</b> in dev these use console/no-op providers unless real
+          keys are set — check the API log to confirm a notification was built and "sent". With real
+          test keys (Postmark/Twilio/Expo), check the inbox/phone/device.</li>
+        <li><b>Background jobs:</b> the arq worker runs on cron; to test a job now, invoke its task
+          directly (e.g. reminders, reap-unpaid, overdue sweep) or wait for its schedule.</li>
+      </ul>
+
+      <h3>5 · How to read each case</h3>
+      <div class="legend">
+        <span>🟥 <b>P0</b> — smoke / release-blocker</span>
+        <span>🟨 <b>P1</b> — important</span>
+        <span>⬜ <b>P2</b> — depth / edge</span>
+        <span><b>WEB · MOB · CONNECT · API</b> — platform</span>
+      </div>
+      <p>Mark each ✅ Pass / ❌ Fail / ⊘ Block; add notes. Progress + notes persist in this browser
+      (localStorage); use <b>Print / PDF</b> to export a filled report. Filter to <b>P0</b> for a fast
+      smoke test before a release.</p>
+      <div class="note"><b>4-angle coverage.</b> Every feature area is tested from four angles where they
+      apply: the <b>happy path</b>, each <b>error / 4xx</b>, <b>security &amp; tenant isolation</b>, and
+      <b>idempotency / edge</b>. Sections 25–28 gather the cross-cutting angles that span the whole app.</div>
+    </section>
+
+    <div id="groups"></div>
+  </main>
+</div>
+
+<footer>
+  <div class="footer-in">
+    Clientbridge — full-product manual QA. Progress is stored in this browser only. Companion to
+    <code>.docs/codebase-atlas.html</code> (architecture) and <code>.docs/design/app-explorer.html</code>
+    (screen reference).
+  </div>
+</footer>
+
+<script>
+const TESTS = [
+  { id:"auth", eye:"Identity", title:"Authentication & sessions", note:"Account creation, sign-in, and token lifecycle — including the security angles (enumeration, reuse-detection, unverified OAuth).", cases:[
+    { id:"AUTH-1", pri:"P0", plat:"Web·API", title:"Register a new account", chk:"Happy path — self-serve signup.",
+      pre:["Use a fresh email, e.g. `qa+1@example.com`."],
+      steps:["Sign up with email + password + name (or `POST /auth/register`)."],
+      expect:["201 + access/refresh token pair; you land signed-in.","Re-registering the SAME email → 409 'email already registered'."] },
+    { id:"AUTH-2", pri:"P0", plat:"Web·API", title:"Login with correct credentials", chk:"Happy path — sign-in.",
+      pre:["Owner account."],
+      steps:["Log in as `hannah@birchbarkpets.ca` / `demo1234`."],
+      expect:["Token pair returned; dashboard loads; token authorizes `GET /v1/clients`."] },
+    { id:"AUTH-3", pri:"P1", plat:"API", title:"Wrong password / unknown email", chk:"4xx + no account-enumeration timing oracle.",
+      pre:[],
+      steps:["Login with a real email + wrong password.","Login with an email that doesn't exist."],
+      expect:["Both return 401 with the same generic message.","Response latency is similar in both cases (no timing leak)."] },
+    { id:"AUTH-4", pri:"P1", plat:"API", title:"Refresh rotation & reuse detection", chk:"Security — session family.",
+      pre:["A logged-in session (has a refresh token)."],
+      steps:["Refresh once (get a new token).","Try to refresh AGAIN with the OLD, already-rotated refresh token."],
+      expect:["First refresh succeeds and rotates the token.","Replaying the old token is rejected and revokes the whole family (must re-login)."] },
+    { id:"AUTH-5", pri:"P1", plat:"Web·API", title:"Logout", chk:"Happy path.",
+      pre:["Logged in."],
+      steps:["Log out (`POST /auth/logout`).","Try to use the old refresh token."],
+      expect:["Session is invalidated; the refresh no longer works."] },
+    { id:"AUTH-6", pri:"P1", plat:"Web·API", title:"Password reset flow", chk:"Happy path + token expiry.",
+      pre:["An account exists."],
+      steps:["Request a reset (`/auth/forgot-password`).","Use the emailed token to set a new password (`/auth/reset-password`).","Log in with the new password.","Try the reset token a second time."],
+      expect:["Reset email/token is issued; new password works.","A used or expired token is rejected."] },
+    { id:"AUTH-7", pri:"P2", plat:"Web·API", title:"Email verification", chk:"Happy path.",
+      pre:["An unverified account."],
+      steps:["Send verification; confirm with the token."],
+      expect:["Email marked verified; a stale token is rejected."] },
+    { id:"AUTH-8", pri:"P2", plat:"Web·API", title:"Google OAuth sign-in", chk:"Happy path + unverified-email guard.",
+      pre:["Google OAuth configured in the env."],
+      steps:["Sign in with Google (verified Google email).","Attempt with an unverified Google email."],
+      expect:["Verified: find-or-create user + link identity, signed in.","Unverified provider email: rejected (no account takeover)."] },
+  ]},
+
+  { id:"onboard", eye:"Setup", title:"Onboarding & business settings", note:"First-run business creation and the account settings the owner controls.", cases:[
+    { id:"ONB-1", pri:"P0", plat:"Web·Mob", title:"Create a business (first run)", chk:"Happy path — tenant bootstrap.",
+      pre:["A fresh registered user with no business."],
+      steps:["Complete the create-business step (name, slug)."],
+      expect:["Business + owner Staff created atomically; slug is unique (duplicate slug → conflict).","You become the owner with full access."] },
+    { id:"ONB-2", pri:"P1", plat:"Web·Mob", title:"Edit business profile", chk:"Happy path.",
+      pre:["Owner."],
+      steps:["Settings → edit name, contact/billing email, address."],
+      expect:["Changes persist and show across the app."] },
+    { id:"ONB-3", pri:"P1", plat:"Web·Mob", title:"Branding (logo, colors, tagline)", chk:"Happy path + propagates to Connect.",
+      pre:["Owner."],
+      steps:["Set a logo URL, primary color, tagline in Settings → Branding.","Open the Connect booking/pay page."],
+      expect:["Branding saves; the public Connect surfaces reflect the brand (safe values only — bad URLs/colors are dropped)."] },
+    { id:"ONB-4", pri:"P0", plat:"Web·Mob", title:"Tax registration & province", chk:"Happy path — drives all tax.",
+      pre:["Owner."],
+      steps:["Set `is_tax_registered` + province in Settings → Tax."],
+      expect:["Setting persists; subsequent invoices/orders tax accordingly (see Tax section)."] },
+    { id:"ONB-5", pri:"P1", plat:"Web·Mob", title:"Timezone", chk:"Happy path — drives scheduling wall-clock.",
+      pre:["Owner."],
+      steps:["Set the business timezone; create a booking and view its time."],
+      expect:["Availability + booking times display in the business timezone; recurrence respects it (see BK-8)."] },
+    { id:"ONB-6", pri:"P1", plat:"Web·Mob", title:"Operating hours / availability defaults", chk:"Happy path.",
+      pre:["Owner."],
+      steps:["Set weekly business/staff hours."],
+      expect:["Hours are saved and feed the online-booking slot generator."] },
+  ]},
+
+  { id:"team", eye:"Setup", title:"Team & permissions", note:"Staff invites, role acceptance, and the role gates that separate owner/admin from staff.", cases:[
+    { id:"TEAM-1", pri:"P1", plat:"Web·Mob", title:"Invite a staff member", chk:"Happy path — invite + email.",
+      pre:["Owner/admin."],
+      steps:["Settings → Team → invite an email with a role (admin/staff/contractor)."],
+      expect:["A pending Staff(invited) is created; an invite email with a code is sent.","Inviting with role 'owner' is rejected."] },
+    { id:"TEAM-2", pri:"P1", plat:"Web·API", title:"Accept invite — new person", chk:"Happy path.",
+      pre:["A fresh (never-registered) email invited."],
+      steps:["Accept the invite with the code, a name, and a new password."],
+      expect:["A user is created, Staff activates, a token pair is returned, an audit row is written."] },
+    { id:"TEAM-3", pri:"P1", plat:"Web·API", title:"Accept invite — existing account", chk:"Security — prove ownership.",
+      pre:["Invite an email that already has an account."],
+      steps:["Accept with a WRONG password, then the CORRECT existing password."],
+      expect:["Wrong password → 401 'enter your existing account password…'.","Correct password → links the existing user and activates."] },
+    { id:"TEAM-4", pri:"P0", plat:"API", title:"Role gate — staff blocked from admin actions", chk:"Security — permissions.",
+      pre:["STAFF token (Diego)."],
+      steps:["As staff, try an owner/admin-only action: void an order, approve a payout, edit business settings, view remittance."],
+      expect:["Each returns 403; the same actions succeed as owner."] },
+    { id:"TEAM-5", pri:"P1", plat:"Web·API", title:"Staff self-scope on bookings", chk:"Security — staff act only for self.",
+      pre:["STAFF token (Diego)."],
+      steps:["As Diego, manage a booking assigned to Diego, then one assigned to Priya."],
+      expect:["Own booking allowed; other staff's booking → 403.","Owner/admin can manage anyone's."] },
+    { id:"TEAM-6", pri:"P2", plat:"Web·Mob", title:"Deactivate a staff member", chk:"Edge — inactive staff.",
+      pre:["Owner; an active staff member."],
+      steps:["Deactivate a staff member; try to assign a new booking to them."],
+      expect:["Inactive staff can't be assigned / can't sign in; existing history is retained."] },
+  ]},
+
+  { id:"crm", eye:"CRM", title:"Clients & subjects", note:"The client book — CRUD, search, subjects (pets), notes, tags, soft-delete, and lifetime value.", cases:[
+    { id:"CRM-1", pri:"P0", plat:"Web·Mob", title:"List & paginate clients", chk:"Happy path.",
+      pre:["Seed loaded (has clients)."],
+      steps:["Open Clients; scroll/paginate."],
+      expect:["Clients list newest-first; pagination works; soft-deleted clients are hidden."] },
+    { id:"CRM-2", pri:"P1", plat:"Web·Mob", title:"Search clients", chk:"Happy path.",
+      pre:[],
+      steps:["Search by partial name, email, and phone."],
+      expect:["Matching clients return for each field."] },
+    { id:"CRM-3", pri:"P0", plat:"Web·Mob", title:"Create a client", chk:"Happy path.",
+      pre:[],
+      steps:["Add a client (name, email, phone, tags)."],
+      expect:["Client is created and appears in the list; LTV starts at $0."] },
+    { id:"CRM-4", pri:"P1", plat:"Web·Mob", title:"Edit a client", chk:"Happy path.",
+      pre:["A client exists."],
+      steps:["Edit fields + custom fields; save."],
+      expect:["Changes persist."] },
+    { id:"CRM-5", pri:"P1", plat:"Web·Mob", title:"Archive (soft-delete) a client", chk:"Edge — soft delete.",
+      pre:["A client exists."],
+      steps:["Archive/delete the client; check the list; check they can still be referenced historically."],
+      expect:["Client disappears from the active list but historical invoices/bookings still resolve them."] },
+    { id:"CRM-6", pri:"P1", plat:"Web·Mob", title:"Add a subject (pet/vehicle/etc.)", chk:"Happy path.",
+      pre:["A client exists."],
+      steps:["Add a subject (e.g. a dog) with attributes."],
+      expect:["Subject attaches to the client and can be selected on a booking."] },
+    { id:"CRM-7", pri:"P2", plat:"Web·Mob", title:"Notes on client/subject", chk:"Happy path.",
+      pre:[],
+      steps:["Add a note to a client and to a subject."],
+      expect:["Notes save and display in the right context."] },
+    { id:"CRM-8", pri:"P2", plat:"Web·Mob", title:"Lifetime value reflects payments", chk:"Edge — derived value.",
+      pre:["A client with at least one settled payment."],
+      steps:["View the client's LTV; make a payment / refund and re-check."],
+      expect:["LTV = settled payments − refunds; updates after each settlement."] },
+  ]},
+
+  { id:"catalog", eye:"Catalog", title:"Catalog — the full item spectrum", note:"One Item table drives services, classes, products, packages, subscriptions, and gift cards.", cases:[
+    { id:"CAT-1", pri:"P0", plat:"Web·Mob", title:"Create a service", chk:"Happy path.",
+      pre:["Owner/admin."],
+      steps:["Add a service with price, duration, buffers, online-bookable on."],
+      expect:["Service is created and available to book/invoice."] },
+    { id:"CAT-2", pri:"P1", plat:"Web·Mob", title:"Edit / deactivate a service", chk:"Edge — deactivate not delete.",
+      pre:["A service exists (referenced by bookings)."],
+      steps:["Edit price; then deactivate the service."],
+      expect:["Edits persist; deactivation hides it from new bookings but keeps historical references intact."] },
+    { id:"CAT-3", pri:"P1", plat:"Web·Mob", title:"Create a class (capacity)", chk:"Happy path.",
+      pre:[],
+      steps:["Add a class item with a capacity (e.g. 6)."],
+      expect:["Class can be scheduled; capacity is enforced on booking (see BK-7)."] },
+    { id:"CAT-4", pri:"P1", plat:"Web·Mob", title:"Create a product", chk:"Happy path.",
+      pre:[],
+      steps:["Add a physical product with a price."],
+      expect:["Product is sellable on a POS order / invoice."] },
+    { id:"CAT-5", pri:"P1", plat:"Web·Mob", title:"Create a package (session bundle)", chk:"Happy path.",
+      pre:[],
+      steps:["Add a package with a session count + price."],
+      expect:["Package is purchasable (see Packages section)."] },
+    { id:"CAT-6", pri:"P1", plat:"Web·Mob", title:"Create a subscription item", chk:"Happy path.",
+      pre:[],
+      steps:["Add a subscription item with interval + frequency + price."],
+      expect:["Item is valid for subscription creation (see Subscriptions)."] },
+    { id:"CAT-7", pri:"P2", plat:"Web·Mob", title:"Create a gift card item + set a deposit", chk:"Happy path + config.",
+      pre:[],
+      steps:["Add a gift-card item; on a service, configure a deposit (fixed or %)."],
+      expect:["Gift card is purchasable; the service now requires the configured deposit at booking."] },
+  ]},
+
+  { id:"avail", eye:"Scheduling", title:"Availability & resources", note:"Working hours (recurring + date overrides) and bookable resources drive the online slot generator.", cases:[
+    { id:"AV-1", pri:"P1", plat:"Web·Mob", title:"Set weekly working hours", chk:"Happy path.",
+      pre:["Owner/staff."],
+      steps:["Set recurring weekday hours for a staff member."],
+      expect:["Hours save; online slots appear within them."] },
+    { id:"AV-2", pri:"P1", plat:"Web·Mob", title:"Date-specific override", chk:"Edge — override beats weekday.",
+      pre:["Weekly hours set."],
+      steps:["Add a date override with different hours."],
+      expect:["That date uses the override, not the weekday hours."] },
+    { id:"AV-3", pri:"P1", plat:"Web·Mob", title:"Mark a day closed", chk:"Edge — explicit closed.",
+      pre:[],
+      steps:["Add a closed date override."],
+      expect:["No online slots on that day."] },
+    { id:"AV-4", pri:"P2", plat:"API", title:"Unconfigured day", chk:"Edge — 'no restriction' vs 'no online slots'.",
+      pre:["A staff member with no hours on some weekday."],
+      steps:["Manually book that day (allowed); check online slots that day (none)."],
+      expect:["Manual booking is unrestricted; online booking shows no slots until hours are set."] },
+    { id:"AV-5", pri:"P2", plat:"Web·Mob", title:"Resources (rooms/equipment)", chk:"Happy path.",
+      pre:[],
+      steps:["Create resources; attach one to a booking."],
+      expect:["Resource attaches; double-booking the resource conflicts (see BK-9)."] },
+    { id:"AV-6", pri:"P1", plat:"API·Connect", title:"Slot enumeration respects duration + buffers", chk:"Happy path.",
+      pre:["Hours set for a staff + a service with buffers."],
+      steps:["`GET /book/birchbark/slots` (or the Connect slot picker) for that staff/service/date."],
+      expect:["Slots step by duration + buffers and exclude times overlapping existing bookings."] },
+  ]},
+
+  { id:"booking", eye:"Scheduling", title:"Bookings", note:"The core scheduling flow: create, manage lifecycle, and the invariants (overlap, capacity, resources).", cases:[
+    { id:"BK-1", pri:"P0", plat:"Web·Mob", title:"Create a booking", chk:"Happy path.",
+      pre:["A service, client, active staff."],
+      steps:["Create a booking on the calendar."],
+      expect:["Booking + session created at the slot; visible on the calendar."] },
+    { id:"BK-2", pri:"P1", plat:"Web·Mob", title:"Calendar day/week views", chk:"Happy path.",
+      pre:["Bookings exist."],
+      steps:["Switch day/week views; navigate dates."],
+      expect:["Bookings render at correct times; layout handles overlaps."] },
+    { id:"BK-3", pri:"P1", plat:"Web·Mob", title:"Reschedule", chk:"Happy path.",
+      pre:["A booking exists."],
+      steps:["Move it to a new time/staff."],
+      expect:["Booking updates; the freed slot reopens; conflicts still enforced."] },
+    { id:"BK-4", pri:"P1", plat:"Web·Mob", title:"Cancel a booking", chk:"Edge — frees the slot.",
+      pre:["A booking exists."],
+      steps:["Cancel it."],
+      expect:["Status → canceled; the slot is freed; a class seat is returned."] },
+    { id:"BK-5", pri:"P1", plat:"Web·Mob", title:"Complete a booking", chk:"Happy path.",
+      pre:["A past/booked appointment."],
+      steps:["Mark complete."],
+      expect:["Status → completed; eligible for a review request (see Reviews / jobs)."] },
+    { id:"BK-6", pri:"P1", plat:"Web·Mob", title:"No-show forfeits the deposit", chk:"Edge.",
+      pre:["A booking with a collected/pending deposit."],
+      steps:["Mark it no-show."],
+      expect:["Status → no_show; deposit_status → forfeited."] },
+    { id:"BK-7", pri:"P0", plat:"API·Web", title:"Double-book same staff → conflict", chk:"Invariant — overlap.",
+      pre:["A booked slot for a staff."],
+      steps:["Attempt an overlapping booking for the same staff."],
+      expect:["Rejected with a conflict ('already booked at that time')."] },
+    { id:"BK-8", pri:"P1", plat:"API·Connect", title:"Class capacity full → blocked", chk:"Invariant — capacity.",
+      pre:["A class session at capacity (e.g. 6/6)."],
+      steps:["Attempt one more booking on that session; also try to double-book the same client."],
+      expect:["Over-capacity → 'class is full'; same client twice → 'already have a booking for this class'."] },
+    { id:"BK-9", pri:"P2", plat:"API·Web", title:"Resource double-book → conflict", chk:"Invariant — resource.",
+      pre:["A resource booked in a slot."],
+      steps:["Attempt another booking needing the same resource at an overlapping time."],
+      expect:["Rejected as a resource conflict."] },
+  ]},
+
+  { id:"recur", eye:"Scheduling", title:"Recurring schedules", note:"RRULE-lite recurrence expands into individual bookings, bounded and DST-correct.", cases:[
+    { id:"REC-1", pri:"P1", plat:"Web·API", title:"Weekly recurrence generates bookings", chk:"Happy path.",
+      pre:["A service with duration, a client, a staff."],
+      steps:["Create a weekly schedule for several weeks (set count or until)."],
+      expect:["One confirmed booking per occurrence, bounded by count/until and the 60-occurrence cap."] },
+    { id:"REC-2", pri:"P1", plat:"API", title:"Occurrences survive a DST boundary", chk:"Edge — wall-clock.",
+      pre:["A recurrence spanning a DST change."],
+      steps:["Create it and inspect occurrence times before/after the change."],
+      expect:["All occurrences keep the same LOCAL time (no 1-hour UTC drift after the transition)."] },
+    { id:"REC-3", pri:"P2", plat:"Web·API", title:"Clashing occurrences are skipped, not fatal", chk:"Edge.",
+      pre:["A recurrence where one occurrence overlaps an existing booking."],
+      steps:["Create it."],
+      expect:["Clashing occurrences are skipped and reported; the rest are created."] },
+  ]},
+
+  { id:"invoice", eye:"Billing", title:"Invoices", note:"Create, tax, send, and the full invoice status lifecycle with per-business numbering.", cases:[
+    { id:"INV-1", pri:"P0", plat:"Web·Mob", title:"Create an invoice with line items", chk:"Happy path + totals.",
+      pre:["Tax-registered business; a client."],
+      steps:["Add 2–3 lines with quantities; save."],
+      expect:["Subtotal = Σ(qty×unit); tax per province; total = subtotal+tax; balance = total; per-line tax set."] },
+    { id:"INV-2", pri:"P1", plat:"Web·Mob", title:"Edit lines recomputes totals", chk:"Happy path.",
+      pre:["A draft invoice."],
+      steps:["Add/remove/change a line."],
+      expect:["Totals + tax recompute correctly."] },
+    { id:"INV-3", pri:"P0", plat:"Web·Mob", title:"Send an invoice", chk:"Happy path — pay-link + notify.",
+      pre:["A draft invoice."],
+      steps:["Send it to the client."],
+      expect:["Status → sent; a pay-link (`pay_token`) is generated; the client is notified."] },
+    { id:"INV-4", pri:"P1", plat:"Web·Mob", title:"Void an invoice", chk:"Edge.",
+      pre:["A sent/unpaid invoice."],
+      steps:["Void it."],
+      expect:["Status → void; it stops accruing / can't be paid."] },
+    { id:"INV-5", pri:"P1", plat:"API", title:"Status lifecycle", chk:"Edge — partial/paid/overdue.",
+      pre:["Invoices in various states (see Payments + jobs)."],
+      steps:["Observe a sent invoice go partial → paid on payment; and past-due → overdue via the job."],
+      expect:["Statuses transition correctly across the lifecycle."] },
+    { id:"INV-6", pri:"P2", plat:"API", title:"Per-business numbering", chk:"Invariant — unique sequential number.",
+      pre:["Owner."],
+      steps:["Create several invoices; note their numbers."],
+      expect:["Numbers are sequential and unique within the business (no gaps from failed creates that roll back)."] },
+  ]},
+
+  { id:"estimate", eye:"Billing", title:"Estimates", note:"Quote → accept/decline → convert to an invoice.", cases:[
+    { id:"EST-1", pri:"P1", plat:"Web·Mob", title:"Create & send an estimate", chk:"Happy path.",
+      pre:["A client."],
+      steps:["Create an estimate with lines and send it."],
+      expect:["Estimate has subtotal/tax/total (no balance); status → sent."] },
+    { id:"EST-2", pri:"P1", plat:"Web·Mob", title:"Accept → convert to invoice", chk:"Happy path.",
+      pre:["A sent estimate."],
+      steps:["Accept, then convert to invoice."],
+      expect:["A new invoice with matching lines/totals + its own number; the estimate links to it."] },
+    { id:"EST-3", pri:"P2", plat:"Web·Mob", title:"Decline", chk:"Edge.",
+      pre:["A sent estimate."],
+      steps:["Decline it."],
+      expect:["Status → declined; can't be converted."] },
+    { id:"EST-4", pri:"P2", plat:"API", title:"Expired estimate lapses (job)", chk:"Edge — maintenance job.",
+      pre:["An estimate past its expiry."],
+      steps:["Run/await the maintenance job."],
+      expect:["Estimate transitions to lapsed/expired."] },
+  ]},
+
+  { id:"pos", eye:"Billing", title:"POS orders & terminal", note:"In-person sales, cash + card-present, Stripe Terminal / Tap-to-Pay.", cases:[
+    { id:"POS-1", pri:"P1", plat:"Web·Mob", title:"Create a POS order", chk:"Happy path + totals.",
+      pre:["Products in the catalog."],
+      steps:["Create an order with product lines."],
+      expect:["Subtotal/tax/total correct; balance = total − paid."] },
+    { id:"POS-2", pri:"P1", plat:"Web·Mob", title:"Checkout (manual/cash)", chk:"Happy path.",
+      pre:["An open order."],
+      steps:["Record a cash/manual payment for the balance."],
+      expect:["Order → paid."] },
+    { id:"POS-3", pri:"P1", plat:"Mob", title:"Terminal / Tap-to-Pay checkout", chk:"Happy path — card-present.",
+      pre:["Onboarded business; a Terminal/Tap-to-Pay-capable device."],
+      steps:["Checkout the order via Terminal with a test tap/card; let it settle."],
+      expect:["Connection token obtained; payment captured; order → paid on settlement."] },
+    { id:"POS-4", pri:"P2", plat:"Web·API", title:"Void an order (admin)", chk:"Security + edge.",
+      pre:["An open order without a successful payment."],
+      steps:["Void as owner; attempt void as staff."],
+      expect:["Owner void → voided; staff → 403; can't void an order with a captured payment."] },
+  ]},
+
+  { id:"pay", eye:"Money", title:"Card payments & saved methods", note:"Paying invoices by card, saving cards/PAD, and settlement (webhook-driven).", cases:[
+    { id:"PAY-1", pri:"P0", plat:"Web·Connect", title:"Pay an invoice by card", chk:"Happy path — settle.",
+      pre:["Onboarded business; webhooks on; an unpaid invoice."],
+      steps:["Pay the full balance with `4242…`; let the webhook settle; refresh."],
+      expect:["Invoice → paid, balance 0, paid_at set; the client's LTV rises; a receipt notification fires."] },
+    { id:"PAY-2", pri:"P1", plat:"Web", title:"Partial payment", chk:"Edge.",
+      pre:["Unpaid invoice; webhooks on."],
+      steps:["Pay less than the balance; let it settle."],
+      expect:["Status → partial; balance = total − paid."] },
+    { id:"PAY-3", pri:"P1", plat:"Web·Mob", title:"Save a card for a client", chk:"Happy path.",
+      pre:["Onboarded business; a client."],
+      steps:["Add a card via the save-card (SetupIntent) flow with `4242…`."],
+      expect:["Card is saved (brand/last4 stored); no charge occurred."] },
+    { id:"PAY-4", pri:"P2", plat:"Web·Mob", title:"Set default / detach card", chk:"Happy path.",
+      pre:["A client with ≥2 saved cards."],
+      steps:["Set one as default; detach another."],
+      expect:["Default flips exclusively; detach removes it at Stripe + locally."] },
+    { id:"PAY-5", pri:"P2", plat:"Web·Mob", title:"PAD / ACSS (bank) setup", chk:"Happy path.",
+      pre:["Onboarded business."],
+      steps:["Set up a PAD mandate for a client (test bank)."],
+      expect:["Mandate saved and usable for later charges."] },
+    { id:"PAY-6", pri:"P1", plat:"Web·Connect", title:"Card decline handling", chk:"4xx — declined card.",
+      pre:["Unpaid invoice."],
+      steps:["Pay with a decline test card (e.g. `4000 0000 0000 0002`)."],
+      expect:["A clear decline message; invoice stays unpaid; the pending charge frees so the customer can retry."] },
+  ]},
+
+  { id:"deposit-refund", eye:"Money", title:"Deposits & refunds", note:"Booking deposits (collect/forfeit/reverse) and refund handling with guards.", cases:[
+    { id:"DR-1", pri:"P0", plat:"Connect", title:"Deposit collected on booking pay", chk:"Happy path.",
+      pre:["A service with a deposit; onboarded; webhooks on."],
+      steps:["Book on `/book/birchbark` and pay the deposit; let it settle."],
+      expect:["Booking created; deposit_status none/pending → collected; amount matches the deposit config."] },
+    { id:"DR-2", pri:"P1", plat:"Web·API", title:"Deposit forfeited on no-show", chk:"Edge.",
+      pre:["A booking with a deposit."],
+      steps:["Mark the booking no-show."],
+      expect:["deposit_status → forfeited; a later settlement doesn't downgrade it."] },
+    { id:"DR-3", pri:"P0", plat:"Web", title:"Refund a payment (full)", chk:"Happy path.",
+      pre:["A settled payment; webhooks on."],
+      steps:["Refund the full amount; let it settle."],
+      expect:["Invoice/order reconciled; a `refund` row (positive amount) exists; client LTV drops; a deposit reverts to none."] },
+    { id:"DR-4", pri:"P1", plat:"Web", title:"Partial refund", chk:"Edge.",
+      pre:["A settled payment."],
+      steps:["Refund part of it."],
+      expect:["Balance/status reflect the partial refund; LTV adjusts by the refunded amount."] },
+    { id:"DR-5", pri:"P1", plat:"API", title:"Over-refund is blocked", chk:"Invariant — guard.",
+      pre:["A payment already partly refunded, or a redeemed gift card / used package."],
+      steps:["Attempt to refund more than remaining, or a partly-consumed entitlement."],
+      expect:["Rejected with a clear error; no negative balances."] },
+  ]},
+
+  { id:"interac", eye:"Money", title:"Interac e-Transfer", note:"The no-fee wedge: request a reference code, match an inbound transfer.", cases:[
+    { id:"INT-1", pri:"P1", plat:"Connect·API", title:"Request an Interac payment", chk:"Happy path.",
+      pre:["An unpaid invoice; business billing email set."],
+      steps:["From the pay-link (Connect) or `POST /v1/payments/{id}/interac`, request Interac."],
+      expect:["A pending interac payment with a unique reference code + the send-to email is returned."] },
+    { id:"INT-2", pri:"P1", plat:"Connect·API", title:"Double-submit returns the same code", chk:"Idempotency.",
+      pre:["INT-1 done for an invoice."],
+      steps:["Request Interac again for the same invoice (both the public and authed paths)."],
+      expect:["The same reference code / pending payment is returned — no duplicate."] },
+    { id:"INT-3", pri:"P1", plat:"API", title:"Inbound transfer matches & settles", chk:"Happy path — webhook.",
+      pre:["A pending interac payment."],
+      steps:["POST the inbound Interac webhook with the matching reference code + amount + shared secret."],
+      expect:["The payment matches by reference code and settles; a duplicate delivery is a no-op."] },
+  ]},
+
+  { id:"entitlement", eye:"Money", title:"Packages & gift cards", note:"Prepaid entitlements: purchase → activate on settlement, consume/redeem, void on refund.", cases:[
+    { id:"ENT-1", pri:"P0", plat:"Web·Connect", title:"Purchase a package → active", chk:"Happy path.",
+      pre:["A package item; a client; onboarded; webhooks on."],
+      steps:["Purchase the package (pay `4242…`); let the webhook settle."],
+      expect:["Package created pending → active after settlement; sessions total/used correct."] },
+    { id:"ENT-2", pri:"P1", plat:"Web·Mob", title:"Consume package sessions", chk:"Happy path + concurrency.",
+      pre:["An active package with sessions."],
+      steps:["Consume sessions until exhausted; attempt two concurrent consumes on the last session."],
+      expect:["sessions_used increments; status → used when empty; concurrent draws can't over-consume."] },
+    { id:"ENT-3", pri:"P0", plat:"Web·Connect", title:"Purchase a gift card → active + recipient notified", chk:"Happy path.",
+      pre:["A gift-card item; onboarded; webhooks on."],
+      steps:["Purchase a gift card; let it settle."],
+      expect:["Card pending → active; the recipient gets the 'gift card issued' notification."] },
+    { id:"ENT-4", pri:"P1", plat:"Web·Mob", title:"Redeem a gift card", chk:"Happy path + concurrency.",
+      pre:["An active gift card with balance."],
+      steps:["Redeem part of the balance; attempt concurrent redeems."],
+      expect:["Balance decrements; status flips when exhausted; no double-spend under concurrency."] },
+    { id:"ENT-5", pri:"P1", plat:"Web", title:"Refund voids the entitlement", chk:"Edge.",
+      pre:["An active purchased package/gift card; webhooks on."],
+      steps:["Refund the purchase; let it settle."],
+      expect:["Package → canceled / gift card → void."] },
+  ]},
+
+  { id:"sub", eye:"Recurring", title:"Subscriptions", note:"Recurring billing over Stripe: create, cycle, cancel, dunning.", cases:[
+    { id:"SUB-1", pri:"P0", plat:"Web", title:"Create a subscription", chk:"Happy path.",
+      pre:["A subscription item; a client with a saved method; onboarded."],
+      steps:["Create a subscription for the client."],
+      expect:["Subscription active; the item's Stripe price is provisioned (tax-inclusive); a duplicate active sub for the same client+item → 409."] },
+    { id:"SUB-2", pri:"P1", plat:"API", title:"Recurring cycle records a paid invoice", chk:"Happy path — test clock.",
+      pre:["An active subscription; a Stripe Test Clock."],
+      steps:["Advance one billing cycle."],
+      expect:["A paid internal invoice + line is recorded (balance 0, tax computed); it appears in the GST/HST report."] },
+    { id:"SUB-3", pri:"P2", plat:"Web", title:"Cancel a subscription", chk:"Happy path.",
+      pre:["An active subscription."],
+      steps:["Cancel it."],
+      expect:["Canceled at Stripe + locally; cancelling again → rejected."] },
+    { id:"SUB-4", pri:"P2", plat:"API", title:"Past-due / dunning", chk:"Edge.",
+      pre:["A subscription whose renewal fails (test clock + failing card)."],
+      steps:["Advance a cycle with a failing payment."],
+      expect:["Subscription → past_due; the owner is notified."] },
+  ]},
+
+  { id:"payout", eye:"Money", title:"Payouts & staff comp", note:"Splitting paid work to payees and the manual payout lifecycle.", cases:[
+    { id:"PO-1", pri:"P0", plat:"Web·API", title:"Allocation on a paid booking invoice", chk:"Happy path.",
+      pre:["A payee staff with a rate; an invoice whose line is that staff's booking; webhooks on."],
+      steps:["Fully pay the invoice; let it settle; open Payouts."],
+      expect:["A pending allocation appears for the payee, computed by their rate type; re-delivering the webhook doesn't duplicate it."] },
+    { id:"PO-2", pri:"P1", plat:"API", title:"Comp split by rate type", chk:"Edge — percent/fixed/hourly.",
+      pre:["Payees configured as percent, fixed, and hourly."],
+      steps:["Pay invoices for each; inspect the allocation amounts."],
+      expect:["percent = % of line; fixed = flat; hourly = rate × session hours."] },
+    { id:"PO-3", pri:"P1", plat:"Web·API", title:"Approve → pay lifecycle", chk:"Happy path + security.",
+      pre:["A pending allocation."],
+      steps:["As owner, approve then pay it; try each step as staff."],
+      expect:["pending → approved → paid (owner only); only pending→approve, only approved→pay; staff → 403."] },
+    { id:"PO-4", pri:"P1", plat:"Web·API", title:"Refund removes a pending allocation", chk:"Edge.",
+      pre:["A pending (not-yet-paid) allocation."],
+      steps:["Refund the invoice below fully-paid; let it settle."],
+      expect:["The pending allocation is removed; an already-paid-out one is left untouched."] },
+  ]},
+
+  { id:"tax", eye:"Money", title:"Canadian sales tax", note:"Province-driven GST/HST/PST/QST with small-supplier and precise QST rounding.", cases:[
+    { id:"TAX-1", pri:"P1", plat:"Web·API", title:"Province rates apply correctly", chk:"Happy path.",
+      pre:["Tax-registered business."],
+      steps:["Set province ON (expect HST 13%), then QC (GST 5% + QST 9.975%), then AB (GST 5%); create a $100 taxable invoice each time."],
+      expect:["Each province yields the correct components + total; `GET /v1/tax-rates` matches."] },
+    { id:"TAX-2", pri:"P2", plat:"API", title:"QST precision", chk:"Edge — exact 9.975%, half-up.",
+      pre:["Province QC, tax-registered."],
+      steps:["Invoice amounts that expose rounding (e.g. $10.00, $19.99)."],
+      expect:["QST computed at exactly 9.975% with half-up rounding; matches a hand calc to the cent."] },
+    { id:"TAX-3", pri:"P1", plat:"Web·API", title:"Small supplier collects nothing", chk:"Edge.",
+      pre:["`is_tax_registered = false`."],
+      steps:["Create a taxable invoice."],
+      expect:["Tax total $0; total = subtotal."] },
+    { id:"TAX-4", pri:"P2", plat:"API", title:"Consistent across invoice/order/subscription", chk:"Edge — one engine.",
+      pre:["Tax-registered."],
+      steps:["Compare tax on the same amount across an invoice, a POS order, and a subscription cycle."],
+      expect:["All three compute identical tax (shared engine)."] },
+  ]},
+
+  { id:"messaging", eye:"Engagement", title:"Messaging", note:"Two-way conversational SMS/chat threads and broadcasts (distinct from event notifications).", cases:[
+    { id:"MSG-1", pri:"P1", plat:"Web·Mob", title:"Send a message to a client", chk:"Happy path.",
+      pre:["A client with a phone."],
+      steps:["Open the client's thread and send a message."],
+      expect:["Message sends via SMS (or logs in dev); appears in the thread."] },
+    { id:"MSG-2", pri:"P1", plat:"API", title:"Inbound SMS creates/updates a thread", chk:"Happy path — webhook.",
+      pre:["A thread (or a known client number)."],
+      steps:["POST the inbound-SMS webhook (with the provider SID + shared secret)."],
+      expect:["The message lands in the right (business, client, channel) thread; a duplicate SID is ignored."] },
+    { id:"MSG-3", pri:"P1", plat:"Web·Mob", title:"Broadcast to an audience", chk:"Happy path.",
+      pre:["Clients exist."],
+      steps:["Send a broadcast to a filtered audience."],
+      expect:["Each targeted client receives it; it fans out to per-client threads."] },
+    { id:"MSG-4", pri:"P2", plat:"API", title:"Scheduled broadcast fires (job)", chk:"Edge — job.",
+      pre:["A broadcast scheduled for the near future."],
+      steps:["Run/await the due-broadcast job."],
+      expect:["The broadcast sends at its scheduled time, once."] },
+    { id:"MSG-5", pri:"P2", plat:"Web·Mob", title:"Read state & unread counts", chk:"Edge.",
+      pre:["Threads with unread messages."],
+      steps:["Open a thread; check the inbox unread badge."],
+      expect:["Opening marks read; unread counts update accordingly."] },
+  ]},
+
+  { id:"notif", eye:"Engagement", title:"Event notifications", note:"One-way transactional messages (email/SMS/push) for lifecycle events — copy lives in one place.", cases:[
+    { id:"NOT-1", pri:"P1", plat:"API", title:"Booking confirmation", chk:"Happy path.",
+      pre:["Notifications configured (or dev console)."],
+      steps:["Create/confirm a booking for a client."],
+      expect:["The client receives a confirmation (email/SMS); copy is well-formed."] },
+    { id:"NOT-2", pri:"P1", plat:"API", title:"Booking reminder (job)", chk:"Edge — 24h job.",
+      pre:["A booking starting within 24h, not yet reminded."],
+      steps:["Run/await the reminders job."],
+      expect:["A reminder is sent once (dedup via reminded_at)."] },
+    { id:"NOT-3", pri:"P1", plat:"API", title:"Payment receipt", chk:"Happy path.",
+      pre:["A payment settles (PAY-1)."],
+      steps:["Observe post-settlement notification."],
+      expect:["The client gets a receipt; it fires post-commit (a delivery failure never rolls back the payment)."] },
+    { id:"NOT-4", pri:"P2", plat:"API", title:"Review request (job)", chk:"Edge — job.",
+      pre:["A booking completed in the last 7 days."],
+      steps:["Run/await the review-request job."],
+      expect:["One review request per completed booking (no duplicates)."] },
+    { id:"NOT-5", pri:"P2", plat:"API", title:"Invoice sent & overdue", chk:"Happy path + job.",
+      pre:["A sent invoice going past due."],
+      steps:["Send an invoice (notify); run the overdue job on a past-due one."],
+      expect:["Send notifies the client; the overdue job flips status + notifies once."] },
+    { id:"NOT-6", pri:"P2", plat:"Mob", title:"Push notification received", chk:"Happy path — device.",
+      pre:["Mobile app with a registered device token; a real Expo push key or a triggerable event."],
+      steps:["Trigger a push-worthy event (e.g. a new booking)."],
+      expect:["The device receives the push."] },
+  ]},
+
+  { id:"docs", eye:"Engagement", title:"Forms, contracts & reviews", note:"Client-facing documents and reputation — sent from the provider, completed on Connect.", cases:[
+    { id:"DOC-1", pri:"P1", plat:"Web·Mob", title:"Build a form", chk:"Happy path — field types.",
+      pre:["Owner."],
+      steps:["Create a form using several field types (text, email, currency, date, time, address, file, etc.)."],
+      expect:["The form saves with all field types intact."] },
+    { id:"DOC-2", pri:"P1", plat:"Web→Connect", title:"Send & fill a form", chk:"Happy path + validation.",
+      pre:["A form; a client."],
+      steps:["Send it; open the token link in Connect; submit blank required fields, then a complete response."],
+      expect:["A token'd response is created + the client notified; blank required → validation error; complete submission saves."] },
+    { id:"DOC-3", pri:"P2", plat:"Connect", title:"Form file-field upload", chk:"Happy path.",
+      pre:["A form with a file field (open link)."],
+      steps:["Upload a file to the field."],
+      expect:["File uploads via a presigned URL; attaches to the response."] },
+    { id:"DOC-4", pri:"P1", plat:"Web→Connect", title:"Send & sign a contract", chk:"Happy path.",
+      pre:["A contract template; a client."],
+      steps:["Send it; open the signing link; sign with a typed name."],
+      expect:["Signature captured; body snapshot + IP + timestamp stored; status → signed; can't re-sign."] },
+    { id:"DOC-5", pri:"P2", plat:"Connect", title:"Decline a contract", chk:"Edge.",
+      pre:["A pending contract link."],
+      steps:["Decline it."],
+      expect:["Status → declined."] },
+    { id:"DOC-6", pri:"P1", plat:"Web→Connect", title:"Request & submit a review", chk:"Happy path.",
+      pre:["A completed booking / a client."],
+      steps:["Request a review; open the link; submit a rating + comment."],
+      expect:["A token'd request is created + notified; submission creates a published review; the request → completed; can't submit twice."] },
+    { id:"DOC-7", pri:"P2", plat:"Web·Mob", title:"Publish/hide & respond to a review", chk:"Happy path.",
+      pre:["A submitted review."],
+      steps:["Hide it, publish it, and post a response."],
+      expect:["Visibility toggles; the response saves and shows with the review."] },
+  ]},
+
+  { id:"files", eye:"Platform", title:"Files & storage", note:"Server-keyed uploads with tenant-scoped keys and presigned URLs.", cases:[
+    { id:"FILE-1", pri:"P2", plat:"Web·Mob", title:"Upload a file", chk:"Happy path.",
+      pre:["Owner/staff."],
+      steps:["Upload an image/document (e.g. a client attachment)."],
+      expect:["A File row is minted server-side + a presigned upload URL; the file lands in storage."] },
+    { id:"FILE-2", pri:"P2", plat:"Web·Mob", title:"Download a file", chk:"Happy path.",
+      pre:["An uploaded file."],
+      steps:["Open/download it."],
+      expect:["A presigned download URL serves the file."] },
+    { id:"FILE-3", pri:"P1", plat:"API", title:"Keys are tenant-scoped", chk:"Security.",
+      pre:["Two businesses (create a second via a second account)."],
+      steps:["Confirm the S3 key derives from the resolved business, not caller-supplied input."],
+      expect:["No path lets one business address another's files."] },
+  ]},
+
+  { id:"reports", eye:"Insights", title:"Reports & dashboard", note:"CRA-ready aggregates and the Today overview.", cases:[
+    { id:"RPT-1", pri:"P1", plat:"Web", title:"Income report + CSV", chk:"Happy path.",
+      pre:["Owner; some settled payments."],
+      steps:["Open Reports → Income for a period; export CSV."],
+      expect:["Totals compute; CSV downloads with matching rows."] },
+    { id:"RPT-2", pri:"P1", plat:"Web", title:"GST/HST return + CSV", chk:"Happy path.",
+      pre:["Tax-registered; taxable paid invoices."],
+      steps:["Open the GST/HST return for a period; export."],
+      expect:["Tax collected + provincial split compute; CSV matches."] },
+    { id:"RPT-3", pri:"P2", plat:"Web", title:"T4A summary + CSV", chk:"Happy path.",
+      pre:["Payees with paid allocations in the year."],
+      steps:["Open the T4A summary; export."],
+      expect:["Per-payee totals compute; CSV matches."] },
+    { id:"RPT-4", pri:"P0", plat:"Web·API", title:"Remittance (tax collected)", chk:"Happy path + security.",
+      pre:["Owner; taxable invoices."],
+      steps:["`GET /v1/payments/remittance` (or the remittance view) as owner; then as staff."],
+      expect:["Owner: `tax_collected_cents` pro-rated by collected fraction; staff → 403."] },
+    { id:"RPT-5", pri:"P1", plat:"Web·Mob", title:"Dashboard today tiles", chk:"Happy path.",
+      pre:["Owner."],
+      steps:["Open the Today dashboard."],
+      expect:["Today's revenue, awaiting-payment, GST/HST set-aside, and next filing-due date render; filing-due is null when not tax-registered."] },
+  ]},
+
+  { id:"connect", eye:"Customer app", title:"Connect (customer) app", note:"The public, unauthenticated surfaces a customer touches — booking, pay, forms, contracts, reviews.", cases:[
+    { id:"CON-1", pri:"P0", plat:"Connect", title:"Booking page renders & books", chk:"Happy path.",
+      pre:["Bookable services + hours; Connect running."],
+      steps:["Visit `/book/birchbark`; pick a service, staff, and slot; enter contact details; book (pay deposit if required)."],
+      expect:["Brand + services + real slots render; the booking is created; a deposit is charged if configured."] },
+    { id:"CON-2", pri:"P1", plat:"Connect", title:"Online booking dedups the customer", chk:"Edge.",
+      pre:["An existing client with a known email/phone."],
+      steps:["Book using that same email/phone; then a brand-new one."],
+      expect:["Existing contact reuses the client (no duplicate); new contact creates one tagged `online_booking`."] },
+    { id:"CON-3", pri:"P0", plat:"Connect", title:"Pay-by-link (card + Interac)", chk:"Happy path.",
+      pre:["An invoice with a pay-link."],
+      steps:["Open the pay-link; pay by card; separately request Interac."],
+      expect:["Invoice details render; card settles; Interac returns a reference code."] },
+    { id:"CON-4", pri:"P2", plat:"Connect", title:"Public form / contract / review", chk:"Happy path (bundled).",
+      pre:["Sent form/contract/review links."],
+      steps:["Complete each public flow (covered in DOC-2/4/6) end-to-end in the Connect UI."],
+      expect:["Each renders branded, validates, and submits correctly."] },
+    { id:"CON-5", pri:"P1", plat:"Connect", title:"Dead / invalid link → clear 404", chk:"4xx.",
+      pre:[],
+      steps:["Open each public link type with a garbage token."],
+      expect:["Each shows the surface's own 'link not found' message (payment/form/signing/review)."] },
+    { id:"CON-6", pri:"P2", plat:"Connect", title:"Cookie/consent & privacy on public pages", chk:"Edge.",
+      pre:[],
+      steps:["Load public pages; check for any tracking/consent + that no PII is in URLs."],
+      expect:["No sensitive data leaks into query strings; consent handled per policy."] },
+  ]},
+
+  { id:"sync", eye:"Cross-cutting", title:"Sync & offline (local-first)", note:"PowerSync gives each device a scoped SQLite replica; the app reads local and queues writes.", cases:[
+    { id:"SYN-1", pri:"P1", plat:"Web·Mob", title:"Instant local-first reads", chk:"Happy path.",
+      pre:["Signed in; replica synced."],
+      steps:["Navigate lists (clients, calendar) and observe load speed."],
+      expect:["Reads are instant from the local replica (no per-screen network wait)."] },
+    { id:"SYN-2", pri:"P1", plat:"Mob", title:"Read while offline", chk:"Edge — offline.",
+      pre:["Replica synced; then put the device in airplane mode."],
+      steps:["Browse clients, calendar, catalog offline."],
+      expect:["Previously-synced data is fully readable offline."] },
+    { id:"SYN-3", pri:"P1", plat:"Mob", title:"Offline writes queue & upload", chk:"Edge — write queue.",
+      pre:["Offline."],
+      steps:["Make an allowed edit offline (e.g. edit a client note); reconnect."],
+      expect:["The change is queued and uploads on reconnect; the server accepts it and it re-syncs."] },
+    { id:"SYN-4", pri:"P1", plat:"Web+Mob", title:"Multi-device propagation", chk:"Happy path.",
+      pre:["Signed in on two devices/browsers."],
+      steps:["Create a client on device A."],
+      expect:["It appears on device B within a couple of seconds (no manual refresh)."] },
+    { id:"SYN-5", pri:"P0", plat:"API", title:"Server-authority on invariants", chk:"Security — server wins.",
+      pre:["Two clients attempting the same slot / capacity."],
+      steps:["Race a booking that would break capacity/overlap from the client side."],
+      expect:["The server rejects the invariant-violating write; the client replica converges to server truth."] },
+    { id:"SYN-6", pri:"P1", plat:"API", title:"Scoped replica (staff sees only their own)", chk:"Security — read scoping.",
+      pre:["A staff account (Diego)."],
+      steps:["As staff, inspect what syncs: the shared client book, Diego's OWN calendar/earnings, but NOT other staff's schedules or the money/audit tables."],
+      expect:["Staff replica excludes owner-only data (all-staff schedules, all money, audit log)."] },
+  ]},
+
+  { id:"security", eye:"Cross-cutting", title:"Security & multi-tenancy", note:"Tenant isolation, write policy, auth boundaries, and rate limits.", cases:[
+    { id:"SEC-1", pri:"P0", plat:"API", title:"Tenant isolation on reads", chk:"Security.",
+      pre:["Two businesses (owner A, owner B)."],
+      steps:["As owner A, try to read owner B's clients/invoices by id."],
+      expect:["Every scoped read returns 404/empty for another tenant's rows."] },
+    { id:"SEC-2", pri:"P0", plat:"API", title:"Cross-tenant write blocked", chk:"Security.",
+      pre:["Two businesses."],
+      steps:["As owner A, attempt to create/modify a row referencing owner B's business or ids."],
+      expect:["Rejected; no row crosses the tenant boundary."] },
+    { id:"SEC-3", pri:"P0", plat:"API", title:"Sync-write policy enforced", chk:"Security — client can't forge.",
+      pre:["A device write path (`/sync/upload`)."],
+      steps:["Attempt to write a money/capacity/secret table or a command-only field via the sync upload."],
+      expect:["Only allowlisted low-risk tables/fields apply; everything else (invoices, payments, capacity, KYC, system fields) is rejected."] },
+    { id:"SEC-4", pri:"P1", plat:"API", title:"Unauthenticated & expired tokens", chk:"4xx.",
+      pre:[],
+      steps:["Call an authed endpoint with no token, a garbage token, and an expired token."],
+      expect:["All return 401; none leak data."] },
+    { id:"SEC-5", pri:"P1", plat:"API·Connect", title:"Public-surface rate limiting", chk:"Security.",
+      pre:["A public endpoint (book/pay/form/contract/review)."],
+      steps:["Hammer one public endpoint past its window (e.g. >30/60s)."],
+      expect:["Excess requests get 429; legitimate traffic recovers after the window."] },
+    { id:"SEC-6", pri:"P1", plat:"API", title:"Principal re-derived server-side", chk:"Security — no trusting the token.",
+      pre:["A token + an `X-Business-Id` header."],
+      steps:["Send a request whose header claims a business the user doesn't belong to."],
+      expect:["Access is denied — membership/role is re-derived from the DB each request, not trusted from the token."] },
+  ]},
+
+  { id:"reliability", eye:"Cross-cutting", title:"Idempotency, races & jobs", note:"Retry-safety, concurrency invariants, and the background workers.", cases:[
+    { id:"REL-1", pri:"P0", plat:"API", title:"Idempotency-Key replay", chk:"Idempotency.",
+      pre:["Any command endpoint."],
+      steps:["POST a mutation with an `Idempotency-Key`; POST the exact same request + key again."],
+      expect:["The second call replays the first response — no double invoice/payment/booking."] },
+    { id:"REL-2", pri:"P1", plat:"API", title:"Webhook replay is a no-op", chk:"Idempotency.",
+      pre:["A settled Stripe/Interac event."],
+      steps:["Re-deliver the same webhook event id."],
+      expect:["No duplicate state change; the second delivery is ignored."] },
+    { id:"REL-3", pri:"P1", plat:"API", title:"Concurrent booking race", chk:"Invariant — locks.",
+      pre:["One open slot / one class seat left."],
+      steps:["Fire two simultaneous booking requests for it."],
+      expect:["Exactly one succeeds; the other gets a conflict (advisory lock + GiST/partial-unique constraints hold)."] },
+    { id:"REL-4", pri:"P1", plat:"API", title:"Reap unpaid online bookings (job)", chk:"Edge — job.",
+      pre:["An online booking holding a slot past the deposit window (~30m)."],
+      steps:["Run/await the reap job."],
+      expect:["The stale hold is released and the slot frees."] },
+    { id:"REL-5", pri:"P2", plat:"API", title:"Maintenance job expirations", chk:"Edge — job.",
+      pre:["Expired estimates / packages / gift cards + stale device tokens."],
+      steps:["Run/await the maintenance job."],
+      expect:["Expired entitlements lapse; stale device tokens are pruned."] },
+  ]},
+
+  { id:"platform", eye:"Cross-cutting", title:"Platform & copy", note:"Copy centralization, responsiveness, and the native app.", cases:[
+    { id:"PLT-1", pri:"P1", plat:"Web·Mob·Connect", title:"UI copy is consistent & complete", chk:"Happy path — no raw keys.",
+      pre:[],
+      steps:["Walk major screens (provider + Connect) and skim labels, buttons, errors."],
+      expect:["No missing/placeholder strings or raw keys; copy reads naturally (centralized string catalog)."] },
+    { id:"PLT-2", pri:"P2", plat:"Web·Mob", title:"Currency & date formatting", chk:"Edge — Canadian formatting.",
+      pre:[],
+      steps:["Check money amounts and dates across screens (invoices, dashboard, calendar)."],
+      expect:["Amounts show as CAD with 2 decimals and tabular-nums alignment; dates render in the business timezone."] },
+    { id:"PLT-3", pri:"P1", plat:"Web", title:"Responsive layout", chk:"Happy path.",
+      pre:[],
+      steps:["Resize the provider web app narrow → wide; tables/calendars."],
+      expect:["Layout adapts; wide content scrolls within its container; nothing overflows the page."] },
+    { id:"PLT-4", pri:"P1", plat:"Mob", title:"Native app launch & core flows", chk:"Happy path.",
+      pre:["A dev/EAS build on a device or simulator."],
+      steps:["Launch the app; sign in; view calendar/clients; create a booking."],
+      expect:["The mobile app runs the same flows over the shared data layer; native Stripe + Terminal + push available."] },
+  ]},
+];
+
+// ---------- render ----------
+const root = document.getElementById("groups");
+const toc = document.getElementById("toc");
+const store = {
+  get(id){ try { return JSON.parse(localStorage.getItem("pqa:"+id)||"{}"); } catch(e){ return {}; } },
+  set(id,v){ localStorage.setItem("pqa:"+id, JSON.stringify(v)); },
+};
+function inlineCode(s){
+  const esc = s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return esc.replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+function li(items){ return items.map(t=>`<li>${inlineCode(t)}</li>`).join(""); }
+
+let totalCases = 0;
+const tocGroups = [{id:"setup", title:"Environment & accounts", cases:[]}].concat(TESTS);
+
+TESTS.forEach(g=>{
+  totalCases += g.cases.length;
+  const sec = document.createElement("section");
+  sec.className = "grp"; sec.id = g.id;
+  sec.innerHTML = `<p class="grp-eye">${g.eye}</p><h2>${g.title}</h2><p class="grp-note">${inlineCode(g.note)}</p>`;
+  g.cases.forEach(c=>{
+    const saved = store.get(c.id);
+    const st = saved.status || "";
+    const el = document.createElement("div");
+    el.className = "case" + (st?(" done-"+st):"");
+    el.dataset.pri = c.pri; el.dataset.status = st; el.id = c.id;
+    el.innerHTML = `
+      <div class="case-head">
+        <span class="cid">${c.id}</span>
+        <span class="ctitle">${inlineCode(c.title)}</span>
+        ${c.plat?`<span class="plat">${c.plat}</span>`:""}
+        <span class="pchip ${c.pri}">${c.pri}</span>
+        <div class="status-seg" role="group" aria-label="status">
+          <button type="button" data-s="pass" aria-pressed="${st==='pass'}">✅ Pass</button>
+          <button type="button" data-s="fail" aria-pressed="${st==='fail'}">❌ Fail</button>
+          <button type="button" data-s="block" aria-pressed="${st==='block'}">⊘ Block</button>
+        </div>
+      </div>
+      <div class="case-body">
+        <div class="checks"><b>Checks:</b> ${inlineCode(c.chk)}</div>
+        ${c.pre&&c.pre.length?`<div class="field"><span class="lab">Preconditions</span><ul class="steps">${li(c.pre)}</ul></div>`:""}
+        <div class="field"><span class="lab">Steps</span><ol class="steps">${li(c.steps)}</ol></div>
+        <div class="field"><span class="lab">Expected</span><ul class="expect">${li(c.expect)}</ul></div>
+        <textarea class="notes" placeholder="Notes / observed / bug link…">${(saved.notes||"").replace(/</g,"&lt;")}</textarea>
+      </div>`;
+    el.querySelectorAll(".status-seg button").forEach(b=>{
+      b.addEventListener("click", ()=>{
+        const cur = store.get(c.id);
+        const next = (cur.status===b.dataset.s) ? "" : b.dataset.s;
+        cur.status = next; store.set(c.id, cur);
+        el.dataset.status = next;
+        el.className = "case" + (next?(" done-"+next):"");
+        el.querySelectorAll(".status-seg button").forEach(x=>x.setAttribute("aria-pressed", x.dataset.s===next));
+        refresh();
+      });
+    });
+    const ta = el.querySelector(".notes");
+    ta.addEventListener("input", ()=>{ const cur = store.get(c.id); cur.notes = ta.value; store.set(c.id, cur); });
+    sec.appendChild(el);
+  });
+  root.appendChild(sec);
+});
+
+tocGroups.forEach(g=>{
+  const a = document.createElement("a");
+  a.href = "#"+g.id;
+  const count = (g.cases||[]).length;
+  a.innerHTML = `<span class="lbl">${g.title}</span>` + (count?`<span class="n" data-grp="${g.id}">0/${count}</span>`:"");
+  toc.appendChild(a);
+});
+
+function refresh(){
+  let pass=0, fail=0, block=0; const perGrp = {};
+  TESTS.forEach(g=>{ perGrp[g.id]={done:0,total:g.cases.length}; g.cases.forEach(c=>{
+    const s = store.get(c.id).status;
+    if(s==="pass"){pass++;perGrp[g.id].done++;}
+    else if(s==="fail"){fail++;perGrp[g.id].done++;}
+    else if(s==="block"){block++;perGrp[g.id].done++;}
+  }); });
+  const open = totalCases - pass - fail - block;
+  tTotal.textContent=totalCases; tPass.textContent=pass; tFail.textContent=fail; tBlock.textContent=block; tOpen.textContent=open;
+  mPass.style.width=(pass/totalCases*100)+"%"; mFail.style.width=(fail/totalCases*100)+"%"; mBlock.style.width=(block/totalCases*100)+"%";
+  Object.keys(perGrp).forEach(id=>{ const n=document.querySelector('.n[data-grp="'+id+'"]'); if(n) n.textContent=perGrp[id].done+"/"+perGrp[id].total; });
+}
+refresh();
+
+let activeFilter="all";
+document.querySelectorAll("#filters .fbtn").forEach(b=>{
+  b.addEventListener("click", ()=>{ activeFilter=b.dataset.f;
+    document.querySelectorAll("#filters .fbtn").forEach(x=>x.setAttribute("aria-pressed", x===b)); applyFilter(); });
+});
+function applyFilter(){
+  document.querySelectorAll(".case").forEach(el=>{
+    const pri=el.dataset.pri, st=el.dataset.status||""; let show=true;
+    if(activeFilter==="P0") show=pri==="P0";
+    else if(activeFilter==="P1") show=pri==="P0"||pri==="P1";
+    else if(activeFilter==="open") show=st==="";
+    else if(activeFilter==="fail") show=st==="fail"||st==="block";
+    el.style.display=show?"":"none";
+  });
+}
+document.getElementById("expandAll").addEventListener("click", ()=>{
+  activeFilter="all"; document.querySelectorAll("#filters .fbtn").forEach(x=>x.setAttribute("aria-pressed", x.dataset.f==="all")); applyFilter();
+});
+document.getElementById("printBtn").addEventListener("click", ()=>window.print());
+document.getElementById("resetAll").addEventListener("click", ()=>{
+  if(!confirm("Clear all pass/fail marks and notes on this device?")) return;
+  TESTS.forEach(g=>g.cases.forEach(c=>localStorage.removeItem("pqa:"+c.id))); location.reload();
+});
+
+const links={};
+document.querySelectorAll("nav.toc a").forEach(a=>{ links[a.getAttribute("href").slice(1)]=a; });
+let current=null;
+if("IntersectionObserver" in window){
+  const seen={}; const order=Array.from(document.querySelectorAll("section.grp")).map(s=>s.id);
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>seen[e.target.id]=e.isIntersecting);
+    for(const id of order){ if(seen[id]){ if(current&&links[current])links[current].classList.remove("active"); if(links[id]){links[id].classList.add("active");current=id;} break; } }
+  }, {rootMargin:"-18% 0px -72% 0px"});
+  document.querySelectorAll("section.grp").forEach(s=>io.observe(s));
+}
+</script>
+</body>
+</html>
