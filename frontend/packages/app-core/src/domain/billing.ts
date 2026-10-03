@@ -6,6 +6,7 @@ import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/primitives";
 import { strings } from "../strings";
+import { subjectNetSql } from "./ledger";
 
 export interface InvoiceRow {
     id: string;
@@ -44,8 +45,10 @@ export interface LineRow {
 }
 
 const INVOICES_SQL = `
-SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status,
-       i.total_cents, i.balance_cents, i.issued_at, i.due_at, i.pay_token, i.created_at
+SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status, i.total_cents,
+       CASE WHEN i.status = 'draft' THEN i.total_cents
+            ELSE COALESCE(${subjectNetSql("receivable", "invoice", "i.id")}, 0) END AS balance_cents,
+       i.issued_at, i.due_at, i.pay_token, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id
 ORDER BY i.created_at DESC`;

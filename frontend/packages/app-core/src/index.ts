@@ -20,7 +20,7 @@ export * from "./domain/scheduling";
 export * from "./domain/navigation";
 export * from "./domain/billing";
 export * from "./domain/payments";
-export * from "./domain/payouts";
+export * from "./domain/earnings";
 export * from "./domain/subscriptions";
 export * from "./domain/packages";
 export * from "./domain/giftCards";

@@ -1,15 +1,14 @@
 import {
-    allocationSourceLabel,
-    allocationStaffLabel,
-    allocationStatusIntent,
+    earningStaffLabel,
+    earningStatusIntent,
     canManagePayments,
     formatMoney,
     formatRelativeTime,
     strings,
-    useAllocationActions,
-    usePayoutFilter,
-    useStaffPayouts,
-    type AllocationRow,
+    useEarningActions,
+    useEarningFilter,
+    useEarnings,
+    type EarningRow,
 } from "@clientbridge/app-core";
 
 import { StatusPill } from "../components/StatusPill";
@@ -34,8 +33,8 @@ export function Payouts() {
 }
 
 function PayoutsView() {
-    const rows = useStaffPayouts();
-    const { filter, setFilter, filters, shown, countOf } = usePayoutFilter(rows);
+    const rows = useEarnings();
+    const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
@@ -66,7 +65,7 @@ function PayoutsView() {
             ) : (
                 <div className="mt-4 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
                     {shown.map((row) => (
-                        <AllocationItem key={row.id} row={row} />
+                        <EarningItem key={row.id} row={row} />
                     ))}
                 </div>
             )}
@@ -74,23 +73,22 @@ function PayoutsView() {
     );
 }
 
-function AllocationItem({ row }: { row: AllocationRow }) {
-    const { busy, error, canApprove, canPay, approve, pay } = useAllocationActions(api, row);
+function EarningItem({ row }: { row: EarningRow }) {
+    const { busy, error, canApprove, canPay, approve, pay } = useEarningActions(api, row);
 
     return (
         <div className="px-4 py-3 text-sm">
             <div className="flex items-center gap-3">
                 <div className="min-w-0">
-                    <p className="font-medium text-ink">{allocationStaffLabel(row)}</p>
+                    <p className="font-medium text-ink">{earningStaffLabel(row)}</p>
                     <p className="truncate text-xs text-muted">
-                        {allocationSourceLabel(row.source_type)} ·{" "}
-                        {formatRelativeTime(row.created_at)}
+                        {strings.payouts.sourceBooking} · {formatRelativeTime(row.created_at)}
                     </p>
                 </div>
                 <span className="ml-auto shrink-0 font-medium tabular-nums text-ink">
                     {formatMoney(row.amount_cents)}
                 </span>
-                <StatusPill status={row.status} intent={allocationStatusIntent(row.status)} />
+                <StatusPill status={row.status} intent={earningStatusIntent(row.status)} />
                 {canApprove ? (
                     <button
                         type="button"

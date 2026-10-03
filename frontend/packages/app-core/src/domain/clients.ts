@@ -6,6 +6,7 @@ import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/primitives";
+import { clientValueSql } from "./ledger";
 
 // Local-replica row shape: the columns the SELECT guarantees.
 export interface ClientRow {
@@ -17,8 +18,9 @@ export interface ClientRow {
     lifetime_value_cents: number | null;
 }
 
-const CLIENTS_SQL =
-    "SELECT id, name, email, phone, status, lifetime_value_cents FROM clients ORDER BY name COLLATE NOCASE";
+const CLIENTS_SQL = `
+SELECT c.id, c.name, c.email, c.phone, c.status, ${clientValueSql("c.id")} AS lifetime_value_cents
+FROM clients c ORDER BY c.name COLLATE NOCASE`;
 
 export function useClients(): ClientRow[] {
     return useQuery<ClientRow>(CLIENTS_SQL).data;

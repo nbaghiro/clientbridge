@@ -96,7 +96,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
 
     const testWrite = async (): Promise<void> => {
         await db.execute(
-            "INSERT INTO clients (id, business_id, name, status, tags, custom_fields, lifetime_value_cents) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO clients (id, business_id, name, status, tags, custom_fields) VALUES (?, ?, ?, ?, ?, ?)",
             [
                 `cl_test_${Date.now()}`,
                 "bz_birchbark",
@@ -104,7 +104,6 @@ function Overlay({ onClose }: { onClose: () => void }) {
                 "active",
                 "[]",
                 "{}",
-                0,
             ],
         );
         refresh();

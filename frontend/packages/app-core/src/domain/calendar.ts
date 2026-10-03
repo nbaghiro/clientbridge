@@ -18,6 +18,7 @@ import type { Intent } from "../util/primitives";
 import { strings } from "../strings";
 import { useInteractivePurchase } from "./payments";
 import { type StaffRow, useStaff } from "./staff";
+import { depositStateSql } from "./ledger";
 
 export interface CalendarEvent {
     id: string;
@@ -273,7 +274,7 @@ SELECT s.id AS session_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.boo
        s.status AS session_status, i.name AS item_name, i.color AS item_color,
        b.id AS booking_id, b.status AS booking_status, c.name AS client_name,
        b.client_id AS client_id, b.deposit_required AS deposit_required,
-       b.deposit_amount_cents AS deposit_amount_cents, b.deposit_status AS deposit_status
+       b.deposit_amount_cents AS deposit_amount_cents, ${depositStateSql("b")} AS deposit_status
 FROM sessions s
 JOIN items i ON i.id = s.item_id
 LEFT JOIN bookings b ON b.session_id = s.id AND b.deleted_at IS NULL
@@ -475,14 +476,9 @@ export function collectDeposit(
     );
 }
 
-/** Owner/admin may collect a deposit while it's still outstanding (not collected or forfeited). */
+/** Owner/admin may collect a deposit only while it's still due. */
 export function canCollectDeposit(event: CalendarEvent): boolean {
-    return (
-        event.bookingId !== null &&
-        event.depositRequired &&
-        event.depositStatus !== "collected" &&
-        event.depositStatus !== "forfeited"
-    );
+    return event.bookingId !== null && event.depositRequired && event.depositStatus === "pending";
 }
 
 export interface CollectDeposit {

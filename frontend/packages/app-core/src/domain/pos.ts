@@ -6,6 +6,7 @@ import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
 import type { ItemRow } from "./catalog";
+import { collectedSql } from "./ledger";
 
 export interface OrderLineInput {
     item_id: string;
@@ -89,7 +90,8 @@ export interface OpenOrderRow {
 }
 
 const OPEN_ORDERS_SQL = `
-SELECT o.id, o.client_id, c.name AS client_name, o.status, o.total_cents, o.balance_cents, o.created_at
+SELECT o.id, o.client_id, c.name AS client_name, o.status, o.total_cents,
+       o.total_cents - ${collectedSql("order", "o.id")} AS balance_cents, o.created_at
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
 WHERE o.status = 'open' ORDER BY o.created_at DESC`;
 

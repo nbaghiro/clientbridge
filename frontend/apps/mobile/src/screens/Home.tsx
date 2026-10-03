@@ -230,12 +230,6 @@ function PayoutItem({ row, divider }: { row: PayoutRow; divider: boolean }) {
         <View style={[styles.row, divider && styles.rowDivider]}>
             <Text style={styles.amount}>{formatMoneyWithCurrency(row.amount_cents, "CAD")}</Text>
             <StatusBadge status={row.status} intent={paymentStatusIntent(row.status)} />
-            {row.bank_last4 !== null ? (
-                <Text style={styles.meta}>
-                    {strings.home.payoutToPrefix}
-                    {row.bank_last4}
-                </Text>
-            ) : null}
             {row.arrival_at !== null ? (
                 <Text style={styles.arrival}>{formatMonthDay(parseTimestamp(row.arrival_at))}</Text>
             ) : null}

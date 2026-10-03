@@ -1,15 +1,14 @@
 import {
-    allocationSourceLabel,
-    allocationStaffLabel,
-    allocationStatusIntent,
+    earningStaffLabel,
+    earningStatusIntent,
     canManagePayments,
     formatMoney,
     formatRelativeTime,
     strings,
-    useAllocationActions,
-    usePayoutFilter,
-    useStaffPayouts,
-    type AllocationRow,
+    useEarningActions,
+    useEarningFilter,
+    useEarnings,
+    type EarningRow,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -34,8 +33,8 @@ export function PayoutsScreen() {
 }
 
 function PayoutsBody() {
-    const rows = useStaffPayouts();
-    const { filter, setFilter, filters, shown, countOf } = usePayoutFilter(rows);
+    const rows = useEarnings();
+    const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -60,7 +59,7 @@ function PayoutsBody() {
             ) : (
                 <View style={styles.list}>
                     {shown.map((row, i) => (
-                        <AllocationItem key={row.id} row={row} divider={i > 0} />
+                        <EarningItem key={row.id} row={row} divider={i > 0} />
                     ))}
                 </View>
             )}
@@ -68,21 +67,20 @@ function PayoutsBody() {
     );
 }
 
-function AllocationItem({ row, divider }: { row: AllocationRow; divider: boolean }) {
-    const { busy, error, canApprove, canPay, approve, pay } = useAllocationActions(api, row);
+function EarningItem({ row, divider }: { row: EarningRow; divider: boolean }) {
+    const { busy, error, canApprove, canPay, approve, pay } = useEarningActions(api, row);
 
     return (
         <View style={[styles.row, divider && styles.rowDivider]}>
             <View style={styles.rowTop}>
                 <View style={styles.rowMain}>
-                    <Text style={styles.staff}>{allocationStaffLabel(row)}</Text>
+                    <Text style={styles.staff}>{earningStaffLabel(row)}</Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {allocationSourceLabel(row.source_type)} ·{" "}
-                        {formatRelativeTime(row.created_at)}
+                        {strings.payouts.sourceBooking} · {formatRelativeTime(row.created_at)}
                     </Text>
                 </View>
                 <Text style={styles.amount}>{formatMoney(row.amount_cents)}</Text>
-                <StatusBadge status={row.status} intent={allocationStatusIntent(row.status)} />
+                <StatusBadge status={row.status} intent={earningStatusIntent(row.status)} />
             </View>
             {canApprove || canPay ? (
                 <Pressable

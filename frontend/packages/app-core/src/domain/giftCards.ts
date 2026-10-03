@@ -8,6 +8,7 @@ import type { Intent } from "../util/primitives";
 import { strings } from "../strings";
 import { giftItems, useCatalogItems } from "./catalog";
 import { useInteractivePurchase } from "./payments";
+import { ownedLiabilitySql } from "./ledger";
 
 export interface GiftCardRow {
     id: string;
@@ -19,8 +20,9 @@ export interface GiftCardRow {
 }
 
 const GIFT_CARDS_SQL = `
-SELECT id, code, initial_cents, balance_cents, status, recipient
-FROM gift_cards ORDER BY created_at DESC`;
+SELECT g.id, g.code, g.initial_cents, ${ownedLiabilitySql("gift_card", "gift_card", "g.id")} AS balance_cents,
+       g.status, g.recipient
+FROM gift_cards g ORDER BY g.created_at DESC`;
 
 export function useGiftCards(): GiftCardRow[] {
     return useQuery<GiftCardRow>(GIFT_CARDS_SQL).data;

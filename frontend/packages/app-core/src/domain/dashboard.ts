@@ -62,15 +62,19 @@ export interface PayoutRow {
     amount_cents: number;
     status: string;
     arrival_at: string | null;
-    bank_last4: string | null;
     created_at: string;
 }
 
+// A Stripe payout is its ledger journal (bank in, Stripe balance out); a failed one was reversed.
 const RECENT_PAYOUTS_SQL = `
-SELECT id, amount_cents, status, arrival_at, bank_last4, created_at
-FROM payouts ORDER BY created_at DESC LIMIT 5`;
+SELECT e.journal_id AS id, e.amount_cents, e.available_at AS arrival_at, e.occurred_at AS created_at,
+       CASE WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = e.ref || ':failed')
+            THEN 'failed' ELSE 'paid' END AS status
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE e.type = 'payout' AND a.kind = 'bank'
+ORDER BY e.occurred_at DESC LIMIT 5`;
 
-/** Recent payouts to the provider's bank (CAD; payouts carry no currency column). */
+/** Recent payouts to the provider's bank (CAD). */
 export function useRecentPayouts(): PayoutRow[] {
     return useQuery<PayoutRow>(RECENT_PAYOUTS_SQL).data;
 }

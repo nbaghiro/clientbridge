@@ -135,10 +135,6 @@ export const strings = {
         markPaidError: "Couldn't mark this payout paid. Please try again.",
         staffFallback: "Staff",
         sourceBooking: "Booking",
-        sourceInvoice: "Invoice",
-        sourceClass: "Class",
-        sourceTip: "Tip",
-        sourceSale: "Sale",
     },
     relativeTime: {
         justNow: "just now",
@@ -650,7 +646,6 @@ export const strings = {
         title: "Settings",
     },
     home: {
-        payoutToPrefix: "to ····",
         connected: "connected",
         offline: "offline",
         activityRefund: "Refund",
