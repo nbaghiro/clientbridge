@@ -51,6 +51,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
             "none",
             "pending",
             "collected",
+            "applied",
             "forfeited",
             "refunded",
         ),

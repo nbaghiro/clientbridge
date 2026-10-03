@@ -655,6 +655,60 @@ async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
     )
 
 
+async def post_application(db: AsyncSession, booking: Booking, invoice: Invoice) -> int:
+    """Apply a held deposit to the booking's invoice: the deposit pays down its receivable."""
+    biz = booking.business_id
+    applied = min(await deposit_held(db, booking), await invoice_balance(db, invoice))
+    if applied <= 0:
+        return 0
+    await post(
+        db,
+        biz,
+        type="application",
+        ref=f"application:{booking.id}:{invoice.id}",
+        legs=[
+            Leg("business", biz, "deposit", applied, subject=("booking", booking.id)),
+            Leg(
+                *_payer(biz, invoice.client_id),
+                "receivable",
+                -applied,
+                subject=("invoice", invoice.id),
+            ),
+        ],
+        currency=invoice.currency,
+        subject=("booking", booking.id),
+    )
+    return applied
+
+
+async def applied_invoices(db: AsyncSession, booking: Booking) -> list[str]:
+    """The invoices a booking's deposit currently counts toward (applied and not taken back)."""
+    prefix = f"application:{booking.id}:"
+    refs = set(
+        (
+            await db.execute(
+                scoped(Entry, booking.business_id)
+                .with_only_columns(Entry.ref)
+                .where(Entry.ref.startswith(prefix), Entry.leg == 0)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return sorted(
+        ref.removeprefix(prefix)
+        for ref in refs
+        if not ref.endswith(":reversal") and f"{ref}:reversal" not in refs
+    )
+
+
+async def reverse_application(db: AsyncSession, booking: Booking, invoice_id: str) -> None:
+    ref = f"application:{booking.id}:{invoice_id}"
+    journal = await journal_for(db, booking.business_id, ref)
+    if journal is not None:
+        await reverse(db, booking.business_id, journal, ref=f"{ref}:reversal")
+
+
 async def reverse_forfeit(db: AsyncSession, booking: Booking) -> None:
     journal = await journal_for(db, booking.business_id, f"forfeit:{booking.id}")
     if journal is not None:

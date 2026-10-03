@@ -383,6 +383,8 @@ class PaymentService:
             booking = await self.db.get(Booking, payment.booking_id)
             if booking is not None and booking.deposit_status == "forfeited":
                 return "a forfeited deposit is refunded in full"
+            if booking is not None and await ledger.applied_invoices(self.db, booking):
+                return "a deposit applied to an invoice is refunded in full"
         return None
 
     async def request_interac(
@@ -1120,11 +1122,14 @@ async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> 
     """Book a refund and roll its parent back: a forfeited deposit is un-forfeited first so the
     refund draws on the deposit it returns; a refunded package/gift card is voided."""
     deposit = payment.booking_id is not None and payment.kind == "deposit"
+    reopened: list[str] = []
     if deposit and payment.booking_id is not None:
-        await _reverse_booking_deposit(db, payment.booking_id)
+        reopened = await _reverse_booking_deposit(db, payment.booking_id)
     await ledger.post_refund(db, refund, payment)
     if deposit and payment.booking_id is not None:
         await _booking_deposit_refunded(db, payment.booking_id)
+    for invoice_id in reopened:
+        await sync_invoice(db, invoice_id)
     await _sync_parent(db, payment)
     if await _fully_refunded(db, payment):
         await _reverse_entitlement(db, payment)
@@ -1132,7 +1137,7 @@ async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> 
 
 async def _sync_parent(db: AsyncSession, payment: Payment) -> None:
     if payment.invoice_id is not None:
-        await _sync_invoice(db, payment.invoice_id)
+        await sync_invoice(db, payment.invoice_id)
     if payment.order_id is not None:
         await _sync_order(db, payment.order_id)
 
@@ -1152,13 +1157,15 @@ async def _settle_entitlement(db: AsyncSession, payment: Payment) -> str | None:
 async def _settle_booking_deposit(db: AsyncSession, booking_id: str) -> None:
     from clientbridge.services import booking_service  # deferred: booking imports this module
 
-    await booking_service.settle_deposit(db, booking_id)
+    invoice_id = await booking_service.settle_deposit(db, booking_id)
+    if invoice_id is not None:
+        await sync_invoice(db, invoice_id)
 
 
-async def _reverse_booking_deposit(db: AsyncSession, booking_id: str) -> None:
+async def _reverse_booking_deposit(db: AsyncSession, booking_id: str) -> list[str]:
     from clientbridge.services import booking_service  # deferred: booking imports this module
 
-    await booking_service.reverse_deposit(db, booking_id)
+    return await booking_service.reverse_deposit(db, booking_id)
 
 
 async def _booking_deposit_refunded(db: AsyncSession, booking_id: str) -> None:
@@ -1231,7 +1238,7 @@ async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "fail
     return None
 
 
-async def _sync_invoice(db: AsyncSession, invoice_id: str) -> None:
+async def sync_invoice(db: AsyncSession, invoice_id: str) -> None:
     """Re-derive an invoice's status from its ledger balance + settled payments, then accrue or
     unwind the staff earnings that hang off it being fully paid."""
     invoice = await db.get(Invoice, invoice_id)

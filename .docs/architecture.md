@@ -394,11 +394,12 @@ What posts, and where:
 | Gift card or package expired | `tasks/maintenance.py` expiry sweep (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
 | Tax return filed | `POST /v1/payments/remittances` (`remittance_service`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
 | Deposit forfeited | no-show in `booking_service` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
+| Deposit applied | invoice sent with the booking on a line, or the deposit settling after that (`booking_service.apply_deposit`) | deposit + / client receivable − ; a void or a refund of the deposit reverses it |
 | Staff earning accrued / approved / paid | `earning_service` (invoice fully paid, `/v1/earnings/{id}/approve`, `/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
-payouts. A booking's `deposit_status` (none/pending/collected/forfeited/refunded) is a lifecycle column set
+payouts. A booking's `deposit_status` (none/pending/collected/applied/forfeited/refunded) is a lifecycle column set
 as the ledger books the deposit, because staff replicas do not sync the business ledger; the amount stays
 in the ledger. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read entries and account balances.
 `tasks/ledger_jobs.py` reconciles each connected account's ledger Stripe balance against Stripe's nightly

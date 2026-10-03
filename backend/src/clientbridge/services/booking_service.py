@@ -17,6 +17,7 @@ from clientbridge.core.errors import (
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
+from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
@@ -256,24 +257,54 @@ async def release_session_slot(db: AsyncSession, session: Session) -> None:
     await db.flush()
 
 
-async def settle_deposit(db: AsyncSession, booking_id: str) -> None:
-    """A settled deposit is collected; on a booking already marked no-show it's forfeited."""
+async def settle_deposit(db: AsyncSession, booking_id: str) -> str | None:
+    """A settled deposit is collected (and applied to the booking's open invoice, whose id is
+    returned); on a booking already marked no-show it's forfeited."""
     booking = await db.get(Booking, booking_id)
     if booking is None:
-        return
+        return None
     if booking.status == "no_show":
         await ledger.post_forfeit(db, booking)
         booking.deposit_status = "forfeited"
-    else:
+        await db.flush()
+        return None
+    booking.deposit_status = "collected"
+    invoice = await _open_invoice(db, booking)
+    if invoice is not None and await apply_deposit(db, booking, invoice):
+        return invoice.id
+    await db.flush()
+    return None
+
+
+async def apply_deposit(db: AsyncSession, booking: Booking, invoice: Invoice) -> bool:
+    if booking.deposit_status != "collected":
+        return False
+    if await ledger.post_application(db, booking, invoice) <= 0:
+        return False
+    if await ledger.deposit_held(db, booking) <= 0:
+        booking.deposit_status = "applied"
+    await db.flush()
+    return True
+
+
+async def unapply_deposit(db: AsyncSession, booking: Booking, invoice_id: str) -> None:
+    await ledger.reverse_application(db, booking, invoice_id)
+    if booking.deposit_status == "applied":
         booking.deposit_status = "collected"
     await db.flush()
 
 
-async def reverse_deposit(db: AsyncSession, booking_id: str) -> None:
-    """Un-forfeit a deposit that's being refunded, so the refund draws on the deposit it returns."""
+async def reverse_deposit(db: AsyncSession, booking_id: str) -> list[str]:
+    """Take back a deposit that's being refunded (un-forfeit it, or un-apply it from its invoices),
+    so the refund draws on the deposit it returns. Returns the invoices it no longer pays."""
     booking = await db.get(Booking, booking_id)
-    if booking is not None:
-        await ledger.reverse_forfeit(db, booking)
+    if booking is None:
+        return []
+    await ledger.reverse_forfeit(db, booking)
+    invoices = await ledger.applied_invoices(db, booking)
+    for invoice_id in invoices:
+        await unapply_deposit(db, booking, invoice_id)
+    return invoices
 
 
 async def deposit_refunded(db: AsyncSession, booking_id: str) -> None:
@@ -282,6 +313,17 @@ async def deposit_refunded(db: AsyncSession, booking_id: str) -> None:
         held = await ledger.deposit_held(db, booking)
         booking.deposit_status = "collected" if held > 0 else "refunded"
         await db.flush()
+
+
+async def _open_invoice(db: AsyncSession, booking: Booking) -> Invoice | None:
+    rows = await db.execute(
+        scoped(Invoice, booking.business_id)
+        .join(Line, (Line.parent_type == "invoice") & (Line.parent_id == Invoice.id))
+        .where(Line.booking_id == booking.id, Invoice.status.in_(("sent", "partial")))
+        .order_by(Invoice.issued_at.desc())
+        .limit(1)
+    )
+    return rows.scalars().first()
 
 
 class BookingService:
@@ -427,7 +469,7 @@ class BookingService:
     async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
         """No-show forfeiture: keep an already-collected deposit (mark forfeited), or capture it
         off-session via the client's default card. Idempotent — a re-set no_show never recharges."""
-        if booking.deposit_status in ("none", "forfeited", "refunded"):
+        if booking.deposit_status in ("none", "applied", "forfeited", "refunded"):
             return
         if booking.deposit_status == "collected":
             await ledger.post_forfeit(self.db, booking)

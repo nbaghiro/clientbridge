@@ -13,6 +13,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.billing import (
     EstimateCreate,
     EstimateOut,
@@ -23,6 +24,7 @@ from clientbridge.schemas.billing import (
     LineInput,
 )
 from clientbridge.services import ledger_service as ledger
+from clientbridge.services.booking_service import apply_deposit, unapply_deposit
 from clientbridge.services.lines import (
     apply_totals,
     fetch_lines,
@@ -30,6 +32,7 @@ from clientbridge.services.lines import (
     replace_lines,
     tax_for_lines,
 )
+from clientbridge.services.payment_service import sync_invoice
 
 _DUE_DAYS = 30
 
@@ -115,6 +118,7 @@ class BillingService:
                 tax = await tax_for_lines(self.db, self.biz, lines)
                 apply_totals(invoice, tax)  # tax is fixed at issue; the document matches its entry
                 await ledger.post_invoice(self.db, invoice, tax)
+                await self._apply_deposits(invoice)
                 cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
@@ -149,12 +153,30 @@ class BillingService:
             invoice.voided_at = datetime.now(UTC)
             await self.db.flush()
             await ledger.void_invoice(self.db, invoice)
+            for booking in await self._bookings(invoice):
+                await unapply_deposit(self.db, booking, invoice.id)
             cmd.record("invoice.void", entity_type="invoice", entity_id=invoice.id)
             return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.void", run=run, response_model=InvoiceOut
         )
+
+    async def _bookings(self, invoice: Invoice) -> list[Booking]:
+        rows = await self.db.execute(
+            scoped(Booking, self.biz)
+            .join(Line, Line.booking_id == Booking.id)
+            .where(Line.parent_type == "invoice", Line.parent_id == invoice.id)
+            .distinct()
+        )
+        return list(rows.scalars().all())
+
+    async def _apply_deposits(self, invoice: Invoice) -> None:
+        applied = False
+        for booking in await self._bookings(invoice):
+            applied = await apply_deposit(self.db, booking, invoice) or applied
+        if applied:
+            await sync_invoice(self.db, invoice.id)
 
     async def create_estimate(
         self, data: EstimateCreate, idempotency_key: str | None

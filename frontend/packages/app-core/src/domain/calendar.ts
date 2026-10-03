@@ -74,6 +74,7 @@ export function depositStatusIntent(status: string): Intent {
         case "pending":
             return "warning";
         case "collected":
+        case "applied":
             return "success";
         case "forfeited":
             return "danger";
