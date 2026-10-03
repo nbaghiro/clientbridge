@@ -117,7 +117,7 @@ A feature isn't "done" until its tests clear all four:
 The **90% branch-coverage floor** (`--cov-branch --cov-fail-under=90`, migrations excluded) surfaces
 untested code — the matrix above is the standard; don't chase the number with trivial tests.
 
-> Coverage measurement is sensitive to the interpreter: the gate reports ~91% on Python 3.14 (the pinned
+> Coverage measurement is sensitive to the interpreter: the gate reports ~92% on Python 3.14 (the pinned
 > toolchain) but lower on 3.12/3.13 (a PEP 649 annotation-measurement artifact, not real gaps) — hence the
 > `.python-version` + CI pin to 3.14.
 

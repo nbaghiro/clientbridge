@@ -27,6 +27,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   hand-write `if principal.role not in (...)`.
 - Data: prefixed-ULID PKs (`core/ids.py`) · integer cents + currency · text+CHECK enums (`enum_check`) ·
   `business_id` on scoped rows · `created_at/updated_at` · soft-delete `deleted_at`.
+- **Money balances live only in the ledger** (`services/ledger_service.py`): every money movement posts a
+  balanced, append-only journal through `ledger.post` (idempotent on `ref`). Never add a stored balance /
+  amount-paid / fee column; derive it from `accounts` + `entries`.
 - Models declare **no `relationship()`s** → the unit-of-work can't FK-order inserts; **flush the parent
   before its FK-dependent children**.
 - External services = an **adapter interface + `get_*` dependency** (e.g. `EmailSender`, `OAuthVerifier`);

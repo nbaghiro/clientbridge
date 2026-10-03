@@ -99,8 +99,8 @@ clientbridge/
 
 Flow: **`api/v1` (thin router + DTO, never queries) → `services` (logic, owns the transaction) → `models`.**
 Each layer directory holds one file per domain (`services/booking_service.py`, `schemas/scheduling.py`),
-matching the `models/` layout. Ten domains: `identity · crm · catalog · scheduling · billing · payments ·
-messaging · documents · reviews · platform`.
+matching the `models/` layout. Eleven domains: `identity · crm · catalog · scheduling · billing · payments ·
+ledger · messaging · documents · reviews · platform`.
 
 ### The request flow
 ```
@@ -138,22 +138,23 @@ Four adapters in `integrations/`: `notifications.py` (Postmark email · Twilio S
 
 ### Jobs (`tasks/`)
 `worker.py` registers the arq cron: reminders + due broadcasts every 15m, reap-unpaid every 15m, overdue
-sweep 07:00, review requests 08:00, daily maintenance 03:30. Jobs aren't tenant-scoped — each row resolves
+sweep 07:00, review requests 08:00, daily maintenance 03:30, ledger reconciliation 04:00. Jobs aren't tenant-scoped — each row resolves
 its own business + locale; each is idempotent via a status/timestamp marker and opens its own session.
 
 ---
 
 ## The data model
 
-**40 tables** — **38 across the 10 domains** + **2 server-only auth-infra** tables (`auth_sessions`,
-`auth_tokens`). No general ledger (Stripe Connect custodies funds + pays out). The SQLAlchemy models in
+**40 tables**: **38 across the 11 domains** plus **2 server-only auth-infra** tables (`auth_sessions`,
+`auth_tokens`). Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` are the applied history.
 
 ### Conventions
 - **PKs:** prefixed-ULID strings, minted in-app (`core/ids.new_id`) — sortable, safe to expose, debuggable.
 - **Tenancy:** `business_id` (indexed) on every business-scoped row. `businesses` is the top entity
-  (business/location **and** billing entity; multi-location via `parent_business_id`). `users` are global
+  (business/location **and** billing entity). `users` are global
   logins; `staff` link a user↔business with a `role`.
 - **Money:** integer **cents** (`BigInteger`) + `currency char(3) default 'CAD'`. No floats.
 - **Enums:** `text` + a named `CHECK` constraint (via `enum_check`) — easy to evolve by drop+recreate.
@@ -174,42 +175,50 @@ its own business + locale; each is idempotent via a status/timestamp marker and 
 `bz_`business `us_`user `st_`staff · `cl_`client `sj_`subject `nt_`note · `it_`item `pkg_`package
 `sub_`subscription `gc_`gift_card · `ses_`session `bk_`booking `av_`availability `rs_`resource
 `sch_`schedule · `inv_`invoice `est_`estimate `ord_`order `ln_`line · `pay_`payment `pm_`payment_method
-`po_`payout `pal_`payout_allocation · `th_`thread `msg_`message `bro_`broadcast · `frm_`form `ff_`form_field
+`acc_`account `ent_`entry `jrn_`journal · `th_`thread `msg_`message `bro_`broadcast · `frm_`form `ff_`form_field
 `fr_`form_response `con_`contract `sig_`signature · `rv_`review `rvr_`review_request · `fl_`file
 `aud_`audit_log `wh_`webhook `dev_`device_token `idk_`idempotency_key
 
 ### Tables by domain
 
 **identity (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
-JSONB + `parent_business_id`), `users` (global login, `email` unique, `oauth`), `staff` (user↔business, `role`
+JSONB), `users` (global login, `email` unique, `oauth`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `is_payee`/`default_rate`/`rate_type`, pending invites via
 `status=invited` + hashed `invite_token`).
 
-**crm (3)** — `clients` *(soft-del)* (`tags[]`, `status`, `lifetime_value_cents`, `custom_fields`,
-`stripe_customer_id`), `subjects` (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
+**crm (3)** — `clients` *(soft-del)* (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
 `parent_type`/`parent_id`).
 
 **catalog (4)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`), `packages`
 (client's package: `sessions_total`/`sessions_used`, status), `subscriptions` (recurring: status, period,
 `provider_ref`; partial-unique one active/paused per client+item), `gift_cards` (`code` unique per business,
-`balance_cents`).
+`initial_cents`; the spendable balance is the card's own ledger account).
 
 **scheduling (5)** — `sessions` (the calendar event: capacity-bearing block; appointment = capacity 1, class
 = capacity N; `booked_count`, `recurrence_id`), `bookings` *(soft-del)* (client↔session; denormalized
-`staff_id`; status pending→confirmed→completed/canceled/no_show; `source`; deposit; `reminded_at`),
+`staff_id`; status pending→confirmed→completed/canceled/no_show; `source`; deposit terms (the deposit's
+state is derived from the ledger); `reminded_at`),
 `availability` (per-staff recurring weekday or date override, `is_available`), `resources` (rooms/equipment),
 `schedules` (recurrence rule → expands to sessions/bookings).
 
-**billing (4)** — `invoices` (per-business unique `number`, status lifecycle, cents rollup subtotal/tax/
-total/balance, `pay_token`), `estimates` (accept/decline/convert → invoice), `orders` (POS/Terminal sale),
+**billing (4)** — `invoices` (per-business unique `number`, status lifecycle draft/sent/partial/paid/overdue/
+void/refunded, document totals subtotal/tax/total fixed at issue, `pay_token`; what is owed is the
+invoice's receivable in the ledger), `estimates` (accept/decline/convert → invoice), `orders` (POS/Terminal sale),
 `lines` (**polymorphic** across invoice/estimate/order via `parent_type`; `item_id`/`booking_id`,
 `tax_amount_cents`).
 
-**payments (4)** — `payments` (money-in: `kind` payment/deposit/refund; unique `provider_ref` = one row per
-Stripe object; one-refund-per-payment; Interac `reference_code`; `fee_cents`/`net_cents`), `payment_methods`
-(saved card/PAD), `payouts` (Stripe payout mirror), `payout_allocations` (staff earnings: `source_type`
-booking/invoice_line/class_session/tip/sale; basis rate/percent/fixed; unique per source+staff).
+**payments (2)** — `payments` (payment attempts and Stripe objects: `kind` payment/deposit/refund; status;
+unique `provider_ref` = one row per Stripe object; one-refund-per-payment; Interac `reference_code`),
+`payment_methods` (saved card/PAD).
+
+**ledger (2)** — `accounts` (one per owner × kind × code × currency: owners are a business, client, staff
+member, the platform, a gift card or a package; kinds are cash (`stripe`/`bank`/`cash`), `receivable`,
+liabilities (`tax` per GST/HST/PST/QST code, `gift_card`, `deposit`, `deferred`, `payable` per
+pending/approved stage), income (`revenue`, `fee_revenue`) and expenses (`processing_fee`, `platform_fee`,
+`staff_cost`); a cached `balance_cents`), `entries` (append-only legs grouped by `journal_id`; signed
+`amount_cents`, debit positive; `type` = the event; `source_*` = what caused it; `subject_*` = the entity it
+belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on for sync slicing).
 
 **messaging (3)** — `threads` (unique per business+client+channel), `messages` (direction in/out,
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`).
@@ -235,7 +244,7 @@ swaps the hash, replay revokes the family), `auth_tokens` (single-use reset/veri
 ### Polymorphic patterns
 `lines.parent_type` (invoice/estimate/order) · `payments` nullable over invoice/booking/order + `kind`/
 `method`/`reference_code` · `items.kind` = whole catalog · `sessions` = every slot · `staff` = staff +
-invites · `payout_allocations.source_type` = any earning source · `notes`/`files`/`audit_logs` `parent_type`
+invites · `entries.subject_type`/`source_type` = any money event on any entity · `notes`/`files`/`audit_logs` `parent_type`
 generalize the rest.
 
 > **Why this shape:** the model is a pragmatic "mostly-lean" blend chosen over an option-by-option review —
@@ -284,13 +293,13 @@ own_only)**. Only low-risk, client-owned tables are sync-writable:
   `availability`.
 - **admin-writable** (owner/admin): `items` · `resources` · `forms` · `form_fields` · `contracts`.
 - **not sync-writable** (server-only invariant): everything money/capacity/secret/uniqueness — `payments`,
-  `payouts`, `gift_cards`, `subscriptions`, `packages`, `sessions`/`bookings`/`schedules`, `invoices`/
+  `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `sessions`/`bookings`/`schedules`, `invoices`/
   `estimates`/`orders`/`lines`, `threads`, `broadcasts`, `businesses`, `staff`, `reviews`, files, audit/
   webhook logs → each replaced by a `/v1` command.
 
 Per op: resolve the actor's active `staff` rows → look up policy (unknown table → 403) → block cross-tenant
 `business_id` change → role + ownership authz → strip `SYSTEM_FIELDS` + per-table `COMMAND_ONLY_FIELDS`
-(e.g. `clients.stripe_customer_id`/`lifetime_value_cents`) → apply (PUT = `on_conflict` upsert, PATCH =
+(e.g. `clients.stripe_customer_id`) → apply (PUT = `on_conflict` upsert, PATCH =
 partial, DELETE = soft-delete where the column exists), coercing SQLite types back to Postgres. The whole
 batch commits as one transaction; any auth failure rolls it all back.
 
@@ -323,18 +332,19 @@ currently same perms as staff).
 |---|---|---|
 | Own calendar (sessions/bookings/availability) | ✅ all members | ✅ own only |
 | Shared client book (clients, subjects, docs, catalog) | ✅ | ✅ |
-| Own earnings (`payout_allocations` where member = me) | ✅ all | ✅ own |
-| Financials (invoices, payments, payouts, others' pay) | ✅ | ❌ |
+| Own earnings (their own `payable` account + entries) | ✅ all | ✅ own |
+| Financials (invoices, payments, the ledger, others' pay) | ✅ | ❌ |
 | Inbox / broadcasts / reviews / activity log | ✅ | ❌ |
 | Settings / billing / staff management | owner (+ admin ops) | ❌ |
 
 ### Enforcement — the sync buckets (`infra/powersync/sync-rules.yaml`)
-Three buckets implement the read model (owner-sees-workers'-activity is carried by three columns —
-`bookings.staff_id`, `payout_allocations.staff_id`, `audit_logs.actor_user_id` — no new entities):
+Three buckets implement the read model (owner-sees-workers'-activity is carried by three columns:
+`bookings.staff_id`, the ledger's `owner_type`/`owner_id`, and `audit_logs.actor_user_id`):
 - **`business_shared`** (every active member) — reference data + the shared client book + client docs.
 - **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** sessions/bookings/availability/
-  schedules/payout_allocations.
-- **`business_full`** (owner/admin only) — **all** members' work + all financials + inbox + `audit_logs`.
+  schedules, plus their own staff `accounts` and `entries` (earnings).
+- **`business_full`** (owner/admin only) — **all** members' work + all financials (including the whole
+  ledger) + inbox + `audit_logs`.
 
 Device read scope: staff = `business_shared` + `staff_self` · owner/admin = those + `business_full`. Writes
 are authorized separately in `/sync/upload` (`WRITE_POLICY`). Postgres RLS is an optional future
@@ -344,19 +354,47 @@ defense-in-depth for the API, not the sync filter.
 
 ## Domain models
 
-### Payments — Stripe Connect custody, no ledger
-- **Stripe Connect** (Custom accounts, direct charges + application fee) — cards, Tap-to-Pay/Terminal,
-  saved cards, deposits, refunds, subscriptions, KYC mirror via `account.updated`.
-- **Interac e-Transfer** — request + **auto-match by reference code** (the wedge).
-- **PAD/EFT** — pre-authorized debit for recurring.
-- **No platform-held funds / no general ledger.** Stripe Connect custodies each provider's balance and pays
-  out to their linked bank on a schedule; the platform never transmits funds (avoids money-transmitter
-  licensing). We **record** `payments` (fee/net/status) and **mirror** Stripe `payouts` via webhook.
-  "GST/HST set aside" is a computed remittance figure (tax on collected invoices), not segregated cash.
+### Payments — Stripe Connect custody
+- **Stripe Connect** (Custom accounts, direct charges + application fee, Stripe's automatic payouts) for
+  cards, Tap-to-Pay/Terminal, saved cards, deposits, refunds, subscriptions, and the KYC mirror via
+  `account.updated`.
+- **Interac e-Transfer**: request + **auto-match by reference code** (the wedge).
+- **PAD/EFT**: pre-authorized debit for recurring.
+- **No platform-held funds.** Stripe Connect custodies each provider's balance and pays it out to their
+  linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
+  `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal/interac) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. Refunds guard
-  over-refund (block a partly-redeemed gift card / a package with sessions used) and reverse the payout
-  allocation + entitlement.
+  over-refund (block a partly-redeemed gift card / a package with sessions used).
+
+### Ledger: double-entry, append-only (`services/ledger_service.py`)
+Every money movement is a **journal**: two or more `entries` legs that sum to zero per currency. A
+deferred constraint trigger rejects an unbalanced journal at commit and another trigger rejects any UPDATE
+or DELETE, so corrections are always reversing journals (`ledger.reverse`). `ledger.post` is the only
+writer: it is idempotent on `ref` (a Stripe object id or a natural key such as `invoice:{id}`), creates
+accounts on first use, locks the affected account rows in id order, and updates their cached balances.
+
+What posts, and where:
+
+| Event | Hook | Legs |
+|---|---|---|
+| Invoice issued / voided | `billing_service.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
+| Payment settled | `payment_service._settle_payment` (Stripe webhook), `match_interac`, recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
+| Fees | same, from the charge's balance transaction (`gateway.get_payment_fees`) | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue − |
+| Refund | `refund_payment`, `charge.refunded` | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
+| Dispute opened / won | `charge.dispute.created` / `.closed` | Stripe − / payer receivable + (+ dispute fee); won reverses |
+| Stripe payout paid / failed | `payout.paid` / `payout.failed` | bank + / Stripe − ; failed reverses |
+| Gift card redeemed | `gift_card_service.redeem_gift_card` | gift card liability + / revenue − |
+| Package session used | `package_service.consume_session` | deferred + / revenue − (the last session takes the remainder) |
+| Deposit forfeited | no-show in `booking_service` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
+| Staff earning accrued / approved / paid | `earning_service` (invoice fully paid, `/v1/earnings/{id}/approve`, `/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
+
+Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
+balances, package deferred revenue, a booking's deposit state (pending/collected/forfeited/refunded),
+client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
+payouts. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read entries and account balances.
+`tasks/ledger_jobs.py` reconciles each connected account's ledger Stripe balance against Stripe's nightly
+and records any drift in `audit_logs`.
 
 ### Tax
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).

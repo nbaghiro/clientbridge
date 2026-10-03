@@ -11,11 +11,12 @@ This supersedes the historical phase/slice plans (now consolidated away — the 
 ## Baseline — what's already built (do not re-chase)
 
 Backend + web + mobile are alpha-complete end-to-end: clients → catalog → scheduling → bookings (incl.
-**recurring series**) → invoices/estimates → payments/payouts → **Stripe Connect** (Custom, KYC sync, direct
+**recurring series**) → invoices/estimates → payments → **double-entry ledger** (fees, refunds, disputes,
+Stripe payouts, staff earnings, nightly reconciliation) → **Stripe Connect** (Custom, KYC sync, direct
 charges, saved cards, deposits, refunds) → **mobile Tap-to-Pay** (real Terminal SDK) → POS/Terminal orders →
 packages/subscriptions/gift-card sale+redeem → **Interac** request+match → public pay/book/form/contract/
 review token pages → forms/contracts/e-sign (text snapshot + IP + audit) → reviews + review-request cron →
-broadcasts (scheduled fan-out) → team invites/roles → inbound SMS→thread → **6 arq crons** → **mobile push**
+broadcasts (scheduled fan-out) → team invites/roles → inbound SMS→thread → **7 arq crons** → **mobile push**
 → webhook idempotency (Stripe signature-verified) → refresh rotation + reuse-detection → RS256/JWKS →
 i18n string catalog (English) → income/GST-HST/T4A reports + CSV → dashboard KPIs. **Connect** customer app
 (lean, PowerSync-free, branded, embeddable widgets) ships the five public surfaces + a per-business landing.
@@ -36,6 +37,14 @@ of partly-used entitlements blocked · recurrence occurrences re-localized per d
 calendar query fixed (SQLite bare-`+00`) · Inbox wrong-recipient · accept-invite stale-replica reset ·
 broadcasts + client LTV made command-only · send-notifications moved inside the idempotent command · CI now
 runs the production build.
+
+---
+
+**Ledger (2026-10-03):** every money movement now posts to an append-only, double-entry ledger
+(`accounts` + `entries`). Real Stripe fees come from the balance transaction, refunds are credit notes
+(invoices gain a `refunded` status), and balances, lifetime value, deposit state, earnings and reports are
+derived from it. `payouts`, `payout_allocations` and every derived money column were dropped, along with
+the dead `parent_business_id`, `plan`, `payout_schedule` and `payout_ref` columns.
 
 ---
 
@@ -77,11 +86,17 @@ Needed to be a real, complete product (not just an alpha). Grouped by domain; la
 ### Payments & billing
 - [M] **Take/record payment in-app** (no UI hits `POST /payments/invoice/{id}`; payment only via the public link).
 - [M] **Partial & multiple refunds** (backend refunds full amount only; UI sends no amount).
-- [M] **Tips** (no capture at any checkout; `payout_allocations` has a `tip` source but no path).
+- [M] **Tips** (no capture at any checkout; a tip would post to the staff member's ledger `payable`).
 - [M] **Discounts / promo codes** (none, line- or order-level).
 - [M] **Web POS card-present** (web reader panel is a stub; only mobile Tap-to-Pay works; no resume-held-order).
 - [M] **Interac ingestion + lifecycle** (match logic exists; no real bank ingestion, no stale-request expiry, no surplus handling; authed per-invoice Interac request has no UI).
-- [M] **Payout splits beyond bookings** (POS sales, tips, non-booking invoice lines never credit staff).
+- [M] **Earnings beyond bookings** (POS sales, tips, non-booking invoice lines never accrue staff earnings).
+- [S] **Tax remittance on the ledger** (filing a return should post tax payable → bank so "set aside"
+  resets per period).
+- [S] **Expired gift cards and packages** (expiry only flips status; the unused liability should be
+  recognized as breakage revenue).
+- [S] **Staff-side deposit state** (staff replicas don't sync the business ledger, so a staff device shows
+  a required deposit as pending even once it's collected).
 - [M] **Invoice/estimate/receipt PDF** (clients get only a web link).
 
 ### Scheduling & booking
@@ -125,7 +140,7 @@ Needed to be a real, complete product (not just an alpha). Grouped by domain; la
 
 Standing backlog, pulled by demand — not a blocking milestone.
 
-- **Growth/commerce:** multi-location (`parent_business_id` is fully dead) · memberships/loyalty/rewards ·
+- **Growth/commerce:** multi-location (needs a location model; the unused `parent_business_id` was dropped) · memberships/loyalty/rewards ·
   waitlists + auto-promote · online store + inventory · online gift-card purchase + balance-check +
   apply-at-checkout.
 - **Platform/scale:** public/developer API + keys + outbound webhooks (`webhook_events` is inbound-only) ·

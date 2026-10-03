@@ -373,7 +373,8 @@
           <tr><td><span class="path">catalog</span></td><td class="dim">Item · Package · Subscription · GiftCard</td><td><code>Item.kind</code> ∈ service/class/product/package/subscription/gift — one table drives the whole catalog.</td></tr>
           <tr><td><span class="path">scheduling</span></td><td class="dim">Session · Booking · Availability · Resource · Schedule</td><td><code>Session</code> carries class capacity/booked_count; <code>Booking</code> soft-deletes; <code>Schedule</code> = recurrence rule.</td></tr>
           <tr><td><span class="path">billing</span></td><td class="dim">Invoice · Estimate · Order · Line</td><td>Per-business unique <code>number</code>; <code>Order</code> = POS/Terminal sale; <code>Line</code> polymorphic across all three parents.</td></tr>
-          <tr><td><span class="path">payments</span></td><td class="dim">Payment · PaymentMethod · Payout · PayoutAllocation</td><td>Unique <code>provider_ref</code> (one row per Stripe object), one-refund-per-payment, Interac <code>reference_code</code>.</td></tr>
+          <tr><td><span class="path">ledger</span></td><td class="dim">Account · Entry</td><td>Double-entry and append-only: each journal's legs sum to zero (deferred trigger), no UPDATE/DELETE; <code>ref</code> + <code>leg</code> unique for idempotency. Holds every money balance.</td></tr>
+          <tr><td><span class="path">payments</span></td><td class="dim">Payment · PaymentMethod</td><td>Unique <code>provider_ref</code> (one row per Stripe object), one-refund-per-payment, Interac <code>reference_code</code>.</td></tr>
           <tr><td><span class="path">messaging</span></td><td class="dim">Thread · Message · Broadcast</td><td>Unique thread per (business, client, channel); broadcast audience JSONB + schedule.</td></tr>
           <tr><td><span class="path">documents</span></td><td class="dim">Form · FormField · FormResponse · Contract · Signature</td><td>17 field types; public-link tokens on responses + signatures; signatures snapshot the body + capture IP.</td></tr>
           <tr><td><span class="path">reviews</span></td><td class="dim">Review · ReviewRequest</td><td>Rating 1–5; partial-unique "one open request per booking".</td></tr>
@@ -392,7 +393,7 @@
       <h2>schemas/ — the DTOs</h2>
       <p class="intro">23 Pydantic files, fanned out finer than models — <span class="path">billing.py</span>
       covers invoices + estimates + lines, and several are per-surface (<span class="path">public_booking</span>,
-      <span class="path">dashboard</span>, <span class="path">payouts</span>).</p>
+      <span class="path">dashboard</span>, <span class="path">earnings</span>).</p>
       <ul>
         <li><strong>Requests</strong> name by verb: <code>*Create</code>/<code>*Update</code>, <code>*Patch</code>,
         <code>*Body</code> (auth), <code>*Send</code>/<code>*Purchase</code>/<code>*Redeem</code>. Validation via
@@ -436,7 +437,8 @@
         <li><strong>Webhook <code>_dispatch</code></strong> routes payment/refund/dispute/payout, KYC mirror, and the full recurring-billing lifecycle; <strong>payout allocations</strong> split each paid booking line to its payee staff, idempotently.</li>
       </ul>
       <div class="tbl-wrap"><table><tbody>
-        <tr><td><span class="path">payout_service</span></td><td>Manual allocation lifecycle: approve → pay. Admin, commands.</td></tr>
+        <tr><td><span class="path">ledger_service</span></td><td>The only ledger writer: <code>post</code>/<code>reverse</code> plus the posting rules for invoices, payments, fees, refunds, disputes, payouts, redemptions, consumption and deposits, and the balance queries.</td></tr>
+        <tr><td><span class="path">earning_service</span></td><td>Staff earnings on the ledger: accrue on a paid invoice, approve → pay. Admin, commands.</td></tr>
         <tr><td><span class="path">subscription_service</span></td><td>Create (lazily mints a recurring Stripe price, one-active guard) / cancel.</td></tr>
         <tr><td><span class="path">package_service</span> · <span class="path">gift_card_service</span></td><td>Purchase via <code>open_entitlement_payment</code> (pending until the webhook settles) / consume-or-redeem under a <code>with_for_update</code> lock so concurrent draws can't double-spend.</td></tr>
       </tbody></table></div>
@@ -462,7 +464,7 @@
       Every one is DTO-only and delegates to a service; mutations thread the <code>Idempotency-Key</code> header into
       <code>run_command</code>. Uniformly-admin routers gate once with <code>AdminPrincipal = require_role("owner","admin")</code>.</p>
       <div class="grid2">
-        <div class="card"><h4>Authed · <span class="path">/v1/*</span></h4><p>auth · business · catalog · clients · bookings · schedules · invoices · estimates · orders · terminal · payments · payouts · packages · subscriptions · gift-cards · forms · contracts · files · messaging · reviews · reports · tax · dashboard · devices · staff · onboarding.</p></div>
+        <div class="card"><h4>Authed · <span class="path">/v1/*</span></h4><p>auth · business · catalog · clients · bookings · schedules · invoices · estimates · orders · terminal · payments · earnings · packages · subscriptions · gift-cards · forms · contracts · files · messaging · reviews · reports · tax · dashboard · devices · staff · onboarding.</p></div>
         <div class="card"><h4>Public · <span class="path">api/public.py</span></h4><p>Five token/slug-authed, rate-limited routers — <span class="path">/book</span> · <span class="path">/pay</span> · <span class="path">/form</span> · <span class="path">/contract</span> · <span class="path">/review</span>.</p></div>
         <div class="card"><h4>Webhooks · <span class="path">api/webhooks.py</span></h4><p>Stripe (signature-verified) · Interac + SMS (constant-time shared secret). Notifications fire <strong>post-commit</strong> so a delivery failure can't roll back a settlement.</p></div>
       </div>

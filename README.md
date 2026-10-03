@@ -102,7 +102,7 @@ api-client / PowerSync schema / themes are stale). Conventions, the gate, and te
 
 Three consolidated docs, plus the design system:
 - [**architecture**](.docs/architecture.md) — the system: stack · the 5 surfaces · data model (40 tables /
-  10 domains) · sync · authorization · frontend. Visual companion:
+  11 domains) · sync · authorization · frontend. Visual companion:
   [`codebase-atlas.html`](.docs/codebase-atlas.html).
 - [**engineering**](.docs/engineering.md) — the gate · CI · testing · the vertical-slice method ·
   copy · ports · the demo/seed · conventions.
@@ -113,7 +113,7 @@ Three consolidated docs, plus the design system:
 
 **Alpha, active development.** Backend (all domains across the 5 surfaces, Stripe Connect payments +
 KYC, webhooks, and background jobs) and the web + mobile apps are substantially built on a shared
-view-model layer, with a full integration test suite (**506 tests, 91% branch coverage**) and green
+view-model layer, with a full integration test suite (**580 tests, 92% branch coverage**) and green
 CI. External providers (Stripe, email/SMS/push) run through faked adapters and are not yet wired to
 live services. Naming and theme (**Pewter**) are decided.
 
