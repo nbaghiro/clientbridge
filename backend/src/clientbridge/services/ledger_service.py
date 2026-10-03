@@ -538,6 +538,24 @@ async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None
     )
 
 
+async def post_breakage(
+    db: AsyncSession, business_id: str, *, owner_type: str, owner_id: str, kind: str
+) -> None:
+    """Recognize the unspent balance of an expired gift card or package as revenue."""
+    unused = -await balance(db, business_id, owner_type=owner_type, owner_id=owner_id, kind=kind)
+    await post(
+        db,
+        business_id,
+        type="breakage",
+        ref=f"breakage:{owner_id}",
+        legs=[
+            Leg(owner_type, owner_id, kind, unused),
+            Leg("business", business_id, "revenue", -unused),
+        ],
+        subject=(owner_type, owner_id),
+    )
+
+
 async def post_consumption(db: AsyncSession, package: Package) -> None:
     """Recognize one used session's share of prepaid package revenue (the last takes the rest)."""
     biz = package.business_id
@@ -570,25 +588,6 @@ async def deposit_held(db: AsyncSession, booking: Booking) -> int:
     return -await subject_balance(
         db, booking.business_id, kind="deposit", subject_type="booking", subject_id=booking.id
     )
-
-
-async def deposit_state(db: AsyncSession, booking: Booking) -> str:
-    if not booking.deposit_required or booking.deposit_amount_cents <= 0:
-        return "none"
-    if await journal_for(db, booking.business_id, f"forfeit:{booking.id}") is not None:
-        return "forfeited"
-    if await deposit_held(db, booking) > 0:
-        return "collected"
-    refunds = await _rows(
-        db,
-        booking.business_id,
-        (Entry.subject_type == "booking")
-        & (Entry.subject_id == booking.id)
-        & (Entry.type == "refund"),
-    )
-    if refunds:
-        return "refunded"
-    return "none" if booking.status in ("completed", "canceled") else "pending"
 
 
 async def post_forfeit(db: AsyncSession, booking: Booking) -> None:

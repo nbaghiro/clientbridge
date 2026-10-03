@@ -8,6 +8,7 @@ import {
     reportRangeForYear,
     strings,
     useReportDownload,
+    useRemittanceAction,
     useReports,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
@@ -168,7 +169,41 @@ function GstBody({ report }: { report: GstHstReport }) {
                     {report.gst_hst_number ?? strings.reports.notRegistered}
                 </Text>
             </View>
+            <Remittances />
         </>
+    );
+}
+
+function Remittances() {
+    const { filed, period, canRecord, busy, error, record } = useRemittanceAction(api);
+    return (
+        <View style={styles.remit}>
+            <Text style={styles.remitTitle}>{strings.reports.remitTitle}</Text>
+            {filed.length === 0 ? (
+                <Text style={styles.muted}>{strings.reports.remitNone}</Text>
+            ) : (
+                filed.map((row) => (
+                    <View key={row.id} style={styles.figure}>
+                        <Text style={styles.figureLabel}>
+                            {strings.reports.remitRow(row.period_start, row.period_end)}
+                        </Text>
+                        <Text style={styles.lineValue}>{formatMoney(row.total_cents)}</Text>
+                    </View>
+                ))
+            )}
+            {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable
+                onPress={record}
+                disabled={!canRecord || busy}
+                style={[styles.remitBtn, (!canRecord || busy) && styles.disabled]}
+            >
+                <Text style={styles.remitBtnText}>
+                    {busy
+                        ? strings.reports.remitting
+                        : strings.reports.remitAction(period.start, period.end)}
+                </Text>
+            </Pressable>
+        </View>
     );
 }
 
@@ -285,4 +320,19 @@ const styles = StyleSheet.create({
     lineLabel: { color: c.inkSoft, fontSize: 14, textTransform: "capitalize" },
     lineValue: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
     loading: { alignSelf: "flex-start" },
+    remit: {
+        gap: 8,
+        paddingTop: 8,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: c.borderSoft,
+    },
+    remitTitle: { color: c.ink, fontSize: 14, fontWeight: "700" },
+    remitBtn: {
+        backgroundColor: c.accent,
+        borderRadius: 8,
+        paddingVertical: 10,
+        alignItems: "center",
+    },
+    remitBtnText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
+    disabled: { opacity: 0.6 },
 });

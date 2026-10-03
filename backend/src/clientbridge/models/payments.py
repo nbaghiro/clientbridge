@@ -19,9 +19,7 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("ix_payments_order", "order_id"),
         Index("ix_payments_reference_code", "reference_code", unique=True),
         Index("ix_payments_provider_ref", "provider_ref", unique=True),  # one row per Stripe object
-        Index(
-            "ix_payments_refund_parent", "parent_payment_id", unique=True
-        ),  # one refund per payment
+        Index("ix_payments_refund_parent", "parent_payment_id"),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))

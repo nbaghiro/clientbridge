@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel, Field
 
 from clientbridge.schemas.public_common import PublicBrand
@@ -62,7 +64,19 @@ class InteracWebhookBody(BaseModel):
 
 
 class RemittanceSummary(BaseModel):
-    tax_collected_cents: int  # Σ tax on paid invoices — the GST/HST to set aside for CRA
+    tax_collected_cents: int  # tax payable on the ledger: collected and not yet remitted
+
+
+class RemittanceIn(BaseModel):
+    period_start: date
+    period_end: date
+
+
+class RemittanceOut(BaseModel):
+    period_start: date
+    period_end: date
+    by_code: dict[str, int]
+    total_cents: int
 
 
 class PublicInvoice(BaseModel):

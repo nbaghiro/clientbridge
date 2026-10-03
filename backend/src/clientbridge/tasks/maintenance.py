@@ -7,6 +7,7 @@ from clientbridge.core.db import SessionLocal
 from clientbridge.models.billing import Estimate
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.platform import DeviceToken
+from clientbridge.services import ledger_service as ledger
 
 _TOKEN_TTL = timedelta(days=60)
 
@@ -26,8 +27,8 @@ async def run_prune_device_tokens(db: AsyncSession, now: datetime) -> int:
 
 
 async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
-    """Status-only lapse of time-boxed rows: sent estimates past `valid_until`, and active gift
-    cards / packages past `expires_at`, all to `expired`. Each row carries its own business."""
+    """Lapse time-boxed rows to `expired`: sent estimates past `valid_until`, and active gift cards
+    / packages past `expires_at`, whose unspent balance is then booked as breakage revenue."""
     swept = 0
     estimates = (
         (
@@ -60,6 +61,13 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
     )
     for gift_card in gift_cards:
         gift_card.status = "expired"
+        await ledger.post_breakage(
+            db,
+            gift_card.business_id,
+            owner_type="gift_card",
+            owner_id=gift_card.id,
+            kind="gift_card",
+        )
         swept += 1
     packages = (
         (
@@ -76,6 +84,9 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
     )
     for package in packages:
         package.status = "expired"
+        await ledger.post_breakage(
+            db, package.business_id, owner_type="package", owner_id=package.id, kind="deferred"
+        )
         swept += 1
     await db.commit()
     return swept

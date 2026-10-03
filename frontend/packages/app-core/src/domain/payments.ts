@@ -171,12 +171,49 @@ export function useConnectOnboarding(
 export function refundPayment(
     api: ApiLike,
     paymentId: string,
+    amountCents: number,
 ): Promise<{ refund_id: string; status: string }> {
     return api.post<{ refund_id: string; status: string }>(
-        `/v1/payments/${paymentId}/refund`,
+        `/v1/payments/${paymentId}/refund?amount_cents=${String(amountCents)}`,
         {},
         { idempotencyKey: newIdempotencyKey() },
     );
+}
+
+export interface RefundForm {
+    amount: string;
+    setAmount: (amount: string) => void;
+    remainingCents: number;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+}
+
+/** A refund of all or part of what's left on a payment; a blank amount refunds the rest. */
+export function useRefundForm(
+    api: ApiLike,
+    payment: PaymentRow,
+    allPayments: PaymentRow[],
+): RefundForm {
+    const [amount, setAmount] = useState("");
+    const { busy, error, setError, run } = useAsyncAction();
+    const remainingCents = refundableCents(payment, allPayments);
+
+    const submit = (): void => {
+        const cents = amount.trim() === "" ? remainingCents : Math.round(Number(amount) * 100);
+        if (!Number.isFinite(cents) || cents <= 0 || cents > remainingCents) {
+            setError(strings.invoices.refundAmountInvalid);
+            return;
+        }
+        run(() => refundPayment(api, payment.id, cents), {
+            onSuccess: () => {
+                setAmount("");
+            },
+            errorMessage: strings.invoices.refundError,
+        });
+    };
+
+    return { amount, setAmount, remainingCents, busy, error, submit };
 }
 
 export interface PaymentRow {
@@ -205,11 +242,19 @@ export function isRefundRow(payment: { kind: string }): boolean {
 
 /** Refundable only once: a succeeded non-refund payment with no sibling refund yet (matches the
  *  backend's one-refund-per-payment 409 — so the button disappears after a refund posts). */
+/** What's still refundable on a payment after the refunds already made against it. */
+export function refundableCents(payment: PaymentRow, allPayments: PaymentRow[]): number {
+    const refunded = allPayments
+        .filter((p) => p.parent_payment_id === payment.id && p.status === "succeeded")
+        .reduce((sum, p) => sum + p.amount_cents, 0);
+    return payment.amount_cents - refunded;
+}
+
 export function isRefundable(payment: PaymentRow, allPayments: PaymentRow[]): boolean {
     return (
         payment.status === "succeeded" &&
         !isRefundRow(payment) &&
-        !allPayments.some((p) => p.parent_payment_id === payment.id)
+        refundableCents(payment, allPayments) > 0
     );
 }
 

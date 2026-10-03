@@ -31,19 +31,3 @@ export function ownedLiabilitySql(ownerType: string, kind: string, idExpr: strin
     return `COALESCE(-(SELECT la.balance_cents FROM accounts la
         WHERE la.owner_type = '${ownerType}' AND la.owner_id = ${idExpr} AND la.kind = '${kind}'), 0)`;
 }
-
-/** A booking's deposit state, mirroring the server's derivation from the ledger. */
-export function depositStateSql(bookingExpr: string): string {
-    return `CASE
-        WHEN ${bookingExpr}.deposit_required IS NOT 1 OR ${bookingExpr}.deposit_amount_cents <= 0
-            THEN 'none'
-        WHEN EXISTS (SELECT 1 FROM entries le WHERE le.ref = 'forfeit:' || ${bookingExpr}.id)
-            THEN 'forfeited'
-        WHEN -COALESCE(${subjectNetSql("deposit", "booking", `${bookingExpr}.id`)}, 0) > 0
-            THEN 'collected'
-        WHEN EXISTS (SELECT 1 FROM entries le WHERE le.subject_type = 'booking'
-            AND le.subject_id = ${bookingExpr}.id AND le.type = 'refund') THEN 'refunded'
-        WHEN ${bookingExpr}.status IN ('completed', 'canceled') THEN 'none'
-        ELSE 'pending'
-    END`;
-}

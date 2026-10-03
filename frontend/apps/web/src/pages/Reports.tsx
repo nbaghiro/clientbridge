@@ -6,6 +6,7 @@ import {
     formatMoney,
     strings,
     useReportDownload,
+    useRemittanceAction,
     useReports,
 } from "@clientbridge/app-core";
 import { useState } from "react";
@@ -183,6 +184,7 @@ function ReportsView() {
                                         {gstHst.gst_hst_number ?? strings.reports.notRegistered}
                                     </span>
                                 </p>
+                                <Remittances />
                             </>
                         )}
                     </Card>
@@ -234,6 +236,44 @@ function ReportsView() {
             {loading ? (
                 <p className="mt-4 text-xs text-muted">{strings.reports.loadingReports}</p>
             ) : null}
+        </div>
+    );
+}
+
+function Remittances() {
+    const { filed, period, canRecord, busy, error, record } = useRemittanceAction(api);
+    return (
+        <div className="mt-4 border-t border-line-soft pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-ink">{strings.reports.remitTitle}</h3>
+                <button
+                    type="button"
+                    onClick={record}
+                    disabled={!canRecord || busy}
+                    className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                >
+                    {busy
+                        ? strings.reports.remitting
+                        : strings.reports.remitAction(period.start, period.end)}
+                </button>
+            </div>
+            {error !== null ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
+            {filed.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">{strings.reports.remitNone}</p>
+            ) : (
+                <ul className="mt-2 divide-y divide-line-soft text-sm">
+                    {filed.map((row) => (
+                        <li key={row.id} className="flex justify-between py-2">
+                            <span className="text-ink">
+                                {strings.reports.remitRow(row.period_start, row.period_end)}
+                            </span>
+                            <span className="font-medium tabular-nums text-ink">
+                                {formatMoney(row.total_cents)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </div>
     );
 }

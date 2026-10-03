@@ -48,7 +48,7 @@ async def _booking_out(db: AsyncSession, booking: Booking, session: Session) -> 
         source=booking.source,
         price_cents=booking.price_cents,
         deposit_amount_cents=booking.deposit_amount_cents,
-        deposit_status=await ledger.deposit_state(db, booking),
+        deposit_status=booking.deposit_status,
         starts_at=session.starts_at,
         ends_at=session.ends_at,
     )
@@ -220,6 +220,7 @@ async def create_booking_core(
             await db.flush()
         except IntegrityError as exc:
             raise Conflict(_OVERLAP) from exc
+    deposit = deposit_cents(item) if item.deposit_type != "none" else 0
     booking = Booking(
         id=new_id("booking"),
         business_id=business_id,
@@ -232,6 +233,7 @@ async def create_booking_core(
         price_cents=item.price_cents,
         deposit_required=item.deposit_type != "none",
         deposit_amount_cents=deposit_cents(item),
+        deposit_status="pending" if deposit > 0 else "none",
         confirmed_at=datetime.now(UTC),
     )
     db.add(booking)
@@ -249,10 +251,16 @@ async def release_session_slot(db: AsyncSession, session: Session) -> None:
 
 
 async def settle_deposit(db: AsyncSession, booking_id: str) -> None:
-    """A deposit settling on a booking already marked no-show is forfeited on arrival."""
+    """A settled deposit is collected; on a booking already marked no-show it's forfeited."""
     booking = await db.get(Booking, booking_id)
-    if booking is not None and booking.status == "no_show":
+    if booking is None:
+        return
+    if booking.status == "no_show":
         await ledger.post_forfeit(db, booking)
+        booking.deposit_status = "forfeited"
+    else:
+        booking.deposit_status = "collected"
+    await db.flush()
 
 
 async def reverse_deposit(db: AsyncSession, booking_id: str) -> None:
@@ -260,6 +268,14 @@ async def reverse_deposit(db: AsyncSession, booking_id: str) -> None:
     booking = await db.get(Booking, booking_id)
     if booking is not None:
         await ledger.reverse_forfeit(db, booking)
+
+
+async def deposit_refunded(db: AsyncSession, booking_id: str) -> None:
+    booking = await db.get(Booking, booking_id)
+    if booking is not None:
+        held = await ledger.deposit_held(db, booking)
+        booking.deposit_status = "collected" if held > 0 else "refunded"
+        await db.flush()
 
 
 class BookingService:
@@ -334,6 +350,8 @@ class BookingService:
                 cmd.record("booking.reschedule", entity_type="booking", entity_id=booking.id)
             if data.status is not None:
                 booking.status = data.status
+                if data.status in ("canceled", "completed") and booking.deposit_status == "pending":
+                    booking.deposit_status = "none"  # nothing was collected and none is due now
                 if data.status == "canceled":
                     booking.canceled_at = datetime.now(UTC)
                     session.status = "canceled"  # frees the slot (excluded from the overlap check)
@@ -403,11 +421,12 @@ class BookingService:
     async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
         """No-show forfeiture: keep an already-collected deposit (mark forfeited), or capture it
         off-session via the client's default card. Idempotent — a re-set no_show never recharges."""
-        state = await ledger.deposit_state(self.db, booking)
-        if state in ("none", "forfeited"):
+        if booking.deposit_status in ("none", "forfeited", "refunded"):
             return
-        if state == "collected":
+        if booking.deposit_status == "collected":
             await ledger.post_forfeit(self.db, booking)
+            booking.deposit_status = "forfeited"
+            await self.db.flush()
             cmd.record("booking.deposit_forfeited", entity_type="booking", entity_id=booking.id)
             return
         if booking.deposit_amount_cents <= 0 or await self._has_open_deposit(booking.id):

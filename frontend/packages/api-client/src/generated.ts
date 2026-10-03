@@ -1025,6 +1025,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/payments/remittances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Remittance */
+        post: operations["record_remittance_v1_payments_remittances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/payments/invoice/{invoice_id}/interac": {
         parameters: {
             query?: never;
@@ -2867,6 +2884,38 @@ export interface components {
             password: string;
             /** Name */
             name?: string | null;
+        };
+        /** RemittanceIn */
+        RemittanceIn: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+        };
+        /** RemittanceOut */
+        RemittanceOut: {
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** By Code */
+            by_code: {
+                [key: string]: number;
+            };
+            /** Total Cents */
+            total_cents: number;
         };
         /** RemittanceSummary */
         RemittanceSummary: {
@@ -5353,7 +5402,9 @@ export interface operations {
     };
     refund_payment_v1_payments__payment_id__refund_post: {
         parameters: {
-            query?: never;
+            query?: {
+                amount_cents?: number | null;
+            };
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
@@ -5405,6 +5456,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RemittanceSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    record_remittance_v1_payments_remittances_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemittanceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemittanceOut"];
                 };
             };
             /** @description Validation Error */

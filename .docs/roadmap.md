@@ -42,9 +42,12 @@ runs the production build.
 
 **Ledger (2026-10-03):** every money movement now posts to an append-only, double-entry ledger
 (`accounts` + `entries`). Real Stripe fees come from the balance transaction, refunds are credit notes
-(invoices gain a `refunded` status), and balances, lifetime value, deposit state, earnings and reports are
-derived from it. `payouts`, `payout_allocations` and every derived money column were dropped, along with
-the dead `parent_business_id`, `plan`, `payout_schedule` and `payout_ref` columns.
+(invoices gain a `refunded` status), and balances, lifetime value, earnings and reports are derived from
+it. `payouts`, `payout_allocations` and every derived money column were dropped, along with
+the dead `parent_business_id`, `plan`, `payout_schedule` and `payout_ref` columns. A follow-up added
+partial and repeated refunds, tax remittance (filing a return clears tax payable for its period), breakage
+revenue on expired gift cards and packages, and a `bookings.deposit_status` lifecycle column so staff
+devices, which do not sync the business ledger, see whether a deposit was collected.
 
 ---
 
@@ -85,18 +88,11 @@ Needed to be a real, complete product (not just an alpha). Grouped by domain; la
 
 ### Payments & billing
 - [M] **Take/record payment in-app** (no UI hits `POST /payments/invoice/{id}`; payment only via the public link).
-- [M] **Partial & multiple refunds** (backend refunds full amount only; UI sends no amount).
 - [M] **Tips** (no capture at any checkout; a tip would post to the staff member's ledger `payable`).
 - [M] **Discounts / promo codes** (none, line- or order-level).
 - [M] **Web POS card-present** (web reader panel is a stub; only mobile Tap-to-Pay works; no resume-held-order).
 - [M] **Interac ingestion + lifecycle** (match logic exists; no real bank ingestion, no stale-request expiry, no surplus handling; authed per-invoice Interac request has no UI).
 - [M] **Earnings beyond bookings** (POS sales, tips, non-booking invoice lines never accrue staff earnings).
-- [S] **Tax remittance on the ledger** (filing a return should post tax payable → bank so "set aside"
-  resets per period).
-- [S] **Expired gift cards and packages** (expiry only flips status; the unused liability should be
-  recognized as breakage revenue).
-- [S] **Staff-side deposit state** (staff replicas don't sync the business ledger, so a staff device shows
-  a required deposit as pending even once it's collected).
 - [M] **Invoice/estimate/receipt PDF** (clients get only a web link).
 
 ### Scheduling & booking
@@ -151,7 +147,7 @@ Standing backlog, pulled by demand — not a blocking milestone.
   (Google/iCal) · group/class scheduling UI + roster + per-staff/travel buffers · conditional form fields +
   full validation · countersign/multi-party e-sign + draw-signature pad.
 - **Tax/reporting depth:** place-of-supply (per-client province) · inclusive pricing · per-line exempt/
-  override · compound-tax · rate-edit + remittance UI · ITCs/expenses → net profit · real T4A slip/e-file ·
+  override · compound-tax · rate-edit · ITCs/expenses → net profit · real T4A slip/e-file ·
   client statements · dunning cadence + subscription retry/auto-cancel · dispute lifecycle tracking.
 - **Platform hygiene:** access-token revocation/jti denylist (de-provisioned staff keep access ≤15 min) ·
   retention/PII purge · metrics/tracing · slow-query/index/sync-rule perf audit · DB pool tuning ·

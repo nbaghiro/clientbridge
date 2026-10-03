@@ -35,6 +35,8 @@ ENTRY_TYPES = (
     "redemption",
     "consumption",
     "forfeit",
+    "breakage",
+    "remittance",
     "earning",
     "approval",
     "staff_payment",

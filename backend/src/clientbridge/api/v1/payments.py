@@ -18,11 +18,14 @@ from clientbridge.schemas.payments import (
     PayIntentOut,
     PaymentMethodOut,
     RefundOut,
+    RemittanceIn,
+    RemittanceOut,
     RemittanceSummary,
     SetupIntentOut,
 )
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.payment_service import PaymentService
+from clientbridge.services.remittance_service import RemittanceService
 from clientbridge.services.report_service import ReportService
 
 router = APIRouter(prefix="/connect", tags=["connect"])
@@ -115,9 +118,12 @@ async def refund_payment(
     email: EmailDep,
     sms: SmsDep,
     push: PushDep,
+    amount_cents: int | None = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RefundOut:
-    out = await PaymentService(db, principal, gateway).refund_payment(payment_id, idempotency_key)
+    out = await PaymentService(db, principal, gateway).refund_payment(
+        payment_id, amount_cents, idempotency_key
+    )
     await Notifier(email, sms, push).on_refund(db, out.refund_id)
     return out
 
@@ -125,6 +131,16 @@ async def refund_payment(
 @pay_router.get("/remittance", response_model=RemittanceSummary)
 async def remittance(principal: CurrentPrincipal, db: DbSession) -> RemittanceSummary:
     return await ReportService(db, principal).remittance_summary()
+
+
+@pay_router.post("/remittances", response_model=RemittanceOut, status_code=201)
+async def record_remittance(
+    data: RemittanceIn,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> RemittanceOut:
+    return await RemittanceService(db, principal).record(data, idempotency_key)
 
 
 @pay_router.post("/invoice/{invoice_id}/interac", response_model=InteracRequest)

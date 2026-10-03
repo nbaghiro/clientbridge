@@ -546,7 +546,7 @@ async def test_collect_deposit_default_card_settles_and_receipts(
     )
     assert webhook.status_code == 200
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert await ledger.deposit_state(db, booking) == "collected"
+    assert booking.deposit_status == "collected"
     assert len(email.sent) >= 1  # deposit receipt to the client
 
 
@@ -560,7 +560,7 @@ async def test_collect_deposit_interactive_returns_secret(
     assert res.json()["client_secret"].startswith("pi_fake")
     assert gateway.charged_methods == []  # nothing charged — awaiting client confirmation
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert await ledger.deposit_state(db, booking) == "pending"
+    assert booking.deposit_status == "pending"
 
 
 async def test_collect_deposit_no_deposit_due_409(
@@ -702,7 +702,7 @@ async def test_no_show_charges_default_card(
         headers={"Stripe-Signature": "good"},
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert await ledger.deposit_state(db, booking) == "forfeited"
+    assert booking.deposit_status == "forfeited"
     assert await ledger.deposit_held(db, booking) == 0
     # idempotent — repeat no_show never double-charges
     await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
@@ -780,7 +780,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
         headers={"Stripe-Signature": "good"},
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert await ledger.deposit_state(db, booking) == "collected"
+    assert booking.deposit_status == "collected"
     receipts = len(email.sent)
     assert receipts >= 1  # the deposit receipt fired on the first settle
 
@@ -790,9 +790,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
         headers={"Stripe-Signature": "good"},
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert (
-        await ledger.deposit_state(db, booking) == "collected"
-    )  # still collected, not re-collected
+    assert booking.deposit_status == "collected"  # still collected, not re-collected
     assert len(email.sent) == receipts  # no second receipt — the settle no-oped
     assert gateway.charged_methods.count(SEEDED_CARD) == 1  # never re-charged
 
@@ -810,12 +808,12 @@ async def test_refund_reverses_collected_deposit(
         headers={"Stripe-Signature": "good"},
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert await ledger.deposit_state(db, booking) == "collected"
+    assert booking.deposit_status == "collected"
 
     refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
     assert refunded.status_code == 200, refunded.text
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert await ledger.deposit_state(db, booking) == "refunded"
+    assert booking.deposit_status == "refunded"
     refund_row = (
         await db.execute(
             select(Payment).where(
@@ -824,3 +822,80 @@ async def test_refund_reverses_collected_deposit(
         )
     ).scalar_one()
     assert refund_row.booking_id == bid
+
+
+async def _deposit_status(db: AsyncSession, bid: str) -> str:
+    return (await db.execute(select(Booking.deposit_status).where(Booking.id == bid))).scalar_one()
+
+
+async def _collected_deposit(
+    api: httpx.AsyncClient, db: AsyncSession, *, starts: str
+) -> tuple[str, str]:
+    await _enable_payments(db)
+    bid = await _deposit_booking(api, db, starts=starts)
+    pay = (await api.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
+    pi_id = await _provider_ref(db, pay["payment_id"])
+    await api.post(
+        "/webhooks/stripe",
+        content=_pi_succeeded(f"evt_{bid}", pi_id),
+        headers={"Stripe-Signature": "good"},
+    )
+    assert await _deposit_status(db, bid) == "collected"
+    return bid, str(pay["payment_id"])
+
+
+async def test_deposit_status_none_when_nothing_is_owed(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid = await _deposit_booking(as_owner, db, starts="2027-07-01T10:00:00Z", deposit=False)
+    assert await _deposit_status(db, bid) == "none"
+
+
+async def test_closing_a_booking_with_a_pending_deposit_clears_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    for starts, status in (
+        ("2027-07-02T10:00:00Z", "canceled"),
+        ("2027-07-03T10:00:00Z", "completed"),
+    ):
+        bid = await _deposit_booking(as_owner, db, starts=starts)
+        assert await _deposit_status(db, bid) == "pending"
+        res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": status})
+        assert res.status_code == 200, res.text
+        assert res.json()["deposit_status"] == "none"
+
+
+async def test_canceling_keeps_a_collected_deposit(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, _ = await _collected_deposit(as_owner, db, starts="2027-07-04T10:00:00Z")
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "canceled"})
+    assert res.json()["deposit_status"] == "collected"  # held until refunded or kept
+
+
+async def test_partial_deposit_refund_stays_collected_until_the_rest(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, pay_id = await _collected_deposit(as_owner, db, starts="2027-07-05T10:00:00Z")
+    part = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=500")
+    assert part.status_code == 200, part.text
+    assert await _deposit_status(db, bid) == "collected"
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert await ledger.deposit_held(db, booking) == 1500
+    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund")).status_code == 200
+    assert await _deposit_status(db, bid) == "refunded"
+    assert await ledger.deposit_held(db, booking) == 0
+
+
+async def test_refunding_a_forfeited_deposit_in_full_unforfeits_it(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    bid, pay_id = await _collected_deposit(as_owner, db, starts="2027-07-06T10:00:00Z")
+    await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
+    assert await _deposit_status(db, bid) == "forfeited"
+    revenue = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="revenue")
+    res = await as_owner.post(f"/v1/payments/{pay_id}/refund")
+    assert res.status_code == 200, res.text
+    assert await _deposit_status(db, bid) == "refunded"
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="revenue")
+    assert after == revenue + 2000  # the forfeited deposit no longer counts as revenue

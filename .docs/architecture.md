@@ -364,8 +364,9 @@ defense-in-depth for the API, not the sync filter.
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
   `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal/interac) are Stripe-idempotency-
-  keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. Refunds guard
-  over-refund (block a partly-redeemed gift card / a package with sessions used).
+  keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
+  refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
+  deposit, are refunded only in full (and not once the card is partly redeemed or a session is used).
 
 ### Ledger: double-entry, append-only (`services/ledger_service.py`)
 Every money movement is a **journal**: two or more `entries` legs that sum to zero per currency. A
@@ -381,18 +382,21 @@ What posts, and where:
 | Invoice issued / voided | `billing_service.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
 | Payment settled | `payment_service._settle_payment` (Stripe webhook), `match_interac`, recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
 | Fees | same, from the charge's balance transaction (`gateway.get_payment_fees`) | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue − |
-| Refund | `refund_payment`, `charge.refunded` | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
+| Refund (full or partial) | `refund_payment`, `charge.refunded` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
 | Dispute opened / won | `charge.dispute.created` / `.closed` | Stripe − / payer receivable + (+ dispute fee); won reverses |
 | Stripe payout paid / failed | `payout.paid` / `payout.failed` | bank + / Stripe − ; failed reverses |
 | Gift card redeemed | `gift_card_service.redeem_gift_card` | gift card liability + / revenue − |
 | Package session used | `package_service.consume_session` | deferred + / revenue − (the last session takes the remainder) |
+| Gift card or package expired | `tasks/maintenance.py` expiry sweep (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
+| Tax return filed | `POST /v1/payments/remittances` (`remittance_service`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
 | Deposit forfeited | no-show in `booking_service` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
 | Staff earning accrued / approved / paid | `earning_service` (invoice fully paid, `/v1/earnings/{id}/approve`, `/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
-balances, package deferred revenue, a booking's deposit state (pending/collected/forfeited/refunded),
-client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
-payouts. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read entries and account balances.
+balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
+payouts. A booking's `deposit_status` (none/pending/collected/forfeited/refunded) is a lifecycle column set
+as the ledger books the deposit, because staff replicas do not sync the business ledger; the amount stays
+in the ledger. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read entries and account balances.
 `tasks/ledger_jobs.py` reconciles each connected account's ledger Stripe balance against Stripe's nightly
 and records any drift in `audit_logs`.
 

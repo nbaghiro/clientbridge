@@ -20,7 +20,7 @@ _CASH = ("stripe", "bank", "cash")
 _UNNAMED_PAYEE = "Unnamed payee"
 
 
-def _bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
+def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
     """`[start, end]` day window in the business tz (00:00 to 23:59:59), as UTC instants for the
     ledger's `occurred_at` — a late-evening sale near a quarter edge must file in the business's
     local period, not UTC's."""
@@ -68,7 +68,7 @@ class ReportService:
         )
 
     async def income_summary(self, start: date, end: date) -> IncomeReport:
-        lo, hi = _bounds(start, end, ZoneInfo((await self._business()).timezone))
+        lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
         rows = await self.db.execute(
             self._legs(Account.kind.in_(_CASH), Entry.type.in_(("payment", "refund")), lo, hi)
             .with_only_columns(Entry.type, Payment.method, func.sum(Entry.amount_cents))
@@ -89,9 +89,9 @@ class ReportService:
 
     async def gst_hst_return(self, start: date, end: date) -> GstHstReport:
         business = await self._business()
-        lo, hi = _bounds(start, end, ZoneInfo(business.timezone))
+        lo, hi = period_bounds(start, end, ZoneInfo(business.timezone))
         rows = await self.db.execute(
-            self._legs(Account.kind == "tax", None, lo, hi)
+            self._legs(Account.kind == "tax", Entry.type != "remittance", lo, hi)
             .with_only_columns(Account.code, func.sum(Entry.amount_cents))
             .group_by(Account.code)
         )

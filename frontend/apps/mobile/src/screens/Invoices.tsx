@@ -18,7 +18,7 @@ import {
     isRefundable,
     payLinkUrl,
     paymentStatusIntent,
-    refundPayment,
+    useRefundForm,
     strings,
     useAsyncAction,
     useClients,
@@ -469,7 +469,11 @@ function PaymentRowItem({
     payments: PaymentRow[];
     canRefund: boolean;
 }) {
-    const { busy, error, run } = useAsyncAction();
+    const { amount, setAmount, remainingCents, busy, error, submit } = useRefundForm(
+        api,
+        payment,
+        payments,
+    );
     const isRefund = isRefundRow(payment);
     const showRefund = canRefund && isRefundable(payment, payments);
 
@@ -479,11 +483,7 @@ function PaymentRowItem({
             {
                 text: strings.invoices.refund,
                 style: "destructive",
-                onPress: () => {
-                    run(() => refundPayment(api, payment.id), {
-                        errorMessage: strings.invoices.refundError,
-                    });
-                },
+                onPress: submit,
             },
         ]);
     };
@@ -499,6 +499,18 @@ function PaymentRowItem({
                     {isRefund ? strings.invoices.refundBadge : payment.method}
                 </Text>
                 <StatusBadge status={payment.status} intent={paymentStatusIntent(payment.status)} />
+                {showRefund ? (
+                    <TextInput
+                        style={styles.refundInput}
+                        value={amount}
+                        onChangeText={setAmount}
+                        keyboardType="decimal-pad"
+                        placeholder={strings.invoices.refundAmountPlaceholder(
+                            formatMoneyWithCurrency(remainingCents, payment.currency),
+                        )}
+                        placeholderTextColor={c.muted}
+                    />
+                ) : null}
                 {showRefund ? (
                     <Pressable style={styles.refundBtn} disabled={busy} onPress={refund}>
                         <Text style={styles.refundText}>
@@ -633,8 +645,19 @@ const styles = StyleSheet.create({
     paymentAmount: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
     paymentRefund: { color: c.danFg },
     paymentMethod: { color: c.muted, fontSize: 13, textTransform: "capitalize" },
-    refundBtn: {
+    refundInput: {
         marginLeft: "auto",
+        width: 96,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: theme.radius,
+        borderColor: c.border,
+        borderWidth: 1,
+        color: c.ink,
+        fontSize: 12,
+    },
+    refundBtn: {
+        marginLeft: 6,
         paddingHorizontal: 10,
         paddingVertical: 5,
         borderRadius: theme.radius,

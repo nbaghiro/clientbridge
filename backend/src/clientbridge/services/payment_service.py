@@ -283,8 +283,10 @@ class PaymentService:
         )
 
     async def refund_payment(
-        self, payment_id: str, idempotency_key: str | None = None
+        self, payment_id: str, amount_cents: int | None = None, idempotency_key: str | None = None
     ) -> RefundOut:
+        """Refund all or part of what's left on a payment (several partial refunds are fine).
+        Entitlement purchases and forfeited deposits refund in full only."""
         self._assert_admin()
         business = await self._business()
         payment = await self._payment(payment_id)
@@ -296,38 +298,26 @@ class PaymentService:
             raise Conflict("payment has no connected charge to refund")
         account_id = business.stripe_account_id
         provider_ref = payment.provider_ref
-        # Don't over-refund a partially-delivered entitlement: refunding the full purchase after
-        # value was redeemed/consumed loses money, so require the gift card / package untouched.
-        card = (
-            await self.db.execute(
-                scoped(GiftCard, self.biz).where(GiftCard.payment_id == payment.id)
-            )
-        ).scalar_one_or_none()
-        if card is not None and await ledger.gift_card_balance(self.db, card) < card.initial_cents:
-            raise Conflict("can't refund a gift card that has already been partly redeemed")
-        pkg = (
-            await self.db.execute(scoped(Package, self.biz).where(Package.payment_id == payment.id))
-        ).scalar_one_or_none()
-        if pkg is not None and pkg.sessions_used > 0:
-            raise Conflict("can't refund a package with sessions already used")
+        whole_only = await self._whole_refund_only(payment)
 
         async def run(cmd: Command) -> RefundOut:
-            # inside the command so a same-key retry replays the stored response before this guard;
-            # a genuine second refund (fresh key) still finds the prior row and 409s.
-            prior = (
-                await self.db.execute(
-                    select(Payment.id).where(
-                        Payment.parent_payment_id == payment.id, Payment.kind == "refund"
-                    )
-                )
-            ).scalar_one_or_none()
-            if prior is not None:
+            await self.db.execute(
+                scoped(Payment, self.biz).where(Payment.id == payment.id).with_for_update()
+            )
+            refunded = await _refunded_cents(self.db, payment)
+            left = payment.amount_cents - refunded
+            amount = left if amount_cents is None else amount_cents
+            if left <= 0:
                 raise Conflict("this payment was already refunded")
+            if amount <= 0 or amount > left:
+                raise Conflict("invalid refund amount")
+            if whole_only and (refunded > 0 or amount != payment.amount_cents):
+                raise Conflict(whole_only)
             result = await self.gateway.refund(
                 account_id,
                 payment_intent_id=provider_ref,
-                amount_cents=payment.amount_cents,
-                idempotency_key=f"refund_{payment.id}",
+                amount_cents=amount,
+                idempotency_key=f"refund_{payment.id}_{refunded}",
             )
             refund = Payment(
                 id=new_id("payment"),
@@ -338,7 +328,7 @@ class PaymentService:
                 invoice_id=payment.invoice_id,
                 order_id=payment.order_id,
                 booking_id=payment.booking_id,
-                amount_cents=payment.amount_cents,
+                amount_cents=amount,
                 currency=payment.currency,
                 method=payment.method,
                 provider="stripe",
@@ -347,10 +337,7 @@ class PaymentService:
                 paid_at=datetime.now(UTC),
             )
             self.db.add(refund)
-            try:
-                await self.db.flush()  # one-refund-per-payment unique guards a concurrent double
-            except IntegrityError as exc:
-                raise Conflict("this payment was already refunded") from exc
+            await self.db.flush()
             await _apply_refund(self.db, refund, payment)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
             return RefundOut(refund_id=refund.id, status=result.status)
@@ -363,6 +350,31 @@ class PaymentService:
             response_model=RefundOut,
             idempotency_key=idempotency_key,
         )
+
+    async def _whole_refund_only(self, payment: Payment) -> str | None:
+        """Why this payment can only be refunded in full (None when partial refunds are fine).
+        A gift card or package must also be untouched, so the refund can't lose delivered value."""
+        card = (
+            await self.db.execute(
+                scoped(GiftCard, self.biz).where(GiftCard.payment_id == payment.id)
+            )
+        ).scalar_one_or_none()
+        if card is not None:
+            if await ledger.gift_card_balance(self.db, card) < card.initial_cents:
+                raise Conflict("can't refund a gift card that has already been partly redeemed")
+            return "a gift card purchase is refunded in full"
+        pkg = (
+            await self.db.execute(scoped(Package, self.biz).where(Package.payment_id == payment.id))
+        ).scalar_one_or_none()
+        if pkg is not None:
+            if pkg.sessions_used > 0:
+                raise Conflict("can't refund a package with sessions already used")
+            return "a package purchase is refunded in full"
+        if payment.booking_id is not None and payment.kind == "deposit":
+            booking = await self.db.get(Booking, payment.booking_id)
+            if booking is not None and booking.deposit_status == "forfeited":
+                return "a forfeited deposit is refunded in full"
+        return None
 
     async def request_interac(
         self,
@@ -919,8 +931,8 @@ async def _update_payment_method(
 
 
 async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | None:
-    """A charge was refunded on Stripe's side (e.g. the dashboard) — mirror it as a refund payment
-    and reconcile, unless our own refund command already recorded one (deduped on parent)."""
+    """Mirror refunds made on Stripe's side (e.g. the dashboard): one refund row per Stripe refund
+    object we haven't recorded. Our own refund command already wrote its row (same provider_ref)."""
     intent = data.get("payment_intent")
     if not isinstance(intent, str):
         return None
@@ -931,52 +943,40 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | 
     ).scalar_one_or_none()
     if payment is None or payment.status != "succeeded":
         return None
-    amount = data.get("amount_refunded")
-    cumulative = int(amount) if isinstance(amount, int) else payment.amount_cents
-    prior = (
-        await db.execute(
-            select(Payment).where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
-        )
-    ).scalar_one_or_none()
-    if prior is not None:
-        # `amount_refunded` is CUMULATIVE; a later, larger value means an additional partial refund
-        # on Stripe's side — grow our single refund row + re-reconcile instead of silently dropping
-        # it (which would overstate net collected). Equal/smaller = our own refund or replay: no-op.
-        if cumulative > prior.amount_cents:
-            extra = cumulative - prior.amount_cents
-            prior.amount_cents = cumulative
-            await db.flush()
-            await ledger.post_refund(
-                db, prior, payment, amount=extra, ref=f"refund:{prior.id}:{cumulative}"
-            )
-            await _sync_parent(db, payment)
-        return prior.id
     refunds = data.get("refunds")
-    rows = refunds.get("data") if isinstance(refunds, dict) else None
-    ref_id = (
-        rows[0].get("id") if isinstance(rows, list) and rows and isinstance(rows[0], dict) else None
-    )
-    refund = Payment(
-        id=new_id("payment"),
-        business_id=payment.business_id,
-        client_id=payment.client_id,
-        kind="refund",
-        parent_payment_id=payment.id,
-        invoice_id=payment.invoice_id,
-        order_id=payment.order_id,
-        booking_id=payment.booking_id,
-        amount_cents=cumulative,
-        currency=payment.currency,
-        method=payment.method,
-        provider="stripe",
-        provider_ref=str(ref_id) if isinstance(ref_id, str) else f"re_{intent}",
-        status="succeeded",
-        paid_at=datetime.now(UTC),
-    )
-    db.add(refund)
-    await db.flush()
-    await _apply_refund(db, refund, payment)
-    return refund.id
+    objects = refunds.get("data") if isinstance(refunds, dict) else None
+    recorded: str | None = None
+    for obj in objects if isinstance(objects, list) else []:
+        if not isinstance(obj, dict) or not isinstance(obj.get("id"), str):
+            continue
+        amount = obj.get("amount")
+        seen = (
+            await db.execute(select(Payment.id).where(Payment.provider_ref == obj["id"]))
+        ).scalar_one_or_none()
+        if seen is not None or not isinstance(amount, int) or amount <= 0:
+            continue
+        refund = Payment(
+            id=new_id("payment"),
+            business_id=payment.business_id,
+            client_id=payment.client_id,
+            kind="refund",
+            parent_payment_id=payment.id,
+            invoice_id=payment.invoice_id,
+            order_id=payment.order_id,
+            booking_id=payment.booking_id,
+            amount_cents=amount,
+            currency=payment.currency,
+            method=payment.method,
+            provider="stripe",
+            provider_ref=str(obj["id"]),
+            status="succeeded",
+            paid_at=datetime.now(UTC),
+        )
+        db.add(refund)
+        await db.flush()
+        await _apply_refund(db, refund, payment)
+        recorded = refund.id
+    return recorded
 
 
 async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | None:
@@ -1109,11 +1109,15 @@ async def _fees(
 async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> None:
     """Book a refund and roll its parent back: a forfeited deposit is un-forfeited first so the
     refund draws on the deposit it returns; a refunded package/gift card is voided."""
-    if payment.booking_id is not None and payment.kind == "deposit":
+    deposit = payment.booking_id is not None and payment.kind == "deposit"
+    if deposit and payment.booking_id is not None:
         await _reverse_booking_deposit(db, payment.booking_id)
     await ledger.post_refund(db, refund, payment)
+    if deposit and payment.booking_id is not None:
+        await _booking_deposit_refunded(db, payment.booking_id)
     await _sync_parent(db, payment)
-    await _reverse_entitlement(db, payment)
+    if await _fully_refunded(db, payment):
+        await _reverse_entitlement(db, payment)
 
 
 async def _sync_parent(db: AsyncSession, payment: Payment) -> None:
@@ -1147,6 +1151,27 @@ async def _reverse_booking_deposit(db: AsyncSession, booking_id: str) -> None:
     await booking_service.reverse_deposit(db, booking_id)
 
 
+async def _booking_deposit_refunded(db: AsyncSession, booking_id: str) -> None:
+    from clientbridge.services import booking_service  # deferred: booking imports this module
+
+    await booking_service.deposit_refunded(db, booking_id)
+
+
+async def _refunded_cents(db: AsyncSession, payment: Payment) -> int:
+    total = await db.execute(
+        select(func.coalesce(func.sum(Payment.amount_cents), 0)).where(
+            Payment.parent_payment_id == payment.id,
+            Payment.kind == "refund",
+            Payment.status == "succeeded",
+        )
+    )
+    return int(total.scalar_one())
+
+
+async def _fully_refunded(db: AsyncSession, payment: Payment) -> bool:
+    return await _refunded_cents(db, payment) >= payment.amount_cents
+
+
 async def _reverse_entitlement(db: AsyncSession, payment: Payment) -> None:
     """Void a package/gift card whose purchase charge is refunded (mirrors _settle_entitlement)."""
     if payment.invoice_id or payment.order_id or payment.booking_id:
@@ -1163,11 +1188,11 @@ async def _sync_order(db: AsyncSession, order_id: str) -> None:
     if order is None:
         return
     net, refunded = await ledger.collected(db, order.business_id, "order", order_id)
-    if net > 0 and net >= order.total_cents:
-        order.status = "paid"
-        order.paid_at = order.paid_at or datetime.now(UTC)
-    elif net <= 0 and refunded:
+    if net <= 0 and refunded:
         order.status = "refunded"
+    elif net >= order.total_cents or (refunded and net > 0):
+        order.status = "paid"  # a partly refunded sale stays settled
+        order.paid_at = order.paid_at or datetime.now(UTC)
     else:
         order.status = "open"
         order.paid_at = None

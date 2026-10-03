@@ -18,7 +18,7 @@ import {
     isRefundable,
     payLinkUrl,
     paymentStatusIntent,
-    refundPayment,
+    useRefundForm,
     strings,
     useAsyncAction,
     useClients,
@@ -505,15 +505,17 @@ function PaymentRowItem({
     payments: PaymentRow[];
     canRefund: boolean;
 }) {
-    const { busy, error, run } = useAsyncAction();
+    const { amount, setAmount, remainingCents, busy, error, submit } = useRefundForm(
+        api,
+        payment,
+        payments,
+    );
     const isRefund = isRefundRow(payment);
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
         if (!window.confirm(strings.invoices.refundConfirm)) return;
-        run(() => refundPayment(api, payment.id), {
-            errorMessage: strings.invoices.refundError,
-        });
+        submit();
     };
 
     return (
@@ -534,11 +536,24 @@ function PaymentRowItem({
                 )}
                 <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
                 {showRefund ? (
+                    <input
+                        inputMode="decimal"
+                        value={amount}
+                        onChange={(e) => {
+                            setAmount(e.target.value);
+                        }}
+                        placeholder={strings.invoices.refundAmountPlaceholder(
+                            formatMoneyWithCurrency(remainingCents, payment.currency),
+                        )}
+                        className="ml-auto w-28 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink outline-hidden focus:border-accent"
+                    />
+                ) : null}
+                {showRefund ? (
                     <button
                         type="button"
                         disabled={busy}
                         onClick={refund}
-                        className="ml-auto shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                        className="shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
                         {busy ? strings.invoices.refunding : strings.invoices.refund}
                     </button>

@@ -1,8 +1,11 @@
+import { useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
+import { addDays, dateKey } from "../util/datetime";
+import { newIdempotencyKey } from "../util/primitives";
 
 export interface IncomeReport {
     gross_cents: number;
@@ -144,4 +147,72 @@ export function useReportDownload(
     };
 
     return { error, isDownloading: (kind) => busy && downloading === kind, download };
+}
+
+export interface RemittanceRow {
+    id: string;
+    period_start: string;
+    period_end: string;
+    total_cents: number;
+}
+
+// A filed return is its remittance journal; its bank leg is what was paid and its meta the period.
+const REMITTANCES_SQL = `
+SELECT e.journal_id AS id, json_extract(e.meta, '$.start') AS period_start,
+       json_extract(e.meta, '$.end') AS period_end, -e.amount_cents AS total_cents
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE e.type = 'remittance' AND a.kind = 'bank'
+ORDER BY period_end DESC`;
+
+/** Sales-tax returns already filed, newest first. */
+export function useRemittances(): RemittanceRow[] {
+    return useQuery<RemittanceRow>(REMITTANCES_SQL).data;
+}
+
+export interface RemittancePeriod {
+    start: string;
+    end: string;
+}
+
+/** The next unfiled period: the day after the last return (or Jan 1) through today. */
+export function nextRemittancePeriod(
+    filed: RemittanceRow[],
+    now: Date = new Date(),
+): RemittancePeriod {
+    const last = filed[0];
+    const start =
+        last === undefined
+            ? `${String(now.getFullYear())}-01-01`
+            : dateKey(addDays(new Date(`${last.period_end}T00:00:00`), 1));
+    return { start, end: dateKey(now) };
+}
+
+export function recordRemittance(api: ApiLike, period: RemittancePeriod): Promise<unknown> {
+    return api.post(
+        "/v1/payments/remittances",
+        { period_start: period.start, period_end: period.end },
+        { idempotencyKey: newIdempotencyKey() },
+    );
+}
+
+export interface RemittanceAction {
+    filed: RemittanceRow[];
+    period: RemittancePeriod;
+    canRecord: boolean;
+    busy: boolean;
+    error: string | null;
+    record: () => void;
+}
+
+/** Filing a return: the period it would cover, the returns already filed, and the command. */
+export function useRemittanceAction(api: ApiLike): RemittanceAction {
+    const filed = useRemittances();
+    const period = nextRemittancePeriod(filed);
+    const { busy, error, run } = useAsyncAction();
+    const record = (): void => {
+        run(() => recordRemittance(api, period), {
+            errorMessage: strings.reports.remitError,
+        });
+    };
+    return { filed, period, canRecord: period.start <= period.end, busy, error, record };
 }

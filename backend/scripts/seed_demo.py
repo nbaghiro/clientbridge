@@ -708,6 +708,9 @@ def seed_appointments() -> None:
                 price_cents=price,
                 deposit_required=price >= 10000,
                 deposit_amount_cents=2000 if price >= 10000 else 0,
+                deposit_status="pending"
+                if price >= 10000 and status in {"pending", "confirmed"}
+                else "none",
                 confirmed_at=at(d - 1, 12) if status in {"confirmed", "completed"} else None,
                 completed_at=at(d, h + 1) if status == "completed" else None,
                 canceled_at=at(d - 1, 9) if status == "canceled" else None,
@@ -1679,6 +1682,7 @@ def seed_coverage() -> None:
                 price_cents=2800,
                 deposit_required=True,
                 deposit_amount_cents=1400,
+                deposit_status="collected" if j == 0 else "pending",
                 confirmed_at=at(1, 12),
                 custom_fields={"class": "puppy_social"},
             )

@@ -182,7 +182,7 @@ async def test_charge_refunded_records_a_dashboard_refund(
                     "id": "ch_1",
                     "payment_intent": "pi_dash",
                     "amount_refunded": 5000,
-                    "refunds": {"data": [{"id": "re_dash_1"}]},
+                    "refunds": {"data": [{"id": "re_dash_1", "amount": 5000}]},
                 }
             },
         }
