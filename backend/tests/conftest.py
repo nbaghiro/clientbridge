@@ -36,6 +36,7 @@ from clientbridge.integrations.notifications import (
 )
 from clientbridge.integrations.oauth import OAuthProfile, get_oauth_verifier
 from clientbridge.integrations.payments import (
+    ChargeFees,
     ConnectAccount,
     GatewayEvent,
     PaymentGateway,
@@ -48,13 +49,28 @@ from clientbridge.integrations.payments import (
 )
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.main import app
+from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
+from clientbridge.services import ledger_service as ledger
+from clientbridge.services.tax_service import TaxResult
 
 # Seeded baseline (committed): the demo business + two of its users.
 BIZ = "bz_birchbark"
 OWNER_USER = "us_dev"
 STAFF_USER = "us_diego"
+
+
+async def book_invoice(db: AsyncSession, invoice: Invoice) -> None:
+    """Post a directly-inserted invoice to the ledger, exactly as sending it would."""
+    tax = invoice.tax_total_cents
+    await ledger.post_invoice(
+        db,
+        invoice,
+        TaxResult(
+            invoice.subtotal_cents, tax, invoice.total_cents, {"GST": tax} if tax else {}, []
+        ),
+    )
 
 
 @pytest.fixture
@@ -157,6 +173,8 @@ class FakePaymentGateway:
         self.charged_methods: list[str] = []  # off-session payment_methods passed to a charge
         self.created_locations: list[str] = []  # Terminal locations minted
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
+        self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
+        self.balance_cents = 0  # get_balance_cents() result
 
     async def create_connected_account(
         self, *, business_name: str, email: str | None, url: str | None = None
@@ -279,6 +297,7 @@ class FakePaymentGateway:
         pid = f"pi_fake{self._seq}"
         result = PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
         self._intents[idempotency_key] = result
+        self.charges[pid] = (amount_cents, application_fee_cents)
         return result
 
     async def refund(
@@ -318,7 +337,16 @@ class FakePaymentGateway:
         pid = f"pi_term_fake{self._seq}"
         result = PaymentIntentResult(id=pid, client_secret=f"{pid}_secret")
         self._intents[idempotency_key] = result
+        self.charges[pid] = (amount_cents, application_fee_cents)
         return result
+
+    async def get_payment_fees(self, account_id: str, *, payment_intent_id: str) -> ChargeFees:
+        amount, app_fee = self.charges.get(payment_intent_id, (0, 0))
+        processing = round(amount * 0.029) + 30 if amount else 0
+        return ChargeFees(processing, app_fee, None)
+
+    async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
+        return self.balance_cents
 
 
 @pytest.fixture

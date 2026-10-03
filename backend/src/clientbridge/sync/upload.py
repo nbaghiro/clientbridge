@@ -84,8 +84,7 @@ SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 # Per-table fields only a command may write (numbering, money, counters); a sync op that sets one is
 # rejected.
 COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
-    # stripe_customer_id + the lifetime_value_cents rollup are set by the payments command only
-    "clients": frozenset({"stripe_customer_id", "lifetime_value_cents"}),
+    "clients": frozenset({"stripe_customer_id"}),  # the Stripe Customer, minted by the payment cmd
     "items": frozenset({"stripe_price_id"}),  # the recurring Price cached by the subscription cmd
 }
 

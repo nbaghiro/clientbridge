@@ -9,8 +9,10 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
-from tests.conftest import Factory
+from clientbridge.services import ledger_service as ledger
+from tests.conftest import Factory, book_invoice
 
 BIZ = "bz_birchbark"
 
@@ -41,10 +43,11 @@ async def _invoice(db: AsyncSession, *, total: int = 11200, status: str = "sent"
         subtotal_cents=total,
         tax_total_cents=0,
         total_cents=total,
-        balance_cents=total,
     )
     db.add(inv)
     await db.flush()
+    if status not in ("draft", "void"):
+        await book_invoice(db, inv)
     return inv.id
 
 
@@ -93,14 +96,14 @@ async def test_succeeded_webhook_marks_invoice_paid(
     assert res.status_code == 200
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     assert inv.status == "paid"
-    assert inv.balance_cents == 0
-    assert inv.amount_paid_cents == 11200
+    assert await ledger.invoice_balance(db, inv) == 0
+    assert await ledger.collected(db, BIZ, "invoice", inv_id) == (11200, False)
 
 
-async def test_settlement_records_application_fee_and_net(
+async def test_settlement_books_stripe_and_platform_fees(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # the fee drives payout math, so a dropped/mis-parsed fee must not settle net == amount
+    # Stripe's processing fee and our application fee both come off the provider's balance
     await _enable_payments(db)
     inv_id = await _invoice(db)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
@@ -113,8 +116,19 @@ async def test_settlement_records_application_fee_and_net(
     assert res.status_code == 200
     row = (await db.execute(select(Payment).where(Payment.id == pay["payment_id"]))).scalar_one()
     assert row.status == "succeeded"
-    assert row.fee_cents == 250
-    assert row.net_cents == 11200 - 250
+    legs = (
+        await db.execute(
+            select(Account.owner_type, Account.kind, func.sum(Entry.amount_cents))
+            .join(Account, Account.id == Entry.account_id)
+            .where(Entry.source_id == row.id)
+            .group_by(Account.owner_type, Account.kind)
+        )
+    ).tuples()
+    by_kind = {(owner, kind): int(cents) for owner, kind, cents in legs}
+    assert by_kind[("business", "processing_fee")] == 355  # 2.9% + 30c
+    assert by_kind[("business", "platform_fee")] == 224  # the 2% application fee
+    assert by_kind[("business", "stripe")] == 11200 - 355 - 224
+    assert by_kind[("platform", "fee_revenue")] == -224
 
 
 async def test_partial_payment_marks_invoice_partial(
@@ -129,11 +143,11 @@ async def test_partial_payment_marks_invoice_partial(
     )
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     assert inv.status == "partial"
-    assert inv.amount_paid_cents == 4000
-    assert inv.balance_cents == 6000
+    assert await ledger.collected(db, BIZ, "invoice", inv_id) == (4000, False)
+    assert await ledger.invoice_balance(db, inv) == 6000
 
 
-async def test_refund_reverts_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await _enable_payments(db)
     inv_id = await _invoice(db)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
@@ -144,46 +158,15 @@ async def test_refund_reverts_invoice(as_owner: httpx.AsyncClient, db: AsyncSess
     refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
     assert refunded.status_code == 200
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "sent"
-    assert inv.amount_paid_cents == 0
-    assert inv.balance_cents == 11200
-
-
-async def test_client_lifetime_value_tracks_settle_and_refund(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    # a fresh client starts at $0; settling a payment rolls it up, refunding rolls it back
-    await _enable_payments(db)
-    client = Client(id=new_id("client"), business_id=BIZ, name="LTV Probe")
-    db.add(client)
-    await db.flush()
-    inv = Invoice(
-        id=new_id("invoice"),
-        business_id=BIZ,
-        client_id=client.id,
-        number=9500,
-        status="sent",
-        currency="CAD",
-        subtotal_cents=5000,
-        tax_total_cents=0,
-        total_cents=5000,
-        balance_cents=5000,
+    assert inv.status == "refunded"
+    assert await ledger.invoice_balance(db, inv) == 0  # a credit note: nothing is owed again
+    assert await ledger.collected(db, BIZ, "invoice", inv_id) == (0, True)
+    assert (
+        await ledger.subject_balance(
+            db, BIZ, kind="revenue", subject_type="invoice", subject_id=inv_id
+        )
+        == 0
     )
-    db.add(inv)
-    await db.flush()
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv.id}")).json()
-    pi_id = await _provider_ref(db, pay["payment_id"])
-    await as_owner.post(
-        "/webhooks/stripe",
-        content=_pi_event("evt_ltv", pi_id),
-        headers={"Stripe-Signature": "good"},
-    )
-    await db.refresh(client)
-    assert client.lifetime_value_cents == 5000
-
-    await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
-    await db.refresh(client)
-    assert client.lifetime_value_cents == 0
 
 
 async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -348,10 +331,10 @@ async def _foreign_invoice(db: AsyncSession, factory: Factory) -> str:
         subtotal_cents=5000,
         tax_total_cents=0,
         total_cents=5000,
-        balance_cents=5000,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     return inv.id
 
 
@@ -388,7 +371,6 @@ async def test_refund_foreign_payment_404_by_scoping(
         provider="stripe",
         provider_ref="pi_foreign",
         status="succeeded",
-        net_cents=5000,
         paid_at=datetime.now(UTC),
     )
     db.add(foreign_pay)

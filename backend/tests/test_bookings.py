@@ -11,6 +11,7 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Availability, Booking, Session
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 
 ST_OWNER = "st_owner"
@@ -545,7 +546,7 @@ async def test_collect_deposit_default_card_settles_and_receipts(
     )
     assert webhook.status_code == 200
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert booking.deposit_status == "collected"
+    assert await ledger.deposit_state(db, booking) == "collected"
     assert len(email.sent) >= 1  # deposit receipt to the client
 
 
@@ -559,7 +560,7 @@ async def test_collect_deposit_interactive_returns_secret(
     assert res.json()["client_secret"].startswith("pi_fake")
     assert gateway.charged_methods == []  # nothing charged — awaiting client confirmation
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert booking.deposit_status == "pending"
+    assert await ledger.deposit_state(db, booking) == "pending"
 
 
 async def test_collect_deposit_no_deposit_due_409(
@@ -687,7 +688,7 @@ async def test_no_show_charges_default_card(
     bid = await _deposit_booking(as_owner, db, starts="2027-06-09T10:00:00Z")  # deposit uncollected
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
-    assert res.json()["deposit_status"] == "forfeited"
+    assert res.json()["deposit_status"] == "pending"  # captured, not yet settled
     assert gateway.charged_methods.count(SEEDED_CARD) == 1
     charged = (
         await db.execute(
@@ -695,6 +696,14 @@ async def test_no_show_charges_default_card(
         )
     ).scalar_one()
     assert charged.amount_cents == 2000
+    await as_owner.post(
+        "/webhooks/stripe",
+        content=_pi_succeeded("evt_ns", charged.provider_ref or ""),
+        headers={"Stripe-Signature": "good"},
+    )
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert await ledger.deposit_state(db, booking) == "forfeited"
+    assert await ledger.deposit_held(db, booking) == 0
     # idempotent — repeat no_show never double-charges
     await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert gateway.charged_methods.count(SEEDED_CARD) == 1
@@ -725,8 +734,7 @@ async def test_no_show_required_deposit_no_default_card_does_not_forfeit(
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
     assert res.json()["status"] == "no_show"
-    assert res.json()["deposit_status"] != "forfeited"  # nothing to capture → left untouched
-    assert res.json()["deposit_status"] == "none"
+    assert res.json()["deposit_status"] == "pending"  # nothing to capture → still due
     assert gateway.charged_methods == []  # no card → no off-session charge
 
 
@@ -772,7 +780,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
         headers={"Stripe-Signature": "good"},
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert booking.deposit_status == "collected"
+    assert await ledger.deposit_state(db, booking) == "collected"
     receipts = len(email.sent)
     assert receipts >= 1  # the deposit receipt fired on the first settle
 
@@ -782,7 +790,9 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
         headers={"Stripe-Signature": "good"},
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert booking.deposit_status == "collected"  # still collected, not re-collected
+    assert (
+        await ledger.deposit_state(db, booking) == "collected"
+    )  # still collected, not re-collected
     assert len(email.sent) == receipts  # no second receipt — the settle no-oped
     assert gateway.charged_methods.count(SEEDED_CARD) == 1  # never re-charged
 
@@ -800,12 +810,12 @@ async def test_refund_reverses_collected_deposit(
         headers={"Stripe-Signature": "good"},
     )
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert booking.deposit_status == "collected"
+    assert await ledger.deposit_state(db, booking) == "collected"
 
     refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
     assert refunded.status_code == 200, refunded.text
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
-    assert booking.deposit_status == "none"  # no longer collected
+    assert await ledger.deposit_state(db, booking) == "refunded"
     refund_row = (
         await db.execute(
             select(Payment).where(

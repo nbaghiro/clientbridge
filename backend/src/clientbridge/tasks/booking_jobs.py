@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import Exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
@@ -14,17 +14,20 @@ _UNPAID_TTL = timedelta(minutes=30)
 async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
     """Cancel public online bookings that have held a slot past the deposit window without paying,
     freeing the session so it's bookable again. A confirmed online booking commits before its
-    deposit is paid (no settled deposit → the hold was never earned). Idempotent — a canceled
-    booking no longer matches; a row with a settled deposit is left alone."""
-    settled = (
-        select(Payment.booking_id)
-        .where(
-            Payment.kind == "deposit",
-            Payment.status == "succeeded",
-            Payment.booking_id.is_not(None),  # guard the NOT IN against a NULL row
+    deposit is paid (an open deposit charge, none settled → the hold was never earned). Idempotent
+    — a canceled booking no longer matches; a row with a settled deposit is left alone."""
+
+    def deposits(status: str) -> Exists:
+        return (
+            select(Payment.id)
+            .where(
+                Payment.booking_id == Booking.id,
+                Payment.kind == "deposit",
+                Payment.status == status,
+            )
+            .exists()
         )
-        .subquery()
-    )
+
     bookings = (
         await db.execute(
             select(Booking, Session)
@@ -33,10 +36,10 @@ async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
                 Booking.deleted_at.is_(None),
                 Booking.source == "online",
                 Booking.deposit_required.is_(True),
-                Booking.deposit_status == "pending",
                 Booking.status.not_in(("completed", "canceled", "no_show")),
                 Booking.created_at < now - _UNPAID_TTL,
-                Booking.id.not_in(select(settled.c.booking_id)),
+                deposits("pending"),
+                ~deposits("succeeded"),
             )
         )
     ).all()

@@ -9,7 +9,7 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
-from tests.conftest import Factory, FakePaymentGateway
+from tests.conftest import Factory, FakePaymentGateway, book_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -118,10 +118,10 @@ async def test_pay_with_saved_card(as_owner: httpx.AsyncClient, db: AsyncSession
         subtotal_cents=4000,
         tax_total_cents=0,
         total_cents=4000,
-        balance_cents=4000,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
     assert res.status_code == 200, res.text
     payment = (
@@ -145,10 +145,10 @@ async def test_pay_with_unknown_saved_card_404(
         subtotal_cents=4000,
         tax_total_cents=0,
         total_cents=4000,
-        balance_cents=4000,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=pm_nope")
     assert res.status_code == 404
 
@@ -184,10 +184,10 @@ async def test_cannot_use_another_clients_saved_card(
         subtotal_cents=4000,
         tax_total_cents=0,
         total_cents=4000,
-        balance_cents=4000,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={other_pm.id}")
     assert res.status_code == 404  # the saved card belongs to a different client
 
@@ -366,7 +366,6 @@ def _invoice_row(cid: str, *, number: int) -> Invoice:
         subtotal_cents=4000,
         tax_total_cents=0,
         total_cents=4000,
-        balance_cents=4000,
     )
 
 
@@ -378,6 +377,7 @@ async def test_off_session_card_declined_402(as_owner: httpx.AsyncClient, db: As
     inv = _invoice_row(cid, number=9800)
     db.add_all([pm, inv])
     await db.flush()
+    await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
     assert res.status_code == 402
     assert res.json()["error"] == "card_declined"
@@ -396,6 +396,7 @@ async def test_off_session_requires_action_402(
     inv = _invoice_row(cid, number=9801)
     db.add_all([pm, inv])
     await db.flush()
+    await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
     assert res.status_code == 402
     assert res.json()["error"] == "payment_action_required"
@@ -426,6 +427,7 @@ async def test_pay_with_default_card(
     inv = _invoice_row(cid, number=9802)
     db.add_all([default, other, inv])
     await db.flush()
+    await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=default")
     assert res.status_code == 200, res.text
     assert gateway.charged_methods == ["pm_default"]  # the is_default card was charged off-session
@@ -440,5 +442,6 @@ async def test_pay_with_default_no_default_404(
     inv = _invoice_row(cid, number=9803)
     db.add_all([pm, inv])
     await db.flush()
+    await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=default")
     assert res.status_code == 404

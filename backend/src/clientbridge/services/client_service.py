@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import ColumnElement, case, func, or_, select
+from sqlalchemy import ColumnElement, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
@@ -9,7 +9,6 @@ from clientbridge.core.errors import NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_count, scoped_page
 from clientbridge.models.crm import Client
-from clientbridge.models.payments import Payment
 from clientbridge.schemas.crm import ClientCreate, ClientUpdate
 
 
@@ -112,30 +111,3 @@ async def find_or_create_by_contact(
     db.add(client)
     await db.flush()
     return client
-
-
-async def recompute_ltv(db: AsyncSession, client_id: str | None) -> None:
-    """Recompute the client's lifetime value from their settled payments (payments and deposits
-    less refunds), so it stays right on every settle/refund. No-op for walk-ins."""
-    if client_id is None:
-        return
-    client = await db.get(Client, client_id)
-    if client is None:
-        return
-    total = (
-        await db.execute(
-            select(
-                func.coalesce(
-                    func.sum(
-                        case(
-                            (Payment.kind == "refund", -Payment.amount_cents),
-                            else_=Payment.amount_cents,
-                        )
-                    ),
-                    0,
-                )
-            ).where(Payment.client_id == client_id, Payment.status == "succeeded")
-        )
-    ).scalar_one()
-    client.lifetime_value_cents = int(total)
-    await db.flush()

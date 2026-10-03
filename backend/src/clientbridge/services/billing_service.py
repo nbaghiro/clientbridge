@@ -21,6 +21,7 @@ from clientbridge.schemas.billing import (
     InvoiceUpdate,
     LineInput,
 )
+from clientbridge.services import ledger_service as ledger
 from clientbridge.services.lines import (
     apply_totals,
     fetch_lines,
@@ -58,7 +59,7 @@ class BillingService:
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return _invoice_out(invoice, lines)
+            return await _invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db,
@@ -88,7 +89,7 @@ class BillingService:
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.update", entity_type="invoice", entity_id=invoice.id)
-            return _invoice_out(invoice, lines)
+            return await _invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db, self.principal, action="invoice.update", run=run, response_model=InvoiceOut
@@ -109,6 +110,10 @@ class BillingService:
                 invoice.pay_token = secrets.token_urlsafe(16)  # public pay-link key
                 if invoice.due_at is None:
                     invoice.due_at = now + timedelta(days=_DUE_DAYS)
+                lines = await self._lines("invoice", invoice.id)
+                tax = await tax_for_lines(self.db, self.biz, lines)
+                apply_totals(invoice, tax)  # tax is fixed at issue; the document matches its entry
+                await ledger.post_invoice(self.db, invoice, tax)
                 cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
@@ -118,7 +123,7 @@ class BillingService:
                 )  # the unique (business_id, number) backstops a concurrent send
             except IntegrityError as exc:
                 raise Conflict("that number was just assigned — please retry") from exc
-            return _invoice_out(invoice, await self._lines("invoice", invoice.id))
+            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
@@ -127,15 +132,16 @@ class BillingService:
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
-        if invoice.status in ("paid", "void"):
+        if invoice.status in ("paid", "partial", "refunded", "void"):
             raise Conflict(f"a {invoice.status} invoice can't be voided")
 
         async def run(cmd: Command) -> InvoiceOut:
             invoice.status = "void"
             invoice.voided_at = datetime.now(UTC)
             await self.db.flush()
+            await ledger.void_invoice(self.db, invoice)
             cmd.record("invoice.void", entity_type="invoice", entity_id=invoice.id)
-            return _invoice_out(invoice, await self._lines("invoice", invoice.id))
+            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.void", run=run, response_model=InvoiceOut
@@ -265,7 +271,7 @@ class BillingService:
             await self.db.flush()
             cmd.record("estimate.convert", entity_type="estimate", entity_id=estimate.id)
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return _invoice_out(invoice, lines)
+            return await _invoice_out(self.db, invoice, lines)
 
         return await run_command(
             self.db,
@@ -348,7 +354,8 @@ class BillingService:
         return row
 
 
-def _invoice_out(invoice: Invoice, lines: list[Line]) -> InvoiceOut:
+async def _invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) -> InvoiceOut:
+    paid, _ = await ledger.collected(db, invoice.business_id, "invoice", invoice.id)
     return InvoiceOut(
         id=invoice.id,
         business_id=invoice.business_id,
@@ -359,8 +366,8 @@ def _invoice_out(invoice: Invoice, lines: list[Line]) -> InvoiceOut:
         subtotal_cents=invoice.subtotal_cents,
         tax_total_cents=invoice.tax_total_cents,
         total_cents=invoice.total_cents,
-        amount_paid_cents=invoice.amount_paid_cents,
-        balance_cents=invoice.balance_cents,
+        amount_paid_cents=paid,
+        balance_cents=await ledger.invoice_balance(db, invoice),
         issued_at=invoice.issued_at,
         due_at=invoice.due_at,
         paid_at=invoice.paid_at,

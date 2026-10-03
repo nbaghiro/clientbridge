@@ -11,6 +11,8 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
+from clientbridge.services import ledger_service as ledger
+from clientbridge.services.ledger_service import Leg
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 
 PURCHASER = "cl_marcus"  # seeded client with a default saved card (pm_demo_5454)
@@ -31,11 +33,21 @@ async def _active_card(db: AsyncSession, *, code: str, balance: int = 5000) -> G
         business_id=BIZ,
         code=code,
         initial_cents=balance,
-        balance_cents=balance,
         status="active",
     )
     db.add(card)
     await db.flush()
+    await ledger.post(
+        db,
+        BIZ,
+        type="payment",
+        ref=f"test:purchase:{card.id}",
+        legs=[
+            Leg("business", BIZ, "stripe", balance),
+            Leg("gift_card", card.id, "gift_card", -balance),
+        ],
+        subject=("gift_card", card.id),
+    )
     return card
 
 
@@ -80,7 +92,8 @@ async def test_purchase_off_session_creates_pending_card_and_payment(
     ).scalar_one()
     pay = (await db.execute(select(Payment).where(Payment.id == body["payment_id"]))).scalar_one()
     assert card.status == "pending"
-    assert card.initial_cents == 5000 and card.balance_cents == 5000
+    assert card.initial_cents == 5000
+    assert await ledger.gift_card_balance(db, card) == 0  # liability books on settlement
     assert card.payment_id == pay.id
     assert pay.status == "pending" and pay.amount_cents == 5000  # face value, not taxed at sale
     assert gateway.charged_methods == ["pm_demo_5454"]
@@ -186,7 +199,8 @@ async def test_purchase_by_item_uses_item_price(
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == res.json()["gift_card_id"]))
     ).scalar_one()
-    assert card.initial_cents == 7500 and card.balance_cents == 7500
+    assert card.initial_cents == 7500
+    assert await ledger.gift_card_balance(db, card) == 0
 
 
 async def test_purchase_not_onboarded_409(as_owner: httpx.AsyncClient) -> None:
@@ -322,7 +336,6 @@ async def test_other_business_code_404(
             business_id=other.id,
             code="OTHERBIZCODE",
             initial_cents=5000,
-            balance_cents=5000,
             status="active",
         )
     )

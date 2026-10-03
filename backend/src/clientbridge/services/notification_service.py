@@ -23,6 +23,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Session
+from clientbridge.services import ledger_service as ledger
 
 _log = logging.getLogger(__name__)
 
@@ -219,7 +220,7 @@ class Notifier:
         business = await db.get(Business, invoice.business_id)
         if business is None:
             return
-        amount = _money(invoice.balance_cents, invoice.currency)
+        amount = _money(await ledger.invoice_balance(db, invoice), invoice.currency)
         link = (
             f"{get_settings().connect_base_url}/pay/{invoice.pay_token}"
             if invoice.pay_token

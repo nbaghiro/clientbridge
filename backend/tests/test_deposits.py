@@ -11,6 +11,8 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
+from clientbridge.services import ledger_service as ledger
+from tests.conftest import book_invoice
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -98,10 +100,10 @@ async def _invoice(db: AsyncSession, *, total: int = 10000) -> str:
         subtotal_cents=total,
         tax_total_cents=0,
         total_cents=total,
-        balance_cents=total,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     return inv.id
 
 
@@ -163,4 +165,6 @@ async def test_deposit_settles_invoice_to_partial(
     )
     await as_owner.post("/webhooks/stripe", content=event, headers={"Stripe-Signature": "good"})
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "partial" and inv.amount_paid_cents == 2500
+    assert inv.status == "partial"
+    assert await ledger.invoice_balance(db, inv) == 7500
+    assert await ledger.collected(db, BIZ, "invoice", inv_id) == (2500, False)

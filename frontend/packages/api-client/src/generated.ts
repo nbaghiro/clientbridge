@@ -736,6 +736,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/earnings/{earning_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Earning */
+        post: operations["approve_earning_v1_earnings__earning_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/earnings/{earning_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay Earning */
+        post: operations["pay_earning_v1_earnings__earning_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/estimates": {
         parameters: {
             query?: never;
@@ -1087,40 +1121,6 @@ export interface paths {
         put?: never;
         /** Connection Token */
         post: operations["connection_token_v1_terminal_connection_token_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payouts/allocations/{allocation_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve Allocation */
-        post: operations["approve_allocation_v1_payouts_allocations__allocation_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payouts/allocations/{allocation_id}/pay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pay Allocation */
-        post: operations["pay_allocation_v1_payouts_allocations__allocation_id__pay_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1853,8 +1853,6 @@ export interface components {
             id: string;
             /** Business Id */
             business_id: string;
-            /** Lifetime Value Cents */
-            lifetime_value_cents: number;
             /**
              * Created At
              * Format: date-time
@@ -1966,6 +1964,19 @@ export interface components {
              * @enum {string}
              */
             platform: "ios" | "android" | "web";
+        };
+        /** EarningOut */
+        EarningOut: {
+            /** Id */
+            id: string;
+            /** Staff Id */
+            staff_id: string;
+            /** Booking Id */
+            booking_id: string | null;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Status */
+            status: string;
         };
         /** EstimateCreate */
         EstimateCreate: {
@@ -2608,17 +2619,6 @@ export interface components {
             last4: string | null;
             /** Is Default */
             is_default: boolean;
-            /** Status */
-            status: string;
-        };
-        /** PayoutAllocationOut */
-        PayoutAllocationOut: {
-            /** Id */
-            id: string;
-            /** Staff Id */
-            staff_id: string;
-            /** Amount Cents */
-            amount_cents: number;
             /** Status */
             status: string;
         };
@@ -4827,6 +4827,76 @@ export interface operations {
             };
         };
     };
+    approve_earning_v1_earnings__earning_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                earning_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_earning_v1_earnings__earning_id__pay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                earning_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_estimate_v1_estimates_post: {
         parameters: {
             query?: never;
@@ -5549,76 +5619,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectionTokenOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    approve_allocation_v1_payouts_allocations__allocation_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                allocation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PayoutAllocationOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    pay_allocation_v1_payouts_allocations__allocation_id__pay_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                allocation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PayoutAllocationOut"];
                 };
             };
             /** @description Validation Error */

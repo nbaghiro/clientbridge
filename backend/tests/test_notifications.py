@@ -12,7 +12,7 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import DeviceToken
-from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender, book_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -50,10 +50,10 @@ async def _sent_invoice(db: AsyncSession, cid: str, *, total: int = 5000) -> str
         subtotal_cents=total,
         tax_total_cents=0,
         total_cents=total,
-        balance_cents=total,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     return inv.id
 
 

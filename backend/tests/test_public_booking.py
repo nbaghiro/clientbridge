@@ -14,6 +14,7 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Availability, Booking, Session
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender
 
 SLUG = "birchbark"
@@ -266,7 +267,7 @@ async def test_book_deposit_required_returns_secret(
     booking = (
         await db.execute(select(Booking).where(Booking.id == body["booking_id"]))
     ).scalar_one()
-    assert booking.deposit_status == "pending"
+    assert await ledger.deposit_state(db, booking) == "pending"
     payment = (
         await db.execute(
             select(Payment).where(Payment.booking_id == booking.id, Payment.kind == "deposit")

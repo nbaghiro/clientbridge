@@ -103,10 +103,7 @@ async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -
 
 
 def apply_totals(parent: Invoice | Estimate | Order, result: TaxResult) -> None:
-    """Write a tax result's rolled-up subtotal/tax/total onto its billing parent, plus the
-    outstanding balance for the billable parents (an estimate carries no balance)."""
+    """Write a tax result's rolled-up subtotal/tax/total onto its billing parent."""
     parent.subtotal_cents = result.subtotal_cents
     parent.tax_total_cents = result.tax_total_cents
     parent.total_cents = result.total_cents
-    if not isinstance(parent, Estimate):
-        parent.balance_cents = result.total_cents - parent.amount_paid_cents

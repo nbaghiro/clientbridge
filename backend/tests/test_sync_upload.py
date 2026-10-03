@@ -76,8 +76,8 @@ async def test_rejects_server_only_table(as_owner: httpx.AsyncClient) -> None:
     assert res.status_code == 403
 
 
-async def test_rejects_forging_client_ltv(as_owner: httpx.AsyncClient) -> None:
-    # lifetime_value_cents is a server-computed rollup — a client can't forge it via sync
+async def test_rejects_forging_stripe_customer(as_owner: httpx.AsyncClient) -> None:
+    # the Stripe Customer is minted by the payment command — a client can't point it via sync
     res = await as_owner.post(
         "/sync/upload",
         json={
@@ -92,7 +92,7 @@ async def test_rejects_forging_client_ltv(as_owner: httpx.AsyncClient) -> None:
                         "status": "active",
                         "tags": "[]",
                         "custom_fields": "{}",
-                        "lifetime_value_cents": 999999999,
+                        "stripe_customer_id": "cus_forged",
                     },
                 }
             ]

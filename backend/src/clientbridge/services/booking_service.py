@@ -17,6 +17,7 @@ from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Session
 from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch, DepositOut
+from clientbridge.services import ledger_service as ledger
 from clientbridge.services.availability_service import is_within_availability
 from clientbridge.services.catalog_service import deposit_cents, load_item
 from clientbridge.services.client_service import load_client
@@ -35,7 +36,7 @@ _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 
 
-def _booking_out(booking: Booking, session: Session) -> BookingOut:
+async def _booking_out(db: AsyncSession, booking: Booking, session: Session) -> BookingOut:
     return BookingOut(
         id=booking.id,
         business_id=booking.business_id,
@@ -47,7 +48,7 @@ def _booking_out(booking: Booking, session: Session) -> BookingOut:
         source=booking.source,
         price_cents=booking.price_cents,
         deposit_amount_cents=booking.deposit_amount_cents,
-        deposit_status=booking.deposit_status,
+        deposit_status=await ledger.deposit_state(db, booking),
         starts_at=session.starts_at,
         ends_at=session.ends_at,
     )
@@ -248,20 +249,17 @@ async def release_session_slot(db: AsyncSession, session: Session) -> None:
 
 
 async def settle_deposit(db: AsyncSession, booking_id: str) -> None:
-    """Mark a booking's deposit collected once its charge settles — but never downgrade one already
-    forfeited (a no-show capture marks it forfeited up-front; its later settlement keeps it)."""
+    """A deposit settling on a booking already marked no-show is forfeited on arrival."""
     booking = await db.get(Booking, booking_id)
-    if booking is not None and booking.deposit_status in ("none", "pending"):
-        booking.deposit_status = "collected"
-        await db.flush()
+    if booking is not None and booking.status == "no_show":
+        await ledger.post_forfeit(db, booking)
 
 
 async def reverse_deposit(db: AsyncSession, booking_id: str) -> None:
-    """Undo a collected deposit when its charge is refunded (no `refunded` enum value → `none`)."""
+    """Un-forfeit a deposit that's being refunded, so the refund draws on the deposit it returns."""
     booking = await db.get(Booking, booking_id)
-    if booking is not None and booking.deposit_status == "collected":
-        booking.deposit_status = "none"
-        await db.flush()
+    if booking is not None:
+        await ledger.reverse_forfeit(db, booking)
 
 
 class BookingService:
@@ -292,7 +290,7 @@ class BookingService:
                 resource_id=data.resource_id,
             )
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
-            return _booking_out(booking, session)
+            return await _booking_out(self.db, booking, session)
 
         return await run_command(
             self.db,
@@ -346,7 +344,7 @@ class BookingService:
                     await self._forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
             await self.db.flush()
-            return _booking_out(booking, session)
+            return await _booking_out(self.db, booking, session)
 
         return await run_command(
             self.db,
@@ -388,9 +386,6 @@ class BookingService:
                 payment_method=pm_ref,
                 idempotency_key=idempotency_key,
             )
-            if booking.deposit_status == "none":
-                booking.deposit_status = "pending"
-                await self.db.flush()
             cmd.record("booking.deposit", entity_type="booking", entity_id=booking.id)
             return DepositOut(
                 booking_id=booking.id, payment_id=payment.id, client_secret=client_secret
@@ -408,11 +403,11 @@ class BookingService:
     async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
         """No-show forfeiture: keep an already-collected deposit (mark forfeited), or capture it
         off-session via the client's default card. Idempotent — a re-set no_show never recharges."""
-        if not booking.deposit_required or booking.deposit_status == "forfeited":
+        state = await ledger.deposit_state(self.db, booking)
+        if state in ("none", "forfeited"):
             return
-        if booking.deposit_status == "collected":
-            booking.deposit_status = "forfeited"
-            await self.db.flush()
+        if state == "collected":
+            await ledger.post_forfeit(self.db, booking)
             cmd.record("booking.deposit_forfeited", entity_type="booking", entity_id=booking.id)
             return
         if booking.deposit_amount_cents <= 0 or await self._has_open_deposit(booking.id):
@@ -436,8 +431,6 @@ class BookingService:
             payment_method=pm_ref,
             idempotency_key="no_show",
         )
-        booking.deposit_status = "forfeited"
-        await self.db.flush()
         cmd.record("booking.deposit_forfeited", entity_type="booking", entity_id=booking.id)
 
     async def _assert_no_open_deposit(self, booking_id: str) -> None:

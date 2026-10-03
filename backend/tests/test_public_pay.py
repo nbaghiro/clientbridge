@@ -6,10 +6,11 @@ from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_pay_rate_limit
 from clientbridge.main import app
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
+from tests.conftest import book_invoice
 
 BIZ = "bz_birchbark"
 
@@ -36,11 +37,11 @@ async def _sent_invoice(db: AsyncSession, *, total: int = 8000) -> tuple[str, st
         subtotal_cents=total,
         tax_total_cents=0,
         total_cents=total,
-        balance_cents=total,
         pay_token=token,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     return inv.id, token
 
 
@@ -56,17 +57,30 @@ async def test_send_sets_pay_token_then_public_fetch(
         subtotal_cents=8000,
         tax_total_cents=0,
         total_cents=8000,
-        balance_cents=8000,
     )
     db.add(inv)
+    await db.flush()
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            parent_type="invoice",
+            parent_id=inv.id,
+            description="Groom",
+            unit_amount_cents=8000,
+            amount_cents=8000,
+        )
+    )
     await db.flush()
     sent = await as_owner.post(f"/v1/invoices/{inv.id}/send")
     assert sent.status_code == 200, sent.text
     token = sent.json()["pay_token"]
     assert token
+    total = sent.json()["total_cents"]
+    assert total == 8960  # BC GST + PST, fixed when the invoice is issued
     pub = await as_owner.get(f"/pay/{token}")
     assert pub.status_code == 200
-    assert pub.json()["balance_cents"] == 8000
+    assert pub.json()["balance_cents"] == total
 
 
 async def test_public_invoice_by_token(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -122,9 +136,7 @@ async def test_public_pay_card_returns_client_secret(
 
 async def test_cannot_pay_a_paid_invoice(api: httpx.AsyncClient, db: AsyncSession) -> None:
     inv_id, token = await _sent_invoice(db)
-    await db.execute(
-        update(Invoice).where(Invoice.id == inv_id).values(status="paid", balance_cents=0)
-    )
+    await db.execute(update(Invoice).where(Invoice.id == inv_id).values(status="paid"))
     await db.flush()
     assert (await api.post(f"/pay/{token}/interac")).status_code == 409
 

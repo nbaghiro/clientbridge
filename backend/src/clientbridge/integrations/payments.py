@@ -74,6 +74,13 @@ class SetupIntentResult:
 
 
 @dataclass(frozen=True)
+class ChargeFees:
+    processing_fee_cents: int
+    application_fee_cents: int
+    available_at: datetime | None
+
+
+@dataclass(frozen=True)
 class RefundResult:
     id: str
     status: str
@@ -152,6 +159,14 @@ class PaymentGateway(Protocol):
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult: ...
+    async def get_payment_fees(self, account_id: str, *, payment_intent_id: str) -> ChargeFees:
+        """Stripe's processing fee + our application fee off the charge's balance transaction."""
+        ...
+
+    async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
+        """The connected account's available + pending balance in one currency."""
+        ...
+
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
         """Detach a saved card from its Customer so it can no longer be charged."""
         ...
@@ -371,6 +386,38 @@ class StripeGateway:
         self, account_id: str, *, payment_method_id: str
     ) -> None:
         await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
+
+    async def get_payment_fees(  # pragma: no cover
+        self, account_id: str, *, payment_intent_id: str
+    ) -> ChargeFees:
+        intent = await stripe.PaymentIntent.retrieve_async(
+            payment_intent_id,
+            expand=["latest_charge.balance_transaction"],
+            stripe_account=account_id,
+        )
+        charge = getattr(intent, "latest_charge", None)
+        if isinstance(charge, str):
+            charge = await stripe.Charge.retrieve_async(
+                charge, expand=["balance_transaction"], stripe_account=account_id
+            )
+        txn = getattr(charge, "balance_transaction", None) if charge else None
+        if isinstance(txn, str):
+            txn = await stripe.BalanceTransaction.retrieve_async(txn, stripe_account=account_id)
+        if not txn:
+            return ChargeFees(0, 0, None)
+        details = [(str(d.type), int(d.amount)) for d in txn.fee_details]
+        return ChargeFees(
+            processing_fee_cents=sum(a for t, a in details if t != "application_fee"),
+            application_fee_cents=sum(a for t, a in details if t == "application_fee"),
+            available_at=datetime.fromtimestamp(int(txn.available_on), tz=UTC),
+        )
+
+    async def get_balance_cents(  # pragma: no cover
+        self, account_id: str, *, currency: str
+    ) -> int:
+        balance = await stripe.Balance.retrieve_async(stripe_account=account_id)
+        funds = [*balance["available"], *balance["pending"]]
+        return sum(int(f["amount"]) for f in funds if str(f["currency"]) == currency.lower())
 
     async def create_connection_token(self, account_id: str) -> str:  # pragma: no cover
         token = await stripe.terminal.ConnectionToken.create_async(stripe_account=account_id)

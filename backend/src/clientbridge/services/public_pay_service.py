@@ -7,6 +7,7 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
+from clientbridge.services import ledger_service as ledger
 from clientbridge.services.payment_service import (
     assert_payable,
     open_card_payment,
@@ -36,7 +37,7 @@ class PublicPayService:
             brand=public_brand(business),
             currency=invoice.currency,
             total_cents=invoice.total_cents,
-            balance_cents=invoice.balance_cents,
+            balance_cents=await ledger.invoice_balance(self.db, invoice),
             status=invoice.status,
             accepts_card=business.stripe_charges_enabled,
             interac_email=business.billing_email,
@@ -44,7 +45,7 @@ class PublicPayService:
 
     async def pay_card(self, token: str) -> PublicCardIntent:
         invoice, business = await self._resolve(token)
-        amount = assert_payable(invoice)
+        amount = await assert_payable(self.db, invoice)
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
             raise Conflict("this business can't take card payments yet")
         client = await self.db.get(Client, invoice.client_id)
@@ -69,7 +70,7 @@ class PublicPayService:
 
     async def pay_interac(self, token: str) -> InteracRequest:
         invoice, business = await self._resolve(token)
-        amount = assert_payable(invoice)
+        amount = await assert_payable(self.db, invoice)
         payment = await open_interac_payment(
             self.db, business_id=invoice.business_id, invoice=invoice, amount=amount
         )

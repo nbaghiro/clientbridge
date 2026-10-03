@@ -106,7 +106,6 @@ class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):
     code: Mapped[str] = mapped_column(String, nullable=False)
     item_id: Mapped[str | None] = mapped_column(ForeignKey("items.id"))
     initial_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    balance_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
     purchaser_client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
     recipient: Mapped[str | None] = mapped_column(String)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

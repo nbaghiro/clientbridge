@@ -40,7 +40,8 @@ bucket_definitions:
       - SELECT * FROM bookings           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM availability       WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM schedules          WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM payout_allocations WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM accounts           WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM entries            WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
 
   # 3) BUSINESS-FULL — owner/admin only: ALL members' work, financials, inbox, and the activity log.
   #    This is how an owner sees the activities of every worker.
@@ -61,8 +62,8 @@ bucket_definitions:
       - SELECT * FROM lines              WHERE business_id = bucket.business_id
       - SELECT * FROM payments           WHERE business_id = bucket.business_id
       - SELECT * FROM payment_methods    WHERE business_id = bucket.business_id
-      - SELECT * FROM payouts            WHERE business_id = bucket.business_id
-      - SELECT * FROM payout_allocations WHERE business_id = bucket.business_id
+      - SELECT * FROM accounts           WHERE business_id = bucket.business_id
+      - SELECT * FROM entries            WHERE business_id = bucket.business_id
       - SELECT * FROM reviews            WHERE business_id = bucket.business_id
       - SELECT * FROM review_requests    WHERE business_id = bucket.business_id
       - SELECT * FROM audit_logs         WHERE business_id = bucket.business_id

@@ -24,16 +24,23 @@ async def _receivable(db: AsyncSession, client: str = "cl_x", business: str = BI
     )
 
 
+async def _revenue(db: AsyncSession) -> int:
+    return await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="revenue")
+
+
 async def test_post_writes_balanced_legs_and_caches_balances(db: AsyncSession) -> None:
+    revenue = await _revenue(db)
     journal = await ledger.post(db, BIZ, type="invoice", ref="t:inv1", legs=_sale(11500))
 
-    rows = (await db.execute(select(Entry).where(Entry.journal_id == journal))).scalars().all()
+    rows = (
+        (await db.execute(select(Entry).where(Entry.journal_id == journal).order_by(Entry.leg)))
+        .scalars()
+        .all()
+    )
     assert [r.leg for r in rows] == [0, 1]
     assert sum(r.amount_cents for r in rows) == 0
     assert await _receivable(db) == 11500
-    assert (
-        await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="revenue") == -11500
-    )
+    assert await _revenue(db) == revenue - 11500
 
 
 async def test_post_accumulates_on_existing_accounts(db: AsyncSession) -> None:
@@ -177,9 +184,9 @@ async def test_database_rejects_an_unbalanced_journal(db: AsyncSession) -> None:
             await db.execute(text("SET CONSTRAINTS entries_balanced IMMEDIATE"))
             await db.execute(
                 text(
-                    "INSERT INTO entries (id, business_id, journal_id, account_id, amount_cents, "
-                    "currency, type, ref, leg, meta) VALUES ('ent_x', :b, 'jrn_x', :a, 5, 'CAD', "
-                    "'adjustment', 't:raw', 0, '{}')"
+                    "INSERT INTO entries (id, business_id, journal_id, account_id, owner_type, "
+                    "owner_id, amount_cents, currency, type, ref, leg, meta) VALUES ('ent_x', :b, "
+                    "'jrn_x', :a, 'client', 'cl_x', 5, 'CAD', 'adjustment', 't:raw', 0, '{}')"
                 ),
                 {"b": BIZ, "a": account},
             )

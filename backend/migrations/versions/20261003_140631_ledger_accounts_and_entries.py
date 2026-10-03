@@ -18,13 +18,13 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 ACCOUNT_KINDS = (
-    "'stripe', 'bank', 'interac', 'cash', 'receivable', 'tax', 'gift_card', 'deposit', "
+    "'stripe', 'bank', 'cash', 'receivable', 'tax', 'gift_card', 'deposit', "
     "'deferred', 'payable', 'revenue', 'fee_revenue', 'processing_fee', 'platform_fee', "
     "'staff_cost'"
 )
 OWNER_TYPES = "'business', 'client', 'staff', 'platform', 'gift_card', 'package'"
 ENTRY_TYPES = (
-    "'invoice', 'sale', 'payment', 'refund', 'dispute', 'payout', 'redemption', "
+    "'invoice', 'sale', 'payment', 'fee', 'refund', 'dispute', 'payout', 'redemption', "
     "'consumption', 'forfeit', 'earning', 'approval', 'staff_payment', 'adjustment', "
     "'reversal'"
 )
@@ -72,6 +72,8 @@ def upgrade() -> None:
         sa.Column("business_id", sa.String(), nullable=False),
         sa.Column("journal_id", sa.String(), nullable=False),
         sa.Column("account_id", sa.String(), nullable=False),
+        sa.Column("owner_type", sa.String(), nullable=False),
+        sa.Column("owner_id", sa.String(), nullable=False),
         sa.Column("amount_cents", sa.BigInteger(), nullable=False),
         sa.Column("currency", sa.String(length=3), nullable=False),
         sa.Column("type", sa.String(), nullable=False),
@@ -103,6 +105,7 @@ def upgrade() -> None:
     op.create_index("ix_entries_business_id", "entries", ["business_id"])
     op.create_index("ix_entries_journal", "entries", ["journal_id"])
     op.create_index("ix_entries_account", "entries", ["account_id", "occurred_at"])
+    op.create_index("ix_entries_owner", "entries", ["owner_type", "owner_id"])
     op.create_index("ix_entries_subject", "entries", ["subject_type", "subject_id"])
     op.create_index("ix_entries_source", "entries", ["source_type", "source_id"])
     op.create_index("ux_entries_ref_leg", "entries", ["ref", "leg"], unique=True)

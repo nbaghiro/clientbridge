@@ -12,6 +12,7 @@ from clientbridge.models.catalog import Item, Package
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.schemas.packages import PackageOut, PackagePurchase, PackagePurchaseOut
+from clientbridge.services import ledger_service as ledger
 from clientbridge.services.lines import tax_for_amount
 from clientbridge.services.payment_service import open_entitlement_payment, resolve_saved_method_ref
 
@@ -103,6 +104,7 @@ class PackageService:
             if package.sessions_used >= package.sessions_total:
                 package.status = "used"
             await self.db.flush()
+            await ledger.post_consumption(self.db, package)
             cmd.record("package.consume", entity_type="package", entity_id=package.id)
             return _out(package)
 

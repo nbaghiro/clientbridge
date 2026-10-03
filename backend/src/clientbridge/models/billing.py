@@ -21,7 +21,9 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "invoices"
     __table_args__ = (
         UniqueConstraint("business_id", "number", name="uq_invoices_business_number"),
-        enum_check("invoices", "status", "draft", "sent", "partial", "paid", "overdue", "void"),
+        enum_check(
+            "invoices", "status", "draft", "sent", "partial", "paid", "overdue", "void", "refunded"
+        ),
         Index("ix_invoices_client", "business_id", "client_id"),
         Index("ix_invoices_status", "business_id", "status"),
     )
@@ -33,8 +35,6 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    amount_paid_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    balance_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -80,8 +80,6 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    amount_paid_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    balance_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

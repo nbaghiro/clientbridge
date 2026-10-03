@@ -9,29 +9,36 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from tests.conftest import Factory
+from clientbridge.services import ledger_service as ledger
+from tests.conftest import Factory, book_invoice
 
 BIZ = "bz_birchbark"
 
 
-async def _add_payment(db: AsyncSession, *, kind: str, amount: int, paid_at: datetime) -> None:
-    cid = await _client_id(db)
-    db.add(
-        Payment(
-            id=new_id("payment"),
-            business_id=BIZ,
-            client_id=cid,
-            kind=kind,
-            amount_cents=amount,
-            currency="CAD",
-            method="card",
-            provider="stripe",
-            provider_ref=f"pi_{new_id('payment')[3:14]}",
-            status="succeeded",
-            paid_at=paid_at,
-        )
+async def _add_payment(
+    db: AsyncSession, *, amount: int, paid_at: datetime, refunds: Payment | None = None
+) -> Payment:
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=BIZ,
+        client_id=await _client_id(db),
+        kind="refund" if refunds else "payment",
+        parent_payment_id=refunds.id if refunds else None,
+        amount_cents=amount,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref=f"pi_{new_id('payment')[3:14]}",
+        status="succeeded",
+        paid_at=paid_at,
     )
+    db.add(payment)
     await db.flush()
+    if refunds:
+        await ledger.post_refund(db, payment, refunds)
+    else:
+        await ledger.post_payment(db, payment)
+    return payment
 
 
 async def _client_id(db: AsyncSession) -> str:
@@ -86,22 +93,7 @@ async def test_today_revenue_counts_todays_succeeded_payment(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     before = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
-    db.add(
-        Payment(
-            id=new_id("payment"),
-            business_id=BIZ,
-            client_id=await _client_id(db),
-            kind="payment",
-            amount_cents=5000,
-            currency="CAD",
-            method="card",
-            provider="stripe",
-            provider_ref=f"pi_{new_id('payment')[3:14]}",
-            status="succeeded",
-            paid_at=datetime.now(UTC),
-        )
-    )
-    await db.flush()
+    await _add_payment(db, amount=5000, paid_at=datetime.now(UTC))
     after = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
     assert after - before == 5000
 
@@ -120,10 +112,10 @@ async def test_awaiting_payment_counts_outstanding_balance(
         subtotal_cents=7000,
         tax_total_cents=0,
         total_cents=7000,
-        balance_cents=7000,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     after = (await as_owner.get("/v1/dashboard/summary")).json()["awaiting_payment_cents"]
     assert after - before == 7000
 
@@ -134,8 +126,8 @@ async def test_staff_cannot_see_dashboard(as_staff: httpx.AsyncClient) -> None:
 
 async def test_refund_today_reduces_revenue(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     before = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
-    await _add_payment(db, kind="payment", amount=5000, paid_at=datetime.now(UTC))
-    await _add_payment(db, kind="refund", amount=1500, paid_at=datetime.now(UTC))
+    paid = await _add_payment(db, amount=5000, paid_at=datetime.now(UTC))
+    await _add_payment(db, amount=1500, paid_at=datetime.now(UTC), refunds=paid)
     after = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
     assert after - before == 3500  # 5000 received minus 1500 refunded
 
@@ -144,9 +136,7 @@ async def test_old_payment_excluded_from_today(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     before = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
-    await _add_payment(
-        db, kind="payment", amount=9999, paid_at=datetime.now(UTC) - timedelta(days=2)
-    )
+    await _add_payment(db, amount=9999, paid_at=datetime.now(UTC) - timedelta(days=2))
     after = (await as_owner.get("/v1/dashboard/summary")).json()["today_revenue_cents"]
     assert after == before  # paid before today's start → not counted
 

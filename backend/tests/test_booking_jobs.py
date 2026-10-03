@@ -20,7 +20,6 @@ async def _online_booking(
     db: AsyncSession,
     *,
     created_at: datetime,
-    deposit_status: str = "pending",
     deposit_required: bool = True,
     status: str = "confirmed",
     source: str = "online",
@@ -60,10 +59,22 @@ async def _online_booking(
         price_cents=11000,
         deposit_required=deposit_required,
         deposit_amount_cents=2750,
-        deposit_status=deposit_status,
         created_at=created_at,
     )
     db.add(booking)
+    await db.flush()
+    db.add(
+        Payment(
+            id=new_id("payment"),
+            business_id=BIZ,
+            booking_id=booking.id,
+            kind="deposit",
+            amount_cents=2750,
+            method="card",
+            provider="stripe",
+            status="pending",
+        )
+    )
     await db.flush()
     return booking.id, session.id
 

@@ -9,6 +9,7 @@ from clientbridge.models.billing import Order
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import Factory
 
 BIZ = "bz_birchbark"
@@ -110,10 +111,9 @@ async def test_checkout_and_webhook_settles_order(
     )
     assert (await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
 
-    status, balance = (
-        await db.execute(select(Order.status, Order.balance_cents).where(Order.id == order["id"]))
-    ).one()
-    assert status == "paid" and balance == 0
+    status = (await db.execute(select(Order.status).where(Order.id == order["id"]))).scalar_one()
+    assert status == "paid"
+    assert await ledger.collected(db, BIZ, "order", order["id"]) == (order["total_cents"], False)
 
 
 async def test_checkout_empty_order_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -157,7 +157,6 @@ async def test_order_tenant_isolation(
         status="open",
         currency="CAD",
         total_cents=5000,
-        balance_cents=5000,
     )
     db.add(foreign)
     await db.flush()
@@ -186,15 +185,9 @@ async def test_refund_order_payment_reverts_order(
 
     refunded = await as_owner.post(f"/v1/payments/{pay_id}/refund")
     assert refunded.status_code == 200, refunded.text
-    status, paid, balance, total = (
-        await db.execute(
-            select(
-                Order.status, Order.amount_paid_cents, Order.balance_cents, Order.total_cents
-            ).where(Order.id == order["id"])
-        )
-    ).one()
+    status = (await db.execute(select(Order.status).where(Order.id == order["id"]))).scalar_one()
     assert status == "refunded"
-    assert paid == 0 and balance == total
+    assert await ledger.collected(db, BIZ, "order", order["id"]) == (0, True)
     refund_order_id = (
         await db.execute(
             select(Payment.order_id).where(

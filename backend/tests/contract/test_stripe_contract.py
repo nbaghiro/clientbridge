@@ -6,7 +6,7 @@ that moved/renamed — exactly the drift the fake can't catch.
 
 import pytest
 
-from clientbridge.integrations.payments import ConnectAccount, StripeGateway
+from clientbridge.integrations.payments import ChargeFees, ConnectAccount, StripeGateway
 
 pytestmark = pytest.mark.contract
 
@@ -115,3 +115,13 @@ async def test_create_terminal_payment_intent(contract_gateway: StripeGateway) -
         idempotency_key="contract-term-1",
     )
     assert result.id.startswith("pi_") and result.client_secret
+
+
+async def test_get_payment_fees(contract_gateway: StripeGateway) -> None:
+    fees = await contract_gateway.get_payment_fees(ACCT, payment_intent_id="pi_contract")
+    assert isinstance(fees, ChargeFees)
+    assert fees.processing_fee_cents >= 0 and fees.application_fee_cents >= 0
+
+
+async def test_get_balance_cents(contract_gateway: StripeGateway) -> None:
+    assert isinstance(await contract_gateway.get_balance_cents(ACCT, currency="CAD"), int)

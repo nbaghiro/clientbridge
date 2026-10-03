@@ -139,8 +139,6 @@ class PublicBookingService:
             amount=booking.deposit_amount_cents,
             fee_bps=get_settings().platform_fee_bps,
         )
-        booking.deposit_status = "pending"
-        await self.db.flush()
         return client_secret
 
     async def _find_or_create_client(self, business_id: str, data: PublicBookingClient) -> Client:

@@ -19,6 +19,7 @@ from clientbridge.schemas.orders import (
     OrderOut,
     OrderUpdate,
 )
+from clientbridge.services import ledger_service as ledger
 from clientbridge.services.lines import (
     apply_totals,
     fetch_lines,
@@ -56,7 +57,7 @@ class OrderService:
             await self._apply_totals(order, lines)
             await self.db.flush()
             cmd.record("order.create", entity_type="order", entity_id=order.id)
-            return _out(order, lines)
+            return await _out(self.db, order, lines)
 
         return await run_command(
             self.db,
@@ -83,7 +84,7 @@ class OrderService:
             await self._apply_totals(order, lines)
             await self.db.flush()
             cmd.record("order.update", entity_type="order", entity_id=order.id)
-            return _out(order, lines)
+            return await _out(self.db, order, lines)
 
         return await run_command(
             self.db, self.principal, action="order.update", run=run, response_model=OrderOut
@@ -99,7 +100,8 @@ class OrderService:
             order.status = "void"
             await self.db.flush()
             cmd.record("order.void", entity_type="order", entity_id=order.id)
-            return _out(order, await fetch_lines(self.db, self.biz, "order", order.id))
+            lines = await fetch_lines(self.db, self.biz, "order", order.id)
+            return await _out(self.db, order, lines)
 
         return await run_command(
             self.db, self.principal, action="order.void", run=run, response_model=OrderOut
@@ -109,7 +111,7 @@ class OrderService:
         order = await self._order(order_id)
         if order.status != "open":
             raise Conflict("only an open order can be checked out")
-        if order.balance_cents <= 0:
+        if order.total_cents <= 0:
             raise Conflict("order has no balance to charge")
         business = await self.db.get(Business, self.biz)
         if (
@@ -127,7 +129,7 @@ class OrderService:
                 account_id=account_id,
                 business_id=self.biz,
                 order=order,
-                amount=order.balance_cents,
+                amount=order.total_cents,
                 fee_bps=get_settings().platform_fee_bps,
                 idempotency_key=idempotency_key,
             )
@@ -201,7 +203,8 @@ class OrderService:
         return row
 
 
-def _out(order: Order, lines: list[Line]) -> OrderOut:
+async def _out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderOut:
+    paid, _ = await ledger.collected(db, order.business_id, "order", order.id)
     return OrderOut(
         id=order.id,
         business_id=order.business_id,
@@ -212,8 +215,8 @@ def _out(order: Order, lines: list[Line]) -> OrderOut:
         subtotal_cents=order.subtotal_cents,
         tax_total_cents=order.tax_total_cents,
         total_cents=order.total_cents,
-        amount_paid_cents=order.amount_paid_cents,
-        balance_cents=order.balance_cents,
+        amount_paid_cents=paid,
+        balance_cents=order.total_cents - paid if order.status == "open" else 0,
         paid_at=order.paid_at,
         lines=[line_out(ln) for ln in lines],
     )

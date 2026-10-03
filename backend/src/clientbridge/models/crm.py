@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Index, String
+from sqlalchemy import Boolean, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,7 +20,6 @@ class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
-    lifetime_value_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     stripe_customer_id: Mapped[str | None] = mapped_column(
         String

@@ -19,26 +19,38 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, time, timedelta
 
-from sqlalchemy import text
+from sqlalchemy import func, select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.security import hash_password
+from clientbridge.integrations.payments import ChargeFees
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.identity import Business, Staff, User
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.models.payments import Payment, PaymentMethod, Payout, PayoutAllocation
+from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import AuditLog, File, WebhookEvent
 from clientbridge.models.reviews import Review, ReviewRequest
 from clientbridge.models.scheduling import Availability, Booking, Resource, Schedule, Session
+from clientbridge.services import ledger_service as ledger
+from clientbridge.services.earning_service import (
+    Earning,
+    advance_earning,
+    ensure_earnings,
+    load_earning,
+)
+from clientbridge.services.lines import fetch_lines, tax_for_amount, tax_for_lines
 
 NOW = datetime.now().astimezone()  # local-tz aware, so demo hours land in the viewer's local day
 BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 rows: list[object] = []
+EARNING_STAGE: dict[str, str] = {}  # booking id -> how far its groomer's earning has gone
 
 
 def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
@@ -76,11 +88,8 @@ def seed_identity() -> tuple[str, str]:
                 "primary": "#3F5E80",
                 "tagline": "Calm, careful grooming on Vancouver Island.",
             },
-            plan="pro",
             billing_email="hello@birchbarkpets.ca",
-            stripe_customer_id="cus_demo_birchbark",
             stripe_account_id="acct_demo_birchbark",
-            payout_schedule="weekly",
             status="active",
         )
     )
@@ -124,7 +133,6 @@ def seed_identity() -> tuple[str, str]:
             user_id=owner_id,
             role="owner",
             is_payee=True,
-            payout_ref="acct_demo_hannah",
             default_rate=1.0,
             rate_type="percent",
             title="Owner & Lead Groomer",
@@ -139,7 +147,6 @@ def seed_identity() -> tuple[str, str]:
             user_id="us_diego",
             role="staff",
             is_payee=True,
-            payout_ref="acct_demo_diego",
             default_rate=0.45,
             rate_type="percent",
             title="Senior Groomer",
@@ -506,7 +513,7 @@ CLIENTS = [
 
 
 def seed_clients(owner: str) -> None:
-    for cid, name, email, phone, tags, ltv, seed, status, pets, note in CLIENTS:
+    for cid, name, email, phone, tags, _ltv, seed, status, pets, note in CLIENTS:
         rows.append(
             Client(
                 id=cid,
@@ -517,7 +524,6 @@ def seed_clients(owner: str) -> None:
                 phone=phone,
                 tags=tags,
                 status=status,
-                lifetime_value_cents=ltv * 100,
                 custom_fields={
                     "avatar_url": face(seed),
                     "source": "google" if "new" in tags else "referral",
@@ -725,8 +731,7 @@ def _invoice_for(
     INV_SEQ[0] += 1
     num = INV_SEQ[0]
     inv = f"inv_{num}"
-    rate = 500 if tax == GST else 700
-    tax_amt = round(price * rate / 10000)
+    tax_amt = (price * 5 + 50) // 100 + (price * 7 + 50) // 100
     total = price + tax_amt
     # mix of paid / partial / overdue across history
     paid = i % 5 != 4
@@ -744,8 +749,6 @@ def _invoice_for(
             subtotal_cents=price,
             tax_total_cents=tax_amt,
             total_cents=total,
-            amount_paid_cents=amount_paid,
-            balance_cents=total - amount_paid,
             issued_at=at(d, 17),
             due_at=at(d + 14, 17),
             paid_at=at(d, 18) if status == "paid" else None,
@@ -775,7 +778,6 @@ def _invoice_for(
     if amount_paid > 0:
         method = "interac" if i % 3 == 0 else "card"
         pay = f"pay_{num}"
-        fee = round(amount_paid * 0.029) + 30 if method == "card" else 0
         rows.append(
             Payment(
                 id=pay,
@@ -790,29 +792,12 @@ def _invoice_for(
                 provider="stripe" if method == "card" else "interac",
                 provider_ref=f"pi_demo_{num}" if method == "card" else None,
                 reference_code=f"BIRCH{num}" if method == "interac" else None,
-                fee_cents=fee,
-                net_cents=amount_paid - fee,
                 status="succeeded",
                 paid_at=at(d, 18),
             )
         )
-        # staff payout allocation (groomer's cut) for the groomers
         if member in {"st_owner", "st_diego"}:
-            cut = 1.0 if member == "st_owner" else 0.45
-            rows.append(
-                PayoutAllocation(
-                    id=f"pal_{num}",
-                    business_id=BIZ,
-                    staff_id=member,
-                    source_type="booking",
-                    source_id=bk,
-                    basis="percent",
-                    rate=cut,
-                    amount_cents=round(price * cut),
-                    status="paid" if d < -7 else "approved",
-                    payout_id="po_w1" if d < -7 else None,
-                )
-            )
+            EARNING_STAGE[bk] = "paid" if d < -7 else "approved"
 
 
 # ─────────────────────────────────────────── catalog instances ──────────────────────────────────
@@ -873,7 +858,6 @@ def seed_catalog_instances() -> None:
             code="BIRCH-GIFT-7K2M",
             item_id="it_gift",
             initial_cents=10000,
-            balance_cents=10000,
             purchaser_client_id="cl_liam",
             recipient="For Mum — happy birthday!",
             expires_at=at(700, 12),
@@ -887,7 +871,6 @@ def seed_catalog_instances() -> None:
             code="BIRCH-GIFT-9P4X",
             item_id="it_gift",
             initial_cents=5000,
-            balance_cents=0,
             purchaser_client_id="cl_david",
             status="redeemed",
         )
@@ -931,42 +914,6 @@ def seed_payment_methods() -> None:
             mandate_status="active",
             is_default=False,
             status="active",
-        )
-    )
-
-
-def seed_payouts() -> None:
-    rows.append(
-        Payout(
-            id="po_w1",
-            business_id=BIZ,
-            amount_cents=84200,
-            status="paid",
-            arrival_at=at(-7, 0),
-            provider_ref="po_demo_w1",
-            bank_last4="2244",
-        )
-    )
-    rows.append(
-        Payout(
-            id="po_w2",
-            business_id=BIZ,
-            amount_cents=61500,
-            status="in_transit",
-            arrival_at=at(2, 0),
-            provider_ref="po_demo_w2",
-            bank_last4="2244",
-        )
-    )
-    rows.append(
-        Payout(
-            id="po_w0",
-            business_id=BIZ,
-            amount_cents=72100,
-            status="paid",
-            arrival_at=at(-14, 0),
-            provider_ref="po_demo_w0",
-            bank_last4="2244",
         )
     )
 
@@ -1577,8 +1524,6 @@ def seed_coverage() -> None:
             subtotal_cents=4800,
             tax_total_cents=576,
             total_cents=5376,
-            amount_paid_cents=5376,
-            balance_cents=0,
             paid_at=at(-4, 15),
         )
     )
@@ -1624,23 +1569,8 @@ def seed_coverage() -> None:
             method="card",
             provider="stripe",
             provider_ref="pi_demo_ord1",
-            fee_cents=186,
-            net_cents=5190,
             status="succeeded",
             paid_at=at(-4, 15),
-        )
-    )
-    rows.append(
-        PayoutAllocation(
-            id="pal_sale",
-            business_id=BIZ,
-            staff_id="st_diego",
-            source_type="sale",
-            source_id="ord_1",
-            basis="percent",
-            rate=0.10,
-            amount_cents=480,
-            status="pending",
         )
     )
 
@@ -1654,8 +1584,6 @@ def seed_coverage() -> None:
             subtotal_cents=2600,
             tax_total_cents=312,
             total_cents=2912,
-            amount_paid_cents=2912,
-            balance_cents=0,
             paid_at=at(-1, 16),
         )
     )
@@ -1700,8 +1628,6 @@ def seed_coverage() -> None:
             subtotal_cents=1800,
             tax_total_cents=216,
             total_cents=2016,
-            amount_paid_cents=0,
-            balance_cents=0,
         )
     )
     rows.append(
@@ -1767,37 +1693,8 @@ def seed_coverage() -> None:
             method="card",
             provider="stripe",
             provider_ref="pi_demo_dep_class",
-            fee_cents=71,
-            net_cents=1329,
             status="succeeded",
             paid_at=at(1, 12),
-        )
-    )
-    rows.append(
-        PayoutAllocation(
-            id="pal_class",
-            business_id=BIZ,
-            staff_id="st_owner",
-            source_type="class_session",
-            source_id="ses_class",
-            basis="fixed",
-            rate=1.0,
-            amount_cents=4200,
-            status="approved",
-        )
-    )
-    rows.append(
-        PayoutAllocation(
-            id="pal_tip",
-            business_id=BIZ,
-            staff_id="st_diego",
-            source_type="tip",
-            source_id="bk_001",
-            basis="percent",
-            rate=1.0,
-            amount_cents=1000,
-            status="paid",
-            payout_id="po_w1",
         )
     )
 
@@ -1840,13 +1737,11 @@ def seed_coverage() -> None:
             business_id=BIZ,
             client_id="cl_olivia",
             number=1099,
-            status="paid",
+            status="refunded",
             currency="CAD",
             subtotal_cents=7500,
             tax_total_cents=900,
             total_cents=8400,
-            amount_paid_cents=8400,
-            balance_cents=0,
             issued_at=at(-9, 15),
             due_at=at(5, 17),
             paid_at=at(-9, 16),
@@ -1882,8 +1777,6 @@ def seed_coverage() -> None:
             method="card",
             provider="stripe",
             provider_ref="pi_demo_1099",
-            fee_cents=274,
-            net_cents=8126,
             status="succeeded",
             paid_at=at(-9, 16),
         )
@@ -1902,8 +1795,6 @@ def seed_coverage() -> None:
             method="card",
             provider="stripe",
             provider_ref="re_demo_1099",
-            fee_cents=0,
-            net_cents=8400,
             status="succeeded",
             paid_at=at(-8, 10),
         )
@@ -1926,8 +1817,6 @@ def seed_coverage() -> None:
                 subtotal_cents=4800,
                 tax_total_cents=576,
                 total_cents=5376,
-                amount_paid_cents=0,
-                balance_cents=0 if st == "void" else 5376,
                 issued_at=None if st == "draft" else at(-2, 10),
                 due_at=at(12, 17),
                 voided_at=at(-1, 9) if st == "void" else None,
@@ -1992,8 +1881,6 @@ def seed_coverage() -> None:
             subtotal_cents=7500,
             tax_total_cents=900,
             total_cents=8400,
-            amount_paid_cents=0,
-            balance_cents=8400,
             issued_at=at(-1, 11),
             due_at=at(13, 17),
             notes="Converted from estimate #4.",
@@ -2067,8 +1954,6 @@ def seed_coverage() -> None:
             method="eft",
             provider="stripe",
             provider_ref="pi_demo_sub_david",
-            fee_cents=0,
-            net_cents=18000,
             status="succeeded",
             paid_at=at(-6, 6),
         )
@@ -2152,7 +2037,6 @@ INSERT_ORDER = [
     Form,
     Contract,
     Broadcast,
-    Payout,
     PaymentMethod,
     Subject,
     Note,
@@ -2173,13 +2057,147 @@ INSERT_ORDER = [
     Message,
     Line,
     Payment,
-    PayoutAllocation,
     Review,
     ReviewRequest,
     File,
     AuditLog,
     WebhookEvent,
 ]
+
+
+def _demo_fees(payment: Payment) -> ChargeFees:
+    return ChargeFees(
+        processing_fee_cents=(payment.amount_cents * 29 + 500) // 1000 + 30,
+        application_fee_cents=payment.amount_cents * get_settings().platform_fee_bps // 10000,
+        available_at=payment.paid_at,
+    )
+
+
+async def _purchase(
+    session: AsyncSession, target: Package | GiftCard, client_id: str, amount: int, day: float
+) -> Payment:
+    payment = Payment(
+        id=f"pay_{target.id}",
+        business_id=BIZ,
+        client_id=client_id,
+        kind="payment",
+        amount_cents=amount,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref=f"pi_demo_{target.id}",
+        status="succeeded",
+        paid_at=at(day, 11),
+    )
+    session.add(payment)
+    await session.flush()
+    target.payment_id = payment.id
+    await session.flush()
+    return payment
+
+
+async def seed_ledger(session: AsyncSession) -> None:
+    """Replay the demo's money through the real posting rules, so the ledger is what production
+    would have written: invoices, settlements + fees, refunds, entitlement use, earnings, payouts."""
+    invoices = (
+        await session.execute(
+            select(Invoice)
+            .where(Invoice.status.not_in(("draft", "void")))
+            .order_by(Invoice.issued_at)
+        )
+    ).scalars()
+    for invoice in invoices:
+        tax = await tax_for_lines(
+            session, BIZ, await fetch_lines(session, BIZ, "invoice", invoice.id)
+        )
+        if tax.total_cents != invoice.total_cents:
+            raise ValueError(f"{invoice.id} total drifts from the tax engine")
+        await ledger.post_invoice(session, invoice, tax)
+
+    for pkg_id, client_id, day in (
+        ("pkg_marcus", "cl_marcus", -60),
+        ("pkg_grace", "cl_grace", -90),
+    ):
+        package = await session.get(Package, pkg_id)
+        item = await session.get(Item, "it_pkg5")
+        assert package is not None and item is not None
+        total = (await tax_for_amount(session, BIZ, item.price_cents)).total_cents
+        await _purchase(session, package, client_id, total, day)
+    for card_id, client_id, day in (("gc_liam", "cl_liam", -30), ("gc_used", "cl_david", -120)):
+        card = await session.get(GiftCard, card_id)
+        assert card is not None
+        await _purchase(session, card, client_id, card.initial_cents, day)
+
+    settled = (
+        await session.execute(
+            select(Payment)
+            .where(Payment.status == "succeeded", Payment.kind != "refund")
+            .order_by(Payment.paid_at)
+        )
+    ).scalars()
+    for payment in settled:
+        await ledger.post_payment(session, payment, available_at=payment.paid_at)
+        if payment.provider == "stripe":
+            await ledger.post_fees(session, payment, _demo_fees(payment))
+    refunds = (await session.execute(select(Payment).where(Payment.kind == "refund"))).scalars()
+    for refund in refunds:
+        original = await session.get(Payment, refund.parent_payment_id)
+        assert original is not None
+        await ledger.post_refund(session, refund, original)
+
+    used_card = await session.get(GiftCard, "gc_used")
+    assert used_card is not None
+    await ledger.post_redemption(session, used_card, used_card.initial_cents)
+    for pkg_id in ("pkg_marcus", "pkg_grace"):
+        package = await session.get(Package, pkg_id)
+        assert package is not None
+        used = package.sessions_used
+        for n in range(1, used + 1):
+            package.sessions_used = n
+            await ledger.post_consumption(session, package)
+
+    paid = (await session.execute(select(Invoice).where(Invoice.status == "paid"))).scalars()
+    for invoice in paid:
+        await ensure_earnings(session, invoice)
+    for booking_id, stage in EARNING_STAGE.items():
+        journal = await session.scalar(
+            select(Entry.journal_id).where(Entry.type == "earning", Entry.subject_id == booking_id)
+        )
+        earning = await load_earning(session, BIZ, journal) if journal else None
+        if earning is None:
+            continue
+        await advance_earning(session, earning, "approved")
+        if stage == "paid":
+            await advance_earning(session, await _reload(session, earning.id), "paid")
+
+    swept = 0
+    for n, day in enumerate((-14, -7)):
+        on_hand = await session.scalar(
+            select(func.coalesce(func.sum(Entry.amount_cents), 0))
+            .join(Account, Account.id == Entry.account_id)
+            .where(
+                Account.owner_type == "business",
+                Account.kind == "stripe",
+                Entry.occurred_at < at(day, 0),
+            )
+        )
+        amount = int(on_hand or 0) - swept
+        if amount > 0:
+            await ledger.post_payout(
+                session,
+                BIZ,
+                payout_id=f"po_demo_w{n}",
+                amount=amount,
+                currency="CAD",
+                arrival_at=at(day, 0),
+            )
+            swept += amount
+
+
+async def _reload(session: AsyncSession, journal_id: str) -> Earning:
+    earning = await load_earning(session, BIZ, journal_id)
+    assert earning is not None
+    return earning
 
 
 async def main() -> None:
@@ -2189,7 +2207,6 @@ async def main() -> None:
     seed_resources_availability()
     seed_catalog_instances()
     seed_payment_methods()
-    seed_payouts()
     seed_appointments()
     seed_estimates()
     seed_messaging(owner)
@@ -2207,6 +2224,7 @@ async def main() -> None:
             if batch:
                 session.add_all(batch)
                 await session.flush()
+        await seed_ledger(session)
         await session.commit()
     await engine.dispose()
     print(f"seeded {len(rows)} rows for 'Birchbark Pet Studio' (business {BIZ}, owner {owner})")

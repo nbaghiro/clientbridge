@@ -18,15 +18,7 @@ async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime)
     client once. Idempotent — the status transition is the dedup marker (an `overdue` row no longer
     matches `status == "sent"`), so a re-run never re-notifies."""
     invoices = (
-        (
-            await db.execute(
-                select(Invoice).where(
-                    Invoice.status == "sent",
-                    Invoice.due_at < now,
-                    Invoice.balance_cents > 0,
-                )
-            )
-        )
+        (await db.execute(select(Invoice).where(Invoice.status == "sent", Invoice.due_at < now)))
         .scalars()
         .all()
     )

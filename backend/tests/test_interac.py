@@ -6,6 +6,8 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
+from clientbridge.services import ledger_service as ledger
+from tests.conftest import book_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"X-Interac-Secret": "testsecret"}
@@ -28,10 +30,10 @@ async def _invoice(db: AsyncSession, *, total: int = 5000) -> str:
         subtotal_cents=total,
         tax_total_cents=0,
         total_cents=total,
-        balance_cents=total,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     return inv.id
 
 
@@ -63,9 +65,10 @@ async def test_webhook_automatches_and_pays_invoice(
     )
     assert res.status_code == 200
     pay = (await db.execute(select(Payment).where(Payment.id == req["payment_id"]))).scalar_one()
-    assert pay.status == "succeeded" and pay.net_cents == 5000  # no fee — the wedge
+    assert pay.status == "succeeded"
+    assert await ledger.journal_for(db, BIZ, f"fee:{pay.id}") is None  # no fee — the wedge
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "paid" and inv.balance_cents == 0
+    assert inv.status == "paid" and await ledger.invoice_balance(db, inv) == 0
 
 
 async def test_underpaid_etransfer_does_not_match(
@@ -115,9 +118,10 @@ async def test_duplicate_webhook_settles_once(
     )
     assert first.status_code == 200 and second.status_code == 200
     pay = (await db.execute(select(Payment).where(Payment.id == req["payment_id"]))).scalar_one()
-    assert pay.status == "succeeded" and pay.net_cents == 5000
+    assert pay.status == "succeeded"
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "paid" and inv.balance_cents == 0  # settled exactly once, not twice
+    assert inv.status == "paid"
+    assert await ledger.collected(db, BIZ, "invoice", inv.id) == (5000, False)  # settled once
     settled = (
         await db.execute(
             select(func.count())
@@ -140,6 +144,7 @@ async def test_overpaid_etransfer_matches_at_requested_amount(
     assert res.status_code == 200
     pay = (await db.execute(select(Payment).where(Payment.id == req["payment_id"]))).scalar_one()
     assert pay.status == "succeeded"
-    assert pay.net_cents == pay.amount_cents == 5000  # recorded at the requested amount, no fee
+    assert pay.amount_cents == 5000  # recorded at the requested amount
+    assert await ledger.journal_for(db, BIZ, f"fee:{pay.id}") is None
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "paid" and inv.balance_cents == 0
+    assert inv.status == "paid" and await ledger.invoice_balance(db, inv) == 0

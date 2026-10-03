@@ -30,6 +30,5 @@ class ClientOut(ClientBase):
 
     id: str
     business_id: str
-    lifetime_value_cents: int
     created_at: datetime
     updated_at: datetime

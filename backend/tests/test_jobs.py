@@ -15,7 +15,7 @@ from clientbridge.services.review_service import build_review_request
 from clientbridge.tasks.billing_jobs import run_overdue_sweep
 from clientbridge.tasks.maintenance import run_expiry_sweeps, run_prune_device_tokens
 from clientbridge.tasks.review_jobs import run_review_requests
-from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender, book_invoice
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -61,11 +61,11 @@ async def _invoice(
         currency="CAD",
         subtotal_cents=total,
         total_cents=total,
-        balance_cents=total,
         due_at=due_at,
     )
     db.add(inv)
     await db.flush()
+    await book_invoice(db, inv)
     return inv.id
 
 
@@ -249,7 +249,6 @@ async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:
         business_id=BIZ,
         code="JOBTEST-GC-EXP",
         initial_cents=1000,
-        balance_cents=1000,
         status="active",
         expires_at=NOW - timedelta(days=1),
     )
@@ -258,7 +257,6 @@ async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:
         business_id=BIZ,
         code="JOBTEST-GC-CUR",
         initial_cents=1000,
-        balance_cents=1000,
         status="active",
         expires_at=NOW + timedelta(days=30),
     )

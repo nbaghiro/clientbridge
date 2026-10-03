@@ -20,6 +20,7 @@ from clientbridge.schemas.gift_cards import (
     GiftCardPurchaseOut,
     GiftCardRedeem,
 )
+from clientbridge.services import ledger_service as ledger
 from clientbridge.services.payment_service import open_entitlement_payment, resolve_saved_method_ref
 
 _CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"  # base32, no easily-confused 0/1/8/9
@@ -79,7 +80,6 @@ class GiftCardService:
                 code=_gift_code(),
                 item_id=data.item_id,
                 initial_cents=face,
-                balance_cents=face,
                 purchaser_client_id=data.purchaser_client_id,
                 recipient=data.recipient,
                 status="pending",
@@ -116,14 +116,15 @@ class GiftCardService:
         async def run(cmd: Command) -> GiftCardOut:
             if card.status != "active":
                 raise Conflict("only an active gift card can be redeemed")
-            if data.amount_cents <= 0 or data.amount_cents > card.balance_cents:
+            remaining = await ledger.gift_card_balance(self.db, card)
+            if data.amount_cents <= 0 or data.amount_cents > remaining:
                 raise Conflict("invalid redemption amount")
-            card.balance_cents -= data.amount_cents
-            if card.balance_cents == 0:
+            await ledger.post_redemption(self.db, card, data.amount_cents)
+            if data.amount_cents == remaining:
                 card.status = "redeemed"
             await self.db.flush()
             cmd.record("gift_card.redeem", entity_type="gift_card", entity_id=card.id)
-            return _out(card)
+            return await _out(self.db, card)
 
         return await run_command(
             self.db,
@@ -189,12 +190,12 @@ class GiftCardService:
         return row
 
 
-def _out(card: GiftCard) -> GiftCardOut:
+async def _out(db: AsyncSession, card: GiftCard) -> GiftCardOut:
     return GiftCardOut(
         id=card.id,
         code=card.code,
         initial_cents=card.initial_cents,
-        balance_cents=card.balance_cents,
+        balance_cents=await ledger.gift_card_balance(db, card),
         status=card.status,
     )
 

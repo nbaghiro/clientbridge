@@ -1,20 +1,17 @@
-from collections.abc import Sequence
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Invoice
 from clientbridge.models.identity import Business
-from clientbridge.models.payments import Payment
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.schemas.dashboard import DashboardSummary
+from clientbridge.services import ledger_service as ledger
 from clientbridge.services.report_service import next_gst_filing
-
-_OUTSTANDING = ("sent", "partial", "overdue")
 
 
 class DashboardService:
@@ -30,29 +27,23 @@ class DashboardService:
             raise NotFound("business not found")
         now = datetime.now(ZoneInfo(business.timezone))
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        received = await self._payments_since(day_start, ("payment", "deposit"))
-        refunded = await self._payments_since(day_start, ("refund",))
+        received = await self.db.execute(
+            scoped(Entry, self.biz)
+            .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
+            .join_from(Entry, Account, Account.id == Entry.account_id)
+            .where(
+                Account.kind.in_(("stripe", "bank", "cash")),
+                Entry.type.in_(("payment", "refund")),
+                Entry.occurred_at >= day_start,
+            )
+        )
         return DashboardSummary(
-            today_revenue_cents=received - refunded,
-            awaiting_payment_cents=await self._invoice_sum("balance_cents", _OUTSTANDING),
-            gst_hst_set_aside_cents=await self._invoice_sum("tax_total_cents", ("paid",)),
+            today_revenue_cents=int(received.scalar_one()),
+            awaiting_payment_cents=await ledger.account_total(
+                self.db, self.biz, Account.kind == "receivable"
+            ),
+            gst_hst_set_aside_cents=-await ledger.account_total(
+                self.db, self.biz, Account.kind == "tax"
+            ),
             gst_hst_filing_due=next_gst_filing(now.date()) if business.is_tax_registered else None,
         )
-
-    async def _payments_since(self, day_start: datetime, kinds: Sequence[str]) -> int:
-        sub = (
-            scoped(Payment, self.biz)
-            .where(
-                Payment.status == "succeeded",
-                Payment.kind.in_(kinds),
-                Payment.paid_at >= day_start,
-            )
-            .subquery()
-        )
-        total = await self.db.execute(select(func.coalesce(func.sum(sub.c.amount_cents), 0)))
-        return int(total.scalar_one())
-
-    async def _invoice_sum(self, column: str, statuses: Sequence[str]) -> int:
-        sub = scoped(Invoice, self.biz).where(Invoice.status.in_(statuses)).subquery()
-        total = await self.db.execute(select(func.coalesce(func.sum(sub.c[column]), 0)))
-        return int(total.scalar_one())

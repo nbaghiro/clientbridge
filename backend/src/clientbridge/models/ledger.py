@@ -11,7 +11,6 @@ OWNER_TYPES = ("business", "client", "staff", "platform", "gift_card", "package"
 ACCOUNT_KINDS = (
     "stripe",
     "bank",
-    "interac",
     "cash",
     "receivable",
     "tax",
@@ -29,6 +28,7 @@ ENTRY_TYPES = (
     "invoice",
     "sale",
     "payment",
+    "fee",
     "refund",
     "dispute",
     "payout",
@@ -75,6 +75,7 @@ class Entry(PKMixin, BusinessScoped, Base):
         Index("ux_entries_ref_leg", "ref", "leg", unique=True),
         Index("ix_entries_journal", "journal_id"),
         Index("ix_entries_account", "account_id", "occurred_at"),
+        Index("ix_entries_owner", "owner_type", "owner_id"),
         Index("ix_entries_subject", "subject_type", "subject_id"),
         Index("ix_entries_source", "source_type", "source_id"),
     )
@@ -83,6 +84,9 @@ class Entry(PKMixin, BusinessScoped, Base):
     account_id: Mapped[str] = mapped_column(
         ForeignKey("accounts.id", ondelete="RESTRICT"), nullable=False
     )
+    # copied from the account so sync rules can slice a party's own entries (rows never change)
+    owner_type: Mapped[str] = mapped_column(String, nullable=False)
+    owner_id: Mapped[str] = mapped_column(String, nullable=False)
     amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False)
