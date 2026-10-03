@@ -4,7 +4,6 @@ import {
     type PositionedEvent,
     addDays,
     canCollectDeposit,
-    canManagePayments,
     dateKey,
     dayBounds,
     depositStatusIntent,
@@ -46,7 +45,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { CardPaymentConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
+import { useViewer } from "../lib/auth";
 
 const c = theme.colors;
 const HOUR_PX = 56;
@@ -386,12 +385,11 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
 }
 
 function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
-    const role = useRole();
+    const viewer = useViewer();
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(api, event, onClose);
     const [method, setMethod] = useState<string | null>(null);
 
-    if (!canManagePayments(role)) return null;
     const amountLabel = formatMoney(event.depositAmountCents);
     const effMethod = method ?? cards.at(0)?.id ?? "";
 
@@ -422,7 +420,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     intent={depositStatusIntent(event.depositStatus)}
                 />
             </View>
-            {canCollectDeposit(event) ? (
+            {canCollectDeposit(event, viewer) ? (
                 <>
                     <View style={styles.chipWrap}>
                         <Pressable

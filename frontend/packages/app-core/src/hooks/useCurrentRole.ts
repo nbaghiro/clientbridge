@@ -35,13 +35,23 @@ export function decodeJwtSub(token: string | null): string | null {
     }
 }
 
-/** The current user's role, from the synced `staff` row whose `user_id` matches the access token's
+export interface Viewer {
+    staffId: string;
+    role: string;
+}
+
+/** The signed-in member, from the synced `staff` row whose `user_id` matches the access token's
  *  `sub`. `null` until that row syncs (or when signed out / token undecodable). */
-export function useCurrentRole(accessToken: string | null): string | null {
+export function useCurrentViewer(accessToken: string | null): Viewer | null {
     const userId = useMemo(() => decodeJwtSub(accessToken), [accessToken]);
-    const rows = useQuery<{ role: string }>(
-        "SELECT role FROM staff WHERE user_id = ? AND status = 'active' LIMIT 1",
+    const rows = useQuery<{ id: string; role: string }>(
+        "SELECT id, role FROM staff WHERE user_id = ? AND status = 'active' LIMIT 1",
         [userId],
     ).data;
-    return rows[0]?.role ?? null;
+    const row = rows[0];
+    return row === undefined ? null : { staffId: row.id, role: row.role };
+}
+
+export function useCurrentRole(accessToken: string | null): string | null {
+    return useCurrentViewer(accessToken)?.role ?? null;
 }

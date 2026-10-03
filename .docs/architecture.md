@@ -338,15 +338,19 @@ currently same perms as staff).
 | Settings / billing / staff management | owner (+ admin ops) | ❌ |
 
 ### Enforcement — the sync buckets (`infra/powersync/sync-rules.yaml`)
-Three buckets implement the read model (owner-sees-workers'-activity is carried by three columns:
+Four buckets implement the read model (owner-sees-workers'-activity is carried by three columns:
 `bookings.staff_id`, the ledger's `owner_type`/`owner_id`, and `audit_logs.actor_user_id`):
 - **`business_shared`** (every active member) — reference data + the shared client book + client docs.
+- **`staff_directory`** (staff and contractors): the team directory without pay rates or payee flags.
+  Owner/admin read staff rows with the pay columns from `business_full` instead, so a staff row never
+  reaches one device with two different column sets. No bucket syncs `invite_token`.
 - **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** sessions/bookings/availability/
   schedules, plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' work + all financials (including the whole
   ledger) + inbox + `audit_logs`.
 
-Device read scope: staff = `business_shared` + `staff_self` · owner/admin = those + `business_full`. Writes
+Device read scope: staff = `business_shared` + `staff_directory` + `staff_self` · owner/admin =
+`business_shared` + `staff_self` + `business_full`. Writes
 are authorized separately in `/sync/upload` (`WRITE_POLICY`). Postgres RLS is an optional future
 defense-in-depth for the API, not the sync filter.
 

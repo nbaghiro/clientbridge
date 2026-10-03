@@ -69,6 +69,7 @@ export function ClientsScreen() {
     const [adding, setAdding] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
     const open = filtered.find((cl) => cl.id === openId) ?? null;
+    const showValue = canManagePayments(useRole());
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -107,6 +108,7 @@ export function ClientsScreen() {
                 renderItem={({ item }) => (
                     <ClientRowView
                         cl={item}
+                        showValue={showValue}
                         onPress={() => {
                             setOpenId(item.id);
                         }}
@@ -136,7 +138,15 @@ export function ClientsScreen() {
     );
 }
 
-function ClientRowView({ cl, onPress }: { cl: ClientRow; onPress: () => void }) {
+function ClientRowView({
+    cl,
+    showValue,
+    onPress,
+}: {
+    cl: ClientRow;
+    showValue: boolean;
+    onPress: () => void;
+}) {
     return (
         <Pressable style={styles.row} onPress={onPress}>
             <View style={styles.avatar}>
@@ -151,7 +161,9 @@ function ClientRowView({ cl, onPress }: { cl: ClientRow; onPress: () => void }) 
                 </Text>
             </View>
             <View style={styles.rowRight}>
-                <Text style={styles.rowValue}>{formatMoney(cl.lifetime_value_cents)}</Text>
+                {showValue ? (
+                    <Text style={styles.rowValue}>{formatMoney(cl.lifetime_value_cents)}</Text>
+                ) : null}
                 <StatusBadge status={cl.status} intent={clientStatusIntent(cl.status)} />
             </View>
         </Pressable>

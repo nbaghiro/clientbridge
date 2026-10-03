@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useMemo, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import type { Viewer } from "../hooks/useCurrentRole";
 import type { ApiLike } from "../util/api";
 import { type ItemRow, useCatalogItems } from "./catalog";
 import { type ClientRow, useClients } from "./clients";
@@ -16,7 +17,7 @@ import {
 } from "../util/datetime";
 import type { Intent } from "../util/primitives";
 import { strings } from "../strings";
-import { useInteractivePurchase } from "./payments";
+import { canManagePayments, useInteractivePurchase } from "./payments";
 import { type StaffRow, useStaff } from "./staff";
 
 export interface CalendarEvent {
@@ -476,9 +477,16 @@ export function collectDeposit(
     );
 }
 
-/** Owner/admin may collect a deposit only while it's still due. */
-export function canCollectDeposit(event: CalendarEvent): boolean {
-    return event.bookingId !== null && event.depositRequired && event.depositStatus === "pending";
+/** A deposit can be collected while it's still due, by an owner/admin or the booking's own staff. */
+export function canCollectDeposit(event: CalendarEvent, viewer: Viewer | null): boolean {
+    const canAct =
+        viewer !== null && (canManagePayments(viewer.role) || viewer.staffId === event.staffId);
+    return (
+        canAct &&
+        event.bookingId !== null &&
+        event.depositRequired &&
+        event.depositStatus === "pending"
+    );
 }
 
 export interface CollectDeposit {

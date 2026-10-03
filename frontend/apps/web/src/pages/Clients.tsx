@@ -60,6 +60,7 @@ export function Clients() {
     const { q, setQ, filtered } = useSearch(clients, filterClients);
     const [adding, setAdding] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
+    const showValue = canManagePayments(useRole());
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
@@ -100,9 +101,11 @@ export function Clients() {
                             <th className="px-4 py-3 font-semibold">{strings.clients.colName}</th>
                             <th className="px-4 py-3 font-semibold">{strings.clients.colPhone}</th>
                             <th className="px-4 py-3 font-semibold">{strings.clients.colStatus}</th>
-                            <th className="px-4 py-3 text-right font-semibold">
-                                {strings.clients.colLifetime}
-                            </th>
+                            {showValue ? (
+                                <th className="px-4 py-3 text-right font-semibold">
+                                    {strings.clients.colLifetime}
+                                </th>
+                            ) : null}
                         </tr>
                     </thead>
                     <tbody>
@@ -136,15 +139,17 @@ export function Clients() {
                                         intent={clientStatusIntent(c.status)}
                                     />
                                 </td>
-                                <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
-                                    {formatMoney(c.lifetime_value_cents)}
-                                </td>
+                                {showValue ? (
+                                    <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
+                                        {formatMoney(c.lifetime_value_cents)}
+                                    </td>
+                                ) : null}
                             </tr>
                         ))}
                         {filtered.length === 0 ? (
                             <tr>
                                 <td
-                                    colSpan={4}
+                                    colSpan={showValue ? 4 : 3}
                                     className="px-4 py-12 text-center text-sm text-muted"
                                 >
                                     {q ? strings.clients.emptySearch : strings.clients.empty}

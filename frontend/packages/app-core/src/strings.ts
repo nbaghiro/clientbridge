@@ -693,8 +693,8 @@ export const strings = {
         net: "Net",
         gstTitle: "GST/HST",
         gstSubtitle:
-            "Federal GST/HST on paid invoices — remit to the CRA (PST/QST file separately)",
-        gstSubtitleMobile: "Federal GST/HST on paid invoices",
+            "Federal GST/HST on issued invoices — remit to the CRA (PST/QST file separately)",
+        gstSubtitleMobile: "Federal GST/HST on issued invoices",
         taxCollected: "GST/HST collected",
         pstCollected: "PST collected",
         qstCollected: "QST collected",

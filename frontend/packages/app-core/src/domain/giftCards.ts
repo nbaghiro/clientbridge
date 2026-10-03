@@ -1,10 +1,10 @@
 import { useQuery } from "@powersync/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
-import type { Intent } from "../util/primitives";
+import { type Intent, newIdempotencyKey } from "../util/primitives";
 import { strings } from "../strings";
 import { giftItems, useCatalogItems } from "./catalog";
 import { useInteractivePurchase } from "./payments";
@@ -75,8 +75,9 @@ export interface GiftCardRedeemResult {
 export function redeemGiftCard(
     api: ApiLike,
     input: { code: string; amount_cents: number },
+    idempotencyKey: string,
 ): Promise<GiftCardRedeemResult> {
-    return api.post<GiftCardRedeemResult>("/v1/gift-cards/redeem", input);
+    return api.post<GiftCardRedeemResult>("/v1/gift-cards/redeem", input, { idempotencyKey });
 }
 
 export type GiftSaleMode = "preset" | "custom";
@@ -209,9 +210,19 @@ export interface GiftCardRedeemForm {
 
 /** Redeem form: draw an amount against a gift card code. */
 export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCardRedeemForm {
-    const [code, setCode] = useState("");
-    const [amount, setAmount] = useState("");
+    const [code, setCodeState] = useState("");
+    const [amount, setAmountState] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
+    // One key per redeem attempt, kept through retries so a timed-out redeem isn't drawn twice.
+    const keyRef = useRef<string | null>(null);
+    const setCode = (v: string): void => {
+        keyRef.current = null;
+        setCodeState(v);
+    };
+    const setAmount = (v: string): void => {
+        keyRef.current = null;
+        setAmountState(v);
+    };
 
     const submit = (): void => {
         if (code.trim() === "") {
@@ -223,7 +234,10 @@ export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCar
             setError(strings.giftCards.enterRedeemAmount);
             return;
         }
-        run(() => redeemGiftCard(api, { code: code.trim().toUpperCase(), amount_cents: cents }), {
+        keyRef.current ??= newIdempotencyKey();
+        const key = keyRef.current;
+        const input = { code: code.trim().toUpperCase(), amount_cents: cents };
+        run(() => redeemGiftCard(api, input, key), {
             onSuccess: () => {
                 setCode("");
                 setAmount("");

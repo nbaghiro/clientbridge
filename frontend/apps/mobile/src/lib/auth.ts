@@ -1,5 +1,5 @@
 import type { TokenPair } from "@clientbridge/api-client";
-import { useCurrentRole } from "@clientbridge/app-core";
+import { type Viewer, useCurrentViewer } from "@clientbridge/app-core";
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useState } from "react";
 
@@ -20,9 +20,7 @@ export async function clearTokens(): Promise<void> {
     await SecureStore.deleteItemAsync(KEY);
 }
 
-/** The signed-in user's role — the (async) mobile side of the token seam behind app-core's shared
- *  decode: SecureStore is read once on mount, then the role resolves from the token. */
-export function useRole(): string | null {
+function useAccessToken(): string | null {
     const [token, setToken] = useState<string | null>(null);
     useEffect(() => {
         getTokens()
@@ -33,5 +31,15 @@ export function useRole(): string | null {
                 setToken(null);
             });
     }, []);
-    return useCurrentRole(token);
+    return token;
+}
+
+/** The signed-in member: the (async) mobile side of the token seam behind app-core's shared
+ *  decode. SecureStore is read once on mount, then the member resolves from the token. */
+export function useViewer(): Viewer | null {
+    return useCurrentViewer(useAccessToken());
+}
+
+export function useRole(): string | null {
+    return useViewer()?.role ?? null;
 }

@@ -1,5 +1,5 @@
 import type { TokenPair } from "@clientbridge/api-client";
-import { useCurrentRole } from "@clientbridge/app-core";
+import { type Viewer, useCurrentRole, useCurrentViewer } from "@clientbridge/app-core";
 
 export type { TokenPair };
 
@@ -26,4 +26,8 @@ export function isAuthenticated(): boolean {
  *  app-core's shared decode. Mobile's counterpart reads SecureStore asynchronously. */
 export function useRole(): string | null {
     return useCurrentRole(getTokens()?.access_token ?? null);
+}
+
+export function useViewer(): Viewer | null {
+    return useCurrentViewer(getTokens()?.access_token ?? null);
 }

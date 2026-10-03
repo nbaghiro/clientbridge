@@ -174,7 +174,7 @@ export interface RemittancePeriod {
     end: string;
 }
 
-/** The next unfiled period: the day after the last return (or Jan 1) through today. */
+/** The next unfiled period: the day after the last return (or Jan 1) through yesterday. */
 export function nextRemittancePeriod(
     filed: RemittanceRow[],
     now: Date = new Date(),
@@ -184,7 +184,7 @@ export function nextRemittancePeriod(
         last === undefined
             ? `${String(now.getFullYear())}-01-01`
             : dateKey(addDays(new Date(`${last.period_end}T00:00:00`), 1));
-    return { start, end: dateKey(now) };
+    return { start, end: dateKey(addDays(now, -1)) };
 }
 
 export function recordRemittance(api: ApiLike, period: RemittancePeriod): Promise<unknown> {

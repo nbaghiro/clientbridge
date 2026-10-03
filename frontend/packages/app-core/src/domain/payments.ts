@@ -172,11 +172,12 @@ export function refundPayment(
     api: ApiLike,
     paymentId: string,
     amountCents: number,
+    idempotencyKey: string,
 ): Promise<{ refund_id: string; status: string }> {
     return api.post<{ refund_id: string; status: string }>(
         `/v1/payments/${paymentId}/refund?amount_cents=${String(amountCents)}`,
         {},
-        { idempotencyKey: newIdempotencyKey() },
+        { idempotencyKey },
     );
 }
 
@@ -195,9 +196,15 @@ export function useRefundForm(
     payment: PaymentRow,
     allPayments: PaymentRow[],
 ): RefundForm {
-    const [amount, setAmount] = useState("");
+    const [amount, setAmountState] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
     const remainingCents = refundableCents(payment, allPayments);
+    // One key per refund attempt, kept through retries so a timed-out refund isn't issued twice.
+    const keyRef = useRef<string | null>(null);
+    const setAmount = (next: string): void => {
+        keyRef.current = null;
+        setAmountState(next);
+    };
 
     const submit = (): void => {
         const cents = amount.trim() === "" ? remainingCents : Math.round(Number(amount) * 100);
@@ -205,7 +212,9 @@ export function useRefundForm(
             setError(strings.invoices.refundAmountInvalid);
             return;
         }
-        run(() => refundPayment(api, payment.id, cents), {
+        keyRef.current ??= newIdempotencyKey();
+        const key = keyRef.current;
+        run(() => refundPayment(api, payment.id, cents, key), {
             onSuccess: () => {
                 setAmount("");
             },

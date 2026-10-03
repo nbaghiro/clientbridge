@@ -7,7 +7,6 @@ import {
     type StaffRow,
     addDays,
     canCollectDeposit,
-    canManagePayments,
     dateKey,
     dayBounds,
     dayColumns,
@@ -55,7 +54,7 @@ import {
 import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
+import { useViewer } from "../lib/auth";
 
 const HOUR_PX = 48;
 const MIN_HOUR_PX = 44;
@@ -839,13 +838,12 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
 }
 
 function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
-    const role = useRole();
+    const viewer = useViewer();
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(api, event, onClose);
     const stripeAccount = useStripeAccountId() ?? "";
     const [method, setMethod] = useState<string | null>(null);
 
-    if (!canManagePayments(role)) return null;
     const amountLabel = formatMoney(event.depositAmountCents);
     const effMethod = method ?? cards.at(0)?.id ?? "";
 
@@ -878,7 +876,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     intent={depositStatusIntent(event.depositStatus)}
                 />
             </div>
-            {canCollectDeposit(event) ? (
+            {canCollectDeposit(event, viewer) ? (
                 <div className="mt-3 space-y-2">
                     <select
                         value={effMethod}

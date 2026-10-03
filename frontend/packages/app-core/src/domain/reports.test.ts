@@ -6,7 +6,7 @@ const now = new Date(2026, 9, 3, 12);
 
 describe("nextRemittancePeriod", () => {
     it("starts on Jan 1 when nothing has been filed", () => {
-        expect(nextRemittancePeriod([], now)).toEqual({ start: "2026-01-01", end: "2026-10-03" });
+        expect(nextRemittancePeriod([], now)).toEqual({ start: "2026-01-01", end: "2026-10-02" });
     });
 
     it("starts the day after the latest filed period", () => {
@@ -16,7 +16,15 @@ describe("nextRemittancePeriod", () => {
         ];
         expect(nextRemittancePeriod(filed, now)).toEqual({
             start: "2026-10-01",
-            end: "2026-10-03",
+            end: "2026-10-02",
         });
+    });
+
+    it("is empty when the latest return already covers yesterday", () => {
+        const filed = [
+            { id: "j1", period_start: "2026-07-01", period_end: "2026-10-02", total_cents: 500 },
+        ];
+        const period = nextRemittancePeriod(filed, now);
+        expect(period.start > period.end).toBe(true);
     });
 });
