@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -33,9 +33,19 @@ class RemittanceService:
         business = await self.db.get(Business, self.biz)
         if business is None:
             raise NotFound("business not found")
-        lo, hi = period_bounds(data.period_start, data.period_end, ZoneInfo(business.timezone))
+        tz = ZoneInfo(business.timezone)
+        if data.period_end >= datetime.now(tz).date():
+            raise AppError(
+                "a return can only cover days that have ended",
+                status_code=422,
+                code="invalid_period",
+            )
+        lo, hi = period_bounds(data.period_start, data.period_end, tz)
 
         async def run(cmd: Command) -> RemittanceOut:
+            await self.db.execute(
+                select(Business.id).where(Business.id == self.biz).with_for_update()
+            )
             if await self._overlaps(data):
                 raise Conflict("this period overlaps a return that was already filed")
             owed = await self._owed(lo, hi)
@@ -46,7 +56,7 @@ class RemittanceService:
                 self.db,
                 self.biz,
                 type="remittance",
-                ref=f"remittance:{data.period_start}:{data.period_end}",
+                ref=f"remittance:{self.biz}:{data.period_start}:{data.period_end}",
                 legs=[
                     *(
                         Leg("business", self.biz, "tax", cents, code)
@@ -87,7 +97,7 @@ class RemittanceService:
             )
             .group_by(Account.code)
         )
-        return {code: -int(cents) for code, cents in rows.tuples().all() if cents < 0}
+        return {code: -int(cents) for code, cents in rows.tuples().all() if cents != 0}
 
     async def _overlaps(self, data: RemittanceIn) -> bool:
         filed = await self.db.execute(

@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_can_act_as
-from clientbridge.core.errors import AppError, Conflict, NotFound
+from clientbridge.core.errors import (
+    AppError,
+    CardDeclined,
+    Conflict,
+    NotFound,
+    PaymentActionRequired,
+)
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
@@ -438,18 +444,21 @@ class BookingService:
         if pm_ref is None:
             return
         client = await self._client(booking.client_id)
-        await open_booking_deposit(
-            self.db,
-            self.gateway,
-            account_id=business.stripe_account_id,
-            business_id=self.biz,
-            booking=booking,
-            client=client,
-            amount=booking.deposit_amount_cents,
-            fee_bps=get_settings().platform_fee_bps,
-            payment_method=pm_ref,
-            idempotency_key="no_show",
-        )
+        try:
+            await open_booking_deposit(
+                self.db,
+                self.gateway,
+                account_id=business.stripe_account_id,
+                business_id=self.biz,
+                booking=booking,
+                client=client,
+                amount=booking.deposit_amount_cents,
+                fee_bps=get_settings().platform_fee_bps,
+                payment_method=pm_ref,
+                idempotency_key="no_show",
+            )
+        except (CardDeclined, PaymentActionRequired):
+            return  # the no-show still stands; the deposit stays pending to collect by hand
         cmd.record("booking.deposit_forfeited", entity_type="booking", entity_id=booking.id)
 
     async def _assert_no_open_deposit(self, booking_id: str) -> None:

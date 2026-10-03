@@ -9,7 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
-from clientbridge.models.payments import Payment
+from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Availability, Booking, Session
 from clientbridge.services import ledger_service as ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
@@ -707,6 +707,22 @@ async def test_no_show_charges_default_card(
     # idempotent — repeat no_show never double-charges
     await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert gateway.charged_methods.count(SEEDED_CARD) == 1
+
+
+async def test_no_show_stands_when_the_default_card_declines(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable_payments(db)
+    await db.execute(
+        update(PaymentMethod)
+        .where(PaymentMethod.provider_ref == SEEDED_CARD)
+        .values(provider_ref="pm_card_declined")
+    )
+    bid = await _deposit_booking(as_owner, db, starts="2027-06-10T10:00:00Z")
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
+    assert res.status_code == 200, res.text
+    assert res.json()["status"] == "no_show"
+    assert res.json()["deposit_status"] == "pending"
 
 
 async def test_no_show_without_deposit_is_noop(

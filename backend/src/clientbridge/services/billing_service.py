@@ -12,6 +12,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.crm import Client
+from clientbridge.models.payments import Payment
 from clientbridge.schemas.billing import (
     EstimateCreate,
     EstimateOut,
@@ -136,6 +137,14 @@ class BillingService:
             raise Conflict(f"a {invoice.status} invoice can't be voided")
 
         async def run(cmd: Command) -> InvoiceOut:
+            pending = await self.db.execute(
+                scoped(Payment, self.biz)
+                .with_only_columns(Payment.id)
+                .where(Payment.invoice_id == invoice.id, Payment.status == "pending")
+                .limit(1)
+            )
+            if pending.scalar_one_or_none() is not None:
+                raise Conflict("this invoice has a payment in progress")
             invoice.status = "void"
             invoice.voided_at = datetime.now(UTC)
             await self.db.flush()

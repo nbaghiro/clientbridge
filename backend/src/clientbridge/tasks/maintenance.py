@@ -49,11 +49,13 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
     gift_cards = (
         (
             await db.execute(
-                select(GiftCard).where(
+                select(GiftCard)
+                .where(
                     GiftCard.status == "active",
                     GiftCard.expires_at.is_not(None),
                     GiftCard.expires_at < now,
                 )
+                .with_for_update()
             )
         )
         .scalars()
@@ -72,11 +74,13 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
     packages = (
         (
             await db.execute(
-                select(Package).where(
+                select(Package)
+                .where(
                     Package.status == "active",
                     Package.expires_at.is_not(None),
                     Package.expires_at < now,
                 )
+                .with_for_update()
             )
         )
         .scalars()

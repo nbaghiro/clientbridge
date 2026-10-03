@@ -120,6 +120,19 @@ async def test_partial_refunds_unwind_revenue_and_tax_pro_rata(
     assert await _refunds(db, pay_id) == 3
 
 
+async def test_uneven_partial_refunds_clear_every_cent_of_tax(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id, pay_id = await _paid_invoice(as_owner, db)
+    for amount in (3701, 3700):
+        res = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents={amount}")
+        assert res.status_code == 200, res.text
+    assert await _invoice_net(db, inv_id, "tax") == -(1200 - 792)
+    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund")).status_code == 200
+    assert await _invoice_net(db, inv_id, "tax") == 0
+    assert await _invoice_net(db, inv_id, "revenue") == 0
+
+
 async def test_over_refund_and_bad_amounts_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:

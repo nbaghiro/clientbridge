@@ -1,21 +1,24 @@
 """Filing a sales-tax return moves the period's tax payable to the bank, once per period."""
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.ledger import Entry
+from clientbridge.schemas.payments import RemittanceIn
 from clientbridge.services import ledger_service as ledger
+from clientbridge.services.remittance_service import RemittanceService
 from clientbridge.services.tax_service import TaxResult
 from tests.conftest import BIZ, Factory
 
-Q1 = {"period_start": "2031-01-01", "period_end": "2031-03-31"}
-IN_Q1 = datetime(2031, 2, 15, 18, tzinfo=UTC)
+Q1 = {"period_start": "2021-01-01", "period_end": "2021-03-31"}
+IN_Q1 = datetime(2021, 2, 15, 18, tzinfo=UTC)
 
 
 async def _invoice(
@@ -97,20 +100,20 @@ async def test_overlapping_or_refiled_period_409(
         "/v1/payments/remittances", json=Q1, headers={"Idempotency-Key": "another-filing"}
     )
     assert again.status_code == 409
-    overlap = {"period_start": "2031-03-01", "period_end": "2031-05-31"}
+    overlap = {"period_start": "2021-03-01", "period_end": "2021-05-31"}
     assert (await as_owner.post("/v1/payments/remittances", json=overlap)).status_code == 409
     assert await _remittances(db) == 1
 
 
 async def test_period_with_no_tax_owed_409(as_owner: httpx.AsyncClient) -> None:
-    empty = {"period_start": "2033-01-01", "period_end": "2033-03-31"}
+    empty = {"period_start": "2020-01-01", "period_end": "2020-03-31"}
     res = await as_owner.post("/v1/payments/remittances", json=empty)
     assert res.status_code == 409
     assert res.json()["message"] == "no tax is owed for this period"
 
 
 async def test_period_ending_before_it_starts_422(as_owner: httpx.AsyncClient) -> None:
-    backwards = {"period_start": "2031-03-31", "period_end": "2031-01-01"}
+    backwards = {"period_start": "2021-03-31", "period_end": "2021-01-01"}
     res = await as_owner.post("/v1/payments/remittances", json=backwards)
     assert res.status_code == 422
     assert res.json()["error"] == "invalid_period"
@@ -142,3 +145,29 @@ async def test_other_business_tax_is_not_filed(
     res = await as_owner.post("/v1/payments/remittances", json=Q1)
     assert res.json()["by_code"] == {"GST": 500, "PST": 700}
     assert await _remittances(db, other.id) == 0
+
+
+async def test_period_that_has_not_ended_is_422(as_owner: httpx.AsyncClient) -> None:
+    today = date.today().isoformat()
+    res = await as_owner.post(
+        "/v1/payments/remittances", json={"period_start": "2021-01-01", "period_end": today}
+    )
+    assert res.status_code == 422
+    assert res.json()["error"] == "invalid_period"
+
+
+async def test_two_businesses_can_file_the_same_period(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    factory = Factory(db)
+    other = await factory.business()
+    user = await factory.user()
+    staff = await factory.staff(business=other, user=user, role="owner")
+    client = await factory.client(business=other)
+    await _invoice(db, business_id=other.id, client_id=client.id, number=1, tax={"GST": 300})
+    principal = Principal(user_id=user.id, business_id=other.id, staff_id=staff.id, role="owner")
+    filed = await RemittanceService(db, principal).record(RemittanceIn.model_validate(Q1), None)
+    assert filed.total_cents == 300
+    await _q1_tax(db)
+    res = await as_owner.post("/v1/payments/remittances", json=Q1)
+    assert res.status_code == 201, res.text

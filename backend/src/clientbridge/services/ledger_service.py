@@ -398,6 +398,49 @@ async def post_fees(db: AsyncSession, payment: Payment, fees: ChargeFees) -> Non
     )
 
 
+async def _unwind(
+    db: AsyncSession,
+    original: Payment,
+    refund: Payment,
+    credits: list[tuple[Entry, Account]],
+    base: int,
+    returned: int,
+) -> list[Leg]:
+    """Each credit leg's share of everything refunded so far, less what earlier refunds already
+    unwound, so the refund that completes the basis clears every leg exactly."""
+    refunds = scoped(Payment, original.business_id).where(
+        Payment.kind == "refund",
+        Payment.id != refund.id,
+        Payment.invoice_id == original.invoice_id
+        if original.invoice_id
+        else Payment.parent_payment_id == original.id,
+    )
+    owed: dict[str, tuple[Account, int]] = {}
+    for entry, account in credits:
+        owed[account.id] = (account, owed.get(account.id, (account, 0))[1] - entry.amount_cents)
+    prior_rows = await _rows(
+        db,
+        original.business_id,
+        (Entry.type == "refund")
+        & Entry.account_id.in_(owed)
+        & Entry.source_id.in_(refunds.with_only_columns(Payment.id).scalar_subquery()),
+    )
+    prior: dict[str, int] = {}
+    for entry, _ in prior_rows:
+        prior[entry.account_id] = prior.get(entry.account_id, 0) + entry.amount_cents
+    done = sum(prior.values()) + returned
+    shares = [
+        (a, credit * done // base - prior.get(a.id, 0), credit) for a, credit in owed.values()
+    ]
+    largest = max(range(len(shares)), key=lambda i: shares[i][2])
+    short = returned - sum(cents for _, cents, _ in shares)
+    legs = [
+        Leg(a.owner_type, a.owner_id, a.kind, cents + (short if i == largest else 0), a.code)
+        for i, (a, cents, _) in enumerate(shares)
+    ]
+    return legs
+
+
 async def post_refund(
     db: AsyncSession,
     refund: Payment,
@@ -418,20 +461,9 @@ async def post_refund(
     ]
     base = -sum(entry.amount_cents for entry, _ in credits)
     if base <= 0:
-        credits, base = [], returned
-    legs = [
-        Leg(a.owner_type, a.owner_id, a.kind, -e.amount_cents * returned // base, a.code)
-        for e, a in credits
-    ] or [Leg("business", biz, "revenue", returned)]
-    largest = max(range(len(legs)), key=lambda i: legs[i].amount_cents)
-    short = returned - sum(leg.amount_cents for leg in legs)
-    legs[largest] = Leg(
-        legs[largest].owner_type,
-        legs[largest].owner_id,
-        legs[largest].kind,
-        legs[largest].amount_cents + short,
-        legs[largest].code,
-    )
+        legs = [Leg("business", biz, "revenue", returned)]
+    else:
+        legs = await _unwind(db, original, refund, credits, base, returned)
     subject, _ = await _settlement(db, original)
     await post(
         db,
@@ -538,11 +570,27 @@ async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None
     )
 
 
+async def _owned(
+    db: AsyncSession, business_id: str, owner_type: str, owner_id: str, kind: str
+) -> tuple[int, str]:
+    """What an entity's own liability account still holds, in the currency it was bought in."""
+    account = (
+        await db.execute(
+            scoped(Account, business_id).where(
+                Account.owner_type == owner_type,
+                Account.owner_id == owner_id,
+                Account.kind == kind,
+            )
+        )
+    ).scalar_one_or_none()
+    return (0, "CAD") if account is None else (-account.balance_cents, account.currency)
+
+
 async def post_breakage(
     db: AsyncSession, business_id: str, *, owner_type: str, owner_id: str, kind: str
 ) -> None:
     """Recognize the unspent balance of an expired gift card or package as revenue."""
-    unused = -await balance(db, business_id, owner_type=owner_type, owner_id=owner_id, kind=kind)
+    unused, currency = await _owned(db, business_id, owner_type, owner_id, kind)
     await post(
         db,
         business_id,
@@ -552,6 +600,7 @@ async def post_breakage(
             Leg(owner_type, owner_id, kind, unused),
             Leg("business", business_id, "revenue", -unused),
         ],
+        currency=currency,
         subject=(owner_type, owner_id),
     )
 
@@ -559,7 +608,7 @@ async def post_breakage(
 async def post_consumption(db: AsyncSession, package: Package) -> None:
     """Recognize one used session's share of prepaid package revenue (the last takes the rest)."""
     biz = package.business_id
-    remaining = -await balance(db, biz, owner_type="package", owner_id=package.id, kind="deferred")
+    remaining, currency = await _owned(db, biz, "package", package.id, "deferred")
     if package.sessions_used >= package.sessions_total:
         share = remaining
     else:
@@ -580,6 +629,7 @@ async def post_consumption(db: AsyncSession, package: Package) -> None:
             Leg("package", package.id, "deferred", share),
             Leg("business", biz, "revenue", -share),
         ],
+        currency=currency,
         subject=("package", package.id),
     )
 

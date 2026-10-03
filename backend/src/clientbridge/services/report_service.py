@@ -99,7 +99,7 @@ class ReportService:
         sales = await self.db.execute(
             self._legs(
                 Account.kind.in_(("revenue", "deferred")),
-                Entry.type.in_(("invoice", "payment", "refund", "reversal")),
+                Entry.type.in_(("invoice", "payment", "refund", "forfeit", "reversal")),
                 lo,
                 hi,
             ).with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
@@ -116,22 +116,22 @@ class ReportService:
         tz = ZoneInfo((await self._business()).timezone)
         start = datetime(year, 1, 1, tzinfo=tz)
         end = datetime(year + 1, 1, 1, tzinfo=tz)
-        approved = (
+        paid = (
             self._legs(
                 (Account.kind == "payable") & (Account.code == "approved"),
-                Entry.type == "approval",
+                Entry.type == "staff_payment",
                 start,
                 end,
             )
-            .with_only_columns(Account.owner_id, (-func.sum(Entry.amount_cents)).label("total"))
+            .with_only_columns(Account.owner_id, func.sum(Entry.amount_cents).label("total"))
             .group_by(Account.owner_id)
             .subquery()
         )
         rows = await self.db.execute(
-            select(approved.c.owner_id, User.name, approved.c.total)
-            .join(Staff, Staff.id == approved.c.owner_id)
+            select(paid.c.owner_id, User.name, paid.c.total)
+            .join(Staff, Staff.id == paid.c.owner_id)
             .join(User, User.id == Staff.user_id, isouter=True)
-            .order_by(approved.c.owner_id)
+            .order_by(paid.c.owner_id)
         )
         return [
             T4ARow(staff_id=staff_id, name=name or _UNNAMED_PAYEE, total_cents=int(total))

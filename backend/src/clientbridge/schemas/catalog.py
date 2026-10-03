@@ -11,7 +11,7 @@ class ItemBase(BaseModel):
     name: str = Field(min_length=1)
     description: str | None = None
     price_cents: int = Field(default=0, ge=0)
-    currency: str = Field(default="CAD", min_length=3, max_length=3)
+    currency: str = Field(default="CAD", pattern="^[A-Z]{3}$")
     duration_min: int | None = Field(default=None, ge=0)
     capacity: int | None = Field(default=None, ge=0)
     category: str | None = None
@@ -29,7 +29,7 @@ class ItemUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     description: str | None = None
     price_cents: int | None = Field(default=None, ge=0)
-    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
     duration_min: int | None = Field(default=None, ge=0)
     capacity: int | None = Field(default=None, ge=0)
     category: str | None = None

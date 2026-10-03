@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -66,7 +67,9 @@ class EarningService:
             raise NotFound("earning not found")
 
         async def run(cmd: Command) -> EarningOut:
-            if earning.status != current:
+            await _lock_booking(self.db, earning.booking_id)
+            fresh = await load_earning(self.db, self.biz, earning.id)
+            if fresh is None or fresh.status != current:
                 raise Conflict(f"only a {current} earning can be marked {target}")
             await advance_earning(self.db, earning, target)
             cmd.record(action, entity_type="earning", entity_id=earning.id)
@@ -82,6 +85,12 @@ class EarningService:
             response_model=EarningOut,
             idempotency_key=idempotency_key,
         )
+
+
+async def _lock_booking(db: AsyncSession, booking_id: str | None) -> None:
+    """Serializes approve/pay against an automatic reversal of the same booking's earnings."""
+    if booking_id is not None:
+        await db.execute(select(Booking.id).where(Booking.id == booking_id).with_for_update())
 
 
 async def advance_earning(db: AsyncSession, earning: Earning, target: str) -> None:
@@ -223,6 +232,7 @@ async def reverse_earnings(db: AsyncSession, invoice: Invoice) -> None:
     biz = invoice.business_id
     for line in await _booking_lines(db, invoice):
         assert line.booking_id is not None
+        await _lock_booking(db, line.booking_id)
         journals = await _booking_earnings(db, biz, line.booking_id)
         if journals and await _status(db, biz, journals[-1]) == "pending":
             await ledger.reverse(db, biz, journals[-1], ref=f"earning:{journals[-1]}:reversal")

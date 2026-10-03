@@ -269,7 +269,7 @@ async def test_gst_hst_period_bounds_use_business_timezone(
     assert q3_after["tax_collected_cents"] == q3_before["tax_collected_cents"]
 
 
-async def test_t4a_sums_approved_earnings_in_year(
+async def test_t4a_sums_earnings_paid_in_year(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     staff_id = await _new_payee(db, name="Wade Payee")
@@ -280,7 +280,7 @@ async def test_t4a_sums_approved_earnings_in_year(
 
     rows = (await as_owner.get("/v1/reports/t4a?year=2025")).json()
     row = next(r for r in rows if r["staff_id"] == staff_id)
-    assert row["total_cents"] == 10000  # approved 4000 + paid 6000; pending & prior-year excluded
+    assert row["total_cents"] == 6000  # paid only; approved-unpaid, pending and prior-year excluded
     assert row["name"] == "Wade Payee"
 
 

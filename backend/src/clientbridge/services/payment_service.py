@@ -299,12 +299,12 @@ class PaymentService:
             raise Conflict("payment has no connected charge to refund")
         account_id = business.stripe_account_id
         provider_ref = payment.provider_ref
-        whole_only = await self._whole_refund_only(payment)
 
         async def run(cmd: Command) -> RefundOut:
             await self.db.execute(
                 scoped(Payment, self.biz).where(Payment.id == payment.id).with_for_update()
             )
+            whole_only = await self._whole_refund_only(payment)
             refunded = await _refunded_cents(self.db, payment)
             left = payment.amount_cents - refunded
             amount = left if amount_cents is None else amount_cents
@@ -357,17 +357,25 @@ class PaymentService:
         A gift card or package must also be untouched, so the refund can't lose delivered value."""
         card = (
             await self.db.execute(
-                scoped(GiftCard, self.biz).where(GiftCard.payment_id == payment.id)
+                scoped(GiftCard, self.biz)
+                .where(GiftCard.payment_id == payment.id)
+                .with_for_update()
             )
         ).scalar_one_or_none()
         if card is not None:
+            if card.status == "expired":
+                raise Conflict("can't refund an expired gift card")
             if await ledger.gift_card_balance(self.db, card) < card.initial_cents:
                 raise Conflict("can't refund a gift card that has already been partly redeemed")
             return "a gift card purchase is refunded in full"
         pkg = (
-            await self.db.execute(scoped(Package, self.biz).where(Package.payment_id == payment.id))
+            await self.db.execute(
+                scoped(Package, self.biz).where(Package.payment_id == payment.id).with_for_update()
+            )
         ).scalar_one_or_none()
         if pkg is not None:
+            if pkg.status == "expired":
+                raise Conflict("can't refund an expired package")
             if pkg.sessions_used > 0:
                 raise Conflict("can't refund a package with sessions already used")
             return "a package purchase is refunded in full"
@@ -1231,7 +1239,7 @@ async def _sync_invoice(db: AsyncSession, invoice_id: str) -> None:
         return
     net, refunded = await ledger.collected(db, invoice.business_id, "invoice", invoice_id)
     balance = await ledger.invoice_balance(db, invoice)
-    if net <= 0 and refunded:
+    if net <= 0 and refunded and balance <= 0:
         invoice.status = "refunded"
         invoice.paid_at = None
     elif balance <= 0:
