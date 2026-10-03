@@ -573,7 +573,7 @@ async def deposit_held(db: AsyncSession, booking: Booking) -> int:
 
 
 async def deposit_state(db: AsyncSession, booking: Booking) -> str:
-    if not booking.deposit_required:
+    if not booking.deposit_required or booking.deposit_amount_cents <= 0:
         return "none"
     if await journal_for(db, booking.business_id, f"forfeit:{booking.id}") is not None:
         return "forfeited"
@@ -586,7 +586,9 @@ async def deposit_state(db: AsyncSession, booking: Booking) -> str:
         & (Entry.subject_id == booking.id)
         & (Entry.type == "refund"),
     )
-    return "refunded" if refunds else "pending"
+    if refunds:
+        return "refunded"
+    return "none" if booking.status in ("completed", "canceled") else "pending"
 
 
 async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
