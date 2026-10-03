@@ -111,7 +111,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                             invite.setEmail(e.target.value);
                         }}
                         placeholder={strings.team.emailPlaceholder}
-                        className="w-full rounded-md border border-line bg-bg px-3 py-2 text-ink outline-none transition placeholder:text-muted focus:border-accent"
+                        className="w-full rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition placeholder:text-muted focus:border-accent"
                     />
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
@@ -121,7 +121,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                         onChange={(e) => {
                             invite.setRole(e.target.value as StaffRole);
                         }}
-                        className="rounded-md border border-line bg-bg px-3 py-2 text-ink outline-none transition focus:border-accent"
+                        className="rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition focus:border-accent"
                     >
                         {INVITABLE_ROLES.map((r) => (
                             <option key={r.value} value={r.value}>

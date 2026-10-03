@@ -8,7 +8,7 @@ import {
     strings,
     usePublicFormFill,
 } from "@clientbridge/app-core/public";
-import type { FormEvent } from "react";
+import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
@@ -17,7 +17,7 @@ import { useEmbedSuccess } from "../embed";
 const forms = createPublicFormClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
 const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function PublicForm() {
     const { token = "" } = useParams<{ token: string }>();
@@ -52,7 +52,7 @@ export function PublicForm() {
     if (fill.status === "done")
         return <DoneState businessName={form.business_name} brand={form.brand} />;
 
-    const submit = (e: FormEvent): void => {
+    const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         fill.submit();
     };

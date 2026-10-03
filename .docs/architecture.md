@@ -87,7 +87,7 @@ clientbridge/
 │       ├── app-core/   shared view-model hooks + strings + icons
 │       ├── sync/       PowerSync AppSchema + backend connector
 │       ├── api-client/ generated OpenAPI types + session (refresh/sign-out)
-│       ├── tokens/     Pewter design system → Tailwind preset + RN theme
+│       ├── tokens/     Pewter design system → Tailwind theme + RN theme
 │       └── config/     shared eslint/prettier + the no-inline-ui-string rule
 ├── infra/powersync/    powersync.yaml (service config) · sync-rules.yaml (read authz)
 └── .docs/              architecture · engineering · roadmap · design/
@@ -422,7 +422,7 @@ source, with a **CI drift gate** that fails if the committed output diverges.
 
 `api-client`'s `session.ts` owns transparent token refresh (single-flight, retries once on 401, refreshes
 only on a definitive 401/403 so a network blip doesn't wipe the replica) and injects the token-store seam.
-`tokens` feeds both platforms from one source: web via CSS variables + a Tailwind preset, mobile via
+`tokens` feeds both platforms from one source: web via CSS variables + a Tailwind v4 @theme (tailwind.css), mobile via
 materialized JS values.
 
 > A browsable visual companion to this document lives at [codebase-atlas.html](codebase-atlas.html).

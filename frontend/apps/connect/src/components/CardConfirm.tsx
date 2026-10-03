@@ -1,7 +1,7 @@
 import { strings, useAsyncAction } from "@clientbridge/app-core/public";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
-import { type FormEvent, useMemo } from "react";
+import { type SubmitEvent, useMemo } from "react";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
@@ -43,7 +43,7 @@ function CardForm({ amountLabel, onPaid }: { amountLabel: string; onPaid: () => 
     const elements = useElements();
     const { busy, error, setError, run } = useAsyncAction();
 
-    const submit = (e: FormEvent): void => {
+    const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         if (!stripe || !elements) return;
         run(

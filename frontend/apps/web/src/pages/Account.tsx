@@ -3,7 +3,7 @@ import { ACCOUNT_TEXT_FIELDS, LOCALES, strings, useAccountForm } from "@clientbr
 import { api } from "../lib/api";
 
 const FIELD =
-    "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-none transition placeholder:text-muted focus:border-accent";
+    "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
 export function Account() {
     const form = useAccountForm(api);

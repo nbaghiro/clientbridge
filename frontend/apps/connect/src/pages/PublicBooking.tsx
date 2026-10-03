@@ -13,7 +13,7 @@ import {
     strings,
     usePublicBookingForm,
 } from "@clientbridge/app-core/public";
-import { type FormEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { CardConfirm } from "../components/CardConfirm";
@@ -23,7 +23,7 @@ import { useEmbedSuccess } from "../embed";
 const booking = createPublicBookingClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
 const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function PublicBooking() {
     const { slug = "" } = useParams<{ slug: string }>();
@@ -58,7 +58,7 @@ export function PublicBooking() {
     if (form.result !== null)
         return <BookedState page={page} result={form.result} service={service} />;
 
-    const submit = (e: FormEvent): void => {
+    const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         form.submit();
     };

@@ -50,7 +50,7 @@ function PayoutsView() {
                         onClick={() => {
                             setFilter(f);
                         }}
-                        className={`flex-1 rounded px-3 py-1.5 capitalize transition ${
+                        className={`flex-1 rounded-base px-3 py-1.5 capitalize transition ${
                             filter === f ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
                         }`}
                     >

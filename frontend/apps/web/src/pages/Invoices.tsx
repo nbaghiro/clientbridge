@@ -80,7 +80,7 @@ export function Invoices() {
                         onClick={() => {
                             setTab(t);
                         }}
-                        className={`flex-1 rounded px-3 py-1.5 capitalize transition ${
+                        className={`flex-1 rounded-base px-3 py-1.5 capitalize transition ${
                             tab === t ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
                         }`}
                     >
@@ -97,7 +97,7 @@ export function Invoices() {
                         setQ(e.target.value);
                     }}
                     placeholder={strings.invoices.searchPlaceholder(tab)}
-                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
+                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
                 />
             </div>
 
@@ -193,7 +193,7 @@ function Overlay({ children }: { children: React.ReactNode }) {
 }
 
 const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
     const clients = useClients();

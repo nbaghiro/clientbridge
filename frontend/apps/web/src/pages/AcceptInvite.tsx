@@ -20,7 +20,7 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
     });
 
     const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-none transition placeholder:text-muted focus:border-accent";
+        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">

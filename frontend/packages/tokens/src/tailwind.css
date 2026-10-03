@@ -1,0 +1,56 @@
+/* Tailwind v4 theme wiring the Pewter CSS variables (themes.css) into utility classes. */
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface2: var(--surface2);
+    --color-head: var(--head);
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-muted: var(--muted);
+    --color-line: var(--border);
+    --color-line-soft: var(--border-soft);
+    --color-primary: var(--primary);
+    --color-primary-ink: var(--primary-ink);
+    --color-accent: var(--accent);
+    --color-accent-ink: var(--accent-ink);
+    --color-accent-strong: var(--accent-strong);
+    --color-accent-weak: var(--accent-weak);
+    --color-accent-line: var(--accent-line);
+    --color-success: var(--success);
+    --color-ok: var(--ok-fg);
+    --color-ok-bg: var(--ok-bg);
+    --color-ok-fg: var(--ok-fg);
+    --color-warn: var(--warn-fg);
+    --color-warn-bg: var(--warn-bg);
+    --color-warn-fg: var(--warn-fg);
+    --color-danger: var(--dan-fg);
+    --color-danger-bg: var(--dan-bg);
+    --color-danger-fg: var(--dan-fg);
+    --color-side: var(--side);
+    --color-side-ink: var(--side-ink);
+    --color-logo: var(--logo);
+    --color-scrim: rgba(20, 25, 30, 0.35);
+
+    --font-sans: "Schibsted Grotesk", sans-serif;
+    --font-display: "Schibsted Grotesk", sans-serif;
+    --font-mono: "Geist Mono", monospace;
+
+    --radius-base: var(--radius);
+    --radius-avatar: var(--avatar-radius);
+    --shadow-card: var(--shadow);
+}
+
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--border);
+    }
+
+    button:not(:disabled),
+    [role="button"]:not(:disabled) {
+        cursor: pointer;
+    }
+}

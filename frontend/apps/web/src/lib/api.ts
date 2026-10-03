@@ -28,7 +28,5 @@ export const api: Session = createSession({
         signedOutHandler();
     },
     // Serialize refresh across tabs so two tabs can't replay the same refresh token.
-    // (lib.dom types request()'s result un-flattened; Web Locks resolves with fn()'s value.)
-    lock: <T>(fn: () => Promise<T>): Promise<T> =>
-        navigator.locks.request("cb-token-refresh", fn) as unknown as Promise<T>,
+    lock: <T>(fn: () => Promise<T>): Promise<T> => navigator.locks.request("cb-token-refresh", fn),
 });

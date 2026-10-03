@@ -13,7 +13,9 @@ function prims(name: IconName): ReactNode {
             return (
                 <Rect
                     key={i}
+                    // eslint-disable-next-line @typescript-eslint/no-deprecated -- rect coords, not the deprecated TransformProps x
                     x={p.x}
+                    // eslint-disable-next-line @typescript-eslint/no-deprecated -- rect coords, not the deprecated TransformProps y
                     y={p.y}
                     width={p.width}
                     height={p.height}

@@ -6,7 +6,7 @@ import {
     strings,
     usePublicContractSign,
 } from "@clientbridge/app-core/public";
-import type { FormEvent } from "react";
+import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
@@ -18,7 +18,7 @@ const contracts = createPublicContractClient(
 );
 
 const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function PublicContract() {
     const { token = "" } = useParams<{ token: string }>();
@@ -51,7 +51,7 @@ export function PublicContract() {
 
     if (form.status === "resolved") return <ResolvedState contract={contract} />;
 
-    const sign = (e: FormEvent): void => {
+    const sign = (e: SubmitEvent): void => {
         e.preventDefault();
         form.sign();
     };

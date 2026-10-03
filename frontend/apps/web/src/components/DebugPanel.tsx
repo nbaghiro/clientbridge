@@ -127,7 +127,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
                         client state · debug
                     </span>
                     <button
-                        className="rounded px-2 py-0.5 text-bg/60 hover:bg-white/10 hover:text-bg"
+                        className="rounded-base px-2 py-0.5 text-bg/60 hover:bg-white/10 hover:text-bg"
                         onClick={onClose}
                     >
                         ✕ esc
@@ -174,8 +174,8 @@ function Overlay({ onClose }: { onClose: () => void }) {
                     <Row k="connected" v={String(status.connected)} good={status.connected} />
                     <Row k="has synced" v={String(status.hasSynced ?? false)} />
                     <Row k="last synced" v={status.lastSyncedAt?.toLocaleTimeString() ?? "—"} />
-                    <Row k="downloading" v={String(status.dataFlowStatus.downloading)} />
-                    <Row k="uploading" v={String(status.dataFlowStatus.uploading)} />
+                    <Row k="downloading" v={String(status.downloading)} />
+                    <Row k="uploading" v={String(status.uploading)} />
                     <Row k="powersync" v={powersyncUrl} />
                 </div>
 
@@ -244,7 +244,7 @@ function TableList({
                     tables.map((t) => (
                         <button
                             key={t.table}
-                            className="flex items-center justify-between rounded px-2 py-1 text-left hover:bg-white/10"
+                            className="flex items-center justify-between rounded-base px-2 py-1 text-left hover:bg-white/10"
                             onClick={() => {
                                 onPick(t.table);
                             }}
@@ -277,13 +277,19 @@ function Detail({
     return (
         <>
             <div className="flex items-center justify-between px-5 py-2 text-bg/70">
-                <button className="rounded px-1 hover:bg-white/10 hover:text-bg" onClick={onBack}>
+                <button
+                    className="rounded-base px-1 hover:bg-white/10 hover:text-bg"
+                    onClick={onBack}
+                >
                     ‹ tables
                 </button>
                 <span className="font-semibold text-bg">
                     {name} · {rows.length} rows
                 </span>
-                <button className="rounded px-1 hover:bg-white/10 hover:text-bg" onClick={onReload}>
+                <button
+                    className="rounded-base px-1 hover:bg-white/10 hover:text-bg"
+                    onClick={onReload}
+                >
                     ↻
                 </button>
             </div>
@@ -313,7 +319,7 @@ function QueryView({
         <>
             <div className="border-b border-white/10 px-5 py-3">
                 <textarea
-                    className="h-24 w-full resize-none rounded border border-white/15 bg-black/30 p-3 font-mono text-xs text-bg outline-none focus:border-white/40"
+                    className="h-24 w-full resize-none rounded-base border border-white/15 bg-black/30 p-3 font-mono text-xs text-bg outline-hidden focus:border-white/40"
                     spellCheck={false}
                     value={sql}
                     onChange={(e) => {
@@ -406,7 +412,7 @@ function fmt(v: unknown): string {
 function Tool({ label, onClick }: { label: string; onClick: () => void }) {
     return (
         <button
-            className="rounded border border-white/15 px-2 py-1 text-bg/80 hover:bg-white/10 hover:text-bg"
+            className="rounded-base border border-white/15 px-2 py-1 text-bg/80 hover:bg-white/10 hover:text-bg"
             onClick={onClick}
         >
             {label}
@@ -417,7 +423,7 @@ function Tool({ label, onClick }: { label: string; onClick: () => void }) {
 function Tab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
     return (
         <button
-            className={`rounded px-2 py-1 ${active ? "bg-white/15 text-bg" : "text-bg/50 hover:text-bg"}`}
+            className={`rounded-base px-2 py-1 ${active ? "bg-white/15 text-bg" : "text-bg/50 hover:text-bg"}`}
             onClick={onClick}
         >
             {label}

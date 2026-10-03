@@ -1,0 +1,9 @@
+{
+    "venvPath": "backend",
+    "venv": ".venv",
+    "pythonVersion": "3.14",
+    "include": ["backend/src", "backend/tests", "backend/scripts", "backend/migrations"],
+    "extraPaths": ["backend/src"],
+    "typeCheckingMode": "standard",
+    "reportMissingTypeStubs": false
+}

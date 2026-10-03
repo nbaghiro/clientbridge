@@ -6,19 +6,7 @@ import type { ApiLike } from "../util/api";
 
 // The 13 Canadian provinces/territories the backend seeds tax rates for; an unknown code is a 422.
 export type ProvinceCode =
-    | "AB"
-    | "BC"
-    | "MB"
-    | "NB"
-    | "NL"
-    | "NS"
-    | "NT"
-    | "NU"
-    | "ON"
-    | "PE"
-    | "QC"
-    | "SK"
-    | "YT";
+    "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
 
 export interface Province {
     code: ProvinceCode;

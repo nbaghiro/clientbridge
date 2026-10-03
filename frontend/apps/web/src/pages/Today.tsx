@@ -161,7 +161,7 @@ function StatCard({
         <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
             <p className="text-sm text-muted">{label}</p>
             {cents === null ? (
-                <div className="mt-2 h-8 w-32 animate-pulse rounded bg-bg" />
+                <div className="mt-2 h-8 w-32 animate-pulse rounded-base bg-bg" />
             ) : (
                 <p
                     className={`mt-1 font-display text-3xl font-bold tabular-nums ${

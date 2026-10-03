@@ -21,7 +21,7 @@ type safety.**
 ### Frontend (TypeScript)
 - **prettier** (`packages/config/prettier.config.json`) — `tabWidth:4`, `semi:true`, `singleQuote:false`,
   `printWidth:100`, trailing commas all.
-- **eslint** (`packages/config/eslint.config.mjs`) — `strictTypeChecked` + `stylisticTypeChecked`
+- **eslint** (`packages/config/eslint.mjs`) — `strictTypeChecked` + `stylisticTypeChecked`
   (type-aware) → bans `any` **and** unsafe-`any` flows. Adds `no-console`, **`no-void`**, and
   `no-floating-promises` with `ignoreVoid:false` (a floating promise needs a real `.catch`/await, not
   `void`). Registers two local rules: **`no-inline-ui-string`** (forces UI copy into `strings.ts`; allow-lists

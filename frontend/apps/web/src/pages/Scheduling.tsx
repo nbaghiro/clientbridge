@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 
 const FIELD =
-    "rounded-md border border-line bg-bg px-3 py-2 text-ink outline-none transition focus:border-accent";
+    "rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition focus:border-accent";
 
 export function Scheduling() {
     const staff = useStaff();

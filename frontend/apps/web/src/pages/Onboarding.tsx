@@ -13,7 +13,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
     });
 
     const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-none transition placeholder:text-muted focus:border-accent";
+        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
     if (submitted) {
         return (
@@ -71,7 +71,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                                     form.setSlug(e.target.value);
                                 }}
                                 placeholder={strings.onboarding.slugPlaceholder}
-                                className="flex-1 bg-transparent px-1 py-2.5 text-ink outline-none placeholder:text-muted"
+                                className="flex-1 bg-transparent px-1 py-2.5 text-ink outline-hidden placeholder:text-muted"
                             />
                         </div>
                     </label>

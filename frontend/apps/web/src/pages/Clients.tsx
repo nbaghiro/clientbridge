@@ -42,7 +42,7 @@ import {
 } from "@clientbridge/app-core";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { type Stripe, loadStripe } from "@stripe/stripe-js";
-import { type FormEvent, useMemo, useState } from "react";
+import { type SubmitEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { CardConfirm } from "../components/CardConfirm";
@@ -53,7 +53,7 @@ import { useRole } from "../lib/auth";
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function Clients() {
     const clients = useClients();
@@ -89,7 +89,7 @@ export function Clients() {
                         setQ(e.target.value);
                     }}
                     placeholder={strings.clients.searchPlaceholder}
-                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
+                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
                 />
             </div>
 
@@ -374,7 +374,7 @@ function SetupForm({ flow }: { flow: AddPaymentMethod }) {
     const { busy, error, setError, run } = useAsyncAction();
     const noun = flow.kind === "bank" ? strings.clients.bankAccountNoun : strings.clients.cardNoun;
 
-    const submit = (e: FormEvent): void => {
+    const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         if (!stripe || !elements) return;
         run(
@@ -778,7 +778,7 @@ function SellPackageForm({
 
 function AddClientModal({ onClose }: { onClose: () => void }) {
     const form = useClientForm(api, onClose);
-    const submit = (e: FormEvent): void => {
+    const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         form.submit();
     };

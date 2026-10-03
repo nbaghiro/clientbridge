@@ -39,7 +39,7 @@ export function POS() {
                             setQ(e.target.value);
                         }}
                         placeholder={strings.pos.searchPlaceholder}
-                        className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
+                        className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
                     />
                 </div>
 
@@ -191,7 +191,7 @@ function CartLineRow({
                     onClick={() => {
                         onQuantity(line.quantity - 1);
                     }}
-                    className="h-6 w-6 rounded border border-line text-sm text-ink-soft transition hover:bg-bg"
+                    className="h-6 w-6 rounded-base border border-line text-sm text-ink-soft transition hover:bg-bg"
                     aria-label={strings.pos.decreaseQty}
                 >
                     −
@@ -204,7 +204,7 @@ function CartLineRow({
                     onClick={() => {
                         onQuantity(line.quantity + 1);
                     }}
-                    className="h-6 w-6 rounded border border-line text-sm text-ink-soft transition hover:bg-bg"
+                    className="h-6 w-6 rounded-base border border-line text-sm text-ink-soft transition hover:bg-bg"
                     aria-label={strings.pos.increaseQty}
                 >
                     +

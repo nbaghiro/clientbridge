@@ -1,5 +1,4 @@
 import { AppSchema, createConnector } from "@clientbridge/sync";
-import { OPSqliteOpenFactory } from "@powersync/op-sqlite";
 import { PowerSyncDatabase } from "@powersync/react-native";
 import Constants from "expo-constants";
 
@@ -8,7 +7,7 @@ const powersyncUrl = extra.powersyncUrl ?? "http://localhost:8704";
 
 export const db = new PowerSyncDatabase({
     schema: AppSchema,
-    database: new OPSqliteOpenFactory({ dbFilename: "clientbridge.db" }),
+    database: { dbFilename: "clientbridge.db" },
 });
 
 type AuthFetch = (path: string, init?: RequestInit) => Promise<Response>;

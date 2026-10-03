@@ -3,7 +3,7 @@
 //  - fetchCredentials(): exchange the app session for a PowerSync token (GET /sync/token)
 //  - uploadData():       POST the local write queue to the server-authoritative endpoint (/sync/upload)
 import type {
-    AbstractPowerSyncDatabase,
+    CommonPowerSyncDatabase,
     CrudEntry,
     PowerSyncBackendConnector,
     PowerSyncCredentials,
@@ -25,7 +25,7 @@ export function createConnector(opts: ConnectorOptions): PowerSyncBackendConnect
             return { endpoint: opts.powersyncUrl, token };
         },
 
-        async uploadData(database: AbstractPowerSyncDatabase): Promise<void> {
+        async uploadData(database: CommonPowerSyncDatabase): Promise<void> {
             const tx = await database.getNextCrudTransaction();
             if (!tx) return;
 

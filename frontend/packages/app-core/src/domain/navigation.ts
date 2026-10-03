@@ -1,13 +1,7 @@
 import { strings } from "../strings";
 
 export type SettingsSectionKey =
-    | "account"
-    | "catalog"
-    | "taxes"
-    | "payments"
-    | "team"
-    | "scheduling"
-    | "booking";
+    "account" | "catalog" | "taxes" | "payments" | "team" | "scheduling" | "booking";
 
 export type MoneyNavKey = "giftCards" | "payouts" | "reviews" | "reports";
 

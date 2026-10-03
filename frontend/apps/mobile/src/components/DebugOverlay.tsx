@@ -23,8 +23,8 @@ export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: 
                         <Row k="connecting" v={String(status.connecting)} />
                         <Row k="has synced" v={String(status.hasSynced ?? false)} />
                         <Row k="last synced" v={status.lastSyncedAt?.toLocaleTimeString() ?? "—"} />
-                        <Row k="downloading" v={String(status.dataFlowStatus.downloading)} />
-                        <Row k="uploading" v={String(status.dataFlowStatus.uploading)} />
+                        <Row k="downloading" v={String(status.downloading)} />
+                        <Row k="uploading" v={String(status.uploading)} />
                     </View>
 
                     <View style={styles.totals}>

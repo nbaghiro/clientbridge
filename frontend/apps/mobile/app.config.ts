@@ -31,7 +31,10 @@ const config: ExpoConfig = {
         ],
         // POS card-present (Tap to Pay). Its config plugin adds the iOS/Android entitlements +
         // permissions; needs an EAS dev build + a Tap-to-Pay-capable device (or a simulated reader).
-        "@stripe/stripe-terminal-react-native",
+        // Its plugin reads props without a null check, so an options object is required.
+        ["@stripe/stripe-terminal-react-native", {}],
+        // Stripe Terminal's Android SDK requires minSdk 26 (React Native defaults to 24).
+        ["expo-build-properties", { android: { minSdkVersion: 26 } }],
     ],
     extra: {
         apiUrl: process.env.API_URL ?? "http://localhost:8701",

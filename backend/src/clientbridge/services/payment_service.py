@@ -68,20 +68,20 @@ class PaymentService:
         settings = get_settings()
 
         async def run(cmd: Command) -> OnboardingLink:
-            if business.stripe_account_id is None:
-                business.stripe_account_id = await self.gateway.create_connected_account(
+            account_id = business.stripe_account_id
+            if account_id is None:
+                account_id = await self.gateway.create_connected_account(
                     business_name=business.name,
                     email=business.billing_email,
                     url=f"{settings.connect_base_url}/book/{business.slug}",
                 )
+                business.stripe_account_id = account_id
                 await self.db.flush()
                 cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
                 # Seed the KYC state from Stripe right away (the webhook keeps it in sync after).
-                apply_account_status(
-                    business, await self.gateway.get_account(business.stripe_account_id)
-                )
+                apply_account_status(business, await self.gateway.get_account(account_id))
             url = await self.gateway.create_account_link(
-                business.stripe_account_id,
+                account_id,
                 refresh_url=f"{settings.web_base_url}/settings/payments?refresh=1",
                 return_url=f"{settings.web_base_url}/settings/payments?done=1",
             )

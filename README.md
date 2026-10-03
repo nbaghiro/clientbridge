@@ -29,7 +29,7 @@ detail in [`.docs/architecture.md`](.docs/architecture.md).
 /v1`) · webhook/public · job. Payments are Stripe Connect (Custom accounts, direct charges + app fee).
 - **Frontend** (`frontend/`) — pnpm + turbo. Web (React · Vite · Tailwind) and mobile (Expo RN) render
   **one shared view-model layer** (`@clientbridge/app-core` hooks); only rendering, navigation, and
-  platform APIs differ. Design tokens are one source → a Tailwind preset (web) + an RN theme (mobile).
+  platform APIs differ. Design tokens are one source → a Tailwind theme (web) + an RN theme (mobile).
 - **Sync** — a self-hosted **PowerSync** service replicates the Postgres WAL into an on-device SQLite
   replica, partitioned per business + role by [`infra/powersync/sync-rules.yaml`](infra/powersync/sync-rules.yaml).
   The client schema is **generated** from the SQLAlchemy models (drift-gated in CI).
@@ -52,7 +52,7 @@ clientbridge/
 | Frontend package           | Role                                                                    |
 | -------------------------- | ----------------------------------------------------------------------- |
 | `@clientbridge/app-core`   | Shared view-models (form/list/status hooks), the only UI-agnostic layer |
-| `@clientbridge/tokens`     | Design system → Tailwind preset + RN theme (**Pewter**)                 |
+| `@clientbridge/tokens`     | Design system → Tailwind theme + RN theme (**Pewter**)                 |
 | `@clientbridge/sync`       | Generated PowerSync `AppSchema` + the backend connector                 |
 | `@clientbridge/api-client` | Typed REST client generated from the backend OpenAPI                    |
 | `@clientbridge/config`     | Shared ESLint + Prettier config                                         |

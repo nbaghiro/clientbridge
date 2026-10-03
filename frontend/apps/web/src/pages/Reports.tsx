@@ -78,7 +78,7 @@ function ReportsView() {
                         onChange={(e) => {
                             setRange((r) => ({ ...r, year: Number(e.target.value) || r.year }));
                         }}
-                        className="w-28 rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                        className="w-28 rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden focus:border-accent"
                     />
                 </label>
             </div>
@@ -256,7 +256,7 @@ function RangeField({
                 onChange={(e) => {
                     onChange(e.target.value);
                 }}
-                className="rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                className="rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden focus:border-accent"
             />
         </label>
     );
@@ -318,5 +318,5 @@ function Figure({
 }
 
 function Skeleton() {
-    return <div className="h-8 w-40 animate-pulse rounded bg-bg" />;
+    return <div className="h-8 w-40 animate-pulse rounded-base bg-bg" />;
 }

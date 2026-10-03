@@ -8,7 +8,7 @@ import {
     useItemForm,
     useSearch,
 } from "@clientbridge/app-core";
-import { type FormEvent, useState } from "react";
+import { type SubmitEvent, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { api } from "../lib/api";
@@ -46,7 +46,7 @@ export function Catalog() {
                         setQ(e.target.value);
                     }}
                     placeholder={strings.catalog.searchPlaceholder}
-                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
+                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
                 />
             </div>
 
@@ -118,13 +118,13 @@ export function Catalog() {
 
 function AddItemModal({ onClose }: { onClose: () => void }) {
     const form = useItemForm(api, onClose);
-    const submit = (e: FormEvent): void => {
+    const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         form.submit();
     };
 
     const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+        "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
     return (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">

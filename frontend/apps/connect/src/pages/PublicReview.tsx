@@ -7,7 +7,7 @@ import { useEmbedSuccess } from "../embed";
 const reviews = createPublicReviewClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
 
 const field =
-    "mt-4 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+    "mt-4 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function PublicReview() {
     const { token = "" } = useParams<{ token: string }>();

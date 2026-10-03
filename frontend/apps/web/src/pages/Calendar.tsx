@@ -44,7 +44,7 @@ import {
     weekColumns,
 } from "@clientbridge/app-core";
 import {
-    type FormEvent,
+    type SubmitEvent,
     type PointerEvent as ReactPointerEvent,
     type ReactNode,
     useLayoutEffect,
@@ -155,7 +155,7 @@ export function Calendar() {
 
     return (
         <div className="flex h-full flex-col p-6">
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-xs">
                 <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
                     <div className="flex items-center gap-3">
                         <button
@@ -507,7 +507,7 @@ function MonthView({
                                         onClick={() => {
                                             onEventClick(e);
                                         }}
-                                        className={`block w-full truncate rounded border-l-2 px-1 text-left text-[11px] ${statusClass(e.status)}`}
+                                        className={`block w-full truncate rounded-base border-l-2 px-1 text-left text-[11px] ${statusClass(e.status)}`}
                                     >
                                         {formatTime(e.start)} {eventLabel(e)}
                                     </button>
@@ -616,14 +616,14 @@ function Overlay({ children, onClose }: { children: ReactNode; onClose: () => vo
 }
 
 const fieldClass =
-    "mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none";
+    "mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden";
 
 function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => void }) {
     const form = useBookingForm(api, onClose);
     const [date, setDate] = useState(() => dateKey(anchor));
     const [time, setTime] = useState("09:00");
 
-    const submit = (e: FormEvent): void => {
+    const submit = (e: SubmitEvent): void => {
         e.preventDefault();
         form.submit(combineDayAndTime(date, time));
     };
@@ -885,7 +885,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                         onChange={(e) => {
                             setMethod(e.target.value);
                         }}
-                        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
                     >
                         <option value="">{strings.calendar.payNewCard}</option>
                         {cards.map((card) => (

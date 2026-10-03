@@ -1,5 +1,5 @@
 import { strings, useLogin } from "@clientbridge/app-core";
-import { type FormEvent } from "react";
+import { type SubmitEvent } from "react";
 
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
@@ -15,7 +15,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
     });
 
     const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-none transition placeholder:text-muted focus:border-accent";
+        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
     return (
         <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
@@ -70,7 +70,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                     </p>
 
                     <form
-                        onSubmit={(e: FormEvent) => {
+                        onSubmit={(e: SubmitEvent) => {
                             e.preventDefault();
                             login.submit();
                         }}

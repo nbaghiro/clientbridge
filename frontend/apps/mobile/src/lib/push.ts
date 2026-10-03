@@ -4,12 +4,11 @@ import { Platform } from "react-native";
 
 import { api } from "./api";
 
-// expo-notifications 0.28 (SDK 51) NotificationBehavior: shouldShowAlert / shouldPlaySound /
-// shouldSetBadge (the shouldShowBanner/shouldShowList split landed in 0.29 / SDK 53).
 Notifications.setNotificationHandler({
     handleNotification: () =>
         Promise.resolve({
-            shouldShowAlert: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
             shouldPlaySound: false,
             shouldSetBadge: false,
         }),

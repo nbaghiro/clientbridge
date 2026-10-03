@@ -11,6 +11,6 @@
         "typecheck": "tsc --noEmit"
     },
     "peerDependencies": {
-        "@powersync/common": "^1.20.0"
+        "@powersync/common": "^2.3.1"
     }
 }

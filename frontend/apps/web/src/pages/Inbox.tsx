@@ -23,7 +23,7 @@ import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 
 const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-accent";
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 type Panel = "none" | "new" | "broadcast";
 
