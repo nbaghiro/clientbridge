@@ -175,6 +175,7 @@ class FakePaymentGateway:
         self.account_status: ConnectAccount | None = None  # override get_account() in a test
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.balance_cents = 0  # get_balance_cents() result
+        self.invoice_intents: dict[str, str] = {}  # Stripe invoice id -> the intent that paid it
 
     async def create_connected_account(
         self, *, business_name: str, email: str | None, url: str | None = None
@@ -272,6 +273,9 @@ class FakePaymentGateway:
 
     async def cancel_subscription(self, account_id: str, *, subscription_id: str) -> None:
         self.canceled_subscriptions.append(subscription_id)
+
+    async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
+        return self.invoice_intents.get(invoice_id)
 
     async def create_payment_intent(
         self,

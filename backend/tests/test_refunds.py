@@ -321,16 +321,20 @@ async def test_forfeited_deposit_refunds_in_full_only(
     assert res.json()["message"] == "a forfeited deposit is refunded in full"
 
 
-def _charge_refunded(event_id: str, pi: str, refunds: list[tuple[str, int]]) -> str:
+def _refund_event(
+    event_id: str, pi: str, refund_id: str, amount: int, *, status: str = "succeeded"
+) -> str:
     return json.dumps(
         {
             "id": event_id,
-            "type": "charge.refunded",
+            "type": "refund.created",
             "data": {
                 "object": {
-                    "id": "ch_x",
+                    "id": refund_id,
+                    "object": "refund",
                     "payment_intent": pi,
-                    "refunds": {"data": [{"id": r, "amount": a} for r, a in refunds]},
+                    "amount": amount,
+                    "status": status,
                 }
             },
         }
@@ -341,14 +345,18 @@ async def test_stripe_side_refunds_record_each_object_once(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     payment = await _entitlement_payment(db, 5000)
-    body = _charge_refunded("evt_two", str(payment.provider_ref), [("re_a", 2000), ("re_b", 1000)])
-    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    pi = str(payment.provider_ref)
+    for event_id, refund_id, amount in [("evt_a", "re_a", 2000), ("evt_b", "re_b", 1000)]:
+        body = _refund_event(event_id, pi, refund_id, amount)
+        assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     assert await _refunds(db, payment.id) == 2
-    await api.post("/webhooks/stripe", content=body, headers=GOOD)  # replayed event
-    redelivered = _charge_refunded(
-        "evt_two_again", str(payment.provider_ref), [("re_a", 2000), ("re_b", 1000)]
+    await api.post(
+        "/webhooks/stripe", content=_refund_event("evt_a", pi, "re_a", 2000), headers=GOOD
     )
-    await api.post("/webhooks/stripe", content=redelivered, headers=GOOD)
+    updated = _refund_event("evt_a_upd", pi, "re_a", 2000).replace(
+        "refund.created", "refund.updated"
+    )
+    await api.post("/webhooks/stripe", content=updated, headers=GOOD)
     assert await _refunds(db, payment.id) == 2
     amounts = (
         (
@@ -364,6 +372,15 @@ async def test_stripe_side_refunds_record_each_object_once(
     assert list(amounts) == [1000, 2000]
 
 
+async def test_failed_stripe_side_refund_records_nothing(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    payment = await _entitlement_payment(db, 5000)
+    body = _refund_event("evt_fail", str(payment.provider_ref), "re_fail", 2000, status="failed")
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    assert await _refunds(db, payment.id) == 0
+
+
 async def test_stripe_side_refund_skips_one_we_already_recorded(
     as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -373,9 +390,15 @@ async def test_stripe_side_refund_skips_one_we_already_recorded(
     our_ref = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == ours.json()["refund_id"]))
     ).scalar_one()
-    pi = (await db.execute(select(Payment.provider_ref).where(Payment.id == pay_id))).scalar_one()
-    body = _charge_refunded("evt_mixed", str(pi), [(str(our_ref), 2000), ("re_dashboard", 1500)])
-    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    pi = str(
+        (await db.execute(select(Payment.provider_ref).where(Payment.id == pay_id))).scalar_one()
+    )
+    for event_id, refund_id, amount in [
+        ("evt_ours", str(our_ref), 2000),
+        ("evt_dash", "re_dash", 1500),
+    ]:
+        body = _refund_event(event_id, pi, refund_id, amount)
+        assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
     assert await _refunds(db, pay_id) == 2
 
 

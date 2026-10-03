@@ -8,12 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
+from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import DeviceToken, WebhookEvent
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import FakePushSender
 
 BIZ = "bz_birchbark"
+GOOD = {"Stripe-Signature": "good"}
 
 
 async def _a_client_id(db: AsyncSession) -> str:
@@ -152,7 +155,7 @@ async def test_payment_method_auto_updated_refreshes_card(
     assert pm.brand == "mastercard" and pm.last4 == "5555"
 
 
-async def test_charge_refunded_records_a_dashboard_refund(
+async def test_refund_created_records_a_dashboard_refund(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     cid = await _a_client_id(db)
@@ -175,14 +178,14 @@ async def test_charge_refunded_records_a_dashboard_refund(
     body = json.dumps(
         {
             "id": "evt_refunded",
-            "type": "charge.refunded",
+            "type": "refund.created",
             "account": "acct_r",
             "data": {
                 "object": {
-                    "id": "ch_1",
+                    "id": "re_dash_1",
                     "payment_intent": "pi_dash",
-                    "amount_refunded": 5000,
-                    "refunds": {"data": [{"id": "re_dash_1", "amount": 5000}]},
+                    "amount": 5000,
+                    "status": "succeeded",
                 }
             },
         }
@@ -309,3 +312,142 @@ async def test_inbound_sms_bad_secret_401(api: httpx.AsyncClient) -> None:
         headers={"X-Twilio-Signature": "wrong"},
     )
     assert res.status_code == 401
+
+
+def _intent_event(event_id: str, event_type: str, pi: str, **extra: object) -> str:
+    obj: dict[str, object] = {"id": pi, **extra}
+    return json.dumps({"id": event_id, "type": event_type, "data": {"object": obj}})
+
+
+async def _pending_payment(db: AsyncSession, pi: str) -> str:
+    cid = await _a_client_id(db)
+    db.add(
+        Payment(
+            id=f"pay_{pi}",
+            business_id=BIZ,
+            client_id=cid,
+            kind="payment",
+            amount_cents=4000,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref=pi,
+            status="pending",
+        )
+    )
+    await db.flush()
+    return f"pay_{pi}"
+
+
+async def _payment_journals(db: AsyncSession, payment_id: str) -> int:
+    rows = await db.execute(
+        select(Entry.journal_id).where(Entry.source_id == payment_id, Entry.type == "payment")
+    )
+    return len(set(rows.scalars().all()))
+
+
+async def test_payment_that_succeeds_after_a_decline_is_settled(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pay_id = await _pending_payment(db, "pi_retry")
+    failed = _intent_event("evt_pf", "payment_intent.payment_failed", "pi_retry")
+    assert (await api.post("/webhooks/stripe", content=failed, headers=GOOD)).status_code == 200
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "failed"
+    ok = _intent_event("evt_ps", "payment_intent.succeeded", "pi_retry")
+    assert (await api.post("/webhooks/stripe", content=ok, headers=GOOD)).status_code == 200
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "succeeded"
+    assert await _payment_journals(db, pay_id) == 1
+    again = _intent_event("evt_ps2", "payment_intent.succeeded", "pi_retry")
+    assert (await api.post("/webhooks/stripe", content=again, headers=GOOD)).status_code == 200
+    assert await _payment_journals(db, pay_id) == 1
+
+
+async def test_canceled_payment_is_not_settled(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    pay_id = await _pending_payment(db, "pi_cxl")
+    canceled = _intent_event("evt_pc", "payment_intent.canceled", "pi_cxl")
+    await api.post("/webhooks/stripe", content=canceled, headers=GOOD)
+    ok = _intent_event("evt_pc_ok", "payment_intent.succeeded", "pi_cxl")
+    assert (await api.post("/webhooks/stripe", content=ok, headers=GOOD)).status_code == 200
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "canceled"
+
+
+async def test_our_unrecorded_intent_is_retried_not_acknowledged(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.commit()
+    body = _intent_event(
+        "evt_early", "payment_intent.succeeded", "pi_early", metadata={"business_id": BIZ}
+    )
+    res = await api.post("/webhooks/stripe", content=body, headers=GOOD)
+    assert res.status_code == 503
+    await db.rollback()  # the request's session closes uncommitted
+    seen = (
+        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == "evt_early"))
+    ).scalar_one_or_none()
+    assert seen is None
+    pay_id = await _pending_payment(db, "pi_early")
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    status = (await db.execute(select(Payment.status).where(Payment.id == pay_id))).scalar_one()
+    assert status == "succeeded"
+
+
+async def test_foreign_intent_is_acknowledged(api: httpx.AsyncClient) -> None:
+    body = _intent_event("evt_foreign", "payment_intent.succeeded", "pi_foreign", metadata={})
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+
+
+async def _succeeded_payment(db: AsyncSession, pi: str) -> Payment:
+    cid = await _a_client_id(db)
+    payment = Payment(
+        id=f"pay_{pi}",
+        business_id=BIZ,
+        client_id=cid,
+        kind="payment",
+        amount_cents=8000,
+        currency="CAD",
+        method="card",
+        provider="stripe",
+        provider_ref=pi,
+        status="succeeded",
+        paid_at=datetime.now(UTC),
+    )
+    db.add(payment)
+    await db.flush()
+    await ledger.post_payment(db, payment)
+    return payment
+
+
+async def _dispute_entries(db: AsyncSession, payment_id: str) -> int:
+    rows = await db.execute(
+        select(Entry.id).where(Entry.type == "dispute", Entry.source_id == payment_id)
+    )
+    return len(rows.scalars().all())
+
+
+def _dispute_event(event_id: str, event_type: str, pi: str, status: str) -> str:
+    obj = {"id": f"dp_{pi}", "payment_intent": pi, "amount": 8000, "status": status}
+    return json.dumps({"id": event_id, "type": event_type, "data": {"object": obj}})
+
+
+async def test_dispute_inquiry_withdraws_nothing(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    payment = await _succeeded_payment(db, "pi_inq")
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    opened = _dispute_event("evt_inq", "charge.dispute.created", "pi_inq", "warning_needs_response")
+    assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
+    closed = _dispute_event("evt_inq_c", "charge.dispute.closed", "pi_inq", "warning_closed")
+    assert (await api.post("/webhooks/stripe", content=closed, headers=GOOD)).status_code == 200
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    assert after == before
+    assert await _dispute_entries(db, payment.id) == 0
+
+
+async def test_dispute_withdraws_funds(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await _succeeded_payment(db, "pi_chb")
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    opened = _dispute_event("evt_chb", "charge.dispute.created", "pi_chb", "needs_response")
+    assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    assert before - after == 8000

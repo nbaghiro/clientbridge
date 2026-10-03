@@ -13,6 +13,7 @@ from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.platform import WebhookEvent
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
 
 BIZ = "bz_birchbark"
@@ -386,8 +387,9 @@ async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: Asy
         {
             "id": "sub_wh1",
             "status": "past_due",
-            "current_period_start": 1735689600,
-            "current_period_end": 1738368000,
+            "items": {
+                "data": [{"current_period_start": 1735689600, "current_period_end": 1738368000}]
+            },
         },
     )
     res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
@@ -400,14 +402,14 @@ async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: Asy
 
 
 async def test_invoice_payment_succeeded_records_payment(
-    api: httpx.AsyncClient, db: AsyncSession
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _enable(db)
+    gateway.invoice_intents["in_1"] = "pi_sub1"
     sub = await _seed_sub(db, ref="sub_inv1")
     obj: dict[str, object] = {
         "id": "in_1",
-        "subscription": "sub_inv1",
-        "payment_intent": "pi_sub1",
+        "parent": {"subscription_details": {"subscription": "sub_inv1"}},
         "amount_paid": 5600,
         "currency": "cad",
     }
@@ -436,9 +438,10 @@ async def test_invoice_payment_succeeded_records_payment(
 
 
 async def test_recurring_charge_taxed_and_in_gst_report(
-    as_owner: httpx.AsyncClient, db: AsyncSession
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     await _enable(db)
+    gateway.invoice_intents["in_g1"] = "pi_gst1"
     cid = await _new_client(db, name="GST Client")
     item = await _sub_item(db)
     sub = Subscription(
@@ -459,8 +462,7 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     before = (await as_owner.get(f"/v1/reports/gst-hst?start={start}&end={end}")).json()
     obj: dict[str, object] = {
         "id": "in_g1",
-        "subscription": "sub_gst1",
-        "payment_intent": "pi_gst1",
+        "parent": {"subscription_details": {"subscription": "sub_gst1"}},
         "amount_paid": 5600,
         "currency": "cad",
     }
@@ -520,7 +522,9 @@ async def test_invoice_payment_failed_sets_past_due_and_notifies(
     db.add(sub)
     await db.flush()
     event = _sub_event(
-        "evt_f1", "invoice.payment_failed", {"id": "in_2", "subscription": "sub_fail1"}
+        "evt_f1",
+        "invoice.payment_failed",
+        {"id": "in_2", "parent": {"subscription_details": {"subscription": "sub_fail1"}}},
     )
     res = await api.post("/webhooks/stripe", content=event, headers=GOOD)
     assert res.status_code == 200
@@ -580,3 +584,56 @@ def test_map_subscription_status_unknown_is_past_due() -> None:
     assert map_subscription_status("incomplete_expired") == "past_due"
     assert map_subscription_status("active") == "active"
     assert map_subscription_status("trialing") == "active"
+
+
+async def test_paid_invoice_without_a_visible_intent_is_retried(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _enable(db)
+    await _seed_sub(db, ref="sub_late")
+    await db.commit()
+    obj: dict[str, object] = {
+        "id": "in_late",
+        "parent": {"subscription_details": {"subscription": "sub_late"}},
+        "amount_paid": 5600,
+        "currency": "cad",
+    }
+    res = await api.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_late", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res.status_code == 503
+    await db.rollback()  # the request's session closes uncommitted
+    seen = (
+        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == "evt_late"))
+    ).scalar_one_or_none()
+    assert seen is None
+    gateway.invoice_intents["in_late"] = "pi_late"
+    again = await api.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_late", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert again.status_code == 200
+    pay = (await db.execute(select(Payment).where(Payment.provider_ref == "pi_late"))).scalar_one()
+    assert pay.amount_cents == 5600
+
+
+async def test_zero_amount_invoice_records_nothing(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    await _seed_sub(db, ref="sub_free")
+    obj: dict[str, object] = {
+        "id": "in_free",
+        "parent": {"subscription_details": {"subscription": "sub_free"}},
+        "amount_paid": 0,
+        "currency": "cad",
+    }
+    res = await api.post(
+        "/webhooks/stripe",
+        content=_sub_event("evt_free", "invoice.payment_succeeded", obj),
+        headers=GOOD,
+    )
+    assert res.status_code == 200

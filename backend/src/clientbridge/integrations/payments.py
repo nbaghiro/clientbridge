@@ -15,6 +15,9 @@ import stripe
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import CardDeclined, PaymentActionRequired
 
+# webhook payloads are parsed for this version; the Connect webhook endpoint must use it too
+STRIPE_API_VERSION = "2026-05-27.dahlia"
+
 
 @dataclass(frozen=True)
 class ConnectAccount:
@@ -163,6 +166,10 @@ class PaymentGateway(Protocol):
         """Stripe's processing fee + our application fee off the charge's balance transaction."""
         ...
 
+    async def get_invoice_payment_intent(self, account_id: str, *, invoice_id: str) -> str | None:
+        """The PaymentIntent that paid a subscription invoice (no longer on the invoice itself)."""
+        ...
+
     async def get_balance_cents(self, account_id: str, *, currency: str) -> int:
         """The connected account's available + pending balance in one currency."""
         ...
@@ -200,6 +207,7 @@ class PaymentGateway(Protocol):
 class StripeGateway:
     def __init__(self, secret_key: str, webhook_secret: str, country: str) -> None:
         stripe.api_key = secret_key
+        stripe.api_version = STRIPE_API_VERSION
         self._webhook_secret = webhook_secret
         self._country = country
 
@@ -325,10 +333,8 @@ class StripeGateway:
         return SubscriptionResult(
             id=str(sub.id),
             status=str(sub.status),
-            # top-level period fields aren't in the stub (newer API versions moved them); the
-            # dict accessor reads them off the live object.
-            current_period_start=datetime.fromtimestamp(int(sub["current_period_start"]), tz=UTC),
-            current_period_end=datetime.fromtimestamp(int(sub["current_period_end"]), tz=UTC),
+            current_period_start=datetime.fromtimestamp(_period_of(sub, "start"), tz=UTC),
+            current_period_end=datetime.fromtimestamp(_period_of(sub, "end"), tz=UTC),
         )
 
     async def cancel_subscription(  # pragma: no cover
@@ -412,6 +418,18 @@ class StripeGateway:
             available_at=datetime.fromtimestamp(int(txn.available_on), tz=UTC),
         )
 
+    async def get_invoice_payment_intent(  # pragma: no cover
+        self, account_id: str, *, invoice_id: str
+    ) -> str | None:
+        payments = await stripe.InvoicePayment.list_async(
+            invoice=invoice_id, stripe_account=account_id
+        )
+        for row in payments.data:
+            intent = row.payment.payment_intent if row.status == "paid" else None
+            if intent is not None:
+                return intent if isinstance(intent, str) else str(intent.id)
+        return None
+
     async def get_balance_cents(  # pragma: no cover
         self, account_id: str, *, currency: str
     ) -> int:
@@ -479,6 +497,22 @@ class StripeGateway:
             data={str(k): v for k, v in obj.items()},
             account=str(account) if account else None,
         )
+
+
+def period_timestamp(sub: dict[str, object], edge: str) -> int | None:
+    """A subscription's current period edge: on its first item since the basil API version."""
+    items = sub.get("items")
+    rows = items.get("data") if isinstance(items, dict) else None
+    first = rows[0] if isinstance(rows, list) and rows and isinstance(rows[0], dict) else {}
+    ts = first.get(f"current_period_{edge}", sub.get(f"current_period_{edge}"))
+    return ts if isinstance(ts, int) else None
+
+
+def _period_of(sub: stripe.Subscription, edge: str) -> int:  # pragma: no cover
+    ts = period_timestamp(sub.to_dict(), edge)
+    if ts is None:
+        raise ValueError(f"subscription {sub.id} has no current_period_{edge}")
+    return ts
 
 
 def get_payment_gateway() -> PaymentGateway:

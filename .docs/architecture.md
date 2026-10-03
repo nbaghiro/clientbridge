@@ -363,6 +363,10 @@ defense-in-depth for the API, not the sync filter.
 - **No platform-held funds.** Stripe Connect custodies each provider's balance and pays it out to their
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
   `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
+- The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/payments.py`), and the Connect
+  webhook endpoint must be created with that same version, because the handlers parse its payload shapes.
+  Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
+  is looked up through its invoice payments.
 - Retry-safe `open_*` builders (card/booking-deposit/entitlement/terminal/interac) are Stripe-idempotency-
   keyed + `provider_ref`-deduped, shared by the authed services and the public surfaces. A payment can be
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
