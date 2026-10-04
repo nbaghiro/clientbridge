@@ -2,15 +2,15 @@ import type { LineIconName } from "../art/LineIcon";
 import type { GlyphName } from "../art/TradeGlyph";
 
 export const homeMeta = {
-    title: "Clientbridge: bookings, invoices and payments for service businesses in Canada",
+    title: "Clientbridge: book, sell and get paid, for service businesses in Canada",
     description:
-        "Clientbridge runs the front desk and the back office for groomers, stylists, trainers, cleaners, tutors and trades: online booking, invoices, products and stock, card and Interac payments, and GST/HST worked out for you.",
+        "Online booking with deposits, an online shop and front desk sales, memberships, packages and gift cards, invoices and Tap to Pay for service businesses in Canada. Sales tax is worked out on every sale.",
 };
 
 export const hero = {
     eyebrow: "For service businesses in Canada",
-    title: "Bookings, invoices and payments, kept in one place.",
-    lede: "Clientbridge runs the front desk and the back office for groomers, stylists, trainers, cleaners, tutors and trades. Clients book, buy and pay online, payments are matched to invoices, and GST/HST is worked out for you.",
+    title: "Book, sell and get paid in one place.",
+    lede: "Online booking with deposits, an online shop and front desk sales, memberships, packages and gift cards, invoices and Tap to Pay. Sales tax is worked out on every sale.",
     primary: "Start free",
     secondary: "See the demo business",
     note: "Web, iPhone and Android. No card required to try it.",
