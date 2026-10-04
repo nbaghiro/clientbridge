@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install dev-api dev-web dev-connect dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
+.PHONY: help up down logs-sync install web-install stripe-listen dev-api dev-web dev-connect dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -46,6 +46,9 @@ install:
 
 web-install:
 	cd frontend && pnpm install
+
+stripe-listen:
+	stripe listen --forward-connect-to localhost:8701/webhooks/stripe
 
 dev-api:
 	cd backend && uv run uvicorn clientbridge.main:app --reload --port 8701

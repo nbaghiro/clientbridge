@@ -50,6 +50,7 @@ from clientbridge.services.earning_service import (
     load_earning,
 )
 from clientbridge.services.lines import fetch_lines, tax_for_amount, tax_for_lines
+from scripts.stripe_demo_account import connect_demo_business
 
 NOW = datetime.now().astimezone()  # local-tz aware, so demo hours land in the viewer's local day
 BIZ = "bz_birchbark"
@@ -1805,7 +1806,7 @@ def seed_coverage() -> None:
             provider="stripe",
             provider_ref="pi_demo_dep_class",
             status="succeeded",
-            paid_at=at(1, 12),
+            paid_at=at(-1, 12),
         )
     )
 
@@ -2458,9 +2459,12 @@ async def main() -> None:
                 await session.flush()
         await seed_ledger(session)
         await session.commit()
+        account_id = await connect_demo_business(session)
     await engine.dispose()
     upload_demo_assets()
     print(f"seeded {len(rows)} rows for 'Birchbark Pet Studio' (business {BIZ}, owner {owner})")
+    if account_id is not None:
+        print(f"connected to Stripe test account {account_id}")
 
 
 def upload_demo_assets() -> None:
