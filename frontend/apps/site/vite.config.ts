@@ -1,11 +1,41 @@
+import { existsSync } from "node:fs";
+import type { IncomingMessage } from "node:http";
+import { join } from "node:path";
+
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
+
+const routePath = (req: IncomingMessage): string | null => {
+    const path = (req.url ?? "/").split("?")[0] ?? "/";
+    return path === "/" || /\.[a-z0-9]+$/i.test(path) ? null : path.replace(/\/+$/, "");
+};
+
+// Serves clean URLs (/solutions) locally the way a static host does: preview maps them to the
+// pre-rendered solutions/index.html, dev to the client entry, which picks the route itself.
+const cleanUrls = (): Plugin => ({
+    name: "clean-urls",
+    configureServer(server) {
+        server.middlewares.use((req, _res, next) => {
+            if (routePath(req) !== null) req.url = "/index.html";
+            next();
+        });
+    },
+    configurePreviewServer(server) {
+        const dist = join(server.config.root, server.config.build.outDir);
+        server.middlewares.use((req, _res, next) => {
+            const path = routePath(req);
+            if (path !== null && existsSync(join(dist, path, "index.html")))
+                req.url = `${path}/index.html`;
+            next();
+        });
+    },
+});
 
 // Clientbridge marketing site. Built to static HTML per route (scripts/prerender.ts), deployed apart
 // from the web app; it shares the theme and logo through @clientbridge/tokens and @clientbridge/ui.
 export default defineConfig({
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), cleanUrls()],
     appType: "mpa",
     server: {
         port: 8710, // see .docs/engineering.md (ports)

@@ -141,6 +141,25 @@ const DRAWINGS = {
             <path d="M24.5 37.5l2.5 2.5 5.5-6" />
         </>
     ),
+    form: (
+        <>
+            <rect x="9" y="8" width="27" height="35" rx="3" />
+            <rect x="16" y="4.5" width="13" height="7" rx="2" />
+            <path d="M14.5 18h16M14.5 23h16M14.5 28h9" />
+            <path d="M14.5 37.5c1.8-3.4 3.6-4 4.3-2 .6 1.8 1.7 2.4 3.2.4 1.2-1.6 2.2-1.6 3 .2.6 1.2 1.6 1.4 2.9.6" />
+            <path d="M33.5 30.5l7.8-7.8a1.9 1.9 0 0 1 2.7 2.7l-7.8 7.8-3.6.9z" />
+        </>
+    ),
+    retail: (
+        <>
+            <path d="M12 16h8v4.5l2.5 3.2v16.3a2.5 2.5 0 0 1-2.5 2.5h-8A2.5 2.5 0 0 1 9.5 40V23.7l2.5-3.2z" />
+            <rect x="13" y="9" width="6" height="7" rx="1.2" />
+            <path d="M9.5 28.5h13M9.5 35h13" />
+            <path d="M27.5 24.5l11-11h5.5v5.5l-11 11z" />
+            <circle cx="40.2" cy="17.3" r="1.2" />
+            <path d="M30 32.5c-1.5 2.5-1 5.5 1.5 6.5" />
+        </>
+    ),
 } satisfies Record<string, ReactNode>;
 
 export type LineIconName = keyof typeof DRAWINGS;

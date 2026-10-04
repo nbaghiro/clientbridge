@@ -2,6 +2,9 @@ import { Lockup } from "@clientbridge/ui/logo";
 
 import { nav } from "../content/site";
 
+const isCurrent = (href: string, current?: string): boolean =>
+    current !== undefined && (current === href || current.startsWith(`${href}/`));
+
 /** Sticky header. The small-screen menu is a <details> disclosure, so it works without JavaScript. */
 export function Header({ current }: { current?: string }) {
     return (
@@ -15,7 +18,7 @@ export function Header({ current }: { current?: string }) {
                         <a
                             key={l.href}
                             href={l.href}
-                            aria-current={l.href === current ? "page" : undefined}
+                            aria-current={isCurrent(l.href, current) ? "page" : undefined}
                         >
                             {l.label}
                         </a>

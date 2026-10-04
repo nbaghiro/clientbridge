@@ -49,6 +49,7 @@ export const footer = {
                 { label: "Privacy", href: "/privacy" },
                 { label: "Terms", href: "/terms" },
                 { label: "Contact", href: "/contact" },
+                { label: "Photo credits", href: "/credits" },
             ],
         },
     ] satisfies { title: string; links: NavLink[] }[],

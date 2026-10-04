@@ -3,10 +3,7 @@
 
 export const demoBusiness = {
     name: "Birchbark Pet Studio",
-    lockup: "/images/demo/birchbark-pet-studio.svg",
     tag: "Book a visit",
-    brandColor: "#2E4A3F",
-    tint: "#EDE6D8",
 };
 
 export const today = {
@@ -172,7 +169,7 @@ export const calendar = {
 export const tapToPay = {
     charge: "Charge Noah Schmidt",
     amount: "$84.00",
-    tax: "includes GST $4.00",
+    tax: "includes GST $3.75 and PST $5.25",
     prompt: "Hold card near the phone",
     caption: "Tap to Pay on iPhone and Android",
 };

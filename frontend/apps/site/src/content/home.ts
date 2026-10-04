@@ -173,12 +173,22 @@ export const proof = {
     eyebrow: "From businesses using Clientbridge",
     logo: "Customer logo",
     logoCount: 5,
-    testimonials: [1, 2, 3].map((n) => ({
+    testimonials: [1, 2, 3].map(testimonialPlaceholder),
+};
+
+export interface TestimonialCopy {
+    lead: string;
+    body: string;
+    byline: string;
+}
+
+export function testimonialPlaceholder(n: number): TestimonialCopy {
+    return {
         lead: `Testimonial placeholder ${String(n)}.`,
         body: "A short quote from a pilot customer about a specific outcome (for example, fewer unpaid invoices or less time on GST). To be replaced with a real, approved quote.",
         byline: "Name, business, city (to be confirmed)",
-    })),
-};
+    };
+}
 
 export const pricing = {
     eyebrow: "Pricing",

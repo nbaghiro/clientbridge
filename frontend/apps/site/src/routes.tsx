@@ -2,8 +2,13 @@ import type { ComponentType } from "react";
 
 import { homeMeta } from "./content/home";
 import { notFound } from "./content/site";
+import { creditsMeta, solutionsMeta, tradeMeta } from "./content/solutions";
+import { solutionPath, type Trade, TRADES } from "./content/trades";
+import { Credits } from "./pages/Credits";
 import { Home } from "./pages/Home";
 import { NotFound } from "./pages/NotFound";
+import { Solutions } from "./pages/Solutions";
+import { TradePage } from "./pages/TradePage";
 
 export interface PageMeta {
     title: string;
@@ -16,8 +21,20 @@ export interface SiteRoute {
     meta: PageMeta;
 }
 
+function tradeRoute(trade: Trade): SiteRoute {
+    function Page() {
+        return <TradePage trade={trade} />;
+    }
+    return { path: solutionPath(trade.slug), Page, meta: tradeMeta(trade) };
+}
+
 /** Every page of the site. The build writes one HTML file per entry (see scripts/prerender.ts). */
-export const ROUTES: readonly SiteRoute[] = [{ path: "/", Page: Home, meta: homeMeta }];
+export const ROUTES: readonly SiteRoute[] = [
+    { path: "/", Page: Home, meta: homeMeta },
+    { path: "/solutions", Page: Solutions, meta: solutionsMeta },
+    ...TRADES.map(tradeRoute),
+    { path: "/credits", Page: Credits, meta: creditsMeta },
+];
 
 export const NOT_FOUND: SiteRoute = {
     path: "/404",

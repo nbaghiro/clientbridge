@@ -1,4 +1,4 @@
-import { proof } from "../content/home";
+import { proof, type TestimonialCopy } from "../content/home";
 
 export function Proof() {
     return (
@@ -16,15 +16,22 @@ export function Proof() {
                 </div>
                 <div className="grid-3">
                     {proof.testimonials.map((t) => (
-                        <figure key={t.lead} className="placeholder m-0">
-                            <p>
-                                <b>{t.lead}</b> {t.body}
-                            </p>
-                            <figcaption className="xs mt-3">{t.byline}</figcaption>
-                        </figure>
+                        <Testimonial key={t.lead} quote={t} />
                     ))}
                 </div>
             </div>
         </section>
+    );
+}
+
+/** A clearly marked stand-in until real, approved quotes are in. */
+export function Testimonial({ quote }: { quote: TestimonialCopy }) {
+    return (
+        <figure className="placeholder m-0">
+            <p>
+                <b>{quote.lead}</b> {quote.body}
+            </p>
+            <figcaption className="xs mt-3">{quote.byline}</figcaption>
+        </figure>
     );
 }
