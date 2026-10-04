@@ -160,18 +160,17 @@ class ReportService:
         time, like the GST/HST return), with full refunds shown apart."""
         lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
         sold: dict[str, list[float]] = {}
-        for parent_type, parent, status, at in (
-            ("order", Order, ledger.order_status_expr(), ledger.order_paid_at_expr()),
-            ("invoice", Invoice, ledger.invoice_status_expr(), Invoice.issued_at),
+        for fk, parent, status, at in (
+            (Line.order_id, Order, ledger.order_status_expr(), ledger.order_paid_at_expr()),
+            (Line.invoice_id, Invoice, ledger.invoice_status_expr(), Invoice.issued_at),
         ):
             rows = await self.db.execute(
                 scoped(Line, self.biz)
                 .with_only_columns(
                     Line.item_id, Line.quantity, Line.amount_cents, Line.tax_amount_cents, status
                 )
-                .join(parent, parent.id == Line.parent_id)
+                .join(parent, parent.id == fk)
                 .where(
-                    Line.parent_type == parent_type,
                     Line.item_id.isnot(None),
                     status.in_(("paid", "refunded")),
                     at >= lo,

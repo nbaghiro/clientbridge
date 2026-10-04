@@ -24,7 +24,7 @@ from clientbridge.models.platform import DeviceToken
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Session
 from clientbridge.services import ledger_service as ledger
-from clientbridge.services.lines import fetch_lines, tax_breakdown
+from clientbridge.services.lines import LineParent, fetch_lines, tax_breakdown
 
 _log = logging.getLogger(__name__)
 
@@ -486,7 +486,7 @@ class Notifier:
         await self._to_client(db, signature.client_id, subject, body)
 
     async def _itemised(self, db: AsyncSession, payment: Payment) -> list[str]:
-        parent: tuple[str, str] | None = (
+        parent: tuple[LineParent, str] | None = (
             ("order", payment.order_id)
             if payment.order_id
             else ("invoice", payment.invoice_id)

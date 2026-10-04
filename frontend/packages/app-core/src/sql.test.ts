@@ -319,8 +319,7 @@ function seed(): void {
     scoped("lines", [
         {
             id: "ln_1",
-            parent_type: "invoice",
-            parent_id: "inv_1",
+            invoice_id: "inv_1",
             description: "Cut",
             item_id: "it_cut",
             booking_id: "bk_1",
@@ -332,8 +331,7 @@ function seed(): void {
         },
         {
             id: "ln_2",
-            parent_type: "estimate",
-            parent_id: "est_1",
+            estimate_id: "est_1",
             description: "Quote",
             quantity: 2,
             unit_amount_cents: 4000,
@@ -343,8 +341,7 @@ function seed(): void {
         },
         {
             id: "ln_3",
-            parent_type: "order",
-            parent_id: "ord_web",
+            order_id: "ord_web",
             description: "Soap",
             item_id: "it_soap",
             quantity: 2,
@@ -801,8 +798,8 @@ describe("app-core SQL against the replica schema", () => {
         expect(pick(run("ESTIMATES_SQL"), "id", "client_name", "status")).toEqual([
             { id: "est_1", client_name: "ben", status: "accepted" },
         ]);
-        expect(run("LINES_SQL", ["invoice", "inv_1"]).map((r) => r.id)).toEqual(["ln_1"]);
-        expect(run("LINES_SQL", ["estimate", "est_1"]).map((r) => r.id)).toEqual(["ln_2"]);
+        expect(run("LINES_SQL", ["inv_1"]).map((r) => r.id)).toEqual(["ln_1"]);
+        expect(run("LINES_SQL", ["est_1"]).map((r) => r.id)).toEqual(["ln_2"]);
         expect(run("TAX_BY_CODE_SQL", ["invoice:inv_1"])).toEqual([
             { code: "GST", cents: 500 },
             { code: "PST", cents: 700 },

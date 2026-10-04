@@ -139,7 +139,7 @@ function DocDetail({
     onClose: () => void;
 }) {
     const parentType = kind === "invoices" ? "invoice" : "estimate";
-    const lines = useLines(parentType, row?.id ?? "");
+    const lines = useLines(row?.id ?? "");
     const totals = useDocTotals(parentType, row);
     const { busy, error, run } = useAsyncAction();
     const role = useRole();

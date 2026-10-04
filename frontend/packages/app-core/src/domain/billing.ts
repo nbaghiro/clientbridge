@@ -75,7 +75,7 @@ ORDER BY e.created_at DESC`;
 export const LINES_SQL = `
 SELECT id, item_id, description, quantity, unit_amount_cents, amount_cents, tax_amount_cents,
        position
-FROM lines WHERE parent_type = ? AND parent_id = ? ORDER BY position`;
+FROM lines WHERE ? IN (invoice_id, estimate_id) ORDER BY position`;
 
 export function useInvoices(): InvoiceRow[] {
     return useQuery<InvoiceRow>(INVOICES_SQL).data;
@@ -85,8 +85,8 @@ export function useEstimates(): EstimateRow[] {
     return useQuery<EstimateRow>(ESTIMATES_SQL).data;
 }
 
-export function useLines(parentType: "invoice" | "estimate", parentId: string): LineRow[] {
-    return useQuery<LineRow>(LINES_SQL, [parentType, parentId]).data;
+export function useLines(parentId: string): LineRow[] {
+    return useQuery<LineRow>(LINES_SQL, [parentId]).data;
 }
 
 export interface DocTotalRow {

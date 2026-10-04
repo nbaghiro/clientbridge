@@ -160,7 +160,7 @@ export interface OnlineOrderRow {
 export const ONLINE_ORDERS_SQL = `
 SELECT o.id, c.name AS client_name, o.total_cents, o.currency, o.pickup_status, o.created_at,
        (SELECT group_concat(CAST(l.quantity AS INTEGER) || ' × ' || l.description, ', ')
-        FROM lines l WHERE l.parent_type = 'order' AND l.parent_id = o.id) AS summary
+        FROM lines l WHERE l.order_id = o.id) AS summary
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
 WHERE o.source = 'online' AND ${orderStatusSql("o")} = 'paid' AND o.pickup_status <> 'picked_up'
 ORDER BY o.created_at`;

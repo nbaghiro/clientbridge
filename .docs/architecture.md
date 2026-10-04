@@ -212,8 +212,8 @@ receivable in the ledger, and partial/paid/refunded/overdue and the paid time ar
 `ledger.invoice_status_expr()` on the server and `invoiceStatusSql` on the device), `estimates`
 (accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired), `orders`
 (POS/Terminal sale; stored status open/void, paid/refunded read from the ledger the same way),
-`lines` (**polymorphic** across invoice/estimate/order via `parent_type`; `item_id`/`booking_id`,
-`tax_amount_cents`).
+`lines` (three nullable foreign keys `estimate_id`/`invoice_id`/`order_id` with a CHECK that exactly one
+is set; `item_id`/`booking_id`, `tax_amount_cents`).
 
 **payments (2)** — `payments` (payment attempts and Stripe objects: `kind` payment/deposit/refund; status;
 unique `provider_ref` = one row per Stripe object; one-refund-per-payment; Interac `reference_code`; a
@@ -252,13 +252,13 @@ swaps the hash, replay revokes the family), `auth_tokens` (single-use reset/veri
 > is pure and golden-tested. See *Tax* below.
 
 ### Polymorphic patterns
-`lines.parent_type` (invoice/estimate/order) · `payments` nullable over invoice/booking/order + `kind`/
+`lines` one FK per document (estimate/invoice/order, exactly one set) · `payments` nullable over invoice/booking/order + `kind`/
 `method`/`reference_code` · `items.kind` = whole catalog · `sessions` = every slot · `staff` = staff +
 invites · `entries.subject_type`/`source_type` = any money event on any entity · `notes`/`files`/`audit_logs` `parent_type`
 generalize the rest.
 
 > **Why this shape:** the model is a pragmatic "mostly-lean" blend chosen over an option-by-option review —
-> maximally consolidated (polymorphic `lines`/`payments`, one `items(kind)`, one `sessions` for 1:1 + group)
+> maximally consolidated (shared `lines`/`payments` across documents, one `items(kind)`, one `sessions` for 1:1 + group)
 > but split where lifecycles genuinely differ (packages vs subscriptions vs gift cards; forms vs contracts).
 > A deliberately lean schema, with clarity kept exactly where money and lifecycles live.
 

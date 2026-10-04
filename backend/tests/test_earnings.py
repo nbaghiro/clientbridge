@@ -105,8 +105,7 @@ async def _paid_booking(
         Line(
             id=new_id("line"),
             business_id=BIZ,
-            parent_type="invoice",
-            parent_id=inv.id,
+            invoice_id=inv.id,
             description="Service",
             booking_id=booking.id,
             quantity=1,

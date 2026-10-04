@@ -208,8 +208,7 @@ async def _split(
 async def _booking_lines(db: AsyncSession, invoice: Invoice) -> list[Line]:
     rows = await db.execute(
         scoped(Line, invoice.business_id).where(
-            Line.parent_type == "invoice",
-            Line.parent_id == invoice.id,
+            Line.invoice_id == invoice.id,
             Line.booking_id.isnot(None),
         )
     )
@@ -277,7 +276,7 @@ async def ensure_order_earning(db: AsyncSession, order: Order) -> None:
         scoped(Line, biz)
         .with_only_columns(Line.amount_cents)
         .join(Item, Item.id == Line.item_id)
-        .where(Line.parent_type == "order", Line.parent_id == order.id, Item.kind == "product")
+        .where(Line.order_id == order.id, Item.kind == "product")
     )
     base = sum(products.scalars().all())
     amount = base * staff.retail_rate_bps // 10000

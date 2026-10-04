@@ -66,8 +66,7 @@ async def test_send_sets_pay_token_then_public_fetch(
         Line(
             id=new_id("line"),
             business_id=BIZ,
-            parent_type="invoice",
-            parent_id=inv.id,
+            invoice_id=inv.id,
             description="Groom",
             unit_amount_cents=8000,
             amount_cents=8000,

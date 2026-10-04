@@ -109,8 +109,7 @@ async def _add_order(db: AsyncSession, *, subtotal: int) -> str:
         Line(
             id=new_id("line"),
             business_id=BIZ,
-            parent_type="order",
-            parent_id=order.id,
+            order_id=order.id,
             description="Retail",
             unit_amount_cents=subtotal,
             amount_cents=subtotal,

@@ -1,12 +1,14 @@
-"""Shared, parent-agnostic line + tax engine for invoices, estimates, and orders.
+"""Shared line + tax engine for invoices, estimates, and orders.
 
-The `Line` model is parent-agnostic (parent_type ∈ invoice|estimate|order); these helpers build/
+A `Line` belongs to exactly one estimate, invoice or order (one FK each); these helpers build/
 fetch its rows and run the pure tax engine, so the totals logic can't drift between billing and POS.
 """
 
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from clientbridge.core.errors import NotFound, Unprocessable
 from clientbridge.core.ids import new_id
@@ -18,16 +20,20 @@ from clientbridge.services.business_service import business_tax_registered
 from clientbridge.services.tax_rates import rates_for_business
 from clientbridge.services.tax_service import TaxComponent, TaxLine, TaxResult, compute_tax
 
+LineParent = Literal["estimate", "invoice", "order"]
+
+
+def parent_fk(parent: LineParent) -> InstrumentedAttribute[str | None]:
+    return {"estimate": Line.estimate_id, "invoice": Line.invoice_id, "order": Line.order_id}[
+        parent
+    ]
+
 
 async def replace_lines(
-    db: AsyncSession, business_id: str, parent_type: str, parent_id: str, inputs: list[LineInput]
+    db: AsyncSession, business_id: str, parent: LineParent, parent_id: str, inputs: list[LineInput]
 ) -> list[Line]:
     """Delete a parent's lines and rebuild them from `inputs` (amount = qty x unit, half-up)."""
-    await db.execute(
-        scoped_delete(Line, business_id).where(
-            Line.parent_type == parent_type, Line.parent_id == parent_id
-        )
-    )
+    await db.execute(scoped_delete(Line, business_id).where(parent_fk(parent) == parent_id))
     items = await _line_items(db, business_id, inputs)
     lines: list[Line] = []
     for i, inp in enumerate(inputs):
@@ -38,8 +44,9 @@ async def replace_lines(
         line = Line(
             id=new_id("line"),
             business_id=business_id,
-            parent_type=parent_type,
-            parent_id=parent_id,
+            estimate_id=parent_id if parent == "estimate" else None,
+            invoice_id=parent_id if parent == "invoice" else None,
+            order_id=parent_id if parent == "order" else None,
             description=inp.description,
             item_id=inp.item_id,
             booking_id=inp.booking_id,
@@ -75,20 +82,12 @@ async def _line_items(
 
 
 async def fetch_lines(
-    db: AsyncSession, business_id: str, parent_type: str, parent_id: str
+    db: AsyncSession, business_id: str, parent: LineParent, parent_id: str
 ) -> list[Line]:
-    rows = (
-        (
-            await db.execute(
-                scoped(Line, business_id)
-                .where(Line.parent_type == parent_type, Line.parent_id == parent_id)
-                .order_by(Line.position)
-            )
-        )
-        .scalars()
-        .all()
+    rows = await db.execute(
+        scoped(Line, business_id).where(parent_fk(parent) == parent_id).order_by(Line.position)
     )
-    return list(rows)
+    return list(rows.scalars().all())
 
 
 def line_out(ln: Line) -> LineOut:

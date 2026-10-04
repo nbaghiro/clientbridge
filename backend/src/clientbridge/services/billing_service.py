@@ -27,6 +27,7 @@ from clientbridge.schemas.billing import (
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.booking_service import apply_deposit, unapply_deposit
 from clientbridge.services.lines import (
+    LineParent,
     apply_totals,
     fetch_lines,
     line_out,
@@ -168,7 +169,7 @@ class BillingService:
         rows = await self.db.execute(
             scoped(Booking, self.biz)
             .join(Line, Line.booking_id == Booking.id)
-            .where(Line.parent_type == "invoice", Line.parent_id == invoice.id)
+            .where(Line.invoice_id == invoice.id)
             .distinct()
         )
         return list(rows.scalars().all())
@@ -429,12 +430,12 @@ class BillingService:
         apply_totals(parent, await tax_for_lines(self.db, self.biz, lines))
 
     async def _replace_lines(
-        self, parent_type: str, parent_id: str, inputs: list[LineInput]
+        self, parent: LineParent, parent_id: str, inputs: list[LineInput]
     ) -> list[Line]:
-        return await replace_lines(self.db, self.biz, parent_type, parent_id, inputs)
+        return await replace_lines(self.db, self.biz, parent, parent_id, inputs)
 
-    async def _lines(self, parent_type: str, parent_id: str) -> list[Line]:
-        return await fetch_lines(self.db, self.biz, parent_type, parent_id)
+    async def _lines(self, parent: LineParent, parent_id: str) -> list[Line]:
+        return await fetch_lines(self.db, self.biz, parent, parent_id)
 
     async def _next_number(self, model: type[Invoice] | type[Estimate]) -> int:
         sub = scoped(model, self.biz).subquery()

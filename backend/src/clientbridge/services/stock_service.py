@@ -12,6 +12,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Line
 from clientbridge.models.catalog import Item, StockMovement
 from clientbridge.schemas.catalog import ItemOut, RestockIn
+from clientbridge.services.lines import LineParent, parent_fk
 
 
 class StockService:
@@ -56,7 +57,7 @@ class StockService:
 
 
 async def sync_parent_stock(
-    db: AsyncSession, business_id: str, parent_type: str, parent_id: str, status: str
+    db: AsyncSession, business_id: str, parent: LineParent, parent_id: str, status: str
 ) -> None:
     """Move stock for a sale's tracked products as its status settles: out once when it is paid,
     back once when it is fully refunded. Stock may go below zero; it never blocks a sale."""
@@ -67,8 +68,7 @@ async def sync_parent_stock(
         .add_columns(Item.id)
         .join(Item, Item.id == Line.item_id)
         .where(
-            Line.parent_type == parent_type,
-            Line.parent_id == parent_id,
+            parent_fk(parent) == parent_id,
             Item.track_stock.is_(True),
         )
         .order_by(Item.id)

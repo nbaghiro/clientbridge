@@ -1566,8 +1566,7 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
     line = Line(
         id=new_id("line"),
         business_id=sub.business_id,
-        parent_type="invoice",
-        parent_id=invoice.id,
+        invoice_id=invoice.id,
         description=item.name,
         item_id=item.id,
         quantity=1,

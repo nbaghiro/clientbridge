@@ -34,11 +34,11 @@ def test_scoped_update_omits_soft_delete_by_default() -> None:
 def test_scoped_delete_filters_business() -> None:
     sql = str(
         scoped_delete(Line, "bz_1")
-        .where(Line.parent_id == "ord_1")
+        .where(Line.order_id == "ord_1")
         .compile(compile_kwargs={"literal_binds": True})
     )
     assert "lines.business_id = 'bz_1'" in sql
-    assert "lines.parent_id = 'ord_1'" in sql
+    assert "lines.order_id = 'ord_1'" in sql
 
 
 async def test_scoped_reads_isolate_business_and_soft_delete(db: AsyncSession) -> None:

@@ -807,8 +807,7 @@ def _invoice_for(
         Line(
             id=f"ln_{num}_1",
             business_id=BIZ,
-            parent_type="invoice",
-            parent_id=inv,
+            invoice_id=inv,
             description=next(x[2] for x in ITEMS if x[0] == item_id),
             item_id=item_id,
             booking_id=bk,
@@ -970,8 +969,7 @@ def seed_online_shop() -> None:
         Line(
             id="ln_ord_web_0",
             business_id=BIZ,
-            parent_type="order",
-            parent_id="ord_web",
+            order_id="ord_web",
             description="Self-Cleaning Slicker Brush",
             item_id="it_brush",
             quantity=1,
@@ -1034,8 +1032,7 @@ def seed_open_sale() -> None:
             Line(
                 id=f"ln_ord_open_{pos}",
                 business_id=BIZ,
-                parent_type="order",
-                parent_id="ord_open",
+                order_id="ord_open",
                 description=name,
                 item_id=item_id,
                 quantity=1,
@@ -1108,8 +1105,7 @@ def seed_estimates() -> None:
         Line(
             id="ln_est_1",
             business_id=BIZ,
-            parent_type="estimate",
-            parent_id="est_1001",
+            estimate_id="est_1001",
             description="Full Groom — Small Dog ×3",
             item_id="it_groom_sm",
             quantity=3,
@@ -1123,8 +1119,7 @@ def seed_estimates() -> None:
         Line(
             id="ln_est_2",
             business_id=BIZ,
-            parent_type="estimate",
-            parent_id="est_1001",
+            estimate_id="est_1001",
             description="De-shedding add-on ×1",
             item_id="it_deshed",
             quantity=1,
@@ -1138,8 +1133,7 @@ def seed_estimates() -> None:
         Line(
             id="ln_est_3",
             business_id=BIZ,
-            parent_type="estimate",
-            parent_id="est_1001",
+            estimate_id="est_1001",
             description="Take-home Oatmeal Shampoo ×1",
             item_id="it_shampoo",
             quantity=1,
@@ -1695,8 +1689,7 @@ def seed_coverage() -> None:
         Line(
             id="ln_ord1_1",
             business_id=BIZ,
-            parent_type="order",
-            parent_id="ord_1",
+            order_id="ord_1",
             description="Nail Trim & File",
             item_id="it_nails",
             quantity=1,
@@ -1710,8 +1703,7 @@ def seed_coverage() -> None:
         Line(
             id="ln_ord1_2",
             business_id=BIZ,
-            parent_type="order",
-            parent_id="ord_1",
+            order_id="ord_1",
             description="Oatmeal Shampoo — retail",
             item_id="it_shampoo",
             quantity=1,
@@ -1754,8 +1746,7 @@ def seed_coverage() -> None:
         Line(
             id="ln_ord2_1",
             business_id=BIZ,
-            parent_type="order",
-            parent_id="ord_2",
+            order_id="ord_2",
             description="Nail Trim & File",
             item_id="it_nails",
             quantity=1,
@@ -1797,8 +1788,7 @@ def seed_coverage() -> None:
         Line(
             id="ln_ord3_1",
             business_id=BIZ,
-            parent_type="order",
-            parent_id="ord_3",
+            order_id="ord_3",
             description="Slicker Brush — retail",
             item_id="it_shampoo",
             quantity=1,
@@ -1912,8 +1902,7 @@ def seed_coverage() -> None:
         Line(
             id="ln_1099_1",
             business_id=BIZ,
-            parent_type="invoice",
-            parent_id="inv_1099",
+            invoice_id="inv_1099",
             description="Full Groom — Small Dog",
             item_id="it_groom_sm",
             booking_id="bk_refund",
@@ -1987,8 +1976,7 @@ def seed_coverage() -> None:
             Line(
                 id=f"ln_{iid}",
                 business_id=BIZ,
-                parent_type="invoice",
-                parent_id=iid,
+                invoice_id=iid,
                 description="Bath & Brush",
                 item_id="it_bath",
                 quantity=1,
@@ -2019,8 +2007,7 @@ def seed_coverage() -> None:
         Line(
             id="ln_est3",
             business_id=BIZ,
-            parent_type="estimate",
-            parent_id="est_1003",
+            estimate_id="est_1003",
             description="Cat Groom ×2",
             item_id="it_cat",
             quantity=2,
@@ -2050,8 +2037,7 @@ def seed_coverage() -> None:
         Line(
             id="ln_1095",
             business_id=BIZ,
-            parent_type="invoice",
-            parent_id="inv_1095",
+            invoice_id="inv_1095",
             description="Full Groom — Small Dog",
             item_id="it_groom_sm",
             quantity=1,

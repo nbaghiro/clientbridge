@@ -94,13 +94,18 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
 class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "lines"
     __table_args__ = (
-        enum_check("lines", "parent_type", "invoice", "estimate", "order"),
+        CheckConstraint(
+            "num_nonnulls(estimate_id, invoice_id, order_id) = 1", name="ck_lines_parent"
+        ),
         enum_check("lines", "tax_class", "standard", "federal_only", "exempt"),
-        Index("ix_lines_parent", "parent_type", "parent_id"),
+        Index("ix_lines_estimate", "estimate_id"),
+        Index("ix_lines_invoice", "invoice_id"),
+        Index("ix_lines_order", "order_id"),
     )
 
-    parent_type: Mapped[str] = mapped_column(String, nullable=False)
-    parent_id: Mapped[str] = mapped_column(String, nullable=False)
+    estimate_id: Mapped[str | None] = mapped_column(ForeignKey("estimates.id"))
+    invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
+    order_id: Mapped[str | None] = mapped_column(ForeignKey("orders.id"))
     description: Mapped[str] = mapped_column(String, nullable=False)
     item_id: Mapped[str | None] = mapped_column(ForeignKey("items.id"))
     booking_id: Mapped[str | None] = mapped_column(ForeignKey("bookings.id"))

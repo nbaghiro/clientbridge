@@ -692,8 +692,9 @@ const orders = new Table(
 
 const lines = new Table(
     {
-        parent_type: column.text,
-        parent_id: column.text,
+        estimate_id: column.text,
+        invoice_id: column.text,
+        order_id: column.text,
         description: column.text,
         item_id: column.text,
         booking_id: column.text,
@@ -710,7 +711,9 @@ const lines = new Table(
     {
         indexes: {
             lines_business_id: ["business_id"],
-            lines_parent: ["parent_type", "parent_id"],
+            lines_estimate: ["estimate_id"],
+            lines_invoice: ["invoice_id"],
+            lines_order: ["order_id"],
         },
     },
 );
