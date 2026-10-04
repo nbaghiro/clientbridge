@@ -1,4 +1,5 @@
 import {
+    canVoidSale,
     type CartLine,
     type Order,
     filterItems,
@@ -27,6 +28,7 @@ import {
 } from "react-native";
 
 import { IconSearch } from "../components/icons";
+import { useRole } from "../lib/auth";
 import { ItemImage } from "../ui/ItemImage";
 import { StatusPill } from "../ui/StatusPill";
 import { TerminalProvider, useTerminalCheckout } from "../components/terminal";
@@ -36,6 +38,7 @@ const c = theme.colors;
 
 export function POSScreen() {
     const cart = useCart(api);
+    const canVoid = canVoidSale(useRole());
     const items = useCatalogItems();
     const active = useMemo(() => sellableItems(items), [items]);
     const { q, setQ, filtered } = useSearch(active, filterItems);
@@ -50,7 +53,7 @@ export function POSScreen() {
                         order={cart.order}
                         clientSecret={cart.checkoutResult.client_secret}
                         onDone={cart.newSale}
-                        onVoid={cart.voidSale}
+                        onVoid={canVoid ? cart.voidSale : undefined}
                         busy={cart.busy}
                     />
                 </TerminalProvider>
@@ -249,7 +252,7 @@ function ReaderPanel({
     order: Order;
     clientSecret: string;
     onDone: () => void;
-    onVoid: () => void;
+    onVoid: (() => void) | undefined;
     busy: boolean;
 }) {
     const terminal = useTerminalCheckout();
@@ -294,9 +297,11 @@ function ReaderPanel({
                     </Text>
                 </Pressable>
             )}
-            <Pressable style={styles.void} onPress={onVoid} disabled={busy}>
-                <Text style={styles.voidText}>{strings.pos.voidSale}</Text>
-            </Pressable>
+            {onVoid !== undefined ? (
+                <Pressable style={styles.void} onPress={onVoid} disabled={busy}>
+                    <Text style={styles.voidText}>{strings.pos.voidSale}</Text>
+                </Pressable>
+            ) : null}
         </ScrollView>
     );
 }

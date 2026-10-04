@@ -84,7 +84,8 @@ clientbridge/
 │   │   ├── mobile/     Expo RN · provider/admin · :8707
 │   │   └── connect/    public customer app · PowerSync-free · :8709
 │   └── packages/
-│       ├── app-core/   shared view-model hooks + strings + icons
+│       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
+│       ├── ui/         shared browser components for web + Connect (PowerSync-free)
 │       ├── sync/       PowerSync AppSchema + backend connector
 │       ├── api-client/ generated OpenAPI types + session (refresh/sign-out)
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
@@ -456,9 +457,36 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   app imports.
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
   (saved card or new card, one idempotency key per attempt), and saving a card through
-  `useAddPaymentMethod`. Web and Connect render them with `@clientbridge/ui` (`ChargeSheet`,
-  `CardForm`, `PaymentMethodForm`, `StatusPill`), which imports only `app-core/public`; mobile has the
-  same components with the same props in `apps/mobile/src/ui/`. Bank (PAD) entry is web only.
+  `useAddPaymentMethod`. Only chargeable saved methods are offered (`checkoutMethods`): cards, and bank
+  accounts with an active mandate. Bank (PAD) entry is web only for now.
+
+### Navigation
+Both apps show the same five destinations from `domain/navigation.ts`: Today, Schedule, Clients, Payments
+and Inbox, plus Setup. Web renders them as a sidebar and mobile as a tab bar with a create button, with
+Inbox and Setup as icons in the header. Payments is one page with tabs (Invoices, Sales, Gift cards, Staff
+pay, Reports); staff see only Sales, because every invoice, gift card, earning and report action is owner or
+admin on the backend. Inbox has Messages and Reviews (Reviews for owners and admins). Setup has Business,
+Services & products, Team & hours, Getting paid and Online booking (web only); staff see only Team & hours
+and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`, `setupSectionsFor`,
+`editableStaff`, `canVoidSale`) live in app-core so both apps gate the same way.
+
+### Shared components
+A screen composes shared components and never re-implements a list, a detail view, a checkout or a card
+form. The prop contracts are types in `app-core/src/ui.ts`, and each platform implements them once:
+`@clientbridge/ui` for web and Connect (it imports only `app-core/public`), and `apps/mobile/src/ui/` for
+mobile.
+
+| Component | What it is |
+|---|---|
+| `ListPage` | header, count, primary action, segments, search, rows and an empty state |
+| `DetailView` | a right-side panel on web, a bottom sheet on mobile, with sections and an action row |
+| `ChargeSheet`, `CardForm`, `PaymentMethodForm` | the checkout and card or bank entry |
+| `DocEditor` | the one invoice and estimate editor, for new documents and drafts (lives in each app because it reads the replica) |
+| `ItemImage` | a catalog item's image, or its initial on a tint of its colour |
+| `StatusPill`, `Money`, `Empty` | status, amounts and empty states |
+
+Item images and the business logo are `files` rows served through the public `/media/{file_id}` endpoint
+(see *Public media*). Each app builds the URL with `mediaUrl(apiBase, fileId)`.
 
 ### Connect — the customer app (PowerSync-free, embeddable)
 The public surfaces (book/pay/form/contract/review + a per-business landing) live in their own lean Vite app

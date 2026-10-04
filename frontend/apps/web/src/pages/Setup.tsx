@@ -2,6 +2,8 @@ import { type SetupSectionKey, setupSectionsFor, strings } from "@clientbridge/a
 import type { ReactElement } from "react";
 import { NavLink, Navigate, useParams } from "react-router-dom";
 
+import { useRole } from "../lib/auth";
+
 import { Account } from "./Account";
 import { BookingForms } from "./BookingForms";
 import { Catalog } from "./Catalog";
@@ -45,9 +47,12 @@ function sectionBody(key: SetupSectionKey): ReactElement {
 
 export function Setup() {
     const { section } = useParams();
-    const sections = setupSectionsFor("web");
+    const role = useRole();
+    const sections = setupSectionsFor("web", role);
     const current = sections.find((s) => SETUP_SLUGS[s.key] === section);
-    if (current === undefined) return <Navigate to="/setup/business" replace />;
+    const first = sections[0];
+    if (role === null || first === undefined) return null;
+    if (current === undefined) return <Navigate to={`/setup/${SETUP_SLUGS[first.key]}`} replace />;
 
     return (
         <div className="mx-auto flex max-w-6xl gap-8 px-8 py-8">

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
+import { formatMoney } from "../util/format";
 import type { ApiLike } from "../util/api";
 import type { CheckoutMethod } from "./checkout";
 import { newIdempotencyKey } from "../util/primitives";
@@ -260,6 +261,10 @@ export function refundableCents(payment: PaymentRow, allPayments: PaymentRow[]):
     return payment.amount_cents - refunded;
 }
 
+export function refundPlaceholder(remainingCents: number): string {
+    return strings.invoices.refundAmountPlaceholder(formatMoney(remainingCents));
+}
+
 export function isRefundable(payment: PaymentRow, allPayments: PaymentRow[]): boolean {
     return (
         payment.status === "succeeded" &&
@@ -342,11 +347,18 @@ export function savedCardLabel(card: SavedCardRow): string {
     return card.last4 !== null ? strings.payments.savedCardLabel(noun, card.last4) : noun;
 }
 
-/** The saved methods a checkout can charge (an Interac contact can't be), labelled. */
+/** A card, or a bank account with an active mandate; an Interac contact can't be charged. */
+export function isChargeable(card: SavedCardRow): boolean {
+    return card.type === "card" || (isMandate(card) && card.mandate_status === "active");
+}
+
+export function canBeDefault(card: SavedCardRow): boolean {
+    return card.is_default !== 1 && isChargeable(card);
+}
+
+/** The saved methods a checkout can charge, labelled. */
 export function checkoutMethods(cards: SavedCardRow[]): CheckoutMethod[] {
-    return cards
-        .filter((c) => c.type === "card" || (isMandate(c) && c.mandate_status === "active"))
-        .map((c) => ({ id: c.id, label: savedCardLabel(c) }));
+    return cards.filter(isChargeable).map((c) => ({ id: c.id, label: savedCardLabel(c) }));
 }
 
 export function mandateStatusIntent(status: string): Intent {

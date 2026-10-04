@@ -1,4 +1,5 @@
 import {
+    editableStaff,
     type StaffRow,
     WEEKDAYS,
     staffLabel,
@@ -18,10 +19,12 @@ import {
     View,
 } from "react-native";
 
+import { useViewer } from "../lib/auth";
+
 const c = theme.colors;
 
 export function SchedulingSection() {
-    const staff = useStaff();
+    const staff = editableStaff(useStaff(), useViewer());
     const [staffId, setStaffId] = useState<string | null>(null);
     const selected = staffId ?? staff[0]?.id ?? null;
 

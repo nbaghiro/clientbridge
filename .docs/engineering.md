@@ -217,8 +217,8 @@ asserts against** — idempotent (TRUNCATE-then-insert, hand-ordered FK-safe bec
 relationships). Owner = the dev user **`us_dev`** (Hannah), so the apps stream *this* business via the dev
 sync token.
 
-- **Dev login is passwordless:** `POST /auth/login {"email":"hannah@birchbarkpets.ca"}` (owner) — or
-  `diego@`/`priya@` to switch users. Prod accounts require a password.
+- **Demo logins:** `hannah@birchbarkpets.ca` (owner), `diego@birchbarkpets.ca` and `priya@birchbarkpets.ca`
+  (staff), all with the password `demo1234` (`DEMO_PASSWORD` in the seed).
 - **Readable IDs** for debugging: `bz_birchbark`, `us_dev`, `cl_amelie`, `sj_bella`, `inv_1001`. Dates are
   anchored to *now*, so there's always recent + upcoming activity.
 - Bookings fill every day from four months back to a month out, inside each member's working hours.

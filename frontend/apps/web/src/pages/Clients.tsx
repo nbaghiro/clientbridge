@@ -5,6 +5,7 @@ import {
     type SavedCardRow,
     type SubscriptionRow,
     canConsume,
+    canBeDefault,
     canManagePayments,
     checkoutMethods,
     cancelSubscription,
@@ -247,7 +248,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
                     />
                 ) : null}
                 <div className="ml-auto flex shrink-0 gap-2">
-                    {!isDefault ? (
+                    {canBeDefault(card) ? (
                         <button
                             type="button"
                             disabled={busy}

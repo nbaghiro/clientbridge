@@ -1,4 +1,5 @@
 import {
+    editableStaff,
     type StaffRow,
     WEEKDAYS,
     staffLabel,
@@ -8,11 +9,13 @@ import {
 } from "@clientbridge/app-core";
 import { useState } from "react";
 
+import { useViewer } from "../lib/auth";
+
 const FIELD =
     "rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition focus:border-accent";
 
 export function Scheduling() {
-    const staff = useStaff();
+    const staff = editableStaff(useStaff(), useViewer());
     const [staffId, setStaffId] = useState<string | null>(null);
     const selected = staffId ?? staff[0]?.id ?? null;
 

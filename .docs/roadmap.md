@@ -49,6 +49,12 @@ partial and repeated refunds, tax remittance (filing a return clears tax payable
 revenue on expired gift cards and packages, and a `bookings.deposit_status` lifecycle column so staff
 devices, which do not sync the business ledger, see whether a deposit was collected.
 
+**UI restructure (2026-10-03):** web and mobile share one layout: Today, Schedule, Clients, Payments
+(Invoices, Sales, Gift cards, Staff pay, Reports) and Inbox (Messages, Reviews), plus Setup. Lists, detail
+views, the checkout, card and bank entry, and the invoice editor are shared components with one prop
+contract per job, so a screen composes them instead of re-implementing them. Catalog items and the business
+logo have uploaded images served from `/media`, and draft invoices and estimates can be edited.
+
 ---
 
 ## 🔴 M3 — Launch blockers (P0)
@@ -90,8 +96,20 @@ Needed to be a real, complete product (not just an alpha). Grouped by domain; la
 - [M] **Take/record payment in-app** (no UI hits `POST /payments/invoice/{id}`; payment only via the public link).
 - [M] **Tips** (no capture at any checkout; a tip would post to the staff member's ledger `payable`).
 - [M] **Discounts / promo codes** (none, line- or order-level).
-- [M] **Web POS card-present** (web reader panel is a stub; only mobile Tap-to-Pay works; no resume-held-order).
-- [M] **Interac ingestion + lifecycle** (match logic exists; no real bank ingestion, no stale-request expiry, no surplus handling; authed per-invoice Interac request has no UI).
+- [M] **Web POS card payment** (the backend can only charge an order through a card reader, so web Sales
+  saves the sale as open for mobile Tap to Pay; it needs a path to pay an order by online card).
+- [M] **Interac ingestion + lifecycle** (match logic exists; no real bank ingestion, no stale-request expiry;
+  an overpayment books only the requested amount, the dedup key is the reference code rather than the bank's
+  transfer id so a short payment burns the code, and a reused pending request reports the new amount
+  instead of its own; authed per-invoice Interac request has no UI).
+- [M] **Disputes suspend entitlements** (an open dispute leaves the gift card or package it paid for
+  spendable, and the invoice stays paid with earnings accrued).
+- [S] **Subscription price drift** (the recurring Stripe Price is cached on the item and never re-created
+  after a price edit, so Stripe charges the old amount while the recurring invoice bills the new one).
+- [S] **Refund status lifecycle** (refunds are booked as succeeded immediately; PAD refunds start pending and
+  card refunds can fail later, and `charge.refund.updated` is not handled).
+- [S] **Fee retry** (a payment settled before its balance transaction exists posts no fee journal, and nothing
+  retries it; only the nightly reconcile surfaces the drift).
 - [M] **Earnings beyond bookings** (POS sales, tips, non-booking invoice lines never accrue staff earnings).
 - [M] **Invoice/estimate/receipt PDF** (clients get only a web link).
 
@@ -115,6 +133,8 @@ Needed to be a real, complete product (not just an alpha). Grouped by domain; la
 
 ### Documents / files / dashboard / compliance
 - [M] **Signed-contract PDF** (with audit block); text-only snapshot today.
+- [S] **Mobile image upload** (item images and the logo upload on web only; mobile needs
+  `expo-image-picker`, which means a new native build).
 - [M] **File upload limits** (no max size / content-type allowlist / malware scan, incl. the token-gated public upload surfaces).
 - [S] **Today page:** add today's-schedule section + surface the GST filing-due date.
 - [L] **Business analytics** (reporting is CRA-compliance-only; no trends, top services, retention, utilization, no-show rates).

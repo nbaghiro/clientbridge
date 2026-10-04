@@ -292,7 +292,8 @@
 │  │  ├─ mobile/                 <span class="c">Expo RN · provider/admin · :8707</span>
 │  │  └─ connect/                <span class="c">public customer app · PowerSync-free · :8709</span>
 │  └─ packages/
-│     ├─ app-core/               <span class="c">shared view-model hooks + strings + icons</span>
+│     ├─ app-core/               <span class="c">shared view-model hooks + strings + icons + UI prop contracts</span>
+│     ├─ ui/                     <span class="c">shared browser components for web + Connect</span>
 │     ├─ sync/                   <span class="c">PowerSync AppSchema + backend connector</span>
 │     ├─ api-client/             <span class="c">generated types + session (refresh/sign-out)</span>
 │     ├─ tokens/                 <span class="c">Pewter design system → Tailwind + RN</span>
@@ -569,7 +570,7 @@
       <div class="tbl-wrap"><table>
         <thead><tr><th>Area</th><th>What's there</th></tr></thead>
         <tbody>
-          <tr><td><span class="path">domain/*</span> (29)</td><td>The view-models. <strong>Reads</strong> = a <code>useX()</code> hook wrapping <code>useQuery</code> over a SQL constant against the replica. <strong>Writes</strong> = plain fns taking <code>(api: ApiLike, …)</code>. <strong>Forms</strong> = <code>useXForm</code> on the <code>useAsyncAction</code> primitive. Each exports a status→<code>Intent</code> mapper. Richest: <span class="path">payments.ts</span> (the <code>useInteractivePurchase</code> Stripe seam), <span class="path">calendar.ts</span> (~652 lines of layout math + booking).</td></tr>
+          <tr><td><span class="path">domain/*</span> (29)</td><td>The view-models. <strong>Reads</strong> = a <code>useX()</code> hook wrapping <code>useQuery</code> over a SQL constant against the replica. <strong>Writes</strong> = plain fns taking <code>(api: ApiLike, …)</code>. <strong>Forms</strong> = <code>useXForm</code> on the <code>useAsyncAction</code> primitive. Each exports a status→<code>Intent</code> mapper. Richest: <span class="path">checkout.ts</span> (<code>useCheckout</code>, the one Stripe seam for every sale), <span class="path">calendar.ts</span> (~652 lines of layout math + booking).</td></tr>
           <tr><td><span class="path">domain/public*</span> (7)</td><td>Back the unauthenticated surfaces — <strong>no PowerSync</strong>. Each is a <code>createPublicXClient(baseUrl)</code> factory doing plain <code>fetch</code> against token-authed endpoints.</td></tr>
           <tr><td><span class="path">hooks/*</span></td><td><code>useAsyncAction</code> (the busy/error mutation primitive), <code>useBusinessId</code>/<code>useSearch</code>, <code>useClientState</code>, <code>useCurrentRole</code>, <code>useLogin</code>.</td></tr>
           <tr><td><span class="path">util/*</span></td><td>The <code>ApiLike</code> write seam, <code>datetime</code> (the load-bearing <code>parseTimestamp</code> — the one unit-tested file), <code>format</code>, id primitives.</td></tr>

@@ -12,7 +12,6 @@ export const strings = {
         cancel: "Cancel",
         done: "Done",
         close: "Close",
-        retry: "Please try again.",
         somethingWrong: "Something went wrong",
         tryAgainLater: "Please try again later.",
         working: "Working…",
@@ -60,6 +59,7 @@ export const strings = {
         invoiceHeading: "Invoice",
         estimateHeading: "Estimate",
         draftHeading: "(draft)",
+        tax: "Tax",
         total: "Total",
         actionError: (action: string) => `Couldn't ${action} — please try again.`,
         payLink: "Pay link",
@@ -762,8 +762,6 @@ export const strings = {
         interacNoEmail: "The business will share their e-Transfer email with you. Send",
         interacConfirmNote:
             "Your payment will be marked as received once the business confirms the transfer.",
-        paymentFailed: "Payment failed. Please try again.",
-        payAmount: (amount: string) => `Pay ${amount}`,
         paidTitle: "This invoice is paid — thank you",
         paidBody: (businessName: string) =>
             `Your payment to ${businessName} is complete. A receipt will follow from the business.`,

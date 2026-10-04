@@ -7,6 +7,7 @@ import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
 import type { ItemRow } from "./catalog";
 import { collectedSql } from "./ledger";
+import { canManagePayments } from "./payments";
 
 export interface OrderLineInput {
     item_id: string;
@@ -278,4 +279,9 @@ export function useCart(api: ApiLike): Cart {
         voidSale,
         newSale,
     };
+}
+
+/** Voiding a sale is a manager action; staff ring up and collect. */
+export function canVoidSale(role: string | null): boolean {
+    return canManagePayments(role);
 }

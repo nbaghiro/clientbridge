@@ -5,6 +5,7 @@ import {
     type SavedCardRow,
     type SubscriptionRow,
     canConsume,
+    canBeDefault,
     canManagePayments,
     checkoutMethods,
     cancelSubscription,
@@ -243,7 +244,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
                 </View>
             </View>
             <View style={styles.methodActions}>
-                {!isDefault ? (
+                {canBeDefault(card) ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={makeDefault}>
                         <Text style={styles.miniBtnText}>{strings.clients.makeDefault}</Text>
                     </Pressable>

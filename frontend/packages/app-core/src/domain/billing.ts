@@ -14,6 +14,8 @@ export interface InvoiceRow {
     client_name: string | null;
     number: number | null;
     status: string;
+    subtotal_cents: number | null;
+    tax_total_cents: number | null;
     total_cents: number | null;
     balance_cents: number | null;
     issued_at: string | null;
@@ -29,6 +31,8 @@ export interface EstimateRow {
     client_name: string | null;
     number: number | null;
     status: string;
+    subtotal_cents: number | null;
+    tax_total_cents: number | null;
     total_cents: number | null;
     valid_until: string | null;
     converted_invoice_id: string | null;
@@ -48,7 +52,8 @@ export interface LineRow {
 }
 
 const INVOICES_SQL = `
-SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status, i.total_cents,
+SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status, i.subtotal_cents,
+       i.tax_total_cents, i.total_cents,
        CASE WHEN i.status = 'draft' THEN i.total_cents
             ELSE COALESCE(${subjectNetSql("receivable", "invoice", "i.id")}, 0) END AS balance_cents,
        i.issued_at, i.due_at, i.pay_token, i.notes, i.created_at
@@ -57,8 +62,8 @@ LEFT JOIN clients c ON c.id = i.client_id
 ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
 
 const ESTIMATES_SQL = `
-SELECT e.id, e.client_id, c.name AS client_name, e.number, e.status,
-       e.total_cents, e.valid_until, e.converted_invoice_id, e.notes, e.created_at
+SELECT e.id, e.client_id, c.name AS client_name, e.number, e.status, e.subtotal_cents,
+       e.tax_total_cents, e.total_cents, e.valid_until, e.converted_invoice_id, e.notes, e.created_at
 FROM estimates e
 LEFT JOIN clients c ON c.id = e.client_id
 ORDER BY e.created_at DESC`;
@@ -78,6 +83,58 @@ export function useEstimates(): EstimateRow[] {
 
 export function useLines(parentType: "invoice" | "estimate", parentId: string): LineRow[] {
     return useQuery<LineRow>(LINES_SQL, [parentType, parentId]).data;
+}
+
+export interface DocTotalRow {
+    key: string;
+    label: string;
+    cents: number;
+    strong: boolean;
+}
+
+interface TaxByCode {
+    code: string;
+    cents: number;
+}
+
+// Per-code tax is on an issued invoice's journal; without it the stored tax total is shown.
+const TAX_BY_CODE_SQL = `
+SELECT a.code AS code, -SUM(e.amount_cents) AS cents
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE a.kind = 'tax' AND e.ref = ?
+GROUP BY a.code ORDER BY a.code`;
+
+type DocAmounts = Pick<InvoiceRow, "subtotal_cents" | "tax_total_cents" | "total_cents">;
+
+export function docTotals(doc: DocAmounts, byCode: TaxByCode[]): DocTotalRow[] {
+    const tax = doc.tax_total_cents ?? 0;
+    const split = byCode.filter((t) => t.cents !== 0);
+    const taxRows =
+        split.length > 0 && split.reduce((sum, t) => sum + t.cents, 0) === tax
+            ? split.map((t) => ({ key: t.code, label: t.code, cents: t.cents, strong: false }))
+            : tax !== 0
+              ? [{ key: "tax", label: strings.invoices.tax, cents: tax, strong: false }]
+              : [];
+    return [
+        {
+            key: "subtotal",
+            label: strings.invoices.subtotal,
+            cents: doc.subtotal_cents ?? 0,
+            strong: false,
+        },
+        ...taxRows,
+        { key: "total", label: strings.invoices.total, cents: doc.total_cents ?? 0, strong: true },
+    ];
+}
+
+/** Subtotal, each tax and the total for an invoice or estimate's detail view. */
+export function useDocTotals(
+    parentType: "invoice" | "estimate",
+    doc: (DocAmounts & { id: string }) | null,
+): DocTotalRow[] {
+    const ref = parentType === "invoice" && doc !== null ? `invoice:${doc.id}` : "";
+    const byCode = useQuery<TaxByCode>(TAX_BY_CODE_SQL, [ref]).data;
+    return doc === null ? [] : docTotals(doc, byCode);
 }
 
 export function filterInvoices(rows: InvoiceRow[], q: string): InvoiceRow[] {

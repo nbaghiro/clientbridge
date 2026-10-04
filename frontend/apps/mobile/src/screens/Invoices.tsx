@@ -26,6 +26,8 @@ import {
     useEstimates,
     useInvoicePayments,
     useInvoices,
+    refundPlaceholder,
+    useDocTotals,
     useLines,
     useSearch,
 } from "@clientbridge/app-core";
@@ -149,7 +151,9 @@ function DetailModal({
     row: InvoiceRow | EstimateRow | null;
     onClose: () => void;
 }) {
-    const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
+    const parentType = kind === "invoices" ? "invoice" : "estimate";
+    const lines = useLines(parentType, row?.id ?? "");
+    const totals = useDocTotals(parentType, row);
     const { busy, error, run } = useAsyncAction();
     const canRefund = canManagePayments(useRole());
     const [editing, setEditing] = useState(false);
@@ -235,10 +239,12 @@ function DetailModal({
                                 <Money cents={l.amount_cents} />
                             </View>
                         ))}
-                        <View style={styles.totalRow}>
-                            <Text style={styles.totalLabel}>{strings.invoices.total}</Text>
-                            <Money cents={row.total_cents} strong />
-                        </View>
+                        {totals.map((t) => (
+                            <View key={t.key} style={t.strong ? styles.totalRow : styles.taxRow}>
+                                <Text style={styles.totalLabel}>{t.label}</Text>
+                                <Money cents={t.cents} strong={t.strong} />
+                            </View>
+                        ))}
                     </DetailSection>
                     {canPay && payToken !== null ? <PayLinkRow token={payToken} /> : null}
                     {invoice !== null ? (
@@ -327,9 +333,7 @@ function PaymentRowItem({
                         value={amount}
                         onChangeText={setAmount}
                         keyboardType="decimal-pad"
-                        placeholder={strings.invoices.refundAmountPlaceholder(
-                            formatMoneyWithCurrency(remainingCents, payment.currency),
-                        )}
+                        placeholder={refundPlaceholder(remainingCents)}
                         placeholderTextColor={c.muted}
                     />
                 ) : null}
@@ -414,6 +418,7 @@ const styles = StyleSheet.create({
     },
     lineDesc: { color: c.ink, fontSize: 14, flex: 1 },
     totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12 },
+    taxRow: { flexDirection: "row", justifyContent: "space-between", paddingTop: 8 },
     totalLabel: { color: c.muted, fontSize: 14 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },

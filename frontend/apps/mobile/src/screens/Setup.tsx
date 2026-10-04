@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { IconChevron } from "../components/icons";
+import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
 import { AccountScreen } from "./Account";
 import { SchedulingSection } from "./Scheduling";
@@ -22,10 +23,11 @@ const SECTION_SCREEN: Partial<Record<SetupSectionKey, keyof RootStackParamList>>
 
 export function SetupScreen() {
     const nav = useNavigation<Nav>();
+    const role = useRole();
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <View style={styles.group}>
-                {setupSectionsFor("mobile").map((s, i) => (
+                {setupSectionsFor("mobile", role).map((s, i) => (
                     <Pressable
                         key={s.key}
                         style={[styles.row, i > 0 ? styles.rowBorder : null]}

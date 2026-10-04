@@ -1,4 +1,5 @@
 import {
+    canVoidSale,
     type CartLine,
     type OpenOrderRow,
     type Order,
@@ -18,6 +19,7 @@ import { useMemo } from "react";
 
 import { IconSearch } from "../components/icons";
 import { api, apiBaseUrl } from "../lib/api";
+import { useRole } from "../lib/auth";
 
 export function POS() {
     const cart = useCart(api);
@@ -85,6 +87,7 @@ export function POS() {
 }
 
 function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
+    const canVoid = canVoidSale(useRole());
     return (
         <div className="flex max-h-[calc(100vh-4rem)] flex-col rounded-lg border border-line bg-surface shadow-card">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -125,14 +128,16 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                         <Totals order={cart.order} />
                         <p className="mt-3 text-sm text-muted">{strings.pos.heldForMobile}</p>
                         <div className="mt-3 flex gap-2">
-                            <button
-                                type="button"
-                                onClick={cart.voidSale}
-                                disabled={cart.busy}
-                                className="flex-1 rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:text-danger disabled:opacity-60"
-                            >
-                                {strings.pos.voidSale}
-                            </button>
+                            {canVoid ? (
+                                <button
+                                    type="button"
+                                    onClick={cart.voidSale}
+                                    disabled={cart.busy}
+                                    className="flex-1 rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:text-danger disabled:opacity-60"
+                                >
+                                    {strings.pos.voidSale}
+                                </button>
+                            ) : null}
                             <button
                                 type="button"
                                 onClick={cart.newSale}

@@ -1,10 +1,16 @@
-import { DESTINATIONS, type DestinationKey, strings } from "@clientbridge/app-core";
+import {
+    DESTINATIONS,
+    type DestinationKey,
+    canSeePaymentsTab,
+    strings,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { type ReactElement, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useRole } from "../lib/auth";
 import { BookingForm } from "./BookingForm";
 import { IconCalendar, IconClients, IconInvoices, IconPlus, IconPos, IconToday } from "./icons";
 
@@ -30,6 +36,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
     const [menu, setMenu] = useState(false);
     const [booking, setBooking] = useState(false);
+    const canInvoice = canSeePaymentsTab(useRole(), "invoices");
 
     const go = (tab: string, params: object): void => {
         setMenu(false);
@@ -105,15 +112,17 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             <IconCalendar size={20} color={theme.colors.accent} />
                             <Text style={styles.menuText}>{strings.nav.newBooking}</Text>
                         </Pressable>
-                        <Pressable
-                            style={styles.menuRow}
-                            onPress={() => {
-                                go("Payments", { tab: "invoices", create: Date.now() });
-                            }}
-                        >
-                            <IconInvoices size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>{strings.nav.newInvoice}</Text>
-                        </Pressable>
+                        {canInvoice ? (
+                            <Pressable
+                                style={styles.menuRow}
+                                onPress={() => {
+                                    go("Payments", { tab: "invoices", create: Date.now() });
+                                }}
+                            >
+                                <IconInvoices size={20} color={theme.colors.accent} />
+                                <Text style={styles.menuText}>{strings.nav.newInvoice}</Text>
+                            </Pressable>
+                        ) : null}
                         <Pressable
                             style={styles.menuRow}
                             onPress={() => {

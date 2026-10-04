@@ -27,6 +27,8 @@ import {
     useEstimates,
     useInvoicePayments,
     useInvoices,
+    refundPlaceholder,
+    useDocTotals,
     useLines,
     useSearch,
 } from "@clientbridge/app-core";
@@ -136,7 +138,9 @@ function DocDetail({
     row: InvoiceRow | EstimateRow | null;
     onClose: () => void;
 }) {
-    const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
+    const parentType = kind === "invoices" ? "invoice" : "estimate";
+    const lines = useLines(parentType, row?.id ?? "");
+    const totals = useDocTotals(parentType, row);
     const { busy, error, run } = useAsyncAction();
     const role = useRole();
     const [editing, setEditing] = useState(false);
@@ -221,8 +225,15 @@ function DocDetail({
                         </div>
                     ))}
                 </div>
-                <div className="mt-4 flex justify-end gap-2 text-sm text-muted">
-                    {strings.invoices.total} <Money cents={row.total_cents} strong />
+                <div className="mt-4 space-y-1 text-sm">
+                    {totals.map((t) => (
+                        <div key={t.key} className="flex justify-end gap-4 text-muted">
+                            <span className={t.strong ? "text-ink" : undefined}>{t.label}</span>
+                            <span className="w-24 text-right">
+                                <Money cents={t.cents} strong={t.strong} />
+                            </span>
+                        </div>
+                    ))}
                 </div>
             </DetailSection>
             {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
@@ -330,10 +341,8 @@ function PaymentRowItem({
                         onChange={(e) => {
                             setAmount(e.target.value);
                         }}
-                        placeholder={strings.invoices.refundAmountPlaceholder(
-                            formatMoneyWithCurrency(remainingCents, payment.currency),
-                        )}
-                        className="ml-auto w-28 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink outline-hidden focus:border-accent"
+                        placeholder={refundPlaceholder(remainingCents)}
+                        className="ml-auto w-32 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink outline-hidden focus:border-accent"
                     />
                 ) : null}
                 {showRefund ? (

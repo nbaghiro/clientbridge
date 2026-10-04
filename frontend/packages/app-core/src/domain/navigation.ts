@@ -15,7 +15,7 @@ export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
 export type PaymentsTabKey = "invoices" | "sales" | "giftCards" | "staffPay" | "reports";
 
 export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
-    { key: "invoices", label: strings.paymentsTabs.invoices, managersOnly: false },
+    { key: "invoices", label: strings.paymentsTabs.invoices, managersOnly: true },
     { key: "sales", label: strings.paymentsTabs.sales, managersOnly: false },
     { key: "giftCards", label: strings.paymentsTabs.giftCards, managersOnly: true },
     { key: "staffPay", label: strings.paymentsTabs.staffPay, managersOnly: true },
@@ -24,6 +24,10 @@ export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: 
 
 export function visiblePaymentsTabs(role: string | null): typeof PAYMENTS_TABS {
     return PAYMENTS_TABS.filter((t) => !t.managersOnly || canManagePayments(role));
+}
+
+export function canSeePaymentsTab(role: string | null, key: PaymentsTabKey): boolean {
+    return visiblePaymentsTabs(role).some((t) => t.key === key);
 }
 
 export type InboxSegmentKey = "messages" | "reviews";
@@ -39,14 +43,34 @@ export function visibleInboxSegments(role: string | null): typeof INBOX_SEGMENTS
 
 export type SetupSectionKey = "business" | "services" | "team" | "gettingPaid" | "onlineBooking";
 
-export const SETUP_SECTIONS: { key: SetupSectionKey; label: string; webOnly: boolean }[] = [
-    { key: "business", label: strings.setupSections.business, webOnly: false },
-    { key: "services", label: strings.setupSections.services, webOnly: false },
-    { key: "team", label: strings.setupSections.team, webOnly: false },
-    { key: "gettingPaid", label: strings.setupSections.gettingPaid, webOnly: false },
-    { key: "onlineBooking", label: strings.setupSections.onlineBooking, webOnly: true },
+export const SETUP_SECTIONS: {
+    key: SetupSectionKey;
+    label: string;
+    webOnly: boolean;
+    managersOnly: boolean;
+}[] = [
+    { key: "business", label: strings.setupSections.business, webOnly: false, managersOnly: true },
+    { key: "services", label: strings.setupSections.services, webOnly: false, managersOnly: true },
+    { key: "team", label: strings.setupSections.team, webOnly: false, managersOnly: false },
+    {
+        key: "gettingPaid",
+        label: strings.setupSections.gettingPaid,
+        webOnly: false,
+        managersOnly: true,
+    },
+    {
+        key: "onlineBooking",
+        label: strings.setupSections.onlineBooking,
+        webOnly: true,
+        managersOnly: true,
+    },
 ];
 
-export function setupSectionsFor(platform: "web" | "mobile"): typeof SETUP_SECTIONS {
-    return SETUP_SECTIONS.filter((s) => platform === "web" || !s.webOnly);
+export function setupSectionsFor(
+    platform: "web" | "mobile",
+    role: string | null,
+): typeof SETUP_SECTIONS {
+    return SETUP_SECTIONS.filter(
+        (s) => (platform === "web" || !s.webOnly) && (!s.managersOnly || canManagePayments(role)),
+    );
 }

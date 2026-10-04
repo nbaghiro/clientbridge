@@ -2,6 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
+import type { Viewer } from "../hooks/useCurrentRole";
 import type { AuthTokens } from "../hooks/useLogin";
 import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
@@ -44,6 +45,12 @@ export function staffDisplayName(s: StaffRow): string {
 /** Only owners and admins may invite/manage staff (matches the backend's owner/admin invite gate). */
 export function canManageStaff(role: string | null): boolean {
     return role === "owner" || role === "admin";
+}
+
+/** Whose hours the viewer may edit: everyone for a manager, else only their own. */
+export function editableStaff(staff: StaffRow[], viewer: Viewer | null): StaffRow[] {
+    if (viewer === null) return [];
+    return canManageStaff(viewer.role) ? staff : staff.filter((s) => s.id === viewer.staffId);
 }
 
 export type StaffRole = "admin" | "staff" | "contractor";
