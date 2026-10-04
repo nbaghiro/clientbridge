@@ -6,9 +6,12 @@
         "dev": "node scripts/art.ts && node scripts/images.ts && vite",
         "build": "tsc --noEmit && node scripts/art.ts && node scripts/images.ts && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && node scripts/prerender.ts",
         "preview": "vite preview",
-        "lint": "eslint .",
+        "lint": "eslint . && node scripts/content-lint.ts",
         "typecheck": "tsc --noEmit",
-        "test": "vitest run --passWithNoTests"
+        "test": "vitest run --passWithNoTests",
+        "lint:content": "node scripts/content-lint.ts",
+        "e2e": "playwright test",
+        "lighthouse": "node scripts/lighthouse.ts"
     },
     "dependencies": {
         "@clientbridge/app-core": "workspace:*",
@@ -18,12 +21,20 @@
         "react-dom": "19.2.3"
     },
     "devDependencies": {
+        "@axe-core/playwright": "^4.13.0",
         "@clientbridge/config": "workspace:*",
+        "@fontsource/geist-mono": "^5.3.0",
+        "@fontsource/schibsted-grotesk": "^5.3.0",
+        "@playwright/test": "^1.63.0",
+        "@resvg/resvg-js": "^2.6.2",
         "@tailwindcss/vite": "^4.3.3",
         "@types/node": "^24.0.0",
         "@types/react": "~19.2.0",
         "@types/react-dom": "~19.2.0",
         "@vitejs/plugin-react": "^6.1.1",
+        "chrome-launcher": "^1.2.2",
+        "lighthouse": "^13.5.0",
+        "satori": "^0.35.0",
         "sharp": "^0.35.5",
         "tailwindcss": "^4.3.3",
         "vite": "^8.3.2",

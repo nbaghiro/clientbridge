@@ -1,4 +1,5 @@
 import { links } from "../config";
+import { contactEmail } from "./pages";
 import { solutionPath, TRADES } from "./trades";
 
 export interface NavLink {
@@ -12,10 +13,10 @@ export const nav = {
     menu: "Menu",
     primary: "Primary",
     links: [
-        { label: "Features", href: "/#features" },
+        { label: "Features", href: "/features" },
         { label: "Solutions", href: "/solutions" },
         { label: "Payments", href: "/#payments" },
-        { label: "Pricing", href: "/#pricing" },
+        { label: "Pricing", href: "/pricing" },
     ] satisfies NavLink[],
     signIn: { label: "Sign in", href: links.signIn },
     startFree: { label: "Start free", href: links.startFree },
@@ -27,11 +28,12 @@ export const footer = {
         {
             title: "Product",
             links: [
-                { label: "Booking", href: "/#features" },
-                { label: "Invoices and estimates", href: "/#features" },
-                { label: "Payments", href: "/#payments" },
-                { label: "Point of sale", href: "/#features" },
-                { label: "Sales tax", href: "/#payments" },
+                { label: "Booking", href: "/features#bookings" },
+                { label: "Invoices and estimates", href: "/features#invoices" },
+                { label: "Payments", href: "/features#payments" },
+                { label: "Sales tax", href: "/features#tax" },
+                { label: "Staff and pay", href: "/features#staff" },
+                { label: "All features", href: "/features" },
             ],
         },
         {
@@ -44,11 +46,10 @@ export const footer = {
         {
             title: "Company",
             links: [
-                { label: "Pricing", href: "/#pricing" },
-                { label: "Security", href: "/security" },
+                { label: "Pricing", href: "/pricing" },
                 { label: "Privacy", href: "/privacy" },
                 { label: "Terms", href: "/terms" },
-                { label: "Contact", href: "/contact" },
+                { label: "Contact", href: `mailto:${contactEmail}` },
                 { label: "Photo credits", href: "/credits" },
             ],
         },

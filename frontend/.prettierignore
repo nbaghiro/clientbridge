@@ -13,3 +13,5 @@ packages/api-client/openapi.json
 apps/mobile/ios/
 apps/mobile/android/
 apps/mobile/.expo/
+apps/site/test-results
+apps/site/playwright-report

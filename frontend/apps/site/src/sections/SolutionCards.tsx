@@ -31,7 +31,7 @@ export function SolutionCards() {
                         <div className="vmark small">
                             <TradeGlyph name={t.glyph} />
                         </div>
-                        <h3 className="h3">{t.name}</h3>
+                        <h2 className="h3">{t.name}</h2>
                         <p className="body small">{t.oneLine}</p>
                         <span className="sol-link">
                             {solutionsPage.cardLink(t.who)}

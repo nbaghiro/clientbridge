@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { IncomingMessage } from "node:http";
 import { join } from "node:path";
 
@@ -12,7 +12,7 @@ const routePath = (req: IncomingMessage): string | null => {
 };
 
 // Serves clean URLs (/solutions) locally the way a static host does: preview maps them to the
-// pre-rendered solutions/index.html, dev to the client entry, which picks the route itself.
+// pre-rendered solutions/index.html (or 404.html with a 404), dev to the client entry.
 const cleanUrls = (): Plugin => ({
     name: "clean-urls",
     configureServer(server) {
@@ -23,11 +23,18 @@ const cleanUrls = (): Plugin => ({
     },
     configurePreviewServer(server) {
         const dist = join(server.config.root, server.config.build.outDir);
-        server.middlewares.use((req, _res, next) => {
+        server.middlewares.use((req, res, next) => {
             const path = routePath(req);
-            if (path !== null && existsSync(join(dist, path, "index.html")))
+            if (path === null) {
+                next();
+            } else if (existsSync(join(dist, path, "index.html"))) {
                 req.url = `${path}/index.html`;
-            next();
+                next();
+            } else {
+                res.statusCode = 404;
+                res.setHeader("Content-Type", "text/html; charset=utf-8");
+                res.end(readFileSync(join(dist, "404.html")));
+            }
         });
     },
 });

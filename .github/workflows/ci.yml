@@ -81,7 +81,7 @@ jobs:
           version: 9
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --ignore-scripts
@@ -90,6 +90,30 @@ jobs:
       - run: pnpm format:check
       - run: pnpm test
       - run: pnpm build  # a broken Vite/tsc-b bundle must fail CI, not just tsc --noEmit
+
+  site:
+    # The marketing site: a static build, so it is checked on its own: copy rules, content tests, and a
+    # browser pass over every page (links, images, layout at phone width, accessibility).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter site build
+      - run: pnpm --filter site lint:content
+      - run: pnpm --filter site test
+      - run: pnpm --filter site exec playwright install --with-deps chromium
+      - run: pnpm --filter site e2e
 
   codegen-drift:
     # The generated api-client + PowerSync client schema come from the backend — fail if either is

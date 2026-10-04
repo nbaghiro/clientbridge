@@ -46,7 +46,7 @@ a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a root-owned `~/.cache/uv
 
 ---
 
-## CI — four parallel jobs (`.github/workflows/ci.yml`)
+## CI — five parallel jobs (`.github/workflows/ci.yml`)
 
 Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 
@@ -54,6 +54,7 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 |---|---|
 | **backend** | Postgres 16 service · Python 3.14 · `uv sync` → `ruff check` → `ruff format --check` → `mypy src scripts tests` → `alembic upgrade head` → `python -m scripts.seed_demo` → `pytest --cov=clientbridge --cov-branch --cov-fail-under=90` |
 | **frontend** | pnpm 9 · `pnpm install --frozen-lockfile` → `pnpm lint` (eslint) → `pnpm typecheck` (tsc) → `pnpm format:check` (prettier) → `pnpm test` (vitest) → **`pnpm build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
+| **site** | Node 24 · `pnpm --filter site build` → `lint:content` (copy rules on `src/content` and the built pages) → `test` (content invariants, links and anchors resolve, one h1 per page, demo figures agree) → Playwright e2e on the built site: every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
 | **codegen-drift** | `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then `git diff --exit-code` on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |
 
@@ -153,6 +154,10 @@ Read local, write via command/sync — the server is the source of truth; client
   object grouped by domain, shared by web + mobile. Screens render `strings.<domain>.<key>` (literals or
   interpolation functions) and never hold inline copy — including validation messages and shared descriptor
   labels (weekdays, nav, roles). Enforced by the `no-inline-ui-string` lint rule.
+- **Marketing copy** lives in `frontend/apps/site/src/content/` (typed modules), never inline in the page
+  components. `pnpm --filter site lint:content` fails on em-dashes, hype words ("seamless", "robust",
+  "leverage" and similar), wording that reads as unfinished product ("beta", "coming soon", "early access",
+  "waitlist") and exclamation marks, in the content modules and in the visible text of every built page.
 - **Backend notification copy** is the server-side equivalent: the builder functions in
   `services/notification_service.py` return `(subject, body[, push])` per event — all in one place.
 
@@ -198,6 +203,10 @@ make up                    # Postgres (logical WAL) + powersync publication + st
 make migrate seed          # alembic upgrade head, then the Birchbark demo
 # separate terminals:
 make dev-api  dev-web  dev-connect  dev-mobile  worker
+make dev-site              # marketing site from source on :8710
+make build-site            # static build in frontend/apps/site/dist (pnpm --filter site preview serves it on :8710)
+make test-site             # build + Playwright pass over every page (links, images, 390px, axe)
+make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
 ```
 Devices authenticate to the API, exchange a JWT at `/sync/token` for a PowerSync token, and stream their
 buckets from powersync (:8704) into on-device SQLite. If a hard Docker shutdown corrupts the PowerSync

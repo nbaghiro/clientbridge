@@ -2,11 +2,15 @@ import type { ComponentType } from "react";
 
 import { homeMeta } from "./content/home";
 import { notFound } from "./content/site";
+import { featuresMeta, pricingMeta, privacyPage, termsPage } from "./content/pages";
 import { creditsMeta, solutionsMeta, tradeMeta } from "./content/solutions";
 import { solutionPath, type Trade, TRADES } from "./content/trades";
 import { Credits } from "./pages/Credits";
+import { FeaturesPage } from "./pages/Features";
 import { Home } from "./pages/Home";
+import { Legal } from "./pages/Legal";
 import { NotFound } from "./pages/NotFound";
+import { PricingPage } from "./pages/Pricing";
 import { Solutions } from "./pages/Solutions";
 import { TradePage } from "./pages/TradePage";
 
@@ -33,6 +37,10 @@ export const ROUTES: readonly SiteRoute[] = [
     { path: "/", Page: Home, meta: homeMeta },
     { path: "/solutions", Page: Solutions, meta: solutionsMeta },
     ...TRADES.map(tradeRoute),
+    { path: "/features", Page: FeaturesPage, meta: featuresMeta },
+    { path: "/pricing", Page: PricingPage, meta: pricingMeta },
+    { path: "/privacy", Page: () => <Legal page={privacyPage} />, meta: privacyPage.meta },
+    { path: "/terms", Page: () => <Legal page={termsPage} />, meta: termsPage.meta },
     { path: "/credits", Page: Credits, meta: creditsMeta },
 ];
 

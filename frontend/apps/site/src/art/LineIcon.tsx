@@ -164,6 +164,8 @@ const DRAWINGS = {
 
 export type LineIconName = keyof typeof DRAWINGS;
 
+export const LINE_ICON_NAMES = Object.keys(DRAWINGS) as LineIconName[];
+
 export function LineIcon({
     name,
     className = "line-icon",

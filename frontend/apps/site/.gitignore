@@ -1,3 +1,7 @@
 public/art/
 public/img/
 dist-server/
+test-results/
+playwright-report/
+.lighthouseci/
+lighthouse-reports/

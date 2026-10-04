@@ -1,9 +1,21 @@
 @import "tailwindcss";
+@import "@fontsource/schibsted-grotesk/latin-400.css";
+@import "@fontsource/schibsted-grotesk/latin-500.css";
+@import "@fontsource/schibsted-grotesk/latin-600.css";
+@import "@fontsource/schibsted-grotesk/latin-700.css";
+@import "@fontsource/geist-mono/latin-400.css";
+@import "@fontsource/geist-mono/latin-500.css";
+@import "@fontsource/geist-mono/latin-600.css";
 @import "@clientbridge/tokens/themes.css";
 @import "@clientbridge/tokens/tailwind.css";
 @source "../../../../packages/ui/src";
 
 /* The marketing design classes, on the shared Pewter tokens. Utilities override them where used. */
+
+/* Small muted copy sits on light grey here, so the site uses a slightly darker muted ink to keep 4.5:1. */
+:root {
+    --muted: #626972;
+}
 
 @layer base {
     body {
@@ -624,7 +636,6 @@
         text-overflow: ellipsis;
     }
     .ev .s {
-        opacity: 0.85;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -2192,6 +2203,169 @@
         }
         .shead .h1 {
             font-size: 32px;
+        }
+    }
+
+    .plan {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 48px;
+        padding: 40px;
+    }
+    .plan-price {
+        font-size: 44px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        margin-top: 12px;
+    }
+    .plan-groups {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 32px;
+    }
+    .plan-groups .list li {
+        font-size: 15px;
+    }
+    .fees {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin: 40px 0 0;
+    }
+    .fees > div {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+    }
+    .fees dt {
+        font-weight: 600;
+        color: var(--ink);
+    }
+    .fees dd {
+        margin: 8px 0 0;
+        font-size: 15px;
+        color: var(--ink-soft);
+    }
+    .faq {
+        margin-top: 32px;
+        border-top: 1px solid var(--border);
+    }
+    .faq details {
+        border-bottom: 1px solid var(--border);
+        padding: 20px 0;
+    }
+    .faq summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--ink);
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+    }
+    .faq summary::-webkit-details-marker {
+        display: none;
+    }
+    .faq summary::after {
+        content: "+";
+        color: var(--muted);
+        font-weight: 500;
+    }
+    .faq details[open] summary::after {
+        content: "\2212";
+    }
+    .faq p {
+        margin-top: 12px;
+        color: var(--ink-soft);
+    }
+    .feature-index {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 56px 64px;
+    }
+    .feature-group {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 20px;
+        scroll-margin-top: 96px;
+    }
+    .feature-items {
+        list-style: disc;
+        padding-left: 18px;
+        color: var(--ink-soft);
+        font-size: 15px;
+    }
+    .feature-items li + li {
+        margin-top: 6px;
+    }
+    .more-link {
+        display: inline-block;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 15px;
+        text-decoration: none;
+    }
+    .more-link:hover {
+        text-decoration: underline;
+    }
+    .more-link::after {
+        content: " \2192";
+    }
+    .trade-links {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 32px;
+    }
+    .trade-links a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        font-weight: 600;
+        text-decoration: none;
+        color: var(--ink);
+    }
+    .trade-links .trade {
+        width: 36px;
+        height: 36px;
+        color: var(--accent);
+        flex: none;
+    }
+    .legal .h1 {
+        font-size: 44px;
+    }
+    @media (max-width: 960px) {
+        .plan {
+            grid-template-columns: 1fr;
+            gap: 32px;
+        }
+        .fees,
+        .feature-index {
+            grid-template-columns: 1fr;
+        }
+        .trade-links {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    @media (max-width: 600px) {
+        .plan {
+            padding: 24px;
+        }
+        .plan-groups,
+        .trade-links {
+            grid-template-columns: 1fr;
+        }
+        .feature-group {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        .legal .h1 {
+            font-size: 34px;
         }
     }
 }

@@ -499,6 +499,27 @@ from Connect and `app-core/public`.
 
 ---
 
+
+### Marketing site (`apps/site`)
+The public website is its own app in the same workspace, built with the same stack (Vite, React 19,
+Tailwind 4, TypeScript strict) and deployed apart from the web app, on its own subdomain. It is a static
+build: `scripts/prerender.ts` renders every route in `src/routes.tsx` to its own HTML file, so pages need no
+JavaScript, and the only shipped asset besides HTML is one CSS file and the fonts. It shares the Pewter theme
+through `@clientbridge/tokens` and the logo through `@clientbridge/ui`, so the site and the apps cannot drift
+apart visually.
+
+- **Copy and data:** all copy lives in `src/content/` (typed modules), the marketing equivalent of
+  `strings.ts`. The demo figures in the laptop and phone mocks come from one `content/demo.ts`.
+- **Links out:** `VITE_SITE_URL`, `VITE_APP_URL` and `VITE_BOOK_URL` set where the site, the web app and
+  Connect live (production: the main domain, `app.` and `book.`). "Sign in" and "Start free" go to the web
+  app, "See the demo business" to Birchbark's public booking page.
+- **Images:** `scripts/images.ts` encodes the stock photos to AVIF, WebP and JPEG at three widths with sharp;
+  pages render them with `<picture>`, `srcset` and fixed dimensions. Fonts are self-hosted (no third-party
+  requests).
+- **Search and sharing:** per-page title, description and canonical URL; Open Graph and Twitter tags with a
+  share image drawn per page at build time (satori and resvg); `sitemap.xml`, `robots.txt`, a web manifest,
+  and Organization and SoftwareApplication structured data on the home page.
+
 ## The three bridges (Python ↔ TS — generate, don't share)
 
 No source is shared between the ecosystems. Everything that must agree is **generated** from a single

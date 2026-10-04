@@ -30,6 +30,8 @@ detail in [`.docs/architecture.md`](.docs/architecture.md).
 - **Frontend** (`frontend/`) — pnpm + turbo. Web (React · Vite · Tailwind) and mobile (Expo RN) render
   **one shared view-model layer** (`@clientbridge/app-core` hooks); only rendering, navigation, and
   platform APIs differ. Design tokens are one source → a Tailwind theme (web) + an RN theme (mobile).
+- **Marketing site** (`frontend/apps/site`): the same Vite, React and Tailwind stack, built to static
+  HTML per page and deployed apart from the web app. It shares the theme and logo with the apps.
 - **Sync** — a self-hosted **PowerSync** service replicates the Postgres WAL into an on-device SQLite
   replica, partitioned per business + role by [`infra/powersync/sync-rules.yaml`](infra/powersync/sync-rules.yaml).
   The client schema is **generated** from the SQLAlchemy models (drift-gated in CI).
@@ -39,13 +41,13 @@ detail in [`.docs/architecture.md`](.docs/architecture.md).
 ```
 clientbridge/
 ├── Makefile · docker-compose.yml   root orchestration + local infra (87xx ports)
-├── .github/workflows/ci.yml        CI: backend · contract · frontend · codegen-drift
+├── .github/workflows/ci.yml        CI: backend · contract · frontend · site · codegen-drift
 ├── .githooks/                      versioned git hooks (pre-commit = format-check + lint)
 ├── .docs/                          architecture · engineering · roadmap · design/
 ├── backend/                        FastAPI app — src/clientbridge/{api,services,models,core,sync,tasks,integrations}
 ├── frontend/                       pnpm+turbo workspace
-│   ├── apps/{web (Vite), mobile (Expo)}
-│   └── packages/{app-core, tokens, sync, api-client, config}
+│   ├── apps/{web (Vite), mobile (Expo), connect (Vite), site (Vite, static)}
+│   └── packages/{app-core, tokens, ui, sync, api-client, config}
 └── infra/                          PowerSync sync-rules + config · seeds
 ```
 
@@ -53,13 +55,14 @@ clientbridge/
 | -------------------------- | ----------------------------------------------------------------------- |
 | `@clientbridge/app-core`   | Shared view-models (form/list/status hooks), the only UI-agnostic layer |
 | `@clientbridge/tokens`     | Design system → Tailwind theme + RN theme (**Pewter**)                 |
+| `@clientbridge/ui`         | Shared browser components (logo, checkout, card form) for web, Connect, site |
 | `@clientbridge/sync`       | Generated PowerSync `AppSchema` + the backend connector                 |
 | `@clientbridge/api-client` | Typed REST client generated from the backend OpenAPI                    |
 | `@clientbridge/config`     | Shared ESLint + Prettier config                                         |
 
 ## Getting started
 
-**Prerequisites:** Docker + Compose · [`uv`](https://docs.astral.sh/uv/) · Node 20+ & pnpm 9. Python
+**Prerequisites:** Docker + Compose · [`uv`](https://docs.astral.sh/uv/) · Node 24+ & pnpm 9. Python
 3.14 is pinned via [`backend/.python-version`](backend/.python-version) and provisioned by `uv`.
 
 ```sh
@@ -73,6 +76,7 @@ make migrate seed             # apply schema + load the "Birchbark" demo busines
 make dev-api                  # FastAPI        → http://localhost:8701
 make dev-web                  # web (Vite)     → http://localhost:8700
 make dev-mobile               # mobile (Expo)  → http://localhost:8707
+make dev-site                 # marketing site → http://localhost:8710
 make worker                   # arq background jobs (reminders, sweeps, reconciliation)
 ```
 
@@ -89,12 +93,15 @@ make gen-api        # regenerate the api-client from the backend OpenAPI (drift-
 make gen-sync-schema# regenerate the PowerSync client schema from the models (drift-gated)
 make test-contract  # real StripeGateway vs stripe-mock (:8708)
 make test-e2e       # Stripe test-mode flows (dormant until STRIPE_TEST_SECRET_KEY is set)
+make build-site     # marketing site → static HTML in frontend/apps/site/dist
+make test-site      # site browser pass: every page, links, images, phone width, accessibility
 ```
 
 The **pre-commit hook** (`make hooks`) runs format-check + lint on every commit. **CI**
-([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` + PR, in four
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` + PR, in five
 jobs: **backend** (lint · type · migrate · seed · pytest 90% branch), **contract** (stripe-mock),
-**frontend** (lint · type · prettier · tests), and **codegen-drift** (fails if the generated
+**frontend** (lint · type · prettier · tests), **site** (copy lint · content tests · browser and
+accessibility pass), and **codegen-drift** (fails if the generated
 api-client / PowerSync schema / themes are stale). Conventions, the gate, and testing live in
 [`.docs/engineering.md`](.docs/engineering.md).
 
