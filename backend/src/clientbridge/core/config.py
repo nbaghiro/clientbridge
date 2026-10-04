@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"
+    api_base_url: str = "http://localhost:8701"  # absolute links to public media
     web_base_url: str = "http://localhost:8601"  # provider app — onboarding return/refresh targets
     connect_base_url: str = "http://localhost:8709"  # Connect app — customer link surfaces
     cors_allow_origins: str = ""  # comma-separated extra origins (e.g. the prod Connect origin)

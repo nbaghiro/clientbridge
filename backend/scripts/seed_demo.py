@@ -17,8 +17,13 @@ Run: ``make seed``  (= ``uv run python -m scripts.seed_demo``). Requires the DB 
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, time, timedelta
+import random
+from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 
+import boto3
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,8 +71,21 @@ def face(seed: str) -> str:
     return f"https://i.pravatar.cc/300?u={seed}"
 
 
-def pic(seed: str) -> str:
-    return f"https://picsum.photos/seed/{seed}/640/480"
+ASSETS = Path(__file__).parent / "demo_assets"
+ITEM_COLORS = {
+    "it_groom_sm": "#3F5E80",
+    "it_groom_lg": "#2E6670",
+    "it_bath": "#3A7CA5",
+    "it_nails": "#7D5A82",
+    "it_deshed": "#86621E",
+    "it_cat": "#A95C43",
+    "it_puppy": "#2E7A5A",
+    "it_daycare": "#5C6B3A",
+    "it_pkg5": "#3A7CA5",
+    "it_gift": "#A44A5F",
+    "it_shampoo": "#5E7391",
+    "it_brush": "#7A6A55",
+}
 
 
 # ─────────────────────────────────────────── identity ───────────────────────────────────────────
@@ -84,13 +102,25 @@ def seed_identity() -> tuple[str, str]:
             gst_hst_number="84720 1539 RT0001",
             is_tax_registered=True,
             brand={
-                "logo_url": pic("birchbark-logo"),
+                "logo_file_id": "fl_logo",
                 "primary": "#3F5E80",
                 "tagline": "Calm, careful grooming on Vancouver Island.",
             },
             billing_email="hello@birchbarkpets.ca",
             stripe_account_id="acct_demo_birchbark",
             status="active",
+        )
+    )
+    rows.append(
+        File(
+            id="fl_logo",
+            business_id=BIZ,
+            parent_type="business",
+            parent_id=BIZ,
+            kind="logo",
+            s3_key=f"{BIZ}/demo/logo.png",
+            content_type="image/png",
+            size=(ASSETS / "logo.png").stat().st_size,
         )
     )
     rows.append(
@@ -343,7 +373,7 @@ def seed_items(owner: str) -> None:
                 duration_min=dur,
                 capacity=cap,
                 category=cat,
-                color="#3F5E80",
+                color=ITEM_COLORS[iid],
                 online_bookable=kind in {"service", "class"},
                 buffer_before_min=0,
                 buffer_after_min=10 if kind == "service" else 0,
@@ -354,7 +384,18 @@ def seed_items(owner: str) -> None:
                 session_count=5 if iid == "it_pkg5" else None,
                 validity_days=365 if iid == "it_pkg5" else None,
                 active=True,
-                custom_fields={"image_url": pic(iid)},
+            )
+        )
+        rows.append(
+            File(
+                id=f"fl_img_{iid}",
+                business_id=BIZ,
+                parent_type="item",
+                parent_id=iid,
+                kind="image",
+                s3_key=f"{BIZ}/demo/{iid}.png",
+                content_type="image/png",
+                size=(ASSETS / f"{iid}.png").stat().st_size,
             )
         )
 
@@ -543,7 +584,6 @@ def seed_clients(owner: str) -> None:
                         "weight_kg": weight,
                         "temperament": temperament,
                         "vaccinated": True,
-                        "photo_url": pic(pseed),
                     },
                 )
             )
@@ -554,9 +594,9 @@ def seed_clients(owner: str) -> None:
                     parent_type="subject",
                     parent_id=pid,
                     kind="photo",
-                    s3_key=pic(pseed),
-                    content_type="image/jpeg",
-                    size=184320,
+                    s3_key=f"{BIZ}/demo/pet_{pseed}.png",
+                    content_type="image/png",
+                    size=(ASSETS / f"pet_{pseed}.png").stat().st_size,
                 )
             )
         if note:
@@ -731,6 +771,7 @@ def _invoice_for(
     tax: str,
     member: str,
     d: float,
+    settled: bool = False,
 ) -> None:
     INV_SEQ[0] += 1
     num = INV_SEQ[0]
@@ -738,8 +779,8 @@ def _invoice_for(
     tax_amt = (price * 5 + 50) // 100 + (price * 7 + 50) // 100
     total = price + tax_amt
     # mix of paid / partial / overdue across history
-    paid = i % 5 != 4
-    partial = i % 5 == 2
+    paid = settled or i % 5 != 4
+    partial = not settled and i % 5 == 2
     amount_paid = total if paid and not partial else (round(total * 0.25) if partial else 0)
     status = "paid" if amount_paid >= total else "partial" if amount_paid > 0 else "overdue"
     rows.append(
@@ -801,7 +842,7 @@ def _invoice_for(
             )
         )
         if member in {"st_owner", "st_diego"}:
-            EARNING_STAGE[bk] = "paid" if d < -7 else "approved"
+            EARNING_STAGE[bk] = "paid" if d < -7 else "approved" if d < -3 else "pending"
 
 
 # ─────────────────────────────────────────── catalog instances ──────────────────────────────────
@@ -879,6 +920,70 @@ def seed_catalog_instances() -> None:
             status="redeemed",
         )
     )
+
+
+def seed_lapsed_entitlements() -> None:
+    rows.append(
+        GiftCard(
+            id="gc_expired",
+            business_id=BIZ,
+            code="BIRCH-GIFT-3QW8",
+            item_id="it_gift",
+            initial_cents=7500,
+            purchaser_client_id="cl_ethan",
+            recipient="Happy birthday, Ethan",
+            expires_at=at(-35, 12),
+            status="expired",
+        )
+    )
+    rows.append(
+        Package(
+            id="pkg_sophie",
+            business_id=BIZ,
+            client_id="cl_sophie",
+            item_id="it_pkg5",
+            sessions_total=5,
+            sessions_used=4,
+            expires_at=at(200, 12),
+            status="active",
+        )
+    )
+
+
+def seed_open_sale() -> None:
+    rows.append(
+        Order(
+            id="ord_open",
+            business_id=BIZ,
+            client_id="cl_amelie",
+            staff_id="st_priya",
+            status="open",
+            subtotal_cents=5300,
+            tax_total_cents=636,
+            total_cents=5936,
+        )
+    )
+    for pos, (item_id, name, price) in enumerate(
+        (
+            ("it_brush", "Self-Cleaning Slicker Brush", 2900),
+            ("it_shampoo", "Oatmeal Soothe Shampoo", 2400),
+        )
+    ):
+        rows.append(
+            Line(
+                id=f"ln_ord_open_{pos}",
+                business_id=BIZ,
+                parent_type="order",
+                parent_id="ord_open",
+                description=name,
+                item_id=item_id,
+                quantity=1,
+                unit_amount_cents=price,
+                amount_cents=price,
+                tax_amount_cents=price * 12 // 100,
+                position=pos,
+            )
+        )
 
 
 def seed_payment_methods() -> None:
@@ -2123,13 +2228,18 @@ async def seed_ledger(session: AsyncSession) -> None:
     for pkg_id, client_id, day in (
         ("pkg_marcus", "cl_marcus", -60),
         ("pkg_grace", "cl_grace", -90),
+        ("pkg_sophie", "cl_sophie", -50),
     ):
         package = await session.get(Package, pkg_id)
         item = await session.get(Item, "it_pkg5")
         assert package is not None and item is not None
         total = (await tax_for_amount(session, BIZ, item.price_cents)).total_cents
         await _purchase(session, package, client_id, total, day)
-    for card_id, client_id, day in (("gc_liam", "cl_liam", -30), ("gc_used", "cl_david", -120)):
+    for card_id, client_id, day in (
+        ("gc_liam", "cl_liam", -30),
+        ("gc_used", "cl_david", -120),
+        ("gc_expired", "cl_ethan", -400),
+    ):
         card = await session.get(GiftCard, card_id)
         assert card is not None
         await _purchase(session, card, client_id, card.initial_cents, day)
@@ -2154,7 +2264,13 @@ async def seed_ledger(session: AsyncSession) -> None:
     used_card = await session.get(GiftCard, "gc_used")
     assert used_card is not None
     await ledger.post_redemption(session, used_card, used_card.initial_cents)
-    for pkg_id in ("pkg_marcus", "pkg_grace"):
+    lapsed = await session.get(GiftCard, "gc_expired")
+    assert lapsed is not None
+    await ledger.post_redemption(session, lapsed, 2500)
+    await ledger.post_breakage(
+        session, BIZ, owner_type="gift_card", owner_id=lapsed.id, kind="gift_card"
+    )
+    for pkg_id in ("pkg_marcus", "pkg_grace", "pkg_sophie"):
         package = await session.get(Package, pkg_id)
         assert package is not None
         used = package.sessions_used
@@ -2170,14 +2286,14 @@ async def seed_ledger(session: AsyncSession) -> None:
             select(Entry.journal_id).where(Entry.type == "earning", Entry.subject_id == booking_id)
         )
         earning = await load_earning(session, BIZ, journal) if journal else None
-        if earning is None:
+        if earning is None or stage == "pending":
             continue
         await advance_earning(session, earning, "approved")
         if stage == "paid":
             await advance_earning(session, await _reload(session, earning.id), "paid")
 
     swept = 0
-    for n, day in enumerate((-14, -7)):
+    for n, day in enumerate(range(-112, -6, 7)):
         on_hand = await session.scalar(
             select(func.coalesce(func.sum(Entry.amount_cents), 0))
             .join(Account, Account.id == Entry.account_id)
@@ -2198,6 +2314,9 @@ async def seed_ledger(session: AsyncSession) -> None:
                 arrival_at=at(day, 0),
             )
             swept += amount
+            if day == -28:
+                await ledger.fail_payout(session, BIZ, f"po_demo_w{n}")
+                swept -= amount
 
 
 async def _reload(session: AsyncSession, journal_id: str) -> Earning:
@@ -2206,12 +2325,117 @@ async def _reload(session: AsyncSession, journal_id: str) -> Earning:
     return earning
 
 
+FILLER_ITEMS = ["it_groom_sm", "it_bath", "it_nails", "it_deshed", "it_cat"]
+FILLER_STAFF = {"st_owner": "rs_station_a", "st_diego": "rs_station_b", "st_priya": "rs_bath"}
+
+
+def _working_hours(member: str, day: date) -> tuple[time, time] | None:
+    """A member's open window on a day from the seeded availability (a dated row wins). Like the
+    booking engine, a member with no availability rows is bookable any time (here 9 to 5)."""
+    mine = [r for r in rows if isinstance(r, Availability) and r.staff_id == member]
+    if not mine:
+        return time(9, 0), time(17, 0)
+    dated = [r for r in mine if r.type == "date" and r.date == day]
+    chosen = dated or [r for r in mine if r.type == "recurring" and r.weekday == day.weekday()]
+    window = next((r for r in chosen if r.is_available), None)
+    if window is None or window.start_time is None or window.end_time is None:
+        return None
+    return window.start_time, window.end_time
+
+
+def seed_calendar_filler() -> None:
+    """Steady bookings from four months back to a month out, inside each member's working hours and
+    never double-booking a member or their station. Past ones are completed with paid invoices, so
+    the money history, reports and staff pay have a realistic depth."""
+    rng = random.Random(7)
+    INV_SEQ[0] = max(INV_SEQ[0], 1100)  # above the hand-numbered invoices
+    pairs = sorted({(client, pet) for *_, client, pet, _ in APPTS})
+    busy = [
+        (r.staff_id, r.resource_id, r.starts_at, r.ends_at) for r in rows if isinstance(r, Session)
+    ]
+    n = 0
+    for d in range(-120, 31):
+        for member, resource in FILLER_STAFF.items():
+            hours = _working_hours(member, at(d).astimezone(NOW.tzinfo).date())
+            if hours is None:
+                continue
+            for _ in range(rng.randint(1, 2)):
+                item_id = rng.choice(FILLER_ITEMS)
+                item = next(x for x in ITEMS if x[0] == item_id)
+                price, dur, tax = item[3], item[4] or 60, item[6]
+                options = [
+                    (h, m)
+                    for h in range(hours[0].hour, hours[1].hour)
+                    for m in (0, 30)
+                    if time(h, m) >= hours[0]
+                    and (datetime.combine(date.min, time(h, m)) + timedelta(minutes=dur)).time()
+                    <= hours[1]
+                ]
+                rng.shuffle(options)
+                slot = next(
+                    (
+                        (start, start + timedelta(minutes=dur))
+                        for start in (at(d, h, m) for h, m in options)
+                        if not any(
+                            (staff == member or res == resource)
+                            and start < e
+                            and b < start + timedelta(minutes=dur)
+                            for staff, res, b, e in busy
+                        )
+                    ),
+                    None,
+                )
+                if slot is None:
+                    continue
+                start, end = slot
+                busy.append((member, resource, start, end))
+                client, pet = rng.choice(pairs)
+                done = end < NOW
+                status = "completed" if done else "pending" if rng.random() < 0.2 else "confirmed"
+                ses, bk = f"ses_f{n:03d}", f"bk_f{n:03d}"
+                n += 1
+                rows.append(
+                    Session(
+                        id=ses,
+                        business_id=BIZ,
+                        item_id=item_id,
+                        staff_id=member,
+                        resource_id=resource,
+                        starts_at=start,
+                        ends_at=end,
+                        capacity=1,
+                        booked_count=1,
+                        status="completed" if done else "scheduled",
+                    )
+                )
+                rows.append(
+                    Booking(
+                        id=bk,
+                        business_id=BIZ,
+                        session_id=ses,
+                        staff_id=member,
+                        client_id=client,
+                        subject_id=pet,
+                        status=status,
+                        source="online" if n % 3 == 0 else "manual",
+                        price_cents=price,
+                        deposit_required=False,
+                        deposit_amount_cents=0,
+                        confirmed_at=start - timedelta(days=1) if status != "pending" else None,
+                        completed_at=end if done else None,
+                    )
+                )
+                if done:
+                    _invoice_for(n, client, bk, item_id, price, dur, tax, member, d, settled=True)
+
+
 async def main() -> None:
     owner, _ = seed_identity()
     seed_items(owner)
     seed_clients(owner)
     seed_resources_availability()
     seed_catalog_instances()
+    seed_lapsed_entitlements()
     seed_payment_methods()
     seed_appointments()
     seed_estimates()
@@ -2220,6 +2444,8 @@ async def main() -> None:
     seed_reviews(owner)
     seed_platform(owner)
     seed_coverage()
+    seed_open_sale()
+    seed_calendar_filler()
 
     table_list = ", ".join(Base.metadata.tables)
     async with engine.begin() as conn:
@@ -2233,7 +2459,34 @@ async def main() -> None:
         await seed_ledger(session)
         await session.commit()
     await engine.dispose()
+    upload_demo_assets()
     print(f"seeded {len(rows)} rows for 'Birchbark Pet Studio' (business {BIZ}, owner {owner})")
+
+
+def upload_demo_assets() -> None:
+    """Put the logo, item images and pet avatars in the bucket the File rows point at. Skipped with
+    a note when no S3 store is running (CI), since nothing reads the bytes there."""
+    s = get_settings()
+    client = boto3.client(
+        "s3",
+        endpoint_url=s.s3_endpoint,
+        aws_access_key_id=s.s3_access_key,
+        aws_secret_access_key=s.s3_secret_key,
+        region_name=s.s3_region,
+        config=BotoConfig(connect_timeout=2, retries={"max_attempts": 1}),
+    )
+    try:
+        if s.s3_bucket not in {b["Name"] for b in client.list_buckets().get("Buckets", [])}:
+            client.create_bucket(Bucket=s.s3_bucket)
+        for path in sorted(ASSETS.glob("*.png")):
+            client.upload_file(
+                str(path),
+                s.s3_bucket,
+                f"{BIZ}/demo/{path.name}",
+                ExtraArgs={"ContentType": "image/png"},
+            )
+    except (BotoCoreError, ClientError) as exc:
+        print(f"skipped demo images: {exc}")
 
 
 if __name__ == "__main__":

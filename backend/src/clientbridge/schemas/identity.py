@@ -38,6 +38,7 @@ class BrandInput(BaseModel):
     trimmed here (empty → cleared) so what's stored is what the customer client applies directly."""
 
     logo_url: str | None = None
+    logo_file_id: str | None = None  # an uploaded logo; wins over logo_url on the public pages
     primary: str | None = None
     tagline: str | None = None
 

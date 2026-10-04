@@ -38,15 +38,15 @@ services:
     image: redis:7
     ports: ["8703:6379"]   # host 8703 → redis 6379
 
-  minio:
-    image: minio/minio
-    command: server /data --console-address ":9001"
+  s3:
+    image: rustfs/rustfs:latest   # S3-compatible; MinIO no longer publishes free images
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio12345
+      RUSTFS_ACCESS_KEY: minio
+      RUSTFS_SECRET_KEY: minio12345
+      RUSTFS_CONSOLE_ENABLE: "true"
     ports: ["8705:9000", "8706:9001"]   # host 8705 → S3 API, 8706 → console
-    volumes: ["miniodata:/data"]
+    volumes: ["s3data:/data"]
 
 volumes:
   pgdata: {}
-  miniodata: {}
+  s3data: {}

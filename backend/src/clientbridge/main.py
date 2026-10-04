@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from clientbridge.api.media import router as media_router
 from clientbridge.api.public import booking_router, contract_router, form_router, review_router
 from clientbridge.api.public import router as public_router
 from clientbridge.api.router import api_router
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(form_router)  # surface #4 (form token, unauthenticated)
     app.include_router(contract_router)  # surface #4 (sign token, unauthenticated)
     app.include_router(booking_router)  # surface #4 (booking-page slug, unauthenticated)
+    app.include_router(media_router)  # surface #4 (logos + item images only, unauthenticated)
     app.include_router(api_router)  # /v1/* domain routers
     return app
 

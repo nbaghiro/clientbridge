@@ -5,8 +5,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
+from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import ConnectAccount
 from clientbridge.models.identity import Business
+from clientbridge.models.platform import File
 from clientbridge.schemas.identity import BusinessSettingsUpdate
 
 
@@ -71,6 +73,17 @@ class BusinessService:
         self.db = db
         self.principal = principal
 
+    async def _assert_logo(self, file_id: str) -> None:
+        logo = (
+            await self.db.execute(
+                scoped(File, self.principal.business_id).where(
+                    File.id == file_id, File.parent_type == "business", File.kind == "logo"
+                )
+            )
+        ).scalar_one_or_none()
+        if logo is None:
+            raise NotFound("logo not found")
+
     async def update_settings(self, data: BusinessSettingsUpdate) -> Business:
         """Owner/admin edit of the acting business's account fields (the principal's business)."""
         assert_role(
@@ -85,6 +98,8 @@ class BusinessService:
         for key, value in data.model_dump(exclude_unset=True, exclude={"brand"}).items():
             setattr(business, key, value)
         if data.brand is not None:
+            if data.brand.logo_file_id is not None:
+                await self._assert_logo(data.brand.logo_file_id)
             # replace the whole brand with the (validated) values sent; cleared fields drop out
             business.brand = {k: v for k, v in data.brand.model_dump().items() if v is not None}
         await self.db.flush()

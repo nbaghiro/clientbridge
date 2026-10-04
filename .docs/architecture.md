@@ -134,7 +134,7 @@ hand-written `if principal.role not in (...)`.
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
 Four adapters in `integrations/`: `notifications.py` (Postmark email · Twilio SMS · Expo push), `payments.py`
-(Stripe Connect + Terminal), `oauth.py` (Google), `s3.py` (S3/MinIO).
+(Stripe Connect + Terminal), `oauth.py` (Google), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)
 `worker.py` registers the arq cron: reminders + due broadcasts every 15m, reap-unpaid every 15m, overdue
@@ -357,6 +357,12 @@ defense-in-depth for the API, not the sync filter.
 ---
 
 ## Domain models
+
+### Public media
+Business logos and catalog item images are `files` rows (`parent_type` business/item, `kind` logo/image)
+uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kinds, by redirecting to a
+short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Every other
+file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
 
 ### Payments — Stripe Connect custody
 - **Stripe Connect** (Custom accounts, direct charges + application fee, Stripe's automatic payouts) for

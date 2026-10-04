@@ -184,7 +184,7 @@ Container-internal ports stay conventional; only host mappings use 87xx.
 | **8702** | Postgres (source + `powersync_storage`) | 5432 | docker-compose · `DATABASE_URL` |
 | **8703** | Redis | 6379 | docker-compose · `REDIS_URL` |
 | **8704** | PowerSync service | 8080 | docker-compose · `POWERSYNC_URL` |
-| **8705 / 8706** | MinIO — S3 API / console | 9000 / 9001 | docker-compose · `S3_ENDPOINT` |
+| **8705 / 8706** | S3 (RustFS): API / console | 9000 / 9001 | docker-compose · `S3_ENDPOINT` |
 | **8707** | Expo / Metro (mobile) | — | `make dev-mobile` |
 | **8708** | stripe-mock (contract tests only) | 12111 | docker-compose `profiles:[test]` |
 | **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
@@ -193,7 +193,7 @@ Container-internal ports stay conventional; only host mappings use 87xx.
 ```
 make hooks                 # once per clone — install the pre-commit gate
 make install web-install   # uv sync + pnpm install (applies the two op-sqlite patches)
-make up                    # Postgres (logical WAL) + powersync publication + storage DB, then powersync/redis/minio
+make up                    # Postgres (logical WAL) + powersync publication + storage DB, then powersync/redis/s3
 make migrate seed          # alembic upgrade head, then the Birchbark demo
 # separate terminals:
 make dev-api  dev-web  dev-connect  dev-mobile  worker
@@ -205,14 +205,14 @@ replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_
 ### Infra services (`docker-compose.yml`)
 `postgres:16` (`wal_level=logical`, `max_replication_slots=4`), `journeyapps/powersync-service` (mounts
 `infra/powersync/`, bucket storage in a separate `powersync_storage` DB on the same Postgres),
-`redis:7` (arq queue), `minio` (S3 dev), `stripe-mock` (test profile only).
+`redis:7` (arq queue), `s3` (RustFS, an S3-compatible dev store; MinIO no longer publishes free images), `stripe-mock` (test profile only).
 
 ---
 
 ## The demo / QA account
 
-`make seed` loads **Birchbark Pet Studio** (Victoria, BC — pet grooming/daycare, **GST 5% + PST 7%**, ~300
-rows exercising every implemented surface; `backend/scripts/seed_demo.py`). It's the **committed baseline every integration test
+`make seed` loads **Birchbark Pet Studio** (Victoria, BC — pet grooming/daycare, **GST 5% + PST 7%**, about
+2,700 rows exercising every implemented surface; `backend/scripts/seed_demo.py`). It's the **committed baseline every integration test
 asserts against** — idempotent (TRUNCATE-then-insert, hand-ordered FK-safe because models declare no
 relationships). Owner = the dev user **`us_dev`** (Hannah), so the apps stream *this* business via the dev
 sync token.
@@ -221,5 +221,9 @@ sync token.
   `diego@`/`priya@` to switch users. Prod accounts require a password.
 - **Readable IDs** for debugging: `bz_birchbark`, `us_dev`, `cl_amelie`, `sj_bella`, `inv_1001`. Dates are
   anchored to *now*, so there's always recent + upcoming activity.
+- Bookings fill every day from four months back to a month out, inside each member's working hours.
+  Past ones are completed with paid invoices, so reports, staff pay and payouts have depth.
+- The logo, item images and pet avatars live in `backend/scripts/demo_assets/` and are uploaded to the
+  local S3 store by the seed (skipped with a note when no store is running, as in CI).
 - Structural integrity (FKs · CHECKs · uniqueness) is proven by a successful `make seed` — a bad row can't
   insert; behavior is covered by the test suite that runs against this seed.

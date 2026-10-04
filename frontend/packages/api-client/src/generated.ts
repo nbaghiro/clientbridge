@@ -509,6 +509,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/media/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Media */
+        get: operations["public_media_media__file_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clients": {
         parameters: {
             query?: never;
@@ -1735,6 +1752,8 @@ export interface components {
         BrandInput: {
             /** Logo Url */
             logo_url?: string | null;
+            /** Logo File Id */
+            logo_file_id?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
@@ -2836,6 +2855,8 @@ export interface components {
             deposit_required: boolean;
             /** Deposit Amount Cents */
             deposit_amount_cents: number;
+            /** Image Url */
+            image_url?: string | null;
         };
         /** PublicSlot */
         PublicSlot: {
@@ -4186,6 +4207,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PublicBookingResult"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_media_media__file_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                file_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

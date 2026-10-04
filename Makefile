@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 
 help:
-	@echo "up / down      docker compose infra (postgres+powersync+redis+minio, 87xx ports)"
+	@echo "up / down      docker compose infra (postgres+powersync+redis+s3, 87xx ports)"
 	@echo "install        uv sync (backend deps)"
 	@echo "web-install    pnpm install (frontend deps)"
 	@echo "dev-api        run FastAPI on :8701 (reload)"

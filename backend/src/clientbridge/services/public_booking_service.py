@@ -24,6 +24,7 @@ from clientbridge.schemas.public_booking import (
 from clientbridge.services.booking_service import create_booking_core
 from clientbridge.services.catalog_service import deposit_cents
 from clientbridge.services.client_service import find_or_create_by_contact
+from clientbridge.services.media_service import item_images
 from clientbridge.services.payment_service import open_booking_deposit
 from clientbridge.services.public_common import public_brand
 from clientbridge.services.scheduling_service import open_slots
@@ -34,7 +35,7 @@ def _account(business: Business) -> str | None:
     return business.stripe_account_id if business.stripe_charges_enabled else None
 
 
-def _service_out(item: Item) -> PublicService:
+def _service_out(item: Item, image_url: str | None) -> PublicService:
     return PublicService(
         id=item.id,
         name=item.name,
@@ -44,6 +45,7 @@ def _service_out(item: Item) -> PublicService:
         currency=item.currency,
         deposit_required=item.deposit_type != "none",
         deposit_amount_cents=deposit_cents(item),
+        image_url=image_url,
     )
 
 
@@ -79,10 +81,11 @@ class PublicBookingService:
                 .order_by(Staff.id)
             )
         ).all()
+        images = await item_images(self.db, business.id, [i.id for i in items])
         return PublicBookingPage(
             business_name=business.name,
             brand=public_brand(business),
-            services=[_service_out(i) for i in items],
+            services=[_service_out(i, images.get(i.id)) for i in items],
             staff=[PublicStaff(id=r[0].id, name=r[1], title=r[0].title) for r in staff_rows],
             stripe_account_id=_account(business),
         )

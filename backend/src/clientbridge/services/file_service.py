@@ -1,13 +1,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
+from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
+from clientbridge.models.catalog import Item
 from clientbridge.models.platform import File
 from clientbridge.schemas.files import FileCreate, FileDownload, FileOut, FileUpload
+from clientbridge.services.media_service import PUBLIC_MEDIA
 
 _DEFAULT_CONTENT_TYPE = "application/octet-stream"
 
@@ -24,6 +26,9 @@ class FileService:
         self.biz = principal.business_id
 
     async def create(self, data: FileCreate) -> FileUpload:
+        if (data.parent_type, data.kind) in PUBLIC_MEDIA:
+            await self._assert_public_parent(data)
+
         async def run(cmd: Command) -> FileUpload:
             result = await mint_upload(
                 self.db,
@@ -41,6 +46,19 @@ class FileService:
         return await run_command(
             self.db, self.principal, action="file.create", run=run, response_model=FileUpload
         )
+
+    async def _assert_public_parent(self, data: FileCreate) -> None:
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can set public images"
+        )
+        if data.parent_type == "business":
+            found = data.parent_id == self.biz
+        else:
+            found = (
+                await self.db.execute(scoped(Item, self.biz).where(Item.id == data.parent_id))
+            ).scalar_one_or_none() is not None
+        if not found:
+            raise NotFound(f"{data.parent_type} not found")
 
     async def download_url(self, file_id: str) -> FileDownload:
         file = (

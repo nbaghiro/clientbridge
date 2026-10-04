@@ -7,6 +7,7 @@ from clientbridge.core.db import Base
 from clientbridge.core.errors import NotFound
 from clientbridge.models.identity import Business
 from clientbridge.schemas.public_common import HEX_COLOR, PublicBrand
+from clientbridge.services.media_service import media_url
 
 
 async def resolve_by_token[M: Base](
@@ -36,7 +37,8 @@ def public_brand(business: Business) -> PublicBrand:
     logo or a CSS-breaking colour).
     """
     brand = business.brand or {}
-    logo_url = brand.get("logo_url")
+    logo_file_id = brand.get("logo_file_id")
+    logo_url = media_url(logo_file_id) if isinstance(logo_file_id, str) else brand.get("logo_url")
     primary = brand.get("primary")
     tagline = brand.get("tagline")
     return PublicBrand(

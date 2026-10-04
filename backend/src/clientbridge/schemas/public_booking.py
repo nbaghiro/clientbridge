@@ -14,6 +14,7 @@ class PublicService(BaseModel):
     currency: str
     deposit_required: bool
     deposit_amount_cents: int
+    image_url: str | None = None
 
 
 class PublicStaff(BaseModel):
