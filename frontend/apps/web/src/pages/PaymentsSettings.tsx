@@ -20,7 +20,6 @@ export function PaymentsSettings() {
 
     return (
         <div>
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.payments.title}</h1>
             <p className="mt-1 text-sm text-muted">{strings.payments.subtitle}</p>
 
             <div className="mt-6 rounded-lg border border-line bg-surface p-6">

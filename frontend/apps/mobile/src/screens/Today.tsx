@@ -1,20 +1,13 @@
 import {
-    MONEY_NAV_ITEMS,
-    type MoneyNavKey,
     activityLabel,
     canManagePayments,
     formatMoneyWithCurrency,
-    formatMonthDay,
     formatRelativeTime,
     isRefundRow,
-    parseTimestamp,
-    paymentStatusIntent,
     strings,
     useDashboardSummary,
     useRecentActivity,
-    useRecentPayouts,
     type ActivityRow,
-    type PayoutRow,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useStatus } from "@powersync/react";
@@ -23,25 +16,18 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DebugOverlay } from "../components/DebugOverlay";
-import { IconChevron, IconSettings, Logo } from "../components/icons";
-import { StatusBadge } from "../components/StatusBadge";
+import { IconSettings, Logo } from "../components/icons";
+import { InboxButton } from "../components/InboxButton";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
 
-// Each shared money destination → this platform's stack screen (routing seam; labels from app-core).
-const MONEY_SCREEN: Record<MoneyNavKey, keyof RootStackParamList> = {
-    giftCards: "GiftCards",
-    payouts: "Payouts",
-    reviews: "Reviews",
-    reports: "Reports",
-};
-
-export function HomeScreen() {
+export function TodayScreen() {
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+    const insets = useSafeAreaInsets();
     const status = useStatus();
     const connected = status.connected;
 
@@ -59,21 +45,24 @@ export function HomeScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.screen} edges={["top"]}>
+        <View style={[styles.screen, { paddingTop: insets.top }]}>
             <StatusBar style="dark" />
             <View style={styles.topbar}>
                 <Pressable onPress={onSecretTap} style={styles.brand}>
                     <Logo size={20} color={theme.colors.accent} />
                     <Text style={styles.wordmark}>Clientbridge</Text>
                 </Pressable>
-                <Pressable
-                    hitSlop={10}
-                    onPress={() => {
-                        nav.navigate("Settings");
-                    }}
-                >
-                    <IconSettings size={22} color={theme.colors.inkSoft} />
-                </Pressable>
+                <View style={styles.topActions}>
+                    <InboxButton />
+                    <Pressable
+                        hitSlop={10}
+                        onPress={() => {
+                            nav.navigate("Setup");
+                        }}
+                    >
+                        <IconSettings size={22} color={theme.colors.inkSoft} />
+                    </Pressable>
+                </View>
             </View>
 
             <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
@@ -96,43 +85,6 @@ export function HomeScreen() {
                         PowerSync · {connected ? strings.home.connected : strings.home.offline}
                     </Text>
                 </View>
-
-                <Pressable
-                    style={styles.linkCard}
-                    onPress={() => {
-                        nav.navigate("Invoices");
-                    }}
-                >
-                    <Text style={styles.linkLabel}>{strings.home.invoices}</Text>
-                    <IconChevron size={18} color={theme.colors.muted} />
-                </Pressable>
-
-                <Pressable
-                    style={styles.linkCard}
-                    onPress={() => {
-                        nav.navigate("POS");
-                    }}
-                >
-                    <Text style={styles.linkLabel}>{strings.home.pointOfSale}</Text>
-                    <IconChevron size={18} color={theme.colors.muted} />
-                </Pressable>
-
-                {canManagePayments(role) ? (
-                    <>
-                        {MONEY_NAV_ITEMS.map((m) => (
-                            <Pressable
-                                key={m.key}
-                                style={styles.linkCard}
-                                onPress={() => {
-                                    nav.navigate(MONEY_SCREEN[m.key]);
-                                }}
-                            >
-                                <Text style={styles.linkLabel}>{m.label}</Text>
-                                <IconChevron size={18} color={theme.colors.muted} />
-                            </Pressable>
-                        ))}
-                    </>
-                ) : null}
             </ScrollView>
 
             <DebugOverlay
@@ -141,14 +93,13 @@ export function HomeScreen() {
                     setDebugOpen(false);
                 }}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
 function MoneySection() {
     const summary = useDashboardSummary(api);
     const activity = useRecentActivity();
-    const payouts = useRecentPayouts();
 
     return (
         <>
@@ -187,19 +138,6 @@ function MoneySection() {
                     </View>
                 )}
             </View>
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{strings.home.payouts}</Text>
-                {payouts.length === 0 ? (
-                    <Text style={styles.emptyText}>{strings.home.noPayouts}</Text>
-                ) : (
-                    <View style={styles.list}>
-                        {payouts.map((row, i) => (
-                            <PayoutItem key={row.id} row={row} divider={i > 0} />
-                        ))}
-                    </View>
-                )}
-            </View>
         </>
     );
 }
@@ -220,19 +158,7 @@ function ActivityItem({ row, divider }: { row: ActivityRow; divider: boolean }) 
                 {refund ? "−" : ""}
                 {formatMoneyWithCurrency(row.amount_cents, row.currency)}
             </Text>
-            <Text style={styles.time}>{formatRelativeTime(row.created_at)}</Text>
-        </View>
-    );
-}
-
-function PayoutItem({ row, divider }: { row: PayoutRow; divider: boolean }) {
-    return (
-        <View style={[styles.row, divider && styles.rowDivider]}>
-            <Text style={styles.amount}>{formatMoneyWithCurrency(row.amount_cents, "CAD")}</Text>
-            <StatusBadge status={row.status} intent={paymentStatusIntent(row.status)} />
-            {row.arrival_at !== null ? (
-                <Text style={styles.arrival}>{formatMonthDay(parseTimestamp(row.arrival_at))}</Text>
-            ) : null}
+            <Text style={styles.time}>{formatRelativeTime(row.at)}</Text>
         </View>
     );
 }
@@ -278,6 +204,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     brand: { flexDirection: "row", alignItems: "center", gap: 8 },
+    topActions: { flexDirection: "row", alignItems: "center", gap: 18 },
     wordmark: { color: theme.colors.ink, fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
     body: { flex: 1 },
     bodyContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 16 },
@@ -334,20 +261,7 @@ const styles = StyleSheet.create({
     amountRefund: { color: theme.colors.danFg },
     time: { color: theme.colors.muted, fontSize: 12, width: 44, textAlign: "right" },
     meta: { color: theme.colors.muted, fontSize: 12 },
-    arrival: { color: theme.colors.muted, fontSize: 12, marginLeft: "auto" },
     statusRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     dot: { width: 9, height: 9, borderRadius: 5 },
     status: { color: theme.colors.inkSoft, fontSize: 14, fontWeight: "600" },
-    linkCard: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: theme.colors.surface,
-        borderColor: theme.colors.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 16,
-    },
-    linkLabel: { color: theme.colors.ink, fontSize: 15, fontWeight: "600" },
 });

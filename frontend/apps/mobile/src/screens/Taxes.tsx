@@ -1,14 +1,15 @@
 import { strings, useTaxRates } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 
-export function TaxesScreen() {
+export function TaxesSection() {
     const rates = useTaxRates(api);
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{strings.taxes.title}</Text>
             <Text style={styles.note}>{strings.taxes.subtitle}</Text>
             {rates === null ? (
                 <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
@@ -29,13 +30,13 @@ export function TaxesScreen() {
                     ))}
                 </View>
             )}
-        </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: theme.colors.bg },
-    content: { padding: 16 },
+    section: { marginTop: 28 },
+    sectionTitle: { color: theme.colors.ink, fontSize: 17, fontWeight: "700", marginBottom: 8 },
     note: { color: theme.colors.muted, fontSize: 13, marginBottom: 14, lineHeight: 18 },
     loading: { marginTop: 24 },
     empty: { color: theme.colors.muted, fontSize: 14, textAlign: "center", marginTop: 24 },

@@ -27,7 +27,6 @@ export function Team() {
 
     return (
         <div className="max-w-2xl">
-            <h1 className="font-display text-xl font-bold text-ink">{strings.team.title}</h1>
             <p className="mt-1 text-sm text-muted">{strings.team.subtitle}</p>
 
             <section className="mt-6 rounded-lg border border-line bg-surface">

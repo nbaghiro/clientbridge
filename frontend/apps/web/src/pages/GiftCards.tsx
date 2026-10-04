@@ -2,7 +2,6 @@ import {
     type ClientRow,
     type GiftCardRow,
     type SavedCardRow,
-    canManagePayments,
     formatMoney,
     giftCardStatusIntent,
     giftItems,
@@ -23,33 +22,18 @@ import { useState } from "react";
 import { CardConfirm } from "../components/CardConfirm";
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function GiftCards() {
-    const role = useRole();
     const cards = useGiftCards();
     const [mode, setMode] = useState<"sell" | "redeem" | null>(null);
 
-    if (!canManagePayments(role))
-        return (
-            <div className="mx-auto max-w-3xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold">{strings.giftCards.title}</h1>
-                <p className="mt-4 text-sm text-muted">{strings.giftCards.ownerAdminOnly}</p>
-            </div>
-        );
-
     return (
-        <div className="mx-auto max-w-3xl px-8 py-8">
+        <div className="max-w-3xl">
             <header className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="font-display text-2xl font-bold">{strings.giftCards.title}</h1>
-                    <p className="mt-0.5 text-sm text-muted">
-                        {strings.giftCards.issuedCount(cards.length)}
-                    </p>
-                </div>
+                <p className="text-sm text-muted">{strings.giftCards.issuedCount(cards.length)}</p>
                 <div className="flex gap-2">
                     <button
                         type="button"

@@ -1,6 +1,5 @@
 import {
     type GiftCardRow,
-    canManagePayments,
     formatMoney,
     giftCardStatusIntent,
     giftItems,
@@ -30,24 +29,10 @@ import {
 import { CardPaymentConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 
 export function GiftCardsScreen() {
-    const role = useRole();
-
-    if (!canManagePayments(role)) {
-        return (
-            <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>{strings.giftCards.ownerAdminOnlyMobile}</Text>
-            </View>
-        );
-    }
-    return <GiftCardsBody />;
-}
-
-function GiftCardsBody() {
     const cards = useGiftCards();
     const [mode, setMode] = useState<"sell" | "redeem" | null>(null);
 

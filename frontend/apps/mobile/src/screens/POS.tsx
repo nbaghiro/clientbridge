@@ -24,7 +24,6 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconSearch } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
@@ -42,7 +41,7 @@ export function POSScreen() {
     const tokenProvider = useConnectionToken(api); // feeds the Terminal SDK its connection token
 
     return (
-        <SafeAreaView style={styles.screen} edges={["bottom"]}>
+        <View style={styles.screen}>
             {reviewing && cart.checkoutResult !== null && cart.order !== null ? (
                 <TerminalProvider tokenProvider={tokenProvider}>
                     <ReaderPanel
@@ -99,7 +98,7 @@ export function POSScreen() {
                     <CartBar cart={cart} />
                 </>
             )}
-        </SafeAreaView>
+        </View>
     );
 }
 

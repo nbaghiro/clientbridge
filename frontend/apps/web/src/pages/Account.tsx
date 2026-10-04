@@ -11,7 +11,6 @@ export function Account() {
 
     return (
         <div>
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.account.title}</h1>
             <p className="mt-1 text-sm text-muted">{strings.account.subtitle}</p>
 
             <div className="mt-6 max-w-lg rounded-lg border border-line bg-surface p-6">

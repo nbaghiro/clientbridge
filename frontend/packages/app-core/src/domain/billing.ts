@@ -51,7 +51,7 @@ SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status, i.total_cen
        i.issued_at, i.due_at, i.pay_token, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id
-ORDER BY i.created_at DESC`;
+ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
 
 const ESTIMATES_SQL = `
 SELECT e.id, e.client_id, c.name AS client_name, e.number, e.status,

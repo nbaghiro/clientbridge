@@ -14,7 +14,7 @@ import {
 
 import { api } from "../lib/api";
 
-export function PaymentsScreen() {
+export function GettingPaidScreen() {
     const {
         phase,
         busy,

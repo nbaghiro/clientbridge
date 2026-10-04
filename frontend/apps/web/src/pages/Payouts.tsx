@@ -1,7 +1,6 @@
 import {
     earningStaffLabel,
     earningStatusIntent,
-    canManagePayments,
     formatMoney,
     formatRelativeTime,
     strings,
@@ -13,33 +12,14 @@ import {
 
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 export function Payouts() {
-    const role = useRole();
-
-    if (!canManagePayments(role)) {
-        return (
-            <div className="mx-auto max-w-5xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.payouts.title}
-                </h1>
-                <p className="mt-0.5 text-sm text-muted">{strings.payouts.noAccessWeb}</p>
-            </div>
-        );
-    }
-
-    return <PayoutsView />;
-}
-
-function PayoutsView() {
     const rows = useEarnings();
     const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
 
     return (
-        <div className="mx-auto max-w-5xl px-8 py-8">
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.payouts.title}</h1>
-            <p className="mt-0.5 text-sm text-muted">{strings.payouts.subtitle}</p>
+        <div>
+            <p className="text-sm text-muted">{strings.payouts.subtitle}</p>
 
             <div className="mt-6 flex gap-1 rounded-md border border-line bg-surface p-1 text-sm font-medium">
                 {filters.map((f) => (

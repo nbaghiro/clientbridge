@@ -69,6 +69,9 @@ export function IconSettings({ size, color }: IconProps) {
 export function IconPos({ size, color }: IconProps) {
     return <NavIcon name="pos" size={size} color={color} />;
 }
+export function IconInvoices({ size, color }: IconProps) {
+    return <NavIcon name="invoices" size={size} color={color} />;
+}
 export function IconChevron({ size, color }: IconProps) {
     return <NavIcon name="chevron" size={size} color={color} />;
 }

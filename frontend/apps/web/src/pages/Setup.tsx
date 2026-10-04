@@ -1,0 +1,82 @@
+import { type SetupSectionKey, setupSectionsFor, strings } from "@clientbridge/app-core";
+import type { ReactElement } from "react";
+import { NavLink, Navigate, useParams } from "react-router-dom";
+
+import { Account } from "./Account";
+import { BookingForms } from "./BookingForms";
+import { Catalog } from "./Catalog";
+import { PaymentsSettings } from "./PaymentsSettings";
+import { Scheduling } from "./Scheduling";
+import { TaxSettings } from "./TaxSettings";
+import { Team } from "./Team";
+
+export const SETUP_SLUGS: Record<SetupSectionKey, string> = {
+    business: "business",
+    services: "services",
+    team: "team",
+    gettingPaid: "getting-paid",
+    onlineBooking: "online-booking",
+};
+
+function sectionBody(key: SetupSectionKey): ReactElement {
+    switch (key) {
+        case "business":
+            return (
+                <div className="space-y-10">
+                    <Account />
+                    <TaxSettings />
+                </div>
+            );
+        case "services":
+            return <Catalog />;
+        case "team":
+            return (
+                <div className="space-y-10">
+                    <Team />
+                    <Scheduling />
+                </div>
+            );
+        case "gettingPaid":
+            return <PaymentsSettings />;
+        case "onlineBooking":
+            return <BookingForms />;
+    }
+}
+
+export function Setup() {
+    const { section } = useParams();
+    const sections = setupSectionsFor("web");
+    const current = sections.find((s) => SETUP_SLUGS[s.key] === section);
+    if (current === undefined) return <Navigate to="/setup/business" replace />;
+
+    return (
+        <div className="mx-auto flex max-w-6xl gap-8 px-8 py-8">
+            <nav className="w-52 shrink-0">
+                <h1 className="mb-3 px-3 font-display text-lg font-bold text-ink">
+                    {strings.nav.setup}
+                </h1>
+                <div className="space-y-0.5">
+                    {sections.map((s) => (
+                        <NavLink
+                            key={s.key}
+                            to={`/setup/${SETUP_SLUGS[s.key]}`}
+                            className={({ isActive }) =>
+                                `block rounded-md px-3 py-2 text-sm transition ${
+                                    isActive
+                                        ? "bg-accent-weak font-semibold text-accent"
+                                        : "font-medium text-ink-soft hover:bg-bg"
+                                }`
+                            }
+                        >
+                            {s.label}
+                        </NavLink>
+                    ))}
+                </div>
+            </nav>
+            <div className="min-w-0 flex-1">
+                <h2 className="mb-1 font-display text-2xl font-bold text-ink">{current.label}</h2>
+                {sectionBody(current.key)}
+            </div>
+        </div>
+    );
+}

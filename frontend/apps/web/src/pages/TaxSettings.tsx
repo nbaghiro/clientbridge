@@ -7,7 +7,7 @@ export function TaxSettings() {
 
     return (
         <div>
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.taxes.title}</h1>
+            <h2 className="font-display text-lg font-semibold text-ink">{strings.taxes.title}</h2>
             <p className="mt-1 text-sm text-muted">{strings.taxes.subtitle}</p>
 
             <div className="mt-6 overflow-hidden rounded-lg border border-line bg-surface">

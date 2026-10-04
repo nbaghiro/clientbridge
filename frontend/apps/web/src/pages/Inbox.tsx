@@ -3,6 +3,7 @@ import {
     type Channel,
     MESSAGE_CHANNELS,
     type MessageRow,
+    type InboxSegmentKey,
     type ThreadRow,
     channelLabel,
     formatRelativeTime,
@@ -16,11 +17,15 @@ import {
     useThreadMessages,
     useThreads,
     markThreadRead,
+    visibleInboxSegments,
 } from "@clientbridge/app-core";
 import { useEffect, useRef, useState } from "react";
 
 import { StatusPill } from "../components/StatusPill";
+import { Tabs } from "../components/Tabs";
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
+import { Reviews } from "./Reviews";
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
@@ -28,20 +33,42 @@ const field =
 type Panel = "none" | "new" | "broadcast";
 
 export function Inbox() {
+    const segments = visibleInboxSegments(useRole());
+    const [segment, setSegment] = useState<InboxSegmentKey>("messages");
+
+    return (
+        <div className="flex h-full flex-col">
+            <header className="border-b border-line px-8 pt-6">
+                <h1 className="font-display text-2xl font-bold text-ink">{strings.inbox.title}</h1>
+                {segments.length > 1 ? (
+                    <div className="mt-3">
+                        <Tabs items={segments} active={segment} onSelect={setSegment} />
+                    </div>
+                ) : (
+                    <div className="h-5" />
+                )}
+            </header>
+            {segment === "reviews" ? (
+                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+                    <Reviews />
+                </div>
+            ) : (
+                <Messages />
+            )}
+        </div>
+    );
+}
+
+function Messages() {
     const threads = useThreads();
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [panel, setPanel] = useState<Panel>("none");
     const selected = threads.find((t) => t.id === selectedId) ?? null;
 
     return (
-        <div className="flex h-full flex-col">
-            <header className="flex items-center justify-between gap-4 border-b border-line px-8 py-5">
-                <div>
-                    <h1 className="font-display text-2xl font-bold text-ink">
-                        {strings.inbox.title}
-                    </h1>
-                    <p className="mt-0.5 text-sm text-muted">{strings.inbox.subtitle}</p>
-                </div>
+        <div className="flex min-h-0 flex-1 flex-col">
+            <header className="flex items-center justify-between gap-4 border-b border-line px-8 py-3">
+                <p className="text-sm text-muted">{strings.inbox.subtitle}</p>
                 <div className="flex shrink-0 gap-2">
                     <button
                         type="button"

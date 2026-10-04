@@ -35,14 +35,15 @@ export interface ActivityRow {
     amount_cents: number;
     currency: string;
     status: string;
-    created_at: string;
+    at: string;
     client_name: string | null;
 }
 
 const RECENT_ACTIVITY_SQL = `
-SELECT p.id, p.kind, p.method, p.amount_cents, p.currency, p.status, p.created_at, c.name AS client_name
+SELECT p.id, p.kind, p.method, p.amount_cents, p.currency, p.status,
+       COALESCE(p.paid_at, p.created_at) AS at, c.name AS client_name
 FROM payments p LEFT JOIN clients c ON c.id = p.client_id
-WHERE p.status = 'succeeded' ORDER BY p.created_at DESC LIMIT 12`;
+WHERE p.status = 'succeeded' ORDER BY at DESC LIMIT 12`;
 
 /** Recent succeeded payments (with the paying client's name) for the Today activity feed. */
 export function useRecentActivity(): ActivityRow[] {

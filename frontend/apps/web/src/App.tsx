@@ -11,25 +11,32 @@ import { api, onSignedOut } from "./lib/api";
 import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
-import { Account } from "./pages/Account";
-import { BookingForms } from "./pages/BookingForms";
 import { Calendar } from "./pages/Calendar";
-import { Catalog } from "./pages/Catalog";
 import { Clients } from "./pages/Clients";
-import { GiftCards } from "./pages/GiftCards";
 import { Inbox } from "./pages/Inbox";
-import { Invoices } from "./pages/Invoices";
 import { Onboarding } from "./pages/Onboarding";
-import { PaymentsSettings } from "./pages/PaymentsSettings";
-import { Payouts } from "./pages/Payouts";
-import { POS } from "./pages/POS";
-import { Reports } from "./pages/Reports";
-import { Reviews } from "./pages/Reviews";
-import { Scheduling } from "./pages/Scheduling";
-import { SettingsLayout } from "./pages/Settings";
-import { TaxSettings } from "./pages/TaxSettings";
-import { Team } from "./pages/Team";
+import { Payments } from "./pages/Payments";
+import { Setup } from "./pages/Setup";
 import { Today } from "./pages/Today";
+
+const LEGACY_REDIRECTS: [string, string][] = [
+    ["home", "/today"],
+    ["calendar", "/schedule"],
+    ["invoices", "/payments/invoices"],
+    ["pos", "/payments/sales"],
+    ["gift-cards", "/payments/gift-cards"],
+    ["payouts", "/payments/staff-pay"],
+    ["reports", "/payments/reports"],
+    ["reviews", "/inbox"],
+    ["settings", "/setup/business"],
+    ["settings/account", "/setup/business"],
+    ["settings/taxes", "/setup/business"],
+    ["settings/catalog", "/setup/services"],
+    ["settings/team", "/setup/team"],
+    ["settings/scheduling", "/setup/team"],
+    ["settings/payments", "/setup/getting-paid"],
+    ["settings/booking", "/setup/online-booking"],
+];
 
 export function App() {
     const [authed, setAuthed] = useState(isAuthenticated());
@@ -105,28 +112,17 @@ function AppRoutes({
                     />
                 ) : (
                     <Route element={<AppShell onSignOut={onSignOut} />}>
-                        <Route index element={<Navigate to="/home" replace />} />
-                        <Route path="home" element={<Today />} />
-                        <Route path="calendar" element={<Calendar />} />
+                        <Route index element={<Navigate to="/today" replace />} />
+                        <Route path="today" element={<Today />} />
+                        <Route path="schedule" element={<Calendar />} />
                         <Route path="clients" element={<Clients />} />
+                        <Route path="payments/:tab?" element={<Payments />} />
                         <Route path="inbox" element={<Inbox />} />
-                        <Route path="invoices" element={<Invoices />} />
-                        <Route path="pos" element={<POS />} />
-                        <Route path="gift-cards" element={<GiftCards />} />
-                        <Route path="payouts" element={<Payouts />} />
-                        <Route path="reviews" element={<Reviews />} />
-                        <Route path="reports" element={<Reports />} />
-                        <Route path="settings" element={<SettingsLayout />}>
-                            <Route index element={<Navigate to="/settings/catalog" replace />} />
-                            <Route path="account" element={<Account />} />
-                            <Route path="catalog" element={<Catalog />} />
-                            <Route path="taxes" element={<TaxSettings />} />
-                            <Route path="payments" element={<PaymentsSettings />} />
-                            <Route path="team" element={<Team />} />
-                            <Route path="scheduling" element={<Scheduling />} />
-                            <Route path="booking" element={<BookingForms />} />
-                        </Route>
-                        <Route path="*" element={<Navigate to="/clients" replace />} />
+                        <Route path="setup/:section?" element={<Setup />} />
+                        {LEGACY_REDIRECTS.map(([from, to]) => (
+                            <Route key={from} path={from} element={<Navigate to={to} replace />} />
+                        ))}
+                        <Route path="*" element={<Navigate to="/today" replace />} />
                     </Route>
                 )
             ) : (

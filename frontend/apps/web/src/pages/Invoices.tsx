@@ -53,14 +53,11 @@ export function Invoices() {
     const noun = tab === "invoices" ? "invoice" : "estimate";
 
     return (
-        <div className="mx-auto max-w-5xl px-8 py-8">
+        <div>
             <header className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="font-display text-2xl font-bold">{strings.invoices.title}</h1>
-                    <p className="mt-0.5 text-sm text-muted">
-                        {strings.invoices.countSummary(invoices.length, estimates.length)}
-                    </p>
-                </div>
+                <p className="text-sm text-muted">
+                    {strings.invoices.countSummary(invoices.length, estimates.length)}
+                </p>
                 <button
                     type="button"
                     onClick={() => {

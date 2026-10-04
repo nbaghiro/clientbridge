@@ -40,7 +40,8 @@ import {
     useSubscriptionForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { type ComponentProps, useState } from "react";
+import { type RouteProp, useRoute } from "@react-navigation/native";
+import { type ComponentProps, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -56,10 +57,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconPlus, IconSearch } from "../components/icons";
+import { InboxButton } from "../components/InboxButton";
 import { CardPaymentConfirm, CardSetupConfirm } from "../components/stripe";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
+import type { TabParamList } from "../navigation";
 
 const c = theme.colors;
 
@@ -70,6 +73,10 @@ export function ClientsScreen() {
     const [openId, setOpenId] = useState<string | null>(null);
     const open = filtered.find((cl) => cl.id === openId) ?? null;
     const showValue = canManagePayments(useRole());
+    const create = useRoute<RouteProp<TabParamList, "Clients">>().params?.create;
+    useEffect(() => {
+        if (create !== undefined) setAdding(true);
+    }, [create]);
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -78,15 +85,18 @@ export function ClientsScreen() {
                     <Text style={styles.title}>{strings.clients.title}</Text>
                     <Text style={styles.count}>{strings.clients.total(clients.length)}</Text>
                 </View>
-                <Pressable
-                    style={styles.add}
-                    onPress={() => {
-                        setAdding(true);
-                    }}
-                >
-                    <IconPlus size={16} color={theme.colors.accentInk} />
-                    <Text style={styles.addText}>{strings.clients.addShort}</Text>
-                </Pressable>
+                <View style={styles.headerActions}>
+                    <InboxButton />
+                    <Pressable
+                        style={styles.add}
+                        onPress={() => {
+                            setAdding(true);
+                        }}
+                    >
+                        <IconPlus size={16} color={theme.colors.accentInk} />
+                        <Text style={styles.addText}>{strings.clients.addShort}</Text>
+                    </Pressable>
+                </View>
             </View>
 
             <View style={styles.searchWrap}>
@@ -777,6 +787,7 @@ const styles = StyleSheet.create({
         paddingTop: 8,
         paddingBottom: 12,
     },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
     title: { color: c.ink, fontSize: 26, fontWeight: "700", letterSpacing: -0.4 },
     count: { color: c.muted, fontSize: 13, marginTop: 2 },
     add: {

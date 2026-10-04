@@ -18,7 +18,9 @@ export function Scheduling() {
 
     return (
         <div className="max-w-2xl">
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.scheduling.title}</h1>
+            <h2 className="font-display text-lg font-semibold text-ink">
+                {strings.scheduling.title}
+            </h2>
             <p className="mt-1 text-sm text-muted">{strings.scheduling.subtitle}</p>
 
             {selected === null ? (

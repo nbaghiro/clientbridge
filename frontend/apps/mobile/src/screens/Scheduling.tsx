@@ -11,7 +11,6 @@ import { useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
-    ScrollView,
     StyleSheet,
     Switch,
     Text,
@@ -21,13 +20,14 @@ import {
 
 const c = theme.colors;
 
-export function SchedulingScreen() {
+export function SchedulingSection() {
     const staff = useStaff();
     const [staffId, setStaffId] = useState<string | null>(null);
     const selected = staffId ?? staff[0]?.id ?? null;
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{strings.scheduling.title}</Text>
             <Text style={styles.note}>{strings.scheduling.subtitle}</Text>
 
             {selected === null ? (
@@ -58,7 +58,7 @@ export function SchedulingScreen() {
                     <WeeklyHours key={selected} staffId={selected} />
                 </>
             )}
-        </ScrollView>
+        </View>
     );
 }
 
@@ -136,8 +136,8 @@ function WeeklyHours({ staffId }: { staffId: string }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
-    content: { padding: 16 },
+    section: { marginTop: 28 },
+    sectionTitle: { color: c.ink, fontSize: 17, fontWeight: "700", marginBottom: 8 },
     note: { color: c.muted, fontSize: 13, marginBottom: 14, lineHeight: 18 },
     empty: { color: c.muted, fontSize: 14, textAlign: "center", marginTop: 24 },
     loading: { marginTop: 24 },

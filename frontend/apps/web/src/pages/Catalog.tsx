@@ -21,12 +21,7 @@ export function Catalog() {
     return (
         <div>
             <header className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="font-display text-2xl font-bold">{strings.catalog.title}</h1>
-                    <p className="mt-0.5 text-sm text-muted">
-                        {strings.catalog.itemCount(items.length)}
-                    </p>
-                </div>
+                <p className="text-sm text-muted">{strings.catalog.itemCount(items.length)}</p>
                 <button
                     type="button"
                     onClick={() => {

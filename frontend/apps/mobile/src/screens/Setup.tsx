@@ -1,4 +1,4 @@
-import { SETTINGS_SECTIONS, type SettingsSectionKey } from "@clientbridge/app-core";
+import { type SetupSectionKey, setupSectionsFor } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -6,31 +6,32 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { IconChevron } from "../components/icons";
 import type { RootStackParamList } from "../navigation";
+import { AccountScreen } from "./Account";
+import { SchedulingSection } from "./Scheduling";
+import { TaxesSection } from "./Taxes";
+import { TeamScreen } from "./Team";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-// Map each shared section key to this platform's stack screen (the routing seam).
-const SECTION_SCREEN: Record<SettingsSectionKey, keyof RootStackParamList> = {
-    account: "Account",
-    catalog: "Catalog",
-    taxes: "Taxes",
-    payments: "Payments",
+const SECTION_SCREEN: Partial<Record<SetupSectionKey, keyof RootStackParamList>> = {
+    business: "Business",
+    services: "Services",
     team: "Team",
-    scheduling: "Scheduling",
-    booking: "Booking",
+    gettingPaid: "GettingPaid",
 };
 
-export function SettingsScreen() {
+export function SetupScreen() {
     const nav = useNavigation<Nav>();
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <View style={styles.group}>
-                {SETTINGS_SECTIONS.map((s, i) => (
+                {setupSectionsFor("mobile").map((s, i) => (
                     <Pressable
                         key={s.key}
                         style={[styles.row, i > 0 ? styles.rowBorder : null]}
                         onPress={() => {
-                            nav.navigate(SECTION_SCREEN[s.key]);
+                            const screen = SECTION_SCREEN[s.key];
+                            if (screen !== undefined) nav.navigate(screen);
                         }}
                     >
                         <Text style={styles.rowLabel}>{s.label}</Text>
@@ -40,6 +41,14 @@ export function SettingsScreen() {
             </View>
         </ScrollView>
     );
+}
+
+export function BusinessScreen() {
+    return <AccountScreen footer={<TaxesSection />} />;
+}
+
+export function TeamHoursScreen() {
+    return <TeamScreen footer={<SchedulingSection />} />;
 }
 
 const styles = StyleSheet.create({

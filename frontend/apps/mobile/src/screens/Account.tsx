@@ -1,5 +1,6 @@
 import { ACCOUNT_TEXT_FIELDS, LOCALES, strings, useAccountForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
+import type { ReactNode } from "react";
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -16,7 +17,7 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 
-export function AccountScreen() {
+export function AccountScreen({ footer }: { footer?: ReactNode }) {
     const form = useAccountForm(api);
     const fields = form.fields;
 
@@ -91,6 +92,7 @@ export function AccountScreen() {
                         <Text style={styles.submitText}>{strings.common.save}</Text>
                     )}
                 </Pressable>
+                {footer}
             </ScrollView>
         </KeyboardAvoidingView>
     );

@@ -2,6 +2,7 @@ import {
     type BroadcastResult,
     type Channel,
     MESSAGE_CHANNELS,
+    type InboxSegmentKey,
     type MessageRow,
     type ThreadRow,
     channelLabel,
@@ -16,6 +17,7 @@ import {
     useComposeMessage,
     useThreadMessages,
     useThreads,
+    visibleInboxSegments,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useEffect, useState } from "react";
@@ -31,13 +33,29 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Segmented } from "../components/Segmented";
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
+import { ReviewsScreen } from "./Reviews";
 
 const c = theme.colors;
 export function InboxScreen() {
+    const segments = visibleInboxSegments(useRole());
+    const [segment, setSegment] = useState<InboxSegmentKey>("messages");
+
+    return (
+        <View style={styles.screen}>
+            {segments.length > 1 ? (
+                <Segmented items={segments} active={segment} onSelect={setSegment} />
+            ) : null}
+            {segment === "reviews" ? <ReviewsScreen /> : <Messages />}
+        </View>
+    );
+}
+
+function Messages() {
     const threads = useThreads();
     const [openId, setOpenId] = useState<string | null>(null);
     const [composing, setComposing] = useState(false);
@@ -45,9 +63,9 @@ export function InboxScreen() {
     const open = threads.find((t) => t.id === openId) ?? null;
 
     return (
-        <SafeAreaView style={styles.screen} edges={["top"]}>
+        <View style={styles.screen}>
             <View style={styles.header}>
-                <Text style={styles.title}>{strings.inbox.title}</Text>
+                <Text style={styles.subtitle}>{strings.inbox.subtitle}</Text>
                 <View style={styles.headerBtns}>
                     <Pressable
                         style={styles.ghostBtn}
@@ -103,7 +121,7 @@ export function InboxScreen() {
                     setBroadcasting(false);
                 }}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -442,10 +460,11 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 20,
-        paddingTop: 8,
+        paddingTop: 12,
         paddingBottom: 12,
+        gap: 12,
     },
-    title: { color: c.ink, fontSize: 26, fontWeight: "700", letterSpacing: -0.4 },
+    subtitle: { color: c.muted, fontSize: 13, flexShrink: 1 },
     headerBtns: { flexDirection: "row", alignItems: "center", gap: 8 },
     ghostBtn: {
         borderColor: c.border,

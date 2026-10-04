@@ -1,7 +1,6 @@
 import {
     earningStaffLabel,
     earningStatusIntent,
-    canManagePayments,
     formatMoney,
     formatRelativeTime,
     strings,
@@ -15,24 +14,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 
 export function PayoutsScreen() {
-    const role = useRole();
-
-    if (!canManagePayments(role)) {
-        return (
-            <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>{strings.payouts.noAccessMobile}</Text>
-            </View>
-        );
-    }
-    return <PayoutsBody />;
-}
-
-function PayoutsBody() {
     const rows = useEarnings();
     const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
 

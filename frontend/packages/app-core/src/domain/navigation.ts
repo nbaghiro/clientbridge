@@ -1,28 +1,52 @@
 import { strings } from "../strings";
+import { canManagePayments } from "./payments";
 
-export type SettingsSectionKey =
-    "account" | "catalog" | "taxes" | "payments" | "team" | "scheduling" | "booking";
+export type DestinationKey = "today" | "schedule" | "clients" | "payments" | "inbox";
 
-export type MoneyNavKey = "giftCards" | "payouts" | "reviews" | "reports";
-
-/** The admin-only "money" destinations (all gated by `canManagePayments`), shared so the web sidebar
- *  and the mobile Home money section stay in lockstep on the set + labels + gate. Each app maps `key`
- *  to its own route + icon and renders it its own way. */
-export const MONEY_NAV_ITEMS: { key: MoneyNavKey; label: string }[] = [
-    { key: "giftCards", label: strings.nav.giftCards },
-    { key: "payouts", label: strings.nav.payouts },
-    { key: "reviews", label: strings.nav.reviews },
-    { key: "reports", label: strings.nav.reports },
-];
-
-/** The Settings hub sections (label + order), shared so the two platforms can't diverge. Each app
- *  maps `key` to its own route: web → `/settings/${key}`, mobile → its stack screen name. */
-export const SETTINGS_SECTIONS: { key: SettingsSectionKey; label: string }[] = [
-    { key: "account", label: strings.nav.account },
-    { key: "catalog", label: strings.nav.catalog },
-    { key: "taxes", label: strings.nav.taxes },
+/** The five top-level destinations, in order. Each app maps `key` to its own route + icon. */
+export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
+    { key: "today", label: strings.nav.today },
+    { key: "schedule", label: strings.nav.schedule },
+    { key: "clients", label: strings.nav.clients },
     { key: "payments", label: strings.nav.payments },
-    { key: "team", label: strings.nav.team },
-    { key: "scheduling", label: strings.nav.scheduling },
-    { key: "booking", label: strings.nav.booking },
+    { key: "inbox", label: strings.nav.inbox },
 ];
+
+export type PaymentsTabKey = "invoices" | "sales" | "giftCards" | "staffPay" | "reports";
+
+export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
+    { key: "invoices", label: strings.paymentsTabs.invoices, managersOnly: false },
+    { key: "sales", label: strings.paymentsTabs.sales, managersOnly: false },
+    { key: "giftCards", label: strings.paymentsTabs.giftCards, managersOnly: true },
+    { key: "staffPay", label: strings.paymentsTabs.staffPay, managersOnly: true },
+    { key: "reports", label: strings.paymentsTabs.reports, managersOnly: true },
+];
+
+export function visiblePaymentsTabs(role: string | null): typeof PAYMENTS_TABS {
+    return PAYMENTS_TABS.filter((t) => !t.managersOnly || canManagePayments(role));
+}
+
+export type InboxSegmentKey = "messages" | "reviews";
+
+export const INBOX_SEGMENTS: { key: InboxSegmentKey; label: string; managersOnly: boolean }[] = [
+    { key: "messages", label: strings.inboxSegments.messages, managersOnly: false },
+    { key: "reviews", label: strings.inboxSegments.reviews, managersOnly: true },
+];
+
+export function visibleInboxSegments(role: string | null): typeof INBOX_SEGMENTS {
+    return INBOX_SEGMENTS.filter((s) => !s.managersOnly || canManagePayments(role));
+}
+
+export type SetupSectionKey = "business" | "services" | "team" | "gettingPaid" | "onlineBooking";
+
+export const SETUP_SECTIONS: { key: SetupSectionKey; label: string; webOnly: boolean }[] = [
+    { key: "business", label: strings.setupSections.business, webOnly: false },
+    { key: "services", label: strings.setupSections.services, webOnly: false },
+    { key: "team", label: strings.setupSections.team, webOnly: false },
+    { key: "gettingPaid", label: strings.setupSections.gettingPaid, webOnly: false },
+    { key: "onlineBooking", label: strings.setupSections.onlineBooking, webOnly: true },
+];
+
+export function setupSectionsFor(platform: "web" | "mobile"): typeof SETUP_SECTIONS {
+    return SETUP_SECTIONS.filter((s) => platform === "web" || !s.webOnly);
+}

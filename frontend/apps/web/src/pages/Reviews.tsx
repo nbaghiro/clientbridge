@@ -1,6 +1,5 @@
 import {
     type ReviewRow,
-    canManagePayments,
     emptyStars,
     formatAverageRating,
     formatRelativeTime,
@@ -17,29 +16,11 @@ import { useState } from "react";
 
 import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function Reviews() {
-    const role = useRole();
-
-    if (!canManagePayments(role)) {
-        return (
-            <div className="mx-auto max-w-3xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.reviews.title}
-                </h1>
-                <p className="mt-0.5 text-sm text-muted">{strings.reviews.restricted}</p>
-            </div>
-        );
-    }
-
-    return <ReviewsView />;
-}
-
-function ReviewsView() {
     const [reloadKey, setReloadKey] = useState(0);
     const summary = useReviewSummary(api, reloadKey);
     const reviews = useReviews();
@@ -50,14 +31,9 @@ function ReviewsView() {
     };
 
     return (
-        <div className="mx-auto max-w-3xl px-8 py-8">
+        <div className="max-w-3xl">
             <header className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="font-display text-2xl font-bold text-ink">
-                        {strings.reviews.title}
-                    </h1>
-                    <p className="mt-0.5 text-sm text-muted">{strings.reviews.subtitle}</p>
-                </div>
+                <p className="text-sm text-muted">{strings.reviews.subtitle}</p>
                 <button
                     type="button"
                     onClick={() => {

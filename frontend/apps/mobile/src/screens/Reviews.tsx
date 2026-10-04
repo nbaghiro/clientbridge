@@ -1,6 +1,5 @@
 import {
     type ReviewRow,
-    canManagePayments,
     emptyStars,
     formatAverageRating,
     formatRelativeTime,
@@ -19,24 +18,10 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 
 import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 
 export function ReviewsScreen() {
-    const role = useRole();
-
-    if (!canManagePayments(role)) {
-        return (
-            <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>{strings.reviews.restrictedShort}</Text>
-            </View>
-        );
-    }
-    return <ReviewsBody />;
-}
-
-function ReviewsBody() {
     const [reloadKey, setReloadKey] = useState(0);
     const summary = useReviewSummary(api, reloadKey);
     const reviews = useReviews();

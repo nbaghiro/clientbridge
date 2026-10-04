@@ -1,4 +1,4 @@
-import { strings } from "@clientbridge/app-core";
+import { DESTINATIONS, type DestinationKey, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { type ReactElement, useState } from "react";
@@ -6,12 +6,23 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BookingForm } from "./BookingForm";
-import { IconCalendar, IconClients, IconInbox, IconPlus, IconPos, IconToday } from "./icons";
+import { IconCalendar, IconClients, IconInvoices, IconPlus, IconPos, IconToday } from "./icons";
+
+const TAB_DESTINATION: Record<string, DestinationKey> = {
+    Today: "today",
+    Schedule: "schedule",
+    Clients: "clients",
+    Payments: "payments",
+};
+
+function tabLabel(name: string): string {
+    return DESTINATIONS.find((d) => d.key === TAB_DESTINATION[name])?.label ?? name;
+}
 
 function tabIcon(name: string, color: string): ReactElement {
-    if (name === "Calendar") return <IconCalendar size={23} color={color} />;
+    if (name === "Schedule") return <IconCalendar size={23} color={color} />;
     if (name === "Clients") return <IconClients size={23} color={color} />;
-    if (name === "Inbox") return <IconInbox size={23} color={color} />;
+    if (name === "Payments") return <IconInvoices size={23} color={color} />;
     return <IconToday size={23} color={color} />;
 }
 
@@ -20,9 +31,9 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     const [menu, setMenu] = useState(false);
     const [booking, setBooking] = useState(false);
 
-    const go = (tab: string): void => {
+    const go = (tab: string, params: object): void => {
         setMenu(false);
-        navigation.navigate(tab);
+        navigation.navigate(tab, params);
     };
 
     return (
@@ -39,7 +50,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                         }}
                     >
                         {tabIcon(route.name, color)}
-                        <Text style={[styles.label, { color }]}>{route.name}</Text>
+                        <Text style={[styles.label, { color }]}>{tabLabel(route.name)}</Text>
                     </Pressable>
                 );
                 if (i === 1) {
@@ -78,7 +89,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                         <Pressable
                             style={styles.menuRow}
                             onPress={() => {
-                                go("Clients");
+                                go("Clients", { create: Date.now() });
                             }}
                         >
                             <IconClients size={20} color={theme.colors.accent} />
@@ -97,16 +108,16 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                         <Pressable
                             style={styles.menuRow}
                             onPress={() => {
-                                go("Invoices");
+                                go("Payments", { tab: "invoices", create: Date.now() });
                             }}
                         >
-                            <IconInbox size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>{strings.nav.invoices}</Text>
+                            <IconInvoices size={20} color={theme.colors.accent} />
+                            <Text style={styles.menuText}>{strings.nav.newInvoice}</Text>
                         </Pressable>
                         <Pressable
                             style={styles.menuRow}
                             onPress={() => {
-                                go("POS");
+                                go("Payments", { tab: "sales" });
                             }}
                         >
                             <IconPos size={20} color={theme.colors.accent} />
@@ -171,6 +182,4 @@ const styles = StyleSheet.create({
     },
     menuRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 13 },
     menuText: { color: theme.colors.ink, fontSize: 16, fontWeight: "600" },
-    menuDisabled: { opacity: 0.5 },
-    menuTextDisabled: { color: theme.colors.muted, fontSize: 16, fontWeight: "500" },
 });

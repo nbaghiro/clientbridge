@@ -12,7 +12,7 @@ import {
     useStaff,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -31,7 +31,7 @@ import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
 
-export function TeamScreen() {
+export function TeamScreen({ footer }: { footer?: ReactNode }) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     useEffect(() => {
         getTokens()
@@ -91,6 +91,7 @@ export function TeamScreen() {
             ) : (
                 <Text style={styles.note}>{strings.team.cannotInvite}</Text>
             )}
+            {footer}
         </ScrollView>
     );
 }

@@ -2,20 +2,14 @@ import {
     activityLabel,
     canManagePayments,
     formatMoneyWithCurrency,
-    formatMonthDay,
     formatRelativeTime,
     isRefundRow,
-    parseTimestamp,
-    paymentStatusIntent,
     strings,
     useDashboardSummary,
     useRecentActivity,
-    useRecentPayouts,
     type ActivityRow,
-    type PayoutRow,
 } from "@clientbridge/app-core";
 
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 
@@ -37,7 +31,6 @@ export function Today() {
 function MoneyView() {
     const summary = useDashboardSummary(api);
     const activity = useRecentActivity();
-    const payouts = useRecentPayouts();
 
     return (
         <>
@@ -80,21 +73,6 @@ function MoneyView() {
                     </div>
                 )}
             </section>
-
-            <section className="mt-8">
-                <h2 className="font-display text-lg font-semibold text-ink">
-                    {strings.home.payouts}
-                </h2>
-                {payouts.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted">{strings.home.noPayouts}</p>
-                ) : (
-                    <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
-                        {payouts.map((row) => (
-                            <PayoutItem key={row.id} row={row} />
-                        ))}
-                    </div>
-                )}
-            </section>
         </>
     );
 }
@@ -118,24 +96,8 @@ function ActivityItem({ row }: { row: ActivityRow }) {
                 {formatMoneyWithCurrency(row.amount_cents, row.currency)}
             </span>
             <span className="w-12 shrink-0 text-right text-xs text-muted">
-                {formatRelativeTime(row.created_at)}
+                {formatRelativeTime(row.at)}
             </span>
-        </div>
-    );
-}
-
-function PayoutItem({ row }: { row: PayoutRow }) {
-    return (
-        <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
-            <span className="font-medium tabular-nums text-ink">
-                {formatMoneyWithCurrency(row.amount_cents, "CAD")}
-            </span>
-            <StatusPill status={row.status} intent={paymentStatusIntent(row.status)} />
-            {row.arrival_at !== null ? (
-                <span className="ml-auto shrink-0 text-xs text-muted">
-                    {formatMonthDay(parseTimestamp(row.arrival_at))}
-                </span>
-            ) : null}
         </div>
     );
 }

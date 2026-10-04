@@ -2,11 +2,15 @@ import {
     type GstHstReport,
     type IncomeReport,
     type T4ARow,
-    canManagePayments,
     defaultReportRange,
     formatMoney,
+    formatMoneyWithCurrency,
+    formatMonthDay,
+    parseTimestamp,
+    paymentStatusIntent,
     reportRangeForYear,
     strings,
+    useRecentPayouts,
     useReportDownload,
     useRemittanceAction,
     useReports,
@@ -23,25 +27,12 @@ import {
     View,
 } from "react-native";
 
+import { StatusBadge } from "../components/StatusBadge";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 const c = theme.colors;
 
 export function ReportsScreen() {
-    const role = useRole();
-
-    if (!canManagePayments(role)) {
-        return (
-            <View style={[styles.screen, styles.center]}>
-                <Text style={styles.muted}>{strings.reports.accessRestricted}</Text>
-            </View>
-        );
-    }
-    return <ReportsBody />;
-}
-
-function ReportsBody() {
     const [year, setYear] = useState(defaultReportRange().year);
     const range = reportRangeForYear(year);
     const { income, gstHst, t4a, error } = useReports(api, range);
@@ -128,7 +119,40 @@ function ReportsBody() {
                     </Card>
                 </>
             )}
+            <BankDeposits />
         </ScrollView>
+    );
+}
+
+function BankDeposits() {
+    const payouts = useRecentPayouts();
+    return (
+        <View style={styles.card}>
+            <Text style={styles.cardTitle}>{strings.reports.bankDeposits}</Text>
+            <Text style={styles.cardSub}>{strings.reports.bankDepositsSubtitle}</Text>
+            <View style={styles.cardBody}>
+                {payouts.length === 0 ? (
+                    <Text style={styles.muted}>{strings.reports.noBankDeposits}</Text>
+                ) : (
+                    payouts.map((row) => (
+                        <View key={row.id} style={styles.deposit}>
+                            <Text style={styles.lineValue}>
+                                {formatMoneyWithCurrency(row.amount_cents, "CAD")}
+                            </Text>
+                            <StatusBadge
+                                status={row.status}
+                                intent={paymentStatusIntent(row.status)}
+                            />
+                            {row.arrival_at !== null ? (
+                                <Text style={styles.arrival}>
+                                    {formatMonthDay(parseTimestamp(row.arrival_at))}
+                                </Text>
+                            ) : null}
+                        </View>
+                    ))
+                )}
+            </View>
+        </View>
     );
 }
 
@@ -335,4 +359,6 @@ const styles = StyleSheet.create({
     },
     remitBtnText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
     disabled: { opacity: 0.6 },
+    deposit: { flexDirection: "row", alignItems: "center", gap: 10 },
+    arrival: { color: c.muted, fontSize: 12, marginLeft: "auto" },
 });

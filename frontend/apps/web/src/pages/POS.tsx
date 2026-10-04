@@ -26,10 +26,9 @@ export function POS() {
     const { q, setQ, filtered } = useSearch(active, filterItems);
 
     return (
-        <div className="mx-auto flex h-full max-w-6xl gap-6 px-8 py-8">
+        <div className="flex gap-6">
             <section className="min-w-0 flex-1">
-                <h1 className="font-display text-2xl font-bold text-ink">{strings.pos.title}</h1>
-                <p className="mt-0.5 text-sm text-muted">{strings.pos.subtitle}</p>
+                <p className="text-sm text-muted">{strings.pos.subtitle}</p>
 
                 <div className="relative mt-5">
                     <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />

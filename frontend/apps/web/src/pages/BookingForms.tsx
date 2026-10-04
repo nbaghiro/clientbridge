@@ -34,9 +34,6 @@ export function BookingForms() {
     if (!canManagePayments(role)) {
         return (
             <div className="max-w-3xl">
-                <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.bookingForms.title}
-                </h1>
                 <p className="mt-1 text-sm text-muted">{strings.bookingForms.ownerAdminOnly}</p>
             </div>
         );
@@ -45,9 +42,6 @@ export function BookingForms() {
     return (
         <div className="max-w-3xl space-y-10">
             <div>
-                <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.bookingForms.title}
-                </h1>
                 <p className="mt-1 text-sm text-muted">{strings.bookingForms.intro}</p>
             </div>
             <FormsSection />

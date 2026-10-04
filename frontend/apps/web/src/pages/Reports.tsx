@@ -1,37 +1,24 @@
 import {
     type ReportRange,
     type T4ARow,
-    canManagePayments,
     defaultReportRange,
     formatMoney,
+    formatMoneyWithCurrency,
+    formatMonthDay,
+    parseTimestamp,
+    paymentStatusIntent,
     strings,
     useReportDownload,
     useRemittanceAction,
+    useRecentPayouts,
     useReports,
 } from "@clientbridge/app-core";
 import { useState } from "react";
 
+import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
-import { useRole } from "../lib/auth";
 
 export function Reports() {
-    const role = useRole();
-
-    if (!canManagePayments(role)) {
-        return (
-            <div className="mx-auto max-w-5xl px-8 py-8">
-                <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.reports.title}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.reports.accessRestricted}</p>
-            </div>
-        );
-    }
-
-    return <ReportsView />;
-}
-
-function ReportsView() {
     const [range, setRange] = useState<ReportRange>(defaultReportRange());
     const { income, gstHst, t4a, loading, error } = useReports(api, range);
     const {
@@ -48,13 +35,8 @@ function ReportsView() {
     });
 
     return (
-        <div className="mx-auto max-w-5xl px-8 py-8">
-            <header>
-                <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.reports.title}
-                </h1>
-                <p className="mt-0.5 text-sm text-muted">{strings.reports.subtitle}</p>
-            </header>
+        <div>
+            <p className="text-sm text-muted">{strings.reports.subtitle}</p>
 
             <div className="mt-6 flex flex-wrap items-end gap-4 rounded-lg border border-line bg-surface p-4">
                 <RangeField
@@ -236,6 +218,7 @@ function ReportsView() {
             {loading ? (
                 <p className="mt-4 text-xs text-muted">{strings.reports.loadingReports}</p>
             ) : null}
+            <BankDeposits />
         </div>
     );
 }
@@ -275,6 +258,40 @@ function Remittances() {
                 </ul>
             )}
         </div>
+    );
+}
+
+function BankDeposits() {
+    const payouts = useRecentPayouts();
+    return (
+        <section className="mt-8">
+            <h2 className="font-display text-lg font-semibold text-ink">
+                {strings.reports.bankDeposits}
+            </h2>
+            <p className="mt-0.5 text-sm text-muted">{strings.reports.bankDepositsSubtitle}</p>
+            {payouts.length === 0 ? (
+                <p className="mt-2 text-sm text-muted">{strings.reports.noBankDeposits}</p>
+            ) : (
+                <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
+                    {payouts.map((row) => (
+                        <div key={row.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                            <span className="font-medium tabular-nums text-ink">
+                                {formatMoneyWithCurrency(row.amount_cents, "CAD")}
+                            </span>
+                            <StatusPill
+                                status={row.status}
+                                intent={paymentStatusIntent(row.status)}
+                            />
+                            {row.arrival_at !== null ? (
+                                <span className="ml-auto shrink-0 text-xs text-muted">
+                                    {formatMonthDay(parseTimestamp(row.arrival_at))}
+                                </span>
+                            ) : null}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </section>
     );
 }
 

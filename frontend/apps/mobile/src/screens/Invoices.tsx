@@ -30,7 +30,7 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -44,7 +44,6 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { StatusBadge } from "../components/StatusBadge";
@@ -54,7 +53,7 @@ import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
 
-export function InvoicesScreen() {
+export function InvoicesScreen({ createToken }: { createToken?: number | undefined }) {
     const invoices = useInvoices();
     const estimates = useEstimates();
     const [tab, setTab] = useState<DocTab>("invoices");
@@ -68,16 +67,16 @@ export function InvoicesScreen() {
         ) => (InvoiceRow | EstimateRow)[],
     );
     const open = filtered.find((r) => r.id === openId) ?? null;
+    useEffect(() => {
+        if (createToken !== undefined) setCreating(true);
+    }, [createToken]);
 
     return (
-        <SafeAreaView style={styles.screen} edges={["top"]}>
+        <View style={styles.screen}>
             <View style={styles.header}>
-                <View>
-                    <Text style={styles.title}>{strings.invoices.title}</Text>
-                    <Text style={styles.count}>
-                        {strings.invoices.countSummary(invoices.length, estimates.length)}
-                    </Text>
-                </View>
+                <Text style={styles.count}>
+                    {strings.invoices.countSummary(invoices.length, estimates.length)}
+                </Text>
                 <Pressable
                     style={styles.add}
                     onPress={() => {
@@ -172,7 +171,7 @@ export function InvoicesScreen() {
                     }}
                 />
             ) : null}
-        </SafeAreaView>
+        </View>
     );
 }
 
