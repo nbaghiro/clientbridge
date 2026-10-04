@@ -21,7 +21,7 @@ Canadian tax built in. All user-facing copy is centralized in one place. The cus
 | Web | **React + Vite + Tailwind** (provider/admin app) |
 | Mobile | **React Native (Expo)** (provider/admin app) |
 | Customer | **React + Vite** (Connect — public, PowerSync-free, embeddable) |
-| Offline sync | **PowerSync** — on-device SQLite (web WASM/OPFS · Expo op-sqlite), WAL server-push, per-business Sync Rules; writes through FastAPI |
+| Offline sync | **PowerSync** — on-device SQLite (web WASM on IndexedDB · Expo op-sqlite), WAL server-push, per-business Sync Rules; writes through FastAPI |
 | Payments | **Stripe Connect** (Custom accounts, direct charges) + **Interac e-Transfer** + PAD/EFT |
 | Repo | **Polyglot monorepo** — backend (uv) + frontend (pnpm + turbo), one root Makefile |
 
@@ -258,14 +258,14 @@ generalize the rest.
 
 **Engine: PowerSync**, self-hosted next to Postgres. Topology = **PowerSync reads the Postgres WAL
 directly**; **writes always go through FastAPI** (server-authoritative). Chosen because it's the only engine
-that delivers, for this stack, *all of*: real offline SQLite on **both** web (WASM/OPFS) and Expo RN
+that delivers, for this stack, *all of*: real offline SQLite on **both** web (WASM) and Expo RN
 (op-sqlite), WAL-driven server-initiated push, and per-business partial replication — with no Node and
 minimal bespoke code. (ElectricSQL rejected: no offline SQLite on RN today. DIY rejected for v1: months of
 build + permanent maintenance.)
 
 ```
  Expo (op-sqlite) ─┐                            ┌── logical replication (WAL) ──┐
- Web (WASM/OPFS)   ─┤── WebSocket (read sync) ─► PowerSync Service ◄────────────┤ Postgres (source of truth)
+ Web (WASM)        ─┤── WebSocket (read sync) ─► PowerSync Service ◄────────────┤ Postgres (source of truth)
        ▲ reads local SQLite (offline-first)      (Sync Rules bucket by           │
        │                                           business_id + role, from JWT)  │
        └── local writes → uploadData() ─► FastAPI /sync/upload ─(authz+validate)─┘ writes
@@ -436,7 +436,7 @@ layer.** Only four things differ per platform:
 
 | Seam | web | mobile |
 |---|---|---|
-| **SQLite driver** | `@powersync/web` (OPFS + wa-sqlite, COOP/COEP) | `@powersync/op-sqlite` (native) |
+| **SQLite driver** | `@powersync/web` (wa-sqlite on IndexedDB; no cross-origin isolation, so Stripe.js loads) | `@powersync/op-sqlite` (native) |
 | **Token store** | localStorage (sync) + Web-Locks refresh | expo-secure-store (async), single-instance |
 | **Config source** | `import.meta.env` (Vite) | `Constants.expoConfig.extra` |
 | **Rendering** | DOM + Tailwind | RN + StyleSheet from the token theme |
