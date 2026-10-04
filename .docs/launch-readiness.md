@@ -1,15 +1,16 @@
 # Launch readiness
 
 What has to be built, fixed and checked by hand before Clientbridge takes paying customers. Groups run
-from the platform and the core of the product outward. Each ticket is written to paste into Linear or Jira
-as is: the heading is the title, the first line holds the fields, and the three lines below are the
-description.
+from the platform and the core of the product outward. Each group is an epic and each ticket is written to
+paste into Linear or Jira as is: the heading is the title, the first line holds the fields, and the lines
+below are the description. Every group starts with its own QA run, and group 13 is the final release pass.
 
-**Fields.** Status: Done (built and tested, needs a manual pass), Needs work (usable, with gaps), Not built.
+**Fields.** Status: Done (built and tested, needs a manual pass), Needs work (usable, with gaps), Not built,
+or To do for the final QA tickets.
 Priority: P0 before the first paying customer, P1 within the first month, P2 later. Size: S (up to two days),
 M (up to a week), L (more than a week). The label is the group code.
 
-**Summary.** 62 tickets: 26 Done, 15 Needs work, 21 Not built. 40 are P0, and 18 of those are still open.
+**Summary.** 62 product tickets: 26 Done, 15 Needs work, 21 Not built. 40 are P0, and 18 of those are still open. Group 13 adds 6 final QA tickets.
 
 | Group | Tickets | P0 open (Needs work or Not built) |
 |---|---|---|
@@ -25,10 +26,16 @@ M (up to a week), L (more than a week). The label is the group code.
 | MSG Messages and reviews | 5 | 2 |
 | APP Customer pages and apps | 6 | 1 |
 | WEB Marketing site | 4 | 3 |
+| QA Final QA round | 6 | 6 (all To do) |
 
 ---
 
 ## 1. PLT Platform and launch
+
+Group QA, runs on its own once the group's tickets are done.
+Setup: staging environment, access to the hosting account, the Stripe dashboard.
+Run: deploy a tagged build to staging, restore last night's backup into a scratch database, trigger one test error on each surface, scan the response headers, then take a $1 live charge and refund it.
+Done when: every PLT ticket passes on staging.
 
 ### PLT-1 Production hosting for the API, worker and front ends
 Status: Not built · Priority: P0 · Size: L · Label: PLT
@@ -70,6 +77,11 @@ QA: check muted text on Today and Clients with a contrast checker on web, iPhone
 
 ## 2. ACC Accounts and setup
 
+Group QA, runs on its own once the group's tickets are done.
+Setup: a fresh email address, a second browser, Stripe test keys.
+Run: sign up a new business, finish onboarding, switch tax on, set the colour and logo, complete Stripe onboarding, invite a staff member and accept in the second browser.
+Done when: the new business can take a card payment, and the staff member sees only what their role allows.
+
 ### ACC-1 Sign up, sign in, Google sign-in, password reset
 Status: Done · Priority: P0 · Size: S · Label: ACC
 Built: email and password, Google sign-in, rotating sessions, reset and verify emails.
@@ -109,6 +121,11 @@ QA: start onboarding, complete Stripe's test identity, and check status reads en
 ---
 
 ## 3. SCH Schedule and bookings
+
+Group QA, runs on its own once the group's tickets are done.
+Setup: the demo business, owner on web, staff on a phone, Stripe test keys.
+Run: set a staff member's hours, book online with a deposit, see it on the staff phone, move it, mark it completed and invoice it; book a second visit and mark it a no-show; create a weekly series.
+Done when: the deposit is applied on the first visit, kept on the no-show, and every visit shows on both devices.
 
 ### SCH-1 Working hours and closures
 Status: Needs work · Priority: P1 · Size: M · Label: SCH
@@ -156,6 +173,11 @@ QA: book for tomorrow, run the reminder job, check the message arrives with the 
 
 ## 4. CLI Clients
 
+Group QA, runs on its own once the group's tickets are done.
+Setup: the demo business, owner on web and a phone.
+Run: add a client on the phone, edit them on web, add a pet and a note, book the pet, tag two clients, archive a third.
+Done when: every change shows on both devices and nothing linked to the archived client is lost.
+
 ### CLI-1 Add and find clients
 Status: Done · Priority: P0 · Size: S · Label: CLI
 Built: add with name, email and phone; search; lifetime value for owners and admins.
@@ -196,6 +218,11 @@ QA (Stripe test keys): add card 4242 on mobile, make it default, then remove the
 
 ## 5. CAT Catalog
 
+Group QA, runs on its own once the group's tickets are done.
+Setup: the owner on web.
+Run: create one item of each kind (a service with a deposit and buffer, a class with capacity, a product, a package, a subscription, a gift card) and give each an image.
+Done when: each item appears where it is sold: booking page, Sales, the invoice editor and the client panel.
+
 ### CAT-1 Full item editor
 Status: Needs work · Priority: P0 · Size: M · Label: CAT
 Built: create services, classes, products, packages, subscriptions and gift cards with name, kind, price, duration and category.
@@ -211,6 +238,11 @@ QA: upload an image for a service and check it on the booking page and in Sales 
 ---
 
 ## 6. INV Invoices and estimates
+
+Group QA, runs on its own once the group's tickets are done.
+Setup: the demo business, Stripe test keys, a private window.
+Run: write an estimate, accept and convert it, send the invoice, record $20 cash, pay the rest through the pay link, open the PDF, refund part of the card payment.
+Done when: the invoice moves through Draft, Sent, Partial, Paid and the refund, and Today matches at each step.
 
 ### INV-1 Create and edit invoices and estimates
 Status: Done · Priority: P0 · Size: S · Label: INV
@@ -251,6 +283,11 @@ QA: discount a line 10%, add a $10 tip, check the total, the tax and the staff m
 ---
 
 ## 7. PAY Payments
+
+Group QA, runs on its own once the group's tickets are done.
+Setup: Stripe test keys, the Stripe test dashboard open, a real phone for Tap to Pay.
+Run: pay online with a good, a declined and a 3D Secure card, charge a saved card, tap a card on the phone, match an Interac transfer, refund part of a payment, open a test dispute.
+Done when: each payment's state, fee and payout match the Stripe dashboard.
 
 ### PAY-1 Card payments and saved cards
 Status: Done · Priority: P0 · Size: S · Label: PAY
@@ -298,6 +335,11 @@ QA: after a test payment, check the fee matches Stripe's dashboard and the payou
 
 ## 8. ENT Packages, subscriptions and gift cards
 
+Group QA, runs on its own once the group's tickets are done.
+Setup: the catalog items from CAT, Stripe test keys with a test clock.
+Run: sell a package and use a visit, run the expiry job on an expired package, start a subscription and advance the test clock a month, sell a gift card and redeem part of it.
+Done when: every balance shown in the app matches what was sold, used, expired or charged.
+
 ### ENT-1 Packages
 Status: Needs work · Priority: P0 · Size: S · Label: ENT
 Built: sell from the client panel or Sales, use a session per visit, expire with the unused balance booked as revenue.
@@ -319,6 +361,11 @@ QA: sell a $100 card, redeem $40 at checkout, check $60 remains.
 ---
 
 ## 9. MON Money and reports
+
+Group QA, runs on its own once the group's tickets are done.
+Setup: run this after the PAY and ENT groups so there is test money to check.
+Run: compare Today, the income report, the GST/HST report and the Stripe balance; record a GST return; approve and pay one staff earning; download the T4A.
+Done when: all four money figures agree to the cent and the GST set aside drops by the amount filed.
 
 ### MON-1 Ledger accuracy
 Status: Done · Priority: P0 · Size: S · Label: MON
@@ -347,6 +394,11 @@ QA: complete and invoice a booking, pay it, approve and mark the earning paid; c
 ---
 
 ## 10. MSG Messages and reviews
+
+Group QA, runs on its own once the group's tickets are done.
+Setup: two test phones or the text provider's test numbers, two businesses sharing one client phone number.
+Run: text a client and reply, broadcast to a tag where one client unsubscribed and one replied STOP, request two reviews and leave one low and one high rating.
+Done when: replies reach only the right business, opted-out clients get nothing, and the low rating waits for approval.
 
 ### MSG-1 Inbox
 Status: Done · Priority: P0 · Size: S · Label: MSG
@@ -381,6 +433,11 @@ QA: send a template to two clients and check each gets their own details.
 ---
 
 ## 11. APP Customer pages and apps
+
+Group QA, runs on its own once the group's tickets are done.
+Setup: TestFlight and Play internal builds, one iPhone and one Android phone.
+Run: install both apps, sign in, add a note offline and reconnect, receive a push for a new online booking, upload a service image, sign a contract on the phone.
+Done when: every step works on both phones.
 
 ### APP-1 Public pay, form, contract and review pages
 Status: Done · Priority: P0 · Size: S · Label: APP
@@ -422,6 +479,11 @@ QA: book online and check the staff member's phone gets a notification.
 
 ## 12. WEB Marketing site
 
+Group QA, runs on its own once the group's tickets are done.
+Setup: the built site, a laptop and a phone.
+Run: open every page at both widths, follow every button and link, search the pages for "[" placeholders, then use Start free to create an account.
+Done when: no broken links, no placeholders, and Start free ends in a working account.
+
 ### WEB-1 Pages and quality checks
 Status: Done · Priority: P0 · Size: S · Label: WEB
 Built: home, features, solutions and eight trade pages, pricing, legal, credits; static pages with content, accessibility, link and Lighthouse checks in CI.
@@ -448,21 +510,44 @@ QA: from the live site, Start free creates an account and Sign in reaches the ap
 
 ---
 
-## Manual QA plan
+## 13. QA Final QA round
 
-**Setup.** Use the staging environment once PLT-1 is done, and the local stack until then. Stripe in test
-mode with the demo business connected (PLT-5). One owner login (hannah@birchbarkpets.ca) and one staff
-login (priya@birchbarkpets.ca), password demo1234. Devices: Chrome and Safari on a laptop, one iPhone, one
-Android phone.
+The release pass, run once every P0 ticket is Done and its group QA has passed. It checks the product as
+customers and staff will use it, across devices, rather than one feature at a time.
 
-**Order.** Run the groups in this order, since later ones depend on earlier ones: ACC, CAT, CLI, SCH, INV,
-PAY, ENT, MON, MSG, APP, WEB. PLT is checked once on staging.
+Setup: staging (PLT-1) with Stripe in test mode and the demo business connected (PLT-5). Logins: owner
+hannah@birchbarkpets.ca and staff priya@birchbarkpets.ca, password demo1234. Devices: Chrome and Safari on
+a laptop, one iPhone and one Android phone with the store builds (APP-3).
 
-**Each ticket.** Do the QA line as written, on web first, then on iPhone and Android where the feature
-exists there. Repeat any money step as the staff login to check it is either allowed or refused, as the
-ticket says.
+Logging a failure: open a bug linked to the ticket being tested, with the step, what happened, what should
+have happened, the device and a screenshot. Any P0 bug blocks QA-6.
 
-**Logging a failure.** Open a bug linked to the ticket: the step, what happened, what should have happened,
-the device, and a screenshot. A P0 ticket isn't done until its QA line passes on every device it applies to.
+### QA-1 Owner day on web
+Status: To do · Priority: P0 · Size: M · Label: QA
+Run: start at Today, check the schedule, take a walk-in booking, invoice two visits, take payment by pay link and saved card, sell a gift card and a package, refund one payment, record the day's numbers.
+Pass: every step works without a workaround and Today matches the payments taken.
 
-**Exit.** Launch when every P0 ticket is Done and has passed QA, and no P0 bug is open.
+### QA-2 Staff day on a phone
+Status: To do · Priority: P0 · Size: M · Label: QA
+Run: sign in as staff on iPhone, then Android; check the day's bookings, move one, add a client note, collect a deposit on your own booking, ring up a Tap to Pay sale.
+Pass: staff can do their own work and can't open other staff, settings or money screens.
+
+### QA-3 Client side
+Status: To do · Priority: P0 · Size: S · Label: QA
+Run: on a phone in a private browser, book online with a deposit, fill in the intake form, sign the contract, pay an invoice by card and by Interac, leave a review.
+Pass: each page is branded, works on a phone and lands in the business's app within a minute.
+
+### QA-4 Money reconciliation
+Status: To do · Priority: P0 · Size: S · Label: QA
+Run: after QA-1 to QA-3, compare Today, the income report, the GST/HST report, staff pay and the Stripe test balance.
+Pass: the figures agree to the cent.
+
+### QA-5 Devices, offline and sync
+Status: To do · Priority: P0 · Size: S · Label: QA
+Run: make the same change on web and on a phone at once, then put the phone in airplane mode, make changes, and reconnect.
+Pass: both devices end up with the same data and nothing is lost or duplicated.
+
+### QA-6 Launch sign-off
+Status: To do · Priority: P0 · Size: S · Label: QA
+Run: confirm every P0 ticket is Done, every group QA passed, QA-1 to QA-5 passed, and no P0 bug is open.
+Pass: both founders sign off.
