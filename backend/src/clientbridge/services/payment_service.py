@@ -84,8 +84,8 @@ class PaymentService:
                 apply_account_status(business, await self.gateway.get_account(account_id))
             url = await self.gateway.create_account_link(
                 account_id,
-                refresh_url=f"{settings.web_base_url}/settings/payments?refresh=1",
-                return_url=f"{settings.web_base_url}/settings/payments?done=1",
+                refresh_url=f"{settings.web_base_url}/setup/getting-paid?refresh=1",
+                return_url=f"{settings.web_base_url}/setup/getting-paid?done=1",
             )
             cmd.record("connect.onboard", entity_type="business", entity_id=business.id)
             return OnboardingLink(url=url, charges_enabled=business.stripe_charges_enabled)

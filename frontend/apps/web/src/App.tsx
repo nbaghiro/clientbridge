@@ -6,7 +6,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
 import { Login } from "./components/Login";
-import { Logo } from "./components/icons";
+import { Logo } from "@clientbridge/ui";
 import { api, onSignedOut } from "./lib/api";
 import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";

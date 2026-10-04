@@ -1,0 +1,31 @@
+{
+    "name": "site",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "node scripts/art.ts && vite",
+        "build": "tsc --noEmit && node scripts/art.ts && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && node scripts/prerender.ts",
+        "preview": "vite preview",
+        "lint": "eslint .",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run --passWithNoTests"
+    },
+    "dependencies": {
+        "@clientbridge/app-core": "workspace:*",
+        "@clientbridge/tokens": "workspace:*",
+        "@clientbridge/ui": "workspace:*",
+        "react": "19.2.3",
+        "react-dom": "19.2.3"
+    },
+    "devDependencies": {
+        "@clientbridge/config": "workspace:*",
+        "@tailwindcss/vite": "^4.3.3",
+        "@types/node": "^24.0.0",
+        "@types/react": "~19.2.0",
+        "@types/react-dom": "~19.2.0",
+        "@vitejs/plugin-react": "^6.1.1",
+        "tailwindcss": "^4.3.3",
+        "vite": "^8.3.2",
+        "vitest": "^5.0.3"
+    }
+}

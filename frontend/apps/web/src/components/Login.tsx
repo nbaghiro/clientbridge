@@ -4,7 +4,9 @@ import { type SubmitEvent } from "react";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 import { BrandBackdrop, resolveVariant } from "./BrandBackdrop";
-import { GoogleIcon, Lockup } from "./icons";
+import { Lockup } from "@clientbridge/ui";
+
+import { GoogleIcon } from "./icons";
 
 const backdrop = resolveVariant(new URLSearchParams(window.location.search).get("bg"));
 

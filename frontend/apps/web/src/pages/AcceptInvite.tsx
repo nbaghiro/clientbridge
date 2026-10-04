@@ -1,7 +1,7 @@
 import { strings, useAcceptInviteForm } from "@clientbridge/app-core";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { Lockup } from "../components/icons";
+import { Lockup } from "@clientbridge/ui";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 

@@ -1,6 +1,7 @@
 import { DESTINATIONS, type DestinationKey, strings } from "@clientbridge/app-core";
 import type { ComponentType } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { Lockup } from "@clientbridge/ui";
 
 import {
     IconCalendar,
@@ -10,7 +11,6 @@ import {
     IconLogout,
     IconSettings,
     IconToday,
-    Lockup,
 } from "./icons";
 
 const DESTINATION_WEB: Record<

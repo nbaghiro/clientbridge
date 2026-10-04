@@ -174,7 +174,7 @@ Read local, write via command/sync — the server is the source of truth; client
 ## Local development
 
 ### Ports — the 87xx block
-Clientbridge claims **8700–8709** so it runs simultaneously with sibling projects in `~/Documents/code`.
+Clientbridge claims **8700–8710** so it runs simultaneously with sibling projects in `~/Documents/code`.
 Container-internal ports stay conventional; only host mappings use 87xx.
 
 | Port | Service | Container | Set in |
@@ -188,6 +188,7 @@ Container-internal ports stay conventional; only host mappings use 87xx.
 | **8707** | Expo / Metro (mobile) | — | `make dev-mobile` |
 | **8708** | stripe-mock (contract tests only) | 12111 | docker-compose `profiles:[test]` |
 | **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
+| **8710** | Marketing site (Vite, static build) | — | `apps/site` vite (strictPort) · `make dev-site` |
 
 ### Bring-up
 ```

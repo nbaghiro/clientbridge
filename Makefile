@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install stripe-listen dev-api dev-web dev-connect dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
+.PHONY: help up down logs-sync install web-install stripe-listen dev-api dev-web dev-connect dev-site build-site dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -8,6 +8,8 @@ help:
 	@echo "dev-api        run FastAPI on :8701 (reload)"
 	@echo "dev-web        run web (Vite) on :8700"
 	@echo "dev-connect    run Connect customer app (Vite) on :8709"
+	@echo "dev-site       run the marketing site (Vite) on :8710"
+	@echo "build-site     build the marketing site to static HTML in frontend/apps/site/dist"
 	@echo "dev-mobile     run mobile (Expo/Metro) on :8707"
 	@echo "migrate        alembic upgrade head"
 	@echo "revision       alembic autogenerate         (name=...)"
@@ -61,6 +63,12 @@ dev-web:
 
 dev-connect:
 	cd frontend && pnpm --filter connect dev
+
+dev-site:
+	cd frontend && pnpm --filter site dev
+
+build-site:
+	cd frontend && pnpm --filter site build
 
 dev-mobile:
 	cd frontend && pnpm --filter mobile start -- --port 8707

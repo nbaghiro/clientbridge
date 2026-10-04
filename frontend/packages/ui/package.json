@@ -6,7 +6,8 @@
     "main": "./src/index.ts",
     "sideEffects": false,
     "exports": {
-        ".": "./src/index.ts"
+        ".": "./src/index.ts",
+        "./logo": "./src/Logo.tsx"
     },
     "scripts": {
         "typecheck": "tsc --noEmit"

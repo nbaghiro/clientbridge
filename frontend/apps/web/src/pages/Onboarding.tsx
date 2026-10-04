@@ -1,7 +1,7 @@
 import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 
-import { Lockup, Logo } from "../components/icons";
+import { Lockup, Logo } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 /** Create-your-business step: shown to an authenticated user who has no business yet (right after

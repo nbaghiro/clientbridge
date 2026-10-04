@@ -14,5 +14,6 @@ export * from "./domain/publicBrand";
 export * from "./util/datetime";
 export * from "./util/format";
 export { strings } from "./strings";
+export { LOGO } from "./icons";
 export { useAsyncAction } from "./hooks/useAsyncAction";
 export type { Intent } from "./util/primitives";

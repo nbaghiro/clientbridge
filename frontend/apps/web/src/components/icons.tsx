@@ -1,10 +1,4 @@
-import {
-    type IconName,
-    type IconPrimitive,
-    ICON_SPECS,
-    LOGO,
-    strings,
-} from "@clientbridge/app-core";
+import { type IconName, type IconPrimitive, ICON_SPECS } from "@clientbridge/app-core";
 import type { ReactNode } from "react";
 
 function prims(name: IconName): ReactNode {
@@ -78,46 +72,6 @@ export const IconLogout = ({ className }: { className?: string }) => (
 export const IconSettings = ({ className }: { className?: string }) => (
     <Icon name="settings" className={className} />
 );
-
-export function Logo({ className, height }: { className?: string; height?: string }) {
-    return (
-        <svg
-            viewBox={LOGO.viewBox}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={LOGO.strokeWidth}
-            strokeLinecap="round"
-            className={className}
-            style={{ aspectRatio: LOGO.aspect, height }}
-            aria-hidden="true"
-        >
-            {LOGO.paths.map((d) => (
-                <path key={d} d={d} />
-            ))}
-        </svg>
-    );
-}
-
-export function Lockup({
-    className,
-    markClassName = "text-accent",
-}: {
-    className?: string;
-    markClassName?: string;
-}) {
-    return (
-        <div
-            className={`flex items-center font-bold tracking-tight ${className ?? ""}`}
-            style={{ gap: LOGO.gap }}
-        >
-            <Logo
-                className={`w-auto ${markClassName}`}
-                height={`${String(LOGO.heightPerFontSize)}em`}
-            />
-            <span>{strings.common.appName}</span>
-        </div>
-    );
-}
 
 export function GoogleIcon({ className }: { className?: string }) {
     return (
