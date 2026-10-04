@@ -8,7 +8,7 @@ from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.crm import Client
 from clientbridge.models.platform import Device
-from clientbridge.models.reviews import ReviewRequest
+from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.billing_service import estimate_status
@@ -204,10 +204,8 @@ async def test_review_requests_for_recently_completed(
     notifier = _notifier(email, sms, push)
 
     assert await run_review_requests(db, notifier, NOW) == 1
-    req = (
-        await db.execute(select(ReviewRequest).where(ReviewRequest.booking_id == bid))
-    ).scalar_one()
-    assert req.status == "sent" and req.token
+    req = (await db.execute(select(Review).where(Review.booking_id == bid))).scalar_one()
+    assert req.status == "requested" and req.token
     assert any(m.to == "rev-job@example.ca" for m in email.sent)
     assert await run_review_requests(db, notifier, NOW) == 0  # any existing request dedups
 

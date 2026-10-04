@@ -40,7 +40,6 @@ PREFIXES: dict[str, str] = {
     "contract": "con",
     "signature": "sig",
     "review": "rv",
-    "review_request": "rvr",
     "file": "fl",
     "audit": "aud",
     "device": "dvt",

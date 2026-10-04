@@ -21,7 +21,7 @@ from clientbridge.models.documents import Contract, Form, FormResponse, Signatur
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
-from clientbridge.models.reviews import ReviewRequest
+from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.lines import LineParent, fetch_lines, tax_breakdown
@@ -450,16 +450,16 @@ class Notifier:
         subject, body = _booking_canceled(business.name, f"{local:%Y-%m-%d at %H:%M}")
         await self._to_client(db, booking.client_id, subject, body)
 
-    async def on_review_requested(self, db: AsyncSession, review_request_id: str) -> None:
-        request = await db.get(ReviewRequest, review_request_id)
-        if request is None:
+    async def on_review_requested(self, db: AsyncSession, review_id: str) -> None:
+        review = await db.get(Review, review_id)
+        if review is None or review.token is None:
             return
-        business = await db.get(Business, request.business_id)
+        business = await db.get(Business, review.business_id)
         if business is None:
             return
-        link = f"{get_settings().connect_base_url}/review/{request.token}"
+        link = f"{get_settings().connect_base_url}/review/{review.token}"
         subject, body = _review_requested(business.name, link)
-        await self._to_client(db, request.client_id, subject, body)
+        await self._to_client(db, review.client_id, subject, body)
 
     async def on_form_sent(self, db: AsyncSession, form_response_id: str) -> None:
         response = await db.get(FormResponse, form_response_id)

@@ -477,6 +477,8 @@ export const strings = {
         ratingLoadError: "Couldn't load your rating.",
         noPublishedReviews: "No published reviews yet.",
         publishedCount: (count: number) => `${count} published review${count === 1 ? "" : "s"}`,
+        awaitingCount: (count: number) =>
+            `${count} request${count === 1 ? "" : "s"} waiting for a reply`,
         clientFallback: "Client",
         yourReply: "Your reply",
         replyPlaceholder: "Write a public reply…",

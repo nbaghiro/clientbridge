@@ -779,12 +779,16 @@ const reviews = new Table(
     {
         client_id: column.text,
         booking_id: column.text,
+        channel: column.text,
+        token: column.text,
+        status: column.text,
+        requested_at: column.text,
+        submitted_at: column.text,
         rating: column.integer,
         body: column.text,
         response: column.text,
         responded_at: column.text,
         sent_to_google: column.integer,
-        status: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -793,28 +797,7 @@ const reviews = new Table(
         indexes: {
             reviews_business_id: ["business_id"],
             reviews_status_created: ["business_id", "status", "created_at"],
-        },
-    },
-);
-
-const review_requests = new Table(
-    {
-        client_id: column.text,
-        booking_id: column.text,
-        channel: column.text,
-        token: column.text,
-        status: column.text,
-        sent_at: column.text,
-        review_id: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            review_requests_business_id: ["business_id"],
-            review_requests_status: ["business_id", "status"],
-            uq_review_requests_open_booking: ["business_id", "booking_id"],
+            uq_reviews_open_booking: ["business_id", "booking_id"],
         },
     },
 );
@@ -853,7 +836,6 @@ export const AppSchema = new Schema({
     payments,
     payment_methods,
     reviews,
-    review_requests,
 });
 
 export type Database = (typeof AppSchema)["types"];

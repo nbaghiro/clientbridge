@@ -73,8 +73,8 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     # computed split amounts/status are server-authoritative (Stripe webhooks + the payout job).
     # broadcasts are NOT sync-writable: composing + sending is the audited `/v1/broadcasts` command,
     # so a client can't sync-write a `scheduled` row for the cron job to blast.
-    # reviews + review_requests are NOT sync-writable: the request token is a server-minted secret
-    # and the review/request status lifecycle is command- + public-token-authoritative (request
+    # reviews are NOT sync-writable: the request token is a server-minted secret
+    # and the review status lifecycle is command- + public-token-authoritative (request
     # command, public submission, moderation commands), so a client can't forge a review link or
     # publish/hide a review by syncing a row.
 }

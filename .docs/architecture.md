@@ -146,7 +146,7 @@ its own business + locale; each is idempotent via a status/timestamp marker and 
 
 ## The data model
 
-**42 tables**: **40 across the 11 domains** plus **2 server-only auth-infra** tables (`sessions`,
+**41 tables**: **39 across the 11 domains** plus **2 server-only auth-infra** tables (`sessions`,
 `tokens`). Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
@@ -179,7 +179,7 @@ shown after it.
 `sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
 `rs_`resources `sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
 `pm_`payment_methods `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
-· `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rv_`reviews `rvr_`review_requests
+· `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rv_`reviews (requests merged in from the old `review_requests` keep `rvr_`)
 · `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `ase_`sessions `atk_`tokens
 
 ### Tables by domain
@@ -241,8 +241,13 @@ count, inbound messages not yet `read`, are read from `messages`), `messages` (d
 `answers` JSONB), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
 `ip`; links a signature image file).
 
-**reviews (2)** — `reviews` (rating 1–5 CHECK; `sent_to_google`; rolls up to `businesses.avg_rating`),
-`review_requests` (unique token; partial-unique one open request per booking).
+**reviews (1)** — `reviews` (one row per review from request to moderation: status
+requested → opened → submitted → published/hidden; `channel` and the unique public-link `token` when a
+request was sent, `requested_at`/`submitted_at`; `rating` 1–5 and `body` stay null until submitted, with a
+CHECK that a submitted review has a rating; partial-unique one open request per booking; `sent_to_google`;
+the published average comes from `GET /v1/reviews/summary`). A review submitted on the public page is
+published straight away, so `submitted` (a review held for moderation) is reached today only by reviews
+that were `pending` before the merge.
 
 **platform (5)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (append-only
 activity feed; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;

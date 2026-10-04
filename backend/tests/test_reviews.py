@@ -10,7 +10,7 @@ from clientbridge.core.ratelimit import RateLimiter, public_review_rate_limit
 from clientbridge.main import app
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
-from clientbridge.models.reviews import Review, ReviewRequest
+from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.review_service import build_review_request
 from tests.conftest import Factory, FakeEmailSender
@@ -104,6 +104,7 @@ async def _a_request(db: AsyncSession, *, booking_id: str | None = None) -> str:
     request = build_review_request(BIZ, await _client_id(db), booking_id, NOW)
     db.add(request)
     await db.flush()
+    assert request.token
     return request.token
 
 
@@ -114,11 +115,9 @@ async def test_request_creates_request_and_notifies(
     res = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
     assert res.status_code == 201, res.text
     body = res.json()
-    assert body["status"] == "sent" and body["token"]
-    row = (
-        await db.execute(select(ReviewRequest).where(ReviewRequest.id == body["id"]))
-    ).scalar_one()
-    assert row.business_id == BIZ and row.sent_at is not None
+    assert body["status"] == "requested" and body["token"]
+    row = (await db.execute(select(Review).where(Review.id == body["id"]))).scalar_one()
+    assert row.business_id == BIZ and row.requested_at is not None and row.rating is None
     assert any(f"/review/{body['token']}" in m.body for m in email.sent)
 
 
@@ -158,12 +157,27 @@ async def test_public_submit_creates_published_review(
     res = await api.post(f"/review/{token}", json={"rating": 5, "body": "Great!"})
     assert res.status_code == 200, res.text
     assert res.json()["completed"] is True and res.json()["rating"] == 5
-    request = (
-        await db.execute(select(ReviewRequest).where(ReviewRequest.token == token))
-    ).scalar_one()
-    assert request.status == "completed" and request.review_id is not None
-    review = (await db.execute(select(Review).where(Review.id == request.review_id))).scalar_one()
+    review = (await db.execute(select(Review).where(Review.token == token))).scalar_one()
     assert review.status == "published" and review.rating == 5 and review.booking_id == bid
+    assert review.submitted_at is not None
+
+
+async def test_public_get_marks_the_request_opened(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _a_request(db)
+    assert (await api.get(f"/review/{token}")).status_code == 200
+    review = (await db.execute(select(Review).where(Review.token == token))).scalar_one()
+    await db.refresh(review)
+    assert review.status == "opened" and review.rating is None
+
+
+async def test_moderation_ignores_a_review_not_yet_submitted(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _a_request(db)
+    review_id = (await db.execute(select(Review.id).where(Review.token == token))).scalar_one()
+    assert (await as_owner.post(f"/v1/reviews/{review_id}/publish")).status_code == 404
 
 
 async def test_public_second_submit_409(api: httpx.AsyncClient, db: AsyncSession) -> None:

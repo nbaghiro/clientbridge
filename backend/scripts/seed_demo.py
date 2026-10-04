@@ -40,7 +40,7 @@ from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, File, Webhook
-from clientbridge.models.reviews import Review, ReviewRequest
+from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import (
     Addon,
     Booking,
@@ -1559,6 +1559,10 @@ def seed_reviews(owner: str) -> None:
                 business_id=BIZ,
                 client_id=client,
                 booking_id=bk,
+                channel="sms",
+                token=f"rev_tok_{k}",
+                requested_at=at(-16 + k, 18),
+                submitted_at=at(-16 + k, 20),
                 rating=rating,
                 body=body,
                 response="Thank you so much — we'll look into the parking/wait!"
@@ -1569,31 +1573,18 @@ def seed_reviews(owner: str) -> None:
                 status="published",
             )
         )
-        rows.append(
-            ReviewRequest(
-                id=f"rvr_{k}",
-                business_id=BIZ,
-                client_id=client,
-                booking_id=bk,
-                channel="sms",
-                token=f"rev_tok_{k}",
-                status="completed",
-                sent_at=at(-16 + k, 18),
-                review_id=f"rv_{k}",
-            )
-        )
-    # a couple of pending requests with no review yet (standalone — not tied to a booking)
+    # a couple of requests not answered yet (standalone — not tied to a booking)
     for k, client in enumerate(["cl_ethan", "cl_priscilla"]):
         rows.append(
-            ReviewRequest(
-                id=f"rvr_p_{k}",
+            Review(
+                id=f"rv_p_{k}",
                 business_id=BIZ,
                 client_id=client,
                 booking_id=None,
                 channel="email",
                 token=f"rev_tok_p_{k}",
-                status="sent" if k == 0 else "opened",
-                sent_at=at(-4 + k, 18),
+                status="requested" if k == 0 else "opened",
+                requested_at=at(-4 + k, 18),
             )
         )
 
@@ -2148,6 +2139,7 @@ def seed_coverage() -> None:
     rows.append(
         Review(
             id="rv_low",
+            submitted_at=at(-7, 18),
             business_id=BIZ,
             client_id="cl_david",
             booking_id="bk_008",
@@ -2162,6 +2154,7 @@ def seed_coverage() -> None:
     rows.append(
         Review(
             id="rv_hidden",
+            submitted_at=at(-5, 18),
             business_id=BIZ,
             client_id="cl_olivia",
             booking_id="bk_refund",
@@ -2207,7 +2200,6 @@ INSERT_ORDER = [
     Line,
     Payment,
     Review,
-    ReviewRequest,
     File,
     Audit,
     Webhook,

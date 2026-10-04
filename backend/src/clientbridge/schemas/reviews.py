@@ -18,8 +18,7 @@ class ReviewRequestOut(BaseModel):
     channel: str
     status: str
     token: str
-    sent_at: datetime | None
-    review_id: str | None
+    requested_at: datetime | None
 
 
 class ReviewOut(BaseModel):
@@ -27,12 +26,14 @@ class ReviewOut(BaseModel):
     business_id: str
     client_id: str
     booking_id: str | None
-    rating: int
+    rating: int | None
     body: str | None
     response: str | None
     responded_at: datetime | None
     sent_to_google: bool
     status: str
+    requested_at: datetime | None
+    submitted_at: datetime | None
 
 
 class ReviewRespond(BaseModel):

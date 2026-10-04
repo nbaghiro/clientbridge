@@ -67,7 +67,7 @@ async def test_review_is_requested_submitted_answered_and_hidden(
     cid = await _client(api, email="review-flow@example.ca")
     summary = ok(await api.get("/v1/reviews/summary")).json()
     request = ok(await api.post("/v1/reviews/request", json={"client_id": cid}), 201).json()
-    assert request["status"] == "sent"
+    assert request["status"] == "requested"
     assert any(f"/review/{request['token']}" in m.body for m in email.sent)
 
     page = ok(await api.get(f"/review/{request['token']}")).json()

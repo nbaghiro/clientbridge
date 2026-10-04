@@ -6,6 +6,7 @@ import {
     reviewStatusIntent,
     roundedRating,
     strings,
+    useAwaitingReviews,
     useClients,
     useRequestReviewForm,
     useReviewActions,
@@ -26,6 +27,7 @@ export function ReviewsScreen() {
     const [reloadKey, setReloadKey] = useState(0);
     const summary = useReviewSummary(api, reloadKey);
     const reviews = useReviews();
+    const awaiting = useAwaitingReviews();
     const [requesting, setRequesting] = useState(false);
 
     const refreshSummary = (): void => {
@@ -62,6 +64,9 @@ export function ReviewsScreen() {
                             </>
                         )}
                     </View>
+                    {awaiting > 0 ? (
+                        <Text style={styles.muted}>{strings.reviews.awaitingCount(awaiting)}</Text>
+                    ) : null}
                     {requesting ? (
                         <RequestReview
                             onClose={() => {

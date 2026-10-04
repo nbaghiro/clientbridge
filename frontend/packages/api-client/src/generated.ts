@@ -3457,7 +3457,7 @@ export interface components {
             /** Booking Id */
             booking_id: string | null;
             /** Rating */
-            rating: number;
+            rating: number | null;
             /** Body */
             body: string | null;
             /** Response */
@@ -3468,6 +3468,10 @@ export interface components {
             sent_to_google: boolean;
             /** Status */
             status: string;
+            /** Requested At */
+            requested_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
         };
         /** ReviewRequestCreate */
         ReviewRequestCreate: {
@@ -3492,10 +3496,8 @@ export interface components {
             status: string;
             /** Token */
             token: string;
-            /** Sent At */
-            sent_at: string | null;
-            /** Review Id */
-            review_id: string | null;
+            /** Requested At */
+            requested_at: string | null;
         };
         /** ReviewRespond */
         ReviewRespond: {

@@ -76,4 +76,3 @@ bucket_definitions:
       - SELECT * FROM accounts           WHERE business_id = bucket.business_id
       - SELECT * FROM entries            WHERE business_id = bucket.business_id
       - SELECT * FROM reviews            WHERE business_id = bucket.business_id
-      - SELECT * FROM review_requests    WHERE business_id = bucket.business_id

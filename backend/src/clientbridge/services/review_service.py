@@ -11,7 +11,7 @@ from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.crm import Client
-from clientbridge.models.reviews import Review, ReviewRequest
+from clientbridge.models.reviews import REVIEW_OPEN, REVIEW_SUBMITTED, Review
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.reviews import (
     ReviewOut,
@@ -21,23 +21,21 @@ from clientbridge.schemas.reviews import (
 )
 from clientbridge.services.notification_service import Notifier
 
-_OPEN = ("sent", "opened")
-
 
 def build_review_request(
     business_id: str, client_id: str, booking_id: str | None, now: datetime
-) -> ReviewRequest:
-    """A fresh, sent review request with a unique opaque token — shared by the request command and
-    the dispatch job so both mint identical, principal-less rows."""
-    return ReviewRequest(
-        id=new_id("review_request"),
+) -> Review:
+    """A requested review with a unique opaque token — shared by the request command and the
+    dispatch job so both mint identical, principal-less rows."""
+    return Review(
+        id=new_id("review"),
         business_id=business_id,
         client_id=client_id,
         booking_id=booking_id,
         channel="email",
         token=secrets.token_urlsafe(16),
-        status="sent",
-        sent_at=now,
+        status="requested",
+        requested_at=now,
     )
 
 
@@ -65,7 +63,7 @@ class ReviewService:
                 await self.db.flush()  # the partial unique index backstops a concurrent request
             except IntegrityError as exc:
                 raise Conflict("a review request for that booking is already open") from exc
-            cmd.record("review.request", entity_type="review_request", entity_id=request.id)
+            cmd.record("review.request", entity_type="review", entity_id=request.id)
             # Inside the command so a same-key retry replays the response without re-notifying.
             await notify.on_review_requested(self.db, request.id)
             return _request_out(request)
@@ -164,8 +162,8 @@ class ReviewService:
     async def _assert_no_open_request(self, booking_id: str) -> None:
         existing = (
             await self.db.execute(
-                scoped(ReviewRequest, self.biz)
-                .where(ReviewRequest.booking_id == booking_id, ReviewRequest.status.in_(_OPEN))
+                scoped(Review, self.biz)
+                .where(Review.booking_id == booking_id, Review.status.in_(REVIEW_OPEN))
                 .limit(1)
             )
         ).scalar_one_or_none()
@@ -174,14 +172,19 @@ class ReviewService:
 
     async def _review(self, review_id: str) -> Review:
         row = (
-            await self.db.execute(scoped(Review, self.biz).where(Review.id == review_id))
+            await self.db.execute(
+                scoped(Review, self.biz).where(
+                    Review.id == review_id, Review.status.in_(REVIEW_SUBMITTED)
+                )
+            )
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("review not found")
         return row
 
 
-def _request_out(request: ReviewRequest) -> ReviewRequestOut:
+def _request_out(request: Review) -> ReviewRequestOut:
+    assert request.channel is not None and request.token is not None
     return ReviewRequestOut(
         id=request.id,
         business_id=request.business_id,
@@ -190,8 +193,7 @@ def _request_out(request: ReviewRequest) -> ReviewRequestOut:
         channel=request.channel,
         status=request.status,
         token=request.token,
-        sent_at=request.sent_at,
-        review_id=request.review_id,
+        requested_at=request.requested_at,
     )
 
 
@@ -207,4 +209,6 @@ def _review_out(review: Review) -> ReviewOut:
         responded_at=review.responded_at,
         sent_to_google=review.sent_to_google,
         status=review.status,
+        requested_at=review.requested_at,
+        submitted_at=review.submitted_at,
     )

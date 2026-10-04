@@ -548,6 +548,8 @@ function seed(): void {
             sent_to_google: 0,
             status: "published",
         },
+        { id: "rv_asked", client_id: "cl_ann", sent_to_google: 0, status: "requested" },
+        { id: "rv_seen", client_id: "cl_ann", sent_to_google: 0, status: "opened" },
     ]);
     scoped("forms", [
         { id: "frm_b", name: "beta", require_signature: 0, active: 1 },
@@ -933,6 +935,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(pick(run("REVIEWS_SQL"), "id", "rating", "client_name")).toEqual([
             { id: "rv_1", rating: 5, client_name: "Ann" },
         ]);
+        expect(run("AWAITING_REVIEWS_SQL")).toEqual([{ n: 2 }]);
     });
 
     it("reads the team, the viewer and staff pay", () => {

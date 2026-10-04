@@ -188,7 +188,7 @@ async def lapse(db: AsyncSession, model: type[GiftCard] | type[Package], row_id:
 async def review_id(db: AsyncSession, token: str) -> str:
     found = (
         await db.execute(
-            text("SELECT review_id FROM review_requests WHERE token = :t"), {"t": token}
+            text("SELECT id FROM reviews WHERE token = :t AND rating IS NOT NULL"), {"t": token}
         )
     ).scalar_one()
     assert found

@@ -27,6 +27,8 @@ REFUSED = [
     "UPDATE payments SET method = 'eft' WHERE id = (SELECT min(id) FROM payments)",
     "UPDATE payments SET kind = 'refund' WHERE parent_payment_id IS NULL",
     "UPDATE payments SET order_id = (SELECT min(id) FROM orders) WHERE invoice_id IS NOT NULL",
+    "UPDATE reviews SET rating = NULL WHERE status = 'published'",
+    "UPDATE reviews SET status = 'submitted' WHERE rating IS NULL",
     "UPDATE lines SET order_id = (SELECT min(id) FROM orders) WHERE invoice_id IS NOT NULL",
     "UPDATE lines SET invoice_id = NULL WHERE invoice_id IS NOT NULL",
     "UPDATE lines SET estimate_id = 'est_missing' WHERE invoice_id IS NOT NULL",

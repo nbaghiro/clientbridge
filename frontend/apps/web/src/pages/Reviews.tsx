@@ -6,6 +6,7 @@ import {
     reviewStatusIntent,
     roundedRating,
     strings,
+    useAwaitingReviews,
     useClients,
     useRequestReviewForm,
     useReviewActions,
@@ -25,6 +26,7 @@ export function Reviews() {
     const [reloadKey, setReloadKey] = useState(0);
     const summary = useReviewSummary(api, reloadKey);
     const reviews = useReviews();
+    const awaiting = useAwaitingReviews();
     const [requesting, setRequesting] = useState(false);
 
     const refreshSummary = (): void => {
@@ -44,6 +46,11 @@ export function Reviews() {
                 banner={
                     <>
                         <SummaryHeader summary={summary} />
+                        {awaiting > 0 ? (
+                            <p className="mt-2 text-sm text-muted">
+                                {strings.reviews.awaitingCount(awaiting)}
+                            </p>
+                        ) : null}
                         {requesting ? (
                             <RequestReview
                                 onClose={() => {

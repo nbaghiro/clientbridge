@@ -26,11 +26,21 @@ SELECT r.id, r.client_id, r.booking_id, r.rating, r.body, r.response, r.responde
        r.sent_to_google, r.status, r.created_at, c.name AS client_name
 FROM reviews r
 LEFT JOIN clients c ON c.id = r.client_id
-ORDER BY r.created_at DESC`;
+WHERE r.status IN ('submitted', 'published', 'hidden')
+ORDER BY COALESCE(r.submitted_at, r.created_at) DESC`;
 
-/** Every review, newest first, joined to the client's name (LEFT — a deleted client still lists). */
+/** Every submitted review, newest first, joined to the client's name (LEFT — a deleted client
+ *  still lists). Requests the client hasn't answered yet are counted by `useAwaitingReviews`. */
 export function useReviews(): ReviewRow[] {
     return useQuery<ReviewRow>(REVIEWS_SQL).data;
+}
+
+export const AWAITING_REVIEWS_SQL =
+    "SELECT COUNT(*) AS n FROM reviews WHERE status IN ('requested', 'opened')";
+
+/** How many review requests are still waiting for the client's rating. */
+export function useAwaitingReviews(): number {
+    return useQuery<{ n: number }>(AWAITING_REVIEWS_SQL).data[0]?.n ?? 0;
 }
 
 export interface ReviewSummary {
@@ -77,8 +87,7 @@ export interface ReviewRequestResult {
     channel: string;
     status: string;
     token: string;
-    sent_at: string | null;
-    review_id: string | null;
+    requested_at: string | null;
 }
 
 export function requestReview(
@@ -97,12 +106,14 @@ export interface ReviewResult {
     business_id: string;
     client_id: string;
     booking_id: string | null;
-    rating: number;
+    rating: number | null;
     body: string | null;
     response: string | null;
     responded_at: string | null;
     sent_to_google: boolean;
     status: string;
+    requested_at: string | null;
+    submitted_at: string | null;
 }
 
 export function respondToReview(api: ApiLike, id: string, response: string): Promise<ReviewResult> {
@@ -128,7 +139,7 @@ export function reviewStatusIntent(status: string): Intent {
         case "hidden":
             return "neutral";
         default:
-            return "warning"; // pending
+            return "warning"; // submitted, awaiting a publish or hide
     }
 }
 

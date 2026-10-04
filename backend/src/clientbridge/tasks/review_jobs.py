@@ -9,7 +9,7 @@ from clientbridge.integrations.notifications import (
     get_push_sender,
     get_sms_sender,
 )
-from clientbridge.models.reviews import ReviewRequest
+from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.review_service import build_review_request
@@ -19,8 +19,9 @@ _WINDOW = timedelta(days=7)
 
 async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
     """Send one review request per booking completed in the last 7 days that has no request yet, and
-    return how many were sent. Idempotent — any existing request (any status) dedups the booking."""
-    requested = select(ReviewRequest.booking_id).where(ReviewRequest.booking_id.is_not(None))
+    return how many were sent. Idempotent — any review row for the booking (requested or submitted)
+    dedups it."""
+    requested = select(Review.booking_id).where(Review.booking_id.is_not(None))
     bookings = (
         (
             await db.execute(
