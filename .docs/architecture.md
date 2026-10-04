@@ -454,6 +454,11 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   **`icons.ts`** is icon geometry as data (rendered `<svg>` on web, `react-native-svg` on mobile).
 - **Two entrypoints:** `index.ts` (full) and **`public.ts`** — the PowerSync-free lean subpath the Connect
   app imports.
+- **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
+  (saved card or new card, one idempotency key per attempt), and saving a card through
+  `useAddPaymentMethod`. Web and Connect render them with `@clientbridge/ui` (`ChargeSheet`,
+  `CardForm`, `PaymentMethodForm`, `StatusPill`), which imports only `app-core/public`; mobile has the
+  same components with the same props in `apps/mobile/src/ui/`. Bank (PAD) entry is web only.
 
 ### Connect — the customer app (PowerSync-free, embeddable)
 The public surfaces (book/pay/form/contract/review + a per-business landing) live in their own lean Vite app

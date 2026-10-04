@@ -13,6 +13,7 @@ import {
     useGiftCardSaleForm,
     useGiftCards,
     useSavedCards,
+    useStripeAccountId,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
@@ -26,8 +27,8 @@ import {
     View,
 } from "react-native";
 
-import { CardPaymentConfirm } from "../components/stripe";
-import { StatusBadge } from "../components/StatusBadge";
+import { ChargeSheet } from "../ui/ChargeSheet";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 
 const c = theme.colors;
@@ -97,7 +98,7 @@ function GiftCardItem({ card, divider }: { card: GiftCardRow; divider: boolean }
                 ) : null}
             </View>
             <Text style={styles.amount}>{formatMoney(card.balance_cents)}</Text>
-            <StatusBadge status={card.status} intent={giftCardStatusIntent(card.status)} />
+            <StatusPill status={card.status} intent={giftCardStatusIntent(card.status)} />
         </View>
     );
 }
@@ -107,21 +108,24 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     const clients = useClients();
     const cards = useSavedCards(form.purchaserClientId);
     const items = giftItems(useCatalogItems());
-
-    if (form.clientSecret !== null) {
-        return (
-            <CardPaymentConfirm
-                clientSecret={form.clientSecret}
-                onCancel={form.cancel}
-                onConfirmed={form.complete}
-            />
-        );
-    }
+    const stripeAccount = useStripeAccountId() ?? "";
 
     return (
-        <View style={styles.panel}>
-            <Text style={styles.panelTitle}>{strings.giftCards.sell}</Text>
-
+        <ChargeSheet
+            title={strings.giftCards.sell}
+            checkout={form.checkout}
+            methods={cards.map((card) => ({ id: card.id, label: savedCardLabel(card) }))}
+            amountLabel={
+                form.faceAmountCents !== null
+                    ? formatMoney(form.faceAmountCents)
+                    : strings.giftCards.amountFallback
+            }
+            stripeAccount={stripeAccount}
+            submitLabel={strings.giftCards.sellShort}
+            busyLabel={strings.giftCards.selling}
+            onSubmit={form.submit}
+            onCancel={onClose}
+        >
             <Text style={styles.fieldLabel}>{strings.giftCards.purchaser}</Text>
             {clients.length === 0 ? (
                 <Text style={styles.muted}>{strings.giftCards.addClientFirst}</Text>
@@ -225,55 +229,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
                 placeholderTextColor={c.muted}
                 autoCapitalize="none"
             />
-
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>{strings.giftCards.payment}</Text>
-            <View style={styles.chipWrap}>
-                <Pressable
-                    style={[styles.chip, form.paymentMethodId === "" && styles.chipOn]}
-                    onPress={() => {
-                        form.setPaymentMethodId("");
-                    }}
-                >
-                    <Text
-                        style={[styles.chipText, form.paymentMethodId === "" && styles.chipTextOn]}
-                    >
-                        {strings.giftCards.newCard}
-                    </Text>
-                </Pressable>
-                {cards.map((card) => (
-                    <Pressable
-                        key={card.id}
-                        style={[styles.chip, form.paymentMethodId === card.id && styles.chipOn]}
-                        onPress={() => {
-                            form.setPaymentMethodId(card.id);
-                        }}
-                    >
-                        <Text
-                            style={[
-                                styles.chipText,
-                                form.paymentMethodId === card.id && styles.chipTextOn,
-                            ]}
-                        >
-                            {savedCardLabel(card)}
-                        </Text>
-                    </Pressable>
-                ))}
-            </View>
-
-            {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
-            <View style={styles.panelActions}>
-                <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                </Pressable>
-                <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
-                    {form.busy ? (
-                        <ActivityIndicator color={c.accentInk} />
-                    ) : (
-                        <Text style={styles.saveText}>{strings.giftCards.sellShort}</Text>
-                    )}
-                </Pressable>
-            </View>
-        </View>
+        </ChargeSheet>
     );
 }
 

@@ -26,7 +26,7 @@ import {
 } from "react-native";
 
 import { IconSearch } from "../components/icons";
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusPill } from "../ui/StatusPill";
 import { TerminalProvider, useTerminalCheckout } from "../components/terminal";
 import { api } from "../lib/api";
 
@@ -305,7 +305,7 @@ function OpenOrders() {
                     <Text style={styles.openName} numberOfLines={1}>
                         {order.client_name ?? strings.pos.walkIn}
                     </Text>
-                    <StatusBadge status={order.status} intent={orderStatusIntent(order.status)} />
+                    <StatusPill status={order.status} intent={orderStatusIntent(order.status)} />
                     <Text style={styles.openValue}>{formatMoney(order.total_cents)}</Text>
                 </View>
             ))}

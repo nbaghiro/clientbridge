@@ -7,11 +7,10 @@ import {
     strings,
     usePublicPayForm,
 } from "@clientbridge/app-core/public";
+import { CardForm, StatusPill } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
-import { CardConfirm } from "../components/CardConfirm";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
-import { StatusPill } from "../components/StatusPill";
 import { useEmbedSuccess } from "../embed";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -127,14 +126,14 @@ export function PublicPay() {
                         </PrimaryButton>
                     )
                 ) : form.card ? (
-                    <CardConfirm
+                    <CardForm
                         clientSecret={form.card.client_secret}
                         stripeAccount={form.card.stripe_account_id}
-                        amountLabel={formatMoneyWithCurrency(
-                            invoice.balance_cents,
-                            invoice.currency,
+                        submitLabel={strings.card.pay(
+                            formatMoneyWithCurrency(invoice.balance_cents, invoice.currency),
                         )}
-                        onPaid={form.markPaid}
+                        busyLabel={strings.common.working}
+                        onDone={form.markPaid}
                     />
                 ) : (
                     <PrimaryButton onClick={runCard} busy={form.busy}>

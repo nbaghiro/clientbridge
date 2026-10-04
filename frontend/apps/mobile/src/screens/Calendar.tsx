@@ -27,6 +27,7 @@ import {
     useCollectDeposit,
     useSavedCards,
     weekColumns,
+    useStripeAccountId,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useRef, useState } from "react";
@@ -42,8 +43,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { CardPaymentConfirm } from "../components/stripe";
-import { StatusBadge } from "../components/StatusBadge";
+import { ChargeSheet } from "../ui/ChargeSheet";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 
@@ -387,26 +388,9 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
 function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
     const viewer = useViewer();
     const cards = useSavedCards(event.clientId ?? "");
-    const deposit = useCollectDeposit(api, event, onClose);
-    const [method, setMethod] = useState<string | null>(null);
-
+    const deposit = useCollectDeposit(api, event, onClose, cards.at(0)?.id);
+    const stripeAccount = useStripeAccountId() ?? "";
     const amountLabel = formatMoney(event.depositAmountCents);
-    const effMethod = method ?? cards.at(0)?.id ?? "";
-
-    if (deposit.clientSecret !== null) {
-        return (
-            <View style={styles.depositBox}>
-                <Text style={styles.depositTitle}>
-                    {strings.calendar.collectDepositTitle(amountLabel)}
-                </Text>
-                <CardPaymentConfirm
-                    clientSecret={deposit.clientSecret}
-                    onCancel={deposit.cancel}
-                    onConfirmed={deposit.complete}
-                />
-            </View>
-        );
-    }
 
     return (
         <View style={styles.depositBox}>
@@ -415,60 +399,22 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     <Text style={styles.depositLabel}>{strings.calendar.deposit}</Text>
                     <Text style={styles.depositAmount}>{amountLabel}</Text>
                 </View>
-                <StatusBadge
+                <StatusPill
                     status={event.depositStatus}
                     intent={depositStatusIntent(event.depositStatus)}
                 />
             </View>
             {canCollectDeposit(event, viewer) ? (
-                <>
-                    <View style={styles.chipWrap}>
-                        <Pressable
-                            style={[styles.chip, effMethod === "" && styles.chipOn]}
-                            onPress={() => {
-                                setMethod("");
-                            }}
-                        >
-                            <Text style={[styles.chipText, effMethod === "" && styles.chipTextOn]}>
-                                {strings.calendar.newCard}
-                            </Text>
-                        </Pressable>
-                        {cards.map((card) => (
-                            <Pressable
-                                key={card.id}
-                                style={[styles.chip, effMethod === card.id && styles.chipOn]}
-                                onPress={() => {
-                                    setMethod(card.id);
-                                }}
-                            >
-                                <Text
-                                    style={[
-                                        styles.chipText,
-                                        effMethod === card.id && styles.chipTextOn,
-                                    ]}
-                                >
-                                    {savedCardLabel(card)}
-                                </Text>
-                            </Pressable>
-                        ))}
-                    </View>
-                    {deposit.error !== null ? (
-                        <Text style={styles.detailError}>{deposit.error}</Text>
-                    ) : null}
-                    <Pressable
-                        style={[styles.collectBtn, deposit.busy && styles.dim]}
-                        disabled={deposit.busy}
-                        onPress={() => {
-                            deposit.collect(effMethod);
-                        }}
-                    >
-                        <Text style={styles.collectText}>
-                            {deposit.busy
-                                ? strings.calendar.collecting
-                                : strings.calendar.collectAmount(amountLabel)}
-                        </Text>
-                    </Pressable>
-                </>
+                <ChargeSheet
+                    checkout={deposit.checkout}
+                    methods={cards.map((card) => ({ id: card.id, label: savedCardLabel(card) }))}
+                    amountLabel={amountLabel}
+                    stripeAccount={stripeAccount}
+                    submitLabel={strings.calendar.collectAmount(amountLabel)}
+                    busyLabel={strings.calendar.collecting}
+                    onSubmit={deposit.submit}
+                    onCancel={onClose}
+                />
             ) : null}
         </View>
     );
@@ -579,28 +525,7 @@ const styles = StyleSheet.create({
         borderColor: c.border,
         backgroundColor: c.surface,
     },
-    depositTitle: { color: c.ink, fontSize: 14, fontWeight: "700" },
     depositHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
     depositLabel: { color: c.ink, fontSize: 14, fontWeight: "700" },
     depositAmount: { color: c.muted, fontSize: 13, marginTop: 1 },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
-    chip: {
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: 20,
-        backgroundColor: c.bg,
-        borderWidth: 1,
-        borderColor: c.border,
-    },
-    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
-    chipText: { color: c.ink, fontSize: 13, fontWeight: "500" },
-    chipTextOn: { color: c.accentInk },
-    collectBtn: {
-        marginTop: 12,
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 11,
-        alignItems: "center",
-    },
-    collectText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
 });

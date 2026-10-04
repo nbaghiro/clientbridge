@@ -1,5 +1,4 @@
 import {
-    type AddPaymentMethod,
     type ClientRow,
     type ItemRow,
     type PackageRow,
@@ -40,17 +39,12 @@ import {
     useStripeAccountId,
     useSubscriptionForm,
 } from "@clientbridge/app-core";
-import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
-import { type Stripe, loadStripe } from "@stripe/stripe-js";
+import { ChargeSheet, PaymentMethodForm, StatusPill } from "@clientbridge/ui";
 import { type SubmitEvent, useMemo, useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
-import { CardConfirm } from "../components/CardConfirm";
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-
-const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
@@ -255,37 +249,7 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
                 </div>
             )}
 
-            {flow.intent !== null && flow.kind !== null ? (
-                <SetupCardPanel flow={flow} />
-            ) : (
-                <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                        type="button"
-                        disabled={flow.busy}
-                        onClick={() => {
-                            flow.start("card");
-                        }}
-                        className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                    >
-                        {flow.busy && flow.kind === "card"
-                            ? strings.clients.starting
-                            : strings.clients.addCard}
-                    </button>
-                    <button
-                        type="button"
-                        disabled={flow.busy}
-                        onClick={() => {
-                            flow.start("bank");
-                        }}
-                        className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                    >
-                        {flow.busy && flow.kind === "bank"
-                            ? strings.clients.starting
-                            : strings.clients.addBankWeb}
-                    </button>
-                </div>
-            )}
-            {flow.error !== null ? <p className="mt-2 text-sm text-danger">{flow.error}</p> : null}
+            <PaymentMethodForm flow={flow} allowBank />
         </section>
     );
 }
@@ -345,77 +309,6 @@ function CardRow({ card }: { card: SavedCardRow }) {
             </div>
             {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
         </div>
-    );
-}
-
-function SetupCardPanel({ flow }: { flow: AddPaymentMethod }) {
-    const intent = flow.intent;
-    const account = intent?.stripe_account_id ?? "";
-    // Direct charge on the connected account: Elements must target that Stripe account.
-    const stripePromise = useMemo<Promise<Stripe | null> | null>(
-        () =>
-            PUBLISHABLE_KEY && account
-                ? loadStripe(PUBLISHABLE_KEY, { stripeAccount: account })
-                : null,
-        [account],
-    );
-
-    if (intent === null) return null;
-    if (stripePromise === null)
-        return <p className="mt-3 text-sm text-danger">{strings.clients.stripeNotConfigured}</p>;
-
-    return (
-        <div className="mt-3 rounded-md border border-line bg-bg p-4">
-            <Elements stripe={stripePromise} options={{ clientSecret: intent.client_secret }}>
-                <SetupForm flow={flow} />
-            </Elements>
-        </div>
-    );
-}
-
-function SetupForm({ flow }: { flow: AddPaymentMethod }) {
-    const stripe = useStripe();
-    const elements = useElements();
-    const { busy, error, setError, run } = useAsyncAction();
-    const noun = flow.kind === "bank" ? strings.clients.bankAccountNoun : strings.clients.cardNoun;
-
-    const submit = (e: SubmitEvent): void => {
-        e.preventDefault();
-        if (!stripe || !elements) return;
-        run(
-            async () => {
-                const result = await stripe.confirmSetup({ elements, redirect: "if_required" });
-                if (result.error) {
-                    setError(result.error.message ?? strings.clients.saveMethodShortError(noun));
-                    return;
-                }
-                flow.complete();
-            },
-            { errorMessage: strings.clients.saveMethodError(noun) },
-        );
-    };
-
-    return (
-        <form onSubmit={submit} className="space-y-3">
-            <PaymentElement />
-            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
-            <div className="flex justify-end gap-2">
-                <button
-                    type="button"
-                    onClick={flow.cancel}
-                    className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                >
-                    {strings.common.cancel}
-                </button>
-                <button
-                    type="submit"
-                    disabled={busy || !stripe}
-                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                >
-                    {busy ? strings.common.saving : strings.clients.saveMethod(noun)}
-                </button>
-            </div>
-        </form>
     );
 }
 
@@ -525,14 +418,18 @@ function StartSubscriptionForm({
     onClose: () => void;
 }) {
     const form = useSubscriptionForm(api, clientId, onClose);
+    const plan = plans.find((p) => p.id === form.itemId);
 
     return (
-        <form
-            onSubmit={(e) => {
-                e.preventDefault();
-                form.submit();
-            }}
-            className="mt-3 space-y-3 rounded-md border border-line bg-bg p-4"
+        <ChargeSheet
+            checkout={form.checkout}
+            methods={cards.map((c) => ({ id: c.id, label: savedCardLabel(c) }))}
+            amountLabel={plan ? formatMoney(plan.price_cents) : ""}
+            stripeAccount=""
+            submitLabel={strings.clients.startSubscription}
+            busyLabel={strings.clients.starting}
+            onSubmit={form.submit}
+            onCancel={onClose}
         >
             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                 {strings.clients.planLabel}
@@ -551,47 +448,10 @@ function StartSubscriptionForm({
                     ))}
                 </select>
             </label>
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.clients.paymentMethodLabel}
-                <select
-                    value={form.paymentMethodId}
-                    onChange={(e) => {
-                        form.setPaymentMethodId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.clients.selectSavedMethod}</option>
-                    {cards.map((card) => (
-                        <option key={card.id} value={card.id}>
-                            {savedCardLabel(card)}
-                        </option>
-                    ))}
-                </select>
-            </label>
             {plans.length === 0 ? (
                 <p className="text-xs text-muted">{strings.clients.addSubscriptionItemFirst}</p>
             ) : null}
-            {cards.length === 0 ? (
-                <p className="text-xs text-muted">{strings.clients.addPaymentMethodFirst}</p>
-            ) : null}
-            {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
-            <div className="flex justify-end gap-2">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                >
-                    {strings.common.cancel}
-                </button>
-                <button
-                    type="submit"
-                    disabled={form.busy}
-                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                >
-                    {form.busy ? strings.clients.starting : strings.clients.startSubscription}
-                </button>
-            </div>
-        </form>
+        </ChargeSheet>
     );
 }
 
@@ -697,31 +557,20 @@ function SellPackageForm({
 }) {
     const form = usePackageSaleForm(api, clientId, onClose);
     const stripeAccount = useStripeAccountId() ?? "";
-
-    if (form.clientSecret !== null) {
-        const offering = offerings.find((o) => o.id === form.itemId) ?? null;
-        return (
-            <CardConfirm
-                clientSecret={form.clientSecret}
-                stripeAccount={stripeAccount}
-                amountLabel={
-                    offering
-                        ? formatMoney(offering.price_cents)
-                        : strings.clients.packageAmountFallback
-                }
-                onPaid={form.complete}
-                onCancel={form.cancel}
-            />
-        );
-    }
+    const offering = offerings.find((o) => o.id === form.itemId);
 
     return (
-        <form
-            onSubmit={(e) => {
-                e.preventDefault();
-                form.submit();
-            }}
-            className="mt-3 space-y-3 rounded-md border border-line bg-bg p-4"
+        <ChargeSheet
+            checkout={form.checkout}
+            methods={cards.map((c) => ({ id: c.id, label: savedCardLabel(c) }))}
+            amountLabel={
+                offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
+            }
+            stripeAccount={stripeAccount}
+            submitLabel={strings.clients.sellPackage}
+            busyLabel={strings.clients.selling}
+            onSubmit={form.submit}
+            onCancel={onClose}
         >
             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                 {strings.clients.packageLabel}
@@ -740,44 +589,10 @@ function SellPackageForm({
                     ))}
                 </select>
             </label>
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.clients.paymentLabel}
-                <select
-                    value={form.paymentMethodId}
-                    onChange={(e) => {
-                        form.setPaymentMethodId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.clients.payWithNewCard}</option>
-                    {cards.map((card) => (
-                        <option key={card.id} value={card.id}>
-                            {savedCardLabel(card)}
-                        </option>
-                    ))}
-                </select>
-            </label>
             {offerings.length === 0 ? (
                 <p className="text-xs text-muted">{strings.clients.addPackageItemFirst}</p>
             ) : null}
-            {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
-            <div className="flex justify-end gap-2">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                >
-                    {strings.common.cancel}
-                </button>
-                <button
-                    type="submit"
-                    disabled={form.busy}
-                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                >
-                    {form.busy ? strings.clients.selling : strings.clients.sellPackage}
-                </button>
-            </div>
-        </form>
+        </ChargeSheet>
     );
 }
 

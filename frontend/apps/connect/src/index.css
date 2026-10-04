@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "@clientbridge/tokens/themes.css";
 @import "@clientbridge/tokens/tailwind.css";
+@source "../../../packages/ui/src";
 
 html,
 body,

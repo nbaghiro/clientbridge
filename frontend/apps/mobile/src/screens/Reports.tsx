@@ -27,7 +27,7 @@ import {
     View,
 } from "react-native";
 
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 
 const c = theme.colors;
@@ -139,7 +139,7 @@ function BankDeposits() {
                             <Text style={styles.lineValue}>
                                 {formatMoneyWithCurrency(row.amount_cents, "CAD")}
                             </Text>
-                            <StatusBadge
+                            <StatusPill
                                 status={row.status}
                                 intent={paymentStatusIntent(row.status)}
                             />

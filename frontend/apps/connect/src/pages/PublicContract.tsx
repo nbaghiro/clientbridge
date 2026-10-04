@@ -6,11 +6,11 @@ import {
     strings,
     usePublicContractSign,
 } from "@clientbridge/app-core/public";
+import { StatusPill } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
-import { StatusPill } from "../components/StatusPill";
 import { isEmbedded, useEmbedSuccess } from "../embed";
 
 const contracts = createPublicContractClient(

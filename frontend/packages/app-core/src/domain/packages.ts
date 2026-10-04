@@ -4,7 +4,7 @@ import { useState } from "react";
 import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
-import { useInteractivePurchase } from "./payments";
+import { type Checkout, useCheckout } from "./checkout";
 
 export interface PackageRow {
     id: string;
@@ -75,14 +75,8 @@ export function consumeSession(api: ApiLike, packageId: string): Promise<Package
 export interface PackageSaleForm {
     itemId: string;
     setItemId: (v: string) => void;
-    paymentMethodId: string; // "" = pay with a new card (interactive)
-    setPaymentMethodId: (v: string) => void;
-    busy: boolean;
-    error: string | null;
-    clientSecret: string | null;
+    checkout: Checkout;
     submit: () => void;
-    cancel: () => void;
-    complete: () => void;
 }
 
 /** Sell-package form: pick a `kind="package"` item + a saved card (off-session) or a new card
@@ -93,31 +87,23 @@ export function usePackageSaleForm(
     onDone: () => void,
 ): PackageSaleForm {
     const [itemId, setItemId] = useState("");
-    const [paymentMethodId, setPaymentMethodId] = useState("");
-    const purchase = useInteractivePurchase(() => {
+    const checkout = useCheckout(() => {
         setItemId("");
-        setPaymentMethodId("");
         onDone();
     });
 
     const submit = (): void => {
         if (itemId === "") {
-            purchase.setError(strings.clients.choosePackage);
+            checkout.setError(strings.clients.choosePackage);
             return;
         }
-        const interactive = paymentMethodId === "";
-        purchase.submit(
-            (idempotencyKey) =>
+        checkout.pay(
+            ({ paymentMethodId, idempotencyKey }) =>
                 purchasePackage(
                     api,
-                    {
-                        client_id: clientId,
-                        item_id: itemId,
-                        payment_method_id: interactive ? undefined : paymentMethodId,
-                    },
+                    { client_id: clientId, item_id: itemId, payment_method_id: paymentMethodId },
                     idempotencyKey,
                 ),
-            interactive,
             strings.clients.sellPackageError,
         );
     };
@@ -125,13 +111,7 @@ export function usePackageSaleForm(
     return {
         itemId,
         setItemId,
-        paymentMethodId,
-        setPaymentMethodId,
-        busy: purchase.busy,
-        error: purchase.error,
-        clientSecret: purchase.clientSecret,
+        checkout,
         submit,
-        cancel: purchase.cancel,
-        complete: purchase.complete,
     };
 }

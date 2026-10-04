@@ -7,7 +7,7 @@ import { blankToNull } from "../util/format";
 import { type Intent, newIdempotencyKey } from "../util/primitives";
 import { strings } from "../strings";
 import { giftItems, useCatalogItems } from "./catalog";
-import { useInteractivePurchase } from "./payments";
+import { type Checkout, useCheckout } from "./checkout";
 import { ownedLiabilitySql } from "./ledger";
 
 export interface GiftCardRow {
@@ -99,15 +99,9 @@ export interface GiftCardSaleForm {
     setAmount: (v: string) => void;
     recipient: string;
     setRecipient: (v: string) => void;
-    paymentMethodId: string; // "" = pay with a new card (interactive)
-    setPaymentMethodId: (v: string) => void;
     faceAmountCents: number | null; // the card's face value (preset price or parsed custom), for display
-    busy: boolean;
-    error: string | null;
-    clientSecret: string | null;
+    checkout: Checkout;
     submit: () => void;
-    cancel: () => void;
-    complete: () => void;
 }
 
 /** Sell-gift-card form: a purchaser client + either a preset gift item (`item_id`) or a custom face
@@ -119,7 +113,6 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
     const [itemId, setItemId] = useState("");
     const [amount, setAmount] = useState("");
     const [recipient, setRecipient] = useState("");
-    const [paymentMethodId, setPaymentMethodId] = useState("");
     const items = giftItems(useCatalogItems());
     const customCents = Math.round(Number(amount) * 100);
     const faceAmountCents =
@@ -128,49 +121,46 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
             : Number.isFinite(customCents) && customCents > 0
               ? customCents
               : null;
-    const purchase = useInteractivePurchase(() => {
+    const checkout = useCheckout(() => {
         setPurchaserClientId("");
         setMode("custom");
         setItemId("");
         setAmount("");
         setRecipient("");
-        setPaymentMethodId("");
         onDone();
     });
 
     const submit = (): void => {
         if (purchaserClientId === "") {
-            purchase.setError(strings.giftCards.choosePurchaser);
+            checkout.setError(strings.giftCards.choosePurchaser);
             return;
         }
         let face: { item_id: string } | { amount_cents: number };
         if (mode === "preset") {
             if (itemId === "") {
-                purchase.setError(strings.giftCards.chooseGiftCard);
+                checkout.setError(strings.giftCards.chooseGiftCard);
                 return;
             }
             face = { item_id: itemId };
         } else {
             if (faceAmountCents === null) {
-                purchase.setError(strings.giftCards.enterAmount);
+                checkout.setError(strings.giftCards.enterAmount);
                 return;
             }
             face = { amount_cents: faceAmountCents };
         }
-        const interactive = paymentMethodId === "";
-        purchase.submit(
-            (idempotencyKey) =>
+        checkout.pay(
+            ({ paymentMethodId, idempotencyKey }) =>
                 purchaseGiftCard(
                     api,
                     {
                         purchaser_client_id: purchaserClientId,
                         ...face,
                         recipient: blankToNull(recipient),
-                        payment_method_id: interactive ? undefined : paymentMethodId,
+                        payment_method_id: paymentMethodId,
                     },
                     idempotencyKey,
                 ),
-            interactive,
             strings.giftCards.sellError,
         );
     };
@@ -186,15 +176,9 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
         setAmount,
         recipient,
         setRecipient,
-        paymentMethodId,
-        setPaymentMethodId,
         faceAmountCents,
-        busy: purchase.busy,
-        error: purchase.error,
-        clientSecret: purchase.clientSecret,
+        checkout,
         submit,
-        cancel: purchase.cancel,
-        complete: purchase.complete,
     };
 }
 

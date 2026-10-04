@@ -12,7 +12,7 @@ const INTENT_COLORS: Record<Intent, { bg: string; fg: string }> = {
     neutral: { bg: c.bg, fg: c.muted },
 };
 
-export function StatusBadge({ status, intent }: { status: string; intent: Intent }) {
+export function StatusPill({ status, intent }: { status: string; intent: Intent }) {
     const tone = INTENT_COLORS[intent];
     return (
         <View style={[styles.badge, { backgroundColor: tone.bg }]}>

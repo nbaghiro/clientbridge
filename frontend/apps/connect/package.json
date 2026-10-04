@@ -13,6 +13,7 @@
     "dependencies": {
         "@clientbridge/app-core": "workspace:*",
         "@clientbridge/tokens": "workspace:*",
+        "@clientbridge/ui": "workspace:*",
         "@stripe/react-stripe-js": "^7.0.0",
         "@stripe/stripe-js": "^10.0.0",
         "react": "19.2.3",

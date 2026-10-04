@@ -46,7 +46,7 @@ import {
 } from "react-native";
 
 import { IconPlus, IconSearch } from "../components/icons";
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
@@ -137,7 +137,7 @@ export function InvoicesScreen({ createToken }: { createToken?: number | undefin
                         </View>
                         <View style={styles.rowRight}>
                             <Text style={styles.rowValue}>{formatMoney(item.total_cents)}</Text>
-                            <StatusBadge
+                            <StatusPill
                                 status={item.status}
                                 intent={
                                     tab === "invoices"
@@ -356,7 +356,7 @@ function DetailModal({
                                     </Text>
                                     <Text style={styles.rowSub}>{row.client_name ?? "—"}</Text>
                                 </View>
-                                <StatusBadge
+                                <StatusPill
                                     status={row.status}
                                     intent={
                                         isInvoice
@@ -497,7 +497,7 @@ function PaymentRowItem({
                 <Text style={styles.paymentMethod}>
                     {isRefund ? strings.invoices.refundBadge : payment.method}
                 </Text>
-                <StatusBadge status={payment.status} intent={paymentStatusIntent(payment.status)} />
+                <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
                 {showRefund ? (
                     <TextInput
                         style={styles.refundInput}

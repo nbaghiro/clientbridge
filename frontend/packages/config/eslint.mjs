@@ -57,6 +57,24 @@ export default tseslint.config(
         },
     },
     {
+        // The shared browser UI is used by Connect too, so it stays on the PowerSync-free surface.
+        files: ["**/packages/ui/src/**/*.{ts,tsx}"],
+        rules: {
+            "@typescript-eslint/no-restricted-imports": [
+                "error",
+                {
+                    paths: [
+                        {
+                            name: "@clientbridge/app-core",
+                            message: "Import from @clientbridge/app-core/public in shared UI.",
+                        },
+                    ],
+                    patterns: [{ group: ["@powersync/*", "@clientbridge/sync"] }],
+                },
+            ],
+        },
+    },
+    {
         ignores: [
             "**/dist/**",
             "**/public/**", // static assets served as-is (e.g. the vanilla embed loader)

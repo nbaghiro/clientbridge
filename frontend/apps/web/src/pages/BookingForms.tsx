@@ -19,9 +19,9 @@ import {
     useSendContractForm,
     useSendFormForm,
 } from "@clientbridge/app-core";
+import { StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 

@@ -16,7 +16,7 @@ import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 
 const c = theme.colors;
@@ -108,10 +108,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                 </Text>
                 <Text style={styles.time}>{formatRelativeTime(review.created_at)}</Text>
                 <View style={styles.badge}>
-                    <StatusBadge
-                        status={review.status}
-                        intent={reviewStatusIntent(review.status)}
-                    />
+                    <StatusPill status={review.status} intent={reviewStatusIntent(review.status)} />
                 </View>
             </View>
 

@@ -1,7 +1,6 @@
 import {
     type ClientRow,
     type GiftCardRow,
-    type SavedCardRow,
     formatMoney,
     giftCardStatusIntent,
     giftItems,
@@ -17,10 +16,9 @@ import {
     useSavedCards,
     useStripeAccountId,
 } from "@clientbridge/app-core";
+import { ChargeSheet, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
-import { CardConfirm } from "../components/CardConfirm";
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 
 const field =
@@ -134,141 +132,93 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
     const items = giftItems(useCatalogItems());
     const stripeAccount = useStripeAccountId() ?? "";
 
-    if (form.clientSecret !== null) {
-        return (
-            <Panel title={strings.giftCards.confirmPayment}>
-                <CardConfirm
-                    clientSecret={form.clientSecret}
-                    stripeAccount={stripeAccount}
-                    amountLabel={
-                        form.faceAmountCents !== null
-                            ? formatMoney(form.faceAmountCents)
-                            : strings.giftCards.amountFallback
-                    }
-                    onPaid={form.complete}
-                    onCancel={form.cancel}
-                />
-            </Panel>
-        );
-    }
-
     return (
-        <Panel title={strings.giftCards.sell}>
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.submit();
-                }}
-                className="space-y-3"
-            >
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.purchaser}
-                    <ClientSelect
-                        clients={clients}
-                        value={form.purchaserClientId}
-                        onChange={form.setPurchaserClientId}
-                    />
-                </label>
-                <div className="flex gap-2">
-                    {GIFT_SALE_MODES.map((m) => (
-                        <button
-                            key={m}
-                            type="button"
-                            onClick={() => {
-                                form.setMode(m);
-                            }}
-                            className={`flex-1 rounded-md border px-3 py-2 text-sm font-semibold transition ${
-                                form.mode === m
-                                    ? "border-accent bg-accent-weak text-accent-strong"
-                                    : "border-line text-ink-soft hover:bg-bg"
-                            }`}
-                        >
-                            {GIFT_SALE_MODE_LABEL[m]}
-                        </button>
-                    ))}
-                </div>
-                {form.mode === "preset" ? (
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.giftCards.giftCard}
-                        <select
-                            value={form.itemId}
-                            onChange={(e) => {
-                                form.setItemId(e.target.value);
-                            }}
-                            className={field}
-                        >
-                            <option value="">{strings.giftCards.selectGiftCard}</option>
-                            {items.map((it) => (
-                                <option key={it.id} value={it.id}>
-                                    {it.name}
-                                    {it.price_cents !== null
-                                        ? ` — ${formatMoney(it.price_cents)}`
-                                        : ""}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                ) : (
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.giftCards.amountCad}
-                        <input
-                            value={form.amount}
-                            onChange={(e) => {
-                                form.setAmount(e.target.value);
-                            }}
-                            inputMode="decimal"
-                            placeholder={strings.giftCards.amountPlaceholder}
-                            className={field}
-                        />
-                    </label>
-                )}
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.recipientOptional}
-                    <input
-                        value={form.recipient}
-                        onChange={(e) => {
-                            form.setRecipient(e.target.value);
+        <ChargeSheet
+            title={strings.giftCards.sell}
+            checkout={form.checkout}
+            methods={cards.map((c) => ({ id: c.id, label: savedCardLabel(c) }))}
+            amountLabel={
+                form.faceAmountCents !== null
+                    ? formatMoney(form.faceAmountCents)
+                    : strings.giftCards.amountFallback
+            }
+            stripeAccount={stripeAccount}
+            submitLabel={strings.giftCards.sell}
+            busyLabel={strings.giftCards.selling}
+            onSubmit={form.submit}
+            onCancel={onClose}
+        >
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                {strings.giftCards.purchaser}
+                <ClientSelect
+                    clients={clients}
+                    value={form.purchaserClientId}
+                    onChange={form.setPurchaserClientId}
+                />
+            </label>
+            <div className="flex gap-2">
+                {GIFT_SALE_MODES.map((m) => (
+                    <button
+                        key={m}
+                        type="button"
+                        onClick={() => {
+                            form.setMode(m);
                         }}
-                        placeholder={strings.giftCards.recipientPlaceholder}
-                        className={field}
-                    />
-                </label>
+                        className={`flex-1 rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                            form.mode === m
+                                ? "border-accent bg-accent-weak text-accent-strong"
+                                : "border-line text-ink-soft hover:bg-bg"
+                        }`}
+                    >
+                        {GIFT_SALE_MODE_LABEL[m]}
+                    </button>
+                ))}
+            </div>
+            {form.mode === "preset" ? (
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.payment}
+                    {strings.giftCards.giftCard}
                     <select
-                        value={form.paymentMethodId}
+                        value={form.itemId}
                         onChange={(e) => {
-                            form.setPaymentMethodId(e.target.value);
+                            form.setItemId(e.target.value);
                         }}
                         className={field}
                     >
-                        <option value="">{strings.giftCards.payNewCard}</option>
-                        {cards.map((card: SavedCardRow) => (
-                            <option key={card.id} value={card.id}>
-                                {savedCardLabel(card)}
+                        <option value="">{strings.giftCards.selectGiftCard}</option>
+                        {items.map((it) => (
+                            <option key={it.id} value={it.id}>
+                                {it.name}
+                                {it.price_cents !== null ? ` — ${formatMoney(it.price_cents)}` : ""}
                             </option>
                         ))}
                     </select>
                 </label>
-                {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
-                <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                    >
-                        {strings.common.cancel}
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
-                        {form.busy ? strings.giftCards.selling : strings.giftCards.sell}
-                    </button>
-                </div>
-            </form>
-        </Panel>
+            ) : (
+                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                    {strings.giftCards.amountCad}
+                    <input
+                        value={form.amount}
+                        onChange={(e) => {
+                            form.setAmount(e.target.value);
+                        }}
+                        inputMode="decimal"
+                        placeholder={strings.giftCards.amountPlaceholder}
+                        className={field}
+                    />
+                </label>
+            )}
+            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                {strings.giftCards.recipientOptional}
+                <input
+                    value={form.recipient}
+                    onChange={(e) => {
+                        form.setRecipient(e.target.value);
+                    }}
+                    placeholder={strings.giftCards.recipientPlaceholder}
+                    className={field}
+                />
+            </label>
+        </ChargeSheet>
     );
 }
 

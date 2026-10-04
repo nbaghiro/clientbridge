@@ -1,5 +1,4 @@
 import {
-    type AddPaymentMethod,
     type ClientRow,
     type ItemRow,
     type PackageRow,
@@ -38,6 +37,7 @@ import {
     useSavedCards,
     useSearch,
     useSubscriptionForm,
+    useStripeAccountId,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type RouteProp, useRoute } from "@react-navigation/native";
@@ -58,8 +58,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconPlus, IconSearch } from "../components/icons";
 import { InboxButton } from "../components/InboxButton";
-import { CardPaymentConfirm, CardSetupConfirm } from "../components/stripe";
-import { StatusBadge } from "../components/StatusBadge";
+import { ChargeSheet } from "../ui/ChargeSheet";
+import { PaymentMethodForm } from "../ui/PaymentMethodForm";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
@@ -174,7 +175,7 @@ function ClientRowView({
                 {showValue ? (
                     <Text style={styles.rowValue}>{formatMoney(cl.lifetime_value_cents)}</Text>
                 ) : null}
-                <StatusBadge status={cl.status} intent={clientStatusIntent(cl.status)} />
+                <StatusPill status={cl.status} intent={clientStatusIntent(cl.status)} />
             </View>
         </Pressable>
     );
@@ -205,7 +206,7 @@ function ClientDetailSheet({ client, onClose }: { client: ClientRow | null; onCl
                                         </Text>
                                     </View>
                                 </View>
-                                <StatusBadge
+                                <StatusPill
                                     status={client.status}
                                     intent={clientStatusIntent(client.status)}
                                 />
@@ -248,62 +249,7 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
             ) : (
                 cards.map((card) => <CardRow key={card.id} card={card} />)
             )}
-            <AddMethodPanel flow={flow} />
-            {flow.error !== null ? <Text style={styles.errorText}>{flow.error}</Text> : null}
-        </View>
-    );
-}
-
-function AddMethodPanel({ flow }: { flow: AddPaymentMethod }) {
-    const intent = flow.intent;
-    if (intent !== null) {
-        // Card setup confirms with the SDK CardField; bank (PAD/ACSS) needs an ACSS mandate flow
-        // beyond a CardField, so it keeps the placeholder until that follow lands.
-        if (flow.kind === "card") return <CardSetupConfirm flow={flow} />;
-        return (
-            <View style={styles.setupBox}>
-                <Text style={styles.setupTitle}>{strings.clients.authorizePad}</Text>
-                <Text style={styles.setupNote}>{strings.clients.padNotWired}</Text>
-                <Text style={styles.setupSecret} numberOfLines={1}>
-                    {strings.clients.setupIntentLabel} {intent.client_secret}
-                </Text>
-                <View style={styles.setupActions}>
-                    <Pressable style={styles.cancel} onPress={flow.cancel}>
-                        <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                    </Pressable>
-                </View>
-            </View>
-        );
-    }
-
-    return (
-        <View style={styles.addRow}>
-            <Pressable
-                style={styles.outlineBtn}
-                disabled={flow.busy}
-                onPress={() => {
-                    flow.start("card");
-                }}
-            >
-                {flow.busy && flow.kind === "card" ? (
-                    <ActivityIndicator color={c.inkSoft} />
-                ) : (
-                    <Text style={styles.outlineBtnText}>{strings.clients.addCard}</Text>
-                )}
-            </Pressable>
-            <Pressable
-                style={styles.outlineBtn}
-                disabled={flow.busy}
-                onPress={() => {
-                    flow.start("bank");
-                }}
-            >
-                {flow.busy && flow.kind === "bank" ? (
-                    <ActivityIndicator color={c.inkSoft} />
-                ) : (
-                    <Text style={styles.outlineBtnText}>{strings.clients.addBankShort}</Text>
-                )}
-            </Pressable>
+            <PaymentMethodForm flow={flow} allowBank={false} />
         </View>
     );
 }
@@ -344,7 +290,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
                         </View>
                     ) : null}
                     {isMandate(card) ? (
-                        <StatusBadge
+                        <StatusPill
                             status={card.mandate_status}
                             intent={mandateStatusIntent(card.mandate_status)}
                         />
@@ -441,7 +387,7 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
                 ) : null}
             </View>
             <View style={styles.methodActions}>
-                <StatusBadge status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
+                <StatusPill status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
                 {isCancelable(sub.status) ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={cancel}>
                         <Text style={styles.miniBtnText}>
@@ -467,9 +413,19 @@ function StartSubscriptionForm({
     onClose: () => void;
 }) {
     const form = useSubscriptionForm(api, clientId, onClose);
+    const plan = plans.find((p) => p.id === form.itemId);
 
     return (
-        <View style={styles.setupBox}>
+        <ChargeSheet
+            checkout={form.checkout}
+            methods={cards.map((card) => ({ id: card.id, label: savedCardLabel(card) }))}
+            amountLabel={plan ? formatMoney(plan.price_cents) : ""}
+            stripeAccount=""
+            submitLabel={strings.clients.startSubscription}
+            busyLabel={strings.clients.starting}
+            onSubmit={form.submit}
+            onCancel={onClose}
+        >
             <Text style={styles.fieldLabel}>{strings.clients.planLabel}</Text>
             {plans.length === 0 ? (
                 <Text style={styles.note}>{strings.clients.addSubscriptionItemFirst}</Text>
@@ -492,49 +448,7 @@ function StartSubscriptionForm({
                     ))}
                 </View>
             )}
-
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                {strings.clients.paymentMethodLabel}
-            </Text>
-            {cards.length === 0 ? (
-                <Text style={styles.note}>{strings.clients.addPaymentMethodFirst}</Text>
-            ) : (
-                <View style={styles.chipWrap}>
-                    {cards.map((card) => (
-                        <Pressable
-                            key={card.id}
-                            style={[styles.chip, form.paymentMethodId === card.id && styles.chipOn]}
-                            onPress={() => {
-                                form.setPaymentMethodId(card.id);
-                            }}
-                        >
-                            <Text
-                                style={[
-                                    styles.chipText,
-                                    form.paymentMethodId === card.id && styles.chipTextOn,
-                                ]}
-                            >
-                                {savedCardLabel(card)}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
-            )}
-
-            {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
-            <View style={styles.setupActions}>
-                <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                </Pressable>
-                <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
-                    {form.busy ? (
-                        <ActivityIndicator color={c.accentInk} />
-                    ) : (
-                        <Text style={styles.saveText}>{strings.clients.startShort}</Text>
-                    )}
-                </Pressable>
-            </View>
-        </View>
+        </ChargeSheet>
     );
 }
 
@@ -598,7 +512,7 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
                 </Text>
             </View>
             <View style={styles.methodActions}>
-                <StatusBadge status={pkg.status} intent={packageStatusIntent(pkg.status)} />
+                <StatusPill status={pkg.status} intent={packageStatusIntent(pkg.status)} />
                 {canConsume(pkg) ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={consume}>
                         <Text style={styles.miniBtnText}>
@@ -624,19 +538,22 @@ function SellPackageForm({
     onClose: () => void;
 }) {
     const form = usePackageSaleForm(api, clientId, onClose);
-
-    if (form.clientSecret !== null) {
-        return (
-            <CardPaymentConfirm
-                clientSecret={form.clientSecret}
-                onCancel={form.cancel}
-                onConfirmed={form.complete}
-            />
-        );
-    }
+    const stripeAccount = useStripeAccountId() ?? "";
+    const offering = offerings.find((o) => o.id === form.itemId);
 
     return (
-        <View style={styles.setupBox}>
+        <ChargeSheet
+            checkout={form.checkout}
+            methods={cards.map((card) => ({ id: card.id, label: savedCardLabel(card) }))}
+            amountLabel={
+                offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
+            }
+            stripeAccount={stripeAccount}
+            submitLabel={strings.clients.sellPackage}
+            busyLabel={strings.clients.selling}
+            onSubmit={form.submit}
+            onCancel={onClose}
+        >
             <Text style={styles.fieldLabel}>{strings.clients.packageLabel}</Text>
             {offerings.length === 0 ? (
                 <Text style={styles.note}>{strings.clients.addPackageItemFirst}</Text>
@@ -659,57 +576,7 @@ function SellPackageForm({
                     ))}
                 </View>
             )}
-
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                {strings.clients.paymentLabel}
-            </Text>
-            <View style={styles.chipWrap}>
-                <Pressable
-                    style={[styles.chip, form.paymentMethodId === "" && styles.chipOn]}
-                    onPress={() => {
-                        form.setPaymentMethodId("");
-                    }}
-                >
-                    <Text
-                        style={[styles.chipText, form.paymentMethodId === "" && styles.chipTextOn]}
-                    >
-                        {strings.clients.newCard}
-                    </Text>
-                </Pressable>
-                {cards.map((card) => (
-                    <Pressable
-                        key={card.id}
-                        style={[styles.chip, form.paymentMethodId === card.id && styles.chipOn]}
-                        onPress={() => {
-                            form.setPaymentMethodId(card.id);
-                        }}
-                    >
-                        <Text
-                            style={[
-                                styles.chipText,
-                                form.paymentMethodId === card.id && styles.chipTextOn,
-                            ]}
-                        >
-                            {savedCardLabel(card)}
-                        </Text>
-                    </Pressable>
-                ))}
-            </View>
-
-            {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
-            <View style={styles.setupActions}>
-                <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                </Pressable>
-                <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
-                    {form.busy ? (
-                        <ActivityIndicator color={c.accentInk} />
-                    ) : (
-                        <Text style={styles.saveText}>{strings.clients.sellShort}</Text>
-                    )}
-                </Pressable>
-            </View>
-        </View>
+        </ChargeSheet>
     );
 }
 
@@ -907,28 +774,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     miniBtnText: { color: c.inkSoft, fontSize: 12, fontWeight: "600" },
-    addRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-    outlineBtn: {
-        flex: 1,
-        alignItems: "center",
-        paddingVertical: 10,
-        borderRadius: theme.radius,
-        borderColor: c.border,
-        borderWidth: 1,
-    },
-    outlineBtnText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    setupBox: {
-        marginTop: 10,
-        padding: 14,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.bg,
-    },
-    setupTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
-    setupNote: { color: c.muted, fontSize: 12, marginTop: 6, lineHeight: 17 },
-    setupSecret: { color: c.muted, fontSize: 11, marginTop: 8 },
-    setupActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 12 },
     chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
     chip: {
         paddingHorizontal: 12,
@@ -941,7 +786,6 @@ const styles = StyleSheet.create({
     chipOn: { backgroundColor: c.accent, borderColor: c.accent },
     chipText: { color: c.ink, fontSize: 13, fontWeight: "500" },
     chipTextOn: { color: c.accentInk },
-    fieldSpace: { marginTop: 14 },
     errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
     modalBackdrop: {
         flex: 1,
@@ -983,5 +827,4 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    disabled: { opacity: 0.5 },
 });

@@ -13,10 +13,10 @@ import {
     strings,
     usePublicBookingForm,
 } from "@clientbridge/app-core/public";
+import { CardForm } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { CardConfirm } from "../components/CardConfirm";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
 
@@ -283,11 +283,12 @@ function BookedState({
                     {strings.publicBooking.holdSpotBody(page.business_name, amount)}
                 </p>
                 <div className="mt-5">
-                    <CardConfirm
+                    <CardForm
                         clientSecret={result.deposit_client_secret}
                         stripeAccount={result.stripe_account_id}
-                        amountLabel={amount}
-                        onPaid={() => {
+                        submitLabel={strings.card.pay(amount)}
+                        busyLabel={strings.common.working}
+                        onDone={() => {
                             setPaid(true);
                         }}
                     />

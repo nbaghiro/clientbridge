@@ -6,6 +6,7 @@
 export * from "./domain/publicResource";
 export * from "./domain/publicBooking";
 export * from "./domain/publicPay";
+export * from "./domain/checkout";
 export * from "./domain/publicForm";
 export * from "./domain/publicContract";
 export * from "./domain/publicReview";

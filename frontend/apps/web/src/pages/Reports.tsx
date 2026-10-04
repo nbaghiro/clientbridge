@@ -13,9 +13,9 @@ import {
     useRecentPayouts,
     useReports,
 } from "@clientbridge/app-core";
+import { StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 
 export function Reports() {

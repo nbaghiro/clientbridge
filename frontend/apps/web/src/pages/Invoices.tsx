@@ -29,10 +29,10 @@ import {
     useLines,
     useSearch,
 } from "@clientbridge/app-core";
+import { StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { IconPlus, IconSearch } from "../components/icons";
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 

@@ -17,7 +17,8 @@ import {
 } from "../util/datetime";
 import type { Intent } from "../util/primitives";
 import { strings } from "../strings";
-import { canManagePayments, useInteractivePurchase } from "./payments";
+import { type Checkout, useCheckout } from "./checkout";
+import { canManagePayments } from "./payments";
 import { type StaffRow, useStaff } from "./staff";
 
 export interface CalendarEvent {
@@ -495,50 +496,33 @@ export function canCollectDeposit(event: CalendarEvent, viewer: Viewer | null): 
 }
 
 export interface CollectDeposit {
-    busy: boolean;
-    error: string | null;
-    /** Set once an interactive (new-card) deposit needs a client-side confirm. */
-    clientSecret: string | null;
-    /** Pass a saved card id to charge off-session; omit it (or "") to confirm a new card. */
-    collect: (paymentMethodId?: string) => void;
-    cancel: () => void;
-    complete: () => void;
+    checkout: Checkout;
+    submit: () => void;
 }
 
-/** Collect-deposit view-model: reuses the off-session-vs-client_secret purchase seam — a saved card
- *  finishes immediately; a new card yields a `client_secret` the platform confirms (web Elements /
- *  mobile native SDK). The Idempotency-Key dedups a double-submit server-side. */
+/** Collect a booking deposit through the shared checkout (saved card by default when one exists). */
 export function useCollectDeposit(
     api: ApiLike,
     event: CalendarEvent,
     onDone: () => void,
+    defaultMethod?: string,
 ): CollectDeposit {
-    const purchase = useInteractivePurchase(onDone);
+    const checkout = useCheckout(onDone, defaultMethod !== undefined ? { defaultMethod } : {});
 
-    const collect = (paymentMethodId?: string): void => {
+    const submit = (): void => {
         const bookingId = event.bookingId;
         if (bookingId === null) return;
-        const saved =
-            paymentMethodId !== undefined && paymentMethodId !== "" ? paymentMethodId : null;
-        purchase.submit(
-            (idempotencyKey) =>
+        checkout.pay(
+            ({ paymentMethodId, idempotencyKey }) =>
                 collectDeposit(api, bookingId, {
-                    ...(saved !== null ? { paymentMethodId: saved } : {}),
+                    ...(paymentMethodId !== undefined ? { paymentMethodId } : {}),
                     idempotencyKey,
                 }),
-            saved === null,
             strings.calendar.collectDepositError,
         );
     };
 
-    return {
-        busy: purchase.busy,
-        error: purchase.error,
-        clientSecret: purchase.clientSecret,
-        collect,
-        cancel: purchase.cancel,
-        complete: purchase.complete,
-    };
+    return { checkout, submit };
 }
 
 export interface BookingFormState {

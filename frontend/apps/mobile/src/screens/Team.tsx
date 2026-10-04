@@ -24,7 +24,7 @@ import {
     View,
 } from "react-native";
 
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
@@ -76,7 +76,7 @@ export function TeamScreen({ footer }: { footer?: ReactNode }) {
                         {pending.map((s, i) => (
                             <View key={s.id} style={[styles.row, i > 0 && styles.rowBorder]}>
                                 <Text style={styles.rowName}>{s.invite_email ?? "—"}</Text>
-                                <StatusBadge
+                                <StatusPill
                                     status={strings.team.invitedBadge(s.role)}
                                     intent="warning"
                                 />

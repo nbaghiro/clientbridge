@@ -9,8 +9,8 @@ import {
     useEarnings,
     type EarningRow,
 } from "@clientbridge/app-core";
+import { StatusPill } from "@clientbridge/ui";
 
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 
 export function Payouts() {

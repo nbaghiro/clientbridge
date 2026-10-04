@@ -19,9 +19,9 @@ import {
     markThreadRead,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
+import { StatusPill } from "@clientbridge/ui";
 import { useEffect, useRef, useState } from "react";
 
-import { StatusPill } from "../components/StatusPill";
 import { Tabs } from "../components/Tabs";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";

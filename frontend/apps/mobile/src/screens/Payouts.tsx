@@ -12,7 +12,7 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 
 const c = theme.colors;
@@ -65,7 +65,7 @@ function EarningItem({ row, divider }: { row: EarningRow; divider: boolean }) {
                     </Text>
                 </View>
                 <Text style={styles.amount}>{formatMoney(row.amount_cents)}</Text>
-                <StatusBadge status={row.status} intent={earningStatusIntent(row.status)} />
+                <StatusPill status={row.status} intent={earningStatusIntent(row.status)} />
             </View>
             {canApprove || canPay ? (
                 <Pressable

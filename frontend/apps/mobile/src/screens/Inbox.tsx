@@ -35,7 +35,7 @@ import {
 } from "react-native";
 
 import { Segmented } from "../components/Segmented";
-import { StatusBadge } from "../components/StatusBadge";
+import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { ReviewsScreen } from "./Reviews";
@@ -239,7 +239,7 @@ function Bubble({ message }: { message: MessageRow }) {
             <View style={[styles.bubbleMeta, outbound ? styles.metaRight : styles.metaLeft]}>
                 <Text style={styles.time}>{formatTime(parseTimestamp(message.created_at))}</Text>
                 {outbound ? (
-                    <StatusBadge
+                    <StatusPill
                         status={message.status}
                         intent={messageStatusIntent(message.status)}
                     />

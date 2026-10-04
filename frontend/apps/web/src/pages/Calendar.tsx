@@ -42,6 +42,7 @@ import {
     useStripeAccountId,
     weekColumns,
 } from "@clientbridge/app-core";
+import { ChargeSheet, StatusPill } from "@clientbridge/ui";
 import {
     type SubmitEvent,
     type PointerEvent as ReactPointerEvent,
@@ -51,8 +52,6 @@ import {
     useState,
 } from "react";
 
-import { CardConfirm } from "../components/CardConfirm";
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 
@@ -840,29 +839,9 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
 function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
     const viewer = useViewer();
     const cards = useSavedCards(event.clientId ?? "");
-    const deposit = useCollectDeposit(api, event, onClose);
+    const deposit = useCollectDeposit(api, event, onClose, cards.at(0)?.id);
     const stripeAccount = useStripeAccountId() ?? "";
-    const [method, setMethod] = useState<string | null>(null);
-
     const amountLabel = formatMoney(event.depositAmountCents);
-    const effMethod = method ?? cards.at(0)?.id ?? "";
-
-    if (deposit.clientSecret !== null) {
-        return (
-            <div className="rounded-lg border border-line bg-bg p-3">
-                <p className="text-sm font-medium text-ink">
-                    {strings.calendar.collectDepositTitle(amountLabel)}
-                </p>
-                <CardConfirm
-                    clientSecret={deposit.clientSecret}
-                    stripeAccount={stripeAccount}
-                    amountLabel={amountLabel}
-                    onPaid={deposit.complete}
-                    onCancel={deposit.cancel}
-                />
-            </div>
-        );
-    }
 
     return (
         <div className="rounded-lg border border-line bg-bg p-3">
@@ -877,37 +856,16 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                 />
             </div>
             {canCollectDeposit(event, viewer) ? (
-                <div className="mt-3 space-y-2">
-                    <select
-                        value={effMethod}
-                        onChange={(e) => {
-                            setMethod(e.target.value);
-                        }}
-                        className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden"
-                    >
-                        <option value="">{strings.calendar.payNewCard}</option>
-                        {cards.map((card) => (
-                            <option key={card.id} value={card.id}>
-                                {savedCardLabel(card)}
-                            </option>
-                        ))}
-                    </select>
-                    {deposit.error !== null ? (
-                        <p className="text-sm text-danger">{deposit.error}</p>
-                    ) : null}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            deposit.collect(effMethod);
-                        }}
-                        disabled={deposit.busy}
-                        className="w-full rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
-                        {deposit.busy
-                            ? strings.calendar.collecting
-                            : strings.calendar.collectAmount(amountLabel)}
-                    </button>
-                </div>
+                <ChargeSheet
+                    checkout={deposit.checkout}
+                    methods={cards.map((c) => ({ id: c.id, label: savedCardLabel(c) }))}
+                    amountLabel={amountLabel}
+                    stripeAccount={stripeAccount}
+                    submitLabel={strings.calendar.collectAmount(amountLabel)}
+                    busyLabel={strings.calendar.collecting}
+                    onSubmit={deposit.submit}
+                    onCancel={onClose}
+                />
             ) : null}
         </div>
     );

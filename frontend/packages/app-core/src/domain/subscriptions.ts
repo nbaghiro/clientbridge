@@ -1,11 +1,10 @@
 import { useQuery } from "@powersync/react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
-import { newIdempotencyKey } from "../util/primitives";
 import type { Intent } from "../util/primitives";
+import { type Checkout, useCheckout } from "./checkout";
 
 export interface SubscriptionRow {
     id: string;
@@ -70,58 +69,44 @@ export function cancelSubscription(
 export interface SubscriptionForm {
     itemId: string;
     setItemId: (v: string) => void;
-    paymentMethodId: string;
-    setPaymentMethodId: (v: string) => void;
-    busy: boolean;
-    error: string | null;
+    checkout: Checkout;
     submit: () => void;
 }
 
-/** Start-subscription form: picks a `kind="subscription"` item + a saved method, then creates it. */
+/** Start-subscription form: a `kind="subscription"` item charged to a saved method (no new card). */
 export function useSubscriptionForm(
     api: ApiLike,
     clientId: string,
     onCreated: () => void,
 ): SubscriptionForm {
     const [itemId, setItemId] = useState("");
-    const [paymentMethodId, setPaymentMethodId] = useState("");
-    const { busy, error, setError, run } = useAsyncAction();
-    // One key per attempt (the first invoice is a charge): kept across retries, cleared on success.
-    const keyRef = useRef<string | null>(null);
+    const checkout = useCheckout(
+        () => {
+            setItemId("");
+            onCreated();
+        },
+        { allowNewCard: false },
+    );
 
     const submit = (): void => {
         if (itemId === "") {
-            setError(strings.clients.choosePlan);
+            checkout.setError(strings.clients.choosePlan);
             return;
         }
-        if (paymentMethodId === "") {
-            setError(strings.clients.choosePaymentMethod);
-            return;
-        }
-        keyRef.current ??= newIdempotencyKey();
-        const key = keyRef.current;
-        run(
-            () =>
+        checkout.pay(
+            ({ paymentMethodId, idempotencyKey }) =>
                 createSubscription(
                     api,
                     {
                         client_id: clientId,
                         item_id: itemId,
-                        payment_method_id: paymentMethodId,
+                        payment_method_id: paymentMethodId ?? "",
                     },
-                    key,
+                    idempotencyKey,
                 ),
-            {
-                onSuccess: () => {
-                    keyRef.current = null;
-                    setItemId("");
-                    setPaymentMethodId("");
-                    onCreated();
-                },
-                errorMessage: strings.clients.startSubscriptionError,
-            },
+            strings.clients.startSubscriptionError,
         );
     };
 
-    return { itemId, setItemId, paymentMethodId, setPaymentMethodId, busy, error, submit };
+    return { itemId, setItemId, checkout, submit };
 }

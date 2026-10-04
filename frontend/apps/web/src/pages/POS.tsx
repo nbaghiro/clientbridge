@@ -9,14 +9,13 @@ import {
     strings,
     useCart,
     useCatalogItems,
-    useConnectionToken,
     useOpenOrders,
     useSearch,
 } from "@clientbridge/app-core";
+import { StatusPill } from "@clientbridge/ui";
 import { useMemo } from "react";
 
 import { IconSearch } from "../components/icons";
-import { StatusPill } from "../components/StatusPill";
 import { api } from "../lib/api";
 
 export function POS() {
@@ -79,18 +78,6 @@ export function POS() {
 }
 
 function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
-    if (cart.phase === "awaiting_reader" && cart.checkoutResult !== null && cart.order !== null) {
-        return (
-            <ReaderPanel
-                order={cart.order}
-                clientSecret={cart.checkoutResult.client_secret}
-                onDone={cart.newSale}
-                onVoid={cart.voidSale}
-                busy={cart.busy}
-            />
-        );
-    }
-
     return (
         <div className="flex max-h-[calc(100vh-4rem)] flex-col rounded-lg border border-line bg-surface shadow-card">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -129,16 +116,24 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                 {cart.phase === "review" && cart.order !== null ? (
                     <>
                         <Totals order={cart.order} />
-                        <button
-                            type="button"
-                            onClick={cart.charge}
-                            disabled={cart.busy}
-                            className="mt-3 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                        >
-                            {cart.busy
-                                ? strings.pos.starting
-                                : strings.pos.charge(formatMoney(cart.order.total_cents))}
-                        </button>
+                        <p className="mt-3 text-sm text-muted">{strings.pos.heldForMobile}</p>
+                        <div className="mt-3 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={cart.voidSale}
+                                disabled={cart.busy}
+                                className="flex-1 rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:text-danger disabled:opacity-60"
+                            >
+                                {strings.pos.voidSale}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={cart.newSale}
+                                className="flex-1 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+                            >
+                                {strings.pos.newSale}
+                            </button>
+                        </div>
                     </>
                 ) : (
                     <>
@@ -242,69 +237,6 @@ function Row({ label, cents }: { label: string; cents: number }) {
         <div className="flex justify-between">
             <span className="text-muted">{label}</span>
             <span className="tabular-nums text-ink-soft">{formatMoney(cents)}</span>
-        </div>
-    );
-}
-
-function ReaderPanel({
-    order,
-    clientSecret,
-    onDone,
-    onVoid,
-    busy,
-}: {
-    order: Order;
-    clientSecret: string;
-    onDone: () => void;
-    onVoid: () => void;
-    busy: boolean;
-}) {
-    // The native Stripe Terminal SDK confirmation is the follow-up; here we only acquire the reader
-    // token (the seam the SDK consumes) and surface the created PaymentIntent.
-    const tokenProvider = useConnectionToken(api);
-
-    return (
-        <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
-            <h2 className="font-display text-base font-bold text-ink">{strings.pos.readerTitle}</h2>
-            <p className="mt-1 text-sm text-muted">
-                {strings.pos.readerCollectLead}{" "}
-                <span className="font-semibold text-ink">{formatMoney(order.total_cents)}</span>.
-            </p>
-            <div className="mt-4 rounded-md border border-dashed border-accent-line bg-accent-weak p-4 text-center">
-                <p className="text-sm font-medium text-accent-strong">
-                    {strings.pos.waitingForCard}
-                </p>
-                <p className="mt-1 text-xs text-muted">{strings.pos.readerNotWired}</p>
-            </div>
-            <p className="mt-3 truncate text-xs text-muted">
-                {strings.pos.paymentIntentLabel} {clientSecret}
-            </p>
-            <div className="mt-4 flex gap-2">
-                <button
-                    type="button"
-                    onClick={() => {
-                        tokenProvider().catch(() => undefined);
-                    }}
-                    className="flex-1 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                >
-                    {strings.pos.pairReader}
-                </button>
-                <button
-                    type="button"
-                    onClick={onDone}
-                    className="flex-1 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                >
-                    {strings.pos.newSale}
-                </button>
-            </div>
-            <button
-                type="button"
-                onClick={onVoid}
-                disabled={busy}
-                className="mt-2 w-full rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:text-danger disabled:opacity-60"
-            >
-                {strings.pos.voidSale}
-            </button>
         </div>
     );
 }
