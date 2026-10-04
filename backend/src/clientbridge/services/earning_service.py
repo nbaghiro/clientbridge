@@ -7,7 +7,8 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Invoice, Line
+from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.catalog import Item
 from clientbridge.models.identity import Staff
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.scheduling import Booking, Session
@@ -21,15 +22,27 @@ class Earning:
     id: str
     business_id: str
     staff_id: str
-    booking_id: str | None
+    subject_type: str | None  # booking (service work) or order (retail commission)
+    subject_id: str | None
     amount_cents: int
     status: str
+
+    @property
+    def booking_id(self) -> str | None:
+        return self.subject_id if self.subject_type == "booking" else None
+
+    @property
+    def subject(self) -> tuple[str, str] | None:
+        if self.subject_type is None or self.subject_id is None:
+            return None
+        return (self.subject_type, self.subject_id)
 
     def out(self) -> EarningOut:
         return EarningOut(
             id=self.id,
             staff_id=self.staff_id,
             booking_id=self.booking_id,
+            order_id=self.subject_id if self.subject_type == "order" else None,
             amount_cents=self.amount_cents,
             status=self.status,
         )
@@ -67,7 +80,7 @@ class EarningService:
             raise NotFound("earning not found")
 
         async def run(cmd: Command) -> EarningOut:
-            await _lock_booking(self.db, earning.booking_id)
+            await _lock_subject(self.db, earning.subject)
             fresh = await load_earning(self.db, self.biz, earning.id)
             if fresh is None or fresh.status != current:
                 raise Conflict(f"only a {current} earning can be marked {target}")
@@ -93,6 +106,16 @@ async def _lock_booking(db: AsyncSession, booking_id: str | None) -> None:
         await db.execute(select(Booking.id).where(Booking.id == booking_id).with_for_update())
 
 
+async def _lock_subject(db: AsyncSession, subject: tuple[str, str] | None) -> None:
+    if subject is None:
+        return
+    kind, subject_id = subject
+    if kind == "booking":
+        await _lock_booking(db, subject_id)
+    elif kind == "order":
+        await db.execute(select(Order.id).where(Order.id == subject_id).with_for_update())
+
+
 async def advance_earning(db: AsyncSession, earning: Earning, target: str) -> None:
     """Approve (pending → approved payable) or pay (approved payable → bank) one earning."""
     current = "pending" if target == "approved" else "approved"
@@ -109,7 +132,7 @@ async def advance_earning(db: AsyncSession, earning: Earning, target: str) -> No
         ref=f"{entry_type}:{earning.id}",
         legs=[Leg("staff", earning.staff_id, "payable", earning.amount_cents, current), to],
         source=("journal", earning.id),
-        subject=("booking", earning.booking_id) if earning.booking_id else None,
+        subject=earning.subject,
     )
 
 
@@ -128,7 +151,8 @@ async def load_earning(db: AsyncSession, business_id: str, journal_id: str) -> E
         id=journal_id,
         business_id=business_id,
         staff_id=account.owner_id,
-        booking_id=entry.subject_id,
+        subject_type=entry.subject_type,
+        subject_id=entry.subject_id,
         amount_cents=-entry.amount_cents,
         status=await _status(db, business_id, journal_id),
     )
@@ -236,3 +260,59 @@ async def reverse_earnings(db: AsyncSession, invoice: Invoice) -> None:
         journals = await _booking_earnings(db, biz, line.booking_id)
         if journals and await _status(db, biz, journals[-1]) == "pending":
             await ledger.reverse(db, biz, journals[-1], ref=f"earning:{journals[-1]}:reversal")
+
+
+async def ensure_order_earning(db: AsyncSession, order: Order) -> None:
+    """Accrue the seller's retail commission once a sale is paid: their retail rate on the sale's
+    product lines (before tax). Once per sale, or again after a refund reversed it."""
+    staff = await db.get(Staff, order.staff_id)
+    if staff is None or not staff.is_payee or not staff.retail_rate_bps:
+        return
+    biz = order.business_id
+    await _lock_subject(db, ("order", order.id))
+    journals = await _order_earnings(db, biz, order.id)
+    if journals and await _status(db, biz, journals[-1]) != "reversed":
+        return
+    products = await db.execute(
+        scoped(Line, biz)
+        .with_only_columns(Line.amount_cents)
+        .join(Item, Item.id == Line.item_id)
+        .where(Line.parent_type == "order", Line.parent_id == order.id, Item.kind == "product")
+    )
+    base = sum(products.scalars().all())
+    amount = base * staff.retail_rate_bps // 10000
+    if amount <= 0:
+        return
+    await ledger.post(
+        db,
+        biz,
+        type="earning",
+        ref=f"earning:order:{order.id}:{len(journals)}",
+        legs=[
+            Leg("business", biz, "staff_cost", amount),
+            Leg("staff", staff.id, "payable", -amount, "pending"),
+        ],
+        source=("order", order.id),
+        subject=("order", order.id),
+        meta={"basis": "retail", "rate_bps": staff.retail_rate_bps},
+    )
+
+
+async def reverse_order_earning(db: AsyncSession, order: Order) -> None:
+    """Unwind a still-pending retail commission when its sale is refunded."""
+    biz = order.business_id
+    await _lock_subject(db, ("order", order.id))
+    journals = await _order_earnings(db, biz, order.id)
+    if journals and await _status(db, biz, journals[-1]) == "pending":
+        await ledger.reverse(db, biz, journals[-1], ref=f"earning:{journals[-1]}:reversal")
+
+
+async def _order_earnings(db: AsyncSession, business_id: str, order_id: str) -> list[str]:
+    rows = await db.execute(
+        scoped(Entry, business_id)
+        .with_only_columns(Entry.journal_id)
+        .where(Entry.type == "earning", Entry.subject_type == "order", Entry.subject_id == order_id)
+        .distinct()
+        .order_by(Entry.journal_id)
+    )
+    return list(rows.scalars().all())

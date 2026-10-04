@@ -1,11 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, Principal, require_role
 from clientbridge.core.scoping import Page, PageQuery
-from clientbridge.schemas.catalog import ItemCreate, ItemOut, ItemUpdate
+from clientbridge.schemas.catalog import ItemCreate, ItemOut, ItemUpdate, RestockIn
 from clientbridge.services.catalog_service import CatalogService
+from clientbridge.services.stock_service import StockService
 
 router = APIRouter(prefix="/items", tags=["catalog"])
 
@@ -42,6 +43,17 @@ async def update_item(
 ) -> ItemOut:
     item = await CatalogService(db, principal).update(item_id, body)
     return ItemOut.model_validate(item)
+
+
+@router.post("/{item_id}/restock", response_model=ItemOut)
+async def restock_item(
+    item_id: str,
+    body: RestockIn,
+    principal: AdminPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> ItemOut:
+    return await StockService(db, principal).restock(item_id, body, idempotency_key)
 
 
 @router.delete("/{item_id}", status_code=204)

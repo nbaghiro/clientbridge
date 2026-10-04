@@ -7,7 +7,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
-from clientbridge.models.catalog import Item
+from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.scheduling import Booking
@@ -65,7 +65,11 @@ class PublicBookingService:
             (
                 await self.db.execute(
                     scoped(Item, business.id)
-                    .where(Item.online_bookable.is_(True), Item.active.is_(True))
+                    .where(
+                        Item.online_bookable.is_(True),
+                        Item.active.is_(True),
+                        Item.kind.in_(BOOKABLE_KINDS),
+                    )
                     .order_by(Item.id)
                 )
             )
@@ -170,7 +174,7 @@ class PublicBookingService:
         ).scalar_one_or_none()
         if item is None:
             raise NotFound("service not found")
-        if not item.online_bookable:
+        if not item.online_bookable or item.kind not in BOOKABLE_KINDS:
             raise Conflict("that service isn't available for online booking")
         return item
 

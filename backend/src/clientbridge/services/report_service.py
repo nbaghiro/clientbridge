@@ -9,11 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
+from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.catalog import Item
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.schemas.payments import RemittanceSummary
-from clientbridge.schemas.reports import GstHstReport, IncomeReport, T4ARow
+from clientbridge.schemas.reports import GstHstReport, IncomeReport, SalesByItemRow, T4ARow
 from clientbridge.services import ledger_service as ledger
 
 _CASH = ("stripe", "bank", "cash")
@@ -152,6 +154,65 @@ class ReportService:
             .where(account, Entry.occurred_at >= lo, Entry.occurred_at < hi)
         )
         return stmt if entry is None else stmt.where(entry)
+
+    async def sales_by_item(self, start: date, end: date) -> list[SalesByItemRow]:
+        """What sold: catalog lines on paid sales (by payment time) and paid invoices (by issue
+        time, like the GST/HST return), with full refunds shown apart."""
+        lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
+        sold: dict[str, list[float]] = {}
+        for parent_type, parent, status, at in (
+            ("order", Order, Order.status, Order.paid_at),
+            ("invoice", Invoice, Invoice.status, Invoice.issued_at),
+        ):
+            rows = await self.db.execute(
+                scoped(Line, self.biz)
+                .with_only_columns(
+                    Line.item_id, Line.quantity, Line.amount_cents, Line.tax_amount_cents, status
+                )
+                .join(parent, parent.id == Line.parent_id)
+                .where(
+                    Line.parent_type == parent_type,
+                    Line.item_id.isnot(None),
+                    status.in_(("paid", "refunded")),
+                    at >= lo,
+                    at <= hi,
+                )
+            )
+            for item_id, quantity, amount, tax, parent_status in rows.tuples().all():
+                assert item_id is not None
+                totals = sold.setdefault(item_id, [0.0, 0, 0, 0])
+                totals[0] += float(quantity)
+                totals[1] += amount
+                totals[2] += tax
+                if parent_status == "refunded":
+                    totals[3] += amount
+        if not sold:
+            return []
+        items = await self.db.execute(scoped(Item, self.biz).where(Item.id.in_(sold)))
+        names = {item.id: (item.name, item.kind) for item in items.scalars().all()}
+        out = [
+            SalesByItemRow(
+                item_id=item_id,
+                name=names[item_id][0],
+                kind=names[item_id][1],
+                quantity=t[0],
+                sales_cents=int(t[1]),
+                tax_cents=int(t[2]),
+                refunded_cents=int(t[3]),
+            )
+            for item_id, t in sold.items()
+        ]
+        return sorted(out, key=lambda r: (-r.sales_cents, r.name))
+
+    async def sales_by_item_csv(self, start: date, end: date) -> str:
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["item", "kind", "quantity", "sales_cents", "tax_cents", "refunded_cents"])
+        for r in await self.sales_by_item(start, end):
+            writer.writerow(
+                [r.name, r.kind, f"{r.quantity:g}", r.sales_cents, r.tax_cents, r.refunded_cents]
+            )
+        return buf.getvalue()
 
     async def income_csv(self, start: date, end: date) -> str:
         report = await self.income_summary(start, end)

@@ -16,7 +16,7 @@ from clientbridge.core.security import hash_token, verify_password
 from clientbridge.integrations.notifications import Email, EmailSender
 from clientbridge.models.identity import Staff, User
 from clientbridge.models.platform import AuditLog
-from clientbridge.schemas.identity import InviteOut
+from clientbridge.schemas.identity import InviteOut, StaffPayOut, StaffPayUpdate
 from clientbridge.services.auth_service import build_user
 
 INVITE_TTL = timedelta(days=14)
@@ -26,6 +26,31 @@ INVITABLE_ROLES = {"admin", "staff", "contractor"}  # never invite an owner
 class StaffService:
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+
+    async def update_pay(
+        self, principal: Principal, staff_id: str, data: StaffPayUpdate
+    ) -> StaffPayOut:
+        """How a team member is paid: service rate, its basis, and retail commission."""
+
+        async def run(cmd: Command) -> StaffPayOut:
+            staff = (
+                await self.db.execute(
+                    scoped(Staff, principal.business_id)
+                    .where(Staff.id == staff_id)
+                    .with_for_update()
+                )
+            ).scalar_one_or_none()
+            if staff is None:
+                raise NotFound("team member not found")
+            for key, value in data.model_dump(exclude_unset=True).items():
+                setattr(staff, key, value)
+            await self.db.flush()
+            cmd.record("staff.pay", entity_type="staff", entity_id=staff.id)
+            return StaffPayOut.model_validate(staff)
+
+        return await run_command(
+            self.db, principal, action="staff.pay", run=run, response_model=StaffPayOut
+        )
 
     async def create_invite(
         self,

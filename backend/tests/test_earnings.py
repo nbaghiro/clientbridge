@@ -210,6 +210,7 @@ async def test_approve_then_pay_moves_payable_to_bank(
         "id": journal,
         "staff_id": staff.id,
         "booking_id": approved.json()["booking_id"],
+        "order_id": None,
         "amount_cents": 6000,
         "status": "approved",
     }

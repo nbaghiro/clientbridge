@@ -8,10 +8,18 @@ from clientbridge.schemas.billing import LineInput, LineOut
 class OrderCreate(BaseModel):
     client_id: str | None = None  # null = walk-in
     lines: list[LineInput] = Field(default_factory=list)
+    receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
 
 
 class OrderUpdate(BaseModel):
     lines: list[LineInput] | None = None
+    receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
+
+
+class OrderPayIn(BaseModel):
+    payment_method_id: str | None = None  # a saved card of the order's client, or "default"
 
 
 class OrderOut(BaseModel):
@@ -27,6 +35,8 @@ class OrderOut(BaseModel):
     amount_paid_cents: int
     balance_cents: int
     paid_at: datetime | None
+    receipt_email: str | None = None
+    receipt_phone: str | None = None
     lines: list[LineOut]
 
 

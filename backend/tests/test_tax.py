@@ -75,3 +75,41 @@ def test_per_line_rounding_half_up() -> None:
     r = compute_tax([TaxLine(999)], BC)
     assert r.by_jurisdiction == {"GST": 50, "PST": 70}
     assert r.tax_total_cents == 120
+
+
+def test_federal_only_drops_provincial_components_per_province() -> None:
+    assert compute_tax([TaxLine(10000, tax_class="federal_only")], BC).by_jurisdiction == {
+        "GST": 500
+    }
+    assert compute_tax([TaxLine(10000, tax_class="federal_only")], QC).by_jurisdiction == {
+        "GST": 500
+    }
+    assert compute_tax([TaxLine(10000, tax_class="federal_only")], ON).by_jurisdiction == {
+        "HST": 1300
+    }
+    assert compute_tax([TaxLine(10000, tax_class="federal_only")], AB).tax_total_cents == 500
+
+
+def test_exempt_class_is_untaxed_everywhere() -> None:
+    for rates in (BC, ON, QC, AB, NS):
+        assert compute_tax([TaxLine(10000, tax_class="exempt")], rates).tax_total_cents == 0
+
+
+def test_mixed_classes_on_one_bc_bill() -> None:
+    r = compute_tax(
+        [
+            TaxLine(10000, tax_class="federal_only"),
+            TaxLine(2400),
+            TaxLine(5000, tax_class="exempt"),
+        ],
+        BC,
+    )
+    assert r.by_jurisdiction == {"GST": 620, "PST": 168}
+    assert r.subtotal_cents == 17400
+    assert r.total_cents == 17400 + 788
+
+
+def test_federal_only_inclusive_backs_out_gst_only() -> None:
+    r = compute_tax([TaxLine(10500, tax_class="federal_only")], BC, prices_include_tax=True)
+    assert r.by_jurisdiction == {"GST": 500}
+    assert r.subtotal_cents == 10000

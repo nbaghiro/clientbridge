@@ -1,6 +1,9 @@
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
+
+TaxClass = Literal["standard", "federal_only", "exempt"]
 
 
 class LineInput(BaseModel):
@@ -9,6 +12,7 @@ class LineInput(BaseModel):
     unit_amount_cents: int = Field(0, ge=0)
     item_id: str | None = None
     booking_id: str | None = None
+    tax_class: TaxClass | None = None  # default: the item's class, else standard
 
 
 class LineOut(BaseModel):
@@ -18,6 +22,7 @@ class LineOut(BaseModel):
     unit_amount_cents: int
     amount_cents: int
     tax_amount_cents: int
+    tax_class: str
     item_id: str | None
     booking_id: str | None
     position: int

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 _PRECISE: dict[str, Decimal] = {"QST": Decimal("0.09975")}
+_FEDERAL = frozenset({"GST", "HST"})
 
 
 def effective_rate(jurisdiction: str, rate_bps: int) -> Decimal:
@@ -30,6 +31,7 @@ class TaxComponent:
 class TaxLine:
     amount_cents: int
     taxable: bool = True
+    tax_class: str = "standard"  # standard · federal_only (GST/HST, no PST/QST) · exempt
 
 
 @dataclass(frozen=True)
@@ -67,8 +69,12 @@ def compute_tax(
     return TaxResult(subtotal, tax_total, subtotal + tax_total, by_jur, results)
 
 
-def _line(line: TaxLine, rates: Sequence[TaxComponent], inclusive: bool) -> LineTax:
-    if not line.taxable or not rates:
+def _line(line: TaxLine, all_rates: Sequence[TaxComponent], inclusive: bool) -> LineTax:
+    if line.tax_class == "federal_only":
+        rates: Sequence[TaxComponent] = [r for r in all_rates if r.jurisdiction in _FEDERAL]
+    else:
+        rates = all_rates
+    if not line.taxable or line.tax_class == "exempt" or not rates:
         return LineTax(line.amount_cents, 0, {})
 
     if inclusive:

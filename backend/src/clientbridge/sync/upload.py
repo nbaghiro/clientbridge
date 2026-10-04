@@ -14,10 +14,11 @@ from pydantic import BaseModel
 from sqlalchemy import Boolean, Date, DateTime, Table, Time, delete, select, update
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import IntegrityError
 
 from clientbridge.core.db import Base
 from clientbridge.core.deps import CurrentUserId, DbSession
-from clientbridge.core.errors import Forbidden
+from clientbridge.core.errors import Forbidden, Unprocessable
 from clientbridge.models.identity import Staff
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -85,7 +86,8 @@ SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 # rejected.
 COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
     "clients": frozenset({"stripe_customer_id"}),  # the Stripe Customer, minted by the payment cmd
-    "items": frozenset({"stripe_price_id"}),  # the recurring Price cached by the subscription cmd
+    # the recurring Price cached by the subscription cmd; stock moves only through sales + restock
+    "items": frozenset({"stripe_price_id", "stock_on_hand"}),
 }
 
 
@@ -176,30 +178,34 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
             _reject_owned_fields(op.type, data)
 
         # apply (op.id is authoritative)
-        if op.op == "PUT":
-            values = {**_coerce(table, data), "id": op.id}
-            changed = {k: v for k, v in values.items() if k != "id"}
-            stmt = pg_insert(table).values(**values)
-            await db.execute(
-                stmt.on_conflict_do_update(index_elements=["id"], set_=changed)
-                if changed
-                else stmt.on_conflict_do_nothing(index_elements=["id"])
-            )
-        elif op.op == "PATCH":
-            await db.execute(
-                update(table).where(table.columns["id"] == op.id).values(**_coerce(table, data))
-            )
-        elif op.op == "DELETE":
-            if "deleted_at" in table.columns:  # soft-delete so it propagates
+        try:
+            if op.op == "PUT":
+                values = {**_coerce(table, data), "id": op.id}
+                changed = {k: v for k, v in values.items() if k != "id"}
+                stmt = pg_insert(table).values(**values)
                 await db.execute(
-                    update(table)
-                    .where(table.columns["id"] == op.id)
-                    .values(deleted_at=datetime.now(UTC))
+                    stmt.on_conflict_do_update(index_elements=["id"], set_=changed)
+                    if changed
+                    else stmt.on_conflict_do_nothing(index_elements=["id"])
                 )
+            elif op.op == "PATCH":
+                await db.execute(
+                    update(table).where(table.columns["id"] == op.id).values(**_coerce(table, data))
+                )
+            elif op.op == "DELETE":
+                if "deleted_at" in table.columns:  # soft-delete so it propagates
+                    await db.execute(
+                        update(table)
+                        .where(table.columns["id"] == op.id)
+                        .values(deleted_at=datetime.now(UTC))
+                    )
+                else:
+                    await db.execute(delete(table).where(table.columns["id"] == op.id))
             else:
-                await db.execute(delete(table).where(table.columns["id"] == op.id))
-        else:
-            raise Forbidden(f"unknown op '{op.op}'")
+                raise Forbidden(f"unknown op '{op.op}'")
+        except IntegrityError as exc:  # a CHECK or unique rule (e.g. a bookable product, a SKU)
+            await db.rollback()
+            raise Unprocessable(f"that change to {op.type} breaks a data rule") from exc
 
     await db.commit()
     return {"applied": len(body.ops)}

@@ -20,3 +20,13 @@ class T4ARow(BaseModel):
     staff_id: str
     name: str
     total_cents: int  # Σ approved/paid payout allocations in the calendar year
+
+
+class SalesByItemRow(BaseModel):
+    item_id: str
+    name: str
+    kind: str
+    quantity: float
+    sales_cents: int  # before tax, including sales later refunded in full
+    tax_cents: int
+    refunded_cents: int  # sales in the period that were refunded in full

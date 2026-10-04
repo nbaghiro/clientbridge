@@ -60,7 +60,7 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'owner'
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'admin'
     data:
-      - SELECT id, business_id, user_id, role, is_payee, default_rate, rate_type, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
+      - SELECT id, business_id, user_id, role, is_payee, default_rate, rate_type, retail_rate_bps, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
       - SELECT * FROM sessions           WHERE business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM availability       WHERE business_id = bucket.business_id

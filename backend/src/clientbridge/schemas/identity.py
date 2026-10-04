@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from clientbridge.schemas.public_common import HEX_COLOR
 
@@ -92,3 +92,20 @@ class InviteOut(BaseModel):
     role: str
     status: str
     invite_token: str  # raw token, returned once to the inviter (also emailed)
+
+
+class StaffPayUpdate(BaseModel):
+    is_payee: bool | None = None
+    rate_type: Literal["percent", "fixed", "hourly"] | None = None
+    default_rate: float | None = Field(default=None, ge=0)  # percent points, or dollars
+    retail_rate_bps: int | None = Field(default=None, ge=0, le=10000)  # commission on products
+
+
+class StaffPayOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    is_payee: bool
+    rate_type: str | None
+    default_rate: float | None
+    retail_rate_bps: int | None

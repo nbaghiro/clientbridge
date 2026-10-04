@@ -617,6 +617,23 @@ export interface paths {
         patch: operations["update_item_v1_items__item_id__patch"];
         trace?: never;
     };
+    "/v1/items/{item_id}/restock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restock Item */
+        post: operations["restock_item_v1_items__item_id__restock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings": {
         parameters: {
             query?: never;
@@ -1127,6 +1144,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/{order_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay Order */
+        post: operations["pay_order_v1_orders__order_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders/{order_id}/void": {
         parameters: {
             query?: never;
@@ -1314,6 +1348,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/staff/{staff_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Pay */
+        patch: operations["update_pay_v1_staff__staff_id__pay_patch"];
+        trace?: never;
+    };
     "/v1/dashboard/summary": {
         parameters: {
             query?: never;
@@ -1442,6 +1493,40 @@ export interface paths {
         };
         /** T4A Csv */
         get: operations["t4a_csv_v1_reports_t4a_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports/sales-by-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sales By Item */
+        get: operations["sales_by_item_v1_reports_sales_by_item_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports/sales-by-item.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sales By Item Csv */
+        get: operations["sales_by_item_csv_v1_reports_sales_by_item_csv_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2009,6 +2094,8 @@ export interface components {
             staff_id: string;
             /** Booking Id */
             booking_id: string | null;
+            /** Order Id */
+            order_id?: string | null;
             /** Amount Cents */
             amount_cents: number;
             /** Status */
@@ -2343,15 +2430,29 @@ export interface components {
             /** Color */
             color?: string | null;
             /**
-             * Online Bookable
-             * @default true
-             */
-            online_bookable: boolean;
-            /**
              * Active
              * @default true
              */
             active: boolean;
+            /**
+             * Tax Class
+             * @default standard
+             * @enum {string}
+             */
+            tax_class: "standard" | "federal_only" | "exempt";
+            /** Sku */
+            sku?: string | null;
+            /** Cost Cents */
+            cost_cents?: number | null;
+            /**
+             * Track Stock
+             * @default false
+             */
+            track_stock: boolean;
+            /** Low Stock At */
+            low_stock_at?: number | null;
+            /** Online Bookable */
+            online_bookable?: boolean | null;
         };
         /** ItemOut */
         ItemOut: {
@@ -2384,17 +2485,33 @@ export interface components {
             /** Color */
             color?: string | null;
             /**
-             * Online Bookable
-             * @default true
-             */
-            online_bookable: boolean;
-            /**
              * Active
              * @default true
              */
             active: boolean;
+            /**
+             * Tax Class
+             * @default standard
+             * @enum {string}
+             */
+            tax_class: "standard" | "federal_only" | "exempt";
+            /** Sku */
+            sku?: string | null;
+            /** Cost Cents */
+            cost_cents?: number | null;
+            /**
+             * Track Stock
+             * @default false
+             */
+            track_stock: boolean;
+            /** Low Stock At */
+            low_stock_at?: number | null;
             /** Id */
             id: string;
+            /** Online Bookable */
+            online_bookable: boolean;
+            /** Stock On Hand */
+            stock_on_hand: number | null;
             /** Business Id */
             business_id: string;
             /**
@@ -2432,6 +2549,16 @@ export interface components {
             online_bookable?: boolean | null;
             /** Active */
             active?: boolean | null;
+            /** Tax Class */
+            tax_class?: ("standard" | "federal_only" | "exempt") | null;
+            /** Sku */
+            sku?: string | null;
+            /** Cost Cents */
+            cost_cents?: number | null;
+            /** Track Stock */
+            track_stock?: boolean | null;
+            /** Low Stock At */
+            low_stock_at?: number | null;
         };
         /** LineInput */
         LineInput: {
@@ -2451,6 +2578,8 @@ export interface components {
             item_id?: string | null;
             /** Booking Id */
             booking_id?: string | null;
+            /** Tax Class */
+            tax_class?: ("standard" | "federal_only" | "exempt") | null;
         };
         /** LineOut */
         LineOut: {
@@ -2466,6 +2595,8 @@ export interface components {
             amount_cents: number;
             /** Tax Amount Cents */
             tax_amount_cents: number;
+            /** Tax Class */
+            tax_class: string;
             /** Item Id */
             item_id: string | null;
             /** Booking Id */
@@ -2544,6 +2675,10 @@ export interface components {
             client_id?: string | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][];
+            /** Receipt Email */
+            receipt_email?: string | null;
+            /** Receipt Phone */
+            receipt_phone?: string | null;
         };
         /** OrderOut */
         OrderOut: {
@@ -2571,13 +2706,26 @@ export interface components {
             balance_cents: number;
             /** Paid At */
             paid_at: string | null;
+            /** Receipt Email */
+            receipt_email?: string | null;
+            /** Receipt Phone */
+            receipt_phone?: string | null;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
+        };
+        /** OrderPayIn */
+        OrderPayIn: {
+            /** Payment Method Id */
+            payment_method_id?: string | null;
         };
         /** OrderUpdate */
         OrderUpdate: {
             /** Lines */
             lines?: components["schemas"]["LineInput"][] | null;
+            /** Receipt Email */
+            receipt_email?: string | null;
+            /** Receipt Phone */
+            receipt_phone?: string | null;
         };
         /** PackageOut */
         PackageOut: {
@@ -2950,6 +3098,13 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** RestockIn */
+        RestockIn: {
+            /** Quantity */
+            quantity: number;
+            /** Note */
+            note?: string | null;
+        };
         /** ReviewOut */
         ReviewOut: {
             /** Id */
@@ -3012,6 +3167,23 @@ export interface components {
             average: number | null;
             /** Count */
             count: number;
+        };
+        /** SalesByItemRow */
+        SalesByItemRow: {
+            /** Item Id */
+            item_id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Quantity */
+            quantity: number;
+            /** Sales Cents */
+            sales_cents: number;
+            /** Tax Cents */
+            tax_cents: number;
+            /** Refunded Cents */
+            refunded_cents: number;
         };
         /** ScheduleCreate */
         ScheduleCreate: {
@@ -3107,6 +3279,30 @@ export interface components {
             token: string;
             /** Signed At */
             signed_at: string | null;
+        };
+        /** StaffPayOut */
+        StaffPayOut: {
+            /** Id */
+            id: string;
+            /** Is Payee */
+            is_payee: boolean;
+            /** Rate Type */
+            rate_type: string | null;
+            /** Default Rate */
+            default_rate: number | null;
+            /** Retail Rate Bps */
+            retail_rate_bps: number | null;
+        };
+        /** StaffPayUpdate */
+        StaffPayUpdate: {
+            /** Is Payee */
+            is_payee?: boolean | null;
+            /** Rate Type */
+            rate_type?: ("percent" | "fixed" | "hourly") | null;
+            /** Default Rate */
+            default_rate?: number | null;
+            /** Retail Rate Bps */
+            retail_rate_bps?: number | null;
         };
         /** SubscriptionCreate */
         SubscriptionCreate: {
@@ -4634,6 +4830,45 @@ export interface operations {
             };
         };
     };
+    restock_item_v1_items__item_id__restock_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestockIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_booking_v1_bookings_post: {
         parameters: {
             query?: never;
@@ -5704,6 +5939,45 @@ export interface operations {
             };
         };
     };
+    pay_order_v1_orders__order_id__pay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderPayIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckoutOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     void_order_v1_orders__order_id__void_post: {
         parameters: {
             query?: never;
@@ -6092,6 +6366,44 @@ export interface operations {
             };
         };
     };
+    update_pay_v1_staff__staff_id__pay_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffPayUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffPayOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     summary_v1_dashboard_summary_get: {
         parameters: {
             query?: never;
@@ -6338,6 +6650,76 @@ export interface operations {
         parameters: {
             query: {
                 year: number;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sales_by_item_v1_reports_sales_by_item_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesByItemRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sales_by_item_csv_v1_reports_sales_by_item_csv_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
             };
             header?: {
                 "x-business-id"?: string;

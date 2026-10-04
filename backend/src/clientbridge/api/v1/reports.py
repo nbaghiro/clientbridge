@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Response
 
 from clientbridge.core.deps import DbSession, Principal, require_role
-from clientbridge.schemas.reports import GstHstReport, IncomeReport, T4ARow
+from clientbridge.schemas.reports import GstHstReport, IncomeReport, SalesByItemRow, T4ARow
 from clientbridge.services.report_service import ReportService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -51,3 +51,18 @@ async def t4a(principal: AdminPrincipal, db: DbSession, year: int) -> list[T4ARo
 async def t4a_csv(principal: AdminPrincipal, db: DbSession, year: int) -> Response:
     content = await ReportService(db, principal).t4a_csv(year)
     return _csv_response(content, "t4a.csv")
+
+
+@router.get("/sales-by-item", response_model=list[SalesByItemRow])
+async def sales_by_item(
+    principal: AdminPrincipal, db: DbSession, start: date, end: date
+) -> list[SalesByItemRow]:
+    return await ReportService(db, principal).sales_by_item(start, end)
+
+
+@router.get("/sales-by-item.csv")
+async def sales_by_item_csv(
+    principal: AdminPrincipal, db: DbSession, start: date, end: date
+) -> Response:
+    content = await ReportService(db, principal).sales_by_item_csv(start, end)
+    return _csv_response(content, "sales-by-item.csv")

@@ -283,7 +283,7 @@ class FakePaymentGateway:
         *,
         amount_cents: int,
         currency: str,
-        customer_id: str,
+        customer_id: str | None,
         application_fee_cents: int,
         metadata: dict[str, str],
         idempotency_key: str,

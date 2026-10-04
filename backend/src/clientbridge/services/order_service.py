@@ -4,11 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.billing import Line, Order
+from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
@@ -17,6 +18,7 @@ from clientbridge.schemas.orders import (
     ConnectionTokenOut,
     OrderCreate,
     OrderOut,
+    OrderPayIn,
     OrderUpdate,
 )
 from clientbridge.services import ledger_service as ledger
@@ -27,7 +29,11 @@ from clientbridge.services.lines import (
     replace_lines,
     tax_for_lines,
 )
-from clientbridge.services.payment_service import open_terminal_payment
+from clientbridge.services.payment_service import (
+    open_order_card_payment,
+    open_terminal_payment,
+    resolve_saved_method_ref,
+)
 
 
 class OrderService:
@@ -49,7 +55,8 @@ class OrderService:
                 client_id=data.client_id,
                 staff_id=self.principal.staff_id,
                 status="open",
-                currency="CAD",
+                receipt_email=data.receipt_email,
+                receipt_phone=data.receipt_phone,
             )
             self.db.add(order)
             await self.db.flush()
@@ -81,6 +88,9 @@ class OrderService:
                 if data.lines is not None
                 else await fetch_lines(self.db, self.biz, "order", order.id)
             )
+            for key in ("receipt_email", "receipt_phone"):
+                if key in data.model_fields_set:
+                    setattr(order, key, getattr(data, key))
             await self._apply_totals(order, lines)
             await self.db.flush()
             cmd.record("order.update", entity_type="order", entity_id=order.id)
@@ -147,6 +157,63 @@ class OrderService:
             idempotency_key=idempotency_key,
         )
 
+    async def pay_by_card(
+        self, order_id: str, data: OrderPayIn, idempotency_key: str | None
+    ) -> CheckoutOut:
+        """Pay an open sale online: a saved card of the order's client charges now, otherwise a
+        new card is confirmed on the card form. The webhook settles it like a reader payment."""
+        order = await self._order(order_id)
+        if order.status != "open":
+            raise Conflict("only an open order can be paid")
+        if order.total_cents <= 0:
+            raise Conflict("order has no balance to charge")
+        account_id = await self._account()
+        client = await self._client(order.client_id) if order.client_id else None
+        if data.payment_method_id is not None and client is None:
+            raise Unprocessable("a walk-in sale is paid with a new card")
+        method = (
+            await resolve_saved_method_ref(self.db, self.biz, data.payment_method_id, client.id)
+            if client is not None
+            else None
+        )
+
+        async def run(cmd: Command) -> CheckoutOut:
+            payment, client_secret = await open_order_card_payment(
+                self.db,
+                self.gateway,
+                account_id=account_id,
+                business_id=self.biz,
+                order=order,
+                client=client,
+                amount=order.total_cents,
+                fee_bps=get_settings().platform_fee_bps,
+                payment_method=method,
+                idempotency_key=idempotency_key,
+            )
+            cmd.record("order.pay", entity_type="order", entity_id=order.id)
+            return CheckoutOut(
+                order_id=order.id, client_secret=client_secret, payment_id=payment.id
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="order.pay",
+            run=run,
+            response_model=CheckoutOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def _account(self) -> str:
+        business = await self.db.get(Business, self.biz)
+        if (
+            business is None
+            or not business.stripe_charges_enabled
+            or business.stripe_account_id is None
+        ):
+            raise Conflict("connect a Stripe account before taking payment")
+        return business.stripe_account_id
+
     async def connection_token(self) -> ConnectionTokenOut:
         business = (
             await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
@@ -172,7 +239,21 @@ class OrderService:
         )
 
     async def _apply_totals(self, order: Order, lines: list[Line]) -> None:
+        order.currency = await self._currency(lines)
         apply_totals(order, await tax_for_lines(self.db, self.biz, lines))
+
+    async def _currency(self, lines: list[Line]) -> str:
+        """A sale is in its items' currency (CAD when it has only free-text lines)."""
+        ids = {ln.item_id for ln in lines if ln.item_id}
+        if not ids:
+            return "CAD"
+        rows = await self.db.execute(
+            scoped(Item, self.biz).with_only_columns(Item.currency).where(Item.id.in_(ids))
+        )
+        currencies = set(rows.scalars().all())
+        if len(currencies) > 1:
+            raise Unprocessable("one sale can't mix currencies")
+        return currencies.pop()
 
     async def _order(self, order_id: str) -> Order:
         row = (
@@ -218,5 +299,7 @@ async def _out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderOut:
         amount_paid_cents=paid,
         balance_cents=order.total_cents - paid if order.status == "open" else 0,
         paid_at=order.paid_at,
+        receipt_email=order.receipt_email,
+        receipt_phone=order.receipt_phone,
         lines=[line_out(ln) for ln in lines],
     )

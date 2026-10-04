@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Index,
@@ -18,6 +19,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
+BOOKABLE_KINDS = ("service", "class")
+ENTITLEMENT_KINDS = ("gift", "package", "subscription")
+# standard: every provincial component; federal_only: GST/HST only (no PST/QST); exempt: none.
+TAX_CLASSES = ("standard", "federal_only", "exempt")
+STOCK_REASONS = ("sale", "refund", "restock")
+
 
 class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "items"
@@ -26,7 +33,20 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
             "items", "kind", "service", "class", "product", "package", "subscription", "gift"
         ),
         enum_check("items", "deposit_type", "none", "fixed", "percent"),
+        enum_check("items", "tax_class", *TAX_CLASSES),
+        CheckConstraint(
+            "online_bookable = false OR kind IN ('service', 'class')",
+            name="ck_items_online_bookable_kind",
+        ),
+        CheckConstraint("track_stock = false OR kind = 'product'", name="ck_items_stock_kind"),
         Index("ix_items_business_kind_active", "business_id", "kind", "active"),
+        Index(
+            "ux_items_business_sku",
+            "business_id",
+            "sku",
+            unique=True,
+            postgresql_where=text("sku IS NOT NULL"),
+        ),
     )
 
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
@@ -39,7 +59,7 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     capacity: Mapped[int | None] = mapped_column(Integer)
     category: Mapped[str | None] = mapped_column(String)
     color: Mapped[str | None] = mapped_column(String)
-    online_bookable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    online_bookable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     buffer_before_min: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     buffer_after_min: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     deposit_type: Mapped[str] = mapped_column(String, default="none", nullable=False)
@@ -50,6 +70,12 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     validity_days: Mapped[int | None] = mapped_column(Integer)
     pack: Mapped[str | None] = mapped_column(String)
     stripe_price_id: Mapped[str | None] = mapped_column(String)  # cached recurring Price
+    tax_class: Mapped[str] = mapped_column(String, default="standard", nullable=False)
+    sku: Mapped[str | None] = mapped_column(String)
+    cost_cents: Mapped[int | None] = mapped_column(BigInteger)
+    track_stock: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    stock_on_hand: Mapped[int | None] = mapped_column(Integer)  # cached from stock_movements
+    low_stock_at: Mapped[int | None] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
@@ -111,3 +137,28 @@ class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
     payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id"))
+
+
+class StockMovement(PKMixin, BusinessScoped, TimestampMixin, Base):
+    """One signed change to a product's stock; `items.stock_on_hand` is their running total. A sale
+    or refund is keyed on its line, so a re-delivered payment can't move stock twice."""
+
+    __tablename__ = "stock_movements"
+    __table_args__ = (
+        enum_check("stock_movements", "reason", *STOCK_REASONS),
+        Index(
+            "ux_stock_movements_line_reason",
+            "line_id",
+            "reason",
+            unique=True,
+            postgresql_where=text("line_id IS NOT NULL"),
+        ),
+        Index("ix_stock_movements_item", "business_id", "item_id"),
+    )
+
+    item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
+    line_id: Mapped[str | None] = mapped_column(ForeignKey("lines.id"))
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    note: Mapped[str | None] = mapped_column(String)
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))

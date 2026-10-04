@@ -81,12 +81,15 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    receipt_email: Mapped[str | None] = mapped_column(String)  # where a walk-in's receipt goes
+    receipt_phone: Mapped[str | None] = mapped_column(String)
 
 
 class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "lines"
     __table_args__ = (
         enum_check("lines", "parent_type", "invoice", "estimate", "order"),
+        enum_check("lines", "tax_class", "standard", "federal_only", "exempt"),
         Index("ix_lines_parent", "parent_type", "parent_id"),
     )
 
@@ -99,4 +102,5 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
     unit_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    tax_class: Mapped[str] = mapped_column(String, default="standard", nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

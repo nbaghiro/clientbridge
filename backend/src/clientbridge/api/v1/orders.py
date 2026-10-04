@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Header
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, GatewayDep
-from clientbridge.schemas.orders import CheckoutOut, OrderCreate, OrderOut, OrderUpdate
+from clientbridge.schemas.orders import CheckoutOut, OrderCreate, OrderOut, OrderPayIn, OrderUpdate
 from clientbridge.services.order_service import OrderService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -40,6 +40,18 @@ async def checkout_order(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> CheckoutOut:
     return await OrderService(db, principal, gateway).checkout(order_id, idempotency_key)
+
+
+@router.post("/{order_id}/pay", response_model=CheckoutOut)
+async def pay_order(
+    order_id: str,
+    data: OrderPayIn,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> CheckoutOut:
+    return await OrderService(db, principal, gateway).pay_by_card(order_id, data, idempotency_key)
 
 
 @router.post("/{order_id}/void", response_model=OrderOut)

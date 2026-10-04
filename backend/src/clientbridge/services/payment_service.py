@@ -38,8 +38,14 @@ from clientbridge.schemas.payments import (
 )
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.business_service import apply_account_status
-from clientbridge.services.earning_service import ensure_earnings, reverse_earnings
+from clientbridge.services.earning_service import (
+    ensure_earnings,
+    ensure_order_earning,
+    reverse_earnings,
+    reverse_order_earning,
+)
 from clientbridge.services.lines import apply_totals, tax_for_amount, tax_for_lines
+from clientbridge.services.stock_service import sync_parent_stock
 
 
 @dataclass(frozen=True)
@@ -790,6 +796,63 @@ async def open_entitlement_payment(
     return payment, intent.client_secret
 
 
+async def open_order_card_payment(
+    db: AsyncSession,
+    gateway: PaymentGateway,
+    *,
+    account_id: str,
+    business_id: str,
+    order: Order,
+    client: Client | None,
+    amount: int,
+    fee_bps: int,
+    payment_method: str | None = None,
+    idempotency_key: str | None = None,
+) -> tuple[Payment, str]:
+    """An online card PaymentIntent for a sale (the web till), settled by the same webhook as a
+    reader payment. A saved method charges now; otherwise the client secret goes to the card form.
+    The caller commits."""
+    customer_id = await ensure_customer(db, gateway, account_id, client) if client else None
+    if payment_method is not None:
+        await _assert_order_room(db, order, amount)
+    intent = await gateway.create_payment_intent(
+        account_id,
+        amount_cents=amount,
+        currency=order.currency,
+        customer_id=customer_id,
+        application_fee_cents=amount * fee_bps // 10000,
+        metadata={"order_id": order.id, "business_id": business_id},
+        idempotency_key=f"order_card_{order.id}_{idempotency_key or amount}",
+        payment_method=payment_method,
+    )
+    existing = (
+        await db.execute(select(Payment).where(Payment.provider_ref == intent.id))
+    ).scalar_one_or_none()
+    if existing is not None:
+        return existing, intent.client_secret
+    if payment_method is None:
+        await _assert_order_room(db, order, amount)
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=business_id,
+        client_id=order.client_id,
+        kind="payment",
+        order_id=order.id,
+        amount_cents=amount,
+        currency=order.currency,
+        method="card",
+        provider="stripe",
+        provider_ref=intent.id,
+        status="pending",
+    )
+    db.add(payment)
+    try:
+        await db.flush()
+    except IntegrityError as exc:
+        raise Conflict("checkout is being set up — please retry") from exc
+    return payment, intent.client_secret
+
+
 async def open_terminal_payment(
     db: AsyncSession,
     gateway: PaymentGateway,
@@ -1214,6 +1277,11 @@ async def _sync_order(db: AsyncSession, order_id: str) -> None:
         order.status = "open"
         order.paid_at = None
     await db.flush()
+    await sync_parent_stock(db, order.business_id, "order", order.id, order.status)
+    if order.status == "paid":
+        await ensure_order_earning(db, order)
+    else:
+        await reverse_order_earning(db, order)
 
 
 def _assert_not_ours(intent: dict[str, object]) -> None:
@@ -1259,6 +1327,7 @@ async def sync_invoice(db: AsyncSession, invoice_id: str) -> None:
         invoice.status = "sent"
         invoice.paid_at = None
     await db.flush()
+    await sync_parent_stock(db, invoice.business_id, "invoice", invoice.id, invoice.status)
     if invoice.status == "paid":
         await ensure_earnings(db, invoice)
     else:

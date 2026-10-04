@@ -14,7 +14,7 @@ from clientbridge.integrations.notifications import (
     Sms,
     SmsSender,
 )
-from clientbridge.models.billing import Estimate, Invoice
+from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
@@ -24,6 +24,7 @@ from clientbridge.models.platform import DeviceToken
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Session
 from clientbridge.services import ledger_service as ledger
+from clientbridge.services.lines import fetch_lines, tax_breakdown
 
 _log = logging.getLogger(__name__)
 
@@ -34,13 +35,23 @@ def _money(cents: int, currency: str) -> str:
 
 # The notification copy catalog: every user-facing notification string lives here, in one place, so
 # backend copy never sits inline in the services that send it. See CLAUDE.md.
-def _receipt(business_name: str, amount: str) -> tuple[str, str, str]:
-    """(email subject, email+sms body, push body) for a payment receipt."""
-    return (
-        f"Receipt from {business_name}",
-        f"Thank you! Your payment of {amount} to {business_name} was received.",
-        f"Payment received: {amount}",
-    )
+def _receipt(business_name: str, amount: str, details: list[str]) -> tuple[str, str, str]:
+    """(email subject, email+sms body, push body) for a payment receipt; `details` are the
+    itemised lines, tax lines and total when the payment was for a sale or an invoice."""
+    body = f"Thank you! Your payment of {amount} to {business_name} was received."
+    if details:
+        body += "\n\n" + "\n".join(details)
+    return (f"Receipt from {business_name}", body, f"Payment received: {amount}")
+
+
+def _receipt_details(
+    lines: list[tuple[str, float, str]], subtotal: str, taxes: list[tuple[str, str]], total: str
+) -> list[str]:
+    rows = [f"{name} x{quantity:g}  {amount}" for name, quantity, amount in lines]
+    rows.append(f"Subtotal  {subtotal}")
+    rows.extend(f"{code}  {amount}" for code, amount in taxes)
+    rows.append(f"Total  {total}")
+    return rows
 
 
 def _dispute_alert(amount: str) -> str:
@@ -191,8 +202,14 @@ class Notifier:
         if business is None:
             return
         amount = _money(payment.amount_cents, payment.currency)
-        subject, body, push_body = _receipt(business.name, amount)
-        await self._to_client(db, payment.client_id, subject, body)
+        details = await self._itemised(db, payment)
+        subject, body, push_body = _receipt(business.name, amount, details)
+        if payment.client_id is not None:
+            await self._to_client(db, payment.client_id, subject, body)
+        elif payment.order_id is not None:
+            order = await db.get(Order, payment.order_id)
+            if order is not None:
+                await self._to_contact(order.receipt_email, order.receipt_phone, subject, body)
         await self._alert_staff(
             db, business, push_body, {"type": "payment", "payment_id": payment_id}
         )
@@ -432,6 +449,36 @@ class Notifier:
         link = f"{get_settings().connect_base_url}/contract/{signature.token}"
         subject, body = _contract_sent(business.name, contract.name, link)
         await self._to_client(db, signature.client_id, subject, body)
+
+    async def _itemised(self, db: AsyncSession, payment: Payment) -> list[str]:
+        parent: tuple[str, str] | None = (
+            ("order", payment.order_id)
+            if payment.order_id
+            else ("invoice", payment.invoice_id)
+            if payment.invoice_id
+            else None
+        )
+        if parent is None:
+            return []
+        lines = await fetch_lines(db, payment.business_id, *parent)
+        if not lines:
+            return []
+        tax = await tax_breakdown(db, payment.business_id, lines)
+        cur = payment.currency
+        return _receipt_details(
+            [(ln.description, float(ln.quantity), _money(ln.amount_cents, cur)) for ln in lines],
+            _money(tax.subtotal_cents, cur),
+            [(code, _money(cents, cur)) for code, cents in sorted(tax.by_jurisdiction.items())],
+            _money(tax.total_cents, cur),
+        )
+
+    async def _to_contact(
+        self, email: str | None, phone: str | None, subject: str, body: str
+    ) -> None:
+        if email:
+            await self._safe(self.email.send(Email(to=email, subject=subject, body=body)))
+        if phone:
+            await self._safe(self.sms.send(Sms(to=phone, body=body)))
 
     async def _to_client(
         self, db: AsyncSession, client_id: str | None, subject: str, body: str

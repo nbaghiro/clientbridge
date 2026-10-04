@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from clientbridge.schemas.billing import TaxClass
 
 ItemKind = Literal["service", "class", "product", "package", "subscription", "gift"]
 
@@ -16,12 +18,16 @@ class ItemBase(BaseModel):
     capacity: int | None = Field(default=None, ge=0)
     category: str | None = None
     color: str | None = None
-    online_bookable: bool = True
     active: bool = True
+    tax_class: TaxClass = "standard"
+    sku: str | None = Field(default=None, min_length=1, max_length=64)
+    cost_cents: int | None = Field(default=None, ge=0)
+    track_stock: bool = False
+    low_stock_at: int | None = Field(default=None, ge=0)
 
 
 class ItemCreate(ItemBase):
-    pass
+    online_bookable: bool | None = None  # defaults by kind: services and classes only
 
 
 class ItemUpdate(BaseModel):
@@ -36,12 +42,31 @@ class ItemUpdate(BaseModel):
     color: str | None = None
     online_bookable: bool | None = None
     active: bool | None = None
+    tax_class: TaxClass | None = None
+    sku: str | None = Field(default=None, min_length=1, max_length=64)
+    cost_cents: int | None = Field(default=None, ge=0)
+    track_stock: bool | None = None
+    low_stock_at: int | None = Field(default=None, ge=0)
 
 
 class ItemOut(ItemBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    online_bookable: bool
+    stock_on_hand: int | None
     business_id: str
     created_at: datetime
     updated_at: datetime
+
+
+class RestockIn(BaseModel):
+    quantity: int  # negative for a count correction (breakage, shrinkage); never zero
+    note: str | None = None
+
+    @field_validator("quantity")
+    @classmethod
+    def _not_zero(cls, v: int) -> int:
+        if v == 0:
+            raise ValueError("quantity can't be zero")
+        return v

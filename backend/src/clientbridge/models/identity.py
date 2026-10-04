@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -63,6 +63,7 @@ class Staff(PKMixin, TimestampMixin, Base):
     is_payee: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     default_rate: Mapped[float | None] = mapped_column()
     rate_type: Mapped[str | None] = mapped_column(String)
+    retail_rate_bps: Mapped[int | None] = mapped_column(Integer)  # commission on product sales
     title: Mapped[str | None] = mapped_column(String)
     color: Mapped[str | None] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
