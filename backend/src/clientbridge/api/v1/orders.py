@@ -2,8 +2,23 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, GatewayDep
-from clientbridge.schemas.orders import CheckoutOut, OrderCreate, OrderOut, OrderPayIn, OrderUpdate
+from clientbridge.core.deps import (
+    CurrentPrincipal,
+    DbSession,
+    EmailDep,
+    GatewayDep,
+    PushDep,
+    SmsDep,
+)
+from clientbridge.schemas.orders import (
+    CheckoutOut,
+    OrderCreate,
+    OrderOut,
+    OrderPayIn,
+    OrderPickupIn,
+    OrderUpdate,
+)
+from clientbridge.services.notification_service import Notifier
 from clientbridge.services.order_service import OrderService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -59,3 +74,20 @@ async def void_order(
     order_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
 ) -> OrderOut:
     return await OrderService(db, principal, gateway).void_order(order_id)
+
+
+@router.post("/{order_id}/pickup", response_model=OrderOut)
+async def set_order_pickup(
+    order_id: str,
+    data: OrderPickupIn,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> OrderOut:
+    result = await OrderService(db, principal, gateway).set_pickup(order_id, data)
+    if data.status == "ready":
+        await Notifier(email, sms, push).on_order_ready(db, result.id)
+    return result

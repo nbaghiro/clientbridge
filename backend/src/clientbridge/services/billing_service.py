@@ -11,9 +11,10 @@ from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
+from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking
+from clientbridge.models.scheduling import Booking, BookingAddon, Session
 from clientbridge.schemas.billing import (
     EstimateCreate,
     EstimateOut,
@@ -336,6 +337,85 @@ class BillingService:
             run=run,
             response_model=EstimateOut,
         )
+
+    async def create_invoice_for_booking(
+        self, booking_id: str, idempotency_key: str | None
+    ) -> InvoiceOut:
+        """A draft invoice for one visit: the service line, then any add-ons the client chose when
+        booking. The booking points at its invoice, so a visit is invoiced once."""
+        self._assert_admin()
+        booking = await self._booking(booking_id)
+        session = await self.db.get(Session, booking.session_id)
+        item = await self.db.get(Item, session.item_id) if session is not None else None
+        addons = (
+            (
+                await self.db.execute(
+                    scoped(BookingAddon, self.biz)
+                    .where(BookingAddon.booking_id == booking.id)
+                    .order_by(BookingAddon.created_at, BookingAddon.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        inputs = [
+            LineInput(
+                description=item.name if item is not None else "Visit",
+                quantity=1,
+                unit_amount_cents=booking.price_cents,
+                item_id=item.id if item is not None else None,
+                booking_id=booking.id,
+            ),
+            *(
+                LineInput(
+                    description=a.description,
+                    quantity=a.quantity,
+                    unit_amount_cents=a.unit_amount_cents,
+                    item_id=a.item_id,
+                )
+                for a in addons
+            ),
+        ]
+
+        async def run(cmd: Command) -> InvoiceOut:
+            if booking.invoice_id is not None:
+                prior = await self.db.get(Invoice, booking.invoice_id)
+                if prior is not None and prior.status != "void":
+                    raise Conflict("this visit already has an invoice")
+            invoice = Invoice(
+                id=new_id("invoice"),
+                business_id=self.biz,
+                client_id=booking.client_id,
+                status="draft",
+                currency=item.currency if item is not None else "CAD",
+            )
+            self.db.add(invoice)
+            await self.db.flush()
+            lines = await self._replace_lines("invoice", invoice.id, inputs)
+            await self._apply_totals(invoice, lines)
+            booking.invoice_id = invoice.id
+            await self.db.flush()
+            cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
+            return await _invoice_out(self.db, invoice, lines)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="invoice.from_booking",
+            run=run,
+            response_model=InvoiceOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def _booking(self, booking_id: str) -> Booking:
+        row = (
+            await self.db.execute(
+                scoped(Booking, self.biz, soft_delete=True).where(Booking.id == booking_id)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("booking not found")
+        return row
 
     def _assert_admin(self) -> None:
         assert_role(

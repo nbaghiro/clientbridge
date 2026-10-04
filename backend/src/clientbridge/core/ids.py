@@ -16,6 +16,7 @@ PREFIXES: dict[str, str] = {
     "gift_card": "gc",
     "session": "ses",
     "booking": "bk",
+    "booking_addon": "bka",
     "availability": "av",
     "resource": "rs",
     "schedule": "sch",

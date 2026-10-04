@@ -121,7 +121,11 @@ function ItemRowView({ item }: { item: ItemRow }) {
                 </Text>
                 {state !== "untracked" ? (
                     <View style={styles.pill}>
-                        <StatusPill status={stockLabel(item)} intent={stockIntent(state)} />
+                        <StatusPill
+                            status={stockLabel(item)}
+                            intent={stockIntent(state)}
+                            asWritten
+                        />
                     </View>
                 ) : null}
             </View>
@@ -179,7 +183,13 @@ function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => vo
 
 type TextName = Exclude<
     ItemField,
-    "kind" | "onlineBookable" | "trackStock" | "depositType" | "frequency" | "taxClass"
+    | "kind"
+    | "onlineBookable"
+    | "trackStock"
+    | "sellOnline"
+    | "depositType"
+    | "frequency"
+    | "taxClass"
 >;
 
 function Input({
@@ -427,6 +437,15 @@ function ItemFields({ form }: { form: ItemForm }) {
                     ) : null}
                 </>
             ) : null}
+            {form.shows("sellOnline") ? (
+                <Toggle
+                    value={v.sellOnline}
+                    label={strings.catalog.sellOnline}
+                    onChange={(b) => {
+                        form.set("sellOnline", b);
+                    }}
+                />
+            ) : null}
 
             <Text style={ui.label}>{strings.catalog.taxClass}</Text>
             <Chips
@@ -447,7 +466,7 @@ function RestockSection({ item }: { item: ItemRow }) {
     return (
         <DetailSection
             title={strings.catalog.stockHeading}
-            action={<StatusPill status={stockLabel(item)} intent={stockIntent(state)} />}
+            action={<StatusPill status={stockLabel(item)} intent={stockIntent(state)} asWritten />}
         >
             <View style={styles.twoCol}>
                 <View style={styles.field}>

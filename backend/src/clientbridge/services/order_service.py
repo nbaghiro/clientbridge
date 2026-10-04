@@ -19,6 +19,7 @@ from clientbridge.schemas.orders import (
     OrderCreate,
     OrderOut,
     OrderPayIn,
+    OrderPickupIn,
     OrderUpdate,
 )
 from clientbridge.services import ledger_service as ledger
@@ -34,6 +35,8 @@ from clientbridge.services.payment_service import (
     open_terminal_payment,
     resolve_saved_method_ref,
 )
+
+_PICKUP_STEPS = {"unfulfilled": 0, "ready": 1, "picked_up": 2}
 
 
 class OrderService:
@@ -206,6 +209,27 @@ class OrderService:
             idempotency_key=idempotency_key,
         )
 
+    async def set_pickup(self, order_id: str, data: OrderPickupIn) -> OrderOut:
+        """Move a paid online order along: ready for the client, then picked up."""
+        order = await self._order(order_id)
+        if order.source != "online" or order.pickup_status is None:
+            raise Conflict("only an online order is picked up")
+        if order.status != "paid":
+            raise Conflict("the order isn't paid yet")
+        if _PICKUP_STEPS[data.status] <= _PICKUP_STEPS[order.pickup_status]:
+            raise Conflict(f"the order is already {order.pickup_status.replace('_', ' ')}")
+
+        async def run(cmd: Command) -> OrderOut:
+            order.pickup_status = data.status
+            await self.db.flush()
+            cmd.record("order.pickup", entity_type="order", entity_id=order.id)
+            lines = await fetch_lines(self.db, self.biz, "order", order.id)
+            return await _out(self.db, order, lines)
+
+        return await run_command(
+            self.db, self.principal, action="order.pickup", run=run, response_model=OrderOut
+        )
+
     async def _account(self) -> str:
         business = await self.db.get(Business, self.biz)
         if (
@@ -303,5 +327,7 @@ async def _out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderOut:
         paid_at=order.paid_at,
         receipt_email=order.receipt_email,
         receipt_phone=order.receipt_phone,
+        source=order.source,
+        pickup_status=order.pickup_status,
         lines=[line_out(ln) for ln in lines],
     )

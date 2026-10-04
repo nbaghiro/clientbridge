@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +24,10 @@ class OrderPayIn(BaseModel):
     payment_method_id: str | None = None  # a saved card of the order's client, or "default"
 
 
+class OrderPickupIn(BaseModel):
+    status: Literal["ready", "picked_up"]
+
+
 class OrderOut(BaseModel):
     id: str
     business_id: str
@@ -38,6 +43,8 @@ class OrderOut(BaseModel):
     paid_at: datetime | None
     receipt_email: str | None = None
     receipt_phone: str | None = None
+    source: str = "pos"
+    pickup_status: str | None = None
     lines: list[LineOut]
 
 

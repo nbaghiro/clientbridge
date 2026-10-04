@@ -9,6 +9,7 @@ import { strings } from "../strings";
 import { dateKey } from "../util/datetime";
 import type { PublicBrand } from "./publicBrand";
 import { usePublicResource } from "./publicResource";
+import { cartSubtotal } from "./publicShop";
 
 export interface PublicService {
     id: string;
@@ -28,11 +29,20 @@ export interface PublicStaff {
     title: string | null;
 }
 
+export interface PublicAddon {
+    id: string;
+    name: string;
+    price_cents: number;
+    currency: string;
+    image_url: string | null;
+}
+
 export interface PublicBookingPage {
     business_name: string;
     brand: PublicBrand;
     services: PublicService[];
     staff: PublicStaff[];
+    addons: PublicAddon[]; // products a client can add to a visit, paid with the visit
     stripe_account_id: string | null; // connected account to mount the deposit Elements, when onboarded
 }
 
@@ -80,6 +90,7 @@ export interface PublicBookingClient {
             staffId: string;
             startsAt: string;
             client: BookingClientInput;
+            addons?: { itemId: string; quantity: number }[];
         },
     ): Promise<PublicBookingResult>;
 }
@@ -102,7 +113,7 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
             const q = new URLSearchParams({ item_id: itemId, staff_id: staffId, date });
             return request<PublicSlots>(`/book/${encodeURIComponent(slug)}/slots?${q.toString()}`);
         },
-        book: (slug, { itemId, staffId, startsAt, client }) =>
+        book: (slug, { itemId, staffId, startsAt, client, addons = [] }) =>
             request<PublicBookingResult>(`/book/${encodeURIComponent(slug)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -115,6 +126,7 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
                         email: client.email ?? null,
                         phone: client.phone ?? null,
                     },
+                    addons: addons.map((a) => ({ item_id: a.itemId, quantity: a.quantity })),
                 }),
             }),
     };
@@ -143,6 +155,9 @@ export interface PublicBookingForm {
     setEmail: (v: string) => void;
     phone: string;
     setPhone: (v: string) => void;
+    addons: Record<string, number>; // chosen add-on product id -> quantity
+    toggleAddon: (itemId: string) => void;
+    addonsTotalCents: number;
     canBook: boolean;
     submit: () => void;
     busy: boolean;
@@ -182,7 +197,14 @@ export function usePublicBookingForm(
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [result, setResult] = useState<PublicBookingResult | null>(null);
+    const [addons, setAddons] = useState<Record<string, number>>({});
     const { busy, error, setError, run } = useAsyncAction();
+    const toggleAddon = (itemId: string): void => {
+        setAddons((prev) => {
+            if (!(itemId in prev)) return { ...prev, [itemId]: 1 };
+            return Object.fromEntries(Object.entries(prev).filter(([id]) => id !== itemId));
+        });
+    };
 
     useEffect(() => {
         setStartsAt("");
@@ -227,6 +249,10 @@ export function usePublicBookingForm(
                         staffId,
                         startsAt,
                         client: { name: name.trim(), email: email.trim(), phone: phone.trim() },
+                        addons: Object.entries(addons).map(([id, quantity]) => ({
+                            itemId: id,
+                            quantity,
+                        })),
                     }),
                 );
             },
@@ -257,6 +283,9 @@ export function usePublicBookingForm(
         setEmail,
         phone,
         setPhone,
+        addons,
+        toggleAddon,
+        addonsTotalCents: cartSubtotal(page?.addons ?? [], addons),
         canBook,
         submit,
         busy,

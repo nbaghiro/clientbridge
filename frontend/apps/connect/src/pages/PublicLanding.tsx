@@ -82,6 +82,14 @@ export function PublicLanding() {
                     </Link>
                 </>
             ) : null}
+            {page.addons.length > 0 ? (
+                <Link
+                    to={`/shop/${encodeURIComponent(slug)}`}
+                    className="mt-3 block w-full rounded-md border border-line px-4 py-2.5 text-center text-sm font-semibold text-ink-soft transition hover:bg-bg"
+                >
+                    {strings.publicBooking.shopLink}
+                </Link>
+            ) : null}
         </PublicFrame>
     );
 }

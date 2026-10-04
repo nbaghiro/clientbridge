@@ -47,6 +47,7 @@ class CatalogService:
             sku=data.sku,
             cost_cents=data.cost_cents,
             track_stock=data.track_stock,
+            sell_online=data.sell_online,
             stock_on_hand=0 if data.track_stock else None,
             low_stock_at=data.low_stock_at,
             buffer_before_min=data.buffer_before_min,
@@ -111,6 +112,8 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("only services and classes can be booked online")
     if item.track_stock and item.kind != "product":
         raise Unprocessable("only products can track stock")
+    if item.sell_online and item.kind != "product":
+        raise Unprocessable("only products can be sold online")
     if item.deposit_type != "none" and item.kind not in BOOKABLE_KINDS:
         raise Unprocessable("only services and classes take a deposit")
     if (

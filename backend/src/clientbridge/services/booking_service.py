@@ -22,7 +22,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, BookingAddon, Session
 from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch, DepositOut
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.availability_service import is_within_availability
@@ -526,6 +526,37 @@ class BookingService:
         if row is None:
             raise NotFound("business not found")
         return row
+
+    async def remove_addon(self, booking_id: str, addon_id: str) -> BookingOut:
+        """Drop a product the client added online, before the visit is invoiced."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        if booking.invoice_id is not None:
+            raise Conflict("this visit is already invoiced")
+        addon = (
+            await self.db.execute(
+                scoped(BookingAddon, self.biz).where(
+                    BookingAddon.id == addon_id, BookingAddon.booking_id == booking.id
+                )
+            )
+        ).scalar_one_or_none()
+        if addon is None:
+            raise NotFound("add-on not found")
+        session = await self._session(booking.session_id)
+
+        async def run(cmd: Command) -> BookingOut:
+            await self.db.delete(addon)
+            await self.db.flush()
+            cmd.record("booking.addon_remove", entity_type="booking", entity_id=booking.id)
+            return await _booking_out(self.db, booking, session)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.addon_remove",
+            run=run,
+            response_model=BookingOut,
+        )
 
     def _assert_can_act_as(self, staff_id: str | None) -> None:
         assert_can_act_as(self.principal, staff_id)

@@ -46,6 +46,7 @@ bucket_definitions:
     data:
       - SELECT * FROM sessions           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM booking_addons     WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM availability       WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM schedules          WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM accounts           WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
@@ -63,6 +64,7 @@ bucket_definitions:
       - SELECT id, business_id, user_id, role, is_payee, default_rate, rate_type, retail_rate_bps, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
       - SELECT * FROM sessions           WHERE business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM booking_addons     WHERE business_id = bucket.business_id
       - SELECT * FROM availability       WHERE business_id = bucket.business_id
       - SELECT * FROM schedules          WHERE business_id = bucket.business_id
       - SELECT * FROM invoices           WHERE business_id = bucket.business_id

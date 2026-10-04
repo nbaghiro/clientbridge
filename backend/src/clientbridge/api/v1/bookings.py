@@ -65,3 +65,14 @@ async def collect_deposit(
     return await BookingService(db, principal, gateway).collect_deposit(
         booking_id, payment_method_id, idempotency_key
     )
+
+
+@router.delete("/{booking_id}/addons/{addon_id}", response_model=BookingOut)
+async def remove_booking_addon(
+    booking_id: str,
+    addon_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+) -> BookingOut:
+    return await BookingService(db, principal, gateway).remove_addon(booking_id, addon_id)

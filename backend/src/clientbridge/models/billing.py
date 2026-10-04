@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -70,6 +71,11 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "orders"
     __table_args__ = (
         enum_check("orders", "status", "open", "paid", "void", "refunded"),
+        enum_check("orders", "source", "pos", "online"),
+        CheckConstraint(
+            "pickup_status IS NULL OR pickup_status IN ('unfulfilled', 'ready', 'picked_up')",
+            name="ck_orders_pickup_status",
+        ),
         Index("ix_orders_status", "business_id", "status"),
     )
 
@@ -83,6 +89,8 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     receipt_email: Mapped[str | None] = mapped_column(String)  # where a walk-in's receipt goes
     receipt_phone: Mapped[str | None] = mapped_column(String)
+    source: Mapped[str] = mapped_column(String, default="pos", nullable=False)
+    pickup_status: Mapped[str | None] = mapped_column(String)  # online orders collected in person
 
 
 class Line(PKMixin, BusinessScoped, TimestampMixin, Base):

@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 
 from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep, StorageDep
 from clientbridge.core.ratelimit import (
@@ -22,6 +22,11 @@ from clientbridge.schemas.public_booking import (
     PublicBookingResult,
     PublicSlots,
 )
+from clientbridge.schemas.public_shop import (
+    PublicShop,
+    PublicShopOrderCreate,
+    PublicShopOrderResult,
+)
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.public_booking_service import PublicBookingService
@@ -29,6 +34,7 @@ from clientbridge.services.public_contract_service import PublicContractService
 from clientbridge.services.public_form_service import PublicFormService
 from clientbridge.services.public_pay_service import PublicPayService
 from clientbridge.services.public_review_service import PublicReviewService
+from clientbridge.services.public_shop_service import PublicShopService
 
 router = APIRouter(prefix="/pay", tags=["public-pay"])
 
@@ -179,3 +185,22 @@ async def public_book(
     result = await PublicBookingService(db, gateway).book(slug, body)
     await Notifier(email, sms, push).on_booking_confirmed(db, result.booking_id)
     return result
+
+
+@booking_router.get("/{slug}/shop", response_model=PublicShop)
+async def public_shop(
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> PublicShop:
+    return await PublicShopService(db, gateway).shop(slug)
+
+
+@booking_router.post("/{slug}/shop/orders", response_model=PublicShopOrderResult)
+async def public_shop_order(
+    slug: str,
+    body: PublicShopOrderCreate,
+    db: DbSession,
+    gateway: GatewayDep,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8)],
+    _: BookingRateLimited,
+) -> PublicShopOrderResult:
+    return await PublicShopService(db, gateway).order(slug, body, idempotency_key)

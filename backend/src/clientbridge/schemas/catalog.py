@@ -25,6 +25,7 @@ class ItemBase(BaseModel):
     sku: str | None = Field(default=None, min_length=1, max_length=64)
     cost_cents: int | None = Field(default=None, ge=0)
     track_stock: bool = False
+    sell_online: bool = False  # products only: listed in the online shop and as booking add-ons
     low_stock_at: int | None = Field(default=None, ge=0)
     buffer_before_min: int = Field(default=0, ge=0)
     buffer_after_min: int = Field(default=0, ge=0)
@@ -58,6 +59,7 @@ class ItemUpdate(BaseModel):
     sku: str | None = Field(default=None, min_length=1, max_length=64)
     cost_cents: int | None = Field(default=None, ge=0)
     track_stock: bool | None = None
+    sell_online: bool | None = None
     low_stock_at: int | None = Field(default=None, ge=0)
     buffer_before_min: int | None = Field(default=None, ge=0)
     buffer_after_min: int | None = Field(default=None, ge=0)

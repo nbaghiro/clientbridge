@@ -8,6 +8,7 @@ import { PublicForm } from "./pages/PublicForm";
 import { PublicLanding } from "./pages/PublicLanding";
 import { PublicPay } from "./pages/PublicPay";
 import { PublicReview } from "./pages/PublicReview";
+import { PublicShop } from "./pages/PublicShop";
 
 /** Connect — the unauthenticated customer surfaces. Each route's URL token/slug is the only
  *  credential; there is no session and no PowerSync. */
@@ -22,6 +23,7 @@ export function App() {
                 <Route path="/form/:token" element={<PublicForm />} />
                 <Route path="/contract/:token" element={<PublicContract />} />
                 <Route path="/review/:token" element={<PublicReview />} />
+                <Route path="/shop/:slug" element={<PublicShop />} />
                 <Route path="*" element={<NotFound />} />
             </Routes>
         </BrowserRouter>

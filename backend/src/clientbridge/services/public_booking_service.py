@@ -5,13 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
+from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
-from clientbridge.models.scheduling import Booking
+from clientbridge.models.scheduling import Booking, BookingAddon
 from clientbridge.schemas.public_booking import (
+    PublicAddon,
     PublicBookingClient,
     PublicBookingCreate,
     PublicBookingPage,
@@ -21,12 +23,14 @@ from clientbridge.schemas.public_booking import (
     PublicSlots,
     PublicStaff,
 )
+from clientbridge.schemas.public_shop import PublicShopLine
 from clientbridge.services.booking_service import create_booking_core
 from clientbridge.services.catalog_service import deposit_cents
 from clientbridge.services.client_service import find_or_create_by_contact
 from clientbridge.services.media_service import item_images
 from clientbridge.services.payment_service import open_booking_deposit
 from clientbridge.services.public_common import public_brand
+from clientbridge.services.public_shop_service import online_items, shop_items
 from clientbridge.services.scheduling_service import open_slots
 
 
@@ -86,11 +90,22 @@ class PublicBookingService:
             )
         ).all()
         images = await item_images(self.db, business.id, [i.id for i in items])
+        addons = [
+            PublicAddon(
+                id=p.id,
+                name=p.name,
+                price_cents=p.price_cents,
+                currency=p.currency,
+                image_url=p.image_url,
+            )
+            for p in await shop_items(self.db, business.id)
+        ]
         return PublicBookingPage(
             business_name=business.name,
             brand=public_brand(business),
             services=[_service_out(i, images.get(i.id)) for i in items],
             staff=[PublicStaff(id=r[0].id, name=r[1], title=r[0].title) for r in staff_rows],
+            addons=addons,
             stripe_account_id=_account(business),
         )
 
@@ -108,6 +123,11 @@ class PublicBookingService:
         if item.duration_min is None or item.duration_min <= 0:
             raise Unprocessable("that service has no duration and can't be booked")
         await self._active_staff(business.id, data.staff_id)
+        addons = await online_items(
+            self.db,
+            business.id,
+            [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
+        )
         client = await self._find_or_create_client(business.id, data.client)
         booking, _ = await create_booking_core(
             self.db,
@@ -119,6 +139,19 @@ class PublicBookingService:
             source="online",
             dedupe_client=True,
         )
+        for item, qty in addons:
+            self.db.add(
+                BookingAddon(
+                    id=new_id("booking_addon"),
+                    business_id=business.id,
+                    booking_id=booking.id,
+                    staff_id=booking.staff_id,
+                    item_id=item.id,
+                    description=item.name,
+                    quantity=qty,
+                    unit_amount_cents=item.price_cents,
+                )
+            )
         secret = await self._open_deposit(business, booking, client)
         await self.db.commit()
         return PublicBookingResult(

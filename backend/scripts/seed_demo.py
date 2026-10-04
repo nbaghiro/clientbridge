@@ -41,7 +41,14 @@ from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import AuditLog, File, WebhookEvent
 from clientbridge.models.reviews import Review, ReviewRequest
-from clientbridge.models.scheduling import Availability, Booking, Resource, Schedule, Session
+from clientbridge.models.scheduling import (
+    Availability,
+    Booking,
+    BookingAddon,
+    Resource,
+    Schedule,
+    Session,
+)
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.earning_service import (
     Earning,
@@ -376,6 +383,7 @@ def seed_items(owner: str) -> None:
                 category=cat,
                 color=ITEM_COLORS[iid],
                 online_bookable=kind in {"service", "class"},
+                sell_online=iid in {"it_shampoo", "it_brush"},
                 buffer_before_min=0,
                 buffer_after_min=10 if kind == "service" else 0,
                 deposit_type="percent" if kind == "service" and price >= 10000 else "none",
@@ -947,6 +955,68 @@ def seed_lapsed_entitlements() -> None:
             sessions_used=4,
             expires_at=at(200, 12),
             status="active",
+        )
+    )
+
+
+def seed_online_shop() -> None:
+    """A paid online order waiting for pickup, and a product a client added to an upcoming visit."""
+    rows.append(
+        Order(
+            id="ord_web",
+            business_id=BIZ,
+            client_id="cl_grace",
+            staff_id="st_owner",
+            status="paid",
+            subtotal_cents=2900,
+            tax_total_cents=348,
+            total_cents=3248,
+            paid_at=at(-1, 18),
+            source="online",
+            pickup_status="unfulfilled",
+        )
+    )
+    rows.append(
+        Line(
+            id="ln_ord_web_0",
+            business_id=BIZ,
+            parent_type="order",
+            parent_id="ord_web",
+            description="Self-Cleaning Slicker Brush",
+            item_id="it_brush",
+            quantity=1,
+            unit_amount_cents=2900,
+            amount_cents=2900,
+            tax_amount_cents=348,
+            position=0,
+        )
+    )
+    rows.append(
+        Payment(
+            id="pay_ord_web",
+            business_id=BIZ,
+            client_id="cl_grace",
+            kind="payment",
+            order_id="ord_web",
+            amount_cents=3248,
+            currency="CAD",
+            method="card",
+            provider="stripe",
+            provider_ref="pi_demo_ord_web",
+            status="succeeded",
+            paid_at=at(-1, 18),
+        )
+    )
+    rows.append(
+        BookingAddon(
+            id="bka_demo_shampoo",
+            business_id=BIZ,
+            booking_id="bk_015",
+            staff_id="st_diego",
+            item_id="it_shampoo",
+            description="Oatmeal Soothe Shampoo (500ml)",
+            quantity=1,
+            unit_amount_cents=2400,
         )
     )
 
@@ -2166,6 +2236,7 @@ INSERT_ORDER = [
     Order,
     Estimate,
     Booking,
+    BookingAddon,
     Message,
     Line,
     Payment,
@@ -2446,6 +2517,7 @@ async def main() -> None:
     seed_platform(owner)
     seed_coverage()
     seed_open_sale()
+    seed_online_shop()
     seed_calendar_filler()
 
     table_list = ", ".join(Base.metadata.tables)

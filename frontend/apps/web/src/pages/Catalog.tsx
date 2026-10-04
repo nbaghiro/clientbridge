@@ -145,7 +145,7 @@ function ItemRowView({ item, editable }: { item: ItemRow; editable: boolean }) {
             </span>
             <span className="text-ink-soft">
                 {state !== "untracked" ? (
-                    <StatusPill status={stockLabel(item)} intent={stockIntent(state)} />
+                    <StatusPill status={stockLabel(item)} intent={stockIntent(state)} asWritten />
                 ) : item.duration_min ? (
                     strings.catalog.durationMin(item.duration_min)
                 ) : (
@@ -493,6 +493,15 @@ function ItemFields({ form }: { form: ItemForm }) {
                     ) : null}
                 </>
             ) : null}
+            {form.shows("sellOnline") ? (
+                <Check
+                    checked={v.sellOnline}
+                    label={strings.catalog.sellOnline}
+                    onChange={(c) => {
+                        form.set("sellOnline", c);
+                    }}
+                />
+            ) : null}
 
             <Field label={strings.catalog.taxClass} hint={strings.catalog.taxNote}>
                 <Select
@@ -513,7 +522,7 @@ function RestockSection({ item }: { item: ItemRow }) {
     return (
         <DetailSection
             title={strings.catalog.stockHeading}
-            action={<StatusPill status={stockLabel(item)} intent={stockIntent(state)} />}
+            action={<StatusPill status={stockLabel(item)} intent={stockIntent(state)} asWritten />}
         >
             <div className="flex items-end gap-3">
                 <Field label={strings.catalog.restockQuantity}>

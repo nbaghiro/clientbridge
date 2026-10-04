@@ -132,6 +132,7 @@ const items = new Table(
         category: column.text,
         color: column.text,
         online_bookable: column.integer,
+        sell_online: column.integer,
         buffer_before_min: column.integer,
         buffer_after_min: column.integer,
         deposit_type: column.text,
@@ -495,6 +496,26 @@ const bookings = new Table(
     },
 );
 
+const booking_addons = new Table(
+    {
+        booking_id: column.text,
+        staff_id: column.text,
+        item_id: column.text,
+        description: column.text,
+        quantity: column.integer,
+        unit_amount_cents: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            booking_addons_booking: ["business_id", "booking_id"],
+            booking_addons_business_id: ["business_id"],
+        },
+    },
+);
+
 const availability = new Table(
     {
         staff_id: column.text,
@@ -667,6 +688,8 @@ const orders = new Table(
         paid_at: column.text,
         receipt_email: column.text,
         receipt_phone: column.text,
+        source: column.text,
+        pickup_status: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -847,6 +870,7 @@ export const AppSchema = new Schema({
     broadcasts,
     sessions,
     bookings,
+    booking_addons,
     availability,
     schedules,
     accounts,

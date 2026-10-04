@@ -509,6 +509,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/shop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Shop */
+        get: operations["public_shop_book__slug__shop_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/book/{slug}/shop/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Shop Order */
+        post: operations["public_shop_order_book__slug__shop_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/media/{file_id}": {
         parameters: {
             query?: never;
@@ -685,6 +719,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/addons/{addon_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Booking Addon */
+        delete: operations["remove_booking_addon_v1_bookings__booking_id__addons__addon_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/schedules": {
         parameters: {
             query?: never;
@@ -713,6 +764,23 @@ export interface paths {
         put?: never;
         /** Create Invoice */
         post: operations["create_invoice_v1_invoices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invoices/from-booking/{booking_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Invoice For Booking */
+        post: operations["create_invoice_for_booking_v1_invoices_from_booking__booking_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1172,6 +1240,23 @@ export interface paths {
         put?: never;
         /** Void Order */
         post: operations["void_order_v1_orders__order_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{order_id}/pickup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Order Pickup */
+        post: operations["set_order_pickup_v1_orders__order_id__pickup_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2449,6 +2534,11 @@ export interface components {
              * @default false
              */
             track_stock: boolean;
+            /**
+             * Sell Online
+             * @default false
+             */
+            sell_online: boolean;
             /** Low Stock At */
             low_stock_at?: number | null;
             /**
@@ -2530,6 +2620,11 @@ export interface components {
              * @default false
              */
             track_stock: boolean;
+            /**
+             * Sell Online
+             * @default false
+             */
+            sell_online: boolean;
             /** Low Stock At */
             low_stock_at?: number | null;
             /**
@@ -2609,6 +2704,8 @@ export interface components {
             cost_cents?: number | null;
             /** Track Stock */
             track_stock?: boolean | null;
+            /** Sell Online */
+            sell_online?: boolean | null;
             /** Low Stock At */
             low_stock_at?: number | null;
             /** Buffer Before Min */
@@ -2778,6 +2875,13 @@ export interface components {
             receipt_email?: string | null;
             /** Receipt Phone */
             receipt_phone?: string | null;
+            /**
+             * Source
+             * @default pos
+             */
+            source: string;
+            /** Pickup Status */
+            pickup_status?: string | null;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
@@ -2785,6 +2889,14 @@ export interface components {
         OrderPayIn: {
             /** Payment Method Id */
             payment_method_id?: string | null;
+        };
+        /** OrderPickupIn */
+        OrderPickupIn: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "picked_up";
         };
         /** OrderUpdate */
         OrderUpdate: {
@@ -2876,6 +2988,29 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** PublicAddon */
+        PublicAddon: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Price Cents */
+            price_cents: number;
+            /** Currency */
+            currency: string;
+            /** Image Url */
+            image_url?: string | null;
+        };
+        /** PublicAddonIn */
+        PublicAddonIn: {
+            /** Item Id */
+            item_id: string;
+            /**
+             * Quantity
+             * @default 1
+             */
+            quantity: number;
+        };
         /** PublicBookingClient */
         PublicBookingClient: {
             /** Name */
@@ -2897,6 +3032,8 @@ export interface components {
              */
             starts_at: string;
             client: components["schemas"]["PublicBookingClient"];
+            /** Addons */
+            addons?: components["schemas"]["PublicAddonIn"][];
         };
         /** PublicBookingPage */
         PublicBookingPage: {
@@ -2907,6 +3044,8 @@ export interface components {
             services: components["schemas"]["PublicService"][];
             /** Staff */
             staff: components["schemas"]["PublicStaff"][];
+            /** Addons */
+            addons?: components["schemas"]["PublicAddon"][];
             /** Stripe Account Id */
             stripe_account_id?: string | null;
         };
@@ -3075,6 +3214,62 @@ export interface components {
             deposit_amount_cents: number;
             /** Image Url */
             image_url?: string | null;
+        };
+        /** PublicShop */
+        PublicShop: {
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            /** Items */
+            items: components["schemas"]["PublicShopItem"][];
+            /** Stripe Account Id */
+            stripe_account_id?: string | null;
+        };
+        /** PublicShopItem */
+        PublicShopItem: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Price Cents */
+            price_cents: number;
+            /** Currency */
+            currency: string;
+            /** Image Url */
+            image_url?: string | null;
+            /**
+             * In Stock
+             * @default true
+             */
+            in_stock: boolean;
+        };
+        /** PublicShopLine */
+        PublicShopLine: {
+            /** Item Id */
+            item_id: string;
+            /** Quantity */
+            quantity: number;
+        };
+        /** PublicShopOrderCreate */
+        PublicShopOrderCreate: {
+            client: components["schemas"]["PublicBookingClient"];
+            /** Lines */
+            lines: components["schemas"]["PublicShopLine"][];
+        };
+        /** PublicShopOrderResult */
+        PublicShopOrderResult: {
+            /** Order Id */
+            order_id: string;
+            /** Total Cents */
+            total_cents: number;
+            /** Currency */
+            currency: string;
+            /** Client Secret */
+            client_secret: string;
+            /** Stripe Account Id */
+            stripe_account_id: string;
         };
         /** PublicSlot */
         PublicSlot: {
@@ -4485,6 +4680,74 @@ export interface operations {
             };
         };
     };
+    public_shop_book__slug__shop_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicShop"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_shop_order_book__slug__shop_orders_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicShopOrderCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicShopOrderResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     public_media_media__file_id__get: {
         parameters: {
             query?: never;
@@ -5051,6 +5314,41 @@ export interface operations {
             };
         };
     };
+    remove_booking_addon_v1_bookings__booking_id__addons__addon_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+                addon_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_schedule_v1_schedules_post: {
         parameters: {
             query?: never;
@@ -5104,6 +5402,41 @@ export interface operations {
                 "application/json": components["schemas"]["InvoiceCreate"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invoice_for_booking_v1_invoices_from_booking__booking_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             201: {
@@ -6061,6 +6394,44 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_order_pickup_v1_orders__order_id__pickup_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderPickupIn"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

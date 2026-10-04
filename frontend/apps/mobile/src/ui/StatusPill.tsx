@@ -12,16 +12,28 @@ const INTENT_COLORS: Record<Intent, { bg: string; fg: string }> = {
     neutral: { bg: c.bg, fg: c.muted },
 };
 
-export function StatusPill({ status, intent }: { status: string; intent: Intent }) {
+/** Raw status values are capitalized; `asWritten` keeps an already-worded label as it is. */
+export function StatusPill({
+    status,
+    intent,
+    asWritten = false,
+}: {
+    status: string;
+    intent: Intent;
+    asWritten?: boolean;
+}) {
     const tone = INTENT_COLORS[intent];
     return (
         <View style={[styles.badge, { backgroundColor: tone.bg }]}>
-            <Text style={[styles.text, { color: tone.fg }]}>{status}</Text>
+            <Text style={[styles.text, asWritten ? null : styles.raw, { color: tone.fg }]}>
+                {status}
+            </Text>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-    text: { fontSize: 11, fontWeight: "600", textTransform: "capitalize" },
+    text: { fontSize: 11, fontWeight: "600" },
+    raw: { textTransform: "capitalize" },
 });

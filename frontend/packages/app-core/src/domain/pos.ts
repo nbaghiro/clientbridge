@@ -145,6 +145,70 @@ export function orderStatusIntent(status: string): Intent {
     }
 }
 
+export type PickupStatus = "unfulfilled" | "ready" | "picked_up";
+
+export interface OnlineOrderRow {
+    id: string;
+    client_name: string | null;
+    total_cents: number;
+    currency: string;
+    pickup_status: PickupStatus;
+    summary: string | null;
+    created_at: string;
+}
+
+const ONLINE_ORDERS_SQL = `
+SELECT o.id, c.name AS client_name, o.total_cents, o.currency, o.pickup_status, o.created_at,
+       (SELECT group_concat(CAST(l.quantity AS INTEGER) || ' × ' || l.description, ', ')
+        FROM lines l WHERE l.parent_type = 'order' AND l.parent_id = o.id) AS summary
+FROM orders o LEFT JOIN clients c ON c.id = o.client_id
+WHERE o.source = 'online' AND o.status = 'paid' AND o.pickup_status <> 'picked_up'
+ORDER BY o.created_at`;
+
+/** Paid shop orders still waiting to be collected, oldest first. */
+export function useOnlineOrders(): OnlineOrderRow[] {
+    return useQuery<OnlineOrderRow>(ONLINE_ORDERS_SQL).data;
+}
+
+export const PICKUP_LABEL: Record<PickupStatus, string> = {
+    unfulfilled: strings.pos.pickupUnfulfilled,
+    ready: strings.pos.pickupReady,
+    picked_up: strings.pos.pickupDone,
+};
+
+export function pickupIntent(status: PickupStatus): Intent {
+    return status === "ready" ? "success" : "warning";
+}
+
+/** The steps staff can take from here; the server only moves an order forward. */
+export function pickupActions(status: PickupStatus): { status: PickupStatus; label: string }[] {
+    const pickedUp = { status: "picked_up" as const, label: strings.pos.markPickedUp };
+    if (status === "unfulfilled")
+        return [{ status: "ready", label: strings.pos.markReady }, pickedUp];
+    return status === "ready" ? [pickedUp] : [];
+}
+
+export function setPickup(api: ApiLike, orderId: string, status: PickupStatus): Promise<Order> {
+    return api.post<Order>(`/v1/orders/${orderId}/pickup`, { status });
+}
+
+export interface PickupAction {
+    advance: (orderId: string, status: PickupStatus) => void;
+    busy: boolean;
+    error: string | null;
+}
+
+export function usePickupAction(api: ApiLike): PickupAction {
+    const { busy, error, run } = useAsyncAction();
+    return {
+        advance: (orderId, status) => {
+            run(() => setPickup(api, orderId, status), { errorMessage: strings.pos.pickupError });
+        },
+        busy,
+        error,
+    };
+}
+
 export interface CartLine {
     key: string;
     itemId: string;

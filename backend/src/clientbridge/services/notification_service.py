@@ -44,6 +44,25 @@ def _receipt(business_name: str, amount: str, details: list[str]) -> tuple[str, 
     return (f"Receipt from {business_name}", body, f"Payment received: {amount}")
 
 
+def _pickup_line(business_name: str) -> str:
+    return f"Collect your order at {business_name}. We'll let you know when it's ready."
+
+
+def _online_order_alert(amount: str) -> tuple[str, str]:
+    """(owner email subject + push body, email body) for a paid online order."""
+    return (
+        f"Online order paid: {amount}, for pickup",
+        f"A client paid {amount} for an online order. It is waiting under Payments, Sales.",
+    )
+
+
+def _order_ready(business_name: str) -> tuple[str, str]:
+    return (
+        f"Your order from {business_name} is ready",
+        f"Your order from {business_name} is ready to pick up.",
+    )
+
+
 def _receipt_details(
     lines: list[tuple[str, float, str]], subtotal: str, taxes: list[tuple[str, str]], total: str
 ) -> list[str]:
@@ -203,16 +222,32 @@ class Notifier:
             return
         amount = _money(payment.amount_cents, payment.currency)
         details = await self._itemised(db, payment)
+        order = await db.get(Order, payment.order_id) if payment.order_id else None
+        online = order is not None and order.source == "online"
+        if online:
+            details.append(_pickup_line(business.name))
         subject, body, push_body = _receipt(business.name, amount, details)
+        if online:
+            push_body, owner_body = _online_order_alert(amount)
+            if business.billing_email:
+                await self._to_contact(business.billing_email, None, push_body, owner_body)
         if payment.client_id is not None:
             await self._to_client(db, payment.client_id, subject, body)
-        elif payment.order_id is not None:
-            order = await db.get(Order, payment.order_id)
-            if order is not None:
-                await self._to_contact(order.receipt_email, order.receipt_phone, subject, body)
+        elif order is not None:
+            await self._to_contact(order.receipt_email, order.receipt_phone, subject, body)
         await self._alert_staff(
             db, business, push_body, {"type": "payment", "payment_id": payment_id}
         )
+
+    async def on_order_ready(self, db: AsyncSession, order_id: str) -> None:
+        order = await db.get(Order, order_id)
+        if order is None or order.client_id is None:
+            return
+        business = await db.get(Business, order.business_id)
+        if business is None:
+            return
+        subject, body = _order_ready(business.name)
+        await self._to_client(db, order.client_id, subject, body)
 
     async def on_invoice_sent(self, db: AsyncSession, invoice_id: str) -> None:
         invoice = await db.get(Invoice, invoice_id)

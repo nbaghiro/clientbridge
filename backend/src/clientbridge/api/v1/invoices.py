@@ -20,6 +20,18 @@ async def create_invoice(
     return await BillingService(db, principal).create_invoice(body, idempotency_key)
 
 
+@router.post("/from-booking/{booking_id}", response_model=InvoiceOut, status_code=201)
+async def create_invoice_for_booking(
+    booking_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> InvoiceOut:
+    return await BillingService(db, principal).create_invoice_for_booking(
+        booking_id, idempotency_key
+    )
+
+
 @router.patch("/{invoice_id}", response_model=InvoiceOut)
 async def update_invoice(
     invoice_id: str, body: InvoiceUpdate, principal: CurrentPrincipal, db: DbSession

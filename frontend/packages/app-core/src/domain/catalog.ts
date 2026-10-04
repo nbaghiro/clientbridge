@@ -33,6 +33,7 @@ export interface ItemRow {
     sku: string | null;
     cost_cents: number | null;
     track_stock: number;
+    sell_online: number;
     stock_on_hand: number | null;
     low_stock_at: number | null;
 }
@@ -86,7 +87,7 @@ SELECT i.id, i.kind, i.name, i.description, i.category, i.price_cents, i.currenc
        i.duration_min, i.capacity, i.active, i.color, i.online_bookable,
        i.buffer_before_min, i.buffer_after_min, i.deposit_type, i.deposit_value,
        i.session_count, i.validity_days, i.interval, i.frequency, i.tax_class,
-       i.sku, i.cost_cents, i.track_stock, i.stock_on_hand, i.low_stock_at,
+       i.sku, i.cost_cents, i.track_stock, i.sell_online, i.stock_on_hand, i.low_stock_at,
        (SELECT f.id FROM files f
         WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.kind = 'image'
         ORDER BY f.created_at DESC LIMIT 1) AS image_file_id
@@ -230,6 +231,7 @@ export interface ItemFormValues {
     trackStock: boolean;
     openingStock: string;
     lowStockAt: string;
+    sellOnline: boolean;
 }
 
 export type ItemField = keyof ItemFormValues;
@@ -237,7 +239,7 @@ export type ItemField = keyof ItemFormValues;
 const KIND_FIELDS: Record<string, ItemField[]> = {
     service: ["duration", "bufferBefore", "bufferAfter", "onlineBookable", "depositType"],
     class: ["duration", "bufferBefore", "bufferAfter", "capacity", "onlineBookable", "depositType"],
-    product: ["sku", "cost", "trackStock", "lowStockAt"],
+    product: ["sku", "cost", "trackStock", "lowStockAt", "sellOnline"],
     package: ["sessionCount", "validityDays"],
     subscription: ["interval", "frequency"],
     gift: [],
@@ -281,6 +283,7 @@ function initialValues(item: ItemRow | null): ItemFormValues {
         trackStock: item?.track_stock === 1,
         openingStock: "",
         lowStockAt: text(item?.low_stock_at ?? null),
+        sellOnline: item?.sell_online === 1,
     };
 }
 
@@ -349,6 +352,7 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
     if (shown("cost")) body.cost_cents = toCents(v.cost);
     if (shown("trackStock")) body.track_stock = v.trackStock;
     if (shown("lowStockAt")) body.low_stock_at = v.trackStock ? toInt(v.lowStockAt) : null;
+    if (shown("sellOnline")) body.sell_online = v.sellOnline;
     return body;
 }
 

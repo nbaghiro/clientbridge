@@ -18,7 +18,13 @@ import {
     useCart,
     useCatalogItems,
     useConnectionToken,
+    useOnlineOrders,
     useOpenOrders,
+    usePickupAction,
+    PICKUP_LABEL,
+    formatMoneyWithCurrency,
+    pickupActions,
+    pickupIntent,
     useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
@@ -193,6 +199,7 @@ export function POSScreen() {
                                         ) : null}
                                     </View>
                                 ) : null}
+                                <OnlineOrders />
                                 <OpenOrders />
                             </>
                         }
@@ -493,6 +500,51 @@ function ReaderPanel({
     );
 }
 
+function OnlineOrders() {
+    const orders = useOnlineOrders();
+    const pickup = usePickupAction(api);
+    if (orders.length === 0) return null;
+
+    return (
+        <View style={styles.openOrders}>
+            <Text style={styles.openTitle}>{strings.pos.onlineOrders}</Text>
+            {orders.map((order) => (
+                <View key={order.id} style={styles.onlineRow}>
+                    <View style={styles.onlineHead}>
+                        <Text style={styles.openName} numberOfLines={1}>
+                            {order.client_name ?? strings.pos.walkIn}
+                        </Text>
+                        <StatusPill
+                            status={PICKUP_LABEL[order.pickup_status]}
+                            intent={pickupIntent(order.pickup_status)}
+                            asWritten
+                        />
+                        <Text style={styles.openValue}>
+                            {formatMoneyWithCurrency(order.total_cents, order.currency)}
+                        </Text>
+                    </View>
+                    {order.summary !== null ? <Text style={ui.note}>{order.summary}</Text> : null}
+                    <View style={ui.chipWrap}>
+                        {pickupActions(order.pickup_status).map((step) => (
+                            <Pressable
+                                key={step.status}
+                                disabled={pickup.busy}
+                                onPress={() => {
+                                    pickup.advance(order.id, step.status);
+                                }}
+                                style={ui.chip}
+                            >
+                                <Text style={ui.chipText}>{step.label}</Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                </View>
+            ))}
+            {pickup.error !== null ? <Text style={ui.error}>{pickup.error}</Text> : null}
+        </View>
+    );
+}
+
 function OpenOrders() {
     const orders = useOpenOrders();
     if (orders.length === 0) return null;
@@ -664,6 +716,16 @@ const styles = StyleSheet.create({
         borderColor: c.border,
         backgroundColor: c.surface,
     },
+    onlineRow: {
+        gap: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: theme.radius,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+    },
+    onlineHead: { flexDirection: "row", alignItems: "center", gap: 10 },
     openName: { flex: 1, color: c.ink, fontSize: 14 },
     openValue: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
 });

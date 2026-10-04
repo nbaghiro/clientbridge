@@ -37,6 +37,7 @@ const base: ItemRow = {
     sku: null,
     cost_cents: null,
     track_stock: 1,
+    sell_online: 0,
     stock_on_hand: 5,
     low_stock_at: 2,
 };
@@ -64,6 +65,7 @@ const values: ItemFormValues = {
     trackStock: false,
     openingStock: "",
     lowStockAt: "",
+    sellOnline: false,
 };
 
 describe("stock", () => {

@@ -3,6 +3,7 @@ from datetime import date, datetime, time
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -127,3 +128,20 @@ class Schedule(PKMixin, BusinessScoped, TimestampMixin, Base):
     until: Mapped[date | None] = mapped_column(Date)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
+
+
+class BookingAddon(PKMixin, BusinessScoped, TimestampMixin, Base):
+    """A product the client added to a visit when booking; it joins the visit's invoice."""
+
+    __tablename__ = "booking_addons"
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_booking_addons_quantity"),
+        Index("ix_booking_addons_booking", "business_id", "booking_id"),
+    )
+
+    booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"), nullable=False)
+    staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))  # copied for staff sync
+    item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)

@@ -39,6 +39,9 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
             name="ck_items_online_bookable_kind",
         ),
         CheckConstraint("track_stock = false OR kind = 'product'", name="ck_items_stock_kind"),
+        CheckConstraint(
+            "sell_online = false OR kind = 'product'", name="ck_items_sell_online_kind"
+        ),
         Index("ix_items_business_kind_active", "business_id", "kind", "active"),
         Index(
             "ux_items_business_sku",
@@ -60,6 +63,7 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     category: Mapped[str | None] = mapped_column(String)
     color: Mapped[str | None] = mapped_column(String)
     online_bookable: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sell_online: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     buffer_before_min: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     buffer_after_min: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     deposit_type: Mapped[str] = mapped_column(String, default="none", nullable=False)

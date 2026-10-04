@@ -36,6 +36,7 @@ import {
     useBookingForm,
     useCalendarEvents,
     useCancelBooking,
+    useBookingAddons,
     useCollectDeposit,
     useSavedCards,
     useStaff,
@@ -821,8 +822,60 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
                 {formatTime(event.start)} – {formatTime(event.end)}
             </p>
             {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
+            {event.bookingId !== null ? <AddonsSection event={event} /> : null}
             {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
         </DetailView>
+    );
+}
+
+function AddonsSection({ event }: { event: CalendarEvent }) {
+    const addons = useBookingAddons(api, event, useViewer());
+    if (addons.addons.length === 0) return null;
+
+    return (
+        <DetailSection title={strings.calendar.addonsTitle}>
+            <p className="text-xs text-muted">{strings.calendar.addonsNote}</p>
+            <ul className="mt-2 divide-y divide-line-soft">
+                {addons.addons.map((a) => (
+                    <li key={a.id} className="flex items-center gap-3 py-2 text-sm">
+                        <span className="min-w-0 flex-1 truncate text-ink">
+                            {a.quantity} × {a.description}
+                        </span>
+                        <span className="tabular-nums text-ink">
+                            {formatMoney(a.quantity * a.unit_amount_cents)}
+                        </span>
+                        {addons.canEdit ? (
+                            <button
+                                type="button"
+                                disabled={addons.busy}
+                                onClick={() => {
+                                    addons.remove(a.id);
+                                }}
+                                className="text-xs font-semibold text-danger hover:underline disabled:opacity-50"
+                            >
+                                {strings.calendar.addonRemove}
+                            </button>
+                        ) : null}
+                    </li>
+                ))}
+            </ul>
+            {addons.invoiceId !== null ? (
+                <p className="mt-2 text-xs text-muted">{strings.calendar.visitInvoiced}</p>
+            ) : null}
+            {addons.canInvoice ? (
+                <button
+                    type="button"
+                    disabled={addons.busy}
+                    onClick={addons.createInvoice}
+                    className="mt-3 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft hover:bg-bg disabled:opacity-50"
+                >
+                    {strings.calendar.invoiceVisit}
+                </button>
+            ) : null}
+            {addons.error !== null ? (
+                <p className="mt-2 text-sm text-danger">{addons.error}</p>
+            ) : null}
+        </DetailSection>
     );
 }
 

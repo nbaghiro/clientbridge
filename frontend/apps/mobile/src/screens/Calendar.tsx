@@ -24,6 +24,7 @@ import {
     strings,
     useCalendarEvents,
     useCancelBooking,
+    useBookingAddons,
     useCollectDeposit,
     useSavedCards,
     weekColumns,
@@ -46,6 +47,7 @@ import { ChargeSheet } from "../ui/ChargeSheet";
 import { DetailSection, DetailView } from "../ui/DetailView";
 import { Money } from "../ui/Money";
 import { StatusPill } from "../ui/StatusPill";
+import { ui } from "../ui/styles";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 
@@ -371,8 +373,50 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
                 {formatTime(event.start)} – {formatTime(event.end)}
             </Text>
             {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
+            {event.bookingId !== null ? <AddonsSection event={event} /> : null}
             {error !== null ? <Text style={styles.detailError}>{error}</Text> : null}
         </DetailView>
+    );
+}
+
+function AddonsSection({ event }: { event: CalendarEvent }) {
+    const addons = useBookingAddons(api, event, useViewer());
+    if (addons.addons.length === 0) return null;
+
+    return (
+        <DetailSection title={strings.calendar.addonsTitle}>
+            <Text style={ui.note}>{strings.calendar.addonsNote}</Text>
+            {addons.addons.map((a) => (
+                <View key={a.id} style={styles.addonRow}>
+                    <Text style={styles.addonName} numberOfLines={1}>
+                        {a.quantity} × {a.description}
+                    </Text>
+                    <Text style={styles.addonAmount}>
+                        {formatMoney(a.quantity * a.unit_amount_cents)}
+                    </Text>
+                    {addons.canEdit ? (
+                        <Pressable
+                            disabled={addons.busy}
+                            onPress={() => {
+                                addons.remove(a.id);
+                            }}
+                            hitSlop={8}
+                        >
+                            <Text style={styles.addonRemove}>{strings.calendar.addonRemove}</Text>
+                        </Pressable>
+                    ) : null}
+                </View>
+            ))}
+            {addons.invoiceId !== null ? (
+                <Text style={ui.note}>{strings.calendar.visitInvoiced}</Text>
+            ) : null}
+            {addons.canInvoice ? (
+                <Pressable disabled={addons.busy} onPress={addons.createInvoice} style={ui.outline}>
+                    <Text style={ui.outlineText}>{strings.calendar.invoiceVisit}</Text>
+                </Pressable>
+            ) : null}
+            {addons.error !== null ? <Text style={ui.error}>{addons.error}</Text> : null}
+        </DetailSection>
     );
 }
 
@@ -412,6 +456,10 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
+    addonRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
+    addonName: { flex: 1, color: c.ink, fontSize: 14 },
+    addonAmount: { color: c.ink, fontSize: 14, fontVariant: ["tabular-nums"] },
+    addonRemove: { color: c.danFg, fontSize: 13, fontWeight: "600" },
     header: {
         flexDirection: "row",
         alignItems: "center",

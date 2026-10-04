@@ -15,7 +15,7 @@ import {
 } from "@clientbridge/app-core/public";
 import { CardForm, ItemImage } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
@@ -67,6 +67,14 @@ export function PublicBooking() {
         <Frame brand={page.brand}>
             <p className="text-sm text-muted">{strings.publicBooking.bookWith}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">{page.business_name}</h1>
+            {page.addons.length > 0 ? (
+                <Link
+                    to={`/shop/${encodeURIComponent(slug)}`}
+                    className="mt-1 inline-block text-sm font-medium text-accent hover:underline"
+                >
+                    {strings.publicBooking.shopLink}
+                </Link>
+            ) : null}
 
             <form onSubmit={submit} className="mt-6 space-y-5">
                 <Labeled label={strings.publicBooking.service}>
@@ -135,6 +143,47 @@ export function PublicBooking() {
                             form.setError(null);
                         }}
                     />
+                ) : null}
+
+                {form.startsAt !== "" && service !== null && page.addons.length > 0 ? (
+                    <div className="border-t border-line pt-4">
+                        <p className="text-sm font-medium text-ink-soft">
+                            {strings.publicBooking.addonsTitle}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted">
+                            {strings.publicBooking.addonsNote}
+                        </p>
+                        <ul className="mt-3 space-y-2">
+                            {page.addons.map((a) => (
+                                <li key={a.id}>
+                                    <label className="flex cursor-pointer items-center gap-3 rounded-md border border-line p-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={a.id in form.addons}
+                                            onChange={() => {
+                                                form.toggleAddon(a.id);
+                                            }}
+                                        />
+                                        <ItemImage src={a.image_url} name={a.name} size={36} />
+                                        <span className="flex-1 text-ink">{a.name}</span>
+                                        <span className="tabular-nums text-muted">
+                                            {formatMoneyWithCurrency(a.price_cents, a.currency)}
+                                        </span>
+                                    </label>
+                                </li>
+                            ))}
+                        </ul>
+                        {form.addonsTotalCents > 0 ? (
+                            <p className="mt-2 text-xs text-muted">
+                                {strings.publicBooking.addonsTotal(
+                                    formatMoneyWithCurrency(
+                                        form.addonsTotalCents,
+                                        service.currency,
+                                    ),
+                                )}
+                            </p>
+                        ) : null}
+                    </div>
                 ) : null}
 
                 {form.startsAt !== "" && service !== null ? (

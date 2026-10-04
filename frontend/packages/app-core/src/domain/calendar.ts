@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { Viewer } from "../hooks/useCurrentRole";
@@ -15,7 +15,7 @@ import {
     startOfMonth,
     startOfWeek,
 } from "../util/datetime";
-import type { Intent } from "../util/primitives";
+import { type Intent, newIdempotencyKey } from "../util/primitives";
 import { strings } from "../strings";
 import { type Checkout, useCheckout } from "./checkout";
 import { canManagePayments } from "./payments";
@@ -523,6 +523,69 @@ export function useCollectDeposit(
     };
 
     return { checkout, submit };
+}
+
+export interface BookingAddonRow {
+    id: string;
+    description: string;
+    quantity: number;
+    unit_amount_cents: number;
+}
+
+const ADDONS_SQL = `
+SELECT id, description, quantity, unit_amount_cents FROM booking_addons
+WHERE booking_id = ? ORDER BY created_at`;
+
+const BOOKING_INVOICE_SQL = "SELECT invoice_id FROM bookings WHERE id = ?";
+
+export interface BookingAddons {
+    addons: BookingAddonRow[];
+    invoiceId: string | null;
+    canEdit: boolean;
+    canInvoice: boolean;
+    remove: (addonId: string) => void;
+    createInvoice: () => void;
+    busy: boolean;
+    error: string | null;
+}
+
+/** Products a client added to their visit online: staff can drop them until the visit is invoiced,
+ *  and an owner/admin invoices the visit with them as extra lines. */
+export function useBookingAddons(
+    api: ApiLike,
+    event: CalendarEvent,
+    viewer: Viewer | null,
+): BookingAddons {
+    const bookingId = event.bookingId ?? "";
+    const addons = useQuery<BookingAddonRow>(ADDONS_SQL, [bookingId]).data;
+    const invoiceId =
+        useQuery<{ invoice_id: string | null }>(BOOKING_INVOICE_SQL, [bookingId]).data.at(0)
+            ?.invoice_id ?? null;
+    const { busy, error, run } = useAsyncAction();
+    const key = useRef<string | null>(null);
+    const admin = viewer !== null && canManagePayments(viewer.role);
+    const open = invoiceId === null && event.status !== "canceled";
+
+    return {
+        addons,
+        invoiceId,
+        canEdit: open && (admin || viewer?.staffId === event.staffId),
+        canInvoice: open && admin,
+        remove: (addonId) => {
+            run(() => api.delete(`/v1/bookings/${bookingId}/addons/${addonId}`), {
+                errorMessage: strings.calendar.addonRemoveError,
+            });
+        },
+        createInvoice: () => {
+            key.current ??= newIdempotencyKey();
+            const idempotencyKey = key.current;
+            run(() => api.post(`/v1/invoices/from-booking/${bookingId}`, {}, { idempotencyKey }), {
+                errorMessage: strings.calendar.invoiceVisitError,
+            });
+        },
+        busy,
+        error,
+    };
 }
 
 export interface BookingFormState {

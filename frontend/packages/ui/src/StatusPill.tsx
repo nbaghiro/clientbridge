@@ -8,10 +8,19 @@ const INTENT_BADGE: Record<Intent, string> = {
     neutral: "bg-bg text-muted",
 };
 
-export function StatusPill({ status, intent }: { status: string; intent: Intent }) {
+/** Raw status values are capitalized; `asWritten` keeps an already-worded label as it is. */
+export function StatusPill({
+    status,
+    intent,
+    asWritten = false,
+}: {
+    status: string;
+    intent: Intent;
+    asWritten?: boolean;
+}) {
     return (
         <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium capitalize ${INTENT_BADGE[intent]}`}
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${asWritten ? "" : "capitalize"} ${INTENT_BADGE[intent]}`}
         >
             {status}
         </span>
