@@ -104,7 +104,7 @@ def seed_identity() -> tuple[str, str]:
             is_tax_registered=True,
             brand={
                 "logo_file_id": "fl_logo",
-                "primary": "#3F5E80",
+                "primary": "#2E4A3F",
                 "tagline": "Calm, careful grooming on Vancouver Island.",
             },
             billing_email="hello@birchbarkpets.ca",
