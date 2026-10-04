@@ -2,14 +2,15 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import ColumnElement, func, tuple_
+from sqlalchemy import ColumnElement, and_, case, func, or_, select, tuple_
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import InstrumentedAttribute
 
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.payments import ChargeFees
-from clientbridge.models.billing import Invoice
+from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
@@ -18,6 +19,7 @@ from clientbridge.services.lines import fetch_lines, tax_for_amount, tax_for_lin
 from clientbridge.services.tax_service import TaxResult
 
 type AccountKey = tuple[str, str, str, str]
+type _Id = InstrumentedAttribute[str] | str
 
 PLATFORM = "clientbridge"
 _CASH = {"stripe": "stripe", "interac": "bank", "manual": "cash"}
@@ -56,12 +58,14 @@ async def post(
     meta: dict[str, object] | None = None,
     occurred_at: datetime | None = None,
     available_at: datetime | None = None,
+    keep_zero: bool = False,
 ) -> str | None:
-    """Write one balanced journal and return its id; a repeated `ref` returns the original."""
+    """Write one balanced journal and return its id; a repeated `ref` returns the original.
+    Zero legs are dropped unless `keep_zero`, for a journal that also counts an event."""
     existing = await journal_for(db, business_id, ref)
     if existing is not None:
         return existing
-    legs = [leg for leg in legs if leg.amount_cents != 0]
+    legs = [leg for leg in legs if keep_zero or leg.amount_cents != 0]
     if not legs:
         return None
     if sum(leg.amount_cents for leg in legs) != 0:
@@ -314,6 +318,117 @@ async def invoice_balance(db: AsyncSession, invoice: Invoice) -> int:
     )
 
 
+def _subject_legs(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
+    return and_(Entry.subject_type == subject_type, Entry.subject_id == subject_id)
+
+
+def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
+    return (
+        select(func.coalesce(func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            _subject_legs(subject_type, subject_id),
+            Account.kind.in_(_CASH.values()),
+            Entry.type.in_(("payment", "refund")),
+        )
+        .scalar_subquery()
+    )
+
+
+def _refunded_expr(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
+    return (
+        select(Entry.id)
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            _subject_legs(subject_type, subject_id),
+            Account.kind.in_(_CASH.values()),
+            Entry.type == "refund",
+        )
+        .exists()
+    )
+
+
+def _receivable_expr() -> ColumnElement[int]:
+    return (
+        select(func.coalesce(func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .where(_subject_legs("invoice", Invoice.id), Account.kind == "receivable")
+        .scalar_subquery()
+    )
+
+
+def invoice_status_expr() -> ColumnElement[str]:
+    """An invoice stores only draft/sent/void; how far a sent one is paid comes from the ledger."""
+    paid = _collected_expr("invoice", Invoice.id)
+    owed = _receivable_expr()
+    return case(
+        (Invoice.status.in_(("draft", "void")), Invoice.status),
+        (and_(paid <= 0, _refunded_expr("invoice", Invoice.id), owed <= 0), "refunded"),
+        (owed <= 0, "paid"),
+        (paid > 0, "partial"),
+        (Invoice.overdue_notified_at.is_not(None), "overdue"),
+        else_="sent",
+    )
+
+
+def invoice_paid_at_expr() -> ColumnElement[datetime | None]:
+    settled = (
+        select(func.max(Entry.occurred_at))
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            _subject_legs("invoice", Invoice.id),
+            Account.kind == "receivable",
+            Entry.amount_cents < 0,
+        )
+        .scalar_subquery()
+    )
+    return case((invoice_status_expr() == "paid", settled), else_=None)
+
+
+def order_status_expr() -> ColumnElement[str]:
+    """An order stores only open/void; whether it is paid or refunded comes from the ledger."""
+    paid = _collected_expr("order", Order.id)
+    refunded = _refunded_expr("order", Order.id)
+    return case(
+        (Order.status == "void", "void"),
+        (and_(paid <= 0, refunded), "refunded"),
+        (and_(paid > 0, or_(paid >= Order.total_cents, refunded)), "paid"),
+        else_="open",
+    )
+
+
+def order_paid_at_expr() -> ColumnElement[datetime | None]:
+    settled = (
+        select(func.max(Entry.occurred_at))
+        .join(Account, Account.id == Entry.account_id)
+        .where(
+            _subject_legs("order", Order.id),
+            Account.kind.in_(_CASH.values()),
+            Entry.type == "payment",
+        )
+        .scalar_subquery()
+    )
+    return case((order_status_expr().in_(("paid", "refunded")), settled), else_=None)
+
+
+async def invoice_state(db: AsyncSession, invoice: Invoice) -> tuple[str, datetime | None]:
+    row = (
+        await db.execute(
+            select(invoice_status_expr(), invoice_paid_at_expr()).where(Invoice.id == invoice.id)
+        )
+    ).one()
+    return str(row[0]), row[1]
+
+
+async def order_state(db: AsyncSession, order: Order) -> tuple[str, datetime | None]:
+    row = (
+        await db.execute(
+            select(order_status_expr(), order_paid_at_expr()).where(Order.id == order.id)
+        )
+    ).one()
+    return str(row[0]), row[1]
+
+
 async def collected(
     db: AsyncSession, business_id: str, subject_type: str, subject_id: str
 ) -> tuple[int, bool]:
@@ -555,6 +670,11 @@ async def gift_card_balance(db: AsyncSession, card: GiftCard) -> int:
     )
 
 
+def gift_card_status(card: GiftCard, balance_cents: int) -> str:
+    """A spent card stays `active` in storage and reads as `redeemed`."""
+    return "redeemed" if card.status == "active" and balance_cents == 0 else card.status
+
+
 async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None:
     remaining = await gift_card_balance(db, card)
     await post(
@@ -605,11 +725,22 @@ async def post_breakage(
     )
 
 
+async def sessions_used(db: AsyncSession, package: Package) -> int:
+    """Each consumed session is one consumption journal on the package."""
+    used = await db.execute(
+        scoped(Entry, package.business_id)
+        .with_only_columns(func.count(func.distinct(Entry.journal_id)))
+        .where(_subject_legs("package", package.id), Entry.type == "consumption")
+    )
+    return int(used.scalar_one())
+
+
 async def post_consumption(db: AsyncSession, package: Package) -> None:
     """Recognize one used session's share of prepaid package revenue (the last takes the rest)."""
     biz = package.business_id
+    used = await sessions_used(db, package) + 1
     remaining, currency = await _owned(db, biz, "package", package.id, "deferred")
-    if package.sessions_used >= package.sessions_total:
+    if used >= package.sessions_total:
         share = remaining
     else:
         paid = -sum(
@@ -624,13 +755,14 @@ async def post_consumption(db: AsyncSession, package: Package) -> None:
         db,
         biz,
         type="consumption",
-        ref=f"consumption:{package.id}:{package.sessions_used}",
+        ref=f"consumption:{package.id}:{used}",
         legs=[
             Leg("package", package.id, "deferred", share),
             Leg("business", biz, "revenue", -share),
         ],
         currency=currency,
         subject=("package", package.id),
+        keep_zero=True,
     )
 
 

@@ -47,7 +47,6 @@ class Business(PKMixin, TimestampMixin, Base):
     stripe_requirements: Mapped[dict[str, object]] = mapped_column(
         JSONB, default=dict, nullable=False
     )
-    kyc_status: Mapped[str] = mapped_column(String, default="not_started", nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 
 

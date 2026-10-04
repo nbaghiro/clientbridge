@@ -37,6 +37,11 @@ async def _client_id(db: AsyncSession) -> str:
     return cid
 
 
+async def _order_status(db: AsyncSession, order_id: str) -> str:
+    query = select(ledger.order_status_expr()).where(Order.id == order_id)
+    return str((await db.execute(query)).scalar_one())
+
+
 async def test_create_order_computes_totals(as_owner: httpx.AsyncClient) -> None:
     cid = None  # walk-in is fine, but exercise the client path
     res = await as_owner.post("/v1/orders", json={"client_id": cid, "lines": [LATTE, MUFFIN]})
@@ -111,7 +116,9 @@ async def test_checkout_and_webhook_settles_order(
     )
     assert (await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)).status_code == 200
 
-    status = (await db.execute(select(Order.status).where(Order.id == order["id"]))).scalar_one()
+    status = (
+        await db.execute(select(ledger.order_status_expr()).where(Order.id == order["id"]))
+    ).scalar_one()
     assert status == "paid"
     assert await ledger.collected(db, BIZ, "order", order["id"]) == (order["total_cents"], False)
 
@@ -185,7 +192,9 @@ async def test_refund_order_payment_reverts_order(
 
     refunded = await as_owner.post(f"/v1/payments/{pay_id}/refund")
     assert refunded.status_code == 200, refunded.text
-    status = (await db.execute(select(Order.status).where(Order.id == order["id"]))).scalar_one()
+    status = (
+        await db.execute(select(ledger.order_status_expr()).where(Order.id == order["id"]))
+    ).scalar_one()
     assert status == "refunded"
     assert await ledger.collected(db, BIZ, "order", order["id"]) == (0, True)
     refund_order_id = (

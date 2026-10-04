@@ -81,7 +81,9 @@ async def _invoice_net(db: AsyncSession, inv_id: str, kind: str) -> int:
 
 
 async def _status(db: AsyncSession, inv_id: str) -> str:
-    return (await db.execute(select(Invoice.status).where(Invoice.id == inv_id))).scalar_one()
+    return (
+        await db.execute(select(ledger.invoice_status_expr()).where(Invoice.id == inv_id))
+    ).scalar_one()
 
 
 async def _refunds(db: AsyncSession, payment_id: str) -> int:
@@ -92,6 +94,11 @@ async def _refunds(db: AsyncSession, payment_id: str) -> int:
             .where(Payment.parent_payment_id == payment_id, Payment.kind == "refund")
         )
     ).scalar_one()
+
+
+async def _order_status(db: AsyncSession, order_id: str) -> str:
+    query = select(ledger.order_status_expr()).where(Order.id == order_id)
+    return str((await db.execute(query)).scalar_one())
 
 
 async def test_partial_refunds_unwind_revenue_and_tax_pro_rata(
@@ -211,12 +218,16 @@ async def test_order_stays_paid_until_fully_refunded(
 
     part = await as_owner.post(f"/v1/payments/{checkout['payment_id']}/refund?amount_cents=300")
     assert part.status_code == 200, part.text
-    status = (await db.execute(select(Order.status).where(Order.id == order["id"]))).scalar_one()
+    status = (
+        await db.execute(select(ledger.order_status_expr()).where(Order.id == order["id"]))
+    ).scalar_one()
     assert status == "paid"
     assert await ledger.collected(db, BIZ, "order", order["id"]) == (total - 300, True)
 
     assert (await as_owner.post(f"/v1/payments/{checkout['payment_id']}/refund")).is_success
-    status = (await db.execute(select(Order.status).where(Order.id == order["id"]))).scalar_one()
+    status = (
+        await db.execute(select(ledger.order_status_expr()).where(Order.id == order["id"]))
+    ).scalar_one()
     assert status == "refunded"
     assert await ledger.collected(db, BIZ, "order", order["id"]) == (0, True)
 
@@ -281,7 +292,6 @@ async def test_package_purchase_refunds_in_full_only(
         client_id=payment.client_id,
         item_id="it_pkg5",
         sessions_total=5,
-        sessions_used=0,
         status="active",
         payment_id=payment.id,
     )
@@ -420,20 +430,20 @@ async def test_used_package_cannot_be_refunded(
 ) -> None:
     await _enable(db)
     payment = await _entitlement_payment(db, 5600)
-    db.add(
-        Package(
-            id=new_id("package"),
-            business_id=BIZ,
-            client_id=payment.client_id,
-            item_id="it_pkg5",
-            sessions_total=5,
-            sessions_used=2,
-            status="active",
-            payment_id=payment.id,
-        )
+    package = Package(
+        id=new_id("package"),
+        business_id=BIZ,
+        client_id=payment.client_id,
+        item_id="it_pkg5",
+        sessions_total=5,
+        status="active",
+        payment_id=payment.id,
     )
+    db.add(package)
     await db.flush()
     await ledger.post_payment(db, payment)
+    for _ in range(2):
+        await ledger.post_consumption(db, package)
     res = await as_owner.post(f"/v1/payments/{payment.id}/refund")
     assert res.status_code == 409
     assert res.json()["message"] == "can't refund a package with sessions already used"

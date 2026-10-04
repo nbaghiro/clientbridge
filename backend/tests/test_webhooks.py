@@ -13,6 +13,8 @@ from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import DeviceToken, WebhookEvent
 from clientbridge.services import ledger_service as ledger
+from clientbridge.services.business_service import kyc_status
+from clientbridge.services.message_service import unread_count
 from tests.conftest import FakePushSender
 
 BIZ = "bz_birchbark"
@@ -95,7 +97,7 @@ async def test_account_updated_syncs_kyc_state(api: httpx.AsyncClient, db: Async
     assert res.status_code == 200
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     # details submitted but Stripe still needs things → provider action required
-    assert biz.kyc_status == "restricted"
+    assert kyc_status(biz) == "restricted"
     assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
     assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
 
@@ -112,7 +114,7 @@ async def test_account_updated_golden_payload_syncs_state(
     res = await api.post("/webhooks/stripe", content=body, headers={"Stripe-Signature": "good"})
     assert res.status_code == 200
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
-    assert biz.kyc_status == "restricted"
+    assert kyc_status(biz) == "restricted"
     assert biz.stripe_details_submitted is True and biz.stripe_payouts_enabled is False
     assert biz.stripe_requirements["currently_due"] == ["external_account", "individual.id_number"]
     assert biz.stripe_requirements["past_due"] == ["external_account"]
@@ -287,7 +289,8 @@ async def test_inbound_sms_creates_in_message(api: httpx.AsyncClient, db: AsyncS
     msg = (await db.execute(select(Message).where(Message.provider_ref == "SM_in_1"))).scalar_one()
     assert msg.direction == "in" and msg.body == "Can I reschedule?" and msg.business_id == BIZ
     thread = (await db.execute(select(Thread).where(Thread.id == msg.thread_id))).scalar_one()
-    assert thread.client_id == cid and thread.channel == "sms" and thread.unread_count == 1
+    assert thread.client_id == cid and thread.channel == "sms"
+    assert await unread_count(db, thread) == 1
 
 
 async def test_inbound_sms_redelivery_is_noop(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -302,7 +305,7 @@ async def test_inbound_sms_redelivery_is_noop(api: httpx.AsyncClient, db: AsyncS
     )
     assert len(msgs) == 1  # the redelivery is deduped on the SID
     thread = (await db.execute(select(Thread).where(Thread.id == msgs[0].thread_id))).scalar_one()
-    assert thread.unread_count == 1  # bumped once, not twice
+    assert await unread_count(db, thread) == 1  # counted once, not twice
 
 
 async def test_inbound_sms_bad_secret_401(api: httpx.AsyncClient) -> None:

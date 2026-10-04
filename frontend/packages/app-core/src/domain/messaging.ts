@@ -24,13 +24,17 @@ export interface ThreadRow {
 }
 
 export const THREADS_SQL = `
-SELECT t.id, t.client_id, t.channel, t.last_message_at, t.unread_count, t.status,
+SELECT t.id, t.client_id, t.channel,
+       (SELECT MAX(m.created_at) FROM messages m WHERE m.thread_id = t.id) AS last_message_at,
+       (SELECT COUNT(*) FROM messages m
+        WHERE m.thread_id = t.id AND m.direction = 'in' AND m.status != 'read') AS unread_count,
+       t.status,
        c.name AS client_name,
        (SELECT m.body FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1)
            AS last_body
 FROM threads t
 LEFT JOIN clients c ON c.id = t.client_id
-ORDER BY t.last_message_at DESC`;
+ORDER BY last_message_at DESC`;
 
 /** Every conversation, most-recently-active first, joined to the client's name (LEFT — a deleted
  *  client still lists). Threads sync only in the owner/admin `business_full` bucket. */

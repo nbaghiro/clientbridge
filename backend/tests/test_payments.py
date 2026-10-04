@@ -95,7 +95,7 @@ async def test_succeeded_webhook_marks_invoice_paid(
     )
     assert res.status_code == 200
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "paid"
+    assert (await ledger.invoice_state(db, inv))[0] == "paid"
     assert await ledger.invoice_balance(db, inv) == 0
     assert await ledger.collected(db, BIZ, "invoice", inv_id) == (11200, False)
 
@@ -142,7 +142,7 @@ async def test_partial_payment_marks_invoice_partial(
         "/webhooks/stripe", content=_pi_event("evt_pp", pi_id), headers={"Stripe-Signature": "good"}
     )
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "partial"
+    assert (await ledger.invoice_state(db, inv))[0] == "partial"
     assert await ledger.collected(db, BIZ, "invoice", inv_id) == (4000, False)
     assert await ledger.invoice_balance(db, inv) == 6000
 
@@ -158,7 +158,7 @@ async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: Async
     refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
     assert refunded.status_code == 200
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "refunded"
+    assert (await ledger.invoice_state(db, inv))[0] == "refunded"
     assert await ledger.invoice_balance(db, inv) == 0  # a credit note: nothing is owed again
     assert await ledger.collected(db, BIZ, "invoice", inv_id) == (0, True)
     assert (

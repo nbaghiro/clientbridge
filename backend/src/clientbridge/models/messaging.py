@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,13 +14,10 @@ class Thread(PKMixin, BusinessScoped, TimestampMixin, Base):
         enum_check("threads", "channel", "sms", "email", "chat"),
         enum_check("threads", "status", "open", "closed"),
         UniqueConstraint("business_id", "client_id", "channel", name="uq_threads_client_channel"),
-        Index("ix_threads_last_message", "business_id", "last_message_at"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     channel: Mapped[str] = mapped_column(String, nullable=False)
-    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    unread_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[str] = mapped_column(String, default="open", nullable=False)
 
 

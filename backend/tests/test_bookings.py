@@ -12,6 +12,7 @@ from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Availability, Booking, Session
 from clientbridge.services import ledger_service as ledger
+from clientbridge.services.booking_service import booked_count
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 
 ST_OWNER = "st_owner"
@@ -86,7 +87,6 @@ async def test_resource_double_book_conflicts(
         starts_at=datetime(2027, 3, 1, 9, tzinfo=UTC),
         ends_at=datetime(2027, 3, 1, 12, tzinfo=UTC),
         capacity=1,
-        booked_count=1,
         status="scheduled",
     )
     db.add(held)
@@ -403,7 +403,7 @@ async def test_class_bookings_share_session_until_full(
         await db.execute(select(Session).where(Session.id == first.json()["session_id"]))
     ).scalar_one()
     assert sess.capacity == 2
-    assert sess.booked_count == 2
+    assert await booked_count(db, sess.id) == 2
 
 
 async def test_non_class_item_mints_single_capacity_session(
@@ -418,7 +418,7 @@ async def test_non_class_item_mints_single_capacity_session(
         await db.execute(select(Session).where(Session.id == res.json()["session_id"]))
     ).scalar_one()
     assert sess.capacity == 1
-    assert sess.booked_count == 1
+    assert await booked_count(db, sess.id) == 1
 
 
 async def test_foreign_business_session_does_not_block(
@@ -448,7 +448,6 @@ async def test_foreign_business_session_does_not_block(
             starts_at=datetime(2027, 3, 2, 18, 0, tzinfo=UTC),
             ends_at=datetime(2027, 3, 2, 19, 15, tzinfo=UTC),
             capacity=1,
-            booked_count=1,
             status="scheduled",
         )
     )
@@ -636,7 +635,6 @@ async def test_collect_deposit_foreign_booking_404(
         starts_at=datetime(2027, 6, 7, 10, 0, tzinfo=UTC),
         ends_at=datetime(2027, 6, 7, 11, 0, tzinfo=UTC),
         capacity=1,
-        booked_count=1,
         status="scheduled",
     )
     db.add(session)
@@ -650,7 +648,6 @@ async def test_collect_deposit_foreign_booking_404(
         status="confirmed",
         source="manual",
         price_cents=12000,
-        deposit_required=True,
         deposit_amount_cents=2000,
     )
     db.add(booking)

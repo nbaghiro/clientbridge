@@ -4,7 +4,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
-from clientbridge.models.billing import Estimate
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.platform import DeviceToken
 from clientbridge.services import ledger_service as ledger
@@ -27,25 +26,9 @@ async def run_prune_device_tokens(db: AsyncSession, now: datetime) -> int:
 
 
 async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
-    """Lapse time-boxed rows to `expired`: sent estimates past `valid_until`, and active gift cards
-    / packages past `expires_at`, whose unspent balance is then booked as breakage revenue."""
+    """Lapse active gift cards and packages past `expires_at` to `expired`, booking their unspent
+    balance as breakage revenue. A fully spent card is left as it is (it reads as redeemed)."""
     swept = 0
-    estimates = (
-        (
-            await db.execute(
-                select(Estimate).where(
-                    Estimate.status == "sent",
-                    Estimate.valid_until.is_not(None),
-                    Estimate.valid_until < now.date(),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    for estimate in estimates:
-        estimate.status = "expired"
-        swept += 1
     gift_cards = (
         (
             await db.execute(
@@ -62,6 +45,8 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
         .all()
     )
     for gift_card in gift_cards:
+        if await ledger.gift_card_balance(db, gift_card) == 0:
+            continue
         gift_card.status = "expired"
         await ledger.post_breakage(
             db,

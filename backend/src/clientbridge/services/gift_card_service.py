@@ -114,15 +114,12 @@ class GiftCardService:
         card = await self._by_code(data.code, lock=True)
 
         async def run(cmd: Command) -> GiftCardOut:
-            if card.status != "active":
-                raise Conflict("only an active gift card can be redeemed")
             remaining = await ledger.gift_card_balance(self.db, card)
+            if ledger.gift_card_status(card, remaining) != "active":
+                raise Conflict("only an active gift card can be redeemed")
             if data.amount_cents <= 0 or data.amount_cents > remaining:
                 raise Conflict("invalid redemption amount")
             await ledger.post_redemption(self.db, card, data.amount_cents)
-            if data.amount_cents == remaining:
-                card.status = "redeemed"
-            await self.db.flush()
             cmd.record("gift_card.redeem", entity_type="gift_card", entity_id=card.id)
             return await _out(self.db, card)
 
@@ -191,12 +188,13 @@ class GiftCardService:
 
 
 async def _out(db: AsyncSession, card: GiftCard) -> GiftCardOut:
+    balance = await ledger.gift_card_balance(db, card)
     return GiftCardOut(
         id=card.id,
         code=card.code,
         initial_cents=card.initial_cents,
-        balance_cents=await ledger.gift_card_balance(db, card),
-        status=card.status,
+        balance_cents=balance,
+        status=ledger.gift_card_status(card, balance),
     )
 
 

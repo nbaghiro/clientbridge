@@ -12,6 +12,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, BookingAddon
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender
 
 SLUG = "birchbark"
@@ -172,7 +173,7 @@ async def test_paid_order_notifies_owner_and_client_with_pickup(
     ).json()
     await _settle(api, db, body["order_id"], "evt_shop_paid")
     order = await db.get(Order, body["order_id"], populate_existing=True)
-    assert order is not None and order.status == "paid"
+    assert order is not None and (await ledger.order_state(db, order))[0] == "paid"
     to = {e.to: e for e in email.sent}
     assert "Online order paid" in to["o@x.ca"].subject
     assert "Collect your order" in to["shopper@example.com"].body
@@ -200,10 +201,12 @@ async def test_pickup_only_for_paid_online_orders_409(
     assert (
         await as_owner.post("/v1/orders/ord_open/pickup", json={"status": "ready"})
     ).status_code == 409  # an in-person sale
-    await db.execute(update(Order).where(Order.id == "ord_web").values(status="open"))
-    await db.commit()
+    await _enable(db)
+    unpaid = (
+        await as_owner.post(f"/book/{SLUG}/shop/orders", json=_order((BRUSH, 1)), headers=_key())
+    ).json()
     assert (
-        await as_owner.post("/v1/orders/ord_web/pickup", json={"status": "ready"})
+        await as_owner.post(f"/v1/orders/{unpaid['order_id']}/pickup", json={"status": "ready"})
     ).status_code == 409  # not paid yet
     assert (
         await as_owner.post("/v1/orders/ord_nope/pickup", json={"status": "ready"})

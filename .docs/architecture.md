@@ -193,21 +193,25 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 
 **catalog (4)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`), `packages`
-(client's package: `sessions_total`/`sessions_used`, status), `subscriptions` (recurring: status, period,
+(client's package: `sessions_total` and status; sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
 `provider_ref`; partial-unique one active/paused per client+item), `gift_cards` (`code` unique per business,
-`initial_cents`; the spendable balance is the card's own ledger account).
+`initial_cents`; the spendable balance is the card's own ledger account, and an active card with nothing
+left reads as redeemed).
 
 **scheduling (5)** — `sessions` (the calendar event: capacity-bearing block; appointment = capacity 1, class
-= capacity N; `booked_count`, `recurrence_id`), `bookings` *(soft-del)* (client↔session; denormalized
+= capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` *(soft-del)* (client↔session; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show; `source`; deposit terms (the deposit's
-state is derived from the ledger); `reminded_at`),
+state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
 `availability` (per-staff recurring weekday or date override, `available`), `resources` (rooms/equipment),
 `schedules` (recurrence rule with `frequency` day/week/month, the same words items use → expands to
 sessions/bookings).
 
-**billing (4)** — `invoices` (per-business unique `number`, status lifecycle draft/sent/partial/paid/overdue/
-void/refunded, document totals subtotal/tax/total fixed at issue, `pay_token`; what is owed is the
-invoice's receivable in the ledger), `estimates` (accept/decline/convert → invoice), `orders` (POS/Terminal sale),
+**billing (4)** — `invoices` (per-business unique `number`, stored status draft/sent/void, document totals
+subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
+receivable in the ledger, and partial/paid/refunded/overdue and the paid time are read from it, through
+`ledger.invoice_status_expr()` on the server and `invoiceStatusSql` on the device), `estimates`
+(accept/decline/convert → invoice; a sent estimate past `valid_until` reads as expired), `orders`
+(POS/Terminal sale; stored status open/void, paid/refunded read from the ledger the same way),
 `lines` (**polymorphic** across invoice/estimate/order via `parent_type`; `item_id`/`booking_id`,
 `tax_amount_cents`).
 
@@ -225,7 +229,8 @@ pending/approved stage), income (`revenue`, `fee_revenue`) and expenses (`proces
 `amount_cents`, debit positive; `type` = the event; `source_*` = what caused it; `subject_*` = the entity it
 belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on for sync slicing).
 
-**messaging (3)** — `threads` (unique per business+client+channel), `messages` (direction in/out,
+**messaging (3)** — `threads` (unique per business+client+channel; the last message time and the unread
+count, inbound messages not yet `read`, are read from `messages`), `messages` (direction in/out,
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`).
 
 **documents (5)** — `forms`, `form_fields` (17 typed field types), `form_responses` (public-link token,

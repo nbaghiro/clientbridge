@@ -59,7 +59,7 @@ async def test_booking_flags_deposit_required(
     res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-01T17:00:00Z"))
     assert res.status_code == 201, res.text
     bk = (await db.execute(select(Booking).where(Booking.id == res.json()["id"]))).scalar_one()
-    assert bk.deposit_required is True
+    assert bk.deposit_amount_cents > 0
 
 
 async def test_booking_no_deposit_when_item_has_none(
@@ -71,7 +71,7 @@ async def test_booking_no_deposit_when_item_has_none(
     res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-02T17:00:00Z"))
     assert res.status_code == 201
     bk = (await db.execute(select(Booking).where(Booking.id == res.json()["id"]))).scalar_one()
-    assert bk.deposit_required is False
+    assert bk.deposit_amount_cents == 0
 
 
 async def _enable(db: AsyncSession) -> None:
@@ -165,6 +165,6 @@ async def test_deposit_settles_invoice_to_partial(
     )
     await as_owner.post("/webhooks/stripe", content=event, headers={"Stripe-Signature": "good"})
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert inv.status == "partial"
+    assert (await ledger.invoice_state(db, inv))[0] == "partial"
     assert await ledger.invoice_balance(db, inv) == 7500
     assert await ledger.collected(db, BIZ, "invoice", inv_id) == (2500, False)

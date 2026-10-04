@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.crm import Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.services.message_service import run_due_broadcasts
+from clientbridge.services.message_service import run_due_broadcasts, unread_count
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
 
 BIZ = "bz_birchbark"
@@ -68,7 +68,6 @@ async def test_send_sms_records_out_message(
     )
     thread = await _thread_for(db, cid, "sms")
     assert thread is not None and thread.id == out["thread_id"]
-    assert thread.last_message_at is not None
 
 
 async def test_second_message_reuses_thread(
@@ -201,14 +200,28 @@ async def test_mark_thread_read_zeroes_unread(
         client_id=client.id,
         channel="sms",
         status="open",
-        unread_count=3,
     )
     db.add(thread)
     await db.flush()
+    for i in range(3):
+        db.add(
+            Message(
+                id=new_id("message"),
+                business_id=BIZ,
+                thread_id=thread.id,
+                direction="in",
+                channel="sms",
+                body=f"ping {i}",
+                status="delivered",
+            )
+        )
+    await db.flush()
+    assert await unread_count(db, thread) == 3
     res = await as_owner.post(f"/v1/threads/{thread.id}/read")
     assert res.status_code == 200, res.text
     out = res.json()
     assert out["unread_count"] == 0
+    assert await unread_count(db, thread) == 0
     assert out["status"] == "open"
 
 
@@ -228,7 +241,6 @@ async def test_thread_tenant_isolation(
         client_id=foreign.id,
         channel="sms",
         status="open",
-        unread_count=2,
     )
     db.add(thread)
     await db.flush()

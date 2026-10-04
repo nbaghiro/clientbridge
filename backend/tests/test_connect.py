@@ -3,6 +3,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.identity import Business
+from clientbridge.services.business_service import kyc_status
 
 BIZ = "bz_birchbark"
 
@@ -72,7 +73,7 @@ async def test_onboard_seeds_kyc_state(as_owner: httpx.AsyncClient, db: AsyncSes
     await as_owner.post("/v1/connect/onboard")
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
     # the fake get_account returns a freshly-created account → not_started + what Stripe still wants
-    assert biz.kyc_status == "not_started" and biz.stripe_details_submitted is False
+    assert kyc_status(biz) == "not_started" and biz.stripe_details_submitted is False
     due = biz.stripe_requirements["currently_due"]
     assert isinstance(due, list) and "external_account" in due
     body = (await as_owner.get("/v1/connect/status")).json()  # and status() surfaces it

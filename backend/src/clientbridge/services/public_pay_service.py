@@ -38,7 +38,7 @@ class PublicPayService:
             currency=invoice.currency,
             total_cents=invoice.total_cents,
             balance_cents=await ledger.invoice_balance(self.db, invoice),
-            status=invoice.status,
+            status=(await ledger.invoice_state(self.db, invoice))[0],
             accepts_card=business.stripe_charges_enabled,
             interac_email=business.billing_email,
         )

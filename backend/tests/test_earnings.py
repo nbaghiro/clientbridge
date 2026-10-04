@@ -72,7 +72,6 @@ async def _paid_booking(
         starts_at=datetime(2030, 1, 1, 15, tzinfo=UTC),
         ends_at=datetime(2030, 1, 1, end_hour, end_min, tzinfo=UTC),
         capacity=1,
-        booked_count=1,
         status="scheduled",
     )
     db.add(sess)
@@ -310,7 +309,8 @@ async def test_refund_reverses_pending_earning(
     assert await _payable(db, "st_diego", "pending") == pending
 
     invoice = await db.get(Invoice, inv_id)
-    assert invoice is not None and invoice.status == "refunded"
+    assert invoice is not None
+    assert (await ledger.invoice_state(db, invoice))[0] == "refunded"
     await ensure_earnings(db, invoice)  # a reversed earning can accrue again, on a fresh journal
     journals = await _journals(db, booking_id)
     assert len(journals) == 2 and journals[0] == journal

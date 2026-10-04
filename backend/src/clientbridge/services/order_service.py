@@ -80,7 +80,7 @@ class OrderService:
 
     async def update_order(self, order_id: str, data: OrderUpdate) -> OrderOut:
         order = await self._order(order_id)
-        if order.status != "open":
+        if await _status(self.db, order) != "open":
             raise Conflict("only an open order can be edited")
         if await self._has_active_payment(order_id):
             raise Conflict("can't edit an order after checkout has started")
@@ -108,8 +108,9 @@ class OrderService:
     async def void_order(self, order_id: str) -> OrderOut:
         self._assert_admin()
         order = await self._order(order_id)
-        if order.status != "open":
-            raise Conflict(f"a {order.status} order can't be voided")
+        status = await _status(self.db, order)
+        if status != "open":
+            raise Conflict(f"a {status} order can't be voided")
 
         async def run(cmd: Command) -> OrderOut:
             order.status = "void"
@@ -124,7 +125,7 @@ class OrderService:
 
     async def checkout(self, order_id: str, idempotency_key: str | None) -> CheckoutOut:
         order = await self._order(order_id)
-        if order.status != "open":
+        if await _status(self.db, order) != "open":
             raise Conflict("only an open order can be checked out")
         if order.total_cents <= 0:
             raise Conflict("order has no balance to charge")
@@ -168,7 +169,7 @@ class OrderService:
         """Pay an open sale online: a saved card of the order's client charges now, otherwise a
         new card is confirmed on the card form. The webhook settles it like a reader payment."""
         order = await self._order(order_id)
-        if order.status != "open":
+        if await _status(self.db, order) != "open":
             raise Conflict("only an open order can be paid")
         if order.total_cents <= 0:
             raise Conflict("order has no balance to charge")
@@ -214,7 +215,7 @@ class OrderService:
         order = await self._order(order_id)
         if order.source != "online" or order.pickup_status is None:
             raise Conflict("only an online order is picked up")
-        if order.status != "paid":
+        if await _status(self.db, order) != "paid":
             raise Conflict("the order isn't paid yet")
         if _PICKUP_STEPS[data.status] <= _PICKUP_STEPS[order.pickup_status]:
             raise Conflict(f"the order is already {order.pickup_status.replace('_', ' ')}")
@@ -310,21 +311,27 @@ class OrderService:
         return row
 
 
+async def _status(db: AsyncSession, order: Order) -> str:
+    status, _ = await ledger.order_state(db, order)
+    return status
+
+
 async def _out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderOut:
     paid, _ = await ledger.collected(db, order.business_id, "order", order.id)
+    status, paid_at = await ledger.order_state(db, order)
     return OrderOut(
         id=order.id,
         business_id=order.business_id,
         client_id=order.client_id,
         staff_id=order.staff_id,
-        status=order.status,
+        status=status,
         currency=order.currency,
         subtotal_cents=order.subtotal_cents,
         tax_total_cents=order.tax_total_cents,
         total_cents=order.total_cents,
         amount_paid_cents=paid,
-        balance_cents=order.total_cents - paid if order.status == "open" else 0,
-        paid_at=order.paid_at,
+        balance_cents=order.total_cents - paid if status == "open" else 0,
+        paid_at=paid_at,
         receipt_email=order.receipt_email,
         receipt_phone=order.receipt_phone,
         source=order.source,

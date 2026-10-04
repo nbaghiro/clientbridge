@@ -37,7 +37,7 @@ from clientbridge.schemas.payments import (
     SetupIntentOut,
 )
 from clientbridge.services import ledger_service as ledger
-from clientbridge.services.business_service import apply_account_status
+from clientbridge.services.business_service import apply_account_status, kyc_status
 from clientbridge.services.earning_service import (
     ensure_earnings,
     ensure_order_earning,
@@ -120,7 +120,7 @@ class PaymentService:
             charges_enabled=business.stripe_charges_enabled,
             payouts_enabled=business.stripe_payouts_enabled,
             details_submitted=business.stripe_details_submitted,
-            kyc_status=business.kyc_status,
+            kyc_status=kyc_status(business),
             disabled_reason=str(reason) if isinstance(reason, str) else None,
             currently_due=_due("currently_due"),
             past_due=_due("past_due"),
@@ -382,7 +382,7 @@ class PaymentService:
         if pkg is not None:
             if pkg.status == "expired":
                 raise Conflict("can't refund an expired package")
-            if pkg.sessions_used > 0:
+            if await ledger.sessions_used(self.db, pkg) > 0:
                 raise Conflict("can't refund a package with sessions already used")
             return "a package purchase is refunded in full"
         if payment.booking_id is not None and payment.kind == "deposit":
@@ -527,8 +527,9 @@ async def assert_payable(db: AsyncSession, invoice: Invoice) -> int:
     command path and the public pay-link surface so the rule can't drift between them."""
     if invoice.status == "draft":
         raise Conflict("send the invoice before taking a payment")
-    if invoice.status in ("paid", "void", "refunded"):
-        raise Conflict(f"a {invoice.status} invoice can't be charged")
+    status, _ = await ledger.invoice_state(db, invoice)
+    if status in ("paid", "void", "refunded"):
+        raise Conflict(f"a {status} invoice can't be charged")
     balance = await ledger.invoice_balance(db, invoice)
     if balance <= 0:
         raise Conflict("nothing left to pay on this invoice")
@@ -1267,18 +1268,9 @@ async def _sync_order(db: AsyncSession, order_id: str) -> None:
     order = await db.get(Order, order_id)
     if order is None:
         return
-    net, refunded = await ledger.collected(db, order.business_id, "order", order_id)
-    if net <= 0 and refunded:
-        order.status = "refunded"
-    elif net >= order.total_cents or (refunded and net > 0):
-        order.status = "paid"  # a partly refunded sale stays settled
-        order.paid_at = order.paid_at or datetime.now(UTC)
-    else:
-        order.status = "open"
-        order.paid_at = None
-    await db.flush()
-    await sync_parent_stock(db, order.business_id, "order", order.id, order.status)
-    if order.status == "paid":
+    status, _ = await ledger.order_state(db, order)
+    await sync_parent_stock(db, order.business_id, "order", order.id, status)
+    if status == "paid":
         await ensure_order_earning(db, order)
     else:
         await reverse_order_earning(db, order)
@@ -1307,28 +1299,14 @@ async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "fail
 
 
 async def sync_invoice(db: AsyncSession, invoice_id: str) -> None:
-    """Re-derive an invoice's status from its ledger balance + settled payments, then accrue or
-    unwind the staff earnings that hang off it being fully paid."""
+    """Move stock and accrue or unwind the staff earnings that hang off an invoice being fully paid,
+    by its status as the ledger now reads it."""
     invoice = await db.get(Invoice, invoice_id)
     if invoice is None or invoice.status in ("draft", "void"):
         return
-    net, refunded = await ledger.collected(db, invoice.business_id, "invoice", invoice_id)
-    balance = await ledger.invoice_balance(db, invoice)
-    if net <= 0 and refunded and balance <= 0:
-        invoice.status = "refunded"
-        invoice.paid_at = None
-    elif balance <= 0:
-        invoice.status = "paid"
-        invoice.paid_at = invoice.paid_at or datetime.now(UTC)
-    elif net > 0:
-        invoice.status = "partial"
-        invoice.paid_at = None
-    else:
-        invoice.status = "sent"
-        invoice.paid_at = None
-    await db.flush()
-    await sync_parent_stock(db, invoice.business_id, "invoice", invoice.id, invoice.status)
-    if invoice.status == "paid":
+    status, _ = await ledger.invoice_state(db, invoice)
+    await sync_parent_stock(db, invoice.business_id, "invoice", invoice.id, status)
+    if status == "paid":
         await ensure_earnings(db, invoice)
     else:
         await reverse_earnings(db, invoice)

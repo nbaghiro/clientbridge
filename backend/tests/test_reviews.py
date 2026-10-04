@@ -59,7 +59,6 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
         starts_at=NOW,
         ends_at=NOW + timedelta(hours=1),
         capacity=1,
-        booked_count=1,
         status="completed",
     )
     db.add(sess)

@@ -39,7 +39,6 @@ async def _booking_at(db: AsyncSession, starts_at: datetime, *, status: str = "c
         starts_at=starts_at,
         ends_at=starts_at + timedelta(hours=1),
         capacity=1,
-        booked_count=1,
         status="scheduled",
     )
     db.add(sess)
@@ -123,7 +122,6 @@ async def _booking_for(
         starts_at=starts_at,
         ends_at=starts_at + timedelta(hours=1),
         capacity=1,
-        booked_count=1,
         status="scheduled",
     )
     db.add(sess)

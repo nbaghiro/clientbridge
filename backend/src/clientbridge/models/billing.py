@@ -22,9 +22,8 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "invoices"
     __table_args__ = (
         UniqueConstraint("business_id", "number", name="uq_invoices_business_number"),
-        enum_check(
-            "invoices", "status", "draft", "sent", "partial", "paid", "overdue", "void", "refunded"
-        ),
+        # partial/paid/refunded/overdue are read from the ledger, never stored
+        enum_check("invoices", "status", "draft", "sent", "void"),
         Index("ix_invoices_client", "business_id", "client_id"),
         Index("ix_invoices_status", "business_id", "status"),
     )
@@ -38,7 +37,7 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    overdue_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     notes: Mapped[str | None] = mapped_column(String)
     pay_token: Mapped[str | None] = mapped_column(String, unique=True)  # public pay-link key
@@ -48,7 +47,7 @@ class Estimate(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "estimates"
     __table_args__ = (
         UniqueConstraint("business_id", "number", name="uq_estimates_business_number"),
-        enum_check("estimates", "status", "draft", "sent", "accepted", "declined", "expired"),
+        enum_check("estimates", "status", "draft", "sent", "accepted", "declined"),
         Index("ix_estimates_status", "business_id", "status"),
     )
 
@@ -70,7 +69,7 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     __tablename__ = "orders"
     __table_args__ = (
-        enum_check("orders", "status", "open", "paid", "void", "refunded"),
+        enum_check("orders", "status", "open", "void"),
         enum_check("orders", "source", "pos", "online"),
         CheckConstraint(
             "pickup_status IS NULL OR pickup_status IN ('unfulfilled', 'ready', 'picked_up')",
@@ -86,7 +85,6 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     receipt_email: Mapped[str | None] = mapped_column(String)  # where a walk-in's receipt goes
     receipt_phone: Mapped[str | None] = mapped_column(String)
     source: Mapped[str] = mapped_column(String, default="pos", nullable=False)

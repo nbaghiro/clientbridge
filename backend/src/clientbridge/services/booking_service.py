@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import ColumnElement, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -61,6 +61,24 @@ async def _booking_out(db: AsyncSession, booking: Booking, session: Session) -> 
     )
 
 
+def booked_count_expr() -> ColumnElement[int]:
+    """Seats taken on a session: its live (not canceled, not deleted) bookings."""
+    return (
+        select(func.count(Booking.id))
+        .where(
+            Booking.session_id == Session.id,
+            Booking.status != "canceled",
+            Booking.deleted_at.is_(None),
+        )
+        .scalar_subquery()
+    )
+
+
+async def booked_count(db: AsyncSession, session_id: str) -> int:
+    count = await db.execute(select(booked_count_expr()).where(Session.id == session_id))
+    return int(count.scalar_one())
+
+
 async def conflicting_session(
     db: AsyncSession,
     business_id: str,
@@ -85,7 +103,7 @@ async def conflicting_session(
             Session.starts_at - func.make_interval(0, 0, 0, 0, 0, Item.buffer_before_min) < new_end,
             Session.ends_at + func.make_interval(0, 0, 0, 0, 0, Item.buffer_after_min) > new_start,
             or_(
-                Session.booked_count >= Session.capacity,
+                booked_count_expr() >= Session.capacity,
                 Session.item_id != item.id,
                 Session.starts_at != starts_at,
                 Session.ends_at != ends_at,
@@ -198,10 +216,8 @@ async def create_booking_core(
         if session is not None:
             if dedupe_client and await _client_has_seat(db, business_id, session.id, client_id):
                 raise Conflict(_ALREADY_IN_CLASS)
-            if session.booked_count >= session.capacity:
+            if await booked_count(db, session.id) >= session.capacity:
                 raise Conflict(_CLASS_FULL)
-            session.booked_count += 1
-            await db.flush()
     if session is None:
         await assert_free(db, business_id, item, staff_id, starts_at, ends_at)
         if resource_id is not None and await conflicting_resource(
@@ -218,7 +234,6 @@ async def create_booking_core(
             starts_at=starts_at,
             ends_at=ends_at,
             capacity=item.capacity if is_class and item.capacity is not None else 1,
-            booked_count=1,
             status="scheduled",
         )
         db.add(session)
@@ -238,7 +253,6 @@ async def create_booking_core(
         status="confirmed",
         source=source,
         price_cents=item.price_cents,
-        deposit_required=item.deposit_type != "none",
         deposit_amount_cents=deposit_cents(item),
         deposit_status="pending" if deposit > 0 else "none",
         confirmed_at=datetime.now(UTC),
@@ -249,10 +263,9 @@ async def create_booking_core(
 
 
 async def release_session_slot(db: AsyncSession, session: Session) -> None:
-    """Free the seat a canceled booking held, canceling the session once it empties — the
-    cancel-frees-the-slot rule (a canceled session is excluded from the overlap check)."""
-    session.booked_count = max(0, session.booked_count - 1)
-    if session.booked_count == 0:
+    """Cancel the session once its last live booking is gone — the cancel-frees-the-slot rule (a
+    canceled session is excluded from the overlap check)."""
+    if await booked_count(db, session.id) == 0:
         session.status = "canceled"
     await db.flush()
 
@@ -319,7 +332,7 @@ async def _open_invoice(db: AsyncSession, booking: Booking) -> Invoice | None:
     rows = await db.execute(
         scoped(Invoice, booking.business_id)
         .join(Line, (Line.parent_type == "invoice") & (Line.parent_id == Invoice.id))
-        .where(Line.booking_id == booking.id, Invoice.status.in_(("sent", "partial")))
+        .where(Line.booking_id == booking.id, ledger.invoice_status_expr().in_(("sent", "partial")))
         .order_by(Invoice.issued_at.desc())
         .limit(1)
     )
@@ -425,7 +438,7 @@ class BookingService:
     ) -> DepositOut:
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
-        if not booking.deposit_required or booking.deposit_amount_cents <= 0:
+        if booking.deposit_amount_cents <= 0:
             raise Conflict("no deposit due")
         business = await self._business()
         if not business.stripe_charges_enabled or business.stripe_account_id is None:

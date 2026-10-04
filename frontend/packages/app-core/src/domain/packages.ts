@@ -5,6 +5,7 @@ import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
 import { type Checkout, useCheckout } from "./checkout";
+import { sessionsUsedSql } from "./ledger";
 
 export interface PackageRow {
     id: string;
@@ -18,7 +19,7 @@ export interface PackageRow {
 
 export const CLIENT_PACKAGES_SQL = `
 SELECT p.id, p.client_id, p.item_id, i.name AS item_name,
-       p.sessions_total, p.sessions_used, p.status
+       p.sessions_total, ${sessionsUsedSql("p.id")} AS sessions_used, p.status
 FROM packages p LEFT JOIN items i ON i.id = p.item_id
 WHERE p.client_id = ? ORDER BY p.created_at DESC`;
 

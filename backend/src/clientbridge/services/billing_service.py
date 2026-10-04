@@ -1,5 +1,5 @@
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -138,8 +138,9 @@ class BillingService:
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:
         self._assert_admin()
         invoice = await self._invoice(invoice_id)
-        if invoice.status in ("paid", "partial", "refunded", "void"):
-            raise Conflict(f"a {invoice.status} invoice can't be voided")
+        status, _ = await ledger.invoice_state(self.db, invoice)
+        if status in ("paid", "partial", "refunded", "void"):
+            raise Conflict(f"a {status} invoice can't be voided")
 
         async def run(cmd: Command) -> InvoiceOut:
             pending = await self.db.execute(
@@ -239,8 +240,9 @@ class BillingService:
     async def send_estimate(self, estimate_id: str) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
-        if estimate.status in ("accepted", "declined", "expired"):
-            raise Conflict(f"a {estimate.status} estimate can't be sent")
+        status = estimate_status(estimate)
+        if status in ("accepted", "declined", "expired"):
+            raise Conflict(f"a {status} estimate can't be sent")
 
         async def run(cmd: Command) -> EstimateOut:
             if estimate.status == "draft":
@@ -272,7 +274,7 @@ class BillingService:
         estimate = await self._estimate(estimate_id)
         if estimate.converted_invoice_id is not None:
             raise Conflict("this estimate was already converted")
-        if estimate.status not in ("sent", "accepted"):
+        if estimate_status(estimate) not in ("sent", "accepted"):
             raise Conflict("only a sent or accepted estimate can be converted")
         await self._client(estimate.client_id)
 
@@ -317,8 +319,9 @@ class BillingService:
     async def _set_estimate_status(self, estimate_id: str, status: str) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
-        if estimate.status not in ("sent", "accepted", "declined"):
-            raise Conflict(f"a {estimate.status} estimate can't be {status}")
+        current = estimate_status(estimate)
+        if current not in ("sent", "accepted", "declined"):
+            raise Conflict(f"a {current} estimate can't be {status}")
 
         async def run(cmd: Command) -> EstimateOut:
             estimate.status = status
@@ -465,14 +468,23 @@ class BillingService:
         return row
 
 
+def estimate_status(estimate: Estimate, today: date | None = None) -> str:
+    """A sent estimate past its `valid_until` (a UTC date) reads as expired; nothing stores that."""
+    today = today or datetime.now(UTC).date()
+    if estimate.status == "sent" and estimate.valid_until is not None:
+        return "expired" if estimate.valid_until < today else "sent"
+    return estimate.status
+
+
 async def _invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) -> InvoiceOut:
     paid, _ = await ledger.collected(db, invoice.business_id, "invoice", invoice.id)
+    status, paid_at = await ledger.invoice_state(db, invoice)
     return InvoiceOut(
         id=invoice.id,
         business_id=invoice.business_id,
         client_id=invoice.client_id,
         number=invoice.number,
-        status=invoice.status,
+        status=status,
         currency=invoice.currency,
         subtotal_cents=invoice.subtotal_cents,
         tax_total_cents=invoice.tax_total_cents,
@@ -481,7 +493,7 @@ async def _invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) ->
         balance_cents=await ledger.invoice_balance(db, invoice),
         issued_at=invoice.issued_at,
         due_at=invoice.due_at,
-        paid_at=invoice.paid_at,
+        paid_at=paid_at,
         voided_at=invoice.voided_at,
         notes=invoice.notes,
         pay_token=invoice.pay_token,
@@ -495,7 +507,7 @@ def _estimate_out(estimate: Estimate, lines: list[Line]) -> EstimateOut:
         business_id=estimate.business_id,
         client_id=estimate.client_id,
         number=estimate.number,
-        status=estimate.status,
+        status=estimate_status(estimate),
         subtotal_cents=estimate.subtotal_cents,
         tax_total_cents=estimate.tax_total_cents,
         total_cents=estimate.total_cents,

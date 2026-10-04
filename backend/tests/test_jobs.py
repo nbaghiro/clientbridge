@@ -10,6 +10,9 @@ from clientbridge.models.crm import Client
 from clientbridge.models.platform import DeviceToken
 from clientbridge.models.reviews import ReviewRequest
 from clientbridge.models.scheduling import Booking, Session
+from clientbridge.services import ledger_service as ledger
+from clientbridge.services.billing_service import estimate_status
+from clientbridge.services.ledger_service import Leg
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.review_service import build_review_request
 from clientbridge.tasks.billing_jobs import run_overdue_sweep
@@ -70,7 +73,11 @@ async def _invoice(
 
 
 async def _status(db: AsyncSession, model: type[Invoice] | type[Estimate], row_id: str) -> str:
-    return (await db.execute(select(model.status).where(model.id == row_id))).scalar_one()
+    if model is Invoice:
+        query = select(ledger.invoice_status_expr()).where(Invoice.id == row_id)
+        return str((await db.execute(query)).scalar_one())
+    estimate = (await db.execute(select(Estimate).where(Estimate.id == row_id))).scalar_one()
+    return estimate_status(estimate, NOW.date())
 
 
 async def test_overdue_sweep_flags_and_notifies(
@@ -171,7 +178,6 @@ async def _completed_booking(
         starts_at=completed_at or NOW,
         ends_at=(completed_at or NOW) + timedelta(hours=1),
         capacity=1,
-        booked_count=1,
         status="completed",
     )
     db.add(sess)
@@ -271,8 +277,20 @@ async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:
     )
     db.add_all([expired_est, current_est, expired_gc, current_gc, expired_pkg])
     await db.flush()
+    for card in (expired_gc, current_gc):
+        await ledger.post(
+            db,
+            BIZ,
+            type="payment",
+            ref=f"test:purchase:{card.id}",
+            legs=[
+                Leg("business", BIZ, "stripe", 1000),
+                Leg("gift_card", card.id, "gift_card", -1000),
+            ],
+            subject=("gift_card", card.id),
+        )
 
-    assert await run_expiry_sweeps(db, NOW) == 3
+    assert await run_expiry_sweeps(db, NOW) == 2  # an estimate's expiry is read, not swept
 
     assert await _status(db, Estimate, expired_est.id) == "expired"
     assert await _status(db, Estimate, current_est.id) == "sent"

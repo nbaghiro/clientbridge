@@ -10,6 +10,8 @@ from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
+from clientbridge.services import ledger_service as ledger
+from clientbridge.services.ledger_service import Leg
 from tests.conftest import book_invoice
 
 BIZ = "bz_birchbark"
@@ -136,8 +138,14 @@ async def test_public_pay_card_returns_client_secret(
 
 async def test_cannot_pay_a_paid_invoice(api: httpx.AsyncClient, db: AsyncSession) -> None:
     inv_id, token = await _sent_invoice(db)
-    await db.execute(update(Invoice).where(Invoice.id == inv_id).values(status="paid"))
-    await db.flush()
+    await ledger.post(
+        db,
+        BIZ,
+        type="payment",
+        ref=f"test:paid:{inv_id}",
+        legs=[Leg("business", BIZ, "bank", 8000), Leg("client", "cl_x", "receivable", -8000)],
+        subject=("invoice", inv_id),
+    )
     assert (await api.post(f"/pay/{token}/interac")).status_code == 409
 
 

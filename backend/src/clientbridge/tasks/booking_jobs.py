@@ -35,7 +35,7 @@ async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
             .where(
                 Booking.deleted_at.is_(None),
                 Booking.source == "online",
-                Booking.deposit_required.is_(True),
+                Booking.deposit_amount_cents > 0,
                 Booking.status.not_in(("completed", "canceled", "no_show")),
                 Booking.created_at < now - _UNPAID_TTL,
                 deposits("pending"),

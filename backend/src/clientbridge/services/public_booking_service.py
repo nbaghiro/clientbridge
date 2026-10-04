@@ -165,7 +165,7 @@ class PublicBookingService:
     ) -> str | None:
         """Open an interactive deposit PaymentIntent so the client pays to hold the slot. Skipped
         when no deposit is due or the business can't take cards yet (the booking still stands)."""
-        if not booking.deposit_required or booking.deposit_amount_cents <= 0:
+        if booking.deposit_amount_cents <= 0:
             return None
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
             return None

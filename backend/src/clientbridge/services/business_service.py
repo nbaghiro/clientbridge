@@ -53,6 +53,30 @@ def derive_kyc_status(status: ConnectAccount) -> str:
     return "pending"
 
 
+def kyc_status(business: Business) -> str:
+    """The KYC state, read from the account fields mirrored off Stripe."""
+    req = business.stripe_requirements
+
+    def _due(key: str) -> list[str]:
+        value = req.get(key)
+        return [str(x) for x in value] if isinstance(value, list) else []
+
+    reason = req.get("disabled_reason")
+    return derive_kyc_status(
+        ConnectAccount(
+            id=business.stripe_account_id or "",
+            charges_enabled=business.stripe_charges_enabled,
+            payouts_enabled=business.stripe_payouts_enabled,
+            details_submitted=business.stripe_details_submitted,
+            disabled_reason=reason if isinstance(reason, str) else None,
+            currently_due=_due("currently_due"),
+            eventually_due=_due("eventually_due"),
+            past_due=_due("past_due"),
+            pending_verification=_due("pending_verification"),
+        )
+    )
+
+
 def apply_account_status(business: Business, status: ConnectAccount) -> None:
     """Mirror the connected-account KYC state onto the business (Stripe = source of truth)."""
     business.stripe_charges_enabled = status.charges_enabled
@@ -65,7 +89,6 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
         "pending_verification": status.pending_verification,
         "disabled_reason": status.disabled_reason,
     }
-    business.kyc_status = derive_kyc_status(status)
 
 
 class BusinessService:

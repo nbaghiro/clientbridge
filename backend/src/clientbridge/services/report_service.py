@@ -161,8 +161,8 @@ class ReportService:
         lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
         sold: dict[str, list[float]] = {}
         for parent_type, parent, status, at in (
-            ("order", Order, Order.status, Order.paid_at),
-            ("invoice", Invoice, Invoice.status, Invoice.issued_at),
+            ("order", Order, ledger.order_status_expr(), ledger.order_paid_at_expr()),
+            ("invoice", Invoice, ledger.invoice_status_expr(), Invoice.issued_at),
         ):
             rows = await self.db.execute(
                 scoped(Line, self.biz)

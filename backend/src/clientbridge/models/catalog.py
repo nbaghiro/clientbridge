@@ -95,7 +95,6 @@ class Package(PKMixin, BusinessScoped, TimestampMixin, Base):
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
     sessions_total: Mapped[int] = mapped_column(Integer, nullable=False)
-    sessions_used: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
     payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id"))
@@ -130,7 +129,7 @@ class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "gift_cards"
     __table_args__ = (
         UniqueConstraint("business_id", "code", name="uq_gift_cards_business_code"),
-        enum_check("gift_cards", "status", "active", "redeemed", "expired", "void", "pending"),
+        enum_check("gift_cards", "status", "active", "expired", "void", "pending"),
     )
 
     code: Mapped[str] = mapped_column(String, nullable=False)

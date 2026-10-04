@@ -94,7 +94,6 @@ function seed(): void {
             brand: "{}",
             stripe_account_id: "acct_1",
             stripe_terminal_location_id: "tml_1",
-            kyc_status: "verified",
             tax_registered: 1,
             status: "active",
         },
@@ -167,7 +166,6 @@ function seed(): void {
             starts_at: "2026-06-26 10:00:00+00",
             ends_at: "2026-06-26 11:00:00+00",
             capacity: 1,
-            booked_count: 1,
             status: "scheduled",
         },
         {
@@ -177,7 +175,6 @@ function seed(): void {
             starts_at: "2026-06-26T12:00:00Z",
             ends_at: "2026-06-26T13:00:00Z",
             capacity: 1,
-            booked_count: 0,
             status: "canceled",
         },
         {
@@ -187,7 +184,6 @@ function seed(): void {
             starts_at: "2026-06-27T09:00:00Z",
             ends_at: "2026-06-27T10:00:00Z",
             capacity: 4,
-            booked_count: 0,
             status: "scheduled",
         },
         {
@@ -197,7 +193,6 @@ function seed(): void {
             starts_at: "2026-07-10T09:00:00Z",
             ends_at: "2026-07-10T10:00:00Z",
             capacity: 1,
-            booked_count: 1,
             status: "scheduled",
         },
     ]);
@@ -211,7 +206,6 @@ function seed(): void {
             status: "completed",
             source: "online",
             price_cents: 10000,
-            deposit_required: 1,
             deposit_amount_cents: 2750,
             deposit_status: "collected",
         },
@@ -223,7 +217,6 @@ function seed(): void {
             status: "confirmed",
             source: "manual",
             price_cents: 10000,
-            deposit_required: 0,
             deposit_amount_cents: 0,
             deposit_status: "none",
         },
@@ -243,7 +236,7 @@ function seed(): void {
             id: "inv_1",
             client_id: "cl_ann",
             number: 7,
-            status: "partial",
+            status: "sent",
             currency: "CAD",
             subtotal_cents: 10000,
             tax_total_cents: 1200,
@@ -266,13 +259,12 @@ function seed(): void {
             id: "inv_3",
             client_id: "cl_ben",
             number: 6,
-            status: "paid",
+            status: "sent",
             currency: "CAD",
             subtotal_cents: 2000,
             tax_total_cents: 0,
             total_cents: 2000,
             issued_at: "2026-06-21T09:00:00Z",
-            paid_at: "2026-06-21T10:00:00Z",
         },
     ]);
     scoped("estimates", [
@@ -303,27 +295,25 @@ function seed(): void {
             id: "ord_web",
             client_id: "cl_ben",
             staff_id: "st_owner",
-            status: "paid",
+            status: "open",
             currency: "CAD",
             subtotal_cents: 4800,
             tax_total_cents: 0,
             total_cents: 4800,
             source: "online",
             pickup_status: "ready",
-            paid_at: TS,
         },
         {
             id: "ord_gone",
             client_id: "cl_ben",
             staff_id: "st_owner",
-            status: "paid",
+            status: "open",
             currency: "CAD",
             subtotal_cents: 100,
             tax_total_cents: 0,
             total_cents: 100,
             source: "online",
             pickup_status: "picked_up",
-            paid_at: TS,
         },
     ]);
     scoped("lines", [
@@ -475,7 +465,6 @@ function seed(): void {
             client_id: "cl_ann",
             item_id: "it_pkg",
             sessions_total: 5,
-            sessions_used: 2,
             status: "active",
         },
     ]);
@@ -485,7 +474,7 @@ function seed(): void {
             id: "gc_2",
             code: "GIFTBBBB",
             initial_cents: 1000,
-            status: "redeemed",
+            status: "active",
             created_at: "2026-06-20T09:00:00Z",
         },
     ]);
@@ -506,16 +495,12 @@ function seed(): void {
             client_id: "cl_ann",
             channel: "sms",
             status: "open",
-            unread_count: 2,
-            last_message_at: "2026-06-26T11:00:00Z",
         },
         {
             id: "th_2",
             client_id: "cl_ben",
             channel: "email",
             status: "open",
-            unread_count: 0,
-            last_message_at: "2026-06-25T11:00:00Z",
         },
     ]);
     scoped("messages", [
@@ -676,6 +661,16 @@ function seed(): void {
             ["a_recv_ben", -2000],
         ],
         on("invoice", "inv_3", "pay_3"),
+    );
+    journal(
+        "j_gone",
+        "payment",
+        "payment:pay_gone",
+        [
+            ["a_stripe", 100],
+            ["a_rev", -100],
+        ],
+        on("order", "ord_gone", "pay_gone"),
     );
     journal(
         "j_web",

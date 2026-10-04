@@ -71,7 +71,6 @@ class PackageService:
                 client_id=data.client_id,
                 item_id=item.id,
                 sessions_total=sessions_total,
-                sessions_used=0,
                 status="pending",
                 payment_id=payment.id,
                 expires_at=(
@@ -105,15 +104,15 @@ class PackageService:
         async def run(cmd: Command) -> PackageOut:
             if package.status != "active":
                 raise Conflict("only an active package can be consumed")
-            if package.sessions_used >= package.sessions_total:
+            used = await ledger.sessions_used(self.db, package)
+            if used >= package.sessions_total:
                 raise Conflict("no sessions left on this package")
-            package.sessions_used += 1
-            if package.sessions_used >= package.sessions_total:
+            await ledger.post_consumption(self.db, package)
+            if used + 1 >= package.sessions_total:
                 package.status = "used"
             await self.db.flush()
-            await ledger.post_consumption(self.db, package)
             cmd.record("package.consume", entity_type="package", entity_id=package.id)
-            return _out(package)
+            return await _out(self.db, package)
 
         return await run_command(
             self.db,
@@ -163,13 +162,13 @@ class PackageService:
         return row
 
 
-def _out(package: Package) -> PackageOut:
+async def _out(db: AsyncSession, package: Package) -> PackageOut:
     return PackageOut(
         id=package.id,
         client_id=package.client_id,
         item_id=package.item_id,
         sessions_total=package.sessions_total,
-        sessions_used=package.sessions_used,
+        sessions_used=await ledger.sessions_used(db, package),
         status=package.status,
     )
 

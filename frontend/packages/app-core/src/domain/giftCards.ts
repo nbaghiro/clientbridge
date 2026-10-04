@@ -21,7 +21,10 @@ export interface GiftCardRow {
 
 export const GIFT_CARDS_SQL = `
 SELECT g.id, g.code, g.initial_cents, ${ownedLiabilitySql("gift_card", "gift_card", "g.id")} AS balance_cents,
-       g.status, g.recipient
+       CASE WHEN g.status = 'active'
+                 AND ${ownedLiabilitySql("gift_card", "gift_card", "g.id")} = 0
+            THEN 'redeemed' ELSE g.status END AS status,
+       g.recipient
 FROM gift_cards g ORDER BY g.created_at DESC`;
 
 export function useGiftCards(): GiftCardRow[] {

@@ -24,6 +24,7 @@ from clientbridge.services.billing_service import _invoice_out
 from clientbridge.services.booking_service import _booking_out
 from clientbridge.services.earning_service import load_earning
 from clientbridge.services.lines import fetch_lines
+from clientbridge.services.message_service import unread_count
 from clientbridge.services.order_service import _out as _order_out
 from tests.conftest import BIZ
 
@@ -201,7 +202,7 @@ async def column(db: AsyncSession, table: str, row_id: str, name: str) -> object
 async def unread(db: AsyncSession, thread_id: str) -> int:
     row = await db.get(Thread, thread_id, populate_existing=True)
     assert row is not None
-    return row.unread_count
+    return await unread_count(db, row)
 
 
 async def removed(db: AsyncSession, table: str, row_id: str) -> bool:

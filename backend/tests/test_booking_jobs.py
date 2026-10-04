@@ -8,6 +8,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Session
+from clientbridge.services.booking_service import booked_count
 from clientbridge.tasks.booking_jobs import run_reap_unpaid_bookings
 
 BIZ = "bz_birchbark"
@@ -43,7 +44,6 @@ async def _online_booking(
         starts_at=starts,
         ends_at=starts + timedelta(hours=1),
         capacity=1,
-        booked_count=1,
         status="scheduled",
     )
     db.add(session)
@@ -57,8 +57,7 @@ async def _online_booking(
         status=status,
         source=source,
         price_cents=11000,
-        deposit_required=deposit_required,
-        deposit_amount_cents=2750,
+        deposit_amount_cents=2750 if deposit_required else 0,
         created_at=created_at,
     )
     db.add(booking)
@@ -85,7 +84,8 @@ async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "canceled" and booking.canceled_at == NOW
     session = (await db.execute(select(Session).where(Session.id == sid))).scalar_one()
-    assert session.status == "canceled" and session.booked_count == 0  # slot freed
+    assert session.status == "canceled"  # slot freed
+    assert await booked_count(db, sid) == 0
 
 
 async def test_fresh_unpaid_booking_is_untouched(db: AsyncSession) -> None:

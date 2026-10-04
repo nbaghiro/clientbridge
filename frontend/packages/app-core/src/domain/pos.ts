@@ -7,7 +7,7 @@ import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
 import type { ItemRow } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
-import { collectedSql } from "./ledger";
+import { collectedSql, orderStatusSql } from "./ledger";
 import { canManagePayments } from "./payments";
 
 export interface OrderLineInput {
@@ -122,10 +122,10 @@ export interface OpenOrderRow {
 }
 
 export const OPEN_ORDERS_SQL = `
-SELECT o.id, o.client_id, c.name AS client_name, o.status, o.total_cents,
+SELECT o.id, o.client_id, c.name AS client_name, ${orderStatusSql("o")} AS status, o.total_cents,
        o.total_cents - ${collectedSql("order", "o.id")} AS balance_cents, o.created_at
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
-WHERE o.status = 'open' ORDER BY o.created_at DESC`;
+WHERE ${orderStatusSql("o")} = 'open' ORDER BY o.created_at DESC`;
 
 /** Open (un-charged) orders, synced — the register's "held" sales. */
 export function useOpenOrders(): OpenOrderRow[] {
@@ -162,7 +162,7 @@ SELECT o.id, c.name AS client_name, o.total_cents, o.currency, o.pickup_status, 
        (SELECT group_concat(CAST(l.quantity AS INTEGER) || ' × ' || l.description, ', ')
         FROM lines l WHERE l.parent_type = 'order' AND l.parent_id = o.id) AS summary
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
-WHERE o.source = 'online' AND o.status = 'paid' AND o.pickup_status <> 'picked_up'
+WHERE o.source = 'online' AND ${orderStatusSql("o")} = 'paid' AND o.pickup_status <> 'picked_up'
 ORDER BY o.created_at`;
 
 /** Paid shop orders still waiting to be collected, oldest first. */

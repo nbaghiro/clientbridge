@@ -6,7 +6,7 @@ import type { ApiLike } from "../util/api";
 import { blankToNull } from "../util/format";
 import type { Intent } from "../util/primitives";
 import { strings } from "../strings";
-import { subjectNetSql } from "./ledger";
+import { invoiceStatusSql, subjectNetSql } from "./ledger";
 
 export interface InvoiceRow {
     id: string;
@@ -52,7 +52,8 @@ export interface LineRow {
 }
 
 export const INVOICES_SQL = `
-SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status, i.subtotal_cents,
+SELECT i.id, i.client_id, c.name AS client_name, i.number, ${invoiceStatusSql("i")} AS status,
+       i.subtotal_cents,
        i.tax_total_cents, i.total_cents,
        CASE WHEN i.status = 'draft' THEN i.total_cents
             ELSE COALESCE(${subjectNetSql("receivable", "invoice", "i.id")}, 0) END AS balance_cents,
@@ -62,7 +63,10 @@ LEFT JOIN clients c ON c.id = i.client_id
 ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
 
 export const ESTIMATES_SQL = `
-SELECT e.id, e.client_id, c.name AS client_name, e.number, e.status, e.subtotal_cents,
+SELECT e.id, e.client_id, c.name AS client_name, e.number,
+       CASE WHEN e.status = 'sent' AND e.valid_until < date('now') THEN 'expired'
+            ELSE e.status END AS status,
+       e.subtotal_cents,
        e.tax_total_cents, e.total_cents, e.valid_until, e.converted_invoice_id, e.notes, e.created_at
 FROM estimates e
 LEFT JOIN clients c ON c.id = e.client_id

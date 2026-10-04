@@ -80,7 +80,6 @@ async def _package(db: AsyncSession, *, paid: int) -> str:
         client_id=client_id,
         item_id=item_id,
         sessions_total=5,
-        sessions_used=1,
         status="active",
         expires_at=LAPSED,
     )

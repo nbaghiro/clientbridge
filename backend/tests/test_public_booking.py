@@ -46,17 +46,27 @@ def _body(
 
 async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: datetime) -> None:
     item_row = (await db.execute(select(Item).where(Item.id == item))).scalar_one()
+    session = Session(
+        id=new_id("session"),
+        business_id=BIZ,
+        item_id=item,
+        staff_id=staff,
+        starts_at=starts,
+        ends_at=starts + timedelta(minutes=item_row.duration_min or 0),
+        capacity=1,
+        status="scheduled",
+    )
+    db.add(session)
+    await db.flush()
     db.add(
-        Session(
-            id=new_id("session"),
+        Booking(
+            id=new_id("booking"),
             business_id=BIZ,
-            item_id=item,
+            session_id=session.id,
             staff_id=staff,
-            starts_at=starts,
-            ends_at=starts + timedelta(minutes=item_row.duration_min or 0),
-            capacity=1,
-            booked_count=1,
-            status="scheduled",
+            client_id="cl_amelie",
+            status="confirmed",
+            source="manual",
         )
     )
     await db.flush()

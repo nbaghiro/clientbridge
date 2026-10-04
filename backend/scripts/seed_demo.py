@@ -64,6 +64,7 @@ BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
 rows: list[object] = []
 EARNING_STAGE: dict[str, str] = {}  # booking id -> how far its groomer's earning has gone
+PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
 
 
 def at(days_offset: float, hour: int = 9, minute: int = 0) -> datetime:
@@ -732,7 +733,6 @@ def seed_appointments() -> None:
                 starts_at=at(d, h),
                 ends_at=at(d, h) + timedelta(minutes=dur),
                 capacity=1,
-                booked_count=0 if status in {"canceled"} else 1,
                 status="completed"
                 if status == "completed"
                 else "canceled"
@@ -751,7 +751,6 @@ def seed_appointments() -> None:
                 status=status,
                 source="online" if i % 3 == 0 else "manual",
                 price_cents=price,
-                deposit_required=price >= 10000,
                 deposit_amount_cents=2000 if price >= 10000 else 0,
                 deposit_status="pending"
                 if price >= 10000 and status in {"pending", "confirmed"}
@@ -787,21 +786,20 @@ def _invoice_for(
     paid = settled or i % 5 != 4
     partial = not settled and i % 5 == 2
     amount_paid = total if paid and not partial else (round(total * 0.25) if partial else 0)
-    status = "paid" if amount_paid >= total else "partial" if amount_paid > 0 else "overdue"
     rows.append(
         Invoice(
             id=inv,
             business_id=BIZ,
             client_id=client,
             number=num,
-            status=status,
+            status="sent",
             currency="CAD",
             subtotal_cents=price,
             tax_total_cents=tax_amt,
             total_cents=total,
             issued_at=at(d, 17),
             due_at=at(d + 14, 17),
-            paid_at=at(d, 18) if status == "paid" else None,
+            overdue_notified_at=None if amount_paid else at(d + 15, 7),
             notes="Thanks for trusting us with your pup! 🐾",
         )
     )
@@ -859,7 +857,6 @@ def seed_catalog_instances() -> None:
             client_id="cl_marcus",
             item_id="it_pkg5",
             sessions_total=5,
-            sessions_used=2,
             expires_at=at(300, 12),
             status="active",
         )
@@ -871,7 +868,6 @@ def seed_catalog_instances() -> None:
             client_id="cl_grace",
             item_id="it_pkg5",
             sessions_total=5,
-            sessions_used=5,
             expires_at=at(-10, 12),
             status="used",
         )
@@ -922,7 +918,7 @@ def seed_catalog_instances() -> None:
             item_id="it_gift",
             initial_cents=5000,
             purchaser_client_id="cl_david",
-            status="redeemed",
+            status="active",
         )
     )
 
@@ -948,7 +944,6 @@ def seed_lapsed_entitlements() -> None:
             client_id="cl_sophie",
             item_id="it_pkg5",
             sessions_total=5,
-            sessions_used=4,
             expires_at=at(200, 12),
             status="active",
         )
@@ -963,11 +958,10 @@ def seed_online_shop() -> None:
             business_id=BIZ,
             client_id="cl_grace",
             staff_id="st_owner",
-            status="paid",
+            status="open",
             subtotal_cents=2900,
             tax_total_cents=348,
             total_cents=3248,
-            paid_at=at(-1, 18),
             source="online",
             pickup_status="unfulfilled",
         )
@@ -1272,15 +1266,12 @@ def seed_messaging(owner: str) -> None:
         ),
     ]
     for tid, client, channel, msgs in convos:
-        last = msgs[-1]
         rows.append(
             Thread(
                 id=tid,
                 business_id=BIZ,
                 client_id=client,
                 channel=channel,
-                last_message_at=at(last[3], last[4], last[5]),
-                unread_count=sum(1 for m in msgs if m[0] == "in" and m[2] != "read"),
                 status="open",
             )
         )
@@ -1694,11 +1685,10 @@ def seed_coverage() -> None:
             business_id=BIZ,
             client_id="cl_grace",
             staff_id="st_priya",
-            status="paid",
+            status="open",
             subtotal_cents=4800,
             tax_total_cents=576,
             total_cents=5376,
-            paid_at=at(-4, 15),
         )
     )
     rows.append(
@@ -1754,11 +1744,10 @@ def seed_coverage() -> None:
             business_id=BIZ,
             client_id="cl_noah",
             staff_id="st_owner",
-            status="paid",
+            status="open",
             subtotal_cents=2600,
             tax_total_cents=312,
             total_cents=2912,
-            paid_at=at(-1, 16),
         )
     )
     rows.append(
@@ -1831,7 +1820,6 @@ def seed_coverage() -> None:
             starts_at=at(4, 11),
             ends_at=at(4, 11) + timedelta(minutes=60),
             capacity=6,
-            booked_count=3,
             recurrence_id="sch_puppy",
             status="scheduled",
         )
@@ -1850,7 +1838,6 @@ def seed_coverage() -> None:
                 status="confirmed",
                 source="online",
                 price_cents=2800,
-                deposit_required=True,
                 deposit_amount_cents=1400,
                 deposit_status="collected" if j == 0 else "pending",
                 confirmed_at=at(1, 12),
@@ -1885,7 +1872,6 @@ def seed_coverage() -> None:
             starts_at=at(-9, 14),
             ends_at=at(-9, 14) + timedelta(minutes=60),
             capacity=1,
-            booked_count=1,
             status="completed",
         )
     )
@@ -1900,7 +1886,6 @@ def seed_coverage() -> None:
             status="completed",
             source="manual",
             price_cents=7500,
-            deposit_required=False,
             confirmed_at=at(-10, 12),
             completed_at=at(-9, 15),
             invoice_id="inv_1099",
@@ -1913,14 +1898,13 @@ def seed_coverage() -> None:
             business_id=BIZ,
             client_id="cl_olivia",
             number=1099,
-            status="refunded",
+            status="sent",
             currency="CAD",
             subtotal_cents=7500,
             tax_total_cents=900,
             total_cents=8400,
             issued_at=at(-9, 15),
             due_at=at(5, 17),
-            paid_at=at(-9, 16),
             notes="Groom for Bandit.",
         )
     )
@@ -2154,8 +2138,6 @@ def seed_coverage() -> None:
             business_id=BIZ,
             client_id="cl_sophie",
             channel="chat",
-            last_message_at=at(-1, 13),
-            unread_count=0,
             status="open",
         )
     )
@@ -2339,12 +2321,12 @@ async def seed_ledger(session: AsyncSession) -> None:
     for pkg_id in ("pkg_marcus", "pkg_grace", "pkg_sophie"):
         package = await session.get(Package, pkg_id)
         assert package is not None
-        used = package.sessions_used
-        for n in range(1, used + 1):
-            package.sessions_used = n
+        for _ in range(PACKAGE_USED[pkg_id]):
             await ledger.post_consumption(session, package)
 
-    paid = (await session.execute(select(Invoice).where(Invoice.status == "paid"))).scalars()
+    paid = (
+        await session.execute(select(Invoice).where(ledger.invoice_status_expr() == "paid"))
+    ).scalars()
     for invoice in paid:
         await ensure_earnings(session, invoice)
     for booking_id, stage in EARNING_STAGE.items():
@@ -2470,7 +2452,6 @@ def seed_calendar_filler() -> None:
                         starts_at=start,
                         ends_at=end,
                         capacity=1,
-                        booked_count=1,
                         status="completed" if done else "scheduled",
                     )
                 )
@@ -2485,7 +2466,6 @@ def seed_calendar_filler() -> None:
                         status=status,
                         source="online" if n % 3 == 0 else "manual",
                         price_cents=price,
-                        deposit_required=False,
                         deposit_amount_cents=0,
                         confirmed_at=start - timedelta(days=1) if status != "pending" else None,
                         completed_at=end if done else None,

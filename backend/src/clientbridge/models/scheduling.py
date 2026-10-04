@@ -35,7 +35,6 @@ class Session(PKMixin, BusinessScoped, TimestampMixin, Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    booked_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     status: Mapped[str] = mapped_column(String, default="scheduled", nullable=False)
 
 
@@ -72,7 +71,6 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
     source: Mapped[str] = mapped_column(String, default="manual", nullable=False)
     price_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    deposit_required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deposit_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     # lifecycle only, set as the ledger books the deposit; the amounts live in the ledger
     deposit_status: Mapped[str] = mapped_column(String, default="none", nullable=False)

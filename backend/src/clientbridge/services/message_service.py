@@ -2,7 +2,7 @@ import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,20 @@ from clientbridge.schemas.messaging import (
 
 _log = logging.getLogger(__name__)
 _BROADCAST_CAP = 500
+
+
+async def unread_count(db: AsyncSession, thread: Thread) -> int:
+    """A thread's unread count is its inbound messages not yet marked read."""
+    count = await db.execute(
+        scoped(Message, thread.business_id)
+        .with_only_columns(func.count())
+        .where(
+            Message.thread_id == thread.id,
+            Message.direction == "in",
+            Message.status != "read",
+        )
+    )
+    return int(count.scalar_one())
 
 
 async def open_thread(db: AsyncSession, business_id: str, client_id: str, channel: str) -> Thread:
@@ -117,7 +131,6 @@ async def fan_out_broadcast(
             sms, email, broadcast.channel, to, broadcast.name, broadcast.body or ""
         )
         message.status = "sent" if ok else "failed"  # best-effort per recipient
-        thread.last_message_at = datetime.now(UTC)
     await db.flush()
 
 
@@ -125,7 +138,7 @@ async def process_inbound_sms(
     db: AsyncSession, *, from_phone: str, body: str, message_sid: str
 ) -> str | None:
     """Inbound-SMS webhook entry (surface #4): dedup by the provider message SID, resolve the
-    sender by phone, append an `in` message to the open thread, and bump its unread_count.
+    sender by phone, and append an unread `in` message to the open thread.
 
     Number→business assumption (v1): a client's phone number identifies the business. We match a
     `Client` by `phone` across all businesses; if the same number exists in more than one, we pick
@@ -159,8 +172,6 @@ async def process_inbound_sms(
             provider_ref=message_sid,
         )
         db.add(message)
-        thread.unread_count += 1
-        thread.last_message_at = datetime.now(UTC)
         await db.flush()
         message_id = message.id
     db.add(
@@ -249,7 +260,6 @@ class MessageService:
             await self.db.flush()
             ok = await dispatch_message(self.sms, self.email, data.channel, to, subject, data.body)
             message.status = "sent" if ok else "failed"
-            thread.last_message_at = datetime.now(UTC)
             await self.db.flush()
             cmd.record("message.send", entity_type="message", entity_id=message.id)
             return _message_out(message)
@@ -308,10 +318,19 @@ class MessageService:
         thread = await self._thread(thread_id)
 
         async def run(cmd: Command) -> ThreadOut:
-            thread.unread_count = 0
-            await self.db.flush()
+            await self.db.execute(
+                update(Message)
+                .where(
+                    Message.thread_id == thread.id,
+                    Message.direction == "in",
+                    Message.status != "read",
+                )
+                .values(status="read")
+            )
             cmd.record("thread.read", entity_type="thread", entity_id=thread.id)
-            return ThreadOut(id=thread.id, unread_count=thread.unread_count, status=thread.status)
+            return ThreadOut(
+                id=thread.id, unread_count=await unread_count(self.db, thread), status=thread.status
+            )
 
         return await run_command(
             self.db, self.principal, action="thread.read", run=run, response_model=ThreadOut

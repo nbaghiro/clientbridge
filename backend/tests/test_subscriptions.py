@@ -14,6 +14,7 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import WebhookEvent
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
 
 BIZ = "bz_birchbark"
@@ -475,7 +476,8 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     pay = (await db.execute(select(Payment).where(Payment.provider_ref == "pi_gst1"))).scalar_one()
     assert pay.invoice_id is not None
     inv = (await db.execute(select(Invoice).where(Invoice.id == pay.invoice_id))).scalar_one()
-    assert inv.status == "paid" and inv.paid_at is not None
+    status, paid_at = await ledger.invoice_state(db, inv)
+    assert status == "paid" and paid_at is not None
     assert inv.subtotal_cents == 5000 and inv.tax_total_cents == 600 and inv.total_cents == 5600
     after = (await as_owner.get(f"/v1/reports/gst-hst?start={start}&end={end}")).json()
     # BC 12% tax on $50 = 600, split 250 federal GST/HST + 350 PST
@@ -495,7 +497,9 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     invoices = (
         (
             await db.execute(
-                select(Invoice).where(Invoice.client_id == sub.client_id, Invoice.status == "paid")
+                select(Invoice).where(
+                    Invoice.client_id == sub.client_id, ledger.invoice_status_expr() == "paid"
+                )
             )
         )
         .scalars()

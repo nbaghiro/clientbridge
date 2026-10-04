@@ -10,20 +10,28 @@ from clientbridge.integrations.notifications import (
     get_sms_sender,
 )
 from clientbridge.models.billing import Invoice
+from clientbridge.services.ledger_service import invoice_status_expr
 from clientbridge.services.notification_service import Notifier
 
 
 async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Flag each sent invoice past its due date with an outstanding balance `overdue` and notify the
-    client once. Idempotent — the status transition is the dedup marker (an `overdue` row no longer
-    matches `status == "sent"`), so a re-run never re-notifies."""
+    """Notify the client once for each sent, unpaid invoice past its due date. Idempotent:
+    `overdue_notified_at` marks the notice (and makes the invoice read as overdue)."""
     invoices = (
-        (await db.execute(select(Invoice).where(Invoice.status == "sent", Invoice.due_at < now)))
+        (
+            await db.execute(
+                select(Invoice).where(
+                    Invoice.due_at < now,
+                    Invoice.overdue_notified_at.is_(None),
+                    invoice_status_expr() == "sent",
+                )
+            )
+        )
         .scalars()
         .all()
     )
     for invoice in invoices:
-        invoice.status = "overdue"
+        invoice.overdue_notified_at = now
         await notifier.on_invoice_overdue(db, invoice.id)
     await db.commit()
     return len(invoices)

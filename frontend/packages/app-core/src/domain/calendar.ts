@@ -277,10 +277,12 @@ function utcSql(column: string): string {
 }
 
 export const EVENTS_SQL = `
-SELECT s.id AS session_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.booked_count,
+SELECT s.id AS session_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
+       (SELECT COUNT(*) FROM bookings x WHERE x.session_id = s.id AND x.status != 'canceled'
+          AND x.deleted_at IS NULL) AS booked_count,
        s.status AS session_status, i.name AS item_name, i.color AS item_color,
        b.id AS booking_id, b.status AS booking_status, c.name AS client_name,
-       b.client_id AS client_id, b.deposit_required AS deposit_required,
+       b.client_id AS client_id, b.deposit_amount_cents > 0 AS deposit_required,
        b.deposit_amount_cents AS deposit_amount_cents, b.deposit_status AS deposit_status
 FROM sessions s
 JOIN items i ON i.id = s.item_id

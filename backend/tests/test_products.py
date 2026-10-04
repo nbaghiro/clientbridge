@@ -14,6 +14,7 @@ from clientbridge.models.catalog import Item, Package, StockMovement
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 
 GOOD = {"Stripe-Signature": "good"}
@@ -425,8 +426,10 @@ async def test_sales_by_item_report(as_owner: httpx.AsyncClient, db: AsyncSessio
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_rep2")
     await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund")
     order = await db.get(Order, sale["id"])
-    assert order is not None and order.paid_at is not None
-    day = order.paid_at.date().isoformat()
+    assert order is not None
+    _, paid_at = await ledger.order_state(db, order)
+    assert paid_at is not None
+    day = paid_at.date().isoformat()
     res = await as_owner.get(f"/v1/reports/sales-by-item?start={day}&end={day}")
     assert res.status_code == 200, res.text
     (row,) = [r for r in res.json() if r["item_id"] == SHAMPOO]
@@ -464,7 +467,7 @@ async def test_walk_in_pays_with_a_new_card(
 ) -> None:
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_pay1")
     order = await db.get(Order, sale["id"], populate_existing=True)
-    assert order is not None and order.status == "paid"
+    assert order is not None and (await ledger.order_state(db, order))[0] == "paid"
 
 
 async def test_client_sale_charges_a_saved_card(

@@ -11,6 +11,7 @@ from clientbridge.models.catalog import Item, Package
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
+from clientbridge.services import ledger_service as ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
 
 PKG_ITEM = "it_pkg5"  # seeded package item: price $200, session_count = 5, GST+PST taxable
@@ -58,11 +59,12 @@ async def _active_package(db: AsyncSession, *, total: int = 5, used: int = 0) ->
         client_id=CARD_CLIENT,
         item_id=PKG_ITEM,
         sessions_total=total,
-        sessions_used=used,
         status="active",
     )
     db.add(pkg)
     await db.flush()
+    for _ in range(used):
+        await ledger.post_consumption(db, pkg)
     return pkg
 
 
@@ -246,7 +248,6 @@ async def test_other_business_package_404(
         client_id=CARD_CLIENT,
         item_id=PKG_ITEM,
         sessions_total=5,
-        sessions_used=0,
         status="active",
     )
     db.add(pkg)
