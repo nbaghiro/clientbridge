@@ -420,7 +420,30 @@ and records any drift in `audit_logs`.
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
 The business stores registration numbers; small-supplier mode (`is_tax_registered=false`) collects nothing.
 The engine (`services/tax_service.py`) is pure and golden-tested; rates are hardcoded per province in
-`services/tax_rates.py` (no table).
+`services/tax_rates.py` (no table). Each item carries a tax class (`standard` charges every component,
+`federal_only` only the GST or HST, `exempt` nothing), copied onto each line when it is created, so a later
+change to the item does not alter issued documents. Which services carry PST in BC, Saskatchewan and
+Manitoba still needs an accountant's confirmation before defaults are set.
+
+### Selling products
+Products are catalog items of kind `product` and sell through the same order, line, tax and ledger path as
+services: point-of-sale orders (Tap to Pay on mobile, card on web through `POST /v1/orders/{id}/pay`),
+invoice lines, the online shop and booking add-ons. Only services and classes can be booked online; gift
+cards, packages and subscriptions are refused as plain lines and sell through their own checkout so the
+entitlement and its liability are created.
+- **Stock** is optional per product (`track_stock`, `stock_on_hand`, `low_stock_at`). Every change is a row
+  in `stock_movements` (sale, refund, restock) keyed by line and reason, so a repeated webhook can't move
+  stock twice; `stock_on_hand` is the cached total. Selling below zero is allowed at the till; the online
+  shop refuses an order larger than the stock.
+- **Retail commission:** a paid sale accrues an earning for its staff member at `staff.retail_rate_bps` on the
+  product lines before tax, using the same earning journals as bookings.
+- **Online shop:** products marked `sell_online` are listed at `/shop/<slug>` on Connect. An order is paid by
+  card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
+- **Booking add-ons:** products chosen on the booking page are stored in `booking_addons` and become lines
+  on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`); only the deposit is
+  charged at booking time.
+- **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
+  Sales by item is a report with a CSV like the others.
 
 ### Auth
 Owners/staff: **email + password (Argon2) + Google OAuth**. Sessions are **JWT access + stateful refresh**

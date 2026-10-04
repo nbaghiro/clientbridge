@@ -78,10 +78,9 @@ Priority: P0 · Size: M
 
 Flow: the owner creates each kind of item with all its settings, and each one sells where it should.
 
-Built: item kinds service, class, product, package, subscription, gift card; backend fields for deposit, capacity, buffers, package sessions, subscription interval, validity, tax class, SKU, cost and stock; restock; images on web; only services and classes are bookable online. The full item editor (edit, archive, every field, stock list with low-stock flags) is being built now.
+Built: item kinds service, class, product, package, subscription, gift card; backend fields for deposit, capacity, buffers, package sessions, subscription interval, validity, tax class, SKU, cost and stock; restock; images on web; only services and classes are bookable online. A full item editor on web and mobile (every field by kind, edit, archive and restore, stock list with low-stock filter, restock, sell in the online shop).
 
 To do:
-- Finish the item editor on web and mobile.
 - Image upload on mobile (needs the image picker and a new native build).
 
 QA:
@@ -135,14 +134,14 @@ Priority: P0 · Size: S
 
 Flow: a client books on the business's booking page, pays a deposit, and the visit appears for staff.
 
-Built: public booking page per business with services, staff choice, open times and the deposit checkout; embeddable on the business's site; deposits applied to the final invoice, kept on a no-show, refundable in full; new clients created from the booking.
+Built: public booking page per business with services, staff choice, open times and the deposit checkout; embeddable on the business's site; deposits applied to the final invoice, kept on a no-show, refundable in full; new clients created from the booking; optional product add-ons that land on the visit's invoice.
 
 To do: a manual pass with Stripe test keys; client self-service cancel and reschedule (P1, can follow launch).
 
 QA:
 1. As a new client on a phone, book a service with a deposit and pay with card 4242.
 2. The booking appears on Schedule on web and on the staff member's phone, deposit collected.
-3. Complete the visit and send the invoice: the balance is reduced by the deposit.
+3. Add a shampoo as an add-on while booking. Complete the visit, create the invoice from the booking and send it: the shampoo is on it and the balance is reduced by the deposit.
 4. Book a second visit and mark it a no-show: the deposit is kept.
 Done when the client, staff and money side all agree.
 
@@ -206,18 +205,18 @@ Priority: P0 · Size: M
 
 Flow: staff ring up services and products at the front desk and take payment.
 
-Built: Sales on web and mobile; Tap to Pay on mobile; card payment for a sale on web (backend done, screen being built now); receipt by email or text for walk-ins; stock moves on paid and refunded sales; retail commission for the staff member on the sale; sales by item report.
+Built: Sales on web and mobile with card payment (saved or new card) and Tap to Pay on mobile; gift cards, packages and subscriptions sold through their own checkout; receipt by email or text for walk-ins; stock moves on paid and refunded sales; retail commission for the staff member on the sale; sales by item report; an online shop on the booking site with pickup orders staff mark ready and picked up.
 
 To do:
-- Finish the web Sales checkout and the receipt fields.
 - Tips at checkout, paid to the staff member.
-- A run of Tap to Pay on real phones.
+- A run of Tap to Pay on real phones and of card payment with Stripe test keys.
 
 QA:
 1. On web, ring up a groom and a shampoo, take card 4242, send a receipt to an email.
 2. On a real phone, ring up a product and pay with Tap to Pay.
 3. Check stock dropped, the seller's commission shows in Staff pay, and both sales show in Sales by item.
 4. Refund one sale: stock returns and the commission is reversed.
+5. On a phone, buy a shampoo from the business's shop page; mark the order ready, then picked up; the client gets the receipt and the ready message.
 Done when a full front-desk day can be run on web and on a phone.
 
 ## 11. Packages, subscriptions and gift cards
@@ -298,8 +297,9 @@ Flow: staff earn from their work, the owner approves and pays, and the year-end 
 
 Built: earnings from paid booking invoices and from retail sales (commission rate per staff member), approve, mark paid, T4A report.
 
+Pay rates and the retail commission are set per staff member in Setup › Team and hours.
+
 To do:
-- Set each staff member's pay and commission in Team and hours (being built now).
 - Earnings from tips and from invoice lines that aren't bookings.
 
 QA:
