@@ -967,8 +967,16 @@
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        border: 1px solid var(--border);
-        background: var(--surface);
+        background: #ff5f57;
+        box-shadow: inset 0 0 0 0.5px #e0443e;
+    }
+    .winbar i:nth-child(2) {
+        background: #febc2e;
+        box-shadow: inset 0 0 0 0.5px #dea123;
+    }
+    .winbar i:nth-child(3) {
+        background: #28c840;
+        box-shadow: inset 0 0 0 0.5px #1aab29;
     }
     .winbar span {
         margin: 0 auto;
