@@ -82,7 +82,7 @@ export const FREQUENCIES: { value: string; label: string }[] = [
     { value: "year", label: strings.catalog.freqYear },
 ];
 
-const ITEMS_SQL = `
+export const ITEMS_SQL = `
 SELECT i.id, i.kind, i.name, i.description, i.category, i.price_cents, i.currency,
        i.duration_min, i.capacity, i.active, i.color, i.online_bookable,
        i.buffer_before_min, i.buffer_after_min, i.deposit_type, i.deposit_value,

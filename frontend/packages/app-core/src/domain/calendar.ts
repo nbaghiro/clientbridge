@@ -276,7 +276,7 @@ function utcSql(column: string): string {
     return `datetime(CASE WHEN ${column} LIKE '%+__' THEN ${column} || ':00' ELSE ${column} END)`;
 }
 
-const EVENTS_SQL = `
+export const EVENTS_SQL = `
 SELECT s.id AS session_id, s.starts_at, s.ends_at, s.staff_id, s.capacity, s.booked_count,
        s.status AS session_status, i.name AS item_name, i.color AS item_color,
        b.id AS booking_id, b.status AS booking_status, c.name AS client_name,
@@ -289,6 +289,8 @@ LEFT JOIN clients c ON c.id = b.client_id
 WHERE s.status != 'canceled'
   AND ${utcSql("s.starts_at")} < datetime(?)
   AND ${utcSql("s.ends_at")} > datetime(?)`;
+
+export const EVENTS_BY_STAFF_SQL = `${EVENTS_SQL} AND s.staff_id = ?`;
 
 function toEvent(r: Row): CalendarEvent {
     return {
@@ -317,7 +319,7 @@ export function useCalendarEvents(
     opts: { staffId?: string } = {},
 ): CalendarEvent[] {
     const { staffId } = opts;
-    const sql = staffId ? `${EVENTS_SQL} AND s.staff_id = ?` : EVENTS_SQL;
+    const sql = staffId ? EVENTS_BY_STAFF_SQL : EVENTS_SQL;
     const startIso = rangeStart.toISOString();
     const endIso = rangeEnd.toISOString();
     const params = staffId ? [endIso, startIso, staffId] : [endIso, startIso];
@@ -532,11 +534,11 @@ export interface BookingAddonRow {
     unit_amount_cents: number;
 }
 
-const ADDONS_SQL = `
+export const ADDONS_SQL = `
 SELECT id, description, quantity, unit_amount_cents FROM booking_addons
 WHERE booking_id = ? ORDER BY created_at`;
 
-const BOOKING_INVOICE_SQL = "SELECT invoice_id FROM bookings WHERE id = ?";
+export const BOOKING_INVOICE_SQL = "SELECT invoice_id FROM bookings WHERE id = ?";
 
 export interface BookingAddons {
     addons: BookingAddonRow[];

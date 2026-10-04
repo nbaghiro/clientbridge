@@ -21,7 +21,7 @@ export interface ReviewRow {
     client_name: string | null;
 }
 
-const REVIEWS_SQL = `
+export const REVIEWS_SQL = `
 SELECT r.id, r.client_id, r.booking_id, r.rating, r.body, r.response, r.responded_at,
        r.sent_to_google, r.status, r.created_at, c.name AS client_name
 FROM reviews r

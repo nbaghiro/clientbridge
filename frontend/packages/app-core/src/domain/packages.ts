@@ -16,7 +16,7 @@ export interface PackageRow {
     status: string;
 }
 
-const CLIENT_PACKAGES_SQL = `
+export const CLIENT_PACKAGES_SQL = `
 SELECT p.id, p.client_id, p.item_id, i.name AS item_name,
        p.sessions_total, p.sessions_used, p.status
 FROM packages p LEFT JOIN items i ON i.id = p.item_id

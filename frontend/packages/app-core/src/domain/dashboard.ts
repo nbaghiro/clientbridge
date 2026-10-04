@@ -39,7 +39,7 @@ export interface ActivityRow {
     client_name: string | null;
 }
 
-const RECENT_ACTIVITY_SQL = `
+export const RECENT_ACTIVITY_SQL = `
 SELECT p.id, p.kind, p.method, p.amount_cents, p.currency, p.status,
        COALESCE(p.paid_at, p.created_at) AS at, c.name AS client_name
 FROM payments p LEFT JOIN clients c ON c.id = p.client_id
@@ -67,7 +67,7 @@ export interface PayoutRow {
 }
 
 // A Stripe payout is its ledger journal (bank in, Stripe balance out); a failed one was reversed.
-const RECENT_PAYOUTS_SQL = `
+export const RECENT_PAYOUTS_SQL = `
 SELECT e.journal_id AS id, e.amount_cents, e.available_at AS arrival_at, e.occurred_at AS created_at,
        CASE WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = e.ref || ':failed')
             THEN 'failed' ELSE 'paid' END AS status

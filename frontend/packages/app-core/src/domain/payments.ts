@@ -238,7 +238,7 @@ export interface PaymentRow {
     created_at: string;
 }
 
-const INVOICE_PAYMENTS_SQL = `
+export const INVOICE_PAYMENTS_SQL = `
 SELECT id, kind, parent_payment_id, amount_cents, currency, status, method, created_at
 FROM payments WHERE invoice_id = ? ORDER BY created_at`;
 
@@ -319,7 +319,7 @@ export interface SavedCardRow {
     status: string;
 }
 
-const SAVED_CARDS_SQL = `
+export const SAVED_CARDS_SQL = `
 SELECT id, client_id, type, brand, last4, is_default, mandate_status, status
 FROM payment_methods
 WHERE client_id = ? AND status = 'active'
@@ -374,13 +374,17 @@ export function mandateStatusIntent(status: string): Intent {
     }
 }
 
+export const STRIPE_ACCOUNT_SQL =
+    "SELECT stripe_account_id FROM businesses WHERE stripe_account_id IS NOT NULL LIMIT 1";
+
+export const TERMINAL_LOCATION_SQL =
+    "SELECT stripe_terminal_location_id FROM businesses WHERE stripe_terminal_location_id IS NOT NULL LIMIT 1";
+
 /** The connected Stripe account id, read off the synced `businesses` row. The package/gift-card
  *  purchase responses return only a `client_secret`; the web Elements confirm needs the account to
  *  target the direct charge, so it reads it here (the saved-card/PublicPay seams get it inline). */
 export function useStripeAccountId(): string | null {
-    const rows = useQuery<{ stripe_account_id: string | null }>(
-        "SELECT stripe_account_id FROM businesses WHERE stripe_account_id IS NOT NULL LIMIT 1",
-    ).data;
+    const rows = useQuery<{ stripe_account_id: string | null }>(STRIPE_ACCOUNT_SQL).data;
     return rows[0]?.stripe_account_id ?? null;
 }
 
@@ -388,7 +392,7 @@ export function useStripeAccountId(): string | null {
  *  the POS reader connects under it. Null until the connection-token call has minted it. */
 export function useStripeTerminalLocation(): string | null {
     const rows = useQuery<{ stripe_terminal_location_id: string | null }>(
-        "SELECT stripe_terminal_location_id FROM businesses WHERE stripe_terminal_location_id IS NOT NULL LIMIT 1",
+        TERMINAL_LOCATION_SQL,
     ).data;
     return rows[0]?.stripe_terminal_location_id ?? null;
 }

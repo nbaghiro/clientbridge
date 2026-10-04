@@ -121,7 +121,7 @@ export interface OpenOrderRow {
     created_at: string;
 }
 
-const OPEN_ORDERS_SQL = `
+export const OPEN_ORDERS_SQL = `
 SELECT o.id, o.client_id, c.name AS client_name, o.status, o.total_cents,
        o.total_cents - ${collectedSql("order", "o.id")} AS balance_cents, o.created_at
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
@@ -157,7 +157,7 @@ export interface OnlineOrderRow {
     created_at: string;
 }
 
-const ONLINE_ORDERS_SQL = `
+export const ONLINE_ORDERS_SQL = `
 SELECT o.id, c.name AS client_name, o.total_cents, o.currency, o.pickup_status, o.created_at,
        (SELECT group_concat(CAST(l.quantity AS INTEGER) || ' × ' || l.description, ', ')
         FROM lines l WHERE l.parent_type = 'order' AND l.parent_id = o.id) AS summary

@@ -18,7 +18,7 @@ export interface ClientRow {
     lifetime_value_cents: number | null;
 }
 
-const CLIENTS_SQL = `
+export const CLIENTS_SQL = `
 SELECT c.id, c.name, c.email, c.phone, c.status, ${clientValueSql("c.id")} AS lifetime_value_cents
 FROM clients c ORDER BY c.name COLLATE NOCASE`;
 

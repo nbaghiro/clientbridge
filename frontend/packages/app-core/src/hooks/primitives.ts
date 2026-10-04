@@ -1,10 +1,12 @@
 import { useQuery } from "@powersync/react";
 import { useMemo, useState } from "react";
 
+export const BUSINESS_ID_SQL = "SELECT id FROM businesses LIMIT 1";
+
 /** The current business id from the synced `businesses` row (one per replica). `null` until it
  *  syncs — sync-write inserts need it to set tenancy. */
 export function useBusinessId(): string | null {
-    return useQuery<{ id: string }>("SELECT id FROM businesses LIMIT 1").data[0]?.id ?? null;
+    return useQuery<{ id: string }>(BUSINESS_ID_SQL).data[0]?.id ?? null;
 }
 
 /** Shared list-search state: a query string + the memoized filtered rows. `filter` must be stable. */

@@ -171,7 +171,7 @@ export interface RemittanceRow {
 }
 
 // A filed return is its remittance journal; its bank leg is what was paid and its meta the period.
-const REMITTANCES_SQL = `
+export const REMITTANCES_SQL = `
 SELECT e.journal_id AS id, json_extract(e.meta, '$.start') AS period_start,
        json_extract(e.meta, '$.end') AS period_end, -e.amount_cents AS total_cents
 FROM entries e JOIN accounts a ON a.id = e.account_id

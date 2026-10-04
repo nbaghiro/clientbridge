@@ -40,14 +40,14 @@ export interface Viewer {
     role: string;
 }
 
+export const CURRENT_VIEWER_SQL =
+    "SELECT id, role FROM staff WHERE user_id = ? AND status = 'active' LIMIT 1";
+
 /** The signed-in member, from the synced `staff` row whose `user_id` matches the access token's
  *  `sub`. `null` until that row syncs (or when signed out / token undecodable). */
 export function useCurrentViewer(accessToken: string | null): Viewer | null {
     const userId = useMemo(() => decodeJwtSub(accessToken), [accessToken]);
-    const rows = useQuery<{ id: string; role: string }>(
-        "SELECT id, role FROM staff WHERE user_id = ? AND status = 'active' LIMIT 1",
-        [userId],
-    ).data;
+    const rows = useQuery<{ id: string; role: string }>(CURRENT_VIEWER_SQL, [userId]).data;
     const row = rows[0];
     return row === undefined ? null : { staffId: row.id, role: row.role };
 }

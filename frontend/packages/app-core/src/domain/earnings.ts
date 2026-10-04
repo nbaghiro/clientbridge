@@ -42,7 +42,7 @@ SELECT * FROM (
     WHERE e.type = 'earning' AND e.owner_type = 'staff'
 )`;
 
-const ALL_EARNINGS_SQL = `${EARNINGS_SQL}
+export const ALL_EARNINGS_SQL = `${EARNINGS_SQL}
 ORDER BY CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END, created_at DESC`;
 
 /** Every staff earning, pending → approved → paid (reversed ones sort last). */
@@ -50,7 +50,7 @@ export function useEarnings(): EarningRow[] {
     return useQuery<EarningRow>(ALL_EARNINGS_SQL).data;
 }
 
-const PENDING_EARNINGS_SQL = `${EARNINGS_SQL}
+export const PENDING_EARNINGS_SQL = `${EARNINGS_SQL}
 WHERE status = 'pending' ORDER BY created_at DESC`;
 
 /** Earnings still awaiting approval — the actionable queue for a count/badge or quick review. */

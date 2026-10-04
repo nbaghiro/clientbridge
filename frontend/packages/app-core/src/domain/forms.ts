@@ -14,7 +14,7 @@ export interface FormRow {
     active: number;
 }
 
-const FORMS_SQL =
+export const FORMS_SQL =
     "SELECT id, name, require_signature, active FROM forms ORDER BY active DESC, name COLLATE NOCASE";
 
 export function useForms(): FormRow[] {
@@ -35,8 +35,14 @@ export interface FormFieldRow {
     position: number;
 }
 
-const FORM_FIELDS_SQL =
+export const FORM_FIELDS_SQL =
     "SELECT id, form_id, type, name, label, required, position FROM form_fields WHERE form_id = ? ORDER BY position";
+
+export const INSERT_FORM_SQL =
+    "INSERT INTO forms (id, business_id, name, attach_to, require_signature, active) VALUES (?, ?, ?, ?, ?, ?)";
+
+export const INSERT_FORM_FIELD_SQL =
+    "INSERT INTO form_fields (id, business_id, form_id, type, name, label, required, options, validation, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 export function useFormFields(formId: string): FormFieldRow[] {
     return useQuery<FormFieldRow>(FORM_FIELDS_SQL, [formId]).data;
@@ -233,28 +239,29 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
         run(
             async () => {
                 await db.writeTransaction(async (tx) => {
-                    await tx.execute(
-                        "INSERT INTO forms (id, business_id, name, attach_to, require_signature, active) VALUES (?, ?, ?, ?, ?, ?)",
-                        [formId, businessId, name.trim(), "[]", requireSignature ? 1 : 0, 1],
-                    );
+                    await tx.execute(INSERT_FORM_SQL, [
+                        formId,
+                        businessId,
+                        name.trim(),
+                        "[]",
+                        requireSignature ? 1 : 0,
+                        1,
+                    ]);
                     for (let i = 0; i < prepared.length; i++) {
                         const f = prepared[i];
                         if (f === undefined) continue;
-                        await tx.execute(
-                            "INSERT INTO form_fields (id, business_id, form_id, type, name, label, required, options, validation, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                            [
-                                newRowId("ff"),
-                                businessId,
-                                formId,
-                                f.type,
-                                f.fieldName,
-                                f.label,
-                                f.required ? 1 : 0,
-                                JSON.stringify(f.options),
-                                "{}",
-                                i,
-                            ],
-                        );
+                        await tx.execute(INSERT_FORM_FIELD_SQL, [
+                            newRowId("ff"),
+                            businessId,
+                            formId,
+                            f.type,
+                            f.fieldName,
+                            f.label,
+                            f.required ? 1 : 0,
+                            JSON.stringify(f.options),
+                            "{}",
+                            i,
+                        ]);
                     }
                 });
             },

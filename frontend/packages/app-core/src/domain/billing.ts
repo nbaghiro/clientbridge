@@ -51,7 +51,7 @@ export interface LineRow {
     position: number;
 }
 
-const INVOICES_SQL = `
+export const INVOICES_SQL = `
 SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status, i.subtotal_cents,
        i.tax_total_cents, i.total_cents,
        CASE WHEN i.status = 'draft' THEN i.total_cents
@@ -61,14 +61,14 @@ FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id
 ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
 
-const ESTIMATES_SQL = `
+export const ESTIMATES_SQL = `
 SELECT e.id, e.client_id, c.name AS client_name, e.number, e.status, e.subtotal_cents,
        e.tax_total_cents, e.total_cents, e.valid_until, e.converted_invoice_id, e.notes, e.created_at
 FROM estimates e
 LEFT JOIN clients c ON c.id = e.client_id
 ORDER BY e.created_at DESC`;
 
-const LINES_SQL = `
+export const LINES_SQL = `
 SELECT id, item_id, description, quantity, unit_amount_cents, amount_cents, tax_amount_cents,
        position
 FROM lines WHERE parent_type = ? AND parent_id = ? ORDER BY position`;
@@ -98,7 +98,7 @@ interface TaxByCode {
 }
 
 // Per-code tax is on an issued invoice's journal; without it the stored tax total is shown.
-const TAX_BY_CODE_SQL = `
+export const TAX_BY_CODE_SQL = `
 SELECT a.code AS code, -SUM(e.amount_cents) AS cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE a.kind = 'tax' AND e.ref = ?

@@ -98,13 +98,13 @@ export interface AccountForm {
     submit: () => void;
 }
 
-const SQL =
+export const ACCOUNT_SQL =
     "SELECT id, name, timezone, locale, billing_email, gst_hst_number, qst_number, brand FROM businesses LIMIT 1";
 
 /** Account-settings view-model: seed the form from the synced `businesses` row, PATCH the changes.
  *  The saved row flows back via sync, so the form reflects the server on the next render. */
 export function useAccountForm(api: ApiLike): AccountForm {
-    const row = useQuery<AccountRow>(SQL).data[0] ?? null;
+    const row = useQuery<AccountRow>(ACCOUNT_SQL).data[0] ?? null;
     const { busy, error, setError, run } = useAsyncAction();
     const [fields, setFields] = useState<AccountFields | null>(null);
     const [saved, setSaved] = useState(false);

@@ -17,7 +17,7 @@ export interface SubscriptionRow {
     payment_method_id: string | null;
 }
 
-const CLIENT_SUBSCRIPTIONS_SQL = `
+export const CLIENT_SUBSCRIPTIONS_SQL = `
 SELECT s.id, s.client_id, s.item_id, i.name AS item_name, s.status,
        s.current_period_start, s.current_period_end, s.payment_method_id
 FROM subscriptions s LEFT JOIN items i ON i.id = s.item_id

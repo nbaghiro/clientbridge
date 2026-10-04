@@ -23,7 +23,7 @@ export interface ThreadRow {
     last_body: string | null;
 }
 
-const THREADS_SQL = `
+export const THREADS_SQL = `
 SELECT t.id, t.client_id, t.channel, t.last_message_at, t.unread_count, t.status,
        c.name AS client_name,
        (SELECT m.body FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1)
@@ -48,7 +48,7 @@ export interface MessageRow {
     created_at: string;
 }
 
-const THREAD_MESSAGES_SQL = `
+export const THREAD_MESSAGES_SQL = `
 SELECT id, thread_id, direction, channel, body, status, created_at
 FROM messages WHERE thread_id = ? ORDER BY created_at`;
 

@@ -15,8 +15,11 @@ export interface ContractRow {
     active: number;
 }
 
-const CONTRACTS_SQL =
+export const CONTRACTS_SQL =
     "SELECT id, name, version, always_require, active FROM contracts ORDER BY active DESC, name COLLATE NOCASE";
+
+export const INSERT_CONTRACT_SQL =
+    "INSERT INTO contracts (id, business_id, name, body, version, always_require, active) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
 export function useContracts(): ContractRow[] {
     return useQuery<ContractRow>(CONTRACTS_SQL).data;
@@ -119,10 +122,15 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
         }
         run(
             async () => {
-                await db.execute(
-                    "INSERT INTO contracts (id, business_id, name, body, version, always_require, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    [newRowId("con"), businessId, name.trim(), body.trim(), 1, 0, 1],
-                );
+                await db.execute(INSERT_CONTRACT_SQL, [
+                    newRowId("con"),
+                    businessId,
+                    name.trim(),
+                    body.trim(),
+                    1,
+                    0,
+                    1,
+                ]);
             },
             {
                 onSuccess: () => {

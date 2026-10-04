@@ -45,8 +45,14 @@ export interface AvailabilityEditor {
     submit: () => void;
 }
 
-const SQL =
+export const RECURRING_HOURS_SQL =
     "SELECT weekday, start_time, end_time, is_available FROM availability WHERE staff_id = ? AND type = 'recurring'";
+
+export const CLEAR_RECURRING_HOURS_SQL =
+    "DELETE FROM availability WHERE staff_id = ? AND type = 'recurring'";
+
+export const INSERT_RECURRING_HOURS_SQL =
+    "INSERT INTO availability (id, business_id, staff_id, type, weekday, start_time, end_time, is_available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
 
 /** Seed a full 7-day grid from the staff's recurring rows; unconfigured days fall back to
  *  business-hours defaults (weekdays open 9–5, weekends closed). */
@@ -73,7 +79,7 @@ function seedDays(rows: RecurringRow[]): DayHours[] {
 export function useAvailabilityEditor(staffId: string | null): AvailabilityEditor {
     const db = usePowerSync();
     const businessId = useBusinessId();
-    const { data, isLoading } = useQuery<RecurringRow>(SQL, [staffId ?? ""]);
+    const { data, isLoading } = useQuery<RecurringRow>(RECURRING_HOURS_SQL, [staffId ?? ""]);
     const { busy, error, setError, run } = useAsyncAction();
     const [days, setDays] = useState<DayHours[] | null>(null);
     const [saved, setSaved] = useState(false);
@@ -115,23 +121,17 @@ export function useAvailabilityEditor(staffId: string | null): AvailabilityEdito
         run(
             async () => {
                 await db.writeTransaction(async (tx) => {
-                    await tx.execute(
-                        "DELETE FROM availability WHERE staff_id = ? AND type = 'recurring'",
-                        [staffId],
-                    );
+                    await tx.execute(CLEAR_RECURRING_HOURS_SQL, [staffId]);
                     for (const d of days) {
-                        await tx.execute(
-                            "INSERT INTO availability (id, business_id, staff_id, type, weekday, start_time, end_time, is_available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)",
-                            [
-                                newRowId("av"),
-                                businessId,
-                                staffId,
-                                d.weekday,
-                                d.open ? `${d.start}:00` : null,
-                                d.open ? `${d.end}:00` : null,
-                                d.open ? 1 : 0,
-                            ],
-                        );
+                        await tx.execute(INSERT_RECURRING_HOURS_SQL, [
+                            newRowId("av"),
+                            businessId,
+                            staffId,
+                            d.weekday,
+                            d.open ? `${d.start}:00` : null,
+                            d.open ? `${d.end}:00` : null,
+                            d.open ? 1 : 0,
+                        ]);
                     }
                 });
             },

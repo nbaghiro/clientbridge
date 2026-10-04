@@ -19,17 +19,17 @@ export interface StaffRow {
 
 const STAFF_COLS = "id, user_id, title, role, color, status, invite_email";
 
+export const STAFF_SQL = `SELECT ${STAFF_COLS} FROM staff WHERE status = 'active' ORDER BY role`;
+
+export const PENDING_INVITES_SQL = `SELECT ${STAFF_COLS} FROM staff WHERE status = 'invited' ORDER BY created_at DESC`;
+
 export function useStaff(): StaffRow[] {
-    return useQuery<StaffRow>(
-        `SELECT ${STAFF_COLS} FROM staff WHERE status = 'active' ORDER BY role`,
-    ).data;
+    return useQuery<StaffRow>(STAFF_SQL).data;
 }
 
 /** Pending (invited, not-yet-accepted) staff — shown in the Team list alongside the active members. */
 export function usePendingInvites(): StaffRow[] {
-    return useQuery<StaffRow>(
-        `SELECT ${STAFF_COLS} FROM staff WHERE status = 'invited' ORDER BY created_at DESC`,
-    ).data;
+    return useQuery<StaffRow>(PENDING_INVITES_SQL).data;
 }
 
 export function staffLabel(s: StaffRow): string {
@@ -205,7 +205,7 @@ export interface StaffPayRow {
 }
 
 // Pay columns reach owner/admin devices only (business_full); staff devices read them as NULL.
-const STAFF_PAY_SQL = `
+export const STAFF_PAY_SQL = `
 SELECT id, title, role, invite_email, is_payee, rate_type, default_rate, retail_rate_bps
 FROM staff WHERE status = 'active' ORDER BY role`;
 
