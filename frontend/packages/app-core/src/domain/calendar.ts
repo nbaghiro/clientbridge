@@ -355,14 +355,14 @@ export function createBooking(api: ApiLike, input: NewBooking): Promise<BookingR
     });
 }
 
-export type RecurFrequency = "daily" | "weekly" | "monthly";
+export type RecurFrequency = "day" | "week" | "month";
 
 /** Recurrence options with both display forms so each platform keeps its own phrasing without drift:
  *  `label` for a standalone chip ("Weekly"), `unit` for an "Every N …" control ("Weeks"). */
 export const RECUR_FREQUENCIES: { value: RecurFrequency; label: string; unit: string }[] = [
-    { value: "daily", label: strings.calendar.freqDaily, unit: strings.calendar.unitDays },
-    { value: "weekly", label: strings.calendar.freqWeekly, unit: strings.calendar.unitWeeks },
-    { value: "monthly", label: strings.calendar.freqMonthly, unit: strings.calendar.unitMonths },
+    { value: "day", label: strings.calendar.freqDaily, unit: strings.calendar.unitDays },
+    { value: "week", label: strings.calendar.freqWeekly, unit: strings.calendar.unitWeeks },
+    { value: "month", label: strings.calendar.freqMonthly, unit: strings.calendar.unitMonths },
 ];
 
 export interface ScheduleResult {
@@ -625,7 +625,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
     const [itemId, setItemId] = useState("");
     const [staffId, setStaffId] = useState("");
     const [repeat, setRepeat] = useState(false);
-    const [frequency, setFrequency] = useState<RecurFrequency>("weekly");
+    const [frequency, setFrequency] = useState<RecurFrequency>("week");
     const [interval, setInterval] = useState(1);
     const [count, setCount] = useState(8);
     const [notice, setNotice] = useState<string | null>(null);

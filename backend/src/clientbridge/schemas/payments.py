@@ -50,7 +50,7 @@ class PaymentMethodOut(BaseModel):
     client_id: str
     brand: str | None
     last4: str | None
-    is_default: bool
+    preferred: bool
     status: str
 
 

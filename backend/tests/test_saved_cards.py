@@ -263,8 +263,8 @@ async def test_first_attached_card_is_default(api: httpx.AsyncClient, db: AsyncS
     two = (
         await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_two"))
     ).scalar_one()
-    assert one.is_default is True  # the first card on file
-    assert two.is_default is False  # later cards don't steal default
+    assert one.preferred is True  # the first card on file
+    assert two.preferred is False  # later cards don't steal default
 
 
 def _saved_card(cid: str, *, ref: str, default: bool = False) -> PaymentMethod:
@@ -277,7 +277,7 @@ def _saved_card(cid: str, *, ref: str, default: bool = False) -> PaymentMethod:
         last4="4242",
         provider="stripe",
         provider_ref=ref,
-        is_default=default,
+        preferred=default,
         status="active",
     )
 
@@ -335,12 +335,12 @@ async def test_set_default_flips_and_clears_siblings(
     await db.flush()
     res = await as_owner.post(f"/v1/payments/methods/{b.id}/default")
     assert res.status_code == 200, res.text
-    assert res.json()["is_default"] is True
+    assert res.json()["preferred"] is True
     a_default = (
-        await db.execute(select(PaymentMethod.is_default).where(PaymentMethod.id == a.id))
+        await db.execute(select(PaymentMethod.preferred).where(PaymentMethod.id == a.id))
     ).scalar_one()
     b_default = (
-        await db.execute(select(PaymentMethod.is_default).where(PaymentMethod.id == b.id))
+        await db.execute(select(PaymentMethod.preferred).where(PaymentMethod.id == b.id))
     ).scalar_one()
     assert b_default is True
     assert a_default is False  # the prior default was cleared
@@ -430,7 +430,7 @@ async def test_pay_with_default_card(
     await book_invoice(db, inv)
     res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=default")
     assert res.status_code == 200, res.text
-    assert gateway.charged_methods == ["pm_default"]  # the is_default card was charged off-session
+    assert gateway.charged_methods == ["pm_default"]  # the preferred card was charged off-session
 
 
 async def test_pay_with_default_no_default_404(

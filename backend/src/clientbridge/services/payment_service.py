@@ -267,9 +267,9 @@ class PaymentService:
             await self.db.execute(
                 scoped_update(PaymentMethod, self.biz)
                 .where(PaymentMethod.client_id == pm.client_id, PaymentMethod.id != pm.id)
-                .values(is_default=False)
+                .values(preferred=False)
             )
-            pm.is_default = True
+            pm.preferred = True
             await self.db.flush()
             cmd.record("payment_method.set_default", entity_type="payment_method", entity_id=pm.id)
             return PaymentMethodOut(
@@ -277,7 +277,7 @@ class PaymentService:
                 client_id=pm.client_id,
                 brand=pm.brand,
                 last4=pm.last4,
-                is_default=pm.is_default,
+                preferred=pm.preferred,
                 status=pm.status,
             )
 
@@ -489,7 +489,7 @@ async def default_method_ref(db: AsyncSession, business_id: str, client_id: str)
             scoped(PaymentMethod, business_id)
             .where(
                 PaymentMethod.client_id == client_id,
-                PaymentMethod.is_default.is_(True),
+                PaymentMethod.preferred.is_(True),
                 PaymentMethod.status == "active",
             )
             .limit(1)
@@ -1417,7 +1417,7 @@ async def _record_payment_method(
             last4=last4 if isinstance(last4, str) else None,
             provider="stripe",
             provider_ref=pm_id,
-            is_default=has_card is None,  # first method on file becomes the default
+            preferred=has_card is None,  # first method on file becomes the default
             mandate_status=mandate,
             status="active",
         )
@@ -1511,7 +1511,7 @@ async def _recurring_method(db: AsyncSession, sub: Subscription) -> str:
     pm = await db.get(PaymentMethod, sub.payment_method_id)
     if pm is None:
         return "card"
-    return {"card": "card", "bank_eft": "eft", "interac": "interac"}.get(pm.type, "card")
+    return pm.type
 
 
 async def _record_recurring_payment(

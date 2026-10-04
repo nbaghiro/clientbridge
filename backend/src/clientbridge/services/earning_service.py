@@ -187,21 +187,21 @@ async def _booking_earnings(db: AsyncSession, business_id: str, booking_id: str)
 async def _split(
     db: AsyncSession, staff: Staff, line_cents: int, booking: Booking
 ) -> tuple[str, int] | None:
-    """The (basis, cents) a payee earns on a booking line. `default_rate` is percentage points for
-    `percent` and dollars otherwise: `fixed` per booking, `hourly` times the session's hours."""
-    rate = staff.default_rate
+    """The (basis, cents) a payee earns on a booking line: `rate_bps` of it for `percent`, or
+    `rate_cents` per booking for `fixed` and per session hour for `hourly`."""
+    if staff.rate_type == "percent" and staff.rate_bps is not None:
+        return "percent", round(line_cents * staff.rate_bps / 10000)
+    rate = staff.rate_cents
     if rate is None:
         return None
-    if staff.rate_type == "percent":
-        return "percent", round(line_cents * rate / 100)
     if staff.rate_type == "fixed":
-        return "fixed", round(rate * 100)
+        return "fixed", rate
     if staff.rate_type == "hourly":
         session = await db.get(Session, booking.session_id)
         if session is None:
             return None
         hours = (session.ends_at - session.starts_at).total_seconds() / 3600
-        return "rate", round(rate * hours * 100)
+        return "rate", round(rate * hours)
     return None
 
 
@@ -229,7 +229,7 @@ async def ensure_earnings(db: AsyncSession, invoice: Invoice) -> None:
         if booking is None or booking.staff_id is None:
             continue
         staff = await db.get(Staff, booking.staff_id)
-        if staff is None or not staff.is_payee:
+        if staff is None or not staff.payee:
             continue
         split = await _split(db, staff, line.amount_cents, booking)
         if split is None or split[1] <= 0:
@@ -246,7 +246,7 @@ async def ensure_earnings(db: AsyncSession, invoice: Invoice) -> None:
             ],
             source=("line", line.id),
             subject=("booking", booking.id),
-            meta={"basis": basis, "rate": staff.default_rate},
+            meta={"basis": basis, "rate": staff.rate_bps or staff.rate_cents},
         )
 
 
@@ -266,7 +266,7 @@ async def ensure_order_earning(db: AsyncSession, order: Order) -> None:
     """Accrue the seller's retail commission once a sale is paid: their retail rate on the sale's
     product lines (before tax). Once per sale, or again after a refund reversed it."""
     staff = await db.get(Staff, order.staff_id)
-    if staff is None or not staff.is_payee or not staff.retail_rate_bps:
+    if staff is None or not staff.payee or not staff.retail_rate_bps:
         return
     biz = order.business_id
     await _lock_subject(db, ("order", order.id))

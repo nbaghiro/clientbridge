@@ -21,6 +21,7 @@ from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, en
 
 BOOKABLE_KINDS = ("service", "class")
 ENTITLEMENT_KINDS = ("gift", "package", "subscription")
+FREQUENCIES = ("day", "week", "month", "year")
 # standard: every provincial component; federal_only: GST/HST only (no PST/QST); exempt: none.
 TAX_CLASSES = ("standard", "federal_only", "exempt")
 STOCK_REASONS = ("sale", "refund", "restock")
@@ -34,6 +35,7 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
         ),
         enum_check("items", "deposit_type", "none", "fixed", "percent"),
         enum_check("items", "tax_class", *TAX_CLASSES),
+        enum_check("items", "frequency", *FREQUENCIES),
         CheckConstraint(
             "online_bookable = false OR kind IN ('service', 'class')",
             name="ck_items_online_bookable_kind",
@@ -72,7 +74,6 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     frequency: Mapped[str | None] = mapped_column(String)
     session_count: Mapped[int | None] = mapped_column(Integer)
     validity_days: Mapped[int | None] = mapped_column(Integer)
-    pack: Mapped[str | None] = mapped_column(String)
     stripe_price_id: Mapped[str | None] = mapped_column(String)  # cached recurring Price
     tax_class: Mapped[str] = mapped_column(String, default="standard", nullable=False)
     sku: Mapped[str | None] = mapped_column(String)
@@ -123,7 +124,6 @@ class Subscription(PKMixin, BusinessScoped, TimestampMixin, Base):
     current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     payment_method_id: Mapped[str | None] = mapped_column(ForeignKey("payment_methods.id"))
     provider_ref: Mapped[str | None] = mapped_column(String)
-    trial_end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):

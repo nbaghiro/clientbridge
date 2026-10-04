@@ -38,7 +38,7 @@ const method = {
     client_id: "cl",
     brand: null,
     last4: null,
-    is_default: 0,
+    preferred: 0,
     mandate_status: "none",
     status: "active",
 };
@@ -54,6 +54,6 @@ describe("chargeable saved methods", () => {
         expect(checkoutMethods(cards).map((m) => m.id)).toEqual(["card", "bank"]);
         expect(cards.filter(canBeDefault).map((c) => c.id)).toEqual(["card", "bank"]);
         const [card] = cards;
-        expect(card !== undefined && canBeDefault({ ...card, is_default: 1 })).toBe(false);
+        expect(card !== undefined && canBeDefault({ ...card, preferred: 1 })).toBe(false);
     });
 });

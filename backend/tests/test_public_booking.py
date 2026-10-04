@@ -150,7 +150,7 @@ async def test_slots_fully_booked_day_is_empty(api: httpx.AsyncClient, db: Async
             date=date(2027, 3, 9),
             start_time=time(9, 0),
             end_time=time(10, 30),  # a single 75-min slot fits
-            is_available=True,
+            available=True,
         )
     )
     await db.flush()

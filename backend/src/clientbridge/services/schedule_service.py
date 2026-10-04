@@ -41,7 +41,7 @@ def expand_occurrences(
     limit = min(count if count is not None else _MAX_OCCURRENCES, _MAX_OCCURRENCES)
     dates: list[date] = []
 
-    if frequency == "weekly":
+    if frequency == "week":
         weekdays = sorted({_WEEKDAY_CODES[d] for d in byday}) if byday else [start_date.weekday()]
         week_start = start_date - timedelta(days=start_date.weekday())
         for week in range(limit * interval + 8):
@@ -60,7 +60,7 @@ def expand_occurrences(
     for step in range(limit):
         cur = (
             start_date + timedelta(days=step * interval)
-            if frequency == "daily"
+            if frequency == "day"
             else _add_months(start_date, step * interval)
         )
         if until is not None and cur > until:

@@ -303,7 +303,7 @@ async def test_sync_cannot_publish_a_product_for_booking(
 
 async def _commission(db: AsyncSession, staff_id: str, bps: int) -> None:
     await db.execute(
-        update(Staff).where(Staff.id == staff_id).values(is_payee=True, retail_rate_bps=bps)
+        update(Staff).where(Staff.id == staff_id).values(payee=True, retail_rate_bps=bps)
     )
     await db.flush()
 
@@ -361,16 +361,30 @@ async def test_no_commission_without_a_retail_rate(
 
 async def test_owner_sets_staff_pay(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.patch(
-        "/v1/staff/st_diego/pay", json={"retail_rate_bps": 1500, "is_payee": True}
+        "/v1/staff/st_diego/pay", json={"retail_rate_bps": 1500, "payee": True}
     )
     assert res.status_code == 200, res.text
     assert res.json()["retail_rate_bps"] == 1500
     assert (
         await as_owner.patch("/v1/staff/st_diego/pay", json={"retail_rate_bps": 20000})
     ).status_code == 422
-    assert (
-        await as_owner.patch("/v1/staff/st_nope/pay", json={"is_payee": True})
-    ).status_code == 404
+    assert (await as_owner.patch("/v1/staff/st_nope/pay", json={"payee": True})).status_code == 404
+
+
+async def test_staff_rate_is_held_in_the_unit_of_its_basis(as_owner: httpx.AsyncClient) -> None:
+    pct = await as_owner.patch(
+        "/v1/staff/st_diego/pay", json={"rate_type": "percent", "rate_bps": 4250}
+    )
+    assert (pct.json()["rate_bps"], pct.json()["rate_cents"]) == (4250, None)
+    hourly = await as_owner.patch(
+        "/v1/staff/st_diego/pay", json={"rate_type": "hourly", "rate_cents": 2400}
+    )
+    assert (hourly.json()["rate_bps"], hourly.json()["rate_cents"]) == (None, 2400)
+    wrong = await as_owner.patch("/v1/staff/st_diego/pay", json={"rate_bps": 5000})
+    assert wrong.status_code == 422
+    assert wrong.json()["message"] == "rate_cents holds the rate for rate_type hourly"
+    unset = await as_owner.patch("/v1/staff/st_invite/pay", json={"rate_cents": 1000})
+    assert unset.status_code == 422
 
 
 async def test_staff_cannot_set_pay_403(as_staff: httpx.AsyncClient) -> None:

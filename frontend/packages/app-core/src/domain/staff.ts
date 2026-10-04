@@ -198,15 +198,16 @@ export interface StaffPayRow {
     title: string | null;
     role: string;
     invite_email: string | null;
-    is_payee: number | null;
+    payee: number | null;
     rate_type: string | null;
-    default_rate: number | null;
+    rate_bps: number | null;
+    rate_cents: number | null;
     retail_rate_bps: number | null;
 }
 
 // Pay columns reach owner/admin devices only (business_full); staff devices read them as NULL.
 export const STAFF_PAY_SQL = `
-SELECT id, title, role, invite_email, is_payee, rate_type, default_rate, retail_rate_bps
+SELECT id, title, role, invite_email, payee, rate_type, rate_bps, rate_cents, retail_rate_bps
 FROM staff WHERE status = 'active' ORDER BY role`;
 
 export function useStaffPay(): StaffPayRow[] {
@@ -219,10 +220,16 @@ export const RATE_TYPES: { value: string; label: string }[] = [
     { value: "hourly", label: strings.team.rateHourly },
 ];
 
+/** The service rate as typed: percentage points for `percent`, dollars for `fixed` and `hourly`. */
+function rateValue(row: StaffPayRow): number | null {
+    const stored = row.rate_type === "percent" ? row.rate_bps : row.rate_cents;
+    return stored === null ? null : stored / 100;
+}
+
 /** A one-line summary of how a member is paid, for the Team list. */
 export function staffPaySummary(row: StaffPayRow): string {
-    if (row.is_payee !== 1) return strings.team.notPaid;
-    const rate = row.default_rate ?? 0;
+    if (row.payee !== 1) return strings.team.notPaid;
+    const rate = rateValue(row) ?? 0;
     const service =
         row.rate_type === "percent"
             ? strings.team.payPercent(rate)
@@ -238,8 +245,8 @@ export interface StaffPayForm {
     setIsPayee: (v: boolean) => void;
     rateType: string;
     setRateType: (v: string) => void;
-    defaultRate: string;
-    setDefaultRate: (v: string) => void;
+    rate: string;
+    setRate: (v: string) => void;
     retailPercent: string;
     setRetailPercent: (v: string) => void;
     busy: boolean;
@@ -250,21 +257,22 @@ export interface StaffPayForm {
 /** How a member is paid: service rate (percent, fixed per booking, or hourly) and the commission
  *  percentage on products they sell. Owner/admin only (the server enforces it). */
 export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => void): StaffPayForm {
-    const [isPayee, setIsPayee] = useState(row.is_payee === 1);
+    const [isPayee, setIsPayee] = useState(row.payee === 1);
     const [rateType, setRateType] = useState(row.rate_type ?? "percent");
-    const [defaultRate, setDefaultRate] = useState(
-        row.default_rate === null ? "" : String(row.default_rate),
-    );
+    const [rate, setRate] = useState(() => {
+        const value = rateValue(row);
+        return value === null ? "" : String(value);
+    });
     const [retailPercent, setRetailPercent] = useState(
         row.retail_rate_bps === null ? "" : String(row.retail_rate_bps / 100),
     );
     const { busy, error, setError, run } = useAsyncAction();
 
     const submit = (): void => {
-        const rate = defaultRate.trim() === "" ? null : Number(defaultRate);
+        const amount = rate.trim() === "" ? null : Number(rate);
         const retail = retailPercent.trim() === "" ? 0 : Number(retailPercent);
-        const badRate = rate !== null && (!Number.isFinite(rate) || rate < 0);
-        if (badRate || (rateType === "percent" && rate !== null && rate > 100)) {
+        const badRate = amount !== null && (!Number.isFinite(amount) || amount < 0);
+        if (badRate || (rateType === "percent" && amount !== null && amount > 100)) {
             setError(strings.team.rateInvalid);
             return;
         }
@@ -275,9 +283,12 @@ export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => vo
         run(
             () =>
                 api.patch(`/v1/staff/${row.id}/pay`, {
-                    is_payee: isPayee,
+                    payee: isPayee,
                     rate_type: rateType,
-                    default_rate: rate,
+                    rate_bps:
+                        rateType === "percent" && amount !== null ? Math.round(amount * 100) : null,
+                    rate_cents:
+                        rateType !== "percent" && amount !== null ? Math.round(amount * 100) : null,
                     retail_rate_bps: Math.round(retail * 100),
                 }),
             { onSuccess: onDone, errorMessage: strings.team.payError },
@@ -289,8 +300,8 @@ export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => vo
         setIsPayee,
         rateType,
         setRateType,
-        defaultRate,
-        setDefaultRate,
+        rate,
+        setRate,
         retailPercent,
         setRetailPercent,
         busy,

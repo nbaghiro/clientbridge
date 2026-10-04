@@ -173,6 +173,11 @@ Read local, write via command/sync — the server is the source of truth; client
 - **Regenerate** `api-client` (`make gen-api`) whenever the API contract changes; `gen-sync-schema` after
   model/sync-rule changes; `gen-themes` after editing `app-explorer.html`. CI has drift gates for all three.
 - **No build-phase/iteration numbers** in code comments or docstrings (commit messages / plan docs are fine).
+- **Column names:** booleans carry no `is_` prefix (`payee`, `available`, `preferred`, `tax_registered`);
+  a column naming the user who did something is `<past participle>_by` (`created_by`, `sent_by`,
+  `performed_by`); money is integer cents and a percentage is integer basis points (`rate_bps`); a
+  frequency is `day`/`week`/`month` (`year` for items); a bank payment is `bank_eft` everywhere. Every
+  enum-like text column, including each polymorphic `parent_type`, has a CHECK listing its values.
 
 ---
 

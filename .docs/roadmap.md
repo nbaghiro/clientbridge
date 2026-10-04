@@ -76,7 +76,7 @@ Cannot ship to real paying users without these.
 - [S] **Error tracking (Sentry/Rollbar).** No capture/alerting on server, web, or mobile.
 
 ### Functional-completeness blockers
-- [S] **Make tax collection enable-able.** `is_tax_registered` defaults False and is absent from
+- [S] **Make tax collection enable-able.** `tax_registered` defaults False and is absent from
   `BusinessSettingsUpdate`/onboarding — a live tenant collects **zero tax** with no way to turn it on.
 - [M] **Catalog editor exposes the full item shape.** The form posts only 5 of ~20 fields, so
   `session_count`/`interval`/`frequency`/deposit/capacity/validity can't be set — **packages and

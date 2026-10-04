@@ -106,7 +106,7 @@ async def fan_out_broadcast(
             thread_id=thread.id,
             direction="out",
             channel=broadcast.channel,
-            sender_user_id=broadcast.created_by,
+            sent_by=broadcast.created_by,
             body=broadcast.body,
             status="queued",
             broadcast_id=broadcast.id,
@@ -241,7 +241,7 @@ class MessageService:
                 thread_id=thread.id,
                 direction="out",
                 channel=data.channel,
-                sender_user_id=self.principal.user_id,
+                sent_by=self.principal.user_id,
                 body=data.body,
                 status="queued",
             )

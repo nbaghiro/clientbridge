@@ -45,7 +45,7 @@ class ScheduleCreate(BaseModel):
     item_id: str
     staff_id: str
     starts_at: datetime  # first occurrence; its time-of-day repeats across the series
-    frequency: Literal["daily", "weekly", "monthly"]
+    frequency: Literal["day", "week", "month"]
     interval: int = 1
     byday: list[Literal["MO", "TU", "WE", "TH", "FR", "SA", "SU"]] | None = None  # weekly only
     count: int | None = None  # end after N occurrences (set count or until)

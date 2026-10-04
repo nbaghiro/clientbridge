@@ -35,10 +35,10 @@ async def test_online_booking_from_deposit_to_t4a(
     pay = ok(
         await api.patch(
             "/v1/staff/st_owner/pay",
-            json={"is_payee": True, "rate_type": "percent", "default_rate": 40.0},
+            json={"payee": True, "rate_type": "percent", "rate_bps": 4000},
         )
     ).json()
-    assert pay["is_payee"] is True and pay["rate_type"] == "percent"
+    assert pay["payee"] is True and pay["rate_type"] == "percent"
 
     # the client books online and is asked for the deposit
     booked = ok(
@@ -172,7 +172,7 @@ async def test_recurring_series_create_and_cancel(
                 "item_id": GROOM_SM,
                 "staff_id": "st_priya",
                 "starts_at": "2027-04-05T17:00:00Z",
-                "frequency": "weekly",
+                "frequency": "week",
                 "count": 4,
             },
         ),

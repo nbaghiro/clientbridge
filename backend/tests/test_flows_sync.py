@@ -32,7 +32,7 @@ def _writes(thread_id: str) -> list[tuple[str, dict[str, object], dict[str, obje
                 "weekday": 0,
                 "start_time": "09:00:00",
                 "end_time": "12:00:00",
-                "is_available": 1,
+                "available": 1,
             },
             {"end_time": "13:00:00"},
         ),

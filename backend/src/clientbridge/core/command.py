@@ -39,7 +39,7 @@ class Command:
             AuditLog(
                 id=new_id("audit_log"),
                 business_id=self.principal.business_id,
-                actor_user_id=self.principal.user_id,
+                performed_by=self.principal.user_id,
                 action=action,
                 entity_type=entity_type,
                 entity_id=entity_id,

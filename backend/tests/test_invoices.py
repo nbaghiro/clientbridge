@@ -61,7 +61,7 @@ async def test_send_assigns_number_and_emails(
 async def test_not_registered_collects_no_tax(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await db.execute(update(Business).where(Business.id == BIZ).values(is_tax_registered=False))
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
     await db.flush()
     cid = await _client_id(db)
     body = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()

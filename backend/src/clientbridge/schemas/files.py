@@ -1,10 +1,15 @@
+from typing import Literal
+
 from pydantic import BaseModel
+
+FileParent = Literal["business", "client", "subject", "item", "signature", "form_response"]
+FileKind = Literal["logo", "image", "photo", "signature", "attachment"]
 
 
 class FileCreate(BaseModel):
-    parent_type: str
+    parent_type: FileParent
     parent_id: str
-    kind: str | None = None
+    kind: FileKind | None = None
     content_type: str | None = None
     size: int | None = None
 

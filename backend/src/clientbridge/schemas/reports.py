@@ -5,7 +5,7 @@ class IncomeReport(BaseModel):
     gross_cents: int  # succeeded payment + deposit receipts in the period
     refunds_cents: int  # succeeded refunds in the period
     net_cents: int  # gross minus refunds (the T2125 income line)
-    by_method: dict[str, int]  # net per payment method (card/interac/eft/…)
+    by_method: dict[str, int]  # net per payment method (card/interac/bank_eft/…)
 
 
 class GstHstReport(BaseModel):

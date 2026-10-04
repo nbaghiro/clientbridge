@@ -6,7 +6,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
-    Integer,
     SmallInteger,
     String,
     UniqueConstraint,
@@ -59,5 +58,4 @@ class ReviewRequest(PKMixin, BusinessScoped, TimestampMixin, Base):
     token: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, default="sent", nullable=False)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    reminder_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     review_id: Mapped[str | None] = mapped_column(ForeignKey("reviews.id"))

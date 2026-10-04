@@ -98,7 +98,7 @@ class Availability(PKMixin, BusinessScoped, TimestampMixin, Base):
     date: Mapped[date | None] = mapped_column(Date, nullable=True)  # one-off
     start_time: Mapped[time | None] = mapped_column(Time)
     end_time: Mapped[time | None] = mapped_column(Time)  # null = all-day
-    is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     note: Mapped[str | None] = mapped_column(String)
 
 
@@ -113,7 +113,7 @@ class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
 class Schedule(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "schedules"
     __table_args__ = (
-        enum_check("schedules", "frequency", "daily", "weekly", "monthly"),
+        enum_check("schedules", "frequency", "day", "week", "month"),
         enum_check("schedules", "status", "active", "ended", "canceled"),
         Index("ix_schedules_status", "business_id", "status"),
     )

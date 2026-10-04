@@ -75,7 +75,7 @@ async def test_command_commits_and_records_audit(db: AsyncSession, factory: Fact
     assert await db.get(Client, out.id) is not None
     audits = await _audits(db, principal.business_id)
     assert [a.action for a in audits] == ["client.create"]
-    assert audits[0].actor_user_id == principal.user_id
+    assert audits[0].performed_by == principal.user_id
     assert audits[0].entity_id == out.id
     assert audits[0].changes == {"name": "Cmd Client"}
 

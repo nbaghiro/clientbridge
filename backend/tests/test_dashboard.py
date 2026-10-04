@@ -144,10 +144,10 @@ async def test_old_payment_excluded_from_today(
 async def test_filing_date_only_when_tax_registered(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await db.execute(update(Business).where(Business.id == BIZ).values(is_tax_registered=False))
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
     await db.flush()
     assert (await as_owner.get("/v1/dashboard/summary")).json()["gst_hst_filing_due"] is None
-    await db.execute(update(Business).where(Business.id == BIZ).values(is_tax_registered=True))
+    await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=True))
     await db.flush()
     due = (await as_owner.get("/v1/dashboard/summary")).json()["gst_hst_filing_due"]
     assert due is not None and due[4:5] == "-"  # an ISO date string

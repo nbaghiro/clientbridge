@@ -272,8 +272,8 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                         <Text style={ui.label}>{strings.team.rateLabel(form.rateType)}</Text>
                         <TextInput
                             style={styles.input}
-                            value={form.defaultRate}
-                            onChangeText={form.setDefaultRate}
+                            value={form.rate}
+                            onChangeText={form.setRate}
                             keyboardType="decimal-pad"
                         />
                         <Text style={ui.label}>{strings.team.retailRate}</Text>

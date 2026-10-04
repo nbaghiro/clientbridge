@@ -108,7 +108,7 @@ def seed_identity() -> tuple[str, str]:
             timezone="America/Vancouver",
             province="BC",
             gst_hst_number="84720 1539 RT0001",
-            is_tax_registered=True,
+            tax_registered=True,
             brand={
                 "logo_file_id": "fl_logo",
                 "primary": "#2E4A3F",
@@ -137,7 +137,6 @@ def seed_identity() -> tuple[str, str]:
             email="hannah@birchbarkpets.ca",
             name="Hannah Wong",
             phone="+12505550110",
-            avatar_url=face("hannah"),
             password_hash=hash_password(DEMO_PASSWORD),
             oauth={},
         )
@@ -148,7 +147,6 @@ def seed_identity() -> tuple[str, str]:
             email="diego@birchbarkpets.ca",
             name="Diego Ramirez",
             phone="+12505550111",
-            avatar_url=face("diego"),
             password_hash=hash_password(DEMO_PASSWORD),
             oauth={},
         )
@@ -159,7 +157,6 @@ def seed_identity() -> tuple[str, str]:
             email="priya@birchbarkpets.ca",
             name="Priya Patel",
             phone="+12505550112",
-            avatar_url=face("priya"),
             password_hash=hash_password(DEMO_PASSWORD),
             oauth={},
         )
@@ -170,8 +167,8 @@ def seed_identity() -> tuple[str, str]:
             business_id=BIZ,
             user_id=owner_id,
             role="owner",
-            is_payee=True,
-            default_rate=100.0,
+            payee=True,
+            rate_bps=10000,
             rate_type="percent",
             title="Owner & Lead Groomer",
             color="#3F5E80",
@@ -184,8 +181,8 @@ def seed_identity() -> tuple[str, str]:
             business_id=BIZ,
             user_id="us_diego",
             role="staff",
-            is_payee=True,
-            default_rate=45.0,
+            payee=True,
+            rate_bps=4500,
             rate_type="percent",
             title="Senior Groomer",
             color="#2E7A5A",
@@ -198,8 +195,8 @@ def seed_identity() -> tuple[str, str]:
             business_id=BIZ,
             user_id="us_priya",
             role="staff",
-            is_payee=False,
-            default_rate=22.0,
+            payee=False,
+            rate_cents=2200,
             rate_type="hourly",
             title="Bather & Front Desk",
             color="#86621E",
@@ -613,11 +610,10 @@ def seed_clients(owner: str) -> None:
                 Note(
                     id=f"nt_{cid}",
                     business_id=BIZ,
-                    author_user_id=owner,
+                    created_by=owner,
                     parent_type="client",
                     parent_id=cid,
                     body=note,
-                    pinned="anxious" in note or "muzzle" in note or "breathing" in note,
                 )
             )
 
@@ -643,7 +639,7 @@ def seed_resources_availability() -> None:
                     weekday=weekday,
                     start_time=time(9, 0),
                     end_time=time(17, 0),
-                    is_available=True,
+                    available=True,
                 )
             )
     # a stat-holiday closure + an extra-open Sunday
@@ -654,7 +650,7 @@ def seed_resources_availability() -> None:
             staff_id="st_owner",
             type="date",
             date=at(12).date(),
-            is_available=False,
+            available=False,
             note="BC Day — closed",
         )
     )
@@ -667,7 +663,7 @@ def seed_resources_availability() -> None:
             date=at(9).date(),
             start_time=time(10, 0),
             end_time=time(14, 0),
-            is_available=True,
+            available=True,
             note="Extra Sunday for holiday rush",
         )
     )
@@ -678,7 +674,7 @@ def seed_resources_availability() -> None:
             business_id=BIZ,
             item_id="it_puppy",
             staff_id="st_owner",
-            frequency="weekly",
+            frequency="week",
             interval=1,
             byday=["SA"],
             start_date=at(-30).date(),
@@ -1077,7 +1073,7 @@ def seed_payment_methods() -> None:
                 last4=last4,
                 provider="stripe",
                 provider_ref=f"pm_demo_{last4}",
-                is_default=True,
+                preferred=True,
                 mandate_status="none",
                 status="active",
             )
@@ -1092,7 +1088,7 @@ def seed_payment_methods() -> None:
             last4="6677",
             provider="stripe",
             mandate_status="active",
-            is_default=False,
+            preferred=False,
             status="active",
         )
     )
@@ -1296,7 +1292,7 @@ def seed_messaging(owner: str) -> None:
                     thread_id=tid,
                     direction=m[0],
                     channel=channel,
-                    sender_user_id=owner if m[0] == "out" else None,
+                    sent_by=owner if m[0] == "out" else None,
                     body=m[1],
                     status=m[2],
                     attachments=[],
@@ -1594,7 +1590,6 @@ def seed_reviews(owner: str) -> None:
                 token=f"rev_tok_{k}",
                 status="completed",
                 sent_at=at(-16 + k, 18),
-                reminder_count=0,
                 review_id=f"rv_{k}",
             )
         )
@@ -1610,7 +1605,6 @@ def seed_reviews(owner: str) -> None:
                 token=f"rev_tok_p_{k}",
                 status="sent" if k == 0 else "opened",
                 sent_at=at(-4 + k, 18),
-                reminder_count=k,
             )
         )
 
@@ -1621,7 +1615,7 @@ def seed_platform(owner: str) -> None:
         AuditLog(
             id="aud_0",
             business_id=BIZ,
-            actor_user_id=owner,
+            performed_by=owner,
             action="invoice.paid",
             entity_type="invoice",
             entity_id="inv_1001",
@@ -1633,7 +1627,7 @@ def seed_platform(owner: str) -> None:
         AuditLog(
             id="aud_1",
             business_id=BIZ,
-            actor_user_id="us_diego",
+            performed_by="us_diego",
             action="booking.completed",
             entity_type="booking",
             entity_id="bk_001",
@@ -1645,7 +1639,7 @@ def seed_platform(owner: str) -> None:
         AuditLog(
             id="aud_2",
             business_id=BIZ,
-            actor_user_id=owner,
+            performed_by=owner,
             action="client.created",
             entity_type="client",
             entity_id="cl_sophie",
@@ -2133,7 +2127,7 @@ def seed_coverage() -> None:
             kind="payment",
             amount_cents=18000,
             currency="CAD",
-            method="eft",
+            method="bank_eft",
             provider="stripe",
             provider_ref="pi_demo_sub_david",
             status="succeeded",
@@ -2149,7 +2143,7 @@ def seed_coverage() -> None:
             client_id="cl_amelie",
             type="interac",
             provider="interac",
-            is_default=False,
+            preferred=False,
             mandate_status="none",
             status="active",
         )
@@ -2409,7 +2403,7 @@ def _working_hours(member: str, day: date) -> tuple[time, time] | None:
         return time(9, 0), time(17, 0)
     dated = [r for r in mine if r.type == "date" and r.date == day]
     chosen = dated or [r for r in mine if r.type == "recurring" and r.weekday == day.weekday()]
-    window = next((r for r in chosen if r.is_available), None)
+    window = next((r for r in chosen if r.available), None)
     if window is None or window.start_time is None or window.end_time is None:
         return None
     return window.start_time, window.end_time

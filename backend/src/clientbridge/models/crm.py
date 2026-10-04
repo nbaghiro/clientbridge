@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, Index, String
+from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -9,6 +9,7 @@ from clientbridge.models.base import BusinessScoped, PKMixin, SoftDelete, Timest
 class Client(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __tablename__ = "clients"
     __table_args__ = (
+        enum_check("clients", "status", "active", "inactive"),
         Index("ix_clients_business_email", "business_id", "email"),
         Index("ix_clients_business_phone", "business_id", "phone"),
     )
@@ -41,10 +42,12 @@ class Subject(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 class Note(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "notes"
-    __table_args__ = (Index("ix_notes_parent", "business_id", "parent_type", "parent_id"),)
+    __table_args__ = (
+        enum_check("notes", "parent_type", "client", "subject", "booking"),
+        Index("ix_notes_parent", "business_id", "parent_type", "parent_id"),
+    )
 
-    author_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     parent_type: Mapped[str] = mapped_column(String, nullable=False)
     parent_id: Mapped[str] = mapped_column(String, nullable=False)
     body: Mapped[str] = mapped_column(String, nullable=False)
-    pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

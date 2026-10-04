@@ -314,16 +314,16 @@ export interface SavedCardRow {
     type: string; // card | bank_eft | interac
     brand: string | null;
     last4: string | null;
-    is_default: number; // SQLite boolean → 0/1
+    preferred: number; // SQLite boolean → 0/1
     mandate_status: string;
     status: string;
 }
 
 export const SAVED_CARDS_SQL = `
-SELECT id, client_id, type, brand, last4, is_default, mandate_status, status
+SELECT id, client_id, type, brand, last4, preferred, mandate_status, status
 FROM payment_methods
 WHERE client_id = ? AND status = 'active'
-ORDER BY is_default DESC, created_at`;
+ORDER BY preferred DESC, created_at`;
 
 /** A client's active saved payment methods (cards + bank/PAD mandates), default first. */
 export function useSavedCards(clientId: string): SavedCardRow[] {
@@ -353,7 +353,7 @@ export function isChargeable(card: SavedCardRow): boolean {
 }
 
 export function canBeDefault(card: SavedCardRow): boolean {
-    return card.is_default !== 1 && isChargeable(card);
+    return card.preferred !== 1 && isChargeable(card);
 }
 
 /** The saved methods a checkout can charge, labelled. */

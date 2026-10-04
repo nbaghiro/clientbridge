@@ -38,7 +38,7 @@ class OnboardingService:
                 user_id=user_id,
                 role="owner",
                 status="active",
-                is_payee=True,
+                payee=True,
             )
         )
         await self.db.commit()

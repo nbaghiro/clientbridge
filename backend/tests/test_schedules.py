@@ -16,7 +16,7 @@ ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured
 
 def test_expand_weekly_count() -> None:
     out = expand_occurrences(
-        start_date=date(2027, 3, 1), frequency="weekly", interval=1, byday=None, count=4, until=None
+        start_date=date(2027, 3, 1), frequency="week", interval=1, byday=None, count=4, until=None
     )
     assert out == [date(2027, 3, 1), date(2027, 3, 8), date(2027, 3, 15), date(2027, 3, 22)]
 
@@ -24,7 +24,7 @@ def test_expand_weekly_count() -> None:
 def test_expand_weekly_byday() -> None:
     out = expand_occurrences(
         start_date=date(2027, 3, 1),  # a Monday
-        frequency="weekly",
+        frequency="week",
         interval=1,
         byday=["MO", "WE"],
         count=4,
@@ -36,7 +36,7 @@ def test_expand_weekly_byday() -> None:
 
 def test_expand_daily_interval() -> None:
     out = expand_occurrences(
-        start_date=date(2027, 3, 1), frequency="daily", interval=2, byday=None, count=3, until=None
+        start_date=date(2027, 3, 1), frequency="day", interval=2, byday=None, count=3, until=None
     )
     assert out == [date(2027, 3, 1), date(2027, 3, 3), date(2027, 3, 5)]
 
@@ -44,7 +44,7 @@ def test_expand_daily_interval() -> None:
 def test_expand_monthly_clamps_short_months() -> None:
     out = expand_occurrences(
         start_date=date(2027, 1, 31),
-        frequency="monthly",
+        frequency="month",
         interval=1,
         byday=None,
         count=3,
@@ -56,7 +56,7 @@ def test_expand_monthly_clamps_short_months() -> None:
 def test_expand_until_bounds() -> None:
     out = expand_occurrences(
         start_date=date(2027, 3, 1),
-        frequency="weekly",
+        frequency="week",
         interval=1,
         byday=None,
         count=None,
@@ -68,7 +68,7 @@ def test_expand_until_bounds() -> None:
 def test_expand_caps_unbounded() -> None:
     out = expand_occurrences(
         start_date=date(2027, 3, 1),
-        frequency="daily",
+        frequency="day",
         interval=1,
         byday=None,
         count=None,
@@ -100,7 +100,7 @@ def _body(client_id: str, item_id: str, **over: object) -> dict[str, object]:
         "item_id": item_id,
         "staff_id": ST_PRIYA,
         "starts_at": "2027-03-01T10:00:00Z",
-        "frequency": "weekly",
+        "frequency": "week",
         "count": 8,
     }
     body.update(over)
@@ -187,7 +187,7 @@ async def test_series_skips_conflicting_occurrence(
 
 async def test_unbounded_series_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
-    body = _body(client_id, item_id, frequency="daily")
+    body = _body(client_id, item_id, frequency="day")
     del body["count"]  # no count and no until → must be rejected
     res = await as_owner.post("/v1/schedules", json=body)
     assert res.status_code == 422

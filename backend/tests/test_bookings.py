@@ -328,7 +328,7 @@ async def test_booking_within_window_ok_outside_409(
             date=date(2027, 9, 15),
             start_time=time(9, 0),
             end_time=time(17, 0),
-            is_available=True,
+            available=True,
         )
     )
     await db.flush()
@@ -365,7 +365,7 @@ async def test_availability_closure_blocks_booking(
             staff_id=ST_PRIYA,
             type="date",
             date=date(2027, 9, 16),
-            is_available=False,  # all-day closure
+            available=False,  # all-day closure
         )
     )
     await db.flush()

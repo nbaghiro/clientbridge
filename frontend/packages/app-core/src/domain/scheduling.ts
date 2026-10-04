@@ -32,7 +32,7 @@ interface RecurringRow {
     weekday: number | null;
     start_time: string | null;
     end_time: string | null;
-    is_available: number;
+    available: number;
 }
 
 export interface AvailabilityEditor {
@@ -46,13 +46,13 @@ export interface AvailabilityEditor {
 }
 
 export const RECURRING_HOURS_SQL =
-    "SELECT weekday, start_time, end_time, is_available FROM availability WHERE staff_id = ? AND type = 'recurring'";
+    "SELECT weekday, start_time, end_time, available FROM availability WHERE staff_id = ? AND type = 'recurring'";
 
 export const CLEAR_RECURRING_HOURS_SQL =
     "DELETE FROM availability WHERE staff_id = ? AND type = 'recurring'";
 
 export const INSERT_RECURRING_HOURS_SQL =
-    "INSERT INTO availability (id, business_id, staff_id, type, weekday, start_time, end_time, is_available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
+    "INSERT INTO availability (id, business_id, staff_id, type, weekday, start_time, end_time, available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
 
 /** Seed a full 7-day grid from the staff's recurring rows; unconfigured days fall back to
  *  business-hours defaults (weekdays open 9–5, weekends closed). */
@@ -66,7 +66,7 @@ function seedDays(rows: RecurringRow[]): DayHours[] {
         }
         return {
             weekday,
-            open: row.is_available === 1,
+            open: row.available === 1,
             start: (row.start_time ?? DEFAULT_START).slice(0, 5),
             end: (row.end_time ?? DEFAULT_END).slice(0, 5),
         };

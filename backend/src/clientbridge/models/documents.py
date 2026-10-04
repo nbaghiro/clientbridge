@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
+DOCUMENT_PARENTS = ("client", "subject", "booking")
 FORM_FIELD_TYPES = (
     "text",
     "longtext",
@@ -51,7 +52,6 @@ class FormField(PKMixin, BusinessScoped, TimestampMixin, Base):
     required: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     options: Mapped[list[object]] = mapped_column(JSONB, default=list, nullable=False)
     validation: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
-    default_value: Mapped[str | None] = mapped_column("default", String)  # "default" is reserved
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
@@ -59,6 +59,7 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "form_responses"
     __table_args__ = (
         enum_check("form_responses", "status", "draft", "submitted"),
+        enum_check("form_responses", "parent_type", *DOCUMENT_PARENTS),
         UniqueConstraint("token", name="uq_form_responses_token"),
         Index("ix_form_responses_form", "business_id", "form_id"),
         Index("ix_form_responses_parent", "parent_type", "parent_id"),
@@ -83,7 +84,6 @@ class Contract(PKMixin, BusinessScoped, TimestampMixin, Base):
     body: Mapped[str] = mapped_column(String, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     always_require: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    expires: Mapped[str | None] = mapped_column(String)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
@@ -91,6 +91,7 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "signatures"
     __table_args__ = (
         enum_check("signatures", "status", "pending", "signed", "declined", "expired"),
+        enum_check("signatures", "parent_type", *DOCUMENT_PARENTS),
         UniqueConstraint("token", name="uq_signatures_token"),
         Index("ix_signatures_contract", "business_id", "contract_id"),
         Index("ix_signatures_parent", "parent_type", "parent_id"),

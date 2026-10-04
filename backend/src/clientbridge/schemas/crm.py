@@ -1,6 +1,9 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+ClientStatus = Literal["active", "inactive"]
 
 
 class ClientBase(BaseModel):
@@ -8,7 +11,7 @@ class ClientBase(BaseModel):
     email: str | None = None
     phone: str | None = None
     tags: list[str] = Field(default_factory=list)
-    status: str = "active"
+    status: ClientStatus = "active"
     custom_fields: dict[str, object] = Field(default_factory=dict)
 
 
@@ -21,7 +24,7 @@ class ClientUpdate(BaseModel):
     email: str | None = None
     phone: str | None = None
     tags: list[str] | None = None
-    status: str | None = None
+    status: ClientStatus | None = None
     custom_fields: dict[str, object] | None = None
 
 

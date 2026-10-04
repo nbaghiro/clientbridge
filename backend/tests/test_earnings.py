@@ -55,7 +55,12 @@ async def _paid_booking(
     await db.execute(
         update(Staff)
         .where(Staff.id == "st_diego")
-        .values(is_payee=payee, rate_type=rate_type, default_rate=rate)
+        .values(
+            payee=payee,
+            rate_type=rate_type,
+            rate_bps=round(rate * 100) if rate_type == "percent" else None,
+            rate_cents=None if rate_type == "percent" else round(rate * 100),
+        )
     )
     await db.flush()
     cid = await _seed_id(db, Client)

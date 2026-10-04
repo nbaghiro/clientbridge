@@ -7,10 +7,17 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
+FILE_PARENTS = ("business", "client", "subject", "item", "signature", "form_response")
+FILE_KINDS = ("logo", "image", "photo", "signature", "attachment")
+
 
 class File(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "files"
-    __table_args__ = (Index("ix_files_parent", "business_id", "parent_type", "parent_id"),)
+    __table_args__ = (
+        enum_check("files", "parent_type", *FILE_PARENTS),
+        enum_check("files", "kind", *FILE_KINDS),
+        Index("ix_files_parent", "business_id", "parent_type", "parent_id"),
+    )
 
     parent_type: Mapped[str] = mapped_column(String, nullable=False)
     parent_id: Mapped[str] = mapped_column(String, nullable=False)
@@ -29,7 +36,7 @@ class AuditLog(PKMixin, BusinessScoped, Base):
         Index("ix_audit_created", "business_id", "created_at"),
     )
 
-    actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    performed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String, nullable=False)
     entity_type: Mapped[str] = mapped_column(String, nullable=False)
     entity_id: Mapped[str] = mapped_column(String, nullable=False)

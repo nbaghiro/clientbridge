@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal
-from clientbridge.core.errors import AppError, Conflict, NotFound, Unauthorized
+from clientbridge.core.errors import AppError, Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token, verify_password
@@ -21,6 +21,21 @@ from clientbridge.services.auth_service import build_user
 
 INVITE_TTL = timedelta(days=14)
 INVITABLE_ROLES = {"admin", "staff", "contractor"}  # never invite an owner
+
+
+def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
+    """A percent rate is held in basis points and a fixed or hourly one in cents, so a change of
+    basis clears the other unit; a rate sent in the wrong unit for the basis is refused."""
+    if staff.rate_type is None:
+        if staff.rate_bps is not None or staff.rate_cents is not None:
+            raise Unprocessable("set how the rate applies (percent, fixed or hourly)")
+        return
+    used, unused = (
+        ("rate_bps", "rate_cents") if staff.rate_type == "percent" else ("rate_cents", "rate_bps")
+    )
+    if unused in data.model_fields_set and getattr(data, unused) is not None:
+        raise Unprocessable(f"{used} holds the rate for rate_type {staff.rate_type}")
+    setattr(staff, unused, None)
 
 
 class StaffService:
@@ -44,6 +59,7 @@ class StaffService:
                 raise NotFound("team member not found")
             for key, value in data.model_dump(exclude_unset=True).items():
                 setattr(staff, key, value)
+            _fit_rate_unit(staff, data)
             await self.db.flush()
             cmd.record("staff.pay", entity_type="staff", entity_id=staff.id)
             return StaffPayOut.model_validate(staff)
@@ -127,7 +143,7 @@ class StaffService:
             AuditLog(
                 id=new_id("audit_log"),
                 business_id=staff.business_id,
-                actor_user_id=user.id,
+                performed_by=user.id,
                 action="staff.accept",
                 entity_type="staff",
                 entity_id=staff.id,

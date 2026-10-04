@@ -317,9 +317,9 @@ const TESTS = [
 
   { id:"tax", eye:"Catalog & tax", title:"Tax configuration", note:"Tax registration + province are now read through business_service accessors (business_tax_registered / business_province); the tax engine no longer imports the Business model.", cases:[
     { id:"TAX-1", pri:"P1", title:"Small-supplier collects no tax", validates:"business_tax_registered() accessor feeding lines.tax_for_lines.",
-      pre:["As owner, set the business to NOT tax-registered (Settings → Tax, `is_tax_registered = false`)."],
+      pre:["As owner, set the business to NOT tax-registered (Settings → Tax, `tax_registered = false`)."],
       steps:["Create an invoice with a $100 service line and view its totals."],
-      expect:["Tax total is $0.00; total equals subtotal.","Flip `is_tax_registered = true` and re-check a new invoice: GST/HST now applies per province."] },
+      expect:["Tax total is $0.00; total equals subtotal.","Flip `tax_registered = true` and re-check a new invoice: GST/HST now applies per province."] },
     { id:"TAX-2", pri:"P2", title:"Province drives the right rate", validates:"business_province() accessor → rates_for_business.",
       pre:["Business tax-registered."],
       steps:["Set province to ON, create a taxable $100 invoice → expect HST 13%.","Set province to QC → expect GST 5% + QST 9.975%.","Set province to AB → expect GST 5% only.","Check `GET /v1/tax-rates` reflects the province."],

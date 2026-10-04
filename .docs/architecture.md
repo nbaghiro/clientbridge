@@ -184,11 +184,12 @@ records every money movement and is the only place money balances are stored. Th
 
 **identity (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
 JSONB), `users` (global login, `email` unique, `oauth`), `staff` (user↔business, `role`
-owner/admin/staff/contractor, payout config `is_payee`/`default_rate`/`rate_type`, pending invites via
+owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
+`rate_cents` (fixed or hourly), one membership per user per business, pending invites via
 `status=invited` + hashed `invite_token`).
 
 **crm (3)** — `clients` *(soft-del)* (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
-`parent_type`/`parent_id`).
+`parent_type`/`parent_id` over client/subject/booking, `created_by`).
 
 **catalog (4)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`), `packages`
@@ -200,8 +201,9 @@ subscription/gift — duration, capacity, deposit, recurrence, session_count, `s
 = capacity N; `booked_count`, `recurrence_id`), `bookings` *(soft-del)* (client↔session; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show; `source`; deposit terms (the deposit's
 state is derived from the ledger); `reminded_at`),
-`availability` (per-staff recurring weekday or date override, `is_available`), `resources` (rooms/equipment),
-`schedules` (recurrence rule → expands to sessions/bookings).
+`availability` (per-staff recurring weekday or date override, `available`), `resources` (rooms/equipment),
+`schedules` (recurrence rule with `frequency` day/week/month, the same words items use → expands to
+sessions/bookings).
 
 **billing (4)** — `invoices` (per-business unique `number`, status lifecycle draft/sent/partial/paid/overdue/
 void/refunded, document totals subtotal/tax/total fixed at issue, `pay_token`; what is owed is the
@@ -210,8 +212,10 @@ invoice's receivable in the ledger), `estimates` (accept/decline/convert → inv
 `tax_amount_cents`).
 
 **payments (2)** — `payments` (payment attempts and Stripe objects: `kind` payment/deposit/refund; status;
-unique `provider_ref` = one row per Stripe object; one-refund-per-payment; Interac `reference_code`),
-`payment_methods` (saved card/PAD).
+unique `provider_ref` = one row per Stripe object; one-refund-per-payment; Interac `reference_code`; a
+refund always has `parent_payment_id`, and a payment targets at most one invoice or one order),
+`payment_methods` (saved card/PAD, `type` card/bank_eft/interac, the same spelling as `payments.method`;
+`preferred` marks the card charged off-session).
 
 **ledger (2)** — `accounts` (one per owner × kind × code × currency: owners are a business, client, staff
 member, the platform, a gift card or a package; kinds are cash (`stripe`/`bank`/`cash`), `receivable`,
@@ -340,7 +344,7 @@ currently same perms as staff).
 
 ### Enforcement — the sync buckets (`infra/powersync/sync-rules.yaml`)
 Four buckets implement the read model (owner-sees-workers'-activity is carried by three columns:
-`bookings.staff_id`, the ledger's `owner_type`/`owner_id`, and `audit_logs.actor_user_id`):
+`bookings.staff_id`, the ledger's `owner_type`/`owner_id`, and `audit_logs.performed_by`):
 - **`business_shared`** (every active member) — reference data + the shared client book + client docs.
 - **`staff_directory`** (staff and contractors): the team directory without pay rates or payee flags.
   Owner/admin read staff rows with the pay columns from `business_full` instead, so a staff row never
@@ -418,7 +422,7 @@ and records any drift in `audit_logs`.
 
 ### Tax
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
-The business stores registration numbers; small-supplier mode (`is_tax_registered=false`) collects nothing.
+The business stores registration numbers; small-supplier mode (`tax_registered=false`) collects nothing.
 The engine (`services/tax_service.py`) is pure and golden-tested; rates are hardcoded per province in
 `services/tax_rates.py` (no table). Each item carries a tax class (`standard` charges every component,
 `federal_only` only the GST or HST, `exempt` nothing), copied onto each line when it is created, so a later

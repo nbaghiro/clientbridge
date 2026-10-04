@@ -95,9 +95,10 @@ class InviteOut(BaseModel):
 
 
 class StaffPayUpdate(BaseModel):
-    is_payee: bool | None = None
+    payee: bool | None = None
     rate_type: Literal["percent", "fixed", "hourly"] | None = None
-    default_rate: float | None = Field(default=None, ge=0)  # percent points, or dollars
+    rate_bps: int | None = Field(default=None, ge=0)  # a percent rate, in basis points
+    rate_cents: int | None = Field(default=None, ge=0)  # a fixed or hourly rate
     retail_rate_bps: int | None = Field(default=None, ge=0, le=10000)  # commission on products
 
 
@@ -105,7 +106,8 @@ class StaffPayOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    is_payee: bool
+    payee: bool
     rate_type: str | None
-    default_rate: float | None
+    rate_bps: int | None
+    rate_cents: int | None
     retail_rate_bps: int | None

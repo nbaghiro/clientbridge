@@ -133,7 +133,7 @@ async def test_payment_method_auto_updated_refreshes_card(
             last4="4242",
             provider="stripe",
             provider_ref="pm_stripe_1",
-            is_default=True,
+            preferred=True,
             mandate_status="none",
             status="active",
         )

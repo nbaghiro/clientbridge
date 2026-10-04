@@ -95,7 +95,7 @@ function seed(): void {
             stripe_account_id: "acct_1",
             stripe_terminal_location_id: "tml_1",
             kyc_status: "verified",
-            is_tax_registered: 1,
+            tax_registered: 1,
             status: "active",
         },
     ]);
@@ -106,9 +106,9 @@ function seed(): void {
             role: "owner",
             status: "active",
             title: "Owner",
-            is_payee: 1,
+            payee: 1,
             rate_type: "percent",
-            default_rate: 40,
+            rate_bps: 4000,
             retail_rate_bps: 1000,
         },
         {
@@ -117,9 +117,9 @@ function seed(): void {
             role: "staff",
             status: "active",
             title: "Groomer",
-            is_payee: 1,
+            payee: 1,
             rate_type: "hourly",
-            default_rate: 22.5,
+            rate_cents: 2250,
         },
         { id: "st_new", role: "staff", status: "invited", invite_email: "new@birch.test" },
     ]);
@@ -445,7 +445,7 @@ function seed(): void {
             type: "card",
             brand: "Visa",
             last4: "4242",
-            is_default: 0,
+            preferred: 0,
             mandate_status: "none",
             status: "active",
         },
@@ -455,7 +455,7 @@ function seed(): void {
             type: "card",
             brand: "Visa",
             last4: "1111",
-            is_default: 1,
+            preferred: 1,
             mandate_status: "none",
             status: "active",
             created_at: "2026-06-27T00:00:00Z",
@@ -464,7 +464,7 @@ function seed(): void {
             id: "pm_gone",
             client_id: "cl_ann",
             type: "card",
-            is_default: 0,
+            preferred: 0,
             mandate_status: "none",
             status: "detached",
         },
@@ -587,9 +587,9 @@ function seed(): void {
             weekday: 1,
             start_time: "09:00:00",
             end_time: "17:00:00",
-            is_available: 1,
+            available: 1,
         },
-        { id: "av_2", staff_id: "st_amy", type: "date", date: "2026-07-01", is_available: 0 },
+        { id: "av_2", staff_id: "st_amy", type: "date", date: "2026-07-01", available: 0 },
     ]);
 
     const account = (id: string, ownerType: string, ownerId: string, kind: string, code = "") =>
@@ -947,9 +947,11 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("STAFF_SQL").map((r) => r.id)).toEqual(["st_owner", "st_amy"]);
         expect(run("PENDING_INVITES_SQL").map((r) => r.id)).toEqual(["st_new"]);
         expect(run("CURRENT_VIEWER_SQL", ["us_amy"])).toEqual([{ id: "st_amy", role: "staff" }]);
-        expect(pick(run("STAFF_PAY_SQL"), "id", "is_payee", "rate_type", "default_rate")).toEqual([
-            { id: "st_owner", is_payee: 1, rate_type: "percent", default_rate: 40 },
-            { id: "st_amy", is_payee: 1, rate_type: "hourly", default_rate: 22.5 },
+        expect(
+            pick(run("STAFF_PAY_SQL"), "id", "payee", "rate_type", "rate_bps", "rate_cents"),
+        ).toEqual([
+            { id: "st_owner", payee: 1, rate_type: "percent", rate_bps: 4000, rate_cents: null },
+            { id: "st_amy", payee: 1, rate_type: "hourly", rate_bps: null, rate_cents: 2250 },
         ]);
     });
 
@@ -982,7 +984,7 @@ describe("app-core SQL against the replica schema", () => {
             { id: "con_1", name: "Waiver", version: 2, always_require: 1, active: 1 },
         ]);
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
-            { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", is_available: 1 },
+            { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
 
         run("INSERT_FORM_SQL", ["frm_new", BIZ, "Intake", "[]", 0, 1]);
@@ -1004,7 +1006,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("FORM_FIELDS_SQL", ["frm_new"]).map((r) => r.id)).toEqual(["ff_new"]);
         expect(run("CONTRACTS_SQL").map((r) => r.id)).toEqual(["con_new", "con_1"]);
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
-            { weekday: 2, start_time: "10:00:00", end_time: "14:00:00", is_available: 1 },
+            { weekday: 2, start_time: "10:00:00", end_time: "14:00:00", available: 1 },
         ]);
         expect(all("SELECT id FROM availability WHERE staff_id = 'st_amy'").length).toBe(2);
     });

@@ -46,7 +46,7 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
     ok(await api.patch(f"/v1/items/{SHAMPOO}", json={"track_stock": True}))
     restocked = ok(await api.post(f"/v1/items/{SHAMPOO}/restock", json={"quantity": 5})).json()
     assert restocked["stock_on_hand"] == 5
-    ok(await api.patch("/v1/staff/st_owner/pay", json={"is_payee": True, "retail_rate_bps": 1000}))
+    ok(await api.patch("/v1/staff/st_owner/pay", json={"payee": True, "retail_rate_bps": 1000}))
 
     sale = ok(
         await api.post(

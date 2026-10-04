@@ -304,7 +304,7 @@ async def test_availability_recurring_put_and_delete(
                         "weekday": 0,
                         "start_time": "09:00:00",
                         "end_time": "17:00:00",
-                        "is_available": 1,
+                        "available": 1,
                     },
                 }
             ]
@@ -342,7 +342,7 @@ async def test_staff_sets_own_availability(as_staff: httpx.AsyncClient, db: Asyn
                         "weekday": 2,
                         "start_time": "10:00:00",
                         "end_time": "16:00:00",
-                        "is_available": 1,
+                        "available": 1,
                     },
                 }
             ]
@@ -367,7 +367,7 @@ async def test_staff_cannot_set_others_availability(as_staff: httpx.AsyncClient)
                         "staff_id": "st_owner",
                         "type": "recurring",
                         "weekday": 0,
-                        "is_available": 0,
+                        "available": 0,
                     },
                 }
             ]

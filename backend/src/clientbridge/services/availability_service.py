@@ -27,17 +27,15 @@ async def open_windows(
     )
     date_rows = [r for r in rows if r.type == "date" and r.date == on_date]
     if date_rows:
-        if any(not r.is_available and r.start_time is None for r in date_rows):
+        if any(not r.available and r.start_time is None for r in date_rows):
             return []
         return [
-            (r.start_time or time.min, r.end_time or time.max) for r in date_rows if r.is_available
+            (r.start_time or time.min, r.end_time or time.max) for r in date_rows if r.available
         ]
     weekday_rows = [r for r in rows if r.type == "recurring" and r.weekday == on_date.weekday()]
     if not weekday_rows:
         return None
-    return [
-        (r.start_time or time.min, r.end_time or time.max) for r in weekday_rows if r.is_available
-    ]
+    return [(r.start_time or time.min, r.end_time or time.max) for r in weekday_rows if r.available]
 
 
 def _as_utc(dt: datetime) -> datetime:

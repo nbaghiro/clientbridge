@@ -272,9 +272,9 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
                                 {strings.team.rateLabel(form.rateType)}
                                 <input
-                                    value={form.defaultRate}
+                                    value={form.rate}
                                     onChange={(e) => {
-                                        form.setDefaultRate(e.target.value);
+                                        form.setRate(e.target.value);
                                     }}
                                     inputMode="decimal"
                                     className={payField}

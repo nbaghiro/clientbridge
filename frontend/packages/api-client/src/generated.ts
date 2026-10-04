@@ -2029,8 +2029,9 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "inactive";
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -2049,8 +2050,9 @@ export interface components {
             /**
              * Status
              * @default active
+             * @enum {string}
              */
-            status: string;
+            status: "active" | "inactive";
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -2081,7 +2083,7 @@ export interface components {
             /** Tags */
             tags?: string[] | null;
             /** Status */
-            status?: string | null;
+            status?: ("active" | "inactive") | null;
             /** Custom Fields */
             custom_fields?: {
                 [key: string]: unknown;
@@ -2239,12 +2241,15 @@ export interface components {
         };
         /** FileCreate */
         FileCreate: {
-            /** Parent Type */
-            parent_type: string;
+            /**
+             * Parent Type
+             * @enum {string}
+             */
+            parent_type: "business" | "client" | "subject" | "item" | "signature" | "form_response";
             /** Parent Id */
             parent_id: string;
             /** Kind */
-            kind?: string | null;
+            kind?: ("logo" | "image" | "photo" | "signature" | "attachment") | null;
             /** Content Type */
             content_type?: string | null;
             /** Size */
@@ -2983,8 +2988,8 @@ export interface components {
             brand: string | null;
             /** Last4 */
             last4: string | null;
-            /** Is Default */
-            is_default: boolean;
+            /** Preferred */
+            preferred: boolean;
             /** Status */
             status: string;
         };
@@ -3467,7 +3472,7 @@ export interface components {
              * Frequency
              * @enum {string}
              */
-            frequency: "daily" | "weekly" | "monthly";
+            frequency: "day" | "week" | "month";
             /**
              * Interval
              * @default 1
@@ -3549,23 +3554,27 @@ export interface components {
         StaffPayOut: {
             /** Id */
             id: string;
-            /** Is Payee */
-            is_payee: boolean;
+            /** Payee */
+            payee: boolean;
             /** Rate Type */
             rate_type: string | null;
-            /** Default Rate */
-            default_rate: number | null;
+            /** Rate Bps */
+            rate_bps: number | null;
+            /** Rate Cents */
+            rate_cents: number | null;
             /** Retail Rate Bps */
             retail_rate_bps: number | null;
         };
         /** StaffPayUpdate */
         StaffPayUpdate: {
-            /** Is Payee */
-            is_payee?: boolean | null;
+            /** Payee */
+            payee?: boolean | null;
             /** Rate Type */
             rate_type?: ("percent" | "fixed" | "hourly") | null;
-            /** Default Rate */
-            default_rate?: number | null;
+            /** Rate Bps */
+            rate_bps?: number | null;
+            /** Rate Cents */
+            rate_cents?: number | null;
             /** Retail Rate Bps */
             retail_rate_bps?: number | null;
         };

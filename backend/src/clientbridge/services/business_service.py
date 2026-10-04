@@ -33,7 +33,7 @@ async def business_tax_registered(db: AsyncSession, business_id: str) -> bool:
     tax engine applies no tax for it."""
     return bool(
         (
-            await db.execute(select(Business.is_tax_registered).where(Business.id == business_id))
+            await db.execute(select(Business.tax_registered).where(Business.id == business_id))
         ).scalar_one()
     )
 

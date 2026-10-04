@@ -45,5 +45,5 @@ class DashboardService:
             gst_hst_set_aside_cents=-await ledger.account_total(
                 self.db, self.biz, Account.kind == "tax"
             ),
-            gst_hst_filing_due=next_gst_filing(now.date()) if business.is_tax_registered else None,
+            gst_hst_filing_due=next_gst_filing(now.date()) if business.tax_registered else None,
         )

@@ -194,7 +194,7 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
 
 function CardRow({ card }: { card: SavedCardRow }) {
     const { busy, error, run } = useAsyncAction();
-    const isDefault = card.is_default === 1;
+    const isDefault = card.preferred === 1;
 
     const makeDefault = (): void => {
         run(() => setDefaultCard(api, card.id), {

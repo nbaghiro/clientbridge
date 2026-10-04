@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, String
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -11,7 +11,15 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "payments"
     __table_args__ = (
         enum_check("payments", "kind", "payment", "deposit", "refund"),
-        enum_check("payments", "method", "card", "interac", "eft", "cash", "other"),
+        enum_check("payments", "method", "card", "interac", "bank_eft", "cash", "other"),
+        # a refund points at what it refunds; a payment settles at most one invoice or one order,
+        # and an invoice payment may also carry the booking it was taken for
+        CheckConstraint(
+            "(kind = 'refund') = (parent_payment_id IS NOT NULL)"
+            " AND num_nonnulls(invoice_id, order_id) <= 1"
+            " AND (order_id IS NULL OR booking_id IS NULL)",
+            name="ck_payments_target",
+        ),
         enum_check("payments", "provider", "stripe", "interac", "manual"),
         enum_check("payments", "status", "pending", "succeeded", "failed", "refunded", "canceled"),
         Index("ix_payments_status", "business_id", "status"),
@@ -57,6 +65,6 @@ class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):
     last4: Mapped[str | None] = mapped_column(String)
     provider: Mapped[str | None] = mapped_column(String)
     provider_ref: Mapped[str | None] = mapped_column(String)
-    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    preferred: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mandate_status: Mapped[str] = mapped_column(String, default="none", nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
