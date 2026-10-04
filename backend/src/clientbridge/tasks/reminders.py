@@ -9,7 +9,7 @@ from clientbridge.integrations.notifications import (
     get_push_sender,
     get_sms_sender,
 )
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.notification_service import Notifier
 
 _TERMINAL = ("completed", "canceled", "no_show")
@@ -23,13 +23,13 @@ async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> 
         (
             await db.execute(
                 select(Booking)
-                .join(Session, Session.id == Booking.session_id)
+                .join(Slot, Slot.id == Booking.slot_id)
                 .where(
                     Booking.deleted_at.is_(None),
                     Booking.reminded_at.is_(None),
                     Booking.status.not_in(_TERMINAL),
-                    Session.starts_at > now,
-                    Session.starts_at <= now + _WINDOW,
+                    Slot.starts_at > now,
+                    Slot.starts_at <= now + _WINDOW,
                 )
             )
         )

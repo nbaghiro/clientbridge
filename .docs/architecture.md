@@ -146,8 +146,8 @@ its own business + locale; each is idempotent via a status/timestamp marker and 
 
 ## The data model
 
-**40 tables**: **38 across the 11 domains** plus **2 server-only auth-infra** tables (`auth_sessions`,
-`auth_tokens`). Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
+**42 tables**: **40 across the 11 domains** plus **2 server-only auth-infra** tables (`sessions`,
+`tokens`). Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
 `migrations/versions/` are the applied history.
@@ -173,12 +173,14 @@ records every money movement and is the only place money balances are stored. Th
   one open review request per booking, one refund per payment, unique Interac reference codes).
 
 ### ID prefixes
-`bz_`business `us_`user `st_`staff · `cl_`client `sj_`subject `nt_`note · `it_`item `pkg_`package
-`sub_`subscription `gc_`gift_card · `ses_`session `bk_`booking `av_`availability `rs_`resource
-`sch_`schedule · `inv_`invoice `est_`estimate `ord_`order `ln_`line · `pay_`payment `pm_`payment_method
-`acc_`account `ent_`entry `jrn_`journal · `th_`thread `msg_`message `bro_`broadcast · `frm_`form `ff_`form_field
-`fr_`form_response `con_`contract `sig_`signature · `rv_`review `rvr_`review_request · `fl_`file
-`aud_`audit_log `wh_`webhook `dev_`device_token `idk_`idempotency_key
+Prefixes predate the table renames and are kept so existing ids stay valid; the table each one lands in is
+shown after it.
+`bz_`businesses `us_`users `st_`staff · `cl_`clients `sj_`subjects `nt_`notes · `it_`items `pkg_`packages
+`sub_`subscriptions `gc_`gift_cards `stk_`inventory · `ses_`slots `bk_`bookings `bka_`addons `av_`hours
+`rs_`resources `sch_`recurrences · `inv_`invoices `est_`estimates `ord_`orders `ln_`lines · `pay_`payments
+`pm_`payment_methods `acc_`accounts `ent_`entries `jrn_`journal · `th_`threads `msg_`messages `bro_`broadcasts
+· `frm_`forms `ff_`fields `fr_`responses `con_`contracts `sig_`signatures · `rv_`reviews `rvr_`review_requests
+· `fl_`files `aud_`audits `wh_`webhooks `dvt_`devices `idk_`commands `ase_`sessions `atk_`tokens
 
 ### Tables by domain
 
@@ -191,20 +193,22 @@ owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in
 **crm (3)** — `clients` *(soft-del)* (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`).
 
-**catalog (4)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
+**catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
 subscription/gift — duration, capacity, deposit, recurrence, session_count, `stripe_price_id`), `packages`
 (client's package: `sessions_total` and status; sessions used is the count of its consumption journals), `subscriptions` (recurring: status, period,
 `provider_ref`; partial-unique one active/paused per client+item), `gift_cards` (`code` unique per business,
 `initial_cents`; the spendable balance is the card's own ledger account, and an active card with nothing
-left reads as redeemed).
+left reads as redeemed), `inventory` (one signed stock movement per row, `reason` sale/refund/restock, keyed
+by line and reason; `items.stock_on_hand` is the running total).
 
-**scheduling (5)** — `sessions` (the calendar event: capacity-bearing block; appointment = capacity 1, class
-= capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` *(soft-del)* (client↔session; denormalized
+**scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
+= capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` *(soft-del)* (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show; `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
-`availability` (per-staff recurring weekday or date override, `available`), `resources` (rooms/equipment),
-`schedules` (recurrence rule with `frequency` day/week/month, the same words items use → expands to
-sessions/bookings).
+`hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`), `resources`
+(`category` room/equipment), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
+items use → expands to slots/bookings), `addons` (products a client added to a visit when booking; they join
+the visit's invoice).
 
 **billing (4)** — `invoices` (per-business unique `number`, stored status draft/sent/void, document totals
 subtotal/tax/total fixed at issue, `pay_token`, `overdue_notified_at`; what is owed is the invoice's
@@ -218,34 +222,35 @@ is set; `item_id`/`booking_id`, `tax_amount_cents`).
 **payments (2)** — `payments` (payment attempts and Stripe objects: `kind` payment/deposit/refund; status;
 unique `provider_ref` = one row per Stripe object; one-refund-per-payment; Interac `reference_code`; a
 refund always has `parent_payment_id`, and a payment targets at most one invoice or one order),
-`payment_methods` (saved card/PAD, `type` card/bank_eft/interac, the same spelling as `payments.method`;
+`payment_methods` (saved card/PAD, `method` card/bank_eft/interac, the same spelling as `payments.method`;
 `preferred` marks the card charged off-session).
 
-**ledger (2)** — `accounts` (one per owner × kind × code × currency: owners are a business, client, staff
-member, the platform, a gift card or a package; kinds are cash (`stripe`/`bank`/`cash`), `receivable`,
+**ledger (2)** — `accounts` (one per owner × category × code × currency: owners are a business, client, staff
+member, the platform, a gift card or a package; categories are cash (`stripe`/`bank`/`cash`), `receivable`,
 liabilities (`tax` per GST/HST/PST/QST code, `gift_card`, `deposit`, `deferred`, `payable` per
 pending/approved stage), income (`revenue`, `fee_revenue`) and expenses (`processing_fee`, `platform_fee`,
 `staff_cost`); a cached `balance_cents`), `entries` (append-only legs grouped by `journal_id`; signed
-`amount_cents`, debit positive; `type` = the event; `source_*` = what caused it; `subject_*` = the entity it
+`amount_cents`, debit positive; `event` = what happened; `source_*` = what caused it; `subject_*` = the entity it
 belongs to; `ref` + `leg` unique = idempotency; the account's owner is copied on for sync slicing).
 
 **messaging (3)** — `threads` (unique per business+client+channel; the last message time and the unread
 count, inbound messages not yet `read`, are read from `messages`), `messages` (direction in/out,
 `broadcast_id`, `attachments`), `broadcasts` (audience JSONB + `scheduled_at`).
 
-**documents (5)** — `forms`, `form_fields` (17 typed field types), `form_responses` (public-link token,
+**documents (5)** — `forms`, `fields` (`input` is one of 17 field types), `responses` (public-link token,
 `answers` JSONB), `contracts` (template), `signatures` (public-link token; snapshots `signed_body` + captures
 `ip`; links a signature image file).
 
 **reviews (2)** — `reviews` (rating 1–5 CHECK; `sent_to_google`; rolls up to `businesses.avg_rating`),
 `review_requests` (unique token; partial-unique one open request per booking).
 
-**platform (5)** — `files` (S3 key), `audit_logs` (append-only activity feed), `webhook_events` (inbound
-provider events; **not** business-scoped — routed during processing), `device_tokens` (Expo push),
-`idempotency_keys` (unique per business+scope+key — backs `run_command` replay).
+**platform (5)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (append-only
+activity feed; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
+**not** business-scoped — routed during processing; server-only), `devices` (Expo push tokens), `commands`
+(unique per business+scope+key — backs `run_command` replay; server-only).
 
-**auth-infra (2, server-only, excluded from sync)** — `auth_sessions` (refresh-token families; rotation
-swaps the hash, replay revokes the family), `auth_tokens` (single-use reset/verify tokens).
+**auth-infra (2, server-only, excluded from sync)** — `sessions` (refresh-token families; rotation
+swaps the hash, replay revokes the family), `tokens` (single-use reset/verify tokens).
 
 > **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are hardcoded per province in
 > `services/tax_rates.py` and derived from `businesses.province`; the tax engine (`services/tax_service.py`)
@@ -253,12 +258,15 @@ swaps the hash, replay revokes the family), `auth_tokens` (single-use reset/veri
 
 ### Polymorphic patterns
 `lines` one FK per document (estimate/invoice/order, exactly one set) · `payments` nullable over invoice/booking/order + `kind`/
-`method`/`reference_code` · `items.kind` = whole catalog · `sessions` = every slot · `staff` = staff +
-invites · `entries.subject_type`/`source_type` = any money event on any entity · `notes`/`files`/`audit_logs` `parent_type`
-generalize the rest.
+`method`/`reference_code` · `items.kind` = whole catalog · `slots` = every calendar block · `staff` = staff +
+invites · `entries.subject_type`/`source_type` = any money event on any entity · `notes`/`files`/`responses`/
+`signatures` `parent_type` and `audits.entity_type` generalize the rest. `kind` is used only on `items`,
+`payments` and `subjects`; other discriminators carry a name that says what they mean (`hours.basis`,
+`fields.input`, `payment_methods.method`, `entries.event`, `webhooks.event`, `accounts.category`,
+`resources.category`, `files.purpose`).
 
 > **Why this shape:** the model is a pragmatic "mostly-lean" blend chosen over an option-by-option review —
-> maximally consolidated (shared `lines`/`payments` across documents, one `items(kind)`, one `sessions` for 1:1 + group)
+> maximally consolidated (shared `lines`/`payments` across documents, one `items(kind)`, one `slots` for 1:1 + group)
 > but split where lifecycles genuinely differ (packages vs subscriptions vs gift cards; forms vs contracts).
 > A deliberately lean schema, with clarity kept exactly where money and lifecycles live.
 
@@ -300,10 +308,10 @@ unauthenticated call mints a token for `dev_user_id` (HS256); prod requires a va
 The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → (min_tier,
 own_only)**. Only low-risk, client-owned tables are sync-writable:
 - **team-writable** (any active staff): `clients` · `subjects` · `notes` · `messages`, and (own-only)
-  `availability`.
-- **admin-writable** (owner/admin): `items` · `resources` · `forms` · `form_fields` · `contracts`.
+  `hours`.
+- **admin-writable** (owner/admin): `items` · `resources` · `forms` · `fields` · `contracts`.
 - **not sync-writable** (server-only invariant): everything money/capacity/secret/uniqueness — `payments`,
-  `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `sessions`/`bookings`/`schedules`, `invoices`/
+  `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `slots`/`bookings`/`recurrences`, `invoices`/
   `estimates`/`orders`/`lines`, `threads`, `broadcasts`, `businesses`, `staff`, `reviews`, files, audit/
   webhook logs → each replaced by a `/v1` command.
 
@@ -340,24 +348,24 @@ currently same perms as staff).
 ### Visibility — the employee model (default)
 | Data | owner / admin | staff |
 |---|---|---|
-| Own calendar (sessions/bookings/availability) | ✅ all members | ✅ own only |
+| Own calendar (slots/bookings/hours) | ✅ all members | ✅ own only |
 | Shared client book (clients, subjects, docs, catalog) | ✅ | ✅ |
 | Own earnings (their own `payable` account + entries) | ✅ all | ✅ own |
 | Financials (invoices, payments, the ledger, others' pay) | ✅ | ❌ |
-| Inbox / broadcasts / reviews / activity log | ✅ | ❌ |
+| Inbox / broadcasts / reviews | ✅ | ❌ |
 | Settings / billing / staff management | owner (+ admin ops) | ❌ |
 
 ### Enforcement — the sync buckets (`infra/powersync/sync-rules.yaml`)
-Four buckets implement the read model (owner-sees-workers'-activity is carried by three columns:
-`bookings.staff_id`, the ledger's `owner_type`/`owner_id`, and `audit_logs.performed_by`):
+Four buckets implement the read model (owner-sees-workers'-activity is carried by
+`bookings.staff_id` and the ledger's `owner_type`/`owner_id`; the `audits` trail is server-only):
 - **`business_shared`** (every active member) — reference data + the shared client book + client docs.
 - **`staff_directory`** (staff and contractors): the team directory without pay rates or payee flags.
   Owner/admin read staff rows with the pay columns from `business_full` instead, so a staff row never
   reaches one device with two different column sets. No bucket syncs `invite_token`.
-- **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** sessions/bookings/availability/
-  schedules, plus their own staff `accounts` and `entries` (earnings).
+- **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** slots/bookings/hours/
+  recurrences, plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' work + all financials (including the whole
-  ledger) + inbox + `audit_logs`.
+  ledger) + inbox.
 
 Device read scope: staff = `business_shared` + `staff_directory` + `staff_self` · owner/admin =
 `business_shared` + `staff_self` + `business_full`. Writes
@@ -369,7 +377,7 @@ defense-in-depth for the API, not the sync filter.
 ## Domain models
 
 ### Public media
-Business logos and catalog item images are `files` rows (`parent_type` business/item, `kind` logo/image)
+Business logos and catalog item images are `files` rows (`parent_type` business/item, `purpose` logo/image)
 uploaded by an owner or admin. `GET /media/{file_id}` serves only those two kinds, by redirecting to a
 short-lived presigned S3 URL, so they have stable links for the public pages and the apps. Every other
 file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it into the media URL.
@@ -423,7 +431,7 @@ payouts. A booking's `deposit_status` (none/pending/collected/applied/forfeited/
 as the ledger books the deposit, because staff replicas do not sync the business ledger; the amount stays
 in the ledger. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read entries and account balances.
 `tasks/ledger_jobs.py` reconciles each connected account's ledger Stripe balance against Stripe's nightly
-and records any drift in `audit_logs`.
+and records any drift in `audits`.
 
 ### Tax
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
@@ -441,14 +449,14 @@ invoice lines, the online shop and booking add-ons. Only services and classes ca
 cards, packages and subscriptions are refused as plain lines and sell through their own checkout so the
 entitlement and its liability are created.
 - **Stock** is optional per product (`track_stock`, `stock_on_hand`, `low_stock_at`). Every change is a row
-  in `stock_movements` (sale, refund, restock) keyed by line and reason, so a repeated webhook can't move
+  in `inventory` (sale, refund, restock) keyed by line and reason, so a repeated webhook can't move
   stock twice; `stock_on_hand` is the cached total. Selling below zero is allowed at the till; the online
   shop refuses an order larger than the stock.
 - **Retail commission:** a paid sale accrues an earning for its staff member at `staff.retail_rate_bps` on the
   product lines before tax, using the same earning journals as bookings.
 - **Online shop:** products marked `sell_online` are listed at `/shop/<slug>` on Connect. An order is paid by
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
-- **Booking add-ons:** products chosen on the booking page are stored in `booking_addons` and become lines
+- **Booking add-ons:** products chosen on the booking page are stored in `addons` and become lines
   on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`); only the deposit is
   charged at booking time.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
@@ -456,8 +464,8 @@ entitlement and its liability are created.
 
 ### Auth
 Owners/staff: **email + password (Argon2) + Google OAuth**. Sessions are **JWT access + stateful refresh**
-(`auth_sessions` families — rotation swaps the token hash; reuse of a rotated token revokes the whole
-family). Reset/verify use single-use, expiring `auth_tokens`. Clients **book without an account** (name/
+(`sessions` families — rotation swaps the token hash; reuse of a rotated token revokes the whole
+family). Reset/verify use single-use, expiring `tokens`. Clients **book without an account** (name/
 phone/email on the public page); a future portal links a client to a login via `clients.user_id`.
 
 ---

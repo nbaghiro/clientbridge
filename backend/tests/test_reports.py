@@ -125,7 +125,7 @@ async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, s
     journal = await ledger.post(
         db,
         BIZ,
-        type="earning",
+        event="earning",
         ref=f"earning:{ref}:0",
         legs=[
             Leg("business", BIZ, "staff_cost", amount),
@@ -138,7 +138,7 @@ async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, s
     await ledger.post(
         db,
         BIZ,
-        type="approval",
+        event="approval",
         ref=f"approval:{journal}",
         legs=[
             Leg("staff", staff_id, "payable", amount, "pending"),
@@ -151,7 +151,7 @@ async def _earn(db: AsyncSession, *, staff_id: str, amount: int, at: datetime, s
         await ledger.post(
             db,
             BIZ,
-            type="staff_payment",
+            event="staff_payment",
             ref=f"staff_payment:{journal}",
             legs=[
                 Leg("staff", staff_id, "payable", amount, "approved"),

@@ -175,7 +175,7 @@ export const REMITTANCES_SQL = `
 SELECT e.journal_id AS id, json_extract(e.meta, '$.start') AS period_start,
        json_extract(e.meta, '$.end') AS period_end, -e.amount_cents AS total_cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
-WHERE e.type = 'remittance' AND a.kind = 'bank'
+WHERE e.event = 'remittance' AND a.category = 'bank'
 ORDER BY period_end DESC`;
 
 /** Sales-tax returns already filed, newest first. */

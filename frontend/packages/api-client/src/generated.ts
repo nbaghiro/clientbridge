@@ -736,7 +736,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/schedules": {
+    "/v1/recurrences": {
         parameters: {
             query?: never;
             header?: never;
@@ -745,8 +745,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Schedule */
-        post: operations["create_schedule_v1_schedules_post"];
+        /** Create Recurrence */
+        post: operations["create_recurrence_v1_recurrences_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1878,8 +1878,8 @@ export interface components {
             id: string;
             /** Business Id */
             business_id: string;
-            /** Session Id */
-            session_id: string;
+            /** Slot Id */
+            slot_id: string;
             /** Client Id */
             client_id: string;
             /** Staff Id */
@@ -2248,8 +2248,8 @@ export interface components {
             parent_type: "business" | "client" | "subject" | "item" | "signature" | "form_response";
             /** Parent Id */
             parent_id: string;
-            /** Kind */
-            kind?: ("logo" | "image" | "photo" | "signature" | "attachment") | null;
+            /** Purpose */
+            purpose?: ("logo" | "image" | "photo" | "signature" | "attachment") | null;
             /** Content Type */
             content_type?: string | null;
             /** Size */
@@ -2270,8 +2270,8 @@ export interface components {
             parent_type: string;
             /** Parent Id */
             parent_id: string;
-            /** Kind */
-            kind: string | null;
+            /** Purpose */
+            purpose: string | null;
             /** S3 Key */
             s3_key: string;
             /** Content Type */
@@ -3136,8 +3136,8 @@ export interface components {
         PublicFormField: {
             /** Id */
             id: string;
-            /** Type */
-            type: string;
+            /** Input */
+            input: string;
             /** Name */
             name: string;
             /** Label */
@@ -3303,6 +3303,77 @@ export interface components {
             /** Title */
             title: string | null;
         };
+        /** RecurrenceCreate */
+        RecurrenceCreate: {
+            /** Client Id */
+            client_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Frequency
+             * @enum {string}
+             */
+            frequency: "day" | "week" | "month";
+            /**
+             * Interval
+             * @default 1
+             */
+            interval: number;
+            /** Byday */
+            byday?: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[] | null;
+            /** Count */
+            count?: number | null;
+            /** Until */
+            until?: string | null;
+            /** Resource Id */
+            resource_id?: string | null;
+            /** Subject Id */
+            subject_id?: string | null;
+        };
+        /** RecurrenceOccurrence */
+        RecurrenceOccurrence: {
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Booking Id */
+            booking_id: string | null;
+            /** Skipped */
+            skipped: string | null;
+        };
+        /** RecurrenceOut */
+        RecurrenceOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /** Client Id */
+            client_id: string | null;
+            /** Frequency */
+            frequency: string;
+            /** Interval */
+            interval: number;
+            /** Status */
+            status: string;
+            /** Created */
+            created: number;
+            /** Skipped */
+            skipped: number;
+            /** Occurrences */
+            occurrences: components["schemas"]["RecurrenceOccurrence"][];
+        };
         /** RefreshBody */
         RefreshBody: {
             /** Refresh Token */
@@ -3454,77 +3525,6 @@ export interface components {
             tax_cents: number;
             /** Refunded Cents */
             refunded_cents: number;
-        };
-        /** ScheduleCreate */
-        ScheduleCreate: {
-            /** Client Id */
-            client_id: string;
-            /** Item Id */
-            item_id: string;
-            /** Staff Id */
-            staff_id: string;
-            /**
-             * Starts At
-             * Format: date-time
-             */
-            starts_at: string;
-            /**
-             * Frequency
-             * @enum {string}
-             */
-            frequency: "day" | "week" | "month";
-            /**
-             * Interval
-             * @default 1
-             */
-            interval: number;
-            /** Byday */
-            byday?: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[] | null;
-            /** Count */
-            count?: number | null;
-            /** Until */
-            until?: string | null;
-            /** Resource Id */
-            resource_id?: string | null;
-            /** Subject Id */
-            subject_id?: string | null;
-        };
-        /** ScheduleOccurrence */
-        ScheduleOccurrence: {
-            /**
-             * Starts At
-             * Format: date-time
-             */
-            starts_at: string;
-            /** Booking Id */
-            booking_id: string | null;
-            /** Skipped */
-            skipped: string | null;
-        };
-        /** ScheduleOut */
-        ScheduleOut: {
-            /** Id */
-            id: string;
-            /** Business Id */
-            business_id: string;
-            /** Item Id */
-            item_id: string;
-            /** Staff Id */
-            staff_id: string | null;
-            /** Client Id */
-            client_id: string | null;
-            /** Frequency */
-            frequency: string;
-            /** Interval */
-            interval: number;
-            /** Status */
-            status: string;
-            /** Created */
-            created: number;
-            /** Skipped */
-            skipped: number;
-            /** Occurrences */
-            occurrences: components["schemas"]["ScheduleOccurrence"][];
         };
         /** SetupIntentOut */
         SetupIntentOut: {
@@ -5358,7 +5358,7 @@ export interface operations {
             };
         };
     };
-    create_schedule_v1_schedules_post: {
+    create_recurrence_v1_recurrences_post: {
         parameters: {
             query?: never;
             header?: {
@@ -5371,7 +5371,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ScheduleCreate"];
+                "application/json": components["schemas"]["RecurrenceCreate"];
             };
         };
         responses: {
@@ -5381,7 +5381,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ScheduleOut"];
+                    "application/json": components["schemas"]["RecurrenceOut"];
                 };
             };
             /** @description Validation Error */

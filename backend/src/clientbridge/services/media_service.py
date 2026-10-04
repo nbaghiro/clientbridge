@@ -18,7 +18,7 @@ def media_url(file_id: str) -> str:
 
 async def public_media_location(db: AsyncSession, storage: FileStorage, file_id: str) -> str:
     file = await db.get(File, file_id)
-    if file is None or (file.parent_type, file.kind) not in PUBLIC_MEDIA:
+    if file is None or (file.parent_type, file.purpose) not in PUBLIC_MEDIA:
         raise NotFound("not found")
     return storage.presign_download(file.s3_key)
 
@@ -29,7 +29,7 @@ async def item_images(
     """Each item's latest image as a public media URL."""
     rows = await db.execute(
         scoped(File, business_id)
-        .where(File.parent_type == "item", File.kind == "image", File.parent_id.in_(item_ids))
+        .where(File.parent_type == "item", File.purpose == "image", File.parent_id.in_(item_ids))
         .order_by(File.created_at)
     )
     return {file.parent_id: media_url(file.id) for file in rows.scalars().all()}

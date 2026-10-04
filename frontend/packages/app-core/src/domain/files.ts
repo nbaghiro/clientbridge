@@ -8,7 +8,7 @@ import type { ApiLike } from "../util/api";
 export interface UploadTarget {
     parentType: string;
     parentId: string;
-    kind?: string;
+    purpose?: string;
 }
 
 interface FileUploadResponse {
@@ -27,7 +27,7 @@ export function requestUpload(
         .post<FileUploadResponse>("/v1/files", {
             parent_type: target.parentType,
             parent_id: target.parentId,
-            kind: target.kind ?? null,
+            purpose: target.purpose ?? null,
             content_type: contentType,
             size: sizeBytes ?? null,
         })
@@ -57,11 +57,11 @@ export function mediaUrl(apiBase: string, fileId: string | null): string | null 
 }
 
 export function itemImageTarget(itemId: string): UploadTarget {
-    return { parentType: "item", parentId: itemId, kind: "image" };
+    return { parentType: "item", parentId: itemId, purpose: "image" };
 }
 
 export function logoTarget(businessId: string): UploadTarget {
-    return { parentType: "business", parentId: businessId, kind: "logo" };
+    return { parentType: "business", parentId: businessId, purpose: "logo" };
 }
 
 /** A short-lived presigned download url for a stored file (`GET /v1/files/{id}/url`). */

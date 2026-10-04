@@ -32,18 +32,18 @@ class DashboardService:
             .with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
             .join_from(Entry, Account, Account.id == Entry.account_id)
             .where(
-                Account.kind.in_(("stripe", "bank", "cash")),
-                Entry.type.in_(("payment", "refund")),
+                Account.category.in_(("stripe", "bank", "cash")),
+                Entry.event.in_(("payment", "refund")),
                 Entry.occurred_at >= day_start,
             )
         )
         return DashboardSummary(
             today_revenue_cents=int(received.scalar_one()),
             awaiting_payment_cents=await ledger.account_total(
-                self.db, self.biz, Account.kind == "receivable"
+                self.db, self.biz, Account.category == "receivable"
             ),
             gst_hst_set_aside_cents=-await ledger.account_total(
-                self.db, self.biz, Account.kind == "tax"
+                self.db, self.biz, Account.category == "tax"
             ),
             gst_hst_filing_due=next_gst_filing(now.date()) if business.tax_registered else None,
         )

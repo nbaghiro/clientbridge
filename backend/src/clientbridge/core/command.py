@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
-from clientbridge.models.platform import AuditLog, IdempotencyKey
+from clientbridge.models.platform import Audit, IdempotencyKey
 
 
 @dataclass
@@ -24,7 +24,7 @@ class Command:
 
     db: AsyncSession
     principal: Principal
-    audits: list[AuditLog] = field(default_factory=list)
+    audits: list[Audit] = field(default_factory=list)
 
     def record(
         self,
@@ -34,10 +34,10 @@ class Command:
         entity_id: str,
         changes: dict[str, object] | None = None,
     ) -> None:
-        """Record a mutation; persisted to `audit_logs` inside the command's transaction."""
+        """Record a mutation; persisted to `audits` inside the command's transaction."""
         self.audits.append(
-            AuditLog(
-                id=new_id("audit_log"),
+            Audit(
+                id=new_id("audit"),
                 business_id=self.principal.business_id,
                 performed_by=self.principal.user_id,
                 action=action,

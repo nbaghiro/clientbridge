@@ -11,7 +11,7 @@ from clientbridge.models.identity import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.platform import DeviceToken, WebhookEvent
+from clientbridge.models.platform import Device, Webhook
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.business_service import kyc_status
 from clientbridge.services.message_service import unread_count
@@ -130,7 +130,7 @@ async def test_payment_method_auto_updated_refreshes_card(
             id="pm_row",
             business_id=BIZ,
             client_id=cid,
-            type="card",
+            method="card",
             brand="visa",
             last4="4242",
             provider="stripe",
@@ -223,9 +223,7 @@ async def test_charge_dispute_alerts_staff(
         )
     )
     db.add(
-        DeviceToken(
-            id="dvt_test", business_id=BIZ, user_id="us_dev", token="ExpoTok", platform="ios"
-        )
+        Device(id="dvt_test", business_id=BIZ, user_id="us_dev", token="ExpoTok", platform="ios")
     )
     await db.flush()
     body = json.dumps(
@@ -270,11 +268,7 @@ async def test_duplicate_event_is_noop(api: httpx.AsyncClient, db: AsyncSession)
         await db.execute(select(Business.stripe_charges_enabled).where(Business.id == BIZ))
     ).scalar_one()
     assert enabled is False  # replay was a no-op, not a re-enable
-    rows = (
-        (await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == "evt_dup")))
-        .scalars()
-        .all()
-    )
+    rows = (await db.execute(select(Webhook.id).where(Webhook.id == "evt_dup"))).scalars().all()
     assert len(rows) == 1
 
 
@@ -344,7 +338,7 @@ async def _pending_payment(db: AsyncSession, pi: str) -> str:
 
 async def _payment_journals(db: AsyncSession, payment_id: str) -> int:
     rows = await db.execute(
-        select(Entry.journal_id).where(Entry.source_id == payment_id, Entry.type == "payment")
+        select(Entry.journal_id).where(Entry.source_id == payment_id, Entry.event == "payment")
     )
     return len(set(rows.scalars().all()))
 
@@ -388,7 +382,7 @@ async def test_our_unrecorded_intent_is_retried_not_acknowledged(
     assert res.status_code == 503
     await db.rollback()  # the request's session closes uncommitted
     seen = (
-        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == "evt_early"))
+        await db.execute(select(Webhook.id).where(Webhook.id == "evt_early"))
     ).scalar_one_or_none()
     assert seen is None
     pay_id = await _pending_payment(db, "pi_early")
@@ -425,7 +419,7 @@ async def _succeeded_payment(db: AsyncSession, pi: str) -> Payment:
 
 async def _dispute_entries(db: AsyncSession, payment_id: str) -> int:
     rows = await db.execute(
-        select(Entry.id).where(Entry.type == "dispute", Entry.source_id == payment_id)
+        select(Entry.id).where(Entry.event == "dispute", Entry.source_id == payment_id)
     )
     return len(rows.scalars().all())
 
@@ -437,20 +431,20 @@ def _dispute_event(event_id: str, event_type: str, pi: str, status: str) -> str:
 
 async def test_dispute_inquiry_withdraws_nothing(api: httpx.AsyncClient, db: AsyncSession) -> None:
     payment = await _succeeded_payment(db, "pi_inq")
-    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
     opened = _dispute_event("evt_inq", "charge.dispute.created", "pi_inq", "warning_needs_response")
     assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
     closed = _dispute_event("evt_inq_c", "charge.dispute.closed", "pi_inq", "warning_closed")
     assert (await api.post("/webhooks/stripe", content=closed, headers=GOOD)).status_code == 200
-    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
     assert after == before
     assert await _dispute_entries(db, payment.id) == 0
 
 
 async def test_dispute_withdraws_funds(api: httpx.AsyncClient, db: AsyncSession) -> None:
     await _succeeded_payment(db, "pi_chb")
-    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    before = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
     opened = _dispute_event("evt_chb", "charge.dispute.created", "pi_chb", "needs_response")
     assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
-    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
     assert before - after == 8000

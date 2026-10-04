@@ -40,7 +40,7 @@ async def _active_card(db: AsyncSession, *, code: str, balance: int = 5000) -> G
     await ledger.post(
         db,
         BIZ,
-        type="payment",
+        event="payment",
         ref=f"test:purchase:{card.id}",
         legs=[
             Leg("business", BIZ, "stripe", balance),
@@ -128,7 +128,7 @@ async def test_purchase_settles_active_and_notifies_recipient(
 async def test_settle_redelivery_activates_once_and_notifies_once(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    # A redelivered entitlement settle (same intent, a NEW event id so WebhookEvent dedup doesn't
+    # A redelivered entitlement settle (same intent, a NEW event id so Webhook dedup doesn't
     # mask it) must hit the payment-already-settled guard: card active once, recipient emailed once.
     await _enable(db)
     body = (

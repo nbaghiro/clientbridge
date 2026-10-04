@@ -39,7 +39,7 @@ async def _card(
     await ledger.post(
         db,
         business_id,
-        type="payment",
+        event="payment",
         ref=f"test:purchase:{card.id}",
         legs=[
             Leg("business", business_id, "stripe", balance),
@@ -51,7 +51,7 @@ async def _card(
         await ledger.post(
             db,
             business_id,
-            type="redemption",
+            event="redemption",
             ref=f"test:redeem:{card.id}",
             legs=[
                 Leg("gift_card", card.id, "gift_card", spent),
@@ -88,7 +88,7 @@ async def _package(db: AsyncSession, *, paid: int) -> str:
     await ledger.post(
         db,
         BIZ,
-        type="payment",
+        event="payment",
         ref=f"test:purchase:{package.id}",
         legs=[
             Leg("business", BIZ, "stripe", paid),
@@ -101,7 +101,7 @@ async def _package(db: AsyncSession, *, paid: int) -> str:
 
 async def _revenue(db: AsyncSession, business_id: str = BIZ) -> int:
     return await ledger.balance(
-        db, business_id, owner_type="business", owner_id=business_id, kind="revenue"
+        db, business_id, owner_type="business", owner_id=business_id, category="revenue"
     )
 
 
@@ -110,7 +110,7 @@ async def _breakage_legs(db: AsyncSession, owner_id: str) -> int:
         await db.execute(
             select(func.count())
             .select_from(Entry)
-            .where(Entry.type == "breakage", Entry.subject_id == owner_id)
+            .where(Entry.event == "breakage", Entry.subject_id == owner_id)
         )
     ).scalar_one()
 
@@ -124,7 +124,7 @@ async def test_expired_card_unspent_balance_becomes_revenue(db: AsyncSession) ->
     status = (await db.execute(select(GiftCard.status).where(GiftCard.id == card_id))).scalar_one()
     assert status == "expired"
     card_liability = await ledger.balance(
-        db, BIZ, owner_type="gift_card", owner_id=card_id, kind="gift_card"
+        db, BIZ, owner_type="gift_card", owner_id=card_id, category="gift_card"
     )
     assert card_liability == 0
     assert await _revenue(db) == revenue - 3000
@@ -138,7 +138,7 @@ async def test_expired_package_unused_deferred_becomes_revenue(db: AsyncSession)
     await run_expiry_sweeps(db, NOW)
 
     deferred = await ledger.balance(
-        db, BIZ, owner_type="package", owner_id=package_id, kind="deferred"
+        db, BIZ, owner_type="package", owner_id=package_id, category="deferred"
     )
     assert deferred == 0
     assert await _revenue(db) == revenue - 5600
@@ -152,7 +152,9 @@ async def test_breakage_posts_once(db: AsyncSession) -> None:
     revenue = await _revenue(db)
 
     await run_expiry_sweeps(db, NOW)
-    await ledger.post_breakage(db, BIZ, owner_type="gift_card", owner_id=card_id, kind="gift_card")
+    await ledger.post_breakage(
+        db, BIZ, owner_type="gift_card", owner_id=card_id, category="gift_card"
+    )
     assert await _breakage_legs(db, card_id) == 2
     assert await _revenue(db) == revenue
 

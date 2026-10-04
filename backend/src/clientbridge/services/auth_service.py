@@ -1,6 +1,6 @@
 """Password auth + refresh-token sessions.
 
-Refresh tokens are opaque high-entropy strings, stored only as a SHA-256 hash in `auth_sessions`,
+Refresh tokens are opaque high-entropy strings, stored only as a SHA-256 hash in `sessions`,
 grouped into a family per login. Each refresh rotates the token; replaying an already-rotated token
 revokes the whole family (reuse-detection). Access tokens are short-lived JWTs.
 """

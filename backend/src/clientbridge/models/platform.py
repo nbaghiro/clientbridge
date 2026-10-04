@@ -8,29 +8,29 @@ from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
 FILE_PARENTS = ("business", "client", "subject", "item", "signature", "form_response")
-FILE_KINDS = ("logo", "image", "photo", "signature", "attachment")
+FILE_PURPOSES = ("logo", "image", "photo", "signature", "attachment")
 
 
 class File(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "files"
     __table_args__ = (
         enum_check("files", "parent_type", *FILE_PARENTS),
-        enum_check("files", "kind", *FILE_KINDS),
+        enum_check("files", "purpose", *FILE_PURPOSES),
         Index("ix_files_parent", "business_id", "parent_type", "parent_id"),
     )
 
     parent_type: Mapped[str] = mapped_column(String, nullable=False)
     parent_id: Mapped[str] = mapped_column(String, nullable=False)
-    kind: Mapped[str | None] = mapped_column(String)
+    purpose: Mapped[str | None] = mapped_column(String)
     s3_key: Mapped[str] = mapped_column(String, nullable=False)
     content_type: Mapped[str | None] = mapped_column(String)
     size: Mapped[int | None] = mapped_column(BigInteger)
 
 
-class AuditLog(PKMixin, BusinessScoped, Base):
+class Audit(PKMixin, BusinessScoped, Base):
     """Append-only — created_at only (no updated_at)."""
 
-    __tablename__ = "audit_logs"
+    __tablename__ = "audits"
     __table_args__ = (
         Index("ix_audit_entity", "business_id", "entity_type", "entity_id"),
         Index("ix_audit_created", "business_id", "created_at"),
@@ -46,31 +46,31 @@ class AuditLog(PKMixin, BusinessScoped, Base):
     )
 
 
-class WebhookEvent(PKMixin, TimestampMixin, Base):
+class Webhook(PKMixin, TimestampMixin, Base):
     """Not business-scoped — inbound provider events, routed during processing."""
 
-    __tablename__ = "webhook_events"
+    __tablename__ = "webhooks"
     __table_args__ = (
-        enum_check("webhook_events", "provider", "stripe", "interac", "twilio", "sendgrid"),
-        enum_check("webhook_events", "status", "pending", "processed", "failed"),
+        enum_check("webhooks", "provider", "stripe", "interac", "twilio", "sendgrid"),
+        enum_check("webhooks", "status", "pending", "processed", "failed"),
         Index("ix_webhook_provider_status", "provider", "status"),
     )
 
     provider: Mapped[str] = mapped_column(String, nullable=False)
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    event: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class DeviceToken(PKMixin, BusinessScoped, TimestampMixin, Base):
+class Device(PKMixin, BusinessScoped, TimestampMixin, Base):
     """A staff member's Expo push token, registered by the mobile app — the push outreach target."""
 
-    __tablename__ = "device_tokens"
+    __tablename__ = "devices"
     __table_args__ = (
-        enum_check("device_tokens", "platform", "ios", "android", "web"),
-        Index("ix_device_tokens_token", "token", unique=True),
-        Index("ix_device_tokens_business", "business_id"),
+        enum_check("devices", "platform", "ios", "android", "web"),
+        Index("ix_devices_token", "token", unique=True),
+        Index("ix_devices_business", "business_id"),
     )
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
@@ -81,7 +81,7 @@ class DeviceToken(PKMixin, BusinessScoped, TimestampMixin, Base):
 class IdempotencyKey(PKMixin, BusinessScoped, TimestampMixin, Base):
     """Command replay guard: a repeated (business, scope, key) returns the stored response."""
 
-    __tablename__ = "idempotency_keys"
+    __tablename__ = "commands"
     __table_args__ = (
         UniqueConstraint("business_id", "scope", "key", name="uq_idempotency_scope_key"),
     )

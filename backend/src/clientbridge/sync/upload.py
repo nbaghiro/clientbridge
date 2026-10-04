@@ -39,14 +39,14 @@ class UploadBody(BaseModel):
 # own_only: a non-admin staff may only touch rows assigned to them (staff_id == theirs).
 # Tables absent here are NOT writable via sync (server-authoritative): payments, payouts,
 # payout_allocations, payment_methods, packages, subscriptions, gift_cards, businesses,
-# staff, users, audit_logs, webhook_events, files.
+# staff, users, audits, webhooks, files.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),
     "subjects": ("team", False),
     "notes": ("team", False),
     # files are NOT sync-writable: the row is server-minted so its `s3_key` can't be forged —
     # creation flows through the file command (POST /v1/files). They stay sync-READABLE.
-    # form_responses + signatures are NOT sync-writable: the submit/sign token is a server-minted
+    # responses + signatures are NOT sync-writable: the submit/sign token is a server-minted
     # secret and the status lifecycle is command- + public-token-authoritative (send commands +
     # public submission/signing), so a client can't forge a link or self-submit/sign by syncing a
     # row. They stay sync-READABLE (forms/contracts authoring still syncs).
@@ -54,17 +54,17 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     # server-owned — a thread is created/reused by `open_thread` inside the message-send command, so
     # a client can't race the unique constraint by syncing a row. They stay sync-READABLE.
     "messages": ("team", False),
-    # sessions + bookings + schedules are NOT sync-writable: every mutation goes through a command
-    # (POST/PATCH /v1/bookings, POST /v1/schedules) so the atomic conflict check + exclusion
+    # slots + bookings + recurrences are NOT sync-writable: every mutation goes through a command
+    # (POST/PATCH /v1/bookings, POST /v1/recurrences) so the atomic conflict check + exclusion
     # constraint (and, for a recurring series, the per-occurrence expansion) always hold.
-    "availability": ("team", True),
+    "hours": ("team", True),
     "items": ("admin", False),
     # packages / subscriptions / gift_cards are NOT sync-writable: balances, consumption counters,
     # gateway refs, and billing status are server-authoritative (purchase/redeem commands +
     # webhooks), so a client can't mint store credit or self-grant an active subscription.
     "resources": ("admin", False),
     "forms": ("admin", False),
-    "form_fields": ("admin", False),
+    "fields": ("admin", False),
     "contracts": ("admin", False),
     # invoices + estimates + lines are NOT sync-writable: numbering, money totals, tax, and the
     # status lifecycle are all server-computed, so every mutation goes through the billing commands

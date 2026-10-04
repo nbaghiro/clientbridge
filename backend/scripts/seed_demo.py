@@ -8,8 +8,8 @@ photos (pravatar for people, picsum for pets/products), exercising the full impl
 bookings + a group class, invoices/estimates (every status incl. converted), POS orders, payments
 (card/Interac/cash/EFT + deposit + refund), payout splits (booking/tip/sale/class), subscriptions,
 packages, gift cards, messaging (SMS/email/chat), forms (all field types), contracts, and reviews.
-Idempotent: TRUNCATEs every table, then re-inserts. (The `auth_*`, `idempotency_keys`, and
-`device_tokens` tables are runtime-only, so they stay empty.)
+Idempotent: TRUNCATEs every table, then re-inserts. (The `sessions`, `tokens`, `commands`, and
+`devices` tables are runtime-only, so they stay empty.)
 
 Run: ``make seed``  (= ``uv run python -m scripts.seed_demo``). Requires the DB migrated.
 """
@@ -39,15 +39,15 @@ from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.platform import AuditLog, File, WebhookEvent
+from clientbridge.models.platform import Audit, File, Webhook
 from clientbridge.models.reviews import Review, ReviewRequest
 from clientbridge.models.scheduling import (
-    Availability,
+    Addon,
     Booking,
-    BookingAddon,
+    Hours,
+    Recurrence,
     Resource,
-    Schedule,
-    Session,
+    Slot,
 )
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.earning_service import (
@@ -126,7 +126,7 @@ def seed_identity() -> tuple[str, str]:
             business_id=BIZ,
             parent_type="business",
             parent_id=BIZ,
-            kind="logo",
+            purpose="logo",
             s3_key=f"{BIZ}/demo/logo.png",
             content_type="image/png",
             size=(ASSETS / "logo.png").stat().st_size,
@@ -399,7 +399,7 @@ def seed_items(owner: str) -> None:
                 business_id=BIZ,
                 parent_type="item",
                 parent_id=iid,
-                kind="image",
+                purpose="image",
                 s3_key=f"{BIZ}/demo/{iid}.png",
                 content_type="image/png",
                 size=(ASSETS / f"{iid}.png").stat().st_size,
@@ -600,7 +600,7 @@ def seed_clients(owner: str) -> None:
                     business_id=BIZ,
                     parent_type="subject",
                     parent_id=pid,
-                    kind="photo",
+                    purpose="photo",
                     s3_key=f"{BIZ}/demo/pet_{pseed}.png",
                     content_type="image/png",
                     size=(ASSETS / f"pet_{pseed}.png").stat().st_size,
@@ -622,21 +622,25 @@ def seed_clients(owner: str) -> None:
 # ─────────────────────────────────────────── resources + availability ───────────────────────────
 def seed_resources_availability() -> None:
     rows.append(
-        Resource(id="rs_station_a", business_id=BIZ, name="Grooming Station A", kind="equipment")
+        Resource(
+            id="rs_station_a", business_id=BIZ, name="Grooming Station A", category="equipment"
+        )
     )
     rows.append(
-        Resource(id="rs_station_b", business_id=BIZ, name="Grooming Station B", kind="equipment")
+        Resource(
+            id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="equipment"
+        )
     )
-    rows.append(Resource(id="rs_bath", business_id=BIZ, name="Bath Bay", kind="room"))
+    rows.append(Resource(id="rs_bath", business_id=BIZ, name="Bath Bay", category="room"))
     # recurring weekly hours Tue–Sat 9–17 for both groomers
     for member in ("st_owner", "st_diego"):
         for weekday in (1, 2, 3, 4, 5):  # Tue..Sat
             rows.append(
-                Availability(
+                Hours(
                     id=f"av_{member}_{weekday}",
                     business_id=BIZ,
                     staff_id=member,
-                    type="recurring",
+                    basis="recurring",
                     weekday=weekday,
                     start_time=time(9, 0),
                     end_time=time(17, 0),
@@ -645,22 +649,22 @@ def seed_resources_availability() -> None:
             )
     # a stat-holiday closure + an extra-open Sunday
     rows.append(
-        Availability(
+        Hours(
             id="av_holiday",
             business_id=BIZ,
             staff_id="st_owner",
-            type="date",
+            basis="date",
             date=at(12).date(),
             available=False,
             note="BC Day — closed",
         )
     )
     rows.append(
-        Availability(
+        Hours(
             id="av_extra",
             business_id=BIZ,
             staff_id="st_diego",
-            type="date",
+            basis="date",
             date=at(9).date(),
             start_time=time(10, 0),
             end_time=time(14, 0),
@@ -670,7 +674,7 @@ def seed_resources_availability() -> None:
     )
     # a recurring puppy class schedule
     rows.append(
-        Schedule(
+        Recurrence(
             id="sch_puppy",
             business_id=BIZ,
             item_id="it_puppy",
@@ -722,7 +726,7 @@ def seed_appointments() -> None:
         ses = f"ses_{i:03d}"
         bk = f"bk_{i:03d}"
         rows.append(
-            Session(
+            Slot(
                 id=ses,
                 business_id=BIZ,
                 item_id=item_id,
@@ -744,7 +748,7 @@ def seed_appointments() -> None:
             Booking(
                 id=bk,
                 business_id=BIZ,
-                session_id=ses,
+                slot_id=ses,
                 staff_id=member,  # denormalized from the session — drives per-member sync
                 client_id=client,
                 subject_id=pet,
@@ -996,7 +1000,7 @@ def seed_online_shop() -> None:
         )
     )
     rows.append(
-        BookingAddon(
+        Addon(
             id="bka_demo_shampoo",
             business_id=BIZ,
             booking_id="bk_015",
@@ -1059,7 +1063,7 @@ def seed_payment_methods() -> None:
                 id=pmid,
                 business_id=BIZ,
                 client_id=client,
-                type="card",
+                method="card",
                 brand=brand,
                 last4=last4,
                 provider="stripe",
@@ -1074,7 +1078,7 @@ def seed_payment_methods() -> None:
             id="pm_david_bank",
             business_id=BIZ,
             client_id="cl_david",
-            type="bank_eft",
+            method="bank_eft",
             brand="RBC",
             last4="6677",
             provider="stripe",
@@ -1371,7 +1375,7 @@ def seed_documents(owner: str) -> None:
                 id=f"ff_{fname}",
                 business_id=BIZ,
                 form_id="frm_intake",
-                type=ftype,
+                input=ftype,
                 name=fname,
                 label=label,
                 required=required,
@@ -1395,7 +1399,7 @@ def seed_documents(owner: str) -> None:
             id="ff_rating",
             business_id=BIZ,
             form_id="frm_satisfaction",
-            type="rating",
+            input="rating",
             name="rating",
             label="How did we do?",
             required=True,
@@ -1409,7 +1413,7 @@ def seed_documents(owner: str) -> None:
             id="ff_comments",
             business_id=BIZ,
             form_id="frm_satisfaction",
-            type="longtext",
+            input="longtext",
             name="comments",
             label="Anything we could do better?",
             required=False,
@@ -1597,7 +1601,7 @@ def seed_reviews(owner: str) -> None:
 # ─────────────────────────────────────────── platform ───────────────────────────────────────────
 def seed_platform(owner: str) -> None:
     rows.append(
-        AuditLog(
+        Audit(
             id="aud_0",
             business_id=BIZ,
             performed_by=owner,
@@ -1609,7 +1613,7 @@ def seed_platform(owner: str) -> None:
         )
     )
     rows.append(
-        AuditLog(
+        Audit(
             id="aud_1",
             business_id=BIZ,
             performed_by="us_diego",
@@ -1621,7 +1625,7 @@ def seed_platform(owner: str) -> None:
         )
     )
     rows.append(
-        AuditLog(
+        Audit(
             id="aud_2",
             business_id=BIZ,
             performed_by=owner,
@@ -1633,30 +1637,30 @@ def seed_platform(owner: str) -> None:
         )
     )
     rows.append(
-        WebhookEvent(
+        Webhook(
             id="wh_0",
             provider="stripe",
-            type="payment_intent.succeeded",
+            event="payment_intent.succeeded",
             payload={"id": "pi_demo_1001", "amount": 7875},
             status="processed",
             processed_at=at(-28, 18),
         )
     )
     rows.append(
-        WebhookEvent(
+        Webhook(
             id="wh_1",
             provider="stripe",
-            type="payout.paid",
+            event="payout.paid",
             payload={"id": "po_demo_w1", "amount": 84200},
             status="processed",
             processed_at=at(-7, 1),
         )
     )
     rows.append(
-        WebhookEvent(
+        Webhook(
             id="wh_2",
             provider="twilio",
-            type="message.delivered",
+            event="message.delivered",
             payload={"sid": "sm_demo", "status": "delivered"},
             status="processed",
             processed_at=at(-1, 9),
@@ -1801,7 +1805,7 @@ def seed_coverage() -> None:
 
     # ── a group PUPPY CLASS (capacity 6, 3 booked) + a deposit + class-session & tip payouts ──
     rows.append(
-        Session(
+        Slot(
             id="ses_class",
             business_id=BIZ,
             item_id="it_puppy",
@@ -1821,7 +1825,7 @@ def seed_coverage() -> None:
             Booking(
                 id=f"bk_class_{j}",
                 business_id=BIZ,
-                session_id="ses_class",
+                slot_id="ses_class",
                 staff_id="st_owner",
                 client_id=cl,
                 subject_id=pet,
@@ -1853,7 +1857,7 @@ def seed_coverage() -> None:
 
     # ── a completed groom that was fully refunded (goodwill) ─────────────
     rows.append(
-        Session(
+        Slot(
             id="ses_refund",
             business_id=BIZ,
             item_id="it_groom_sm",
@@ -1869,7 +1873,7 @@ def seed_coverage() -> None:
         Booking(
             id="bk_refund",
             business_id=BIZ,
-            session_id="ses_refund",
+            slot_id="ses_refund",
             staff_id="st_diego",
             client_id="cl_olivia",
             subject_id="sj_bandit",
@@ -2111,7 +2115,7 @@ def seed_coverage() -> None:
             id="pm_amelie_interac",
             business_id=BIZ,
             client_id="cl_amelie",
-            type="interac",
+            method="interac",
             provider="interac",
             preferred=False,
             mandate_status="none",
@@ -2187,26 +2191,26 @@ INSERT_ORDER = [
     Package,
     Subscription,
     GiftCard,
-    Schedule,
-    Availability,
+    Recurrence,
+    Hours,
     FormField,
     FormResponse,
     Signature,
     Thread,
-    Session,
+    Slot,
     Invoice,
     Order,
     Estimate,
     Booking,
-    BookingAddon,
+    Addon,
     Message,
     Line,
     Payment,
     Review,
     ReviewRequest,
     File,
-    AuditLog,
-    WebhookEvent,
+    Audit,
+    Webhook,
 ]
 
 
@@ -2302,7 +2306,7 @@ async def seed_ledger(session: AsyncSession) -> None:
     assert lapsed is not None
     await ledger.post_redemption(session, lapsed, 2500)
     await ledger.post_breakage(
-        session, BIZ, owner_type="gift_card", owner_id=lapsed.id, kind="gift_card"
+        session, BIZ, owner_type="gift_card", owner_id=lapsed.id, category="gift_card"
     )
     for pkg_id in ("pkg_marcus", "pkg_grace", "pkg_sophie"):
         package = await session.get(Package, pkg_id)
@@ -2317,7 +2321,7 @@ async def seed_ledger(session: AsyncSession) -> None:
         await ensure_earnings(session, invoice)
     for booking_id, stage in EARNING_STAGE.items():
         journal = await session.scalar(
-            select(Entry.journal_id).where(Entry.type == "earning", Entry.subject_id == booking_id)
+            select(Entry.journal_id).where(Entry.event == "earning", Entry.subject_id == booking_id)
         )
         earning = await load_earning(session, BIZ, journal) if journal else None
         if earning is None or stage == "pending":
@@ -2333,7 +2337,7 @@ async def seed_ledger(session: AsyncSession) -> None:
             .join(Account, Account.id == Entry.account_id)
             .where(
                 Account.owner_type == "business",
-                Account.kind == "stripe",
+                Account.category == "stripe",
                 Entry.occurred_at < at(day, 0),
             )
         )
@@ -2366,11 +2370,11 @@ FILLER_STAFF = {"st_owner": "rs_station_a", "st_diego": "rs_station_b", "st_priy
 def _working_hours(member: str, day: date) -> tuple[time, time] | None:
     """A member's open window on a day from the seeded availability (a dated row wins). Like the
     booking engine, a member with no availability rows is bookable any time (here 9 to 5)."""
-    mine = [r for r in rows if isinstance(r, Availability) and r.staff_id == member]
+    mine = [r for r in rows if isinstance(r, Hours) and r.staff_id == member]
     if not mine:
         return time(9, 0), time(17, 0)
-    dated = [r for r in mine if r.type == "date" and r.date == day]
-    chosen = dated or [r for r in mine if r.type == "recurring" and r.weekday == day.weekday()]
+    dated = [r for r in mine if r.basis == "date" and r.date == day]
+    chosen = dated or [r for r in mine if r.basis == "recurring" and r.weekday == day.weekday()]
     window = next((r for r in chosen if r.available), None)
     if window is None or window.start_time is None or window.end_time is None:
         return None
@@ -2385,7 +2389,7 @@ def seed_calendar_filler() -> None:
     INV_SEQ[0] = max(INV_SEQ[0], 1100)  # above the hand-numbered invoices
     pairs = sorted({(client, pet) for *_, client, pet, _ in APPTS})
     busy = [
-        (r.staff_id, r.resource_id, r.starts_at, r.ends_at) for r in rows if isinstance(r, Session)
+        (r.staff_id, r.resource_id, r.starts_at, r.ends_at) for r in rows if isinstance(r, Slot)
     ]
     n = 0
     for d in range(-120, 31):
@@ -2429,7 +2433,7 @@ def seed_calendar_filler() -> None:
                 ses, bk = f"ses_f{n:03d}", f"bk_f{n:03d}"
                 n += 1
                 rows.append(
-                    Session(
+                    Slot(
                         id=ses,
                         business_id=BIZ,
                         item_id=item_id,
@@ -2445,7 +2449,7 @@ def seed_calendar_filler() -> None:
                     Booking(
                         id=bk,
                         business_id=BIZ,
-                        session_id=ses,
+                        slot_id=ses,
                         staff_id=member,
                         client_id=client,
                         subject_id=pet,

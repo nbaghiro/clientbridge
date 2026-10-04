@@ -23,7 +23,7 @@ import { type StaffRow, useStaff } from "./staff";
 
 export interface CalendarEvent {
     id: string;
-    sessionId: string;
+    slotId: string;
     bookingId: string | null;
     start: Date;
     end: Date;
@@ -249,14 +249,14 @@ export function dragToStart(
 }
 
 interface Row {
-    session_id: string;
+    slot_id: string;
     booking_id: string | null;
     starts_at: string;
     ends_at: string;
     staff_id: string;
     capacity: number;
     booked_count: number;
-    session_status: string;
+    slot_status: string;
     booking_status: string | null;
     item_name: string;
     item_color: string | null;
@@ -277,16 +277,16 @@ function utcSql(column: string): string {
 }
 
 export const EVENTS_SQL = `
-SELECT s.id AS session_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
-       (SELECT COUNT(*) FROM bookings x WHERE x.session_id = s.id AND x.status != 'canceled'
+SELECT s.id AS slot_id, s.starts_at, s.ends_at, s.staff_id, s.capacity,
+       (SELECT COUNT(*) FROM bookings x WHERE x.slot_id = s.id AND x.status != 'canceled'
           AND x.deleted_at IS NULL) AS booked_count,
-       s.status AS session_status, i.name AS item_name, i.color AS item_color,
+       s.status AS slot_status, i.name AS item_name, i.color AS item_color,
        b.id AS booking_id, b.status AS booking_status, c.name AS client_name,
        b.client_id AS client_id, b.deposit_amount_cents > 0 AS deposit_required,
        b.deposit_amount_cents AS deposit_amount_cents, b.deposit_status AS deposit_status
-FROM sessions s
+FROM slots s
 JOIN items i ON i.id = s.item_id
-LEFT JOIN bookings b ON b.session_id = s.id AND b.deleted_at IS NULL
+LEFT JOIN bookings b ON b.slot_id = s.id AND b.deleted_at IS NULL
 LEFT JOIN clients c ON c.id = b.client_id
 WHERE s.status != 'canceled'
   AND ${utcSql("s.starts_at")} < datetime(?)
@@ -296,14 +296,14 @@ export const EVENTS_BY_STAFF_SQL = `${EVENTS_SQL} AND s.staff_id = ?`;
 
 function toEvent(r: Row): CalendarEvent {
     return {
-        id: r.booking_id ?? r.session_id,
-        sessionId: r.session_id,
+        id: r.booking_id ?? r.slot_id,
+        slotId: r.slot_id,
         bookingId: r.booking_id,
         start: parseTimestamp(r.starts_at),
         end: parseTimestamp(r.ends_at),
         title: r.item_name,
         subtitle: r.client_name ?? "",
-        status: r.booking_status ?? r.session_status,
+        status: r.booking_status ?? r.slot_status,
         staffId: r.staff_id,
         clientId: r.client_id,
         color: r.item_color,
@@ -331,7 +331,7 @@ export function useCalendarEvents(
 
 export interface BookingResult {
     id: string;
-    session_id: string;
+    slot_id: string;
     status: string;
     starts_at: string;
     ends_at: string;
@@ -367,13 +367,13 @@ export const RECUR_FREQUENCIES: { value: RecurFrequency; label: string; unit: st
     { value: "month", label: strings.calendar.freqMonthly, unit: strings.calendar.unitMonths },
 ];
 
-export interface ScheduleResult {
+export interface RecurrenceResult {
     id: string;
     created: number; // occurrences that became bookings
     skipped: number; // occurrences skipped (overlap / outside hours)
 }
 
-export interface NewSchedule {
+export interface NewRecurrence {
     clientId: string;
     itemId: string;
     staffId: string;
@@ -384,8 +384,8 @@ export interface NewSchedule {
     resourceId?: string | null;
 }
 
-export function createSchedule(api: ApiLike, input: NewSchedule): Promise<ScheduleResult> {
-    return api.post<ScheduleResult>("/v1/schedules", {
+export function createRecurrence(api: ApiLike, input: NewRecurrence): Promise<RecurrenceResult> {
+    return api.post<RecurrenceResult>("/v1/recurrences", {
         client_id: input.clientId,
         item_id: input.itemId,
         staff_id: input.staffId,
@@ -537,7 +537,7 @@ export interface BookingAddonRow {
 }
 
 export const ADDONS_SQL = `
-SELECT id, description, quantity, unit_amount_cents FROM booking_addons
+SELECT id, description, quantity, unit_amount_cents FROM addons
 WHERE booking_id = ? ORDER BY created_at`;
 
 export const BOOKING_INVOICE_SQL = "SELECT invoice_id FROM bookings WHERE id = ?";
@@ -652,7 +652,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
         run(
             async () => {
                 if (repeat) {
-                    const result = await createSchedule(api, {
+                    const result = await createRecurrence(api, {
                         clientId,
                         itemId,
                         staffId: effStaff,

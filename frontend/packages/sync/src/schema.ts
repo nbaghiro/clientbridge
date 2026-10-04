@@ -229,7 +229,7 @@ const gift_cards = new Table(
 const resources = new Table(
     {
         name: column.text,
-        kind: column.text,
+        category: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -258,10 +258,10 @@ const forms = new Table(
     },
 );
 
-const form_fields = new Table(
+const fields = new Table(
     {
         form_id: column.text,
-        type: column.text,
+        input: column.text,
         name: column.text,
         label: column.text,
         help: column.text,
@@ -275,13 +275,13 @@ const form_fields = new Table(
     },
     {
         indexes: {
-            form_fields_business_id: ["business_id"],
-            form_fields_form: ["form_id", "position"],
+            fields_business_id: ["business_id"],
+            fields_form: ["form_id", "position"],
         },
     },
 );
 
-const form_responses = new Table(
+const responses = new Table(
     {
         form_id: column.text,
         client_id: column.text,
@@ -297,9 +297,9 @@ const form_responses = new Table(
     },
     {
         indexes: {
-            form_responses_business_id: ["business_id"],
-            form_responses_form: ["business_id", "form_id"],
-            form_responses_parent: ["parent_type", "parent_id"],
+            responses_business_id: ["business_id"],
+            responses_form: ["business_id", "form_id"],
+            responses_parent: ["parent_type", "parent_id"],
         },
     },
 );
@@ -351,7 +351,7 @@ const files = new Table(
     {
         parent_type: column.text,
         parent_id: column.text,
-        kind: column.text,
+        purpose: column.text,
         s3_key: column.text,
         content_type: column.text,
         size: column.integer,
@@ -428,7 +428,7 @@ const broadcasts = new Table(
     },
 );
 
-const sessions = new Table(
+const slots = new Table(
     {
         item_id: column.text,
         staff_id: column.text,
@@ -444,16 +444,16 @@ const sessions = new Table(
     },
     {
         indexes: {
-            sessions_business_id: ["business_id"],
-            sessions_business_start: ["business_id", "starts_at"],
-            sessions_staff_start: ["business_id", "staff_id", "starts_at"],
+            slots_business_id: ["business_id"],
+            slots_business_start: ["business_id", "starts_at"],
+            slots_staff_start: ["business_id", "staff_id", "starts_at"],
         },
     },
 );
 
 const bookings = new Table(
     {
-        session_id: column.text,
+        slot_id: column.text,
         staff_id: column.text,
         client_id: column.text,
         subject_id: column.text,
@@ -478,14 +478,14 @@ const bookings = new Table(
         indexes: {
             bookings_business_id: ["business_id"],
             bookings_client: ["business_id", "client_id"],
-            bookings_session: ["business_id", "session_id"],
+            bookings_slot: ["business_id", "slot_id"],
             bookings_staff: ["business_id", "staff_id"],
             bookings_status: ["business_id", "status"],
         },
     },
 );
 
-const booking_addons = new Table(
+const addons = new Table(
     {
         booking_id: column.text,
         staff_id: column.text,
@@ -499,16 +499,16 @@ const booking_addons = new Table(
     },
     {
         indexes: {
-            booking_addons_booking: ["business_id", "booking_id"],
-            booking_addons_business_id: ["business_id"],
+            addons_booking: ["business_id", "booking_id"],
+            addons_business_id: ["business_id"],
         },
     },
 );
 
-const availability = new Table(
+const hours = new Table(
     {
         staff_id: column.text,
-        type: column.text,
+        basis: column.text,
         weekday: column.integer,
         date: column.text,
         start_time: column.text,
@@ -521,13 +521,13 @@ const availability = new Table(
     },
     {
         indexes: {
-            availability_business_id: ["business_id"],
-            availability_staff: ["business_id", "staff_id", "type"],
+            hours_business_id: ["business_id"],
+            hours_staff: ["business_id", "staff_id", "basis"],
         },
     },
 );
 
-const schedules = new Table(
+const recurrences = new Table(
     {
         item_id: column.text,
         staff_id: column.text,
@@ -545,8 +545,8 @@ const schedules = new Table(
     },
     {
         indexes: {
-            schedules_business_id: ["business_id"],
-            schedules_status: ["business_id", "status"],
+            recurrences_business_id: ["business_id"],
+            recurrences_status: ["business_id", "status"],
         },
     },
 );
@@ -555,7 +555,7 @@ const accounts = new Table(
     {
         owner_type: column.text,
         owner_id: column.text,
-        kind: column.text,
+        category: column.text,
         code: column.text,
         currency: column.text,
         balance_cents: column.integer,
@@ -570,7 +570,7 @@ const accounts = new Table(
                 "business_id",
                 "owner_type",
                 "owner_id",
-                "kind",
+                "category",
                 "code",
                 "currency",
             ],
@@ -586,7 +586,7 @@ const entries = new Table(
         owner_id: column.text,
         amount_cents: column.integer,
         currency: column.text,
-        type: column.text,
+        event: column.text,
         source_type: column.text,
         source_id: column.text,
         subject_type: column.text,
@@ -754,7 +754,7 @@ const payments = new Table(
 const payment_methods = new Table(
     {
         client_id: column.text,
-        type: column.text,
+        method: column.text,
         brand: column.text,
         last4: column.text,
         provider: column.text,
@@ -819,25 +819,6 @@ const review_requests = new Table(
     },
 );
 
-const audit_logs = new Table(
-    {
-        performed_by: column.text,
-        action: column.text,
-        entity_type: column.text,
-        entity_id: column.text,
-        changes: column.text,
-        created_at: column.text,
-        business_id: column.text,
-    },
-    {
-        indexes: {
-            audit_created: ["business_id", "created_at"],
-            audit_entity: ["business_id", "entity_type", "entity_id"],
-            audit_logs_business_id: ["business_id"],
-        },
-    },
-);
-
 export const AppSchema = new Schema({
     staff,
     businesses,
@@ -850,19 +831,19 @@ export const AppSchema = new Schema({
     gift_cards,
     resources,
     forms,
-    form_fields,
-    form_responses,
+    fields,
+    responses,
     contracts,
     signatures,
     files,
     threads,
     messages,
     broadcasts,
-    sessions,
+    slots,
     bookings,
-    booking_addons,
-    availability,
-    schedules,
+    addons,
+    hours,
+    recurrences,
     accounts,
     entries,
     invoices,
@@ -873,7 +854,6 @@ export const AppSchema = new Schema({
     payment_methods,
     reviews,
     review_requests,
-    audit_logs,
 });
 
 export type Database = (typeof AppSchema)["types"];

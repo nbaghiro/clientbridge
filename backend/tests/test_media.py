@@ -7,14 +7,14 @@ from tests.conftest import BIZ, Factory, FakeFileStorage
 
 
 async def _image(
-    api: httpx.AsyncClient, parent_type: str, parent_id: str, kind: str
+    api: httpx.AsyncClient, parent_type: str, parent_id: str, purpose: str
 ) -> httpx.Response:
     return await api.post(
         "/v1/files",
         json={
             "parent_type": parent_type,
             "parent_id": parent_id,
-            "kind": kind,
+            "purpose": purpose,
             "content_type": "image/png",
         },
     )

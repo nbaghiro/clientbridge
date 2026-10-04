@@ -1,19 +1,19 @@
 // Money figures derived from the synced ledger; a replica without it (staff) reads NULL or zero.
 
-const CASH_KINDS = "('stripe', 'bank', 'cash')";
+const CASH_CATEGORIES = "('stripe', 'bank', 'cash')";
 
-/** Net of one account kind's legs booked against an entity, e.g. an invoice's receivable. */
-export function subjectNetSql(kind: string, subjectType: string, idExpr: string): string {
+/** Net of one account category's legs booked against an entity, e.g. an invoice's receivable. */
+export function subjectNetSql(category: string, subjectType: string, idExpr: string): string {
     return `(SELECT SUM(le.amount_cents) FROM entries le
         JOIN accounts la ON la.id = le.account_id
-        WHERE la.kind = '${kind}' AND le.subject_type = '${subjectType}' AND le.subject_id = ${idExpr})`;
+        WHERE la.category = '${category}' AND le.subject_type = '${subjectType}' AND le.subject_id = ${idExpr})`;
 }
 
 /** Cash collected for an entity, net of refunds. */
 export function collectedSql(subjectType: string, idExpr: string): string {
     return `COALESCE((SELECT SUM(le.amount_cents) FROM entries le
         JOIN accounts la ON la.id = le.account_id
-        WHERE la.kind IN ${CASH_KINDS} AND le.type IN ('payment', 'refund')
+        WHERE la.category IN ${CASH_CATEGORIES} AND le.event IN ('payment', 'refund')
           AND le.subject_type = '${subjectType}' AND le.subject_id = ${idExpr}), 0)`;
 }
 
@@ -22,14 +22,14 @@ export function clientValueSql(clientIdExpr: string): string {
     return `(SELECT SUM(le.amount_cents) FROM entries le
         JOIN accounts la ON la.id = le.account_id
         JOIN payments lp ON lp.id = le.source_id
-        WHERE la.kind IN ${CASH_KINDS} AND le.type IN ('payment', 'refund')
+        WHERE la.category IN ${CASH_CATEGORIES} AND le.event IN ('payment', 'refund')
           AND lp.client_id = ${clientIdExpr})`;
 }
 
 /** The liability still owed on an entity's own account (a gift card's spendable balance). */
-export function ownedLiabilitySql(ownerType: string, kind: string, idExpr: string): string {
+export function ownedLiabilitySql(ownerType: string, category: string, idExpr: string): string {
     return `COALESCE(-(SELECT la.balance_cents FROM accounts la
-        WHERE la.owner_type = '${ownerType}' AND la.owner_id = ${idExpr} AND la.kind = '${kind}'), 0)`;
+        WHERE la.owner_type = '${ownerType}' AND la.owner_id = ${idExpr} AND la.category = '${category}'), 0)`;
 }
 
 /** An invoice stores draft/sent/void; how far a sent one is paid is read off the ledger. */
@@ -59,11 +59,11 @@ export function orderStatusSql(alias: string): string {
 /** Sessions used on a package: one consumption journal each. */
 export function sessionsUsedSql(idExpr: string): string {
     return `(SELECT COUNT(DISTINCT le.journal_id) FROM entries le
-        WHERE le.type = 'consumption' AND le.subject_type = 'package' AND le.subject_id = ${idExpr})`;
+        WHERE le.event = 'consumption' AND le.subject_type = 'package' AND le.subject_id = ${idExpr})`;
 }
 
 function refundedSql(subjectType: string, idExpr: string): string {
     return `EXISTS (SELECT 1 FROM entries le JOIN accounts la ON la.id = le.account_id
-        WHERE la.kind IN ${CASH_KINDS} AND le.type = 'refund'
+        WHERE la.category IN ${CASH_CATEGORIES} AND le.event = 'refund'
           AND le.subject_type = '${subjectType}' AND le.subject_id = ${idExpr})`;
 }

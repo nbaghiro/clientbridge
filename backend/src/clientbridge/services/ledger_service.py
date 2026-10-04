@@ -35,21 +35,21 @@ class UnbalancedJournal(ValueError):
 class Leg:
     owner_type: str
     owner_id: str
-    kind: str
+    category: str
     amount_cents: int
     code: str = ""
     subject: tuple[str, str] | None = None
 
     @property
     def key(self) -> AccountKey:
-        return (self.owner_type, self.owner_id, self.kind, self.code)
+        return (self.owner_type, self.owner_id, self.category, self.code)
 
 
 async def post(
     db: AsyncSession,
     business_id: str,
     *,
-    type: str,
+    event: str,
     ref: str,
     legs: Sequence[Leg],
     currency: str = "CAD",
@@ -87,7 +87,7 @@ async def post(
                 owner_id=account.owner_id,
                 amount_cents=leg.amount_cents,
                 currency=currency,
-                type=type,
+                event=event,
                 source_type=source[0] if source else None,
                 source_id=source[1] if source else None,
                 subject_type=on[0] if on else None,
@@ -109,7 +109,7 @@ async def reverse(
     journal_id: str,
     *,
     ref: str,
-    type: str = "reversal",
+    event: str = "reversal",
     meta: dict[str, object] | None = None,
 ) -> str | None:
     """Post the exact negation of a journal (the only way to correct the ledger)."""
@@ -121,7 +121,7 @@ async def reverse(
         Leg(
             account.owner_type,
             account.owner_id,
-            account.kind,
+            account.category,
             -entry.amount_cents,
             account.code,
             (entry.subject_type, entry.subject_id)
@@ -133,7 +133,7 @@ async def reverse(
     return await post(
         db,
         business_id,
-        type=type,
+        event=event,
         ref=ref,
         legs=legs,
         currency=first.currency,
@@ -148,7 +148,7 @@ async def balance(
     *,
     owner_type: str,
     owner_id: str,
-    kind: str,
+    category: str,
     code: str = "",
     currency: str = "CAD",
 ) -> int:
@@ -159,7 +159,7 @@ async def balance(
             .where(
                 Account.owner_type == owner_type,
                 Account.owner_id == owner_id,
-                Account.kind == kind,
+                Account.category == category,
                 Account.code == code,
                 Account.currency == currency,
             )
@@ -178,9 +178,9 @@ async def account_total(db: AsyncSession, business_id: str, where: ColumnElement
 
 
 async def subject_balance(
-    db: AsyncSession, business_id: str, *, kind: str, subject_type: str, subject_id: str
+    db: AsyncSession, business_id: str, *, category: str, subject_type: str, subject_id: str
 ) -> int:
-    """Net of every `kind` leg booked against one entity (e.g. an invoice's receivable)."""
+    """Net of every `category` leg booked against one entity (e.g. an invoice's receivable)."""
     value = (
         await db.execute(
             scoped(Entry, business_id)
@@ -189,7 +189,7 @@ async def subject_balance(
             .where(
                 Entry.subject_type == subject_type,
                 Entry.subject_id == subject_id,
-                Account.kind == kind,
+                Account.category == category,
             )
         )
     ).scalar_one()
@@ -209,16 +209,16 @@ async def _lock_accounts(
                     "business_id": business_id,
                     "owner_type": owner_type,
                     "owner_id": owner_id,
-                    "kind": kind,
+                    "category": category,
                     "code": code,
                     "currency": currency,
                     "balance_cents": 0,
                 }
-                for owner_type, owner_id, kind, code in ordered
+                for owner_type, owner_id, category, code in ordered
             ]
         )
         .on_conflict_do_nothing(
-            index_elements=["business_id", "owner_type", "owner_id", "kind", "code", "currency"]
+            index_elements=["business_id", "owner_type", "owner_id", "category", "code", "currency"]
         )
     )
     rows = (
@@ -227,9 +227,9 @@ async def _lock_accounts(
                 scoped(Account, business_id)
                 .where(
                     Account.currency == currency,
-                    tuple_(Account.owner_type, Account.owner_id, Account.kind, Account.code).in_(
-                        ordered
-                    ),
+                    tuple_(
+                        Account.owner_type, Account.owner_id, Account.category, Account.code
+                    ).in_(ordered),
                 )
                 .order_by(Account.id)
                 .with_for_update()
@@ -239,7 +239,7 @@ async def _lock_accounts(
         .scalars()
         .all()
     )
-    return {(a.owner_type, a.owner_id, a.kind, a.code): a for a in rows}
+    return {(a.owner_type, a.owner_id, a.category, a.code): a for a in rows}
 
 
 async def journal_for(db: AsyncSession, business_id: str, ref: str) -> str | None:
@@ -292,7 +292,7 @@ async def post_invoice(db: AsyncSession, invoice: Invoice, tax: TaxResult) -> No
     await post(
         db,
         biz,
-        type="invoice",
+        event="invoice",
         ref=f"invoice:{invoice.id}",
         legs=[
             Leg(*_payer(biz, invoice.client_id), "receivable", tax.total_cents),
@@ -314,7 +314,11 @@ async def invoice_balance(db: AsyncSession, invoice: Invoice) -> int:
     if invoice.status == "draft":
         return invoice.total_cents
     return await subject_balance(
-        db, invoice.business_id, kind="receivable", subject_type="invoice", subject_id=invoice.id
+        db,
+        invoice.business_id,
+        category="receivable",
+        subject_type="invoice",
+        subject_id=invoice.id,
     )
 
 
@@ -328,8 +332,8 @@ def _collected_expr(subject_type: str, subject_id: _Id) -> ColumnElement[int]:
         .join(Account, Account.id == Entry.account_id)
         .where(
             _subject_legs(subject_type, subject_id),
-            Account.kind.in_(_CASH.values()),
-            Entry.type.in_(("payment", "refund")),
+            Account.category.in_(_CASH.values()),
+            Entry.event.in_(("payment", "refund")),
         )
         .scalar_subquery()
     )
@@ -341,8 +345,8 @@ def _refunded_expr(subject_type: str, subject_id: _Id) -> ColumnElement[bool]:
         .join(Account, Account.id == Entry.account_id)
         .where(
             _subject_legs(subject_type, subject_id),
-            Account.kind.in_(_CASH.values()),
-            Entry.type == "refund",
+            Account.category.in_(_CASH.values()),
+            Entry.event == "refund",
         )
         .exists()
     )
@@ -352,7 +356,7 @@ def _receivable_expr() -> ColumnElement[int]:
     return (
         select(func.coalesce(func.sum(Entry.amount_cents), 0))
         .join(Account, Account.id == Entry.account_id)
-        .where(_subject_legs("invoice", Invoice.id), Account.kind == "receivable")
+        .where(_subject_legs("invoice", Invoice.id), Account.category == "receivable")
         .scalar_subquery()
     )
 
@@ -377,7 +381,7 @@ def invoice_paid_at_expr() -> ColumnElement[datetime | None]:
         .join(Account, Account.id == Entry.account_id)
         .where(
             _subject_legs("invoice", Invoice.id),
-            Account.kind == "receivable",
+            Account.category == "receivable",
             Entry.amount_cents < 0,
         )
         .scalar_subquery()
@@ -403,8 +407,8 @@ def order_paid_at_expr() -> ColumnElement[datetime | None]:
         .join(Account, Account.id == Entry.account_id)
         .where(
             _subject_legs("order", Order.id),
-            Account.kind.in_(_CASH.values()),
-            Entry.type == "payment",
+            Account.category.in_(_CASH.values()),
+            Entry.event == "payment",
         )
         .scalar_subquery()
     )
@@ -438,10 +442,10 @@ async def collected(
         business_id,
         (Entry.subject_type == subject_type)
         & (Entry.subject_id == subject_id)
-        & Entry.type.in_(("payment", "refund")),
+        & Entry.event.in_(("payment", "refund")),
     )
-    cash = [(e, a) for e, a in rows if a.kind in _CASH.values()]
-    return sum(e.amount_cents for e, _ in cash), any(e.type == "refund" for e, _ in cash)
+    cash = [(e, a) for e, a in rows if a.category in _CASH.values()]
+    return sum(e.amount_cents for e, _ in cash), any(e.event == "refund" for e, _ in cash)
 
 
 async def post_payment(
@@ -452,7 +456,7 @@ async def post_payment(
     await post(
         db,
         biz,
-        type="payment",
+        event="payment",
         ref=f"payment:{payment.id}",
         legs=[Leg("business", biz, _CASH[payment.provider], payment.amount_cents), *credits],
         currency=payment.currency,
@@ -497,7 +501,7 @@ async def post_fees(db: AsyncSession, payment: Payment, fees: ChargeFees) -> Non
     await post(
         db,
         biz,
-        type="fee",
+        event="fee",
         ref=f"fee:{payment.id}",
         legs=[
             Leg("business", biz, "processing_fee", fees.processing_fee_cents),
@@ -536,7 +540,7 @@ async def _unwind(
     prior_rows = await _rows(
         db,
         original.business_id,
-        (Entry.type == "refund")
+        (Entry.event == "refund")
         & Entry.account_id.in_(owed)
         & Entry.source_id.in_(refunds.with_only_columns(Payment.id).scalar_subquery()),
     )
@@ -550,7 +554,7 @@ async def _unwind(
     largest = max(range(len(shares)), key=lambda i: shares[i][2])
     short = returned - sum(cents for _, cents, _ in shares)
     legs = [
-        Leg(a.owner_type, a.owner_id, a.kind, cents + (short if i == largest else 0), a.code)
+        Leg(a.owner_type, a.owner_id, a.category, cents + (short if i == largest else 0), a.code)
         for i, (a, cents, _) in enumerate(shares)
     ]
     return legs
@@ -572,7 +576,7 @@ async def post_refund(
     credits = [
         (entry, account)
         for entry, account in await _rows(db, biz, Entry.ref == basis)
-        if account.kind in _UNWOUND
+        if account.category in _UNWOUND
     ]
     base = -sum(entry.amount_cents for entry, _ in credits)
     if base <= 0:
@@ -583,7 +587,7 @@ async def post_refund(
     await post(
         db,
         biz,
-        type="refund",
+        event="refund",
         ref=ref or f"refund:{refund.id}",
         legs=[Leg("business", biz, _CASH[original.provider], -returned), *legs],
         currency=refund.currency,
@@ -602,7 +606,7 @@ async def post_dispute(
     await post(
         db,
         biz,
-        type="dispute",
+        event="dispute",
         ref=f"dispute:{dispute_id}",
         legs=[
             Leg("business", biz, "stripe", -amount),
@@ -615,7 +619,7 @@ async def post_dispute(
     await post(
         db,
         biz,
-        type="fee",
+        event="fee",
         ref=f"dispute_fee:{dispute_id}",
         legs=[
             Leg("business", biz, "processing_fee", fee),
@@ -645,7 +649,7 @@ async def post_payout(
     await post(
         db,
         business_id,
-        type="payout",
+        event="payout",
         ref=f"payout:{payout_id}",
         legs=[
             Leg("business", business_id, "bank", amount),
@@ -666,7 +670,7 @@ async def fail_payout(db: AsyncSession, business_id: str, payout_id: str) -> Non
 
 async def gift_card_balance(db: AsyncSession, card: GiftCard) -> int:
     return -await balance(
-        db, card.business_id, owner_type="gift_card", owner_id=card.id, kind="gift_card"
+        db, card.business_id, owner_type="gift_card", owner_id=card.id, category="gift_card"
     )
 
 
@@ -680,7 +684,7 @@ async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None
     await post(
         db,
         card.business_id,
-        type="redemption",
+        event="redemption",
         ref=f"redemption:{card.id}:{remaining}",
         legs=[
             Leg("gift_card", card.id, "gift_card", amount),
@@ -691,7 +695,7 @@ async def post_redemption(db: AsyncSession, card: GiftCard, amount: int) -> None
 
 
 async def _owned(
-    db: AsyncSession, business_id: str, owner_type: str, owner_id: str, kind: str
+    db: AsyncSession, business_id: str, owner_type: str, owner_id: str, category: str
 ) -> tuple[int, str]:
     """What an entity's own liability account still holds, in the currency it was bought in."""
     account = (
@@ -699,7 +703,7 @@ async def _owned(
             scoped(Account, business_id).where(
                 Account.owner_type == owner_type,
                 Account.owner_id == owner_id,
-                Account.kind == kind,
+                Account.category == category,
             )
         )
     ).scalar_one_or_none()
@@ -707,17 +711,17 @@ async def _owned(
 
 
 async def post_breakage(
-    db: AsyncSession, business_id: str, *, owner_type: str, owner_id: str, kind: str
+    db: AsyncSession, business_id: str, *, owner_type: str, owner_id: str, category: str
 ) -> None:
     """Recognize the unspent balance of an expired gift card or package as revenue."""
-    unused, currency = await _owned(db, business_id, owner_type, owner_id, kind)
+    unused, currency = await _owned(db, business_id, owner_type, owner_id, category)
     await post(
         db,
         business_id,
-        type="breakage",
+        event="breakage",
         ref=f"breakage:{owner_id}",
         legs=[
-            Leg(owner_type, owner_id, kind, unused),
+            Leg(owner_type, owner_id, category, unused),
             Leg("business", business_id, "revenue", -unused),
         ],
         currency=currency,
@@ -730,7 +734,7 @@ async def sessions_used(db: AsyncSession, package: Package) -> int:
     used = await db.execute(
         scoped(Entry, package.business_id)
         .with_only_columns(func.count(func.distinct(Entry.journal_id)))
-        .where(_subject_legs("package", package.id), Entry.type == "consumption")
+        .where(_subject_legs("package", package.id), Entry.event == "consumption")
     )
     return int(used.scalar_one())
 
@@ -748,13 +752,13 @@ async def post_consumption(db: AsyncSession, package: Package) -> None:
             for entry, account in await _rows(
                 db, biz, (Entry.subject_type == "package") & (Entry.subject_id == package.id)
             )
-            if account.kind == "deferred" and entry.type == "payment"
+            if account.category == "deferred" and entry.event == "payment"
         )
         share = min(remaining, paid // package.sessions_total)
     await post(
         db,
         biz,
-        type="consumption",
+        event="consumption",
         ref=f"consumption:{package.id}:{used}",
         legs=[
             Leg("package", package.id, "deferred", share),
@@ -768,7 +772,7 @@ async def post_consumption(db: AsyncSession, package: Package) -> None:
 
 async def deposit_held(db: AsyncSession, booking: Booking) -> int:
     return -await subject_balance(
-        db, booking.business_id, kind="deposit", subject_type="booking", subject_id=booking.id
+        db, booking.business_id, category="deposit", subject_type="booking", subject_id=booking.id
     )
 
 
@@ -777,7 +781,7 @@ async def post_forfeit(db: AsyncSession, booking: Booking) -> None:
     await post(
         db,
         booking.business_id,
-        type="forfeit",
+        event="forfeit",
         ref=f"forfeit:{booking.id}",
         legs=[
             Leg("business", booking.business_id, "deposit", held),
@@ -796,7 +800,7 @@ async def post_application(db: AsyncSession, booking: Booking, invoice: Invoice)
     await post(
         db,
         biz,
-        type="application",
+        event="application",
         ref=f"application:{booking.id}:{invoice.id}",
         legs=[
             Leg("business", biz, "deposit", applied, subject=("booking", booking.id)),

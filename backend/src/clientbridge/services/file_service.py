@@ -26,7 +26,7 @@ class FileService:
         self.biz = principal.business_id
 
     async def create(self, data: FileCreate) -> FileUpload:
-        if (data.parent_type, data.kind) in PUBLIC_MEDIA:
+        if (data.parent_type, data.purpose) in PUBLIC_MEDIA:
             await self._assert_public_parent(data)
 
         async def run(cmd: Command) -> FileUpload:
@@ -36,7 +36,7 @@ class FileService:
                 business_id=self.biz,
                 parent_type=data.parent_type,
                 parent_id=data.parent_id,
-                kind=data.kind,
+                purpose=data.purpose,
                 content_type=data.content_type,
                 size=data.size,
             )
@@ -76,7 +76,7 @@ async def mint_upload(
     business_id: str,
     parent_type: str,
     parent_id: str,
-    kind: str | None = None,
+    purpose: str | None = None,
     content_type: str | None = None,
     size: int | None = None,
 ) -> FileUpload:
@@ -88,7 +88,7 @@ async def mint_upload(
         business_id=business_id,
         parent_type=parent_type,
         parent_id=parent_id,
-        kind=kind,
+        purpose=purpose,
         s3_key=f"{business_id}/{new_id('file')}",
         content_type=content_type,
         size=size,
@@ -105,7 +105,7 @@ def _file_out(file: File) -> FileOut:
         business_id=file.business_id,
         parent_type=file.parent_type,
         parent_id=file.parent_id,
-        kind=file.kind,
+        purpose=file.purpose,
         s3_key=file.s3_key,
         content_type=file.content_type,
         size=file.size,

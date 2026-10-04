@@ -105,7 +105,7 @@ interface TaxByCode {
 export const TAX_BY_CODE_SQL = `
 SELECT a.code AS code, -SUM(e.amount_cents) AS cents
 FROM entries e JOIN accounts a ON a.id = e.account_id
-WHERE a.kind = 'tax' AND e.ref = ?
+WHERE a.category = 'tax' AND e.ref = ?
 GROUP BY a.code ORDER BY a.code`;
 
 type DocAmounts = Pick<InvoiceRow, "subtotal_cents" | "tax_total_cents" | "total_cents">;

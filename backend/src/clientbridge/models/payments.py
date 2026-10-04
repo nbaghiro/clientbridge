@@ -53,14 +53,14 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
 class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "payment_methods"
     __table_args__ = (
-        enum_check("payment_methods", "type", "card", "bank_eft", "interac"),
+        enum_check("payment_methods", "method", "card", "bank_eft", "interac"),
         enum_check("payment_methods", "mandate_status", "none", "pending", "active", "revoked"),
         Index("ix_payment_methods_client", "business_id", "client_id"),
         Index("ix_payment_methods_provider", "business_id", "provider_ref", unique=True),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    method: Mapped[str] = mapped_column(String, nullable=False)
     brand: Mapped[str | None] = mapped_column(String)
     last4: Mapped[str | None] = mapped_column(String)
     provider: Mapped[str | None] = mapped_column(String)

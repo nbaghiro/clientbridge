@@ -15,7 +15,7 @@ from clientbridge.models.identity import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Thread
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
 from clientbridge.schemas.orders import OrderOut
@@ -122,7 +122,7 @@ async def order(db: AsyncSession, order_id: str) -> OrderOut:
 async def booking(db: AsyncSession, booking_id: str) -> BookingOut:
     row = await db.get(Booking, booking_id, populate_existing=True)
     assert row is not None
-    session = await db.get(Session, row.session_id, populate_existing=True)
+    session = await db.get(Slot, row.slot_id, populate_existing=True)
     assert session is not None
     return await _booking_out(db, row, session)
 
@@ -133,19 +133,21 @@ async def deposit_held(db: AsyncSession, booking_id: str) -> int:
     return await ledger.deposit_held(db, row)
 
 
-async def business_balance(db: AsyncSession, kind: str) -> int:
-    return await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind=kind)
+async def business_balance(db: AsyncSession, category: str) -> int:
+    return await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category=category)
 
 
-async def owner_balance(db: AsyncSession, owner_type: str, owner_id: str, kind: str) -> int:
-    return await ledger.balance(db, BIZ, owner_type=owner_type, owner_id=owner_id, kind=kind)
+async def owner_balance(db: AsyncSession, owner_type: str, owner_id: str, category: str) -> int:
+    return await ledger.balance(
+        db, BIZ, owner_type=owner_type, owner_id=owner_id, category=category
+    )
 
 
 async def earnings(db: AsyncSession, subject_type: str, subject_id: str) -> list[str]:
     rows = await db.execute(
         select(Entry.journal_id)
         .where(
-            Entry.type == "earning",
+            Entry.event == "earning",
             Entry.subject_type == subject_type,
             Entry.subject_id == subject_id,
         )

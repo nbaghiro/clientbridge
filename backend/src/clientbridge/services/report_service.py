@@ -65,17 +65,17 @@ class ReportService:
         )
         return RemittanceSummary(
             tax_collected_cents=-await ledger.account_total(
-                self.db, self.biz, Account.kind == "tax"
+                self.db, self.biz, Account.category == "tax"
             )
         )
 
     async def income_summary(self, start: date, end: date) -> IncomeReport:
         lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
         rows = await self.db.execute(
-            self._legs(Account.kind.in_(_CASH), Entry.type.in_(("payment", "refund")), lo, hi)
-            .with_only_columns(Entry.type, Payment.method, func.sum(Entry.amount_cents))
+            self._legs(Account.category.in_(_CASH), Entry.event.in_(("payment", "refund")), lo, hi)
+            .with_only_columns(Entry.event, Payment.method, func.sum(Entry.amount_cents))
             .join(Payment, Payment.id == Entry.source_id)
-            .group_by(Entry.type, Payment.method)
+            .group_by(Entry.event, Payment.method)
         )
         gross = refunds = 0
         by_method: dict[str, int] = {}
@@ -93,15 +93,15 @@ class ReportService:
         business = await self._business()
         lo, hi = period_bounds(start, end, ZoneInfo(business.timezone))
         rows = await self.db.execute(
-            self._legs(Account.kind == "tax", Entry.type != "remittance", lo, hi)
+            self._legs(Account.category == "tax", Entry.event != "remittance", lo, hi)
             .with_only_columns(Account.code, func.sum(Entry.amount_cents))
             .group_by(Account.code)
         )
         tax = {code: -int(cents) for code, cents in rows.tuples().all()}
         sales = await self.db.execute(
             self._legs(
-                Account.kind.in_(("revenue", "deferred")),
-                Entry.type.in_(("invoice", "payment", "refund", "forfeit", "reversal")),
+                Account.category.in_(("revenue", "deferred")),
+                Entry.event.in_(("invoice", "payment", "refund", "forfeit", "reversal")),
                 lo,
                 hi,
             ).with_only_columns(func.coalesce(func.sum(Entry.amount_cents), 0))
@@ -120,8 +120,8 @@ class ReportService:
         end = datetime(year + 1, 1, 1, tzinfo=tz)
         paid = (
             self._legs(
-                (Account.kind == "payable") & (Account.code == "approved"),
-                Entry.type == "staff_payment",
+                (Account.category == "payable") & (Account.code == "approved"),
+                Entry.event == "staff_payment",
                 start,
                 end,
             )

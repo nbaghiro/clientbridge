@@ -60,7 +60,7 @@ async def test_reset_expired_token_401(
     await api.post("/auth/forgot-password", json={"email": "exp-reset@test.ca"})
     token = email.sent[-1].body.split()[-1]
     await db.execute(
-        text("UPDATE auth_tokens SET expires_at = now() - interval '1 hour' WHERE user_id = :u"),
+        text("UPDATE tokens SET expires_at = now() - interval '1 hour' WHERE user_id = :u"),
         {"u": user.id},
     )
     res = await api.post("/auth/reset-password", json={"token": token, "new_password": "x"})

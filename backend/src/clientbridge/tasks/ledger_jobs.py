@@ -5,7 +5,7 @@ from clientbridge.core.db import SessionLocal
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.payments import PaymentGateway, get_payment_gateway
 from clientbridge.models.identity import Business
-from clientbridge.models.platform import AuditLog
+from clientbridge.models.platform import Audit
 from clientbridge.services import ledger_service as ledger
 
 
@@ -20,14 +20,14 @@ async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int
     for business in businesses:
         assert business.stripe_account_id is not None
         ours = await ledger.balance(
-            db, business.id, owner_type="business", owner_id=business.id, kind="stripe"
+            db, business.id, owner_type="business", owner_id=business.id, category="stripe"
         )
         theirs = await gateway.get_balance_cents(business.stripe_account_id, currency="CAD")
         if ours != theirs:
             drifted += 1
             db.add(
-                AuditLog(
-                    id=new_id("audit_log"),
+                Audit(
+                    id=new_id("audit"),
                     business_id=business.id,
                     action="ledger.drift",
                     entity_type="business",

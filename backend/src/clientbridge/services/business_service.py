@@ -100,7 +100,7 @@ class BusinessService:
         logo = (
             await self.db.execute(
                 scoped(File, self.principal.business_id).where(
-                    File.id == file_id, File.parent_type == "business", File.kind == "logo"
+                    File.id == file_id, File.parent_type == "business", File.purpose == "logo"
                 )
             )
         ).scalar_one_or_none()

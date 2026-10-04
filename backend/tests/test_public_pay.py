@@ -140,7 +140,7 @@ async def test_cannot_pay_a_paid_invoice(api: httpx.AsyncClient, db: AsyncSessio
     await ledger.post(
         db,
         BIZ,
-        type="payment",
+        event="payment",
         ref=f"test:paid:{inv_id}",
         legs=[Leg("business", BIZ, "bank", 8000), Leg("client", "cl_x", "receivable", -8000)],
         subject=("invoice", inv_id),

@@ -11,7 +11,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import DeviceToken
+from clientbridge.models.platform import Device
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender, book_invoice
 
 BIZ = "bz_birchbark"
@@ -80,8 +80,8 @@ async def test_card_success_sends_receipt_and_push(
     await _enable(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     db.add(
-        DeviceToken(
-            id=new_id("device_token"),
+        Device(
+            id=new_id("device"),
             business_id=BIZ,
             user_id="us_dev",
             token="ExpoTok1",
@@ -118,11 +118,7 @@ async def test_device_register_upserts(as_owner: httpx.AsyncClient, db: AsyncSes
     first = await as_owner.post("/v1/devices/register", json=body)
     assert first.status_code == 200 and first.json()["registered"] is True
     await as_owner.post("/v1/devices/register", json=body)  # same token again
-    rows = (
-        (await db.execute(select(DeviceToken).where(DeviceToken.token == "ExpoTokX")))
-        .scalars()
-        .all()
-    )
+    rows = (await db.execute(select(Device).where(Device.token == "ExpoTokX"))).scalars().all()
     assert len(rows) == 1
     assert rows[0].platform == "android"
 
@@ -131,9 +127,7 @@ async def test_device_register_scopes_to_caller(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await as_owner.post("/v1/devices/register", json={"token": "ExpoTokC", "platform": "ios"})
-    row = (
-        await db.execute(select(DeviceToken).where(DeviceToken.token == "ExpoTokC"))
-    ).scalar_one()
+    row = (await db.execute(select(Device).where(Device.token == "ExpoTokC"))).scalar_one()
     assert row.business_id == BIZ and row.user_id == "us_dev"  # bound to the caller's biz + user
 
 
@@ -148,8 +142,8 @@ async def test_push_target_is_business_scoped(
     await _enable(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     db.add(
-        DeviceToken(
-            id=new_id("device_token"),
+        Device(
+            id=new_id("device"),
             business_id=BIZ,
             user_id="us_dev",
             token="BizTok",
@@ -160,8 +154,8 @@ async def test_push_target_is_business_scoped(
     other = await factory.business()
     other_user = await factory.user()
     db.add(
-        DeviceToken(
-            id=new_id("device_token"),
+        Device(
+            id=new_id("device"),
             business_id=other.id,
             user_id=other_user.id,
             token="ForeignTok",
@@ -434,8 +428,8 @@ async def test_failing_channel_does_not_500(
     await _enable(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     db.add(
-        DeviceToken(
-            id=new_id("device_token"),
+        Device(
+            id=new_id("device"),
             business_id=BIZ,
             user_id="us_dev",
             token="ExpoTokB",

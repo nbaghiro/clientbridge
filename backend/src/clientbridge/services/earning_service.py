@@ -11,7 +11,7 @@ from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import Item
 from clientbridge.models.identity import Staff
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.earnings import EarningOut
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.ledger_service import Leg
@@ -128,7 +128,7 @@ async def advance_earning(db: AsyncSession, earning: Earning, target: str) -> No
     await ledger.post(
         db,
         earning.business_id,
-        type=entry_type,
+        event=entry_type,
         ref=f"{entry_type}:{earning.id}",
         legs=[Leg("staff", earning.staff_id, "payable", earning.amount_cents, current), to],
         source=("journal", earning.id),
@@ -141,7 +141,9 @@ async def load_earning(db: AsyncSession, business_id: str, journal_id: str) -> E
         scoped(Entry, business_id)
         .add_columns(Account)
         .join(Account, Account.id == Entry.account_id)
-        .where(Entry.journal_id == journal_id, Entry.type == "earning", Account.kind == "payable")
+        .where(
+            Entry.journal_id == journal_id, Entry.event == "earning", Account.category == "payable"
+        )
     )
     row = rows.tuples().first()
     if row is None:
@@ -174,7 +176,7 @@ async def _booking_earnings(db: AsyncSession, business_id: str, booking_id: str)
         scoped(Entry, business_id)
         .with_only_columns(Entry.journal_id)
         .where(
-            Entry.type == "earning",
+            Entry.event == "earning",
             Entry.subject_type == "booking",
             Entry.subject_id == booking_id,
         )
@@ -197,10 +199,10 @@ async def _split(
     if staff.rate_type == "fixed":
         return "fixed", rate
     if staff.rate_type == "hourly":
-        session = await db.get(Session, booking.session_id)
-        if session is None:
+        slot = await db.get(Slot, booking.slot_id)
+        if slot is None:
             return None
-        hours = (session.ends_at - session.starts_at).total_seconds() / 3600
+        hours = (slot.ends_at - slot.starts_at).total_seconds() / 3600
         return "rate", round(rate * hours)
     return None
 
@@ -237,7 +239,7 @@ async def ensure_earnings(db: AsyncSession, invoice: Invoice) -> None:
         await ledger.post(
             db,
             biz,
-            type="earning",
+            event="earning",
             ref=f"earning:{booking.id}:{len(journals)}",
             legs=[
                 Leg("business", biz, "staff_cost", amount),
@@ -285,7 +287,7 @@ async def ensure_order_earning(db: AsyncSession, order: Order) -> None:
     await ledger.post(
         db,
         biz,
-        type="earning",
+        event="earning",
         ref=f"earning:order:{order.id}:{len(journals)}",
         legs=[
             Leg("business", biz, "staff_cost", amount),
@@ -310,7 +312,9 @@ async def _order_earnings(db: AsyncSession, business_id: str, order_id: str) -> 
     rows = await db.execute(
         scoped(Entry, business_id)
         .with_only_columns(Entry.journal_id)
-        .where(Entry.type == "earning", Entry.subject_type == "order", Entry.subject_id == order_id)
+        .where(
+            Entry.event == "earning", Entry.subject_type == "order", Entry.subject_id == order_id
+        )
         .distinct()
         .order_by(Entry.journal_id)
     )

@@ -13,7 +13,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Availability, Booking, Session
+from clientbridge.models.scheduling import Booking, Hours, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender
 
 SLUG = "birchbark"
@@ -46,8 +46,8 @@ def _body(
 
 async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: datetime) -> None:
     item_row = (await db.execute(select(Item).where(Item.id == item))).scalar_one()
-    session = Session(
-        id=new_id("session"),
+    session = Slot(
+        id=new_id("slot"),
         business_id=BIZ,
         item_id=item,
         staff_id=staff,
@@ -62,7 +62,7 @@ async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: date
         Booking(
             id=new_id("booking"),
             business_id=BIZ,
-            session_id=session.id,
+            slot_id=session.id,
             staff_id=staff,
             client_id="cl_amelie",
             status="confirmed",
@@ -152,11 +152,11 @@ async def test_slots_exclude_overlapping_and_respect_buffer(
 
 async def test_slots_fully_booked_day_is_empty(api: httpx.AsyncClient, db: AsyncSession) -> None:
     db.add(
-        Availability(
-            id=new_id("availability"),
+        Hours(
+            id=new_id("hours"),
             business_id=BIZ,
             staff_id=ST_PRIYA,
-            type="date",
+            basis="date",
             date=date(2027, 3, 9),
             start_time=time(9, 0),
             end_time=time(10, 30),  # a single 75-min slot fits

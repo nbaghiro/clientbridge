@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
-from clientbridge.models.platform import DeviceToken
+from clientbridge.models.platform import Device
 
 
 class DeviceService:
@@ -17,7 +17,7 @@ class DeviceService:
 
     async def register(self, token: str, platform: str) -> None:
         existing = (
-            await self.db.execute(select(DeviceToken).where(DeviceToken.token == token))
+            await self.db.execute(select(Device).where(Device.token == token))
         ).scalar_one_or_none()
         if existing is not None:
             existing.user_id = self.principal.user_id
@@ -25,8 +25,8 @@ class DeviceService:
             existing.platform = platform
         else:
             self.db.add(
-                DeviceToken(
-                    id=new_id("device_token"),
+                Device(
+                    id=new_id("device"),
                     business_id=self.principal.business_id,
                     user_id=self.principal.user_id,
                     token=token,

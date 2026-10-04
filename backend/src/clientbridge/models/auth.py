@@ -18,10 +18,10 @@ class AuthSession(PKMixin, Base):
     """One refresh-token family per login/device. Rotation swaps `token_hash`; replay of an old or
     revoked hash → revoke the whole family."""
 
-    __tablename__ = "auth_sessions"
+    __tablename__ = "sessions"
     __table_args__ = (
-        Index("ix_auth_sessions_user", "user_id"),
-        Index("ix_auth_sessions_family", "family_id"),
+        Index("ix_sessions_user", "user_id"),
+        Index("ix_sessions_family", "family_id"),
     )
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
@@ -38,10 +38,10 @@ class AuthSession(PKMixin, Base):
 class AuthToken(PKMixin, Base):
     """A single-use, expiring token for password reset / email verification."""
 
-    __tablename__ = "auth_tokens"
+    __tablename__ = "tokens"
     __table_args__ = (
-        enum_check("auth_tokens", "purpose", "reset", "verify"),
-        Index("ix_auth_tokens_user", "user_id"),
+        enum_check("tokens", "purpose", "reset", "verify"),
+        Index("ix_tokens_user", "user_id"),
     )
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)

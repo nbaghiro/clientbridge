@@ -8,8 +8,8 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_can_act_as
 from clientbridge.core.errors import AppError, Conflict
 from clientbridge.core.ids import new_id
-from clientbridge.models.scheduling import Schedule
-from clientbridge.schemas.bookings import ScheduleCreate, ScheduleOccurrence, ScheduleOut
+from clientbridge.models.scheduling import Recurrence
+from clientbridge.schemas.bookings import RecurrenceCreate, RecurrenceOccurrence, RecurrenceOut
 from clientbridge.services.booking_service import create_booking_core
 from clientbridge.services.business_service import business_tz
 from clientbridge.services.catalog_service import load_item
@@ -69,13 +69,13 @@ def expand_occurrences(
     return dates
 
 
-class ScheduleService:
+class RecurrenceService:
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
 
-    async def create(self, data: ScheduleCreate, idempotency_key: str | None) -> ScheduleOut:
+    async def create(self, data: RecurrenceCreate, idempotency_key: str | None) -> RecurrenceOut:
         """Persist a recurrence and expand it into confirmed bookings, one per occurrence. An
         occurrence that falls outside hours or overlaps an existing booking is skipped (rolled back
         to its savepoint) and reported, so a single clash never fails the whole series."""
@@ -104,9 +104,9 @@ class ScheduleService:
             until=data.until,
         )
 
-        async def run(cmd: Command) -> ScheduleOut:
-            schedule = Schedule(
-                id=new_id("schedule"),
+        async def run(cmd: Command) -> RecurrenceOut:
+            recurrence = Recurrence(
+                id=new_id("recurrence"),
                 business_id=self.biz,
                 item_id=item.id,
                 staff_id=data.staff_id,
@@ -119,10 +119,10 @@ class ScheduleService:
                 start_date=base.date(),
                 status="active",
             )
-            self.db.add(schedule)
+            self.db.add(recurrence)
             await self.db.flush()
 
-            occurrences: list[ScheduleOccurrence] = []
+            occurrences: list[RecurrenceOccurrence] = []
             created = 0
             for d in occ_dates:
                 starts_at = datetime.combine(d, local_time, tzinfo=tz).astimezone(UTC)
@@ -138,27 +138,29 @@ class ScheduleService:
                             source="manual",
                             subject_id=data.subject_id,
                             resource_id=data.resource_id,
-                            recurrence_id=schedule.id,
+                            recurrence_id=recurrence.id,
                         )
                     created += 1
                     occurrences.append(
-                        ScheduleOccurrence(starts_at=starts_at, booking_id=booking.id, skipped=None)
+                        RecurrenceOccurrence(
+                            starts_at=starts_at, booking_id=booking.id, skipped=None
+                        )
                     )
                 except Conflict as exc:
                     occurrences.append(
-                        ScheduleOccurrence(starts_at=starts_at, booking_id=None, skipped=str(exc))
+                        RecurrenceOccurrence(starts_at=starts_at, booking_id=None, skipped=str(exc))
                     )
 
-            cmd.record("schedule.create", entity_type="schedule", entity_id=schedule.id)
-            return ScheduleOut(
-                id=schedule.id,
+            cmd.record("recurrence.create", entity_type="recurrence", entity_id=recurrence.id)
+            return RecurrenceOut(
+                id=recurrence.id,
                 business_id=self.biz,
-                item_id=schedule.item_id,
-                staff_id=schedule.staff_id,
-                client_id=schedule.client_id,
-                frequency=schedule.frequency,
-                interval=schedule.interval,
-                status=schedule.status,
+                item_id=recurrence.item_id,
+                staff_id=recurrence.staff_id,
+                client_id=recurrence.client_id,
+                frequency=recurrence.frequency,
+                interval=recurrence.interval,
+                status=recurrence.status,
                 created=created,
                 skipped=len(occurrences) - created,
                 occurrences=occurrences,
@@ -167,8 +169,8 @@ class ScheduleService:
         return await run_command(
             self.db,
             self.principal,
-            action="schedule.create",
+            action="recurrence.create",
             run=run,
-            response_model=ScheduleOut,
+            response_model=RecurrenceOut,
             idempotency_key=idempotency_key,
         )

@@ -38,14 +38,14 @@ class Form(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 
 class FormField(PKMixin, BusinessScoped, TimestampMixin, Base):
-    __tablename__ = "form_fields"
+    __tablename__ = "fields"
     __table_args__ = (
-        enum_check("form_fields", "type", *FORM_FIELD_TYPES),
-        Index("ix_form_fields_form", "form_id", "position"),
+        enum_check("fields", "input", *FORM_FIELD_TYPES),
+        Index("ix_fields_form", "form_id", "position"),
     )
 
     form_id: Mapped[str] = mapped_column(ForeignKey("forms.id"), nullable=False)
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    input: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     label: Mapped[str] = mapped_column(String, nullable=False)
     help: Mapped[str | None] = mapped_column(String)
@@ -56,13 +56,13 @@ class FormField(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 
 class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
-    __tablename__ = "form_responses"
+    __tablename__ = "responses"
     __table_args__ = (
-        enum_check("form_responses", "status", "draft", "submitted"),
-        enum_check("form_responses", "parent_type", *DOCUMENT_PARENTS),
-        UniqueConstraint("token", name="uq_form_responses_token"),
-        Index("ix_form_responses_form", "business_id", "form_id"),
-        Index("ix_form_responses_parent", "parent_type", "parent_id"),
+        enum_check("responses", "status", "draft", "submitted"),
+        enum_check("responses", "parent_type", *DOCUMENT_PARENTS),
+        UniqueConstraint("token", name="uq_responses_token"),
+        Index("ix_responses_form", "business_id", "form_id"),
+        Index("ix_responses_parent", "parent_type", "parent_id"),
     )
 
     form_id: Mapped[str] = mapped_column(ForeignKey("forms.id"), nullable=False)

@@ -166,7 +166,7 @@ async def test_recurring_series_create_and_cancel(
     api = as_owner
     series = ok(
         await api.post(
-            "/v1/schedules",
+            "/v1/recurrences",
             json={
                 "client_id": AMELIE,
                 "item_id": GROOM_SM,

@@ -46,13 +46,13 @@ export interface AvailabilityEditor {
 }
 
 export const RECURRING_HOURS_SQL =
-    "SELECT weekday, start_time, end_time, available FROM availability WHERE staff_id = ? AND type = 'recurring'";
+    "SELECT weekday, start_time, end_time, available FROM hours WHERE staff_id = ? AND basis = 'recurring'";
 
 export const CLEAR_RECURRING_HOURS_SQL =
-    "DELETE FROM availability WHERE staff_id = ? AND type = 'recurring'";
+    "DELETE FROM hours WHERE staff_id = ? AND basis = 'recurring'";
 
 export const INSERT_RECURRING_HOURS_SQL =
-    "INSERT INTO availability (id, business_id, staff_id, type, weekday, start_time, end_time, available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
+    "INSERT INTO hours (id, business_id, staff_id, basis, weekday, start_time, end_time, available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
 
 /** Seed a full 7-day grid from the staff's recurring rows; unconfigured days fall back to
  *  business-hours defaults (weekdays open 9–5, weekends closed). */

@@ -10,7 +10,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.scheduling import Availability, Booking, Session
+from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.booking_service import booked_count
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
@@ -63,10 +63,10 @@ async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSessi
     n = (
         await db.execute(
             select(func.count())
-            .select_from(Session)
+            .select_from(Slot)
             .where(
-                Session.staff_id == ST_OWNER,
-                Session.starts_at == datetime(2027, 3, 2, 18, tzinfo=UTC),
+                Slot.staff_id == ST_OWNER,
+                Slot.starts_at == datetime(2027, 3, 2, 18, tzinfo=UTC),
             )
         )
     ).scalar_one()
@@ -78,8 +78,8 @@ async def test_resource_double_book_conflicts(
 ) -> None:
     # a resource (room/equipment) can't be held by two overlapping sessions, even across staff
     client_id, item_id = await _client_and_item(db)
-    held = Session(
-        id=new_id("session"),
+    held = Slot(
+        id=new_id("slot"),
         business_id=BIZ,
         item_id=item_id,
         staff_id="st_diego",
@@ -125,7 +125,7 @@ async def test_reschedule_moves_session(as_owner: httpx.AsyncClient, db: AsyncSe
     # the move persisted on the session, not just echoed in the response
     session = (
         await db.execute(
-            select(Session).join(Booking, Booking.session_id == Session.id).where(Booking.id == bid)
+            select(Slot).join(Booking, Booking.slot_id == Slot.id).where(Booking.id == bid)
         )
     ).scalar_one()
     assert session.starts_at == datetime(2027, 3, 4, 22, tzinfo=UTC)
@@ -320,11 +320,11 @@ async def test_booking_within_window_ok_outside_409(
 ) -> None:
     client_id, item_id = await _client_and_item(db)
     db.add(
-        Availability(
-            id=new_id("availability"),
+        Hours(
+            id=new_id("hours"),
             business_id=BIZ,
             staff_id=ST_PRIYA,
-            type="date",
+            basis="date",
             date=date(2027, 9, 15),
             start_time=time(9, 0),
             end_time=time(17, 0),
@@ -359,11 +359,11 @@ async def test_availability_closure_blocks_booking(
 ) -> None:
     client_id, item_id = await _client_and_item(db)
     db.add(
-        Availability(
-            id=new_id("availability"),
+        Hours(
+            id=new_id("hours"),
             business_id=BIZ,
             staff_id=ST_PRIYA,
-            type="date",
+            basis="date",
             date=date(2027, 9, 16),
             available=False,  # all-day closure
         )
@@ -397,11 +397,9 @@ async def test_class_bookings_share_session_until_full(
     third = await as_owner.post("/v1/bookings", json=body)
     assert first.status_code == 201
     assert second.status_code == 201
-    assert first.json()["session_id"] == second.json()["session_id"]  # one shared session
+    assert first.json()["slot_id"] == second.json()["slot_id"]  # one shared session
     assert third.status_code == 409  # capacity 2 exhausted
-    sess = (
-        await db.execute(select(Session).where(Session.id == first.json()["session_id"]))
-    ).scalar_one()
+    sess = (await db.execute(select(Slot).where(Slot.id == first.json()["slot_id"]))).scalar_one()
     assert sess.capacity == 2
     assert await booked_count(db, sess.id) == 2
 
@@ -414,9 +412,7 @@ async def test_non_class_item_mints_single_capacity_session(
         "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T17:00:00Z")
     )
     assert res.status_code == 201
-    sess = (
-        await db.execute(select(Session).where(Session.id == res.json()["session_id"]))
-    ).scalar_one()
+    sess = (await db.execute(select(Slot).where(Slot.id == res.json()["slot_id"]))).scalar_one()
     assert sess.capacity == 1
     assert await booked_count(db, sess.id) == 1
 
@@ -440,8 +436,8 @@ async def test_foreign_business_session_does_not_block(
     db.add(other_item)
     await db.flush()
     db.add(
-        Session(
-            id=new_id("session"),
+        Slot(
+            id=new_id("slot"),
             business_id=other.id,
             item_id=other_item.id,
             staff_id=other_staff.id,
@@ -627,8 +623,8 @@ async def test_collect_deposit_foreign_booking_404(
     )
     db.add(item)
     await db.flush()
-    session = Session(
-        id=new_id("session"),
+    session = Slot(
+        id=new_id("slot"),
         business_id=other.id,
         item_id=item.id,
         staff_id=other_staff.id,
@@ -642,7 +638,7 @@ async def test_collect_deposit_foreign_booking_404(
     booking = Booking(
         id=new_id("booking"),
         business_id=other.id,
-        session_id=session.id,
+        slot_id=session.id,
         staff_id=other_staff.id,
         client_id=foreign_client.id,
         status="confirmed",
@@ -781,7 +777,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
     gateway: FakePaymentGateway,
     email: FakeEmailSender,
 ) -> None:
-    # A redelivered deposit settle (same intent, a NEW event id so the WebhookEvent dedup doesn't
+    # A redelivered deposit settle (same intent, a NEW event id so the Webhook dedup doesn't
     # mask it) must hit the payment-already-settled guard: collected once, no second receipt.
     await _enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-14T10:00:00Z")
@@ -906,9 +902,9 @@ async def test_refunding_a_forfeited_deposit_in_full_unforfeits_it(
     bid, pay_id = await _collected_deposit(as_owner, db, starts="2027-07-06T10:00:00Z")
     await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert await _deposit_status(db, bid) == "forfeited"
-    revenue = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="revenue")
+    revenue = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="revenue")
     res = await as_owner.post(f"/v1/payments/{pay_id}/refund")
     assert res.status_code == 200, res.text
     assert await _deposit_status(db, bid) == "refunded"
-    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="revenue")
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="revenue")
     assert after == revenue + 2000  # the forfeited deposit no longer counts as revenue

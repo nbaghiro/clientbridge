@@ -7,16 +7,16 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.crm import Client
-from clientbridge.models.platform import DeviceToken
+from clientbridge.models.platform import Device
 from clientbridge.models.reviews import ReviewRequest
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.billing_service import estimate_status
 from clientbridge.services.ledger_service import Leg
 from clientbridge.services.notification_service import Notifier
 from clientbridge.services.review_service import build_review_request
 from clientbridge.tasks.billing_jobs import run_overdue_sweep
-from clientbridge.tasks.maintenance import run_expiry_sweeps, run_prune_device_tokens
+from clientbridge.tasks.maintenance import run_expiry_sweeps, run_prune_devices
 from clientbridge.tasks.review_jobs import run_review_requests
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender, book_invoice
 
@@ -133,19 +133,19 @@ async def test_overdue_sweep_is_multi_tenant(
     assert "tenant-b@example.ca" in recipients  # the second tenant's client was notified per-row
 
 
-async def test_prune_stale_device_tokens(db: AsyncSession) -> None:
+async def test_prune_stale_devices(db: AsyncSession) -> None:
     db.add_all(
         [
-            DeviceToken(
-                id=new_id("device_token"),
+            Device(
+                id=new_id("device"),
                 business_id=BIZ,
                 user_id="us_dev",
                 token="StaleTok",
                 platform="ios",
                 updated_at=NOW - timedelta(days=90),
             ),
-            DeviceToken(
-                id=new_id("device_token"),
+            Device(
+                id=new_id("device"),
                 business_id=BIZ,
                 user_id="us_dev",
                 token="FreshTok",
@@ -156,12 +156,10 @@ async def test_prune_stale_device_tokens(db: AsyncSession) -> None:
     )
     await db.flush()
 
-    assert await run_prune_device_tokens(db, NOW) == 1  # only the 90-day-old token
+    assert await run_prune_devices(db, NOW) == 1  # only the 90-day-old token
 
     remaining = (
-        (await db.execute(select(DeviceToken.token).where(DeviceToken.business_id == BIZ)))
-        .scalars()
-        .all()
+        (await db.execute(select(Device.token).where(Device.business_id == BIZ))).scalars().all()
     )
     assert "FreshTok" in remaining
     assert "StaleTok" not in remaining
@@ -170,8 +168,8 @@ async def test_prune_stale_device_tokens(db: AsyncSession) -> None:
 async def _completed_booking(
     db: AsyncSession, cid: str, *, completed_at: datetime | None, status: str = "completed"
 ) -> str:
-    sess = Session(
-        id=new_id("session"),
+    sess = Slot(
+        id=new_id("slot"),
         business_id=BIZ,
         item_id=await _an_item(db),
         staff_id=ST_OWNER,
@@ -185,7 +183,7 @@ async def _completed_booking(
     booking = Booking(
         id=new_id("booking"),
         business_id=BIZ,
-        session_id=sess.id,
+        slot_id=sess.id,
         staff_id=ST_OWNER,
         client_id=cid,
         status=status,
@@ -281,7 +279,7 @@ async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:
         await ledger.post(
             db,
             BIZ,
-            type="payment",
+            event="payment",
             ref=f"test:purchase:{card.id}",
             legs=[
                 Leg("business", BIZ, "stripe", 1000),

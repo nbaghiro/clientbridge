@@ -28,7 +28,7 @@ export function activeForms(rows: FormRow[]): FormRow[] {
 export interface FormFieldRow {
     id: string;
     form_id: string;
-    type: string;
+    input: string;
     name: string;
     label: string;
     required: number;
@@ -36,13 +36,13 @@ export interface FormFieldRow {
 }
 
 export const FORM_FIELDS_SQL =
-    "SELECT id, form_id, type, name, label, required, position FROM form_fields WHERE form_id = ? ORDER BY position";
+    "SELECT id, form_id, input, name, label, required, position FROM fields WHERE form_id = ? ORDER BY position";
 
 export const INSERT_FORM_SQL =
     "INSERT INTO forms (id, business_id, name, attach_to, require_signature, active) VALUES (?, ?, ?, ?, ?, ?)";
 
 export const INSERT_FORM_FIELD_SQL =
-    "INSERT INTO form_fields (id, business_id, form_id, type, name, label, required, options, validation, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    "INSERT INTO fields (id, business_id, form_id, input, name, label, required, options, validation, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 export function useFormFields(formId: string): FormFieldRow[] {
     return useQuery<FormFieldRow>(FORM_FIELDS_SQL, [formId]).data;
@@ -139,20 +139,20 @@ export const FIELD_TYPE_LABEL: Record<string, string> = {
     signature: strings.bookingForms.fieldTypeSignature,
 };
 
-export function hasOptions(type: string): boolean {
-    return type === "select" || type === "multiselect";
+export function hasOptions(input: string): boolean {
+    return input === "select" || input === "multiselect";
 }
 
 export interface DraftField {
     key: string; // local-only list key
-    type: string;
+    input: string;
     label: string;
     required: boolean;
-    options: string; // comma-separated, used when `hasOptions(type)`
+    options: string; // comma-separated, used when `hasOptions(input)`
 }
 
 function newDraftField(): DraftField {
-    return { key: crypto.randomUUID(), type: "text", label: "", required: false, options: "" };
+    return { key: crypto.randomUUID(), input: "text", label: "", required: false, options: "" };
 }
 
 function slugify(label: string): string {
@@ -225,9 +225,9 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
             let n = 2;
             while (taken.has(key)) key = `${base}_${n++}`;
             taken.add(key);
-            const options = hasOptions(f.type) ? splitOptions(f.options) : [];
+            const options = hasOptions(f.input) ? splitOptions(f.options) : [];
             return {
-                type: f.type,
+                input: f.input,
                 fieldName: key,
                 label: f.label.trim(),
                 required: f.required,
@@ -254,7 +254,7 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
                             newRowId("ff"),
                             businessId,
                             formId,
-                            f.type,
+                            f.input,
                             f.fieldName,
                             f.label,
                             f.required ? 1 : 0,

@@ -11,7 +11,7 @@ from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.catalog import Item
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, BookingAddon
+from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.services import ledger_service as ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender
 
@@ -233,11 +233,7 @@ async def test_booking_page_offers_add_ons_and_stores_them(
     )
     assert res.status_code == 200, res.text
     rows = (
-        (
-            await db.execute(
-                select(BookingAddon).where(BookingAddon.booking_id == res.json()["booking_id"])
-            )
-        )
+        (await db.execute(select(Addon).where(Addon.booking_id == res.json()["booking_id"])))
         .scalars()
         .all()
     )
@@ -299,7 +295,7 @@ async def test_staff_remove_an_add_on_from_their_own_visit(
 ) -> None:
     res = await as_staff.delete(f"/v1/bookings/{ADDON_BOOKING}/addons/bka_demo_shampoo")
     assert res.status_code == 200, res.text
-    assert await db.get(BookingAddon, "bka_demo_shampoo") is None
+    assert await db.get(Addon, "bka_demo_shampoo") is None
     missing = await as_staff.delete(f"/v1/bookings/{ADDON_BOOKING}/addons/bka_demo_shampoo")
     assert missing.status_code == 404
 
@@ -317,7 +313,7 @@ async def test_staff_cannot_remove_add_ons_from_another_members_visit(
     as_staff: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     db.add(
-        BookingAddon(
+        Addon(
             id="bka_owner_visit",
             business_id=BIZ,
             booking_id=OWNER_BOOKING,

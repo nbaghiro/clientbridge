@@ -13,7 +13,7 @@ from clientbridge.models.catalog import Item, Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.platform import WebhookEvent
+from clientbridge.models.platform import Webhook
 from clientbridge.services import ledger_service as ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
 
@@ -79,13 +79,13 @@ async def _saved_method(
     *,
     business_id: str = BIZ,
     ref: str = "pm_sub",
-    type: str = "card",
+    method: str = "card",
 ) -> PaymentMethod:
     pm = PaymentMethod(
         id=new_id("payment_method"),
         business_id=business_id,
         client_id=cid,
-        type=type,
+        method=method,
         provider="stripe",
         provider_ref=ref,
         status="active",
@@ -352,7 +352,7 @@ async def test_acss_debit_records_bank_eft_mandate(
     pm = (
         await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_acss"))
     ).scalar_one()
-    assert pm.type == "bank_eft"
+    assert pm.method == "bank_eft"
     assert pm.mandate_status == "active"
     assert pm.brand == "TD Canada Trust" and pm.last4 == "0001"
 
@@ -610,7 +610,7 @@ async def test_paid_invoice_without_a_visible_intent_is_retried(
     assert res.status_code == 503
     await db.rollback()  # the request's session closes uncommitted
     seen = (
-        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == "evt_late"))
+        await db.execute(select(Webhook.id).where(Webhook.id == "evt_late"))
     ).scalar_one_or_none()
     assert seen is None
     gateway.invoice_intents["in_late"] = "pi_late"

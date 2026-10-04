@@ -311,7 +311,7 @@ export function payLinkUrl(base: string, token: string): string {
 export interface SavedCardRow {
     id: string;
     client_id: string;
-    type: string; // card | bank_eft | interac
+    method: string; // card | bank_eft | interac
     brand: string | null;
     last4: string | null;
     preferred: number; // SQLite boolean → 0/1
@@ -320,7 +320,7 @@ export interface SavedCardRow {
 }
 
 export const SAVED_CARDS_SQL = `
-SELECT id, client_id, type, brand, last4, preferred, mandate_status, status
+SELECT id, client_id, method, brand, last4, preferred, mandate_status, status
 FROM payment_methods
 WHERE client_id = ? AND status = 'active'
 ORDER BY preferred DESC, created_at`;
@@ -332,14 +332,14 @@ export function useSavedCards(clientId: string): SavedCardRow[] {
 
 /** A bank/EFT pre-authorized-debit mandate, vs a saved card. */
 export function isMandate(card: SavedCardRow): boolean {
-    return card.type === "bank_eft";
+    return card.method === "bank_eft";
 }
 
 /** "Visa ···· 4242" for a card, "Bank account ···· 6789" for a PAD mandate. */
 export function savedCardLabel(card: SavedCardRow): string {
     const noun = isMandate(card)
         ? strings.payments.bankAccountNoun
-        : card.type === "interac"
+        : card.method === "interac"
           ? strings.payments.interacNoun
           : card.brand
             ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
@@ -349,7 +349,7 @@ export function savedCardLabel(card: SavedCardRow): string {
 
 /** A card, or a bank account with an active mandate; an Interac contact can't be charged. */
 export function isChargeable(card: SavedCardRow): boolean {
-    return card.type === "card" || (isMandate(card) && card.mandate_status === "active");
+    return card.method === "card" || (isMandate(card) && card.mandate_status === "active");
 }
 
 export function canBeDefault(card: SavedCardRow): boolean {

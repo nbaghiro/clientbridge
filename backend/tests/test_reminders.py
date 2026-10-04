@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.notification_service import Notifier
 from clientbridge.tasks.reminders import run_reminders
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
@@ -31,8 +31,8 @@ async def _booking_at(db: AsyncSession, starts_at: datetime, *, status: str = "c
         .first()
     )
     assert iid
-    sess = Session(
-        id=new_id("session"),
+    sess = Slot(
+        id=new_id("slot"),
         business_id=BIZ,
         item_id=iid,
         staff_id=ST_OWNER,
@@ -46,7 +46,7 @@ async def _booking_at(db: AsyncSession, starts_at: datetime, *, status: str = "c
     booking = Booking(
         id=new_id("booking"),
         business_id=BIZ,
-        session_id=sess.id,
+        slot_id=sess.id,
         staff_id=ST_OWNER,
         client_id=cid,
         status=status,
@@ -114,8 +114,8 @@ async def _booking_for(
     )
     db.add(item)
     await db.flush()
-    sess = Session(
-        id=new_id("session"),
+    sess = Slot(
+        id=new_id("slot"),
         business_id=business_id,
         item_id=item.id,
         staff_id=staff_id,
@@ -129,7 +129,7 @@ async def _booking_for(
     booking = Booking(
         id=new_id("booking"),
         business_id=business_id,
-        session_id=sess.id,
+        slot_id=sess.id,
         staff_id=staff_id,
         client_id=client_id,
         status="confirmed",

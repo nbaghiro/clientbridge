@@ -58,7 +58,7 @@ async def _remittances(db: AsyncSession, business_id: str = BIZ) -> int:
     return (
         await db.execute(
             select(func.count(func.distinct(Entry.journal_id))).where(
-                Entry.business_id == business_id, Entry.type == "remittance"
+                Entry.business_id == business_id, Entry.event == "remittance"
             )
         )
     ).scalar_one()
@@ -72,7 +72,7 @@ async def test_filing_moves_tax_payable_to_the_bank(
     payable = (await as_owner.get("/v1/payments/remittance")).json()["tax_collected_cents"]
     set_aside = (await as_owner.get("/v1/dashboard/summary")).json()["gst_hst_set_aside_cents"]
     report = (await as_owner.get(f"/v1/reports/gst-hst?{q1}")).json()
-    bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="bank")
+    bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
 
     res = await as_owner.post("/v1/payments/remittances", json=Q1)
     assert res.status_code == 201, res.text
@@ -84,7 +84,7 @@ async def test_filing_moves_tax_payable_to_the_bank(
     dash = (await as_owner.get("/v1/dashboard/summary")).json()["gst_hst_set_aside_cents"]
     assert set_aside - dash == 1200
     assert (
-        await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="bank")
+        await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
         == bank - 1200
     )
     # the return still reports what was collected; filing it is not a negative sale

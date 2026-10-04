@@ -11,7 +11,7 @@ import { usePublicResource } from "./publicResource";
 
 export interface PublicFormField {
     id: string;
-    type: string;
+    input: string;
     name: string;
     label: string;
     help: string | null;
@@ -89,8 +89,8 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
 
 /** File-capture field types — now uploadable on the public fill page via the upload endpoint, the
  *  answer being the resulting file_id. */
-export function isFileField(type: string): boolean {
-    return type === "file" || type === "image" || type === "signature";
+export function isFileField(input: string): boolean {
+    return input === "file" || input === "image" || input === "signature";
 }
 
 /** Whether a required answer is present (empty string / empty list / unchecked all count as missing),

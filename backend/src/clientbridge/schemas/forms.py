@@ -22,7 +22,7 @@ class FormResponseOut(BaseModel):
 
 class PublicFormField(BaseModel):
     id: str
-    type: str
+    input: str
     name: str
     label: str
     help: str | None

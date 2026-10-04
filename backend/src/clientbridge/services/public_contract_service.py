@@ -68,7 +68,7 @@ class PublicContractService:
             business_id=signature.business_id,
             parent_type="signature",
             parent_id=signature.id,
-            kind="signature",
+            purpose="signature",
             content_type=data.content_type,
             size=data.size,
         )

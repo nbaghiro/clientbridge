@@ -118,10 +118,10 @@ async def test_settlement_books_stripe_and_platform_fees(
     assert row.status == "succeeded"
     legs = (
         await db.execute(
-            select(Account.owner_type, Account.kind, func.sum(Entry.amount_cents))
+            select(Account.owner_type, Account.category, func.sum(Entry.amount_cents))
             .join(Account, Account.id == Entry.account_id)
             .where(Entry.source_id == row.id)
-            .group_by(Account.owner_type, Account.kind)
+            .group_by(Account.owner_type, Account.category)
         )
     ).tuples()
     by_kind = {(owner, kind): int(cents) for owner, kind, cents in legs}
@@ -163,7 +163,7 @@ async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: Async
     assert await ledger.collected(db, BIZ, "invoice", inv_id) == (0, True)
     assert (
         await ledger.subject_balance(
-            db, BIZ, kind="revenue", subject_type="invoice", subject_id=inv_id
+            db, BIZ, category="revenue", subject_type="invoice", subject_id=inv_id
         )
         == 0
     )

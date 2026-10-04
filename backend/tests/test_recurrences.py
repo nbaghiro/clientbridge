@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
-from clientbridge.models.scheduling import Session
-from clientbridge.services.schedule_service import expand_occurrences
+from clientbridge.models.scheduling import Slot
+from clientbridge.services.recurrence_service import expand_occurrences
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured (all hours open)
@@ -107,10 +107,10 @@ def _body(client_id: str, item_id: str, **over: object) -> dict[str, object]:
     return body
 
 
-async def _session_count(db: AsyncSession, schedule_id: str) -> int:
+async def _slot_count(db: AsyncSession, recurrence_id: str) -> int:
     return (
         await db.execute(
-            select(func.count()).select_from(Session).where(Session.recurrence_id == schedule_id)
+            select(func.count()).select_from(Slot).where(Slot.recurrence_id == recurrence_id)
         )
     ).scalar_one()
 
@@ -119,14 +119,14 @@ async def test_weekly_series_creates_bookings(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     client_id, item_id = await _client_and_item(db)
-    res = await as_owner.post("/v1/schedules", json=_body(client_id, item_id))
+    res = await as_owner.post("/v1/recurrences", json=_body(client_id, item_id))
     assert res.status_code == 201, res.text
     body = res.json()
     assert body["created"] == 8
     assert body["skipped"] == 0
     assert len(body["occurrences"]) == 8
     # every occurrence became a session stamped with the schedule's id
-    assert await _session_count(db, body["id"]) == 8
+    assert await _slot_count(db, body["id"]) == 8
     # occurrences are one week apart
     first = datetime.fromisoformat(body["occurrences"][0]["starts_at"])
     second = datetime.fromisoformat(body["occurrences"][1]["starts_at"])
@@ -140,14 +140,10 @@ async def test_weekly_series_holds_local_time_across_dst(
     # lands at the same business-local wall-clock time; the old fixed-offset bug drifted the ones in
     # the other DST period by an hour (local time differs). Robust to whatever the env's tz db says.
     client_id, item_id = await _client_and_item(db)
-    res = await as_owner.post("/v1/schedules", json=_body(client_id, item_id, count=53))
+    res = await as_owner.post("/v1/recurrences", json=_body(client_id, item_id, count=53))
     assert res.status_code == 201, res.text
     starts = (
-        (
-            await db.execute(
-                select(Session.starts_at).where(Session.recurrence_id == res.json()["id"])
-            )
-        )
+        (await db.execute(select(Slot.starts_at).where(Slot.recurrence_id == res.json()["id"])))
         .scalars()
         .all()
     )
@@ -173,7 +169,7 @@ async def test_series_skips_conflicting_occurrence(
     )
     assert pre.status_code == 201, pre.text
 
-    res = await as_owner.post("/v1/schedules", json=_body(client_id, item_id, count=3))
+    res = await as_owner.post("/v1/recurrences", json=_body(client_id, item_id, count=3))
     assert res.status_code == 201, res.text
     body = res.json()
     assert body["created"] == 2
@@ -182,14 +178,14 @@ async def test_series_skips_conflicting_occurrence(
     assert len(skipped) == 1
     assert skipped[0]["skipped"] is not None
     # the series row plus its two clear occurrences, not the clashing one
-    assert await _session_count(db, body["id"]) == 2
+    assert await _slot_count(db, body["id"]) == 2
 
 
 async def test_unbounded_series_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     body = _body(client_id, item_id, frequency="day")
     del body["count"]  # no count and no until → must be rejected
-    res = await as_owner.post("/v1/schedules", json=body)
+    res = await as_owner.post("/v1/recurrences", json=body)
     assert res.status_code == 422
 
 
@@ -197,17 +193,17 @@ async def test_staff_cannot_schedule_for_others(
     as_staff: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     client_id, item_id = await _client_and_item(db)
-    res = await as_staff.post("/v1/schedules", json=_body(client_id, item_id, staff_id=ST_OWNER))
+    res = await as_staff.post("/v1/recurrences", json=_body(client_id, item_id, staff_id=ST_OWNER))
     assert res.status_code == 403
 
 
 async def test_series_is_idempotent(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     headers = {"Idempotency-Key": "sched-key-1"}
-    first = await as_owner.post("/v1/schedules", json=_body(client_id, item_id), headers=headers)
-    second = await as_owner.post("/v1/schedules", json=_body(client_id, item_id), headers=headers)
+    first = await as_owner.post("/v1/recurrences", json=_body(client_id, item_id), headers=headers)
+    second = await as_owner.post("/v1/recurrences", json=_body(client_id, item_id), headers=headers)
     assert first.status_code == 201
     assert second.status_code == 201
     assert first.json()["id"] == second.json()["id"]
     # the replay must not create a second series
-    assert await _session_count(db, first.json()["id"]) == 8
+    assert await _slot_count(db, first.json()["id"]) == 8

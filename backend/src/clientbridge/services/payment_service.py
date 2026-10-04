@@ -24,7 +24,7 @@ from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
-from clientbridge.models.platform import WebhookEvent
+from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.payments import (
     ConnectStatus,
@@ -958,13 +958,11 @@ async def process_stripe_event(
     retries. Returns the client notification this delivery warrants (for the caller to fire
     post-commit), else None."""
     event = gateway.verify_webhook(payload, signature)
-    seen = (
-        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == event.id))
-    ).scalar_one_or_none()
+    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event.id))).scalar_one_or_none()
     if seen is not None:
         return None
-    record = WebhookEvent(
-        id=event.id, provider="stripe", type=event.type, payload=event.data, status="pending"
+    record = Webhook(
+        id=event.id, provider="stripe", event=event.type, payload=event.data, status="pending"
     )
     db.add(record)
     outcome = await _dispatch(db, gateway, event)
@@ -1390,7 +1388,7 @@ async def _record_payment_method(
             id=new_id("payment_method"),
             business_id=biz,
             client_id=client.id,
-            type=kind,
+            method=kind,
             brand=brand if isinstance(brand, str) else None,
             last4=last4 if isinstance(last4, str) else None,
             provider="stripe",
@@ -1489,7 +1487,7 @@ async def _recurring_method(db: AsyncSession, sub: Subscription) -> str:
     pm = await db.get(PaymentMethod, sub.payment_method_id)
     if pm is None:
         return "card"
-    return pm.type
+    return pm.method
 
 
 async def _record_recurring_payment(
@@ -1611,17 +1609,15 @@ async def process_interac_event(
     """Webhook entry (surface #4): dedup by reference, auto-match, record the event. Returns the
     matched payment id (for the caller to notify on, post-commit), else None."""
     event_id = f"interac_{reference_code}"
-    seen = (
-        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == event_id))
-    ).scalar_one_or_none()
+    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:
         return None
     matched_id = await match_interac(db, reference_code, amount_cents)
     db.add(
-        WebhookEvent(
+        Webhook(
             id=event_id,
             provider="interac",
-            type="etransfer.received",
+            event="etransfer.received",
             payload={
                 "reference_code": reference_code,
                 "amount_cents": amount_cents,

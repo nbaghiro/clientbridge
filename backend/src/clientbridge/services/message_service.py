@@ -15,7 +15,7 @@ from clientbridge.integrations.notifications import Email, EmailSender, Sms, Sms
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.models.platform import WebhookEvent
+from clientbridge.models.platform import Webhook
 from clientbridge.schemas.messaging import (
     BroadcastOut,
     BroadcastSend,
@@ -145,9 +145,7 @@ async def process_inbound_sms(
     deterministically (oldest by created_at, then id). A dedicated per-number routing table is the
     follow-up. Returns the new message id (or None when deduped / no matching client)."""
     event_id = f"twilio_{message_sid}"
-    seen = (
-        await db.execute(select(WebhookEvent.id).where(WebhookEvent.id == event_id))
-    ).scalar_one_or_none()
+    seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:
         return None
     client = (
@@ -175,10 +173,10 @@ async def process_inbound_sms(
         await db.flush()
         message_id = message.id
     db.add(
-        WebhookEvent(
+        Webhook(
             id=event_id,
             provider="twilio",
-            type="sms.inbound",
+            event="sms.inbound",
             payload={"from": from_phone, "matched": client is not None},
             status="processed",
             processed_at=datetime.now(UTC),

@@ -89,7 +89,7 @@ SELECT i.id, i.kind, i.name, i.description, i.category, i.price_cents, i.currenc
        i.session_count, i.validity_days, i.interval, i.frequency, i.tax_class,
        i.sku, i.cost_cents, i.track_stock, i.sell_online, i.stock_on_hand, i.low_stock_at,
        (SELECT f.id FROM files f
-        WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.kind = 'image'
+        WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.purpose = 'image'
         ORDER BY f.created_at DESC LIMIT 1) AS image_file_id
 FROM items i ORDER BY i.active DESC, i.name COLLATE NOCASE`;
 

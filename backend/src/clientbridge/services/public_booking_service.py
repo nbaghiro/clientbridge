@@ -11,7 +11,7 @@ from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
-from clientbridge.models.scheduling import Booking, BookingAddon
+from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.schemas.public_booking import (
     PublicAddon,
     PublicBookingClient,
@@ -141,8 +141,8 @@ class PublicBookingService:
         )
         for item, qty in addons:
             self.db.add(
-                BookingAddon(
-                    id=new_id("booking_addon"),
+                Addon(
+                    id=new_id("addon"),
                     business_id=business.id,
                     booking_id=booking.id,
                     staff_id=booking.staff_id,

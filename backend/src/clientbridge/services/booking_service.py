@@ -22,12 +22,12 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, BookingAddon, Session
+from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch, DepositOut
 from clientbridge.services import ledger_service as ledger
-from clientbridge.services.availability_service import is_within_availability
 from clientbridge.services.catalog_service import deposit_cents, load_item
 from clientbridge.services.client_service import load_client
+from clientbridge.services.hours_service import is_within_availability
 from clientbridge.services.payment_service import (
     default_method_ref,
     open_booking_deposit,
@@ -43,21 +43,21 @@ _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 
 
-async def _booking_out(db: AsyncSession, booking: Booking, session: Session) -> BookingOut:
+async def _booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
     return BookingOut(
         id=booking.id,
         business_id=booking.business_id,
-        session_id=session.id,
+        slot_id=slot.id,
         client_id=booking.client_id,
         staff_id=booking.staff_id,
-        item_id=session.item_id,
+        item_id=slot.item_id,
         status=booking.status,
         source=booking.source,
         price_cents=booking.price_cents,
         deposit_amount_cents=booking.deposit_amount_cents,
         deposit_status=booking.deposit_status,
-        starts_at=session.starts_at,
-        ends_at=session.ends_at,
+        starts_at=slot.starts_at,
+        ends_at=slot.ends_at,
     )
 
 
@@ -66,7 +66,7 @@ def booked_count_expr() -> ColumnElement[int]:
     return (
         select(func.count(Booking.id))
         .where(
-            Booking.session_id == Session.id,
+            Booking.slot_id == Slot.id,
             Booking.status != "canceled",
             Booking.deleted_at.is_(None),
         )
@@ -74,8 +74,8 @@ def booked_count_expr() -> ColumnElement[int]:
     )
 
 
-async def booked_count(db: AsyncSession, session_id: str) -> int:
-    count = await db.execute(select(booked_count_expr()).where(Session.id == session_id))
+async def booked_count(db: AsyncSession, slot_id: str) -> int:
+    count = await db.execute(select(booked_count_expr()).where(Slot.id == slot_id))
     return int(count.scalar_one())
 
 
@@ -95,23 +95,23 @@ async def conflicting_session(
     new_start = starts_at - timedelta(minutes=item.buffer_before_min)
     new_end = ends_at + timedelta(minutes=item.buffer_after_min)
     q = (
-        scoped(Session, business_id)
-        .join(Item, Item.id == Session.item_id)
+        scoped(Slot, business_id)
+        .join(Item, Item.id == Slot.item_id)
         .where(
-            Session.staff_id == staff_id,
-            Session.status != "canceled",
-            Session.starts_at - func.make_interval(0, 0, 0, 0, 0, Item.buffer_before_min) < new_end,
-            Session.ends_at + func.make_interval(0, 0, 0, 0, 0, Item.buffer_after_min) > new_start,
+            Slot.staff_id == staff_id,
+            Slot.status != "canceled",
+            Slot.starts_at - func.make_interval(0, 0, 0, 0, 0, Item.buffer_before_min) < new_end,
+            Slot.ends_at + func.make_interval(0, 0, 0, 0, 0, Item.buffer_after_min) > new_start,
             or_(
-                booked_count_expr() >= Session.capacity,
-                Session.item_id != item.id,
-                Session.starts_at != starts_at,
-                Session.ends_at != ends_at,
+                booked_count_expr() >= Slot.capacity,
+                Slot.item_id != item.id,
+                Slot.starts_at != starts_at,
+                Slot.ends_at != ends_at,
             ),
         )
     )
     if exclude is not None:
-        q = q.where(Session.id != exclude)
+        q = q.where(Slot.id != exclude)
     return (await db.execute(q.limit(1))).first() is not None
 
 
@@ -138,38 +138,38 @@ async def conflicting_resource(
 ) -> bool:
     """Whether a non-canceled session already holds this resource (room/equipment) over the
     ``[starts_at, ends_at]`` window. Plain overlap — a resource can't be in two places at once."""
-    q = scoped(Session, business_id).where(
-        Session.resource_id == resource_id,
-        Session.status != "canceled",
-        Session.starts_at < ends_at,
-        Session.ends_at > starts_at,
+    q = scoped(Slot, business_id).where(
+        Slot.resource_id == resource_id,
+        Slot.status != "canceled",
+        Slot.starts_at < ends_at,
+        Slot.ends_at > starts_at,
     )
     if exclude is not None:
-        q = q.where(Session.id != exclude)
+        q = q.where(Slot.id != exclude)
     return (await db.execute(q.limit(1))).first() is not None
 
 
-async def open_class_session(
+async def open_class_slot(
     db: AsyncSession, business_id: str, item_id: str, staff_id: str, starts_at: datetime
-) -> Session | None:
-    q = scoped(Session, business_id).where(
-        Session.item_id == item_id,
-        Session.staff_id == staff_id,
-        Session.starts_at == starts_at,
-        Session.status != "canceled",
+) -> Slot | None:
+    q = scoped(Slot, business_id).where(
+        Slot.item_id == item_id,
+        Slot.staff_id == staff_id,
+        Slot.starts_at == starts_at,
+        Slot.status != "canceled",
     )
     return (await db.execute(q)).scalars().first()
 
 
 async def _client_has_seat(
-    db: AsyncSession, business_id: str, session_id: str, client_id: str
+    db: AsyncSession, business_id: str, slot_id: str, client_id: str
 ) -> bool:
     """Whether this client already holds a live (non-canceled) booking on the given session — the
     self-service double-submit guard for shared class sessions."""
     q = (
         scoped(Booking, business_id, soft_delete=True)
         .where(
-            Booking.session_id == session_id,
+            Booking.slot_id == slot_id,
             Booking.client_id == client_id,
             Booking.status != "canceled",
         )
@@ -191,7 +191,7 @@ async def create_booking_core(
     resource_id: str | None = None,
     recurrence_id: str | None = None,
     dedupe_client: bool = False,
-) -> tuple[Booking, Session]:
+) -> tuple[Booking, Slot]:
     """Mint a confirmed booking (+ its session) enforcing the scheduling invariant — availability,
     buffer/overlap conflicts, and class-capacity reuse — shared by the authed command path and the
     public online-booking surface so the rule has one home. The caller records/commits.
@@ -210,22 +210,22 @@ async def create_booking_core(
     if not await is_within_availability(db, staff_id, business_id, starts_at, ends_at):
         raise Conflict(_OUTSIDE_HOURS)
     is_class = item.kind == "class" and item.capacity is not None and item.capacity > 1
-    session = None
+    slot = None
     if is_class:
-        session = await open_class_session(db, business_id, item.id, staff_id, starts_at)
-        if session is not None:
-            if dedupe_client and await _client_has_seat(db, business_id, session.id, client_id):
+        slot = await open_class_slot(db, business_id, item.id, staff_id, starts_at)
+        if slot is not None:
+            if dedupe_client and await _client_has_seat(db, business_id, slot.id, client_id):
                 raise Conflict(_ALREADY_IN_CLASS)
-            if await booked_count(db, session.id) >= session.capacity:
+            if await booked_count(db, slot.id) >= slot.capacity:
                 raise Conflict(_CLASS_FULL)
-    if session is None:
+    if slot is None:
         await assert_free(db, business_id, item, staff_id, starts_at, ends_at)
         if resource_id is not None and await conflicting_resource(
             db, business_id, resource_id, starts_at, ends_at
         ):
             raise Conflict(_RESOURCE_BUSY)
-        session = Session(
-            id=new_id("session"),
+        slot = Slot(
+            id=new_id("slot"),
             business_id=business_id,
             item_id=item.id,
             staff_id=staff_id,
@@ -236,7 +236,7 @@ async def create_booking_core(
             capacity=item.capacity if is_class and item.capacity is not None else 1,
             status="scheduled",
         )
-        db.add(session)
+        db.add(slot)
         try:
             # the exclusion constraint backstops a concurrent overlapping insert
             await db.flush()
@@ -246,7 +246,7 @@ async def create_booking_core(
     booking = Booking(
         id=new_id("booking"),
         business_id=business_id,
-        session_id=session.id,
+        slot_id=slot.id,
         staff_id=staff_id,
         client_id=client_id,
         subject_id=subject_id,
@@ -259,14 +259,14 @@ async def create_booking_core(
     )
     db.add(booking)
     await db.flush()
-    return booking, session
+    return booking, slot
 
 
-async def release_session_slot(db: AsyncSession, session: Session) -> None:
+async def release_slot(db: AsyncSession, slot: Slot) -> None:
     """Cancel the session once its last live booking is gone — the cancel-frees-the-slot rule (a
     canceled session is excluded from the overlap check)."""
-    if await booked_count(db, session.id) == 0:
-        session.status = "canceled"
+    if await booked_count(db, slot.id) == 0:
+        slot.status = "canceled"
     await db.flush()
 
 
@@ -355,7 +355,7 @@ class BookingService:
         await self._staff(data.staff_id)
 
         async def run(cmd: Command) -> BookingOut:
-            booking, session = await create_booking_core(
+            booking, slot = await create_booking_core(
                 self.db,
                 self.biz,
                 item=item,
@@ -367,7 +367,7 @@ class BookingService:
                 resource_id=data.resource_id,
             )
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, session)
+            return await _booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -381,7 +381,7 @@ class BookingService:
     async def patch(self, booking_id: str, data: BookingPatch) -> BookingOut:
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
-        session = await self._session(booking.session_id)
+        slot = await self._slot(booking.slot_id)
 
         # A terminal booking is frozen — only an idempotent re-set of the same status is allowed.
         if booking.status in _TERMINAL and (
@@ -392,18 +392,18 @@ class BookingService:
 
         async def run(cmd: Command) -> BookingOut:
             if data.starts_at is not None:
-                duration = session.ends_at - session.starts_at
+                duration = slot.ends_at - slot.starts_at
                 new_ends = data.starts_at + duration
                 if not await is_within_availability(
-                    self.db, session.staff_id, self.biz, data.starts_at, new_ends
+                    self.db, slot.staff_id, self.biz, data.starts_at, new_ends
                 ):
                     raise Conflict(_OUTSIDE_HOURS)
-                item = await self._item(session.item_id, require_active=False)
+                item = await self._item(slot.item_id, require_active=False)
                 await assert_free(
-                    self.db, self.biz, item, session.staff_id, data.starts_at, new_ends, session.id
+                    self.db, self.biz, item, slot.staff_id, data.starts_at, new_ends, slot.id
                 )
-                session.starts_at = data.starts_at
-                session.ends_at = new_ends
+                slot.starts_at = data.starts_at
+                slot.ends_at = new_ends
                 try:
                     await self.db.flush()
                 except IntegrityError as exc:
@@ -415,15 +415,15 @@ class BookingService:
                     booking.deposit_status = "none"  # nothing was collected and none is due now
                 if data.status == "canceled":
                     booking.canceled_at = datetime.now(UTC)
-                    session.status = "canceled"  # frees the slot (excluded from the overlap check)
+                    slot.status = "canceled"  # frees the slot (excluded from the overlap check)
                 elif data.status == "completed":
                     booking.completed_at = datetime.now(UTC)
-                    session.status = "completed"
+                    slot.status = "completed"
                 elif data.status == "no_show":
                     await self._forfeit_deposit(cmd, booking)
                 cmd.record(f"booking.{data.status}", entity_type="booking", entity_id=booking.id)
             await self.db.flush()
-            return await _booking_out(self.db, booking, session)
+            return await _booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -548,20 +548,18 @@ class BookingService:
             raise Conflict("this visit is already invoiced")
         addon = (
             await self.db.execute(
-                scoped(BookingAddon, self.biz).where(
-                    BookingAddon.id == addon_id, BookingAddon.booking_id == booking.id
-                )
+                scoped(Addon, self.biz).where(Addon.id == addon_id, Addon.booking_id == booking.id)
             )
         ).scalar_one_or_none()
         if addon is None:
             raise NotFound("add-on not found")
-        session = await self._session(booking.session_id)
+        slot = await self._slot(booking.slot_id)
 
         async def run(cmd: Command) -> BookingOut:
             await self.db.delete(addon)
             await self.db.flush()
             cmd.record("booking.addon_remove", entity_type="booking", entity_id=booking.id)
-            return await _booking_out(self.db, booking, session)
+            return await _booking_out(self.db, booking, slot)
 
         return await run_command(
             self.db,
@@ -593,9 +591,9 @@ class BookingService:
             raise NotFound("booking not found")
         return row
 
-    async def _session(self, session_id: str) -> Session:
+    async def _slot(self, slot_id: str) -> Slot:
         row = (
-            await self.db.execute(scoped(Session, self.biz).where(Session.id == session_id))
+            await self.db.execute(scoped(Slot, self.biz).where(Slot.id == slot_id))
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("session not found")

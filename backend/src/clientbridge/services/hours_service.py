@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime, time
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.scoping import scoped
-from clientbridge.models.scheduling import Availability
+from clientbridge.models.scheduling import Hours
 from clientbridge.services.business_service import business_tz
 
 
@@ -17,22 +17,18 @@ async def open_windows(
     Date-specific rows override the recurring weekday windows for that date.
     """
     rows = (
-        (
-            await db.execute(
-                scoped(Availability, business_id).where(Availability.staff_id == staff_id)
-            )
-        )
+        (await db.execute(scoped(Hours, business_id).where(Hours.staff_id == staff_id)))
         .scalars()
         .all()
     )
-    date_rows = [r for r in rows if r.type == "date" and r.date == on_date]
+    date_rows = [r for r in rows if r.basis == "date" and r.date == on_date]
     if date_rows:
         if any(not r.available and r.start_time is None for r in date_rows):
             return []
         return [
             (r.start_time or time.min, r.end_time or time.max) for r in date_rows if r.available
         ]
-    weekday_rows = [r for r in rows if r.type == "recurring" and r.weekday == on_date.weekday()]
+    weekday_rows = [r for r in rows if r.basis == "recurring" and r.weekday == on_date.weekday()]
     if not weekday_rows:
         return None
     return [(r.start_time or time.min, r.end_time or time.max) for r in weekday_rows if r.available]

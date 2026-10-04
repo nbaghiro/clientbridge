@@ -11,7 +11,7 @@ from clientbridge.main import app
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.reviews import Review, ReviewRequest
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.review_service import build_review_request
 from tests.conftest import Factory, FakeEmailSender
 
@@ -51,8 +51,8 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
         .first()
     )
     assert iid
-    sess = Session(
-        id=new_id("session"),
+    sess = Slot(
+        id=new_id("slot"),
         business_id=BIZ,
         item_id=iid,
         staff_id=ST_OWNER,
@@ -66,7 +66,7 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
     booking = Booking(
         id=new_id("booking"),
         business_id=BIZ,
-        session_id=sess.id,
+        slot_id=sess.id,
         staff_id=ST_OWNER,
         client_id=await _client_id(db),
         status=status,

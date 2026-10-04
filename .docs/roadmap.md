@@ -139,7 +139,7 @@ Needed to be a real, complete product (not just an alpha). Grouped by domain; la
 - [S] **Today page:** add today's-schedule section + surface the GST filing-due date.
 - [L] **Business analytics** (reporting is CRA-compliance-only; no trends, top services, retention, utilization, no-show rates).
 - [M] **Data export** (PIPEDA/Law 25 subject access) · [L] **Right-to-be-forgotten / erasure / account deletion** (only soft-delete exists; PII incl. in PowerSync storage persists forever).
-- [M] **Audit the sync-write path** (`/sync/upload` writes no `audit_logs` → incomplete forensic trail).
+- [M] **Audit the sync-write path** (`/sync/upload` writes no `audits` → incomplete forensic trail).
 
 ### Ops (P1 tier)
 - [L] **Postgres RLS** (defense-in-depth behind app-layer `scoped()`).
@@ -159,7 +159,7 @@ Standing backlog, pulled by demand — not a blocking milestone.
 - **Growth/commerce:** multi-location (needs a location model; the unused `parent_business_id` was dropped) · memberships/loyalty/rewards ·
   waitlists + auto-promote · online store + inventory · online gift-card purchase + balance-check +
   apply-at-checkout.
-- **Platform/scale:** public/developer API + keys + outbound webhooks (`webhook_events` is inbound-only) ·
+- **Platform/scale:** public/developer API + keys + outbound webhooks (`webhooks` is inbound-only) ·
   platform-admin (cross-tenant) role + support console · granular/custom permissions (`contractor` is
   cosmetic) · `businesses.status` suspend/offboard.
 - **Feature depth:** subscription pause/resume/trial/plan-change · package auto-consume-on-booking + expiry

@@ -51,7 +51,7 @@ async def test_a_spent_gift_card_reads_redeemed_and_is_not_swept(db: AsyncSessio
     await ledger.post(
         db,
         BIZ,
-        type="payment",
+        event="payment",
         ref=f"test:purchase:{card.id}",
         legs=[
             Leg("business", BIZ, "stripe", 2000),

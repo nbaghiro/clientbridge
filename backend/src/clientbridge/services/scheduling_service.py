@@ -3,9 +3,9 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.catalog import Item
-from clientbridge.services.availability_service import open_windows
 from clientbridge.services.booking_service import conflicting_session
 from clientbridge.services.business_service import business_tz
+from clientbridge.services.hours_service import open_windows
 
 
 async def open_slots(

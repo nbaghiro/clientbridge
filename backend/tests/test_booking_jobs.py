@@ -7,7 +7,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.booking_service import booked_count
 from clientbridge.tasks.booking_jobs import run_reap_unpaid_bookings
 
@@ -36,8 +36,8 @@ async def _online_booking(
         .first()
     )
     starts = NOW + timedelta(days=2)
-    session = Session(
-        id=new_id("session"),
+    session = Slot(
+        id=new_id("slot"),
         business_id=BIZ,
         item_id=iid,
         staff_id=ST_OWNER,
@@ -51,7 +51,7 @@ async def _online_booking(
     booking = Booking(
         id=new_id("booking"),
         business_id=BIZ,
-        session_id=session.id,
+        slot_id=session.id,
         staff_id=ST_OWNER,
         client_id=cid,
         status=status,
@@ -83,7 +83,7 @@ async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:
     assert await run_reap_unpaid_bookings(db, NOW) == 1
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "canceled" and booking.canceled_at == NOW
-    session = (await db.execute(select(Session).where(Session.id == sid))).scalar_one()
+    session = (await db.execute(select(Slot).where(Slot.id == sid))).scalar_one()
     assert session.status == "canceled"  # slot freed
     assert await booked_count(db, sid) == 0
 

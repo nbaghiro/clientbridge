@@ -25,10 +25,10 @@ def _writes(thread_id: str) -> list[tuple[str, dict[str, object], dict[str, obje
             {"body": "Edited"},
         ),
         (
-            "availability",
+            "hours",
             {
                 "staff_id": "st_diego",
-                "type": "recurring",
+                "basis": "recurring",
                 "weekday": 0,
                 "start_time": "09:00:00",
                 "end_time": "12:00:00",
@@ -37,11 +37,11 @@ def _writes(thread_id: str) -> list[tuple[str, dict[str, object], dict[str, obje
             {"end_time": "13:00:00"},
         ),
         ("items", {"kind": "service", "name": "Synced Service"}, {"name": "Renamed Service"}),
-        ("resources", {"name": "Room 9", "kind": "room"}, {"name": "Room 10"}),
+        ("resources", {"name": "Room 9", "category": "room"}, {"name": "Room 10"}),
         ("forms", {"name": "Intake"}, {"name": "Intake v2"}),
         (
-            "form_fields",
-            {"form_id": "frm_satisfaction", "type": "text", "name": "pet", "label": "Pet"},
+            "fields",
+            {"form_id": "frm_satisfaction", "input": "text", "name": "pet", "label": "Pet"},
             {"label": "Pet name"},
         ),
         ("contracts", {"name": "Policy", "body": "Terms"}, {"body": "New terms"}),

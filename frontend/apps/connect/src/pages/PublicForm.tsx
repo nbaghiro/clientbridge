@@ -110,9 +110,9 @@ function FieldView({
     );
     const help = f.help !== null ? <span className="text-xs text-muted">{f.help}</span> : null;
 
-    if (isFileField(f.type)) {
+    if (isFileField(f.input)) {
         const uploaded = typeof value === "string" && value.length > 0;
-        const accept = f.type === "image" || f.type === "signature" ? "image/*" : "*/*";
+        const accept = f.input === "image" || f.input === "signature" ? "image/*" : "*/*";
         return (
             <label className="flex flex-col gap-1">
                 {label}
@@ -133,7 +133,7 @@ function FieldView({
         );
     }
 
-    if (f.type === "checkbox") {
+    if (f.input === "checkbox") {
         return (
             <label className="flex items-start gap-2">
                 <input
@@ -152,7 +152,7 @@ function FieldView({
         );
     }
 
-    if (f.type === "select") {
+    if (f.input === "select") {
         const str = typeof value === "string" ? value : "";
         return (
             <label className="flex flex-col gap-1">
@@ -179,7 +179,7 @@ function FieldView({
         );
     }
 
-    if (f.type === "multiselect") {
+    if (f.input === "multiselect") {
         const list = Array.isArray(value) ? value : [];
         const toggle = (v: string): void => {
             onChange(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -214,7 +214,7 @@ function FieldView({
         );
     }
 
-    if (f.type === "rating") {
+    if (f.input === "rating") {
         const current = typeof value === "string" ? Number(value) : 0;
         return (
             <div className="flex flex-col gap-1">
@@ -240,21 +240,21 @@ function FieldView({
     }
 
     const str = typeof value === "string" ? value : "";
-    const multiline = f.type === "longtext" || f.type === "address";
+    const multiline = f.input === "longtext" || f.input === "address";
     const inputType =
-        f.type === "date"
+        f.input === "date"
             ? "date"
-            : f.type === "time"
+            : f.input === "time"
               ? "time"
-              : f.type === "email"
+              : f.input === "email"
                 ? "email"
                 : "text";
     const inputMode =
-        f.type === "number" || f.type === "currency"
+        f.input === "number" || f.input === "currency"
             ? "decimal"
-            : f.type === "phone"
+            : f.input === "phone"
               ? "tel"
-              : f.type === "email"
+              : f.input === "email"
                 ? "email"
                 : undefined;
 

@@ -14,7 +14,7 @@ from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, BookingAddon, Session
+from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import (
     EstimateCreate,
     EstimateOut,
@@ -349,14 +349,14 @@ class BillingService:
         booking. The booking points at its invoice, so a visit is invoiced once."""
         self._assert_admin()
         booking = await self._booking(booking_id)
-        session = await self.db.get(Session, booking.session_id)
-        item = await self.db.get(Item, session.item_id) if session is not None else None
+        slot = await self.db.get(Slot, booking.slot_id)
+        item = await self.db.get(Item, slot.item_id) if slot is not None else None
         addons = (
             (
                 await self.db.execute(
-                    scoped(BookingAddon, self.biz)
-                    .where(BookingAddon.booking_id == booking.id)
-                    .order_by(BookingAddon.created_at, BookingAddon.id)
+                    scoped(Addon, self.biz)
+                    .where(Addon.booking_id == booking.id)
+                    .order_by(Addon.created_at, Addon.id)
                 )
             )
             .scalars()

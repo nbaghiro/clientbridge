@@ -4,7 +4,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.identity import Business
-from clientbridge.models.platform import AuditLog
+from clientbridge.models.platform import Audit
 from clientbridge.services import ledger_service as ledger
 from clientbridge.tasks.ledger_jobs import run_reconcile_ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
@@ -17,17 +17,15 @@ async def _connect(db: AsyncSession, business_id: str, account: str) -> None:
     await db.flush()
 
 
-async def _drifts(db: AsyncSession, business_id: str) -> list[AuditLog]:
+async def _drifts(db: AsyncSession, business_id: str) -> list[Audit]:
     rows = await db.execute(
-        select(AuditLog).where(
-            AuditLog.business_id == business_id, AuditLog.action == "ledger.drift"
-        )
+        select(Audit).where(Audit.business_id == business_id, Audit.action == "ledger.drift")
     )
     return list(rows.scalars().all())
 
 
 async def _ledger_stripe(db: AsyncSession) -> int:
-    return await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    return await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
 
 
 async def test_matching_balance_records_no_drift(

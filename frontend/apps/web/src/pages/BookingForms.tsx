@@ -269,9 +269,9 @@ function FieldEditor({
                     className={`${field} flex-1`}
                 />
                 <select
-                    value={f.type}
+                    value={f.input}
                     onChange={(e) => {
-                        onChange({ type: e.target.value });
+                        onChange({ input: e.target.value });
                     }}
                     className={`${field} w-40`}
                 >
@@ -282,7 +282,7 @@ function FieldEditor({
                     ))}
                 </select>
             </div>
-            {hasOptions(f.type) ? (
+            {hasOptions(f.input) ? (
                 <input
                     value={f.options}
                     onChange={(e) => {

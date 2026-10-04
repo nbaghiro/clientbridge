@@ -15,7 +15,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token, verify_password
 from clientbridge.integrations.notifications import Email, EmailSender
 from clientbridge.models.identity import Staff, User
-from clientbridge.models.platform import AuditLog
+from clientbridge.models.platform import Audit
 from clientbridge.schemas.identity import InviteOut, StaffPayOut, StaffPayUpdate
 from clientbridge.services.auth_service import build_user
 
@@ -140,8 +140,8 @@ class StaffService:
         staff.status = "active"
         # principal-less surface — the invitee becomes one only here, so record the audit directly.
         self.db.add(
-            AuditLog(
-                id=new_id("audit_log"),
+            Audit(
+                id=new_id("audit"),
                 business_id=staff.business_id,
                 performed_by=user.id,
                 action="staff.accept",

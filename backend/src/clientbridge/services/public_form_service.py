@@ -69,7 +69,7 @@ class PublicFormService:
             business_id=response.business_id,
             parent_type="form_response",
             parent_id=response.id,
-            kind="attachment",
+            purpose="attachment",
             content_type=data.content_type,
             size=data.size,
         )
@@ -107,7 +107,7 @@ def _validate(fields: list[FormField], answers: dict[str, object]) -> None:
 def _field_out(field: FormField) -> PublicFormField:
     return PublicFormField(
         id=field.id,
-        type=field.type,
+        input=field.input,
         name=field.name,
         label=field.label,
         help=field.help,

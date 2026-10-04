@@ -5,15 +5,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Booking, Session
-from clientbridge.services.booking_service import release_session_slot
+from clientbridge.models.scheduling import Booking, Slot
+from clientbridge.services.booking_service import release_slot
 
 _UNPAID_TTL = timedelta(minutes=30)
 
 
 async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
     """Cancel public online bookings that have held a slot past the deposit window without paying,
-    freeing the session so it's bookable again. A confirmed online booking commits before its
+    freeing the slot so it's bookable again. A confirmed online booking commits before its
     deposit is paid (an open deposit charge, none settled → the hold was never earned). Idempotent
     — a canceled booking no longer matches; a row with a settled deposit is left alone."""
 
@@ -30,8 +30,8 @@ async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
 
     bookings = (
         await db.execute(
-            select(Booking, Session)
-            .join(Session, Session.id == Booking.session_id)
+            select(Booking, Slot)
+            .join(Slot, Slot.id == Booking.slot_id)
             .where(
                 Booking.deleted_at.is_(None),
                 Booking.source == "online",
@@ -43,10 +43,10 @@ async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
             )
         )
     ).all()
-    for booking, session in bookings:
+    for booking, slot in bookings:
         booking.status = "canceled"
         booking.canceled_at = now
-        await release_session_slot(db, session)
+        await release_slot(db, slot)
     await db.commit()
     return len(bookings)
 

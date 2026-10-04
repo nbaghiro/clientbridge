@@ -164,7 +164,7 @@ async def test_admin_table_ok_for_owner(as_owner: httpx.AsyncClient, db: AsyncSe
                     "op": "PUT",
                     "type": "resources",
                     "id": "rs_test_upload",
-                    "data": {"business_id": BIZ, "name": "Room 1", "kind": "room"},
+                    "data": {"business_id": BIZ, "name": "Room 1", "category": "room"},
                 }
             ]
         },
@@ -295,12 +295,12 @@ async def test_availability_recurring_put_and_delete(
             "ops": [
                 {
                     "op": "PUT",
-                    "type": "availability",
+                    "type": "hours",
                     "id": "av_test_mon",
                     "data": {
                         "business_id": BIZ,
                         "staff_id": "st_diego",
-                        "type": "recurring",
+                        "basis": "recurring",
                         "weekday": 0,
                         "start_time": "09:00:00",
                         "end_time": "17:00:00",
@@ -311,18 +311,18 @@ async def test_availability_recurring_put_and_delete(
         },
     )
     assert res.status_code == 200
-    assert await _scalar(db, "SELECT weekday FROM availability WHERE id='av_test_mon'") == 0
-    assert str(await _scalar(db, "SELECT start_time FROM availability WHERE id='av_test_mon'")) == (
+    assert await _scalar(db, "SELECT weekday FROM hours WHERE id='av_test_mon'") == 0
+    assert str(await _scalar(db, "SELECT start_time FROM hours WHERE id='av_test_mon'")) == (
         "09:00:00"
     )
 
     # DELETE — availability has no soft-delete column, so the row is hard-deleted (replace-all path)
     res = await as_owner.post(
         "/sync/upload",
-        json={"ops": [{"op": "DELETE", "type": "availability", "id": "av_test_mon"}]},
+        json={"ops": [{"op": "DELETE", "type": "hours", "id": "av_test_mon"}]},
     )
     assert res.status_code == 200
-    assert await _scalar(db, "SELECT id FROM availability WHERE id='av_test_mon'") is None
+    assert await _scalar(db, "SELECT id FROM hours WHERE id='av_test_mon'") is None
 
 
 async def test_staff_sets_own_availability(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -333,12 +333,12 @@ async def test_staff_sets_own_availability(as_staff: httpx.AsyncClient, db: Asyn
             "ops": [
                 {
                     "op": "PUT",
-                    "type": "availability",
+                    "type": "hours",
                     "id": "av_diego_own",
                     "data": {
                         "business_id": BIZ,
                         "staff_id": "st_diego",
-                        "type": "recurring",
+                        "basis": "recurring",
                         "weekday": 2,
                         "start_time": "10:00:00",
                         "end_time": "16:00:00",
@@ -349,7 +349,7 @@ async def test_staff_sets_own_availability(as_staff: httpx.AsyncClient, db: Asyn
         },
     )
     assert res.status_code == 200
-    assert await _scalar(db, "SELECT weekday FROM availability WHERE id='av_diego_own'") == 2
+    assert await _scalar(db, "SELECT weekday FROM hours WHERE id='av_diego_own'") == 2
 
 
 async def test_staff_cannot_set_others_availability(as_staff: httpx.AsyncClient) -> None:
@@ -360,12 +360,12 @@ async def test_staff_cannot_set_others_availability(as_staff: httpx.AsyncClient)
             "ops": [
                 {
                     "op": "PUT",
-                    "type": "availability",
+                    "type": "hours",
                     "id": "av_owner_x",
                     "data": {
                         "business_id": BIZ,
                         "staff_id": "st_owner",
-                        "type": "recurring",
+                        "basis": "recurring",
                         "weekday": 0,
                         "available": 0,
                     },

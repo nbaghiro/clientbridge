@@ -21,7 +21,7 @@ class BookingPatch(BaseModel):
 class BookingOut(BaseModel):
     id: str
     business_id: str
-    session_id: str
+    slot_id: str
     client_id: str
     staff_id: str | None
     item_id: str
@@ -40,7 +40,7 @@ class DepositOut(BaseModel):
     client_secret: str
 
 
-class ScheduleCreate(BaseModel):
+class RecurrenceCreate(BaseModel):
     client_id: str
     item_id: str
     staff_id: str
@@ -54,13 +54,13 @@ class ScheduleCreate(BaseModel):
     subject_id: str | None = None
 
 
-class ScheduleOccurrence(BaseModel):
+class RecurrenceOccurrence(BaseModel):
     starts_at: datetime
     booking_id: str | None  # None when the occurrence was skipped
     skipped: str | None  # reason (outside hours / overlap) when not booked
 
 
-class ScheduleOut(BaseModel):
+class RecurrenceOut(BaseModel):
     id: str
     business_id: str
     item_id: str
@@ -71,4 +71,4 @@ class ScheduleOut(BaseModel):
     status: str
     created: int  # occurrences that became bookings
     skipped: int  # occurrences skipped (conflict / outside hours)
-    occurrences: list[ScheduleOccurrence]
+    occurrences: list[RecurrenceOccurrence]

@@ -20,9 +20,9 @@ from clientbridge.models.crm import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import DeviceToken
+from clientbridge.models.platform import Device
 from clientbridge.models.reviews import ReviewRequest
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.lines import LineParent, fetch_lines, tax_breakdown
 
@@ -406,11 +406,11 @@ class Notifier:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return
-        session = await db.get(Session, booking.session_id)
+        slot = await db.get(Slot, booking.slot_id)
         business = await db.get(Business, booking.business_id)
-        if session is None or business is None:
+        if slot is None or business is None:
             return
-        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_reminder(business.name, f"{local:%Y-%m-%d at %H:%M}")
         await self._to_client(db, booking.client_id, subject, body)
 
@@ -418,11 +418,11 @@ class Notifier:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return
-        session = await db.get(Session, booking.session_id)
+        slot = await db.get(Slot, booking.slot_id)
         business = await db.get(Business, booking.business_id)
-        if session is None or business is None:
+        if slot is None or business is None:
             return
-        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_confirmed(business.name, f"{local:%Y-%m-%d at %H:%M}")
         await self._to_client(db, booking.client_id, subject, body)
 
@@ -430,11 +430,11 @@ class Notifier:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return
-        session = await db.get(Session, booking.session_id)
+        slot = await db.get(Slot, booking.slot_id)
         business = await db.get(Business, booking.business_id)
-        if session is None or business is None:
+        if slot is None or business is None:
             return
-        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_rescheduled(business.name, f"{local:%Y-%m-%d at %H:%M}")
         await self._to_client(db, booking.client_id, subject, body)
 
@@ -442,11 +442,11 @@ class Notifier:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return
-        session = await db.get(Session, booking.session_id)
+        slot = await db.get(Slot, booking.slot_id)
         business = await db.get(Business, booking.business_id)
-        if session is None or business is None:
+        if slot is None or business is None:
             return
-        local = session.starts_at.astimezone(ZoneInfo(business.timezone))
+        local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_canceled(business.name, f"{local:%Y-%m-%d at %H:%M}")
         await self._to_client(db, booking.client_id, subject, body)
 
@@ -532,7 +532,7 @@ class Notifier:
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]
     ) -> None:
-        rows = (await db.execute(scoped(DeviceToken, business.id))).scalars().all()
+        rows = (await db.execute(scoped(Device, business.id))).scalars().all()
         tokens = [r.token for r in rows]
         if tokens:
             await self._safe(

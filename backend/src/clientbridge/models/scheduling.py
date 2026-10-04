@@ -20,18 +20,18 @@ from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, SoftDelete, TimestampMixin, enum_check
 
 
-class Session(PKMixin, BusinessScoped, TimestampMixin, Base):
-    __tablename__ = "sessions"
+class Slot(PKMixin, BusinessScoped, TimestampMixin, Base):
+    __tablename__ = "slots"
     __table_args__ = (
-        enum_check("sessions", "status", "scheduled", "canceled", "completed"),
-        Index("ix_sessions_staff_start", "business_id", "staff_id", "starts_at"),
-        Index("ix_sessions_business_start", "business_id", "starts_at"),
+        enum_check("slots", "status", "scheduled", "canceled", "completed"),
+        Index("ix_slots_staff_start", "business_id", "staff_id", "starts_at"),
+        Index("ix_slots_business_start", "business_id", "starts_at"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
     resource_id: Mapped[str | None] = mapped_column(ForeignKey("resources.id"))
-    recurrence_id: Mapped[str | None] = mapped_column(ForeignKey("schedules.id"))
+    recurrence_id: Mapped[str | None] = mapped_column(ForeignKey("recurrences.id"))
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
@@ -55,14 +55,14 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
             "forfeited",
             "refunded",
         ),
-        Index("ix_bookings_session", "business_id", "session_id"),
+        Index("ix_bookings_slot", "business_id", "slot_id"),
         Index("ix_bookings_client", "business_id", "client_id"),
         Index("ix_bookings_status", "business_id", "status"),
         Index("ix_bookings_staff", "business_id", "staff_id"),
     )
 
-    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False)
-    # Denormalized from the session's staff — lets per-staff sync rules slice bookings directly.
+    slot_id: Mapped[str] = mapped_column(ForeignKey("slots.id"), nullable=False)
+    # Denormalized from the slot's staff — lets per-staff sync rules slice bookings directly.
     staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))
@@ -81,15 +81,15 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
 
-class Availability(PKMixin, BusinessScoped, TimestampMixin, Base):
-    __tablename__ = "availability"
+class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
+    __tablename__ = "hours"
     __table_args__ = (
-        enum_check("availability", "type", "recurring", "date"),
-        Index("ix_availability_staff", "business_id", "staff_id", "type"),
+        enum_check("hours", "basis", "recurring", "date"),
+        Index("ix_hours_staff", "business_id", "staff_id", "basis"),
     )
 
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
-    type: Mapped[str] = mapped_column(String, nullable=False)
+    basis: Mapped[str] = mapped_column(String, nullable=False)
     weekday: Mapped[int | None] = mapped_column(SmallInteger)  # 0..6 for recurring
     # nullable=True is explicit: the attribute name `date` shadows the `date` type, which defeats
     # SQLAlchemy's Optional/nullable inference.
@@ -102,18 +102,18 @@ class Availability(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "resources"
-    __table_args__ = (enum_check("resources", "kind", "room", "equipment"),)
+    __table_args__ = (enum_check("resources", "category", "room", "equipment"),)
 
     name: Mapped[str] = mapped_column(String, nullable=False)
-    kind: Mapped[str] = mapped_column(String, nullable=False)
+    category: Mapped[str] = mapped_column(String, nullable=False)
 
 
-class Schedule(PKMixin, BusinessScoped, TimestampMixin, Base):
-    __tablename__ = "schedules"
+class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
+    __tablename__ = "recurrences"
     __table_args__ = (
-        enum_check("schedules", "frequency", "day", "week", "month"),
-        enum_check("schedules", "status", "active", "ended", "canceled"),
-        Index("ix_schedules_status", "business_id", "status"),
+        enum_check("recurrences", "frequency", "day", "week", "month"),
+        enum_check("recurrences", "status", "active", "ended", "canceled"),
+        Index("ix_recurrences_status", "business_id", "status"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
@@ -128,13 +128,13 @@ class Schedule(PKMixin, BusinessScoped, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 
 
-class BookingAddon(PKMixin, BusinessScoped, TimestampMixin, Base):
+class Addon(PKMixin, BusinessScoped, TimestampMixin, Base):
     """A product the client added to a visit when booking; it joins the visit's invoice."""
 
-    __tablename__ = "booking_addons"
+    __tablename__ = "addons"
     __table_args__ = (
-        CheckConstraint("quantity > 0", name="ck_booking_addons_quantity"),
-        Index("ix_booking_addons_booking", "business_id", "booking_id"),
+        CheckConstraint("quantity > 0", name="ck_addons_quantity"),
+        Index("ix_addons_booking", "business_id", "booking_id"),
     )
 
     booking_id: Mapped[str] = mapped_column(ForeignKey("bookings.id"), nullable=False)

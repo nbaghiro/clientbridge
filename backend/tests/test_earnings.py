@@ -15,8 +15,8 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import AuditLog
-from clientbridge.models.scheduling import Booking, Session
+from clientbridge.models.platform import Audit
+from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger_service as ledger
 from clientbridge.services.earning_service import ensure_earnings, load_earning
 from clientbridge.services.ledger_service import Leg
@@ -64,8 +64,8 @@ async def _paid_booking(
     )
     await db.flush()
     cid = await _seed_id(db, Client)
-    sess = Session(
-        id=new_id("session"),
+    sess = Slot(
+        id=new_id("slot"),
         business_id=BIZ,
         item_id=await _seed_id(db, Item),
         staff_id="st_diego",
@@ -79,7 +79,7 @@ async def _paid_booking(
     booking = Booking(
         id=new_id("booking"),
         business_id=BIZ,
-        session_id=sess.id,
+        slot_id=sess.id,
         staff_id="st_diego",
         client_id=cid,
         status="confirmed",
@@ -134,7 +134,7 @@ async def _paid_booking(
 async def _journals(db: AsyncSession, booking_id: str) -> list[str]:
     rows = await db.execute(
         select(Entry.journal_id)
-        .where(Entry.type == "earning", Entry.subject_id == booking_id)
+        .where(Entry.event == "earning", Entry.subject_id == booking_id)
         .distinct()
         .order_by(Entry.journal_id)
     )
@@ -145,7 +145,7 @@ async def _earning(db: AsyncSession, *, business_id: str = BIZ, staff_id: str = 
     journal = await ledger.post(
         db,
         business_id,
-        type="earning",
+        event="earning",
         ref=f"earning:{new_id('booking')}:0",
         legs=[
             Leg("business", business_id, "staff_cost", 6000),
@@ -159,7 +159,7 @@ async def _earning(db: AsyncSession, *, business_id: str = BIZ, staff_id: str = 
 
 async def _payable(db: AsyncSession, staff_id: str, stage: str) -> int:
     return await ledger.balance(
-        db, BIZ, owner_type="staff", owner_id=staff_id, kind="payable", code=stage
+        db, BIZ, owner_type="staff", owner_id=staff_id, category="payable", code=stage
     )
 
 
@@ -205,7 +205,7 @@ async def test_approve_then_pay_moves_payable_to_bank(
     assert biz is not None
     staff = await factory.staff(business=biz, role="staff")
     journal = await _earning(db, staff_id=staff.id)
-    bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="bank")
+    bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
 
     approved = await as_owner.post(f"/v1/earnings/{journal}/approve")
     assert approved.status_code == 200, approved.text
@@ -225,7 +225,7 @@ async def test_approve_then_pay_moves_payable_to_bank(
     assert paid.json()["status"] == "paid"
     assert await _payable(db, staff.id, "approved") == 0
     assert (
-        await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="bank")
+        await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
         == bank - 6000
     )
 
@@ -280,15 +280,15 @@ async def test_idempotent_pay_replays(as_owner: httpx.AsyncClient, db: AsyncSess
     paid_audits = (
         await db.execute(
             select(func.count())
-            .select_from(AuditLog)
-            .where(AuditLog.entity_id == journal, AuditLog.action == "earning.pay")
+            .select_from(Audit)
+            .where(Audit.entity_id == journal, Audit.action == "earning.pay")
         )
     ).scalar_one()
     assert paid_audits == 1
     payments = (
         await db.execute(
             select(func.count(func.distinct(Entry.journal_id))).where(
-                Entry.type == "staff_payment", Entry.source_id == journal
+                Entry.event == "staff_payment", Entry.source_id == journal
             )
         )
     ).scalar_one()
@@ -347,8 +347,8 @@ def _payout_event(event_id: str, kind: str, payout_id: str, amount: int) -> str:
 
 
 async def _balances(db: AsyncSession) -> tuple[int, int]:
-    bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="bank")
-    stripe = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, kind="stripe")
+    bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
+    stripe = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
     return bank, stripe
 
 
@@ -367,7 +367,7 @@ async def test_payout_paid_posts_then_failed_reverses(
     assert paid.status_code == 200
     legs = (
         await db.execute(
-            select(Account.kind, Entry.amount_cents, Entry.business_id)
+            select(Account.category, Entry.amount_cents, Entry.business_id)
             .join(Account, Account.id == Entry.account_id)
             .where(Entry.ref == "payout:po_1")
         )

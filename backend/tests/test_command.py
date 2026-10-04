@@ -12,7 +12,7 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
 from clientbridge.models.crm import Client
-from clientbridge.models.platform import AuditLog, IdempotencyKey
+from clientbridge.models.platform import Audit, IdempotencyKey
 from tests.conftest import Factory
 
 
@@ -47,11 +47,9 @@ def _make_client(name: str = "Cmd Client") -> Callable[[Command], Awaitable[_Out
     return run
 
 
-async def _audits(db: AsyncSession, business_id: str) -> list[AuditLog]:
+async def _audits(db: AsyncSession, business_id: str) -> list[Audit]:
     return list(
-        (await db.execute(select(AuditLog).where(AuditLog.business_id == business_id)))
-        .scalars()
-        .all()
+        (await db.execute(select(Audit).where(Audit.business_id == business_id))).scalars().all()
     )
 
 

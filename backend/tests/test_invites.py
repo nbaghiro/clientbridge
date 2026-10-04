@@ -4,7 +4,7 @@ import httpx
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.platform import AuditLog
+from clientbridge.models.platform import Audit
 from tests.conftest import FakeEmailSender
 
 BIZ = "bz_birchbark"
@@ -14,9 +14,7 @@ async def _actions(db: AsyncSession, entity_id: str) -> list[str]:
     return list(
         (
             await db.execute(
-                select(AuditLog.action).where(
-                    AuditLog.business_id == BIZ, AuditLog.entity_id == entity_id
-                )
+                select(Audit.action).where(Audit.business_id == BIZ, Audit.entity_id == entity_id)
             )
         )
         .scalars()

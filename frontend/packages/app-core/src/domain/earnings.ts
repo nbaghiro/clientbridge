@@ -39,7 +39,7 @@ SELECT * FROM (
            END AS status
     FROM entries e
     LEFT JOIN staff s ON s.id = e.owner_id
-    WHERE e.type = 'earning' AND e.owner_type = 'staff'
+    WHERE e.event = 'earning' AND e.owner_type = 'staff'
 )`;
 
 export const ALL_EARNINGS_SQL = `${EARNINGS_SQL}

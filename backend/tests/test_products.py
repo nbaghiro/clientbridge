@@ -320,7 +320,7 @@ async def test_paid_sale_accrues_commission_on_products_only(
         (
             await db.execute(
                 select(Entry.journal_id).where(
-                    Entry.type == "earning",
+                    Entry.event == "earning",
                     Entry.subject_type == "order",
                     Entry.subject_id == sale["id"],
                 )
@@ -354,7 +354,7 @@ async def test_no_commission_without_a_retail_rate(
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_com3")
     found = (
         await db.execute(
-            select(Entry.id).where(Entry.subject_id == sale["id"], Entry.type == "earning")
+            select(Entry.id).where(Entry.subject_id == sale["id"], Entry.event == "earning")
         )
     ).first()
     assert found is None

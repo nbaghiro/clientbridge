@@ -55,7 +55,7 @@ class RemittanceService:
             await ledger.post(
                 self.db,
                 self.biz,
-                type="remittance",
+                event="remittance",
                 ref=f"remittance:{self.biz}:{data.period_start}:{data.period_end}",
                 legs=[
                     *(
@@ -90,8 +90,8 @@ class RemittanceService:
             .with_only_columns(Account.code, func.sum(Entry.amount_cents))
             .join_from(Entry, Account, Account.id == Entry.account_id)
             .where(
-                Account.kind == "tax",
-                Entry.type != "remittance",
+                Account.category == "tax",
+                Entry.event != "remittance",
                 Entry.occurred_at >= lo,
                 Entry.occurred_at < hi,
             )
@@ -103,7 +103,7 @@ class RemittanceService:
         filed = await self.db.execute(
             scoped(Entry, self.biz)
             .with_only_columns(Entry.meta)
-            .where(Entry.type == "remittance", Entry.leg == 0)
+            .where(Entry.event == "remittance", Entry.leg == 0)
         )
         start, end = data.period_start.isoformat(), data.period_end.isoformat()
         return any(

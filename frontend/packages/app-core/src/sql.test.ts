@@ -51,7 +51,7 @@ let leg = 0;
 /** One ledger journal: each leg is [account id, amount], booked against an optional subject. */
 function journal(
     id: string,
-    type: string,
+    event: string,
     ref: string,
     legs: [string, number][],
     extra: Row = {},
@@ -69,7 +69,7 @@ function journal(
                 owner_id: owner?.owner_id ?? null,
                 amount_cents: amount,
                 currency: "CAD",
-                type,
+                event,
                 ref,
                 leg,
                 meta: "{}",
@@ -149,16 +149,16 @@ function seed(): void {
         { id: "it_old", kind: "service", name: "Archived", price_cents: 100, active: 0 },
     ]);
     scoped("files", [
-        { id: "fl_old", parent_type: "item", parent_id: "it_cut", kind: "image" },
+        { id: "fl_old", parent_type: "item", parent_id: "it_cut", purpose: "image" },
         {
             id: "fl_new",
             parent_type: "item",
             parent_id: "it_cut",
-            kind: "image",
+            purpose: "image",
             created_at: "2026-06-27T00:00:00Z",
         },
     ]);
-    scoped("sessions", [
+    scoped("slots", [
         {
             id: "ss_1",
             item_id: "it_cut",
@@ -199,7 +199,7 @@ function seed(): void {
     scoped("bookings", [
         {
             id: "bk_1",
-            session_id: "ss_1",
+            slot_id: "ss_1",
             staff_id: "st_owner",
             client_id: "cl_ann",
             invoice_id: "inv_1",
@@ -211,7 +211,7 @@ function seed(): void {
         },
         {
             id: "bk_4",
-            session_id: "ss_4",
+            slot_id: "ss_4",
             staff_id: "st_owner",
             client_id: "cl_ben",
             status: "confirmed",
@@ -221,7 +221,7 @@ function seed(): void {
             deposit_status: "none",
         },
     ]);
-    scoped("booking_addons", [
+    scoped("addons", [
         {
             id: "ba_1",
             booking_id: "bk_1",
@@ -429,7 +429,7 @@ function seed(): void {
         {
             id: "pm_old",
             client_id: "cl_ann",
-            type: "card",
+            method: "card",
             brand: "Visa",
             last4: "4242",
             preferred: 0,
@@ -439,7 +439,7 @@ function seed(): void {
         {
             id: "pm_main",
             client_id: "cl_ann",
-            type: "card",
+            method: "card",
             brand: "Visa",
             last4: "1111",
             preferred: 1,
@@ -450,7 +450,7 @@ function seed(): void {
         {
             id: "pm_gone",
             client_id: "cl_ann",
-            type: "card",
+            method: "card",
             preferred: 0,
             mandate_status: "none",
             status: "detached",
@@ -554,28 +554,28 @@ function seed(): void {
         { id: "frm_a", name: "Alpha", require_signature: 1, active: 1 },
         { id: "frm_z", name: "Zeta", require_signature: 0, active: 0 },
     ]);
-    scoped("form_fields", [
-        { id: "ff_2", form_id: "frm_a", type: "text", name: "b", label: "B", position: 1 },
-        { id: "ff_1", form_id: "frm_a", type: "rating", name: "a", label: "A", position: 0 },
+    scoped("fields", [
+        { id: "ff_2", form_id: "frm_a", input: "text", name: "b", label: "B", position: 1 },
+        { id: "ff_1", form_id: "frm_a", input: "rating", name: "a", label: "A", position: 0 },
     ]);
     scoped("contracts", [
         { id: "con_1", name: "Waiver", body: "I agree", version: 2, always_require: 1, active: 1 },
     ]);
-    scoped("availability", [
+    scoped("hours", [
         {
             id: "av_1",
             staff_id: "st_amy",
-            type: "recurring",
+            basis: "recurring",
             weekday: 1,
             start_time: "09:00:00",
             end_time: "17:00:00",
             available: 1,
         },
-        { id: "av_2", staff_id: "st_amy", type: "date", date: "2026-07-01", available: 0 },
+        { id: "av_2", staff_id: "st_amy", basis: "date", date: "2026-07-01", available: 0 },
     ]);
 
-    const account = (id: string, ownerType: string, ownerId: string, kind: string, code = "") =>
-        ({ id, owner_type: ownerType, owner_id: ownerId, kind, code, currency: "CAD" }) as Row;
+    const account = (id: string, ownerType: string, ownerId: string, category: string, code = "") =>
+        ({ id, owner_type: ownerType, owner_id: ownerId, category, code, currency: "CAD" }) as Row;
     scoped("accounts", [
         account("a_recv", "client", "cl_ann", "receivable"),
         account("a_recv_ben", "client", "cl_ben", "receivable"),
@@ -819,7 +819,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(
             pick(
                 events,
-                "session_id",
+                "slot_id",
                 "booking_id",
                 "booked_count",
                 "deposit_required",
@@ -828,7 +828,7 @@ describe("app-core SQL against the replica schema", () => {
             ),
         ).toEqual([
             {
-                session_id: "ss_1",
+                slot_id: "ss_1",
                 booking_id: "bk_1",
                 booked_count: 1,
                 deposit_required: 1,
@@ -836,7 +836,7 @@ describe("app-core SQL against the replica schema", () => {
                 client_name: "Ann",
             },
             {
-                session_id: "ss_3",
+                slot_id: "ss_3",
                 booking_id: null,
                 booked_count: 0,
                 deposit_required: null,
@@ -845,7 +845,7 @@ describe("app-core SQL against the replica schema", () => {
             },
         ]);
         const amy = run("EVENTS_BY_STAFF_SQL", [...range, "st_amy"]);
-        expect(amy.map((r) => r.session_id)).toEqual(["ss_3"]);
+        expect(amy.map((r) => r.slot_id)).toEqual(["ss_3"]);
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
         expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([{ invoice_id: "inv_1" }]);
     });
@@ -1000,7 +1000,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
             { weekday: 2, start_time: "10:00:00", end_time: "14:00:00", available: 1 },
         ]);
-        expect(all("SELECT id FROM availability WHERE staff_id = 'st_amy'").length).toBe(2);
+        expect(all("SELECT id FROM hours WHERE staff_id = 'st_amy'").length).toBe(2);
     });
 
     it("covers every exported SQL constant", () => {

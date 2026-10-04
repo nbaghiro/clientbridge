@@ -72,7 +72,7 @@ SELECT e.journal_id AS id, e.amount_cents, e.available_at AS arrival_at, e.occur
        CASE WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = e.ref || ':failed')
             THEN 'failed' ELSE 'paid' END AS status
 FROM entries e JOIN accounts a ON a.id = e.account_id
-WHERE e.type = 'payout' AND a.kind = 'bank'
+WHERE e.event = 'payout' AND a.category = 'bank'
 ORDER BY e.occurred_at DESC LIMIT 5`;
 
 /** Recent payouts to the provider's bank (CAD). */

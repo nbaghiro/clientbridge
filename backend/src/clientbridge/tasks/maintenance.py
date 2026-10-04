@@ -5,17 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
 from clientbridge.models.catalog import GiftCard, Package
-from clientbridge.models.platform import DeviceToken
+from clientbridge.models.platform import Device
 from clientbridge.services import ledger_service as ledger
 
 _TOKEN_TTL = timedelta(days=60)
 
 
-async def run_prune_device_tokens(db: AsyncSession, now: datetime) -> int:
+async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
     """Drop push tokens not seen in 60 days — a coarse staleness heuristic (no delivery-failure
     signal is tracked yet; reacting to Expo's DeviceNotRegistered is the follow-up)."""
     tokens = (
-        (await db.execute(select(DeviceToken).where(DeviceToken.updated_at < now - _TOKEN_TTL)))
+        (await db.execute(select(Device).where(Device.updated_at < now - _TOKEN_TTL)))
         .scalars()
         .all()
     )
@@ -53,7 +53,7 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
             gift_card.business_id,
             owner_type="gift_card",
             owner_id=gift_card.id,
-            kind="gift_card",
+            category="gift_card",
         )
         swept += 1
     packages = (
@@ -74,7 +74,7 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
     for package in packages:
         package.status = "expired"
         await ledger.post_breakage(
-            db, package.business_id, owner_type="package", owner_id=package.id, kind="deferred"
+            db, package.business_id, owner_type="package", owner_id=package.id, category="deferred"
         )
         swept += 1
     await db.commit()
@@ -86,4 +86,4 @@ async def run_daily_maintenance(ctx: dict[str, object]) -> int:
     total rows touched across the sweeps."""
     now = datetime.now(UTC)
     async with SessionLocal() as db:
-        return await run_prune_device_tokens(db, now) + await run_expiry_sweeps(db, now)
+        return await run_prune_devices(db, now) + await run_expiry_sweeps(db, now)

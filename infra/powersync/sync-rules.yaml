@@ -19,8 +19,8 @@ bucket_definitions:
       - SELECT * FROM gift_cards      WHERE business_id = bucket.business_id
       - SELECT * FROM resources       WHERE business_id = bucket.business_id
       - SELECT * FROM forms           WHERE business_id = bucket.business_id
-      - SELECT * FROM form_fields     WHERE business_id = bucket.business_id
-      - SELECT * FROM form_responses  WHERE business_id = bucket.business_id
+      - SELECT * FROM fields          WHERE business_id = bucket.business_id
+      - SELECT * FROM responses       WHERE business_id = bucket.business_id
       - SELECT * FROM contracts       WHERE business_id = bucket.business_id
       - SELECT * FROM signatures      WHERE business_id = bucket.business_id
       - SELECT * FROM files           WHERE business_id = bucket.business_id
@@ -44,15 +44,15 @@ bucket_definitions:
       SELECT id AS staff_id, business_id FROM staff
       WHERE user_id = request.user_id() AND status = 'active'
     data:
-      - SELECT * FROM sessions           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM slots              WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM booking_addons     WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM availability       WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM schedules          WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM addons             WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM hours              WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
+      - SELECT * FROM recurrences        WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM accounts           WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM entries            WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
 
-  # 3) BUSINESS-FULL — owner/admin only: ALL members' work, financials, inbox, and the activity log.
+  # 3) BUSINESS-FULL — owner/admin only: ALL members' work, financials and inbox.
   #    This is how an owner sees the activities of every worker.
   business_full:
     # Two parameter queries (owner, admin) — PowerSync parameter queries don't accept `IN (list)`;
@@ -62,11 +62,11 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'admin'
     data:
       - SELECT id, business_id, user_id, role, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
-      - SELECT * FROM sessions           WHERE business_id = bucket.business_id
+      - SELECT * FROM slots              WHERE business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM booking_addons     WHERE business_id = bucket.business_id
-      - SELECT * FROM availability       WHERE business_id = bucket.business_id
-      - SELECT * FROM schedules          WHERE business_id = bucket.business_id
+      - SELECT * FROM addons             WHERE business_id = bucket.business_id
+      - SELECT * FROM hours              WHERE business_id = bucket.business_id
+      - SELECT * FROM recurrences        WHERE business_id = bucket.business_id
       - SELECT * FROM invoices           WHERE business_id = bucket.business_id
       - SELECT * FROM estimates          WHERE business_id = bucket.business_id
       - SELECT * FROM orders             WHERE business_id = bucket.business_id
@@ -77,4 +77,3 @@ bucket_definitions:
       - SELECT * FROM entries            WHERE business_id = bucket.business_id
       - SELECT * FROM reviews            WHERE business_id = bucket.business_id
       - SELECT * FROM review_requests    WHERE business_id = bucket.business_id
-      - SELECT * FROM audit_logs         WHERE business_id = bucket.business_id

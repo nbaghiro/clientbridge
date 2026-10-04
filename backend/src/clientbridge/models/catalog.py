@@ -79,7 +79,7 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     sku: Mapped[str | None] = mapped_column(String)
     cost_cents: Mapped[int | None] = mapped_column(BigInteger)
     track_stock: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    stock_on_hand: Mapped[int | None] = mapped_column(Integer)  # cached from stock_movements
+    stock_on_hand: Mapped[int | None] = mapped_column(Integer)  # cached from inventory
     low_stock_at: Mapped[int | None] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
@@ -146,17 +146,17 @@ class StockMovement(PKMixin, BusinessScoped, TimestampMixin, Base):
     """One signed change to a product's stock; `items.stock_on_hand` is their running total. A sale
     or refund is keyed on its line, so a re-delivered payment can't move stock twice."""
 
-    __tablename__ = "stock_movements"
+    __tablename__ = "inventory"
     __table_args__ = (
-        enum_check("stock_movements", "reason", *STOCK_REASONS),
+        enum_check("inventory", "reason", *STOCK_REASONS),
         Index(
-            "ux_stock_movements_line_reason",
+            "ux_inventory_line_reason",
             "line_id",
             "reason",
             unique=True,
             postgresql_where=text("line_id IS NOT NULL"),
         ),
-        Index("ix_stock_movements_item", "business_id", "item_id"),
+        Index("ix_inventory_item", "business_id", "item_id"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)

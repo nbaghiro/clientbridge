@@ -76,7 +76,7 @@ async def _paid_invoice(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, 
 
 async def _invoice_net(db: AsyncSession, inv_id: str, kind: str) -> int:
     return await ledger.subject_balance(
-        db, BIZ, kind=kind, subject_type="invoice", subject_id=inv_id
+        db, BIZ, category=kind, subject_type="invoice", subject_id=inv_id
     )
 
 
@@ -306,7 +306,7 @@ async def test_package_purchase_refunds_in_full_only(
     assert part.json()["message"] == "a package purchase is refunded in full"
     assert (await as_owner.post(f"/v1/payments/{pay_id}/refund")).status_code == 200
     deferred = await ledger.balance(
-        db, BIZ, owner_type="package", owner_id=package_id, kind="deferred"
+        db, BIZ, owner_type="package", owner_id=package_id, category="deferred"
     )
     assert deferred == 0
 
