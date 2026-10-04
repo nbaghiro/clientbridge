@@ -29,7 +29,9 @@ export function Hero() {
             </div>
             <div className="wrap">
                 <p className="eyebrow accent">{hero.eyebrow}</p>
-                <h1 className="h1">{hero.title}</h1>
+                <h1 className="h1">
+                    {hero.title[0]} <span className="h1-line">{hero.title[1]}</span>
+                </h1>
                 <p className="lede">{hero.lede}</p>
                 <div className="cta-row">
                     <a className="btn btn-primary btn-lg" href={links.startFree}>

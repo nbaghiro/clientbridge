@@ -108,6 +108,9 @@
         line-height: 1.6;
         color: var(--ink-soft);
     }
+    .h1-line {
+        display: block;
+    }
     .h1 {
         text-wrap: balance;
         font-size: 56px;

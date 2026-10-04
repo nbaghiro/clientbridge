@@ -9,7 +9,7 @@ export const homeMeta = {
 
 export const hero = {
     eyebrow: "For service businesses in Canada",
-    title: "Book, sell and get paid in one place.",
+    title: ["Book, sell and get paid", "in one place."],
     lede: "Online booking with deposits, an online shop and front desk sales, memberships, packages and gift cards, invoices and Tap to Pay. Sales tax is worked out on every sale.",
     primary: "Start free",
     secondary: "See the demo business",
