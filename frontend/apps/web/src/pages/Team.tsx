@@ -14,6 +14,7 @@ import {
 } from "@clientbridge/app-core";
 import { useState } from "react";
 
+import { ListPage } from "../components/ListPage";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
 
@@ -27,38 +28,33 @@ export function Team() {
 
     return (
         <div className="max-w-2xl">
-            <p className="mt-1 text-sm text-muted">{strings.team.subtitle}</p>
-
-            <section className="mt-6 rounded-lg border border-line bg-surface">
-                <h2 className="border-b border-line px-4 py-3 text-sm font-semibold text-ink">
-                    {strings.team.members}
-                </h2>
-                <ul>
-                    {staff.map((s) => (
-                        <li
-                            key={s.id}
-                            className="flex items-center justify-between border-b border-line px-4 py-3 last:border-0"
-                        >
-                            <div>
-                                <p className="text-sm font-medium text-ink">
-                                    {staffDisplayName(s)}
-                                    {s.user_id !== null && s.user_id === myUserId ? (
-                                        <span className="ml-2 rounded-full bg-accent-weak px-2 py-0.5 text-xs font-semibold text-accent">
-                                            {strings.team.youBadge}
-                                        </span>
-                                    ) : null}
-                                </p>
-                                {s.invite_email !== null ? (
-                                    <p className="text-xs text-muted">{s.invite_email}</p>
+            <ListPage
+                summary={strings.team.subtitle}
+                head={strings.team.members}
+                rows={staff}
+                rowKey={(s) => s.id}
+                empty={strings.team.noMembers}
+                renderRow={(s) => (
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-ink">
+                                {staffDisplayName(s)}
+                                {s.user_id !== null && s.user_id === myUserId ? (
+                                    <span className="ml-2 rounded-full bg-accent-weak px-2 py-0.5 text-xs font-semibold text-accent">
+                                        {strings.team.youBadge}
+                                    </span>
                                 ) : null}
-                            </div>
-                            <span className="text-xs font-medium capitalize text-ink-soft">
-                                {s.role}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            </section>
+                            </p>
+                            {s.invite_email !== null ? (
+                                <p className="text-xs text-muted">{s.invite_email}</p>
+                            ) : null}
+                        </div>
+                        <span className="text-xs font-medium capitalize text-ink-soft">
+                            {s.role}
+                        </span>
+                    </div>
+                )}
+            />
 
             {pending.length > 0 ? (
                 <section className="mt-6 rounded-lg border border-line bg-surface">

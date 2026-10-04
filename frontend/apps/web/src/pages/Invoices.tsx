@@ -1,11 +1,13 @@
 import {
     DOC_ACTION_LABEL,
+    DOC_TABS,
     type DocTab,
     type EstimateRow,
     type InvoiceRow,
     type PaymentRow,
     canManagePayments,
     docDraft,
+    docHeading,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
@@ -32,9 +34,13 @@ import { StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
-import { IconPlus, IconSearch } from "../components/icons";
+import { DetailSection, DetailView } from "../components/DetailView";
+import { ListPage } from "../components/ListPage";
+import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
+
+const GRID = "grid grid-cols-[6rem_2fr_1fr_1fr] items-center gap-4";
 
 export function Invoices() {
     const invoices = useInvoices();
@@ -49,116 +55,56 @@ export function Invoices() {
             q: string,
         ) => (InvoiceRow | EstimateRow)[],
     );
-
     const noun = tab === "invoices" ? "invoice" : "estimate";
+    const intent = tab === "invoices" ? invoiceStatusIntent : estimateStatusIntent;
 
     return (
         <div>
-            <header className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted">
-                    {strings.invoices.countSummary(invoices.length, estimates.length)}
-                </p>
-                <button
-                    type="button"
-                    onClick={() => {
+            <ListPage
+                summary={strings.invoices.countSummary(invoices.length, estimates.length)}
+                action={{
+                    label: strings.invoices.newButton(noun),
+                    onPress: () => {
                         setCreating(true);
-                    }}
-                    className="flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                >
-                    <IconPlus className="h-4 w-4" /> {strings.invoices.newButton(noun)}
-                </button>
-            </header>
-
-            <div className="mt-6 flex gap-1 rounded-md border border-line bg-surface p-1 text-sm font-medium">
-                {(["invoices", "estimates"] as const).map((t) => (
-                    <button
-                        key={t}
-                        type="button"
-                        onClick={() => {
-                            setTab(t);
-                        }}
-                        className={`flex-1 rounded-base px-3 py-1.5 capitalize transition ${
-                            tab === t ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
-                        }`}
-                    >
-                        {t}
-                    </button>
-                ))}
-            </div>
-
-            <div className="relative mt-4">
-                <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                    value={q}
-                    onChange={(e) => {
-                        setQ(e.target.value);
-                    }}
-                    placeholder={strings.invoices.searchPlaceholder(tab)}
-                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
-                />
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-lg border border-line bg-surface">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">
-                                {strings.invoices.colNumber}
-                            </th>
-                            <th className="px-4 py-3 font-semibold">
-                                {strings.invoices.colClient}
-                            </th>
-                            <th className="px-4 py-3 font-semibold">
-                                {strings.invoices.colStatus}
-                            </th>
-                            <th className="px-4 py-3 text-right font-semibold">
-                                {strings.invoices.colTotal}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((r) => (
-                            <tr
-                                key={r.id}
-                                onClick={() => {
-                                    setOpenId(r.id);
-                                }}
-                                className="cursor-pointer border-b border-line-soft transition last:border-0 hover:bg-bg"
-                            >
-                                <td className="px-4 py-3 font-medium tabular-nums text-ink">
-                                    {r.number ?? "—"}
-                                </td>
-                                <td className="px-4 py-3 text-ink">{r.client_name ?? "—"}</td>
-                                <td className="px-4 py-3">
-                                    <StatusPill
-                                        status={r.status}
-                                        intent={
-                                            tab === "invoices"
-                                                ? invoiceStatusIntent(r.status)
-                                                : estimateStatusIntent(r.status)
-                                        }
-                                    />
-                                </td>
-                                <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
-                                    {formatMoney(r.total_cents)}
-                                </td>
-                            </tr>
-                        ))}
-                        {filtered.length === 0 ? (
-                            <tr>
-                                <td
-                                    colSpan={4}
-                                    className="px-4 py-12 text-center text-sm text-muted"
-                                >
-                                    {q
-                                        ? strings.invoices.searchEmpty(tab)
-                                        : strings.invoices.empty(tab)}
-                                </td>
-                            </tr>
-                        ) : null}
-                    </tbody>
-                </table>
-            </div>
+                    },
+                }}
+                segments={{ items: DOC_TABS, active: tab, onSelect: setTab }}
+                search={{
+                    value: q,
+                    onChange: setQ,
+                    placeholder: strings.invoices.searchPlaceholder(tab),
+                }}
+                head={
+                    <div className={GRID}>
+                        <span>{strings.invoices.colNumber}</span>
+                        <span>{strings.invoices.colClient}</span>
+                        <span>{strings.invoices.colStatus}</span>
+                        <span className="text-right">{strings.invoices.colTotal}</span>
+                    </div>
+                }
+                rows={filtered}
+                rowKey={(r) => r.id}
+                onRowPress={(r) => {
+                    setOpenId(r.id);
+                }}
+                empty={q ? strings.invoices.searchEmpty(tab) : strings.invoices.empty(tab)}
+                renderRow={(r) => (
+                    <div className={GRID}>
+                        <span className="font-medium tabular-nums text-ink">
+                            {r.number ?? strings.clients.dash}
+                        </span>
+                        <span className="truncate text-ink">
+                            {r.client_name ?? strings.clients.dash}
+                        </span>
+                        <span>
+                            <StatusPill status={r.status} intent={intent(r.status)} />
+                        </span>
+                        <span className="text-right">
+                            <Money cents={r.total_cents} />
+                        </span>
+                    </div>
+                )}
+            />
 
             {creating ? (
                 <DocEditor
@@ -169,7 +115,7 @@ export function Invoices() {
                 />
             ) : null}
             {openId !== null ? (
-                <DetailModal
+                <DocDetail
                     kind={tab}
                     row={filtered.find((r) => r.id === openId) ?? null}
                     onClose={() => {
@@ -181,15 +127,7 @@ export function Invoices() {
     );
 }
 
-function Overlay({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
-            {children}
-        </div>
-    );
-}
-
-function DetailModal({
+function DocDetail({
     kind,
     row,
     onClose,
@@ -217,76 +155,26 @@ function DetailModal({
         );
     }
     const canRefund = canManagePayments(role);
-
     const actions = isInvoice
         ? invoiceActions(api, row as InvoiceRow)
         : estimateActions(api, row as EstimateRow);
-
     const payToken = isInvoice ? (row as InvoiceRow).pay_token : null;
     const canPay = isInvoice && isPayable(row as InvoiceRow);
 
     return (
-        <Overlay>
-            <div className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card">
-                <div className="flex items-start justify-between border-b border-line px-6 py-4">
-                    <div>
-                        <h2 className="font-display text-lg font-bold text-ink">
-                            {isInvoice
-                                ? strings.invoices.invoiceHeading
-                                : strings.invoices.estimateHeading}{" "}
-                            {row.number !== null ? `#${row.number}` : strings.invoices.draftHeading}
-                        </h2>
-                        <p className="mt-0.5 text-sm text-muted">{row.client_name ?? "—"}</p>
-                    </div>
-                    <StatusPill
-                        status={row.status}
-                        intent={
-                            isInvoice
-                                ? invoiceStatusIntent(row.status)
-                                : estimateStatusIntent(row.status)
-                        }
-                    />
-                </div>
-                <div className="flex-1 overflow-y-auto px-6 py-4">
-                    <table className="w-full text-sm">
-                        <tbody>
-                            {lines.map((l) => (
-                                <tr key={l.id} className="border-b border-line-soft last:border-0">
-                                    <td className="py-2 text-ink">{l.description}</td>
-                                    <td className="py-2 text-right tabular-nums text-muted">
-                                        {l.quantity} × {formatMoney(l.unit_amount_cents)}
-                                    </td>
-                                    <td className="py-2 pl-4 text-right font-medium tabular-nums text-ink">
-                                        {formatMoney(l.amount_cents)}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    <div className="mt-4 flex justify-end">
-                        <span className="text-sm text-muted">
-                            {strings.invoices.total}{" "}
-                            <span className="font-semibold text-ink">
-                                {formatMoney(row.total_cents)}
-                            </span>
-                        </span>
-                    </div>
-                    {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
-                    {isInvoice ? (
-                        <PaymentsSection invoiceId={row.id} canRefund={canRefund} />
-                    ) : null}
-                </div>
-                {error !== null ? (
-                    <p className="border-t border-line px-6 pt-3 text-sm text-danger">{error}</p>
-                ) : null}
-                <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
-                        {strings.common.close}
-                    </button>
+        <DetailView
+            open
+            title={docHeading(kind, row.number)}
+            subtitle={row.client_name ?? strings.clients.dash}
+            status={{
+                status: row.status,
+                intent: isInvoice
+                    ? invoiceStatusIntent(row.status)
+                    : estimateStatusIntent(row.status),
+            }}
+            onClose={onClose}
+            actions={
+                <>
                     {row.status === "draft" ? (
                         <button
                             type="button"
@@ -316,9 +204,31 @@ function DetailModal({
                             {DOC_ACTION_LABEL[a.key]}
                         </button>
                     ))}
+                </>
+            }
+        >
+            <DetailSection>
+                <div className="divide-y divide-line-soft text-sm">
+                    {lines.map((l) => (
+                        <div key={l.id} className="flex items-center gap-4 py-2">
+                            <span className="flex-1 text-ink">{l.description}</span>
+                            <span className="tabular-nums text-muted">
+                                {l.quantity} × {formatMoney(l.unit_amount_cents)}
+                            </span>
+                            <span className="w-24 text-right">
+                                <Money cents={l.amount_cents} />
+                            </span>
+                        </div>
+                    ))}
                 </div>
-            </div>
-        </Overlay>
+                <div className="mt-4 flex justify-end gap-2 text-sm text-muted">
+                    {strings.invoices.total} <Money cents={row.total_cents} strong />
+                </div>
+            </DetailSection>
+            {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
+            {isInvoice ? <PaymentsSection invoiceId={row.id} canRefund={canRefund} /> : null}
+            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+        </DetailView>
     );
 }
 
@@ -339,9 +249,8 @@ function PayLink({ token }: { token: string }) {
     };
 
     return (
-        <div className="mt-4 rounded-md border border-line bg-bg px-3 py-2.5">
-            <p className="text-xs uppercase tracking-wide text-muted">{strings.invoices.payLink}</p>
-            <div className="mt-1.5 flex items-center gap-2">
+        <DetailSection title={strings.invoices.payLink}>
+            <div className="flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2.5">
                 <span className="flex-1 truncate text-sm text-ink-soft">{url}</span>
                 <button
                     type="button"
@@ -351,7 +260,7 @@ function PayLink({ token }: { token: string }) {
                     {copied ? strings.invoices.copied : strings.invoices.copy}
                 </button>
             </div>
-        </div>
+        </DetailSection>
     );
 }
 
@@ -360,11 +269,8 @@ function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefun
     if (payments.length === 0) return null;
 
     return (
-        <div className="mt-4">
-            <p className="text-xs uppercase tracking-wide text-muted">
-                {strings.invoices.payments}
-            </p>
-            <div className="mt-1.5 divide-y divide-line-soft rounded-md border border-line">
+        <DetailSection title={strings.invoices.payments}>
+            <div className="divide-y divide-line-soft rounded-md border border-line">
                 {payments.map((p) => (
                     <PaymentRowItem
                         key={p.id}
@@ -374,7 +280,7 @@ function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefun
                     />
                 ))}
             </div>
-        </div>
+        </DetailSection>
     );
 }
 

@@ -1,16 +1,17 @@
 import {
     DOC_ACTION_LABEL,
+    DOC_TABS,
     type DocTab,
     type EstimateRow,
     type InvoiceRow,
     type PaymentRow,
     canManagePayments,
     docDraft,
+    docHeading,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
     filterInvoices,
-    formatMoney,
     formatMoneyWithCurrency,
     invoiceActions,
     invoiceStatusIntent,
@@ -33,10 +34,7 @@ import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
-    Modal,
     Pressable,
-    ScrollView,
     Share,
     StyleSheet,
     Text,
@@ -44,8 +42,10 @@ import {
     View,
 } from "react-native";
 
-import { IconPlus, IconSearch } from "../components/icons";
+import { DetailSection, DetailView } from "../ui/DetailView";
 import { DocEditor } from "../ui/DocEditor";
+import { ListPage } from "../ui/ListPage";
+import { Money } from "../ui/Money";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -73,70 +73,40 @@ export function InvoicesScreen({ createToken }: { createToken?: number | undefin
 
     return (
         <View style={styles.screen}>
-            <View style={styles.header}>
-                <Text style={styles.count}>
-                    {strings.invoices.countSummary(invoices.length, estimates.length)}
-                </Text>
-                <Pressable
-                    style={styles.add}
-                    onPress={() => {
+            <ListPage
+                summary={strings.invoices.countSummary(invoices.length, estimates.length)}
+                action={{
+                    label: strings.invoices.newShort,
+                    onPress: () => {
                         setCreating(true);
-                    }}
-                >
-                    <IconPlus size={16} color={c.accentInk} />
-                    <Text style={styles.addText}>{strings.invoices.newShort}</Text>
-                </Pressable>
-            </View>
-
-            <View style={styles.tabs}>
-                {(["invoices", "estimates"] as const).map((t) => (
-                    <Pressable
-                        key={t}
-                        style={[styles.tab, tab === t && styles.tabOn]}
-                        onPress={() => {
-                            setTab(t);
-                        }}
-                    >
-                        <Text style={[styles.tabText, tab === t && styles.tabTextOn]}>{t}</Text>
-                    </Pressable>
-                ))}
-            </View>
-
-            <View style={styles.searchWrap}>
-                <IconSearch size={16} color={c.muted} />
-                <TextInput
-                    style={styles.search}
-                    value={q}
-                    onChangeText={setQ}
-                    placeholder={strings.invoices.searchPlaceholder(tab)}
-                    placeholderTextColor={c.muted}
-                    autoCapitalize="none"
-                />
-            </View>
-
-            <FlatList
-                data={filtered}
-                keyExtractor={(r) => r.id}
-                contentContainerStyle={styles.list}
-                renderItem={({ item }) => (
-                    <Pressable
-                        style={styles.row}
-                        onPress={() => {
-                            setOpenId(item.id);
-                        }}
-                    >
+                    },
+                }}
+                segments={{ items: DOC_TABS, active: tab, onSelect: setTab }}
+                search={{
+                    value: q,
+                    onChange: setQ,
+                    placeholder: strings.invoices.searchPlaceholder(tab),
+                }}
+                rows={filtered}
+                rowKey={(r) => r.id}
+                onRowPress={(r) => {
+                    setOpenId(r.id);
+                }}
+                empty={q ? strings.invoices.searchEmpty(tab) : strings.invoices.empty(tab)}
+                renderRow={(item) => (
+                    <View style={styles.row}>
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName}>
                                 {item.number !== null
-                                    ? `#${item.number}`
+                                    ? `#${String(item.number)}`
                                     : strings.invoices.draftRow}
                             </Text>
                             <Text style={styles.rowSub} numberOfLines={1}>
-                                {item.client_name ?? "—"}
+                                {item.client_name ?? strings.clients.dash}
                             </Text>
                         </View>
                         <View style={styles.rowRight}>
-                            <Text style={styles.rowValue}>{formatMoney(item.total_cents)}</Text>
+                            <Money cents={item.total_cents} strong />
                             <StatusPill
                                 status={item.status}
                                 intent={
@@ -146,13 +116,8 @@ export function InvoicesScreen({ createToken }: { createToken?: number | undefin
                                 }
                             />
                         </View>
-                    </Pressable>
+                    </View>
                 )}
-                ListEmptyComponent={
-                    <Text style={styles.empty}>
-                        {q ? strings.invoices.searchEmpty(tab) : strings.invoices.empty(tab)}
-                    </Text>
-                }
             />
 
             <DetailModal
@@ -211,116 +176,77 @@ function DetailModal({
                     }}
                 />
             ) : null}
-            <Modal
-                visible={row !== null && !editing}
-                transparent
-                animationType="slide"
-                onRequestClose={onClose}
-            >
-                <View style={styles.backdrop}>
-                    <View style={styles.sheet}>
-                        {row !== null ? (
-                            <>
-                                <View style={styles.sheetHead}>
-                                    <View>
-                                        <Text style={styles.sheetTitle}>
-                                            {isInvoice
-                                                ? strings.invoices.invoiceHeading
-                                                : strings.invoices.estimateHeading}{" "}
-                                            {row.number !== null
-                                                ? `#${row.number}`
-                                                : strings.invoices.draftHeading}
+            {row !== null && !editing ? (
+                <DetailView
+                    open
+                    title={docHeading(kind, row.number)}
+                    subtitle={row.client_name ?? strings.clients.dash}
+                    status={{
+                        status: row.status,
+                        intent: isInvoice
+                            ? invoiceStatusIntent(row.status)
+                            : estimateStatusIntent(row.status),
+                    }}
+                    onClose={onClose}
+                    actions={
+                        <>
+                            {row.status === "draft" ? (
+                                <Pressable
+                                    style={styles.cancel}
+                                    onPress={() => {
+                                        setEditing(true);
+                                    }}
+                                >
+                                    <Text style={styles.cancelText}>{strings.invoices.edit}</Text>
+                                </Pressable>
+                            ) : null}
+                            {actions.map((a) => (
+                                <Pressable
+                                    key={a.key}
+                                    style={styles.save}
+                                    disabled={busy}
+                                    onPress={() => {
+                                        run(a.run, {
+                                            onSuccess: onClose,
+                                            errorMessage: strings.invoices.actionError(
+                                                DOC_ACTION_LABEL[a.key].toLowerCase(),
+                                            ),
+                                        });
+                                    }}
+                                >
+                                    {busy ? (
+                                        <ActivityIndicator color={c.accentInk} />
+                                    ) : (
+                                        <Text style={styles.saveText}>
+                                            {DOC_ACTION_LABEL[a.key]}
                                         </Text>
-                                        <Text style={styles.rowSub}>{row.client_name ?? "—"}</Text>
-                                    </View>
-                                    <StatusPill
-                                        status={row.status}
-                                        intent={
-                                            isInvoice
-                                                ? invoiceStatusIntent(row.status)
-                                                : estimateStatusIntent(row.status)
-                                        }
-                                    />
-                                </View>
-                                <ScrollView style={styles.sheetBody}>
-                                    {lines.map((l) => (
-                                        <View key={l.id} style={styles.lineRow}>
-                                            <Text style={styles.lineDesc} numberOfLines={1}>
-                                                {l.description}
-                                            </Text>
-                                            <Text style={styles.lineAmt}>
-                                                {formatMoney(l.amount_cents)}
-                                            </Text>
-                                        </View>
-                                    ))}
-                                    <View style={styles.totalRow}>
-                                        <Text style={styles.totalLabel}>
-                                            {strings.invoices.total}
-                                        </Text>
-                                        <Text style={styles.totalValue}>
-                                            {formatMoney(row.total_cents)}
-                                        </Text>
-                                    </View>
-                                    {canPay && payToken !== null ? (
-                                        <PayLinkRow token={payToken} />
-                                    ) : null}
-                                    {invoice !== null ? (
-                                        <PaymentsSection
-                                            invoiceId={invoice.id}
-                                            canRefund={canRefund}
-                                        />
-                                    ) : null}
-                                </ScrollView>
-                                {error !== null ? (
-                                    <Text style={styles.errorText}>{error}</Text>
-                                ) : null}
-                                <View style={styles.actions}>
-                                    <Pressable style={styles.cancel} onPress={onClose}>
-                                        <Text style={styles.cancelText}>
-                                            {strings.common.close}
-                                        </Text>
-                                    </Pressable>
-                                    {row.status === "draft" ? (
-                                        <Pressable
-                                            style={styles.cancel}
-                                            onPress={() => {
-                                                setEditing(true);
-                                            }}
-                                        >
-                                            <Text style={styles.cancelText}>
-                                                {strings.invoices.edit}
-                                            </Text>
-                                        </Pressable>
-                                    ) : null}
-                                    {actions.map((a) => (
-                                        <Pressable
-                                            key={a.key}
-                                            style={styles.save}
-                                            disabled={busy}
-                                            onPress={() => {
-                                                run(a.run, {
-                                                    onSuccess: onClose,
-                                                    errorMessage: strings.invoices.actionError(
-                                                        DOC_ACTION_LABEL[a.key].toLowerCase(),
-                                                    ),
-                                                });
-                                            }}
-                                        >
-                                            {busy ? (
-                                                <ActivityIndicator color={c.accentInk} />
-                                            ) : (
-                                                <Text style={styles.saveText}>
-                                                    {DOC_ACTION_LABEL[a.key]}
-                                                </Text>
-                                            )}
-                                        </Pressable>
-                                    ))}
-                                </View>
-                            </>
-                        ) : null}
-                    </View>
-                </View>
-            </Modal>
+                                    )}
+                                </Pressable>
+                            ))}
+                        </>
+                    }
+                >
+                    <DetailSection>
+                        {lines.map((l) => (
+                            <View key={l.id} style={styles.lineRow}>
+                                <Text style={styles.lineDesc} numberOfLines={1}>
+                                    {l.description}
+                                </Text>
+                                <Money cents={l.amount_cents} />
+                            </View>
+                        ))}
+                        <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>{strings.invoices.total}</Text>
+                            <Money cents={row.total_cents} strong />
+                        </View>
+                    </DetailSection>
+                    {canPay && payToken !== null ? <PayLinkRow token={payToken} /> : null}
+                    {invoice !== null ? (
+                        <PaymentsSection invoiceId={invoice.id} canRefund={canRefund} />
+                    ) : null}
+                    {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
+                </DetailView>
+            ) : null}
         </>
     );
 }
@@ -331,8 +257,7 @@ function PayLinkRow({ token }: { token: string }) {
         Share.share({ message: url }).catch(() => undefined);
     };
     return (
-        <View style={styles.payLink}>
-            <Text style={styles.sectionLabel}>{strings.invoices.payLink}</Text>
+        <DetailSection title={strings.invoices.payLink}>
             <View style={styles.payLinkRow}>
                 <Text style={styles.payLinkUrl} numberOfLines={1}>
                     {url}
@@ -341,7 +266,7 @@ function PayLinkRow({ token }: { token: string }) {
                     <Text style={styles.shareText}>{strings.invoices.share}</Text>
                 </Pressable>
             </View>
-        </View>
+        </DetailSection>
     );
 }
 
@@ -349,12 +274,11 @@ function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefun
     const payments = useInvoicePayments(invoiceId);
     if (payments.length === 0) return null;
     return (
-        <View style={styles.payments}>
-            <Text style={styles.sectionLabel}>{strings.invoices.payments}</Text>
+        <DetailSection title={strings.invoices.payments}>
             {payments.map((p) => (
                 <PaymentRowItem key={p.id} payment={p} payments={payments} canRefund={canRefund} />
             ))}
-        </View>
+        </DetailSection>
     );
 }
 
@@ -424,93 +348,12 @@ function PaymentRowItem({
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 8,
-    },
-    title: { color: c.ink, fontSize: 26, fontWeight: "700", letterSpacing: -0.4 },
-    count: { color: c.muted, fontSize: 13, marginTop: 2 },
-    add: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 13,
-        paddingVertical: 9,
-    },
-    addText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    tabs: {
-        flexDirection: "row",
-        gap: 4,
-        marginHorizontal: 20,
-        marginBottom: 10,
-        padding: 4,
-        borderRadius: theme.radius,
-        backgroundColor: c.surface,
-        borderColor: c.border,
-        borderWidth: 1,
-    },
-    tab: { flex: 1, alignItems: "center", paddingVertical: 7, borderRadius: theme.radius - 2 },
-    tabOn: { backgroundColor: c.accent },
-    tabText: { color: c.muted, fontSize: 14, fontWeight: "600", textTransform: "capitalize" },
-    tabTextOn: { color: c.accentInk },
-    searchWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginHorizontal: 20,
-        marginBottom: 8,
-        paddingHorizontal: 12,
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        backgroundColor: c.surface,
-    },
-    search: { flex: 1, paddingVertical: 11, color: c.ink, fontSize: 15 },
-    list: { paddingHorizontal: 20, paddingBottom: 24 },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-        borderBottomColor: c.border,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
+    row: { flexDirection: "row", alignItems: "center" },
     rowMain: { flex: 1 },
     rowName: { color: c.ink, fontSize: 15, fontWeight: "700" },
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     rowRight: { alignItems: "flex-end", gap: 4 },
-    rowValue: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    empty: { color: c.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
-    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
-    sheet: {
-        backgroundColor: c.surface,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        padding: 22,
-        paddingBottom: 36,
-    },
-    sheetHead: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
-        marginBottom: 12,
-    },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    sheetBody: { maxHeight: "70%" },
-    sectionLabel: {
-        color: c.muted,
-        fontSize: 11,
-        fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
     errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
-    payLink: { marginTop: 16 },
     payLinkRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -532,7 +375,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     shareText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    payments: { marginTop: 16 },
     payment: {
         marginTop: 6,
         paddingVertical: 8,
@@ -571,11 +413,8 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
     lineDesc: { color: c.ink, fontSize: 14, flex: 1 },
-    lineAmt: { color: c.ink, fontSize: 14, fontWeight: "600", marginLeft: 12 },
     totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12 },
     totalLabel: { color: c.muted, fontSize: 14 },
-    totalValue: { color: c.ink, fontSize: 16, fontWeight: "700" },
-    actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
     save: {

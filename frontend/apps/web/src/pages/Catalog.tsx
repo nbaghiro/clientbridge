@@ -5,7 +5,6 @@ import {
     filterItems,
     itemImageTarget,
     mediaUrl,
-    formatMoney,
     strings,
     useCatalogItems,
     useItemForm,
@@ -16,9 +15,12 @@ import { type SubmitEvent, useState } from "react";
 import { ItemImage } from "@clientbridge/ui";
 
 import { ItemImageUpload } from "../components/ItemImageUpload";
-import { IconPlus, IconSearch } from "../components/icons";
+import { ListPage } from "../components/ListPage";
+import { Money } from "../components/Money";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
+
+const GRID = "grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-4";
 
 export function Catalog() {
     const items = useCatalogItems();
@@ -28,105 +30,70 @@ export function Catalog() {
 
     return (
         <div>
-            <header className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted">{strings.catalog.itemCount(items.length)}</p>
-                <button
-                    type="button"
-                    onClick={() => {
+            <ListPage
+                summary={strings.catalog.itemCount(items.length)}
+                action={{
+                    label: strings.catalog.addItem,
+                    onPress: () => {
                         setAdding(true);
-                    }}
-                    className="flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                >
-                    <IconPlus className="h-4 w-4" /> {strings.catalog.addItem}
-                </button>
-            </header>
-
-            <div className="relative mt-6">
-                <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                    value={q}
-                    onChange={(e) => {
-                        setQ(e.target.value);
-                    }}
-                    placeholder={strings.catalog.searchPlaceholder}
-                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
-                />
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-lg border border-line bg-surface">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">{strings.catalog.name}</th>
-                            <th className="px-4 py-3 font-semibold">{strings.catalog.type}</th>
-                            <th className="px-4 py-3 font-semibold">{strings.catalog.duration}</th>
-                            <th className="px-4 py-3 text-right font-semibold">
-                                {strings.catalog.price}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((i) => (
-                            <tr
-                                key={i.id}
-                                className={`border-b border-line-soft transition last:border-0 hover:bg-bg ${
-                                    i.active ? "" : "opacity-50"
-                                }`}
-                            >
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-3">
-                                        {editable ? (
-                                            <ItemImageUpload
-                                                src={mediaUrl(apiBaseUrl, i.image_file_id)}
-                                                name={i.name}
-                                                color={i.color}
-                                                target={itemImageTarget(i.id)}
-                                            />
-                                        ) : (
-                                            <ItemImage
-                                                src={mediaUrl(apiBaseUrl, i.image_file_id)}
-                                                name={i.name}
-                                                color={i.color}
-                                            />
-                                        )}
-                                        <div>
-                                            <div className="font-medium text-ink">{i.name}</div>
-                                            {i.category ? (
-                                                <div className="text-xs text-muted">
-                                                    {i.category}
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3">
-                                    <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
-                                        {KIND_LABEL[i.kind] ?? i.kind}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 text-ink-soft">
-                                    {i.duration_min
-                                        ? strings.catalog.durationMin(i.duration_min)
-                                        : "—"}
-                                </td>
-                                <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
-                                    {formatMoney(i.price_cents)}
-                                </td>
-                            </tr>
-                        ))}
-                        {filtered.length === 0 ? (
-                            <tr>
-                                <td
-                                    colSpan={4}
-                                    className="px-4 py-12 text-center text-sm text-muted"
-                                >
-                                    {q ? strings.catalog.noMatch : strings.catalog.empty}
-                                </td>
-                            </tr>
-                        ) : null}
-                    </tbody>
-                </table>
-            </div>
+                    },
+                }}
+                search={{
+                    value: q,
+                    onChange: setQ,
+                    placeholder: strings.catalog.searchPlaceholder,
+                }}
+                head={
+                    <div className={GRID}>
+                        <span>{strings.catalog.name}</span>
+                        <span>{strings.catalog.type}</span>
+                        <span>{strings.catalog.duration}</span>
+                        <span className="text-right">{strings.catalog.price}</span>
+                    </div>
+                }
+                rows={filtered}
+                rowKey={(i) => i.id}
+                empty={q ? strings.catalog.noMatch : strings.catalog.empty}
+                renderRow={(i) => (
+                    <div className={`${GRID} ${i.active ? "" : "opacity-50"}`}>
+                        <div className="flex items-center gap-3">
+                            {editable ? (
+                                <ItemImageUpload
+                                    src={mediaUrl(apiBaseUrl, i.image_file_id)}
+                                    name={i.name}
+                                    color={i.color}
+                                    target={itemImageTarget(i.id)}
+                                />
+                            ) : (
+                                <ItemImage
+                                    src={mediaUrl(apiBaseUrl, i.image_file_id)}
+                                    name={i.name}
+                                    color={i.color}
+                                />
+                            )}
+                            <div className="min-w-0">
+                                <div className="truncate font-medium text-ink">{i.name}</div>
+                                {i.category ? (
+                                    <div className="text-xs text-muted">{i.category}</div>
+                                ) : null}
+                            </div>
+                        </div>
+                        <span>
+                            <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
+                                {KIND_LABEL[i.kind] ?? i.kind}
+                            </span>
+                        </span>
+                        <span className="text-ink-soft">
+                            {i.duration_min
+                                ? strings.catalog.durationMin(i.duration_min)
+                                : strings.clients.dash}
+                        </span>
+                        <span className="text-right">
+                            <Money cents={i.price_cents} />
+                        </span>
+                    </div>
+                )}
+            />
 
             {adding ? (
                 <AddItemModal

@@ -14,10 +14,11 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
+import { ListPage } from "../ui/ListPage";
 
 const c = theme.colors;
 
@@ -32,52 +33,49 @@ export function ReviewsScreen() {
     };
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <View style={styles.summary}>
-                {summary === null ? (
-                    <Text style={styles.muted}>{strings.reviews.loadingRating}</Text>
-                ) : summary === "error" ? (
-                    <Text style={styles.error}>{strings.reviews.ratingLoadError}</Text>
-                ) : summary.count === 0 ? (
-                    <Text style={styles.muted}>{strings.reviews.noPublishedReviews}</Text>
-                ) : (
-                    <>
-                        <Text style={styles.average}>{formatAverageRating(summary.average)}</Text>
-                        <Stars rating={roundedRating(summary.average)} />
-                        <Text style={styles.muted}>
-                            {strings.reviews.publishedCount(summary.count)}
-                        </Text>
-                    </>
-                )}
-            </View>
-
-            <Pressable
-                style={styles.requestBtn}
-                onPress={() => {
+        <ListPage
+            summary={strings.reviews.subtitle}
+            action={{
+                label: strings.reviews.requestReview,
+                onPress: () => {
                     setRequesting((r) => !r);
-                }}
-            >
-                <Text style={styles.requestText}>
-                    {requesting ? strings.common.close : strings.reviews.requestReviewLong}
-                </Text>
-            </Pressable>
-
-            {requesting ? (
-                <RequestReview
-                    onClose={() => {
-                        setRequesting(false);
-                    }}
-                />
-            ) : null}
-
-            {reviews.length === 0 ? (
-                <Text style={styles.muted}>{strings.reviews.noReviews}</Text>
-            ) : (
-                reviews.map((review) => (
-                    <ReviewItem key={review.id} review={review} onDone={refreshSummary} />
-                ))
-            )}
-        </ScrollView>
+                },
+            }}
+            banner={
+                <>
+                    <View style={styles.summary}>
+                        {summary === null ? (
+                            <Text style={styles.muted}>{strings.reviews.loadingRating}</Text>
+                        ) : summary === "error" ? (
+                            <Text style={styles.error}>{strings.reviews.ratingLoadError}</Text>
+                        ) : summary.count === 0 ? (
+                            <Text style={styles.muted}>{strings.reviews.noPublishedReviews}</Text>
+                        ) : (
+                            <>
+                                <Text style={styles.average}>
+                                    {formatAverageRating(summary.average)}
+                                </Text>
+                                <Stars rating={roundedRating(summary.average)} />
+                                <Text style={styles.muted}>
+                                    {strings.reviews.publishedCount(summary.count)}
+                                </Text>
+                            </>
+                        )}
+                    </View>
+                    {requesting ? (
+                        <RequestReview
+                            onClose={() => {
+                                setRequesting(false);
+                            }}
+                        />
+                    ) : null}
+                </>
+            }
+            rows={reviews}
+            rowKey={(review) => review.id}
+            empty={strings.reviews.noReviews}
+            renderRow={(review) => <ReviewItem review={review} onDone={refreshSummary} />}
+        />
     );
 }
 
@@ -245,9 +243,6 @@ function RequestReview({ onClose }: { onClose: () => void }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
-    center: { alignItems: "center", justifyContent: "center" },
-    content: { padding: 16, gap: 12 },
     muted: { color: c.muted, fontSize: 14 },
     error: { color: c.danFg, fontSize: 13, marginTop: 6 },
     summary: {
@@ -264,22 +259,7 @@ const styles = StyleSheet.create({
     average: { color: c.ink, fontSize: 30, fontWeight: "800", fontVariant: ["tabular-nums"] },
     stars: { color: c.accent, fontSize: 16 },
     starsEmpty: { color: c.border },
-    requestBtn: {
-        alignSelf: "flex-start",
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 9,
-    },
-    requestText: { color: c.accentInk, fontSize: 13, fontWeight: "700" },
-    card: {
-        backgroundColor: c.surface,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        padding: 14,
-        gap: 8,
-    },
+    card: { gap: 8 },
     cardTop: { flexDirection: "row", alignItems: "center", gap: 8 },
     client: { color: c.ink, fontSize: 14, fontWeight: "600" },
     time: { color: c.muted, fontSize: 12 },

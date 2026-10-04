@@ -16,7 +16,6 @@ import { type ReactNode, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
-    ScrollView,
     Share,
     StyleSheet,
     Text,
@@ -24,6 +23,7 @@ import {
     View,
 } from "react-native";
 
+import { ListPage } from "../ui/ListPage";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -48,11 +48,15 @@ export function TeamScreen({ footer }: { footer?: ReactNode }) {
     const invite = useInviteForm(api);
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <Text style={styles.sectionLabel}>{strings.team.members}</Text>
-            <View style={styles.group}>
-                {staff.map((s, i) => (
-                    <View key={s.id} style={[styles.row, i > 0 && styles.rowBorder]}>
+        <View style={styles.screen}>
+            <ListPage
+                summary={strings.team.subtitle}
+                head={<Text style={styles.sectionLabel}>{strings.team.members}</Text>}
+                rows={staff}
+                rowKey={(s) => s.id}
+                empty={strings.team.noMembers}
+                renderRow={(s) => (
+                    <View style={styles.member}>
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName}>
                                 {staffDisplayName(s)}
@@ -66,33 +70,41 @@ export function TeamScreen({ footer }: { footer?: ReactNode }) {
                         </View>
                         <Text style={styles.roleText}>{s.role}</Text>
                     </View>
-                ))}
-            </View>
+                )}
+                footer={
+                    <View style={styles.footer}>
+                        {pending.length > 0 ? (
+                            <>
+                                <Text style={styles.sectionLabel}>{strings.team.pending}</Text>
+                                <View style={styles.group}>
+                                    {pending.map((s, i) => (
+                                        <View
+                                            key={s.id}
+                                            style={[styles.row, i > 0 && styles.rowBorder]}
+                                        >
+                                            <Text style={styles.rowName}>
+                                                {s.invite_email ?? "—"}
+                                            </Text>
+                                            <StatusPill
+                                                status={strings.team.invitedBadge(s.role)}
+                                                intent="warning"
+                                            />
+                                        </View>
+                                    ))}
+                                </View>
+                            </>
+                        ) : null}
 
-            {pending.length > 0 ? (
-                <>
-                    <Text style={styles.sectionLabel}>{strings.team.pending}</Text>
-                    <View style={styles.group}>
-                        {pending.map((s, i) => (
-                            <View key={s.id} style={[styles.row, i > 0 && styles.rowBorder]}>
-                                <Text style={styles.rowName}>{s.invite_email ?? "—"}</Text>
-                                <StatusPill
-                                    status={strings.team.invitedBadge(s.role)}
-                                    intent="warning"
-                                />
-                            </View>
-                        ))}
+                        {canManageStaff(role) ? (
+                            <InviteForm invite={invite} />
+                        ) : (
+                            <Text style={styles.note}>{strings.team.cannotInvite}</Text>
+                        )}
+                        {footer}
                     </View>
-                </>
-            ) : null}
-
-            {canManageStaff(role) ? (
-                <InviteForm invite={invite} />
-            ) : (
-                <Text style={styles.note}>{strings.team.cannotInvite}</Text>
-            )}
-            {footer}
-        </ScrollView>
+                }
+            />
+        </View>
     );
 }
 
@@ -179,7 +191,13 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    content: { padding: 16 },
+    footer: { paddingTop: 16 },
+    member: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+    },
     sectionLabel: {
         color: c.muted,
         fontSize: 12,

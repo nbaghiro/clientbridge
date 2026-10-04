@@ -43,7 +43,9 @@ import {
 import { ChargeSheet, PaymentMethodForm, StatusPill } from "@clientbridge/ui";
 import { type SubmitEvent, useMemo, useState } from "react";
 
-import { IconPlus, IconSearch } from "../components/icons";
+import { DetailSection, DetailView } from "../components/DetailView";
+import { ListPage } from "../components/ListPage";
+import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 
@@ -56,104 +58,65 @@ export function Clients() {
     const [adding, setAdding] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
     const showValue = canManagePayments(useRole());
+    const grid = showValue
+        ? "grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-4"
+        : "grid grid-cols-[2fr_1fr_1fr] items-center gap-4";
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
-            <header className="flex items-center justify-between gap-4">
-                <div>
-                    <h1 className="font-display text-2xl font-bold">{strings.clients.title}</h1>
-                    <p className="mt-0.5 text-sm text-muted">
-                        {strings.clients.total(clients.length)}
-                    </p>
-                </div>
-                <button
-                    type="button"
-                    onClick={() => {
+            <ListPage
+                title={strings.clients.title}
+                summary={strings.clients.total(clients.length)}
+                action={{
+                    label: strings.clients.add,
+                    onPress: () => {
                         setAdding(true);
-                    }}
-                    className="flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                >
-                    <IconPlus className="h-4 w-4" /> {strings.clients.add}
-                </button>
-            </header>
-
-            <div className="relative mt-6">
-                <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                <input
-                    value={q}
-                    onChange={(e) => {
-                        setQ(e.target.value);
-                    }}
-                    placeholder={strings.clients.searchPlaceholder}
-                    className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
-                />
-            </div>
-
-            <div className="mt-4 overflow-hidden rounded-lg border border-line bg-surface">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">{strings.clients.colName}</th>
-                            <th className="px-4 py-3 font-semibold">{strings.clients.colPhone}</th>
-                            <th className="px-4 py-3 font-semibold">{strings.clients.colStatus}</th>
-                            {showValue ? (
-                                <th className="px-4 py-3 text-right font-semibold">
-                                    {strings.clients.colLifetime}
-                                </th>
-                            ) : null}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((c) => (
-                            <tr
-                                key={c.id}
-                                onClick={() => {
-                                    setOpenId(c.id);
-                                }}
-                                className="cursor-pointer border-b border-line-soft transition last:border-0 hover:bg-bg"
-                            >
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center gap-3">
-                                        <span className="flex h-8 w-8 items-center justify-center rounded-avatar bg-accent-weak text-xs font-bold text-accent">
-                                            {initials(c.name)}
-                                        </span>
-                                        <div>
-                                            <div className="font-medium text-ink">{c.name}</div>
-                                            {c.email ? (
-                                                <div className="text-xs text-muted">{c.email}</div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-4 py-3 text-ink-soft">
-                                    {c.phone ?? strings.clients.dash}
-                                </td>
-                                <td className="px-4 py-3">
-                                    <StatusPill
-                                        status={c.status}
-                                        intent={clientStatusIntent(c.status)}
-                                    />
-                                </td>
-                                {showValue ? (
-                                    <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
-                                        {formatMoney(c.lifetime_value_cents)}
-                                    </td>
-                                ) : null}
-                            </tr>
-                        ))}
-                        {filtered.length === 0 ? (
-                            <tr>
-                                <td
-                                    colSpan={showValue ? 4 : 3}
-                                    className="px-4 py-12 text-center text-sm text-muted"
-                                >
-                                    {q ? strings.clients.emptySearch : strings.clients.empty}
-                                </td>
-                            </tr>
+                    },
+                }}
+                search={{
+                    value: q,
+                    onChange: setQ,
+                    placeholder: strings.clients.searchPlaceholder,
+                }}
+                head={
+                    <div className={grid}>
+                        <span>{strings.clients.colName}</span>
+                        <span>{strings.clients.colPhone}</span>
+                        <span>{strings.clients.colStatus}</span>
+                        {showValue ? (
+                            <span className="text-right">{strings.clients.colLifetime}</span>
                         ) : null}
-                    </tbody>
-                </table>
-            </div>
+                    </div>
+                }
+                rows={filtered}
+                rowKey={(c) => c.id}
+                onRowPress={(c) => {
+                    setOpenId(c.id);
+                }}
+                empty={q ? strings.clients.emptySearch : strings.clients.empty}
+                renderRow={(c) => (
+                    <div className={grid}>
+                        <div className="flex items-center gap-3">
+                            <Avatar name={c.name} />
+                            <div className="min-w-0">
+                                <div className="truncate font-medium text-ink">{c.name}</div>
+                                {c.email ? (
+                                    <div className="truncate text-xs text-muted">{c.email}</div>
+                                ) : null}
+                            </div>
+                        </div>
+                        <span className="text-ink-soft">{c.phone ?? strings.clients.dash}</span>
+                        <span>
+                            <StatusPill status={c.status} intent={clientStatusIntent(c.status)} />
+                        </span>
+                        {showValue ? (
+                            <span className="text-right">
+                                <Money cents={c.lifetime_value_cents} />
+                            </span>
+                        ) : null}
+                    </div>
+                )}
+            />
 
             {adding ? (
                 <AddClientModal
@@ -162,15 +125,25 @@ export function Clients() {
                     }}
                 />
             ) : null}
-            {openId !== null ? (
-                <ClientDetailModal
-                    client={filtered.find((c) => c.id === openId) ?? null}
-                    onClose={() => {
-                        setOpenId(null);
-                    }}
-                />
-            ) : null}
+            <ClientDetail
+                client={filtered.find((c) => c.id === openId) ?? null}
+                onClose={() => {
+                    setOpenId(null);
+                }}
+            />
         </div>
+    );
+}
+
+function Avatar({ name, large = false }: { name: string; large?: boolean }) {
+    return (
+        <span
+            className={`flex shrink-0 items-center justify-center rounded-avatar bg-accent-weak font-bold text-accent ${
+                large ? "h-10 w-10 text-sm" : "h-8 w-8 text-xs"
+            }`}
+        >
+            {initials(name)}
+        </span>
     );
 }
 
@@ -182,52 +155,41 @@ function Overlay({ children }: { children: React.ReactNode }) {
     );
 }
 
-function ClientDetailModal({ client, onClose }: { client: ClientRow | null; onClose: () => void }) {
-    const role = useRole();
+function ClientDetail({ client, onClose }: { client: ClientRow | null; onClose: () => void }) {
+    const canManage = canManagePayments(useRole());
     if (client === null) return null;
-    const canManage = canManagePayments(role);
 
     return (
-        <Overlay>
-            <div className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card">
-                <div className="flex items-start justify-between border-b border-line px-6 py-4">
-                    <div className="flex items-center gap-3">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-avatar bg-accent-weak text-sm font-bold text-accent">
-                            {initials(client.name)}
-                        </span>
-                        <div>
-                            <h2 className="font-display text-lg font-bold text-ink">
-                                {client.name}
-                            </h2>
-                            <p className="mt-0.5 text-sm text-muted">
-                                {client.email ?? client.phone ?? strings.clients.dash}
-                            </p>
-                        </div>
-                    </div>
-                    <StatusPill status={client.status} intent={clientStatusIntent(client.status)} />
-                </div>
-                <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-                    {canManage ? (
-                        <>
-                            <PaymentMethodsSection clientId={client.id} />
-                            <SubscriptionsSection clientId={client.id} />
-                            <PackagesSection clientId={client.id} />
-                        </>
-                    ) : (
-                        <p className="text-sm text-muted">{strings.clients.manageRestricted}</p>
-                    )}
-                </div>
-                <div className="flex justify-end border-t border-line px-6 py-4">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
-                        {strings.common.close}
-                    </button>
-                </div>
-            </div>
-        </Overlay>
+        <DetailView
+            open
+            title={client.name}
+            subtitle={client.email ?? client.phone ?? strings.clients.dash}
+            status={{ status: client.status, intent: clientStatusIntent(client.status) }}
+            leading={<Avatar name={client.name} large />}
+            onClose={onClose}
+        >
+            {canManage ? (
+                <>
+                    <PaymentMethodsSection clientId={client.id} />
+                    <SubscriptionsSection clientId={client.id} />
+                    <PackagesSection clientId={client.id} />
+                </>
+            ) : (
+                <p className="text-sm text-muted">{strings.clients.manageRestricted}</p>
+            )}
+        </DetailView>
+    );
+}
+
+function SectionLink({ label, onClick }: { label: string; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="text-sm font-medium text-accent transition hover:opacity-80"
+        >
+            {label}
+        </button>
     );
 }
 
@@ -236,14 +198,11 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
     const flow = useAddPaymentMethod(api, clientId, () => undefined);
 
     return (
-        <section>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                {strings.clients.paymentMethods}
-            </h3>
+        <DetailSection title={strings.clients.paymentMethods}>
             {cards.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">{strings.clients.noPaymentMethods}</p>
+                <p className="text-sm text-muted">{strings.clients.noPaymentMethods}</p>
             ) : (
-                <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
+                <div className="divide-y divide-line-soft rounded-md border border-line">
                     {cards.map((card) => (
                         <CardRow key={card.id} card={card} />
                     ))}
@@ -251,7 +210,7 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
             )}
 
             <PaymentMethodForm flow={flow} allowBank />
-        </section>
+        </DetailSection>
     );
 }
 
@@ -321,28 +280,23 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
     const [starting, setStarting] = useState(false);
 
     return (
-        <section>
-            <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    {strings.clients.subscriptions}
-                </h3>
-                {!starting ? (
-                    <button
-                        type="button"
+        <DetailSection
+            title={strings.clients.subscriptions}
+            action={
+                starting ? undefined : (
+                    <SectionLink
+                        label={strings.clients.startSubscriptionLink}
                         onClick={() => {
                             setStarting(true);
                         }}
-                        className="text-sm font-medium text-accent transition hover:opacity-80"
-                    >
-                        {strings.clients.startSubscriptionLink}
-                    </button>
-                ) : null}
-            </div>
-
+                    />
+                )
+            }
+        >
             {subs.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">{strings.clients.noSubscriptions}</p>
+                <p className="text-sm text-muted">{strings.clients.noSubscriptions}</p>
             ) : (
-                <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
+                <div className="divide-y divide-line-soft rounded-md border border-line">
                     {subs.map((sub) => (
                         <SubscriptionRowItem key={sub.id} sub={sub} />
                     ))}
@@ -359,7 +313,7 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
                     }}
                 />
             ) : null}
-        </section>
+        </DetailSection>
     );
 }
 
@@ -464,28 +418,23 @@ function PackagesSection({ clientId }: { clientId: string }) {
     const [selling, setSelling] = useState(false);
 
     return (
-        <section>
-            <div className="flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    {strings.clients.packages}
-                </h3>
-                {!selling ? (
-                    <button
-                        type="button"
+        <DetailSection
+            title={strings.clients.packages}
+            action={
+                selling ? undefined : (
+                    <SectionLink
+                        label={strings.clients.sellPackageLink}
                         onClick={() => {
                             setSelling(true);
                         }}
-                        className="text-sm font-medium text-accent transition hover:opacity-80"
-                    >
-                        {strings.clients.sellPackageLink}
-                    </button>
-                ) : null}
-            </div>
-
+                    />
+                )
+            }
+        >
             {packages.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">{strings.clients.noPackages}</p>
+                <p className="text-sm text-muted">{strings.clients.noPackages}</p>
             ) : (
-                <div className="mt-2 divide-y divide-line-soft rounded-md border border-line">
+                <div className="divide-y divide-line-soft rounded-md border border-line">
                     {packages.map((pkg) => (
                         <PackageRowItem key={pkg.id} pkg={pkg} />
                     ))}
@@ -502,7 +451,7 @@ function PackagesSection({ clientId }: { clientId: string }) {
                     }}
                 />
             ) : null}
-        </section>
+        </DetailSection>
     );
 }
 

@@ -198,6 +198,17 @@ export type DocActionKey = "send" | "void" | "accept" | "decline" | "convert";
 
 export type DocTab = "invoices" | "estimates";
 
+export const DOC_TABS: { key: DocTab; label: string }[] = [
+    { key: "invoices", label: strings.invoices.tabInvoices },
+    { key: "estimates", label: strings.invoices.tabEstimates },
+];
+
+export function docHeading(kind: DocTab, number: number | null): string {
+    const noun =
+        kind === "invoices" ? strings.invoices.invoiceHeading : strings.invoices.estimateHeading;
+    return `${noun} ${number !== null ? `#${String(number)}` : strings.invoices.draftHeading}`;
+}
+
 /** Button copy for each document action — shared so web + mobile can't drift (they had). */
 export const DOC_ACTION_LABEL: Record<DocActionKey, string> = {
     send: strings.invoices.actionSend,

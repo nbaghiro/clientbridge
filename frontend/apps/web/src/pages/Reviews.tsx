@@ -15,6 +15,7 @@ import {
 import { StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
+import { ListPage } from "../components/ListPage";
 import { api } from "../lib/api";
 
 const field =
@@ -32,38 +33,31 @@ export function Reviews() {
 
     return (
         <div className="max-w-3xl">
-            <header className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted">{strings.reviews.subtitle}</p>
-                <button
-                    type="button"
-                    onClick={() => {
+            <ListPage
+                summary={strings.reviews.subtitle}
+                action={{
+                    label: strings.reviews.requestReview,
+                    onPress: () => {
                         setRequesting((r) => !r);
-                    }}
-                    className="shrink-0 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                >
-                    {strings.reviews.requestReview}
-                </button>
-            </header>
-
-            <SummaryHeader summary={summary} />
-
-            {requesting ? (
-                <RequestReview
-                    onClose={() => {
-                        setRequesting(false);
-                    }}
-                />
-            ) : null}
-
-            {reviews.length === 0 ? (
-                <p className="mt-8 text-center text-sm text-muted">{strings.reviews.noReviews}</p>
-            ) : (
-                <div className="mt-6 space-y-3">
-                    {reviews.map((review) => (
-                        <ReviewItem key={review.id} review={review} onDone={refreshSummary} />
-                    ))}
-                </div>
-            )}
+                    },
+                }}
+                banner={
+                    <>
+                        <SummaryHeader summary={summary} />
+                        {requesting ? (
+                            <RequestReview
+                                onClose={() => {
+                                    setRequesting(false);
+                                }}
+                            />
+                        ) : null}
+                    </>
+                }
+                rows={reviews}
+                rowKey={(review) => review.id}
+                empty={strings.reviews.noReviews}
+                renderRow={(review) => <ReviewItem review={review} onDone={refreshSummary} />}
+            />
         </div>
     );
 }
@@ -113,7 +107,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
     const [editing, setEditing] = useState(false);
 
     return (
-        <div className="rounded-lg border border-line bg-surface p-4 shadow-card">
+        <div>
             <div className="flex items-center gap-3">
                 <Stars rating={review.rating} />
                 <span className="text-sm font-medium text-ink">

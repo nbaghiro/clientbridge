@@ -17,17 +17,11 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { ChargeSheet } from "../ui/ChargeSheet";
+import { ListPage } from "../ui/ListPage";
+import { Money } from "../ui/Money";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 
@@ -38,8 +32,9 @@ export function GiftCardsScreen() {
     const [mode, setMode] = useState<"sell" | "redeem" | null>(null);
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <View style={styles.actions}>
+        <ListPage
+            summary={strings.giftCards.issuedCount(cards.length)}
+            accessory={
                 <Pressable
                     style={[styles.outlineBtn, mode === "redeem" && styles.outlineBtnOn]}
                     onPress={() => {
@@ -48,47 +43,39 @@ export function GiftCardsScreen() {
                 >
                     <Text style={styles.outlineBtnText}>{strings.giftCards.redeem}</Text>
                 </Pressable>
-                <Pressable
-                    style={styles.primaryBtn}
-                    onPress={() => {
-                        setMode(mode === "sell" ? null : "sell");
-                    }}
-                >
-                    <Text style={styles.primaryBtnText}>{strings.giftCards.sell}</Text>
-                </Pressable>
-            </View>
-
-            {mode === "sell" ? (
-                <SellGiftCard
-                    onClose={() => {
-                        setMode(null);
-                    }}
-                />
-            ) : null}
-            {mode === "redeem" ? (
-                <RedeemGiftCard
-                    onClose={() => {
-                        setMode(null);
-                    }}
-                />
-            ) : null}
-
-            {cards.length === 0 ? (
-                <Text style={styles.muted}>{strings.giftCards.emptyList}</Text>
-            ) : (
-                <View style={styles.list}>
-                    {cards.map((card, i) => (
-                        <GiftCardItem key={card.id} card={card} divider={i > 0} />
-                    ))}
-                </View>
-            )}
-        </ScrollView>
+            }
+            action={{
+                label: strings.giftCards.sell,
+                onPress: () => {
+                    setMode(mode === "sell" ? null : "sell");
+                },
+            }}
+            banner={
+                mode === "sell" ? (
+                    <SellGiftCard
+                        onClose={() => {
+                            setMode(null);
+                        }}
+                    />
+                ) : mode === "redeem" ? (
+                    <RedeemGiftCard
+                        onClose={() => {
+                            setMode(null);
+                        }}
+                    />
+                ) : undefined
+            }
+            rows={cards}
+            rowKey={(card) => card.id}
+            empty={strings.giftCards.emptyList}
+            renderRow={(card) => <GiftCardItem card={card} />}
+        />
     );
 }
 
-function GiftCardItem({ card, divider }: { card: GiftCardRow; divider: boolean }) {
+function GiftCardItem({ card }: { card: GiftCardRow }) {
     return (
-        <View style={[styles.row, divider && styles.rowDivider]}>
+        <View style={styles.row}>
             <View style={styles.rowMain}>
                 <Text style={styles.code}>{card.code}</Text>
                 {card.recipient !== null ? (
@@ -97,7 +84,7 @@ function GiftCardItem({ card, divider }: { card: GiftCardRow; divider: boolean }
                     </Text>
                 ) : null}
             </View>
-            <Text style={styles.amount}>{formatMoney(card.balance_cents)}</Text>
+            <Money cents={card.balance_cents} strong />
             <StatusPill status={card.status} intent={giftCardStatusIntent(card.status)} />
         </View>
     );
@@ -281,49 +268,22 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
-    center: { alignItems: "center", justifyContent: "center" },
-    content: { padding: 16, gap: 14 },
     muted: { color: c.muted, fontSize: 14 },
     error: { color: c.danFg, fontSize: 13, marginTop: 8 },
-    actions: { flexDirection: "row", gap: 8 },
     outlineBtn: {
-        flex: 1,
         alignItems: "center",
-        paddingVertical: 11,
+        paddingHorizontal: 13,
+        paddingVertical: 9,
         borderRadius: theme.radius,
         borderColor: c.border,
         borderWidth: 1,
     },
     outlineBtnOn: { backgroundColor: c.surface, borderColor: c.accent },
     outlineBtnText: { color: c.inkSoft, fontSize: 14, fontWeight: "700" },
-    primaryBtn: {
-        flex: 1,
-        alignItems: "center",
-        paddingVertical: 11,
-        borderRadius: theme.radius,
-        backgroundColor: c.accent,
-    },
-    primaryBtnText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    list: {
-        backgroundColor: c.surface,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        overflow: "hidden",
-    },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-    },
-    rowDivider: { borderTopWidth: theme.borderWidth, borderTopColor: c.borderSoft },
+    row: { flexDirection: "row", alignItems: "center", gap: 10 },
     rowMain: { flex: 1 },
     code: { color: c.ink, fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
     meta: { color: c.muted, fontSize: 12, marginTop: 1 },
-    amount: { color: c.ink, fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums"] },
     panel: {
         backgroundColor: c.surface,
         borderColor: c.border,

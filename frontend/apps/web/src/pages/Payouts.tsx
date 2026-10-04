@@ -1,7 +1,6 @@
 import {
     earningStaffLabel,
     earningStatusIntent,
-    formatMoney,
     formatRelativeTime,
     strings,
     useEarningActions,
@@ -11,6 +10,8 @@ import {
 } from "@clientbridge/app-core";
 import { StatusPill } from "@clientbridge/ui";
 
+import { ListPage } from "../components/ListPage";
+import { Money } from "../components/Money";
 import { api } from "../lib/api";
 
 export function Payouts() {
@@ -18,38 +19,21 @@ export function Payouts() {
     const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
 
     return (
-        <div>
-            <p className="text-sm text-muted">{strings.payouts.subtitle}</p>
-
-            <div className="mt-6 flex gap-1 rounded-md border border-line bg-surface p-1 text-sm font-medium">
-                {filters.map((f) => (
-                    <button
-                        key={f}
-                        type="button"
-                        onClick={() => {
-                            setFilter(f);
-                        }}
-                        className={`flex-1 rounded-base px-3 py-1.5 capitalize transition ${
-                            filter === f ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
-                        }`}
-                    >
-                        {strings.payouts.filterTab(f, countOf(f))}
-                    </button>
-                ))}
-            </div>
-
-            {shown.length === 0 ? (
-                <p className="mt-8 text-center text-sm text-muted">
-                    {strings.payouts.empty(filter)}
-                </p>
-            ) : (
-                <div className="mt-4 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
-                    {shown.map((row) => (
-                        <EarningItem key={row.id} row={row} />
-                    ))}
-                </div>
-            )}
-        </div>
+        <ListPage
+            summary={strings.payouts.subtitle}
+            segments={{
+                items: filters.map((f) => ({
+                    key: f,
+                    label: strings.payouts.filterTab(f, countOf(f)),
+                })),
+                active: filter,
+                onSelect: setFilter,
+            }}
+            rows={shown}
+            rowKey={(row) => row.id}
+            empty={strings.payouts.empty(filter)}
+            renderRow={(row) => <EarningItem row={row} />}
+        />
     );
 }
 
@@ -57,7 +41,7 @@ function EarningItem({ row }: { row: EarningRow }) {
     const { busy, error, canApprove, canPay, approve, pay } = useEarningActions(api, row);
 
     return (
-        <div className="px-4 py-3 text-sm">
+        <div>
             <div className="flex items-center gap-3">
                 <div className="min-w-0">
                     <p className="font-medium text-ink">{earningStaffLabel(row)}</p>
@@ -65,8 +49,8 @@ function EarningItem({ row }: { row: EarningRow }) {
                         {strings.payouts.sourceBooking} · {formatRelativeTime(row.created_at)}
                     </p>
                 </div>
-                <span className="ml-auto shrink-0 font-medium tabular-nums text-ink">
-                    {formatMoney(row.amount_cents)}
+                <span className="ml-auto shrink-0">
+                    <Money cents={row.amount_cents} />
                 </span>
                 <StatusPill status={row.status} intent={earningStatusIntent(row.status)} />
                 {canApprove ? (

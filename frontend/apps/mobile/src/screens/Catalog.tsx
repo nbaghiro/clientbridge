@@ -2,7 +2,6 @@ import {
     ITEM_KINDS,
     KIND_LABEL,
     filterItems,
-    formatMoney,
     mediaUrl,
     strings,
     useCatalogItems,
@@ -13,7 +12,6 @@ import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import {
     ActivityIndicator,
-    FlatList,
     Modal,
     Pressable,
     StyleSheet,
@@ -22,9 +20,10 @@ import {
     View,
 } from "react-native";
 
-import { IconPlus, IconSearch } from "../components/icons";
 import { api, apiBaseUrl } from "../lib/api";
 import { ItemImage } from "../ui/ItemImage";
+import { ListPage } from "../ui/ListPage";
+import { Money } from "../ui/Money";
 
 export function CatalogScreen() {
     const items = useCatalogItems();
@@ -33,33 +32,23 @@ export function CatalogScreen() {
 
     return (
         <View style={styles.screen}>
-            <View style={styles.toolbar}>
-                <View style={styles.searchWrap}>
-                    <IconSearch size={16} color={theme.colors.muted} />
-                    <TextInput
-                        style={styles.search}
-                        value={q}
-                        onChangeText={setQ}
-                        placeholder={strings.catalog.searchPlaceholder}
-                        placeholderTextColor={theme.colors.muted}
-                        autoCapitalize="none"
-                    />
-                </View>
-                <Pressable
-                    style={styles.add}
-                    onPress={() => {
+            <ListPage
+                summary={strings.catalog.itemCount(items.length)}
+                action={{
+                    label: strings.catalog.addItem,
+                    onPress: () => {
                         setAdding(true);
-                    }}
-                >
-                    <IconPlus size={18} color={theme.colors.accentInk} />
-                </Pressable>
-            </View>
-
-            <FlatList
-                data={filtered}
-                keyExtractor={(i) => i.id}
-                contentContainerStyle={styles.list}
-                renderItem={({ item }) => (
+                    },
+                }}
+                search={{
+                    value: q,
+                    onChange: setQ,
+                    placeholder: strings.catalog.searchPlaceholder,
+                }}
+                rows={filtered}
+                rowKey={(i) => i.id}
+                empty={q ? strings.catalog.noMatch : strings.catalog.empty}
+                renderRow={(item) => (
                     <View style={[styles.row, item.active ? null : styles.dim]}>
                         <ItemImage
                             src={mediaUrl(apiBaseUrl, item.image_file_id)}
@@ -77,14 +66,9 @@ export function CatalogScreen() {
                                     : ""}
                             </Text>
                         </View>
-                        <Text style={styles.rowPrice}>{formatMoney(item.price_cents)}</Text>
+                        <Money cents={item.price_cents} strong />
                     </View>
                 )}
-                ListEmptyComponent={
-                    <Text style={styles.empty}>
-                        {q ? strings.catalog.noMatch : strings.catalog.empty}
-                    </Text>
-                }
             />
 
             <AddItemModal
@@ -175,42 +159,11 @@ function AddItemModal({ visible, onClose }: { visible: boolean; onClose: () => v
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.colors.bg },
-    toolbar: { flexDirection: "row", alignItems: "center", gap: 10, padding: 16 },
-    searchWrap: {
-        flex: 1,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        paddingHorizontal: 12,
-        borderColor: theme.colors.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        backgroundColor: theme.colors.surface,
-    },
-    search: { flex: 1, paddingVertical: 10, color: theme.colors.ink, fontSize: 15 },
-    add: {
-        width: 42,
-        height: 42,
-        borderRadius: theme.radius,
-        backgroundColor: theme.colors.accent,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    list: { paddingHorizontal: 16, paddingBottom: 24 },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        paddingVertical: 12,
-        borderBottomColor: theme.colors.border,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
+    row: { flexDirection: "row", alignItems: "center", gap: 12 },
     dim: { opacity: 0.5 },
     rowMain: { flex: 1 },
     rowName: { color: theme.colors.ink, fontSize: 15, fontWeight: "600" },
     rowSub: { color: theme.colors.muted, fontSize: 13, marginTop: 1 },
-    rowPrice: { color: theme.colors.ink, fontSize: 14, fontWeight: "600" },
-    empty: { color: theme.colors.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
     backdrop: {
         flex: 1,
         backgroundColor: theme.colors.scrim,

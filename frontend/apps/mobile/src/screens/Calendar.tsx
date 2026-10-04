@@ -33,7 +33,6 @@ import { theme } from "@clientbridge/tokens/theme";
 import { useRef, useState } from "react";
 import {
     Animated,
-    Modal,
     PanResponder,
     Pressable,
     ScrollView,
@@ -44,6 +43,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ChargeSheet } from "../ui/ChargeSheet";
+import { DetailSection, DetailView } from "../ui/DetailView";
+import { Money } from "../ui/Money";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -345,43 +346,33 @@ function DraggableEvent({
 
 function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
     const { busy, error, cancel } = useCancelBooking(api, event, onClose);
-    const sc = statusColors(event.status);
     return (
-        <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={styles.detailBackdrop} onPress={onClose}>
-                <View style={styles.detailSheet} onStartShouldSetResponder={() => true}>
-                    <View style={styles.detailHead}>
-                        <View style={styles.agendaBody}>
-                            <Text style={styles.detailTitle}>{event.title}</Text>
-                            {event.subtitle.length > 0 ? (
-                                <Text style={styles.detailSub}>{event.subtitle}</Text>
-                            ) : null}
-                        </View>
-                        <View style={[styles.badge, { backgroundColor: sc.bg }]}>
-                            <Text style={[styles.badgeText, { color: sc.fg }]}>{event.status}</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.detailTime}>
-                        {formatTime(event.start)} – {formatTime(event.end)}
-                    </Text>
-                    {event.depositRequired ? (
-                        <DepositSection event={event} onClose={onClose} />
-                    ) : null}
-                    {error !== null ? <Text style={styles.detailError}>{error}</Text> : null}
-                    {event.bookingId !== null && event.status !== "canceled" ? (
-                        <Pressable
-                            onPress={cancel}
-                            disabled={busy}
-                            style={[styles.cancelBooking, busy && styles.dim]}
-                        >
-                            <Text style={styles.cancelBookingText}>
-                                {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
-                            </Text>
-                        </Pressable>
-                    ) : null}
-                </View>
-            </Pressable>
-        </Modal>
+        <DetailView
+            open
+            title={event.title}
+            subtitle={event.subtitle.length > 0 ? event.subtitle : undefined}
+            status={{ status: event.status, intent: statusIntent(event.status) }}
+            onClose={onClose}
+            actions={
+                event.bookingId !== null && event.status !== "canceled" ? (
+                    <Pressable
+                        onPress={cancel}
+                        disabled={busy}
+                        style={[styles.cancelBooking, busy && styles.dim]}
+                    >
+                        <Text style={styles.cancelBookingText}>
+                            {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
+                        </Text>
+                    </Pressable>
+                ) : undefined
+            }
+        >
+            <Text style={styles.detailTime}>
+                {formatTime(event.start)} – {formatTime(event.end)}
+            </Text>
+            {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
+            {error !== null ? <Text style={styles.detailError}>{error}</Text> : null}
+        </DetailView>
     );
 }
 
@@ -393,17 +384,16 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
     const amountLabel = formatMoney(event.depositAmountCents);
 
     return (
-        <View style={styles.depositBox}>
-            <View style={styles.depositHead}>
-                <View style={styles.agendaBody}>
-                    <Text style={styles.depositLabel}>{strings.calendar.deposit}</Text>
-                    <Text style={styles.depositAmount}>{amountLabel}</Text>
-                </View>
+        <DetailSection
+            title={strings.calendar.deposit}
+            action={
                 <StatusPill
                     status={event.depositStatus}
                     intent={depositStatusIntent(event.depositStatus)}
                 />
-            </View>
+            }
+        >
+            <Money cents={event.depositAmountCents} strong />
             {canCollectDeposit(event, viewer) ? (
                 <ChargeSheet
                     checkout={deposit.checkout}
@@ -416,7 +406,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     onCancel={onClose}
                 />
             ) : null}
-        </View>
+        </DetailSection>
     );
 }
 
@@ -491,22 +481,8 @@ const styles = StyleSheet.create({
     eventTitle: { fontSize: 12, fontWeight: "600" },
     eventSub: { fontSize: 11, opacity: 0.8, marginTop: 1 },
     nowLine: { position: "absolute", left: 0, right: 0, height: 2, backgroundColor: c.danFg },
-    detailBackdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
-    detailSheet: {
-        backgroundColor: c.bg,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        paddingHorizontal: 20,
-        paddingTop: 18,
-        paddingBottom: 36,
-    },
-    detailHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-    detailTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    detailSub: { color: c.muted, fontSize: 14, marginTop: 2 },
     detailTime: { color: c.ink, fontSize: 14, marginTop: 10 },
     detailError: { color: c.danFg, fontSize: 13, marginTop: 10 },
-    badge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-    badgeText: { fontSize: 12, fontWeight: "600" },
     cancelBooking: {
         marginTop: 18,
         borderWidth: StyleSheet.hairlineWidth,
@@ -517,15 +493,4 @@ const styles = StyleSheet.create({
     },
     cancelBookingText: { color: c.danFg, fontSize: 15, fontWeight: "600" },
     dim: { opacity: 0.5 },
-    depositBox: {
-        marginTop: 14,
-        padding: 12,
-        borderRadius: theme.radius,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-    },
-    depositHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-    depositLabel: { color: c.ink, fontSize: 14, fontWeight: "700" },
-    depositAmount: { color: c.muted, fontSize: 13, marginTop: 1 },
 });

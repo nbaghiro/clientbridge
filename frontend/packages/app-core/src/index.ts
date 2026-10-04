@@ -4,6 +4,7 @@ export * from "./util/api";
 export * from "./util/datetime";
 export * from "./util/format";
 export * from "./util/primitives";
+export type * from "./ui";
 export * from "./hooks/useAsyncAction";
 export * from "./hooks/useClientState";
 export * from "./hooks/useCurrentRole";

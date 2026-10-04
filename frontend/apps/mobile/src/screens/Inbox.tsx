@@ -35,6 +35,7 @@ import {
 } from "react-native";
 
 import { Segmented } from "../components/Segmented";
+import { ListPage } from "../ui/ListPage";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -64,9 +65,9 @@ function Messages() {
 
     return (
         <View style={styles.screen}>
-            <View style={styles.header}>
-                <Text style={styles.subtitle}>{strings.inbox.subtitle}</Text>
-                <View style={styles.headerBtns}>
+            <ListPage
+                summary={strings.inbox.subtitle}
+                accessory={
                     <Pressable
                         style={styles.ghostBtn}
                         onPress={() => {
@@ -75,32 +76,20 @@ function Messages() {
                     >
                         <Text style={styles.ghostText}>{strings.inbox.broadcast}</Text>
                     </Pressable>
-                    <Pressable
-                        style={styles.add}
-                        onPress={() => {
-                            setComposing(true);
-                        }}
-                    >
-                        <Text style={styles.addText}>{strings.inbox.newShort}</Text>
-                    </Pressable>
-                </View>
-            </View>
-
-            <FlatList
-                data={threads}
-                keyExtractor={(t) => t.id}
-                contentContainerStyle={styles.list}
-                renderItem={({ item }) => (
-                    <ThreadRowView
-                        thread={item}
-                        onPress={() => {
-                            setOpenId(item.id);
-                        }}
-                    />
-                )}
-                ListEmptyComponent={
-                    <Text style={styles.empty}>{strings.inbox.noConversations}</Text>
                 }
+                action={{
+                    label: strings.inbox.newShort,
+                    onPress: () => {
+                        setComposing(true);
+                    },
+                }}
+                rows={threads}
+                rowKey={(t) => t.id}
+                onRowPress={(t) => {
+                    setOpenId(t.id);
+                }}
+                empty={strings.inbox.noConversations}
+                renderRow={(t) => <ThreadRowView thread={t} />}
             />
 
             <ThreadModal
@@ -125,9 +114,9 @@ function Messages() {
     );
 }
 
-function ThreadRowView({ thread, onPress }: { thread: ThreadRow; onPress: () => void }) {
+function ThreadRowView({ thread }: { thread: ThreadRow }) {
     return (
-        <Pressable style={styles.row} onPress={onPress}>
+        <View style={styles.row}>
             <View style={styles.rowMain}>
                 <Text style={styles.rowName} numberOfLines={1}>
                     {thread.client_name ?? strings.inbox.clientFallback}
@@ -147,7 +136,7 @@ function ThreadRowView({ thread, onPress }: { thread: ThreadRow; onPress: () => 
                     </View>
                 ) : null}
             </View>
-        </Pressable>
+        </View>
     );
 }
 
@@ -455,17 +444,6 @@ function ModalActions({
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingTop: 12,
-        paddingBottom: 12,
-        gap: 12,
-    },
-    subtitle: { color: c.muted, fontSize: 13, flexShrink: 1 },
-    headerBtns: { flexDirection: "row", alignItems: "center", gap: 8 },
     ghostBtn: {
         borderColor: c.border,
         borderWidth: theme.borderWidth,
@@ -481,15 +459,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     addText: { color: c.accentInk, fontSize: 13, fontWeight: "700" },
-    list: { paddingHorizontal: 20, paddingBottom: 24 },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        paddingVertical: 13,
-        borderBottomColor: c.border,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
+    row: { flexDirection: "row", alignItems: "center", gap: 12 },
     rowMain: { flex: 1 },
     rowName: { color: c.ink, fontSize: 15, fontWeight: "600" },
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
@@ -505,7 +475,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 5,
     },
     unreadText: { color: c.accentInk, fontSize: 11, fontWeight: "700" },
-    empty: { color: c.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
     muted: { color: c.muted, fontSize: 14 },
     error: { color: c.danFg, fontSize: 13, marginTop: 6 },
     backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },

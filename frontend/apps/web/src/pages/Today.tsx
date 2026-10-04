@@ -10,6 +10,8 @@ import {
     type ActivityRow,
 } from "@clientbridge/app-core";
 
+import { ListPage } from "../components/ListPage";
+import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 
@@ -59,20 +61,15 @@ function MoneyView() {
                 </div>
             )}
 
-            <section className="mt-8">
-                <h2 className="font-display text-lg font-semibold text-ink">
-                    {strings.home.recentActivity}
-                </h2>
-                {activity.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted">{strings.home.noPayments}</p>
-                ) : (
-                    <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
-                        {activity.map((row) => (
-                            <ActivityItem key={row.id} row={row} />
-                        ))}
-                    </div>
-                )}
-            </section>
+            <div className="mt-8">
+                <ListPage
+                    head={strings.home.recentActivity}
+                    rows={activity}
+                    rowKey={(row) => row.id}
+                    empty={strings.home.noPayments}
+                    renderRow={(row) => <ActivityItem row={row} />}
+                />
+            </div>
         </>
     );
 }
@@ -80,20 +77,16 @@ function MoneyView() {
 function ActivityItem({ row }: { row: ActivityRow }) {
     const refund = isRefundRow(row);
     return (
-        <div className="flex items-center gap-3 px-4 py-2.5 text-sm">
+        <div className="flex items-center gap-3">
             <div className="min-w-0">
                 <p className="font-medium text-ink">{activityLabel(row)}</p>
                 {row.client_name !== null ? (
                     <p className="truncate text-xs text-muted">{row.client_name}</p>
                 ) : null}
             </div>
-            <span
-                className={`ml-auto shrink-0 font-medium tabular-nums ${
-                    refund ? "text-danger" : "text-ink"
-                }`}
-            >
+            <span className={`ml-auto shrink-0 ${refund ? "text-danger" : ""}`}>
                 {refund ? "−" : ""}
-                {formatMoneyWithCurrency(row.amount_cents, row.currency)}
+                <Money cents={row.amount_cents} tone={refund ? "danger" : "ink"} />
             </span>
             <span className="w-12 shrink-0 text-right text-xs text-muted">
                 {formatRelativeTime(row.at)}

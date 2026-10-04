@@ -19,10 +19,14 @@ import {
 import { ChargeSheet, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
+import { ListPage } from "../components/ListPage";
+import { Money } from "../components/Money";
 import { api } from "../lib/api";
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
+
+const GRID = "grid grid-cols-[1.4fr_2fr_1fr_1.4fr] items-center gap-4";
 
 export function GiftCards() {
     const cards = useGiftCards();
@@ -30,9 +34,15 @@ export function GiftCards() {
 
     return (
         <div className="max-w-3xl">
-            <header className="flex items-center justify-between gap-4">
-                <p className="text-sm text-muted">{strings.giftCards.issuedCount(cards.length)}</p>
-                <div className="flex gap-2">
+            <ListPage
+                summary={strings.giftCards.issuedCount(cards.length)}
+                action={{
+                    label: strings.giftCards.sell,
+                    onPress: () => {
+                        setMode(mode === "sell" ? null : "sell");
+                    },
+                }}
+                accessory={
                     <button
                         type="button"
                         onClick={() => {
@@ -42,86 +52,57 @@ export function GiftCards() {
                     >
                         {strings.giftCards.redeem}
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setMode(mode === "sell" ? null : "sell");
-                        }}
-                        className="rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                    >
-                        {strings.giftCards.sell}
-                    </button>
-                </div>
-            </header>
-
-            {mode === "sell" ? (
-                <SellGiftCard
-                    onClose={() => {
-                        setMode(null);
-                    }}
-                />
-            ) : null}
-            {mode === "redeem" ? (
-                <RedeemGiftCard
-                    onClose={() => {
-                        setMode(null);
-                    }}
-                />
-            ) : null}
-
-            <div className="mt-6 overflow-hidden rounded-lg border border-line bg-surface">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-                            <th className="px-4 py-3 font-semibold">{strings.giftCards.code}</th>
-                            <th className="px-4 py-3 font-semibold">
-                                {strings.giftCards.recipient}
-                            </th>
-                            <th className="px-4 py-3 font-semibold">{strings.giftCards.status}</th>
-                            <th className="px-4 py-3 text-right font-semibold">
-                                {strings.giftCards.balance}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {cards.map((card) => (
-                            <GiftCardRowItem key={card.id} card={card} />
-                        ))}
-                        {cards.length === 0 ? (
-                            <tr>
-                                <td
-                                    colSpan={4}
-                                    className="px-4 py-12 text-center text-sm text-muted"
-                                >
-                                    {strings.giftCards.emptyList}
-                                </td>
-                            </tr>
-                        ) : null}
-                    </tbody>
-                </table>
-            </div>
+                }
+                banner={
+                    mode === "sell" ? (
+                        <SellGiftCard
+                            onClose={() => {
+                                setMode(null);
+                            }}
+                        />
+                    ) : mode === "redeem" ? (
+                        <RedeemGiftCard
+                            onClose={() => {
+                                setMode(null);
+                            }}
+                        />
+                    ) : undefined
+                }
+                head={
+                    <div className={GRID}>
+                        <span>{strings.giftCards.code}</span>
+                        <span>{strings.giftCards.recipient}</span>
+                        <span>{strings.giftCards.status}</span>
+                        <span className="text-right">{strings.giftCards.balance}</span>
+                    </div>
+                }
+                rows={cards}
+                rowKey={(card) => card.id}
+                empty={strings.giftCards.emptyList}
+                renderRow={(card) => <GiftCardRowItem card={card} />}
+            />
         </div>
     );
 }
 
 function GiftCardRowItem({ card }: { card: GiftCardRow }) {
     return (
-        <tr className="border-b border-line-soft last:border-0">
-            <td className="px-4 py-3 font-mono text-ink">{card.code}</td>
-            <td className="px-4 py-3 text-ink-soft">{card.recipient ?? "—"}</td>
-            <td className="px-4 py-3">
+        <div className={GRID}>
+            <span className="font-mono text-ink">{card.code}</span>
+            <span className="truncate text-ink-soft">{card.recipient ?? strings.clients.dash}</span>
+            <span>
                 <StatusPill status={card.status} intent={giftCardStatusIntent(card.status)} />
-            </td>
-            <td className="px-4 py-3 text-right font-medium tabular-nums text-ink">
-                {formatMoney(card.balance_cents)}
+            </span>
+            <span className="text-right">
+                <Money cents={card.balance_cents} />
                 {card.balance_cents !== card.initial_cents ? (
                     <span className="text-xs text-muted">
                         {" "}
                         {strings.giftCards.ofInitial(formatMoney(card.initial_cents))}
                     </span>
                 ) : null}
-            </td>
-        </tr>
+            </span>
+        </div>
     );
 }
 

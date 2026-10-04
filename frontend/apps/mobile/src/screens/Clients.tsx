@@ -46,10 +46,8 @@ import { type ComponentProps, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    FlatList,
     Modal,
     Pressable,
-    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -57,9 +55,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { IconPlus, IconSearch } from "../components/icons";
 import { InboxButton } from "../components/InboxButton";
 import { ChargeSheet } from "../ui/ChargeSheet";
+import { DetailSection, DetailView } from "../ui/DetailView";
+import { ListPage } from "../ui/ListPage";
+import { Money } from "../ui/Money";
 import { PaymentMethodForm } from "../ui/PaymentMethodForm";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
@@ -82,55 +82,28 @@ export function ClientsScreen() {
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
-            <View style={styles.header}>
-                <View>
-                    <Text style={styles.title}>{strings.clients.title}</Text>
-                    <Text style={styles.count}>{strings.clients.total(clients.length)}</Text>
-                </View>
-                <View style={styles.headerActions}>
-                    <InboxButton />
-                    <Pressable
-                        style={styles.add}
-                        onPress={() => {
-                            setAdding(true);
-                        }}
-                    >
-                        <IconPlus size={16} color={theme.colors.accentInk} />
-                        <Text style={styles.addText}>{strings.clients.addShort}</Text>
-                    </Pressable>
-                </View>
-            </View>
-
-            <View style={styles.searchWrap}>
-                <IconSearch size={16} color={theme.colors.muted} />
-                <TextInput
-                    style={styles.search}
-                    value={q}
-                    onChangeText={setQ}
-                    placeholder={strings.clients.searchPlaceholder}
-                    placeholderTextColor={theme.colors.muted}
-                    autoCapitalize="none"
-                />
-            </View>
-
-            <FlatList
-                data={filtered}
-                keyExtractor={(cl) => cl.id}
-                contentContainerStyle={styles.list}
-                renderItem={({ item }) => (
-                    <ClientRowView
-                        cl={item}
-                        showValue={showValue}
-                        onPress={() => {
-                            setOpenId(item.id);
-                        }}
-                    />
-                )}
-                ListEmptyComponent={
-                    <Text style={styles.empty}>
-                        {q ? strings.clients.emptySearch : strings.clients.empty}
-                    </Text>
-                }
+            <ListPage
+                title={strings.clients.title}
+                summary={strings.clients.total(clients.length)}
+                accessory={<InboxButton />}
+                action={{
+                    label: strings.clients.addShort,
+                    onPress: () => {
+                        setAdding(true);
+                    },
+                }}
+                search={{
+                    value: q,
+                    onChange: setQ,
+                    placeholder: strings.clients.searchPlaceholder,
+                }}
+                rows={filtered}
+                rowKey={(cl) => cl.id}
+                onRowPress={(cl) => {
+                    setOpenId(cl.id);
+                }}
+                empty={q ? strings.clients.emptySearch : strings.clients.empty}
+                renderRow={(cl) => <ClientRowView cl={cl} showValue={showValue} />}
             />
 
             <ClientDetailSheet
@@ -150,17 +123,9 @@ export function ClientsScreen() {
     );
 }
 
-function ClientRowView({
-    cl,
-    showValue,
-    onPress,
-}: {
-    cl: ClientRow;
-    showValue: boolean;
-    onPress: () => void;
-}) {
+function ClientRowView({ cl, showValue }: { cl: ClientRow; showValue: boolean }) {
     return (
-        <Pressable style={styles.row} onPress={onPress}>
+        <View style={styles.row}>
             <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{initials(cl.name)}</Text>
             </View>
@@ -173,68 +138,48 @@ function ClientRowView({
                 </Text>
             </View>
             <View style={styles.rowRight}>
-                {showValue ? (
-                    <Text style={styles.rowValue}>{formatMoney(cl.lifetime_value_cents)}</Text>
-                ) : null}
+                {showValue ? <Money cents={cl.lifetime_value_cents} strong /> : null}
                 <StatusPill status={cl.status} intent={clientStatusIntent(cl.status)} />
             </View>
-        </Pressable>
+        </View>
     );
 }
 
 function ClientDetailSheet({ client, onClose }: { client: ClientRow | null; onClose: () => void }) {
     const canManage = canManagePayments(useRole());
+    if (client === null) return null;
 
     return (
-        <Modal visible={client !== null} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.backdrop}>
-                <View style={styles.sheet}>
-                    {client !== null ? (
-                        <>
-                            <View style={styles.sheetHead}>
-                                <View style={styles.sheetHeadMain}>
-                                    <View style={styles.avatarLg}>
-                                        <Text style={styles.avatarText}>
-                                            {initials(client.name)}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.sheetHeadText}>
-                                        <Text style={styles.sheetTitle} numberOfLines={1}>
-                                            {client.name}
-                                        </Text>
-                                        <Text style={styles.rowSub} numberOfLines={1}>
-                                            {client.email ?? client.phone ?? strings.clients.dash}
-                                        </Text>
-                                    </View>
-                                </View>
-                                <StatusPill
-                                    status={client.status}
-                                    intent={clientStatusIntent(client.status)}
-                                />
-                            </View>
-                            <ScrollView style={styles.sheetBody}>
-                                {canManage ? (
-                                    <>
-                                        <PaymentMethodsSection clientId={client.id} />
-                                        <SubscriptionsSection clientId={client.id} />
-                                        <PackagesSection clientId={client.id} />
-                                    </>
-                                ) : (
-                                    <Text style={styles.note}>
-                                        {strings.clients.manageRestricted}
-                                    </Text>
-                                )}
-                            </ScrollView>
-                            <View style={styles.actions}>
-                                <Pressable style={styles.cancel} onPress={onClose}>
-                                    <Text style={styles.cancelText}>{strings.common.close}</Text>
-                                </Pressable>
-                            </View>
-                        </>
-                    ) : null}
+        <DetailView
+            open
+            title={client.name}
+            subtitle={client.email ?? client.phone ?? strings.clients.dash}
+            status={{ status: client.status, intent: clientStatusIntent(client.status) }}
+            leading={
+                <View style={styles.avatarLg}>
+                    <Text style={styles.avatarText}>{initials(client.name)}</Text>
                 </View>
-            </View>
-        </Modal>
+            }
+            onClose={onClose}
+        >
+            {canManage ? (
+                <>
+                    <PaymentMethodsSection clientId={client.id} />
+                    <SubscriptionsSection clientId={client.id} />
+                    <PackagesSection clientId={client.id} />
+                </>
+            ) : (
+                <Text style={styles.note}>{strings.clients.manageRestricted}</Text>
+            )}
+        </DetailView>
+    );
+}
+
+function SectionLink({ label, onPress }: { label: string; onPress: () => void }) {
+    return (
+        <Pressable onPress={onPress}>
+            <Text style={styles.linkText}>{label}</Text>
+        </Pressable>
     );
 }
 
@@ -243,15 +188,14 @@ function PaymentMethodsSection({ clientId }: { clientId: string }) {
     const flow = useAddPaymentMethod(api, clientId, () => undefined);
 
     return (
-        <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{strings.clients.paymentMethods}</Text>
+        <DetailSection title={strings.clients.paymentMethods}>
             {cards.length === 0 ? (
                 <Text style={styles.note}>{strings.clients.noPaymentMethods}</Text>
             ) : (
                 cards.map((card) => <CardRow key={card.id} card={card} />)
             )}
             <PaymentMethodForm flow={flow} allowBank={false} />
-        </View>
+        </DetailSection>
     );
 }
 
@@ -321,19 +265,19 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
     const [starting, setStarting] = useState(false);
 
     return (
-        <View style={styles.section}>
-            <View style={styles.sectionHead}>
-                <Text style={styles.sectionLabel}>{strings.clients.subscriptions}</Text>
-                {!starting ? (
-                    <Pressable
+        <DetailSection
+            title={strings.clients.subscriptions}
+            action={
+                starting ? undefined : (
+                    <SectionLink
+                        label={strings.clients.startSubscriptionLink}
                         onPress={() => {
                             setStarting(true);
                         }}
-                    >
-                        <Text style={styles.linkText}>{strings.clients.startSubscriptionLink}</Text>
-                    </Pressable>
-                ) : null}
-            </View>
+                    />
+                )
+            }
+        >
             {subs.length === 0 ? (
                 <Text style={styles.note}>{strings.clients.noSubscriptions}</Text>
             ) : (
@@ -349,7 +293,7 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
                     }}
                 />
             ) : null}
-        </View>
+        </DetailSection>
     );
 }
 
@@ -461,19 +405,19 @@ function PackagesSection({ clientId }: { clientId: string }) {
     const [selling, setSelling] = useState(false);
 
     return (
-        <View style={styles.section}>
-            <View style={styles.sectionHead}>
-                <Text style={styles.sectionLabel}>{strings.clients.packages}</Text>
-                {!selling ? (
-                    <Pressable
+        <DetailSection
+            title={strings.clients.packages}
+            action={
+                selling ? undefined : (
+                    <SectionLink
+                        label={strings.clients.sellPackageLink}
                         onPress={() => {
                             setSelling(true);
                         }}
-                    >
-                        <Text style={styles.linkText}>{strings.clients.sellPackageLink}</Text>
-                    </Pressable>
-                ) : null}
-            </View>
+                    />
+                )
+            }
+        >
             {packages.length === 0 ? (
                 <Text style={styles.note}>{strings.clients.noPackages}</Text>
             ) : (
@@ -489,7 +433,7 @@ function PackagesSection({ clientId }: { clientId: string }) {
                     }}
                 />
             ) : null}
-        </View>
+        </DetailSection>
     );
 }
 
@@ -647,49 +591,7 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    header: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 12,
-    },
-    headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-    title: { color: c.ink, fontSize: 26, fontWeight: "700", letterSpacing: -0.4 },
-    count: { color: c.muted, fontSize: 13, marginTop: 2 },
-    add: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 13,
-        paddingVertical: 9,
-    },
-    addText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    searchWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginHorizontal: 20,
-        marginBottom: 8,
-        paddingHorizontal: 12,
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        backgroundColor: c.surface,
-    },
-    search: { flex: 1, paddingVertical: 11, color: c.ink, fontSize: 15 },
-    list: { paddingHorizontal: 20, paddingBottom: 24 },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        paddingVertical: 11,
-        borderBottomColor: c.border,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
+    row: { flexDirection: "row", alignItems: "center", gap: 12 },
     avatar: {
         width: 40,
         height: 40,
@@ -711,41 +613,7 @@ const styles = StyleSheet.create({
     rowName: { color: c.ink, fontSize: 15, fontWeight: "600" },
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     rowRight: { alignItems: "flex-end", gap: 4 },
-    rowValue: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    empty: { color: c.muted, textAlign: "center", paddingVertical: 48, fontSize: 14 },
-    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
-    sheet: {
-        backgroundColor: c.surface,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        padding: 22,
-        paddingBottom: 36,
-        maxHeight: "88%",
-    },
-    sheetHead: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 12,
-    },
-    sheetHeadMain: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
-    sheetHeadText: { flex: 1 },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    sheetBody: { marginBottom: 8 },
     note: { color: c.muted, fontSize: 13, marginTop: 6, lineHeight: 18 },
-    section: { marginTop: 14 },
-    sectionHead: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-    },
-    sectionLabel: {
-        color: c.muted,
-        fontSize: 11,
-        fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
     linkText: { color: c.accent, fontSize: 14, fontWeight: "600" },
     methodRow: {
         marginTop: 8,
@@ -816,7 +684,6 @@ const styles = StyleSheet.create({
     },
     error: { color: c.danFg, fontSize: 13, marginBottom: 4 },
     modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
-    actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 4 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
     save: {

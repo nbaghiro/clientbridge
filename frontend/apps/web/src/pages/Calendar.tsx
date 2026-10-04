@@ -52,6 +52,8 @@ import {
     useState,
 } from "react";
 
+import { DetailSection, DetailView } from "../components/DetailView";
+import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 
@@ -796,43 +798,31 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
 function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => void }) {
     const { busy, error, cancel } = useCancelBooking(api, event, onClose);
     return (
-        <Overlay onClose={onClose}>
-            <div className="space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                    <div>
-                        <h2 className="text-lg font-semibold text-ink">{event.title}</h2>
-                        {event.subtitle.length > 0 ? (
-                            <p className="text-sm text-muted">{event.subtitle}</p>
-                        ) : null}
-                    </div>
-                    <StatusPill status={event.status} intent={statusIntent(event.status)} />
-                </div>
-                <p className="text-sm text-ink">
-                    {formatTime(event.start)} – {formatTime(event.end)}
-                </p>
-                {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
-                {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
-                <div className="flex justify-end gap-2 pt-1">
+        <DetailView
+            open
+            title={event.title}
+            subtitle={event.subtitle.length > 0 ? event.subtitle : undefined}
+            status={{ status: event.status, intent: statusIntent(event.status) }}
+            onClose={onClose}
+            actions={
+                event.bookingId !== null && event.status !== "canceled" ? (
                     <button
                         type="button"
-                        onClick={onClose}
-                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:text-ink"
+                        onClick={cancel}
+                        disabled={busy}
+                        className="rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger hover:bg-danger hover:text-surface disabled:opacity-50"
                     >
-                        {strings.common.close}
+                        {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
                     </button>
-                    {event.bookingId !== null && event.status !== "canceled" ? (
-                        <button
-                            type="button"
-                            onClick={cancel}
-                            disabled={busy}
-                            className="rounded-lg border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger hover:text-surface disabled:opacity-50"
-                        >
-                            {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
-                        </button>
-                    ) : null}
-                </div>
-            </div>
-        </Overlay>
+                ) : undefined
+            }
+        >
+            <p className="text-sm text-ink">
+                {formatTime(event.start)} – {formatTime(event.end)}
+            </p>
+            {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
+            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+        </DetailView>
     );
 }
 
@@ -844,17 +834,16 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
     const amountLabel = formatMoney(event.depositAmountCents);
 
     return (
-        <div className="rounded-lg border border-line bg-bg p-3">
-            <div className="flex items-center justify-between gap-3">
-                <div>
-                    <p className="text-sm font-medium text-ink">{strings.calendar.deposit}</p>
-                    <p className="text-sm text-muted">{amountLabel}</p>
-                </div>
+        <DetailSection
+            title={strings.calendar.deposit}
+            action={
                 <StatusPill
                     status={event.depositStatus}
                     intent={depositStatusIntent(event.depositStatus)}
                 />
-            </div>
+            }
+        >
+            <Money cents={event.depositAmountCents} />
             {canCollectDeposit(event, viewer) ? (
                 <ChargeSheet
                     checkout={deposit.checkout}
@@ -867,6 +856,6 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     onCancel={onClose}
                 />
             ) : null}
-        </div>
+        </DetailSection>
     );
 }

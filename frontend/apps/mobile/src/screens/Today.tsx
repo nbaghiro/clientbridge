@@ -14,7 +14,7 @@ import { useStatus } from "@powersync/react";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,6 +22,8 @@ import { DebugOverlay } from "../components/DebugOverlay";
 import { IconSettings, Logo } from "../components/icons";
 import { InboxButton } from "../components/InboxButton";
 import { api } from "../lib/api";
+import { ListPage } from "../ui/ListPage";
+import { Money } from "../ui/Money";
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
 
@@ -65,27 +67,14 @@ export function TodayScreen() {
                 </View>
             </View>
 
-            <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-                <Text style={styles.heading}>{strings.home.title}</Text>
-
-                {canManagePayments(role) ? <MoneySection /> : null}
-
-                <View style={styles.statusRow}>
-                    <View
-                        style={[
-                            styles.dot,
-                            {
-                                backgroundColor: connected
-                                    ? theme.colors.success
-                                    : theme.colors.muted,
-                            },
-                        ]}
-                    />
-                    <Text style={styles.status}>
-                        PowerSync · {connected ? strings.home.connected : strings.home.offline}
-                    </Text>
-                </View>
-            </ScrollView>
+            {canManagePayments(role) ? (
+                <MoneyView status={<SyncStatus connected={connected} />} />
+            ) : (
+                <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+                    <Text style={styles.heading}>{strings.home.title}</Text>
+                    <SyncStatus connected={connected} />
+                </ScrollView>
+            )}
 
             <DebugOverlay
                 visible={debugOpen}
@@ -97,55 +86,69 @@ export function TodayScreen() {
     );
 }
 
-function MoneySection() {
+function SyncStatus({ connected }: { connected: boolean }) {
+    return (
+        <View style={styles.statusRow}>
+            <View
+                style={[
+                    styles.dot,
+                    { backgroundColor: connected ? theme.colors.success : theme.colors.muted },
+                ]}
+            />
+            <Text style={styles.status}>
+                PowerSync · {connected ? strings.home.connected : strings.home.offline}
+            </Text>
+        </View>
+    );
+}
+
+function MoneyView({ status }: { status: ReactNode }) {
     const summary = useDashboardSummary(api);
     const activity = useRecentActivity();
 
     return (
-        <>
-            {summary === "error" ? (
-                <Text style={styles.errorText}>{strings.home.numbersError}</Text>
-            ) : (
-                <View style={styles.cards}>
-                    <MoneyCard
-                        label={strings.home.todayRevenue}
-                        cents={summary === null ? null : summary.today_revenue_cents}
-                        caption={strings.home.todayRevenueCaption}
-                        tone="success"
-                    />
-                    <MoneyCard
-                        label={strings.home.awaitingPayment}
-                        cents={summary === null ? null : summary.awaiting_payment_cents}
-                        caption={strings.home.awaitingPaymentCaption}
-                    />
-                    <MoneyCard
-                        label={strings.home.gstSetAside}
-                        cents={summary === null ? null : summary.gst_hst_set_aside_cents}
-                        caption={strings.home.gstSetAsideCaption}
-                    />
-                </View>
-            )}
-
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{strings.home.recentActivity}</Text>
-                {activity.length === 0 ? (
-                    <Text style={styles.emptyText}>{strings.home.noPayments}</Text>
-                ) : (
-                    <View style={styles.list}>
-                        {activity.map((row, i) => (
-                            <ActivityItem key={row.id} row={row} divider={i > 0} />
-                        ))}
-                    </View>
-                )}
-            </View>
-        </>
+        <ListPage
+            banner={
+                <>
+                    <Text style={styles.heading}>{strings.home.title}</Text>
+                    {summary === "error" ? (
+                        <Text style={styles.errorText}>{strings.home.numbersError}</Text>
+                    ) : (
+                        <View style={styles.cards}>
+                            <MoneyCard
+                                label={strings.home.todayRevenue}
+                                cents={summary === null ? null : summary.today_revenue_cents}
+                                caption={strings.home.todayRevenueCaption}
+                                tone="success"
+                            />
+                            <MoneyCard
+                                label={strings.home.awaitingPayment}
+                                cents={summary === null ? null : summary.awaiting_payment_cents}
+                                caption={strings.home.awaitingPaymentCaption}
+                            />
+                            <MoneyCard
+                                label={strings.home.gstSetAside}
+                                cents={summary === null ? null : summary.gst_hst_set_aside_cents}
+                                caption={strings.home.gstSetAsideCaption}
+                            />
+                        </View>
+                    )}
+                </>
+            }
+            head={<Text style={styles.sectionTitle}>{strings.home.recentActivity}</Text>}
+            rows={activity}
+            rowKey={(row) => row.id}
+            empty={strings.home.noPayments}
+            renderRow={(row) => <ActivityItem row={row} />}
+            footer={status}
+        />
     );
 }
 
-function ActivityItem({ row, divider }: { row: ActivityRow; divider: boolean }) {
+function ActivityItem({ row }: { row: ActivityRow }) {
     const refund = isRefundRow(row);
     return (
-        <View style={[styles.row, divider && styles.rowDivider]}>
+        <View style={styles.row}>
             <View style={styles.rowMain}>
                 <Text style={styles.activityLabel}>{activityLabel(row)}</Text>
                 {row.client_name !== null ? (
@@ -154,9 +157,9 @@ function ActivityItem({ row, divider }: { row: ActivityRow; divider: boolean }) 
                     </Text>
                 ) : null}
             </View>
-            <Text style={[styles.amount, refund && styles.amountRefund]}>
+            <Text style={refund && styles.amountRefund}>
                 {refund ? "−" : ""}
-                {formatMoneyWithCurrency(row.amount_cents, row.currency)}
+                <Money cents={row.amount_cents} tone={refund ? "danger" : "ink"} strong />
             </Text>
             <Text style={styles.time}>{formatRelativeTime(row.at)}</Text>
         </View>
@@ -208,8 +211,8 @@ const styles = StyleSheet.create({
     wordmark: { color: theme.colors.ink, fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
     body: { flex: 1 },
     bodyContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 16 },
-    heading: { color: theme.colors.ink, fontSize: 22, fontWeight: "700" },
-    cards: { gap: 12 },
+    heading: { color: theme.colors.ink, fontSize: 22, fontWeight: "700", marginTop: 8 },
+    cards: { gap: 12, marginTop: 14 },
     card: {
         backgroundColor: theme.colors.surface,
         borderColor: theme.colors.border,
@@ -236,32 +239,14 @@ const styles = StyleSheet.create({
         marginTop: 6,
     },
     errorText: { color: theme.colors.muted, fontSize: 14 },
-    section: { gap: 8 },
-    sectionTitle: { color: theme.colors.ink, fontSize: 16, fontWeight: "700" },
-    emptyText: { color: theme.colors.muted, fontSize: 14 },
-    list: {
-        backgroundColor: theme.colors.surface,
-        borderColor: theme.colors.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        overflow: "hidden",
-    },
-    row: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-    },
-    rowDivider: { borderTopWidth: theme.borderWidth, borderTopColor: theme.colors.borderSoft },
+    sectionTitle: { color: theme.colors.ink, fontSize: 16, fontWeight: "700", marginTop: 12 },
+    row: { flexDirection: "row", alignItems: "center", gap: 10 },
     rowMain: { flex: 1 },
     activityLabel: { color: theme.colors.ink, fontSize: 14, fontWeight: "600" },
     activityClient: { color: theme.colors.muted, fontSize: 12, marginTop: 1 },
-    amount: { color: theme.colors.ink, fontSize: 14, fontWeight: "600" },
     amountRefund: { color: theme.colors.danFg },
     time: { color: theme.colors.muted, fontSize: 12, width: 44, textAlign: "right" },
-    meta: { color: theme.colors.muted, fontSize: 12 },
-    statusRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    statusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 16 },
     dot: { width: 9, height: 9, borderRadius: 5 },
     status: { color: theme.colors.inkSoft, fontSize: 14, fontWeight: "600" },
 });
