@@ -1,7 +1,7 @@
 // Mono-stroke icon geometry (24x24 viewBox), shared so web (<svg>) and mobile (react-native-svg)
 // draw identical icons from one source. Each platform maps these primitives to its own SVG
-// components; colour/size/stroke stay in the per-platform wrapper. Multi-colour marks (the Logo,
-// the Google mark) live per-app since they carry brand fills.
+// components; colour/size/stroke stay in the per-platform wrapper. The Google mark lives per-app
+// since it carries brand fills.
 
 export type IconPrimitive =
     | { kind: "rect"; x: number; y: number; width: number; height: number; rx?: number }
@@ -90,3 +90,17 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     ],
     chevron: [{ kind: "path", d: "m9 18 6-6-6-6" }],
 };
+
+// The C monogram, viewBox tight to the ink. Beside the wordmark the ink is ~1.45x its cap height
+// (1.02em for Schibsted Grotesk and the system fonts), sitting 6px from the text.
+export const LOGO = {
+    viewBox: "0 0 24.763 28.8",
+    aspect: 24.763 / 28.8,
+    strokeWidth: 4.4,
+    paths: [
+        "M22.563 23.466A12.2 12.2 0 1 1 22.563 5.334",
+        "M18.013 18.413A5.4 5.4 0 1 1 18.013 10.387",
+    ],
+    heightPerFontSize: 1.02,
+    gap: 6,
+} as const;

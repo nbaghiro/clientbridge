@@ -10,7 +10,7 @@ import {
     IconLogout,
     IconSettings,
     IconToday,
-    Logo,
+    Lockup,
 } from "./icons";
 
 const DESTINATION_WEB: Record<
@@ -35,10 +35,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
     return (
         <div className="flex h-screen bg-bg text-ink">
             <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface">
-                <div className="flex items-center gap-2 px-5 pb-5 pt-6">
-                    <Logo className="h-7 w-7 text-accent" />
-                    <span className="text-lg font-bold tracking-tight">Clientbridge</span>
-                </div>
+                <Lockup className="px-5 pb-5 pt-6 text-lg" />
 
                 <div className="border-b border-line" />
 

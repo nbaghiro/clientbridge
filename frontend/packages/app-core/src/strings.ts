@@ -3,6 +3,7 @@
 
 export const strings = {
     common: {
+        appName: "Clientbridge",
         somethingWrongRetry: "Something went wrong. Please try again.",
         fileUploadError: "Couldn't upload that file. Please try again.",
         loading: "Loading…",

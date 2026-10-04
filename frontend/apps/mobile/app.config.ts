@@ -21,10 +21,11 @@ const config: ExpoConfig = {
         package: "ca.clientbridge.app",
         adaptiveIcon: {
             foregroundImage: "./assets/adaptive-icon.png",
-            backgroundColor: "#3f5e80",
+            backgroundColor: "#3F5E80",
         },
     },
     plugins: [
+        ["expo-notifications", { icon: "./assets/notification-icon.png", color: "#3F5E80" }],
         [
             "@stripe/stripe-react-native",
             { merchantIdentifier: STRIPE_MERCHANT_ID, enableGooglePay: false },

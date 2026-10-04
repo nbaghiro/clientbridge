@@ -4,7 +4,7 @@ import { type SubmitEvent } from "react";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 import { BrandBackdrop, resolveVariant } from "./BrandBackdrop";
-import { GoogleIcon, Logo } from "./icons";
+import { GoogleIcon, Lockup } from "./icons";
 
 const backdrop = resolveVariant(new URLSearchParams(window.location.search).get("bg"));
 
@@ -22,10 +22,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
             <aside className="brand-aside relative hidden flex-col justify-between overflow-hidden p-12 text-white lg:flex">
                 <BrandBackdrop variant={backdrop} />
 
-                <div className="relative flex items-center gap-2.5">
-                    <Logo className="h-8 w-8 text-white" />
-                    <span className="text-xl font-bold tracking-tight">Clientbridge</span>
-                </div>
+                <Lockup className="relative text-xl" markClassName="text-white" />
 
                 <div className="relative">
                     <h2 className="font-display text-[2rem] font-bold leading-[1.15] tracking-tight">
@@ -51,12 +48,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 
             <main className="flex items-center justify-center bg-surface px-6 py-12">
                 <div className="w-full max-w-sm">
-                    <div className="mb-8 flex items-center gap-2 lg:hidden">
-                        <Logo className="h-7 w-7 text-accent" />
-                        <span className="text-lg font-bold tracking-tight text-ink">
-                            Clientbridge
-                        </span>
-                    </div>
+                    <Lockup className="mb-8 text-lg text-ink lg:hidden" />
 
                     <h1 className="font-display text-2xl font-bold text-ink">
                         {login.mode === "signin"

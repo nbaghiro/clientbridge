@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GoogleIcon, Logo } from "../components/icons";
+import { GoogleIcon, Lockup } from "../components/icons";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 
@@ -40,10 +40,12 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                     showsVerticalScrollIndicator={false}
                 >
                     <View>
-                        <View style={styles.brand}>
-                            <Logo size={30} color={theme.colors.accent} />
-                            <Text style={styles.wordmark}>Clientbridge</Text>
-                        </View>
+                        <Lockup
+                            fontSize={19}
+                            markColor={theme.colors.accent}
+                            textColor={theme.colors.ink}
+                            style={styles.brand}
+                        />
 
                         <Text style={styles.title}>
                             {signin ? strings.auth.signInTitle : strings.auth.signUpTitle}
@@ -149,8 +151,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 28,
         paddingVertical: 32,
     },
-    brand: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 36 },
-    wordmark: { color: theme.colors.ink, fontSize: 19, fontWeight: "800", letterSpacing: -0.3 },
+    brand: { marginBottom: 36 },
     title: { color: theme.colors.ink, fontSize: 30, fontWeight: "700", letterSpacing: -0.5 },
     subtitle: { color: theme.colors.muted, fontSize: 14.5, marginTop: 5, marginBottom: 26 },
     google: {

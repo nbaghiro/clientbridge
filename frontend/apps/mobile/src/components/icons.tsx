@@ -1,5 +1,12 @@
-import { type IconName, type IconPrimitive, ICON_SPECS } from "@clientbridge/app-core";
+import {
+    type IconName,
+    type IconPrimitive,
+    ICON_SPECS,
+    LOGO,
+    strings,
+} from "@clientbridge/app-core";
 import type { ReactNode } from "react";
+import { type StyleProp, Text, View, type ViewStyle } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 interface IconProps {
@@ -76,29 +83,47 @@ export function IconChevron({ size, color }: IconProps) {
     return <NavIcon name="chevron" size={size} color={color} />;
 }
 
-export function Logo({ size = 32, color = "#3f5e80" }: { size?: number; color?: string }) {
+export function Logo({ height = 28, color = "#3f5e80" }: { height?: number; color?: string }) {
+    const width = height * LOGO.aspect;
     return (
         <Svg
-            width={size}
-            height={size}
-            viewBox="0 0 32 32"
+            width={width}
+            height={height}
+            viewBox={LOGO.viewBox}
             fill="none"
-            style={{ width: size, height: size }}
+            style={{ width, height }}
         >
-            <Path
-                d="M10 23a6 6 0 0 1 12 0"
-                stroke={color}
-                strokeWidth={2.3}
-                strokeLinecap="round"
-            />
-            <Path
-                d="M5.5 23a10.5 10.5 0 0 1 21 0"
-                stroke={color}
-                strokeWidth={2.3}
-                strokeLinecap="round"
-            />
-            <Circle cx={16} cy={23} r={1.9} fill={color} />
+            {LOGO.paths.map((d) => (
+                <Path
+                    key={d}
+                    d={d}
+                    stroke={color}
+                    strokeWidth={LOGO.strokeWidth}
+                    strokeLinecap="round"
+                />
+            ))}
         </Svg>
+    );
+}
+
+export function Lockup({
+    fontSize,
+    markColor,
+    textColor,
+    style,
+}: {
+    fontSize: number;
+    markColor: string;
+    textColor: string;
+    style?: StyleProp<ViewStyle>;
+}) {
+    return (
+        <View style={[{ flexDirection: "row", alignItems: "center", gap: LOGO.gap }, style]}>
+            <Logo height={fontSize * LOGO.heightPerFontSize} color={markColor} />
+            <Text style={{ color: textColor, fontSize, fontWeight: "700", letterSpacing: -0.3 }}>
+                {strings.common.appName}
+            </Text>
+        </View>
     );
 }
 

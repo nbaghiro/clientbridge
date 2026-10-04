@@ -135,7 +135,7 @@ function AppRoutes({
 function Splash() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-bg">
-            <Logo className="h-8 w-8 animate-pulse text-accent" />
+            <Logo className="h-8 w-auto animate-pulse text-accent" />
         </div>
     );
 }

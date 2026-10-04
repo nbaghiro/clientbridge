@@ -1,7 +1,7 @@
 import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 
-import { Logo } from "../components/icons";
+import { Lockup, Logo } from "../components/icons";
 import { api } from "../lib/api";
 
 /** Create-your-business step: shown to an authenticated user who has no business yet (right after
@@ -19,7 +19,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-bg px-6">
                 <div className="text-center">
-                    <Logo className="mx-auto h-8 w-8 text-accent" />
+                    <Logo className="mx-auto h-8 w-auto text-accent" />
                     <p className="mt-4 text-sm text-muted">{strings.onboarding.settingUp}</p>
                 </div>
             </div>
@@ -29,10 +29,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">
             <div className="w-full max-w-md">
-                <div className="mb-8 flex items-center gap-2">
-                    <Logo className="h-7 w-7 text-accent" />
-                    <span className="text-lg font-bold tracking-tight text-ink">Clientbridge</span>
-                </div>
+                <Lockup className="mb-8 text-lg text-ink" />
 
                 <h1 className="font-display text-2xl font-bold text-ink">
                     {strings.onboarding.title}

@@ -1,7 +1,7 @@
 import { strings, useAcceptInviteForm } from "@clientbridge/app-core";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { Logo } from "../components/icons";
+import { Lockup } from "../components/icons";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 
@@ -25,10 +25,7 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
     return (
         <div className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">
             <div className="w-full max-w-sm">
-                <div className="mb-8 flex items-center gap-2">
-                    <Logo className="h-7 w-7 text-accent" />
-                    <span className="text-lg font-bold tracking-tight text-ink">Clientbridge</span>
-                </div>
+                <Lockup className="mb-8 text-lg text-ink" />
 
                 <h1 className="font-display text-2xl font-bold text-ink">
                     {strings.auth.inviteTitle}

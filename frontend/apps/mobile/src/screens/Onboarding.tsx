@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Logo } from "../components/icons";
+import { Lockup, Logo } from "../components/icons";
 import { api } from "../lib/api";
 
 const c = theme.colors;
@@ -31,7 +31,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
     if (submitted) {
         return (
             <SafeAreaView style={[styles.screen, styles.center]}>
-                <Logo size={30} color={c.accent} />
+                <Logo height={32} color={c.accent} />
                 <Text style={styles.settingUp}>{strings.onboarding.settingUp}</Text>
             </SafeAreaView>
         );
@@ -49,10 +49,12 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
-                    <View style={styles.brand}>
-                        <Logo size={28} color={c.accent} />
-                        <Text style={styles.wordmark}>Clientbridge</Text>
-                    </View>
+                    <Lockup
+                        fontSize={18}
+                        markColor={c.accent}
+                        textColor={c.ink}
+                        style={styles.brand}
+                    />
 
                     <Text style={styles.title}>{strings.onboarding.title}</Text>
                     <Text style={styles.subtitle}>{strings.onboarding.subtitleMobile}</Text>
@@ -133,8 +135,7 @@ const styles = StyleSheet.create({
     center: { alignItems: "center", justifyContent: "center", gap: 14 },
     settingUp: { color: c.muted, fontSize: 14 },
     content: { paddingHorizontal: 28, paddingVertical: 32 },
-    brand: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 28 },
-    wordmark: { color: c.ink, fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
+    brand: { marginBottom: 28 },
     title: { color: c.ink, fontSize: 28, fontWeight: "700", letterSpacing: -0.5 },
     subtitle: { color: c.muted, fontSize: 14.5, marginTop: 5, marginBottom: 22 },
     label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 14 },

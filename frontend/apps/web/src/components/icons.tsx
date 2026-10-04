@@ -1,4 +1,10 @@
-import { type IconName, type IconPrimitive, ICON_SPECS } from "@clientbridge/app-core";
+import {
+    type IconName,
+    type IconPrimitive,
+    ICON_SPECS,
+    LOGO,
+    strings,
+} from "@clientbridge/app-core";
 import type { ReactNode } from "react";
 
 function prims(name: IconName): ReactNode {
@@ -73,23 +79,43 @@ export const IconSettings = ({ className }: { className?: string }) => (
     <Icon name="settings" className={className} />
 );
 
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, height }: { className?: string; height?: string }) {
     return (
-        <svg viewBox="0 0 32 32" fill="none" className={className} aria-label="Clientbridge">
-            <path
-                d="M10 23a6 6 0 0 1 12 0"
-                stroke="currentColor"
-                strokeWidth="2.3"
-                strokeLinecap="round"
-            />
-            <path
-                d="M5.5 23a10.5 10.5 0 0 1 21 0"
-                stroke="currentColor"
-                strokeWidth="2.3"
-                strokeLinecap="round"
-            />
-            <circle cx="16" cy="23" r="1.9" fill="currentColor" />
+        <svg
+            viewBox={LOGO.viewBox}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={LOGO.strokeWidth}
+            strokeLinecap="round"
+            className={className}
+            style={{ aspectRatio: LOGO.aspect, height }}
+            aria-hidden="true"
+        >
+            {LOGO.paths.map((d) => (
+                <path key={d} d={d} />
+            ))}
         </svg>
+    );
+}
+
+export function Lockup({
+    className,
+    markClassName = "text-accent",
+}: {
+    className?: string;
+    markClassName?: string;
+}) {
+    return (
+        <div
+            className={`flex items-center font-bold tracking-tight ${className ?? ""}`}
+            style={{ gap: LOGO.gap }}
+        >
+            <Logo
+                className={`w-auto ${markClassName}`}
+                height={`${String(LOGO.heightPerFontSize)}em`}
+            />
+            <span>{strings.common.appName}</span>
+        </div>
     );
 }
 

@@ -19,7 +19,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DebugOverlay } from "../components/DebugOverlay";
-import { IconSettings, Logo } from "../components/icons";
+import { IconSettings, Lockup } from "../components/icons";
 import { InboxButton } from "../components/InboxButton";
 import { api } from "../lib/api";
 import { ListPage } from "../ui/ListPage";
@@ -50,9 +50,12 @@ export function TodayScreen() {
         <View style={[styles.screen, { paddingTop: insets.top }]}>
             <StatusBar style="dark" />
             <View style={styles.topbar}>
-                <Pressable onPress={onSecretTap} style={styles.brand}>
-                    <Logo size={20} color={theme.colors.accent} />
-                    <Text style={styles.wordmark}>Clientbridge</Text>
+                <Pressable onPress={onSecretTap}>
+                    <Lockup
+                        fontSize={18}
+                        markColor={theme.colors.accent}
+                        textColor={theme.colors.ink}
+                    />
                 </Pressable>
                 <View style={styles.topActions}>
                     <InboxButton />
@@ -206,9 +209,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 12,
     },
-    brand: { flexDirection: "row", alignItems: "center", gap: 8 },
     topActions: { flexDirection: "row", alignItems: "center", gap: 18 },
-    wordmark: { color: theme.colors.ink, fontSize: 18, fontWeight: "800", letterSpacing: -0.3 },
     body: { flex: 1 },
     bodyContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 16 },
     heading: { color: theme.colors.ink, fontSize: 22, fontWeight: "700", marginTop: 8 },
