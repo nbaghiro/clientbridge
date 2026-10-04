@@ -6,6 +6,7 @@ import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
 import type { Intent } from "../util/primitives";
 import type { ItemRow } from "./catalog";
+import { type Checkout, useCheckout } from "./checkout";
 import { collectedSql } from "./ledger";
 import { canManagePayments } from "./payments";
 
@@ -30,6 +31,8 @@ export interface OrderLine {
 export interface Order {
     id: string;
     client_id: string | null;
+    receipt_email?: string | null;
+    receipt_phone?: string | null;
     status: string;
     currency: string;
     subtotal_cents: number;
@@ -46,20 +49,48 @@ export interface CheckoutResult {
     payment_id: string;
 }
 
+export interface SaleDetails {
+    clientId: string | null;
+    receiptEmail: string | null;
+    receiptPhone: string | null;
+}
+
+const NO_DETAILS: SaleDetails = { clientId: null, receiptEmail: null, receiptPhone: null };
+
+function detailsBody(d: SaleDetails): Record<string, unknown> {
+    return { client_id: d.clientId, receipt_email: d.receiptEmail, receipt_phone: d.receiptPhone };
+}
+
 export function createOrder(
     api: ApiLike,
     lines: OrderLineInput[],
-    clientId: string | null = null,
+    details: SaleDetails = NO_DETAILS,
 ): Promise<Order> {
-    return api.post<Order>("/v1/orders", { client_id: clientId, lines });
+    return api.post<Order>("/v1/orders", { ...detailsBody(details), lines });
 }
 
 export function updateOrder(
     api: ApiLike,
     orderId: string,
     lines: OrderLineInput[],
+    details: SaleDetails = NO_DETAILS,
 ): Promise<Order> {
-    return api.patch<Order>(`/v1/orders/${orderId}`, { lines });
+    return api.patch<Order>(`/v1/orders/${orderId}`, { ...detailsBody(details), lines });
+}
+
+/** Pay an open sale by online card: a saved card of the sale's client charges now; otherwise the
+ *  returned client secret is confirmed by the card form. The webhook settles it. */
+export function payOrder(
+    api: ApiLike,
+    orderId: string,
+    paymentMethodId: string | undefined,
+    idempotencyKey: string,
+): Promise<CheckoutResult> {
+    return api.post<CheckoutResult>(
+        `/v1/orders/${orderId}/pay`,
+        { payment_method_id: paymentMethodId ?? null },
+        { idempotencyKey },
+    );
 }
 
 export function voidOrder(api: ApiLike, orderId: string): Promise<Order> {
@@ -135,10 +166,18 @@ export function cartSubtotalCents(lines: CartLine[]): number {
     return lines.reduce((sum, l) => sum + l.quantity * l.unitAmountCents, 0);
 }
 
-export type RegisterPhase = "cart" | "review" | "awaiting_reader";
+export type RegisterPhase = "cart" | "review" | "awaiting_reader" | "paid";
 
 export interface Cart {
     lines: CartLine[];
+    clientId: string | null;
+    setClientId: (id: string | null) => void;
+    receiptEmail: string;
+    setReceiptEmail: (v: string) => void;
+    receiptPhone: string;
+    setReceiptPhone: (v: string) => void;
+    markPaid: () => void;
+    backToCart: () => void;
     addItem: (item: ItemRow) => void;
     removeLine: (key: string) => void;
     setQuantity: (key: string, quantity: number) => void;
@@ -158,6 +197,8 @@ export interface Cart {
 
 let cartSeq = 0;
 
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 /** Register view-model: a local cart of catalog lines → server-totalled order (tax computed
  *  server-side on create/update) → checkout (returns a Terminal client_secret). Editing the cart
  *  after a review drops back to the cart phase so the total is re-fetched before charging. */
@@ -166,6 +207,9 @@ export function useCart(api: ApiLike): Cart {
     const [phase, setPhase] = useState<RegisterPhase>("cart");
     const [order, setOrder] = useState<Order | null>(null);
     const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(null);
+    const [clientId, setClientIdState] = useState<string | null>(null);
+    const [receiptEmail, setReceiptEmailState] = useState("");
+    const [receiptPhone, setReceiptPhoneState] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
 
     const invalidate = (): void => {
@@ -215,6 +259,9 @@ export function useCart(api: ApiLike): Cart {
         setLines([]);
         setOrder(null);
         setCheckoutResult(null);
+        setClientIdState(null);
+        setReceiptEmailState("");
+        setReceiptPhoneState("");
         setError(null);
         setPhase("cart");
     };
@@ -224,13 +271,23 @@ export function useCart(api: ApiLike): Cart {
             setError(strings.pos.addItemFirst);
             return;
         }
+        const email = receiptEmail.trim();
+        if (email !== "" && !EMAIL.test(email)) {
+            setError(strings.pos.receiptEmailInvalid);
+            return;
+        }
         const payload = cartLineInputs(lines);
+        const details: SaleDetails = {
+            clientId,
+            receiptEmail: email === "" ? null : email,
+            receiptPhone: receiptPhone.trim() === "" ? null : receiptPhone.trim(),
+        };
         run(
             async () => {
                 const result =
                     order === null
-                        ? await createOrder(api, payload)
-                        : await updateOrder(api, order.id, payload);
+                        ? await createOrder(api, payload, details)
+                        : await updateOrder(api, order.id, payload, details);
                 setOrder(result);
                 setPhase("review");
             },
@@ -263,6 +320,25 @@ export function useCart(api: ApiLike): Cart {
 
     return {
         lines,
+        clientId,
+        setClientId: (id) => {
+            invalidate();
+            setClientIdState(id);
+        },
+        receiptEmail,
+        setReceiptEmail: (v) => {
+            invalidate();
+            setReceiptEmailState(v);
+        },
+        receiptPhone,
+        setReceiptPhone: (v) => {
+            invalidate();
+            setReceiptPhoneState(v);
+        },
+        markPaid: () => {
+            setPhase("paid");
+        },
+        backToCart: invalidate,
         addItem,
         removeLine,
         setQuantity,
@@ -284,4 +360,28 @@ export function useCart(api: ApiLike): Cart {
 /** Voiding a sale is a manager action; staff ring up and collect. */
 export function canVoidSale(role: string | null): boolean {
     return canManagePayments(role);
+}
+
+export interface SaleCheckout {
+    checkout: Checkout;
+    submit: () => void;
+}
+
+/** Card payment for a reviewed sale through the shared checkout; the sale's client's saved card is
+ *  the default, a walk-in pays with a new card. */
+export function useSaleCheckout(api: ApiLike, cart: Cart, defaultMethod?: string): SaleCheckout {
+    const checkout = useCheckout(
+        cart.markPaid,
+        defaultMethod === undefined ? {} : { defaultMethod },
+    );
+    const submit = (): void => {
+        const order = cart.order;
+        if (order === null) return;
+        checkout.pay(
+            ({ paymentMethodId, idempotencyKey }) =>
+                payOrder(api, order.id, paymentMethodId, idempotencyKey),
+            strings.pos.payError,
+        );
+    };
+    return { checkout, submit };
 }

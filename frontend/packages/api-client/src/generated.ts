@@ -2451,6 +2451,32 @@ export interface components {
             track_stock: boolean;
             /** Low Stock At */
             low_stock_at?: number | null;
+            /**
+             * Buffer Before Min
+             * @default 0
+             */
+            buffer_before_min: number;
+            /**
+             * Buffer After Min
+             * @default 0
+             */
+            buffer_after_min: number;
+            /**
+             * Deposit Type
+             * @default none
+             * @enum {string}
+             */
+            deposit_type: "none" | "fixed" | "percent";
+            /** Deposit Value */
+            deposit_value?: number | null;
+            /** Session Count */
+            session_count?: number | null;
+            /** Validity Days */
+            validity_days?: number | null;
+            /** Interval */
+            interval?: number | null;
+            /** Frequency */
+            frequency?: ("day" | "week" | "month" | "year") | null;
             /** Online Bookable */
             online_bookable?: boolean | null;
         };
@@ -2506,6 +2532,32 @@ export interface components {
             track_stock: boolean;
             /** Low Stock At */
             low_stock_at?: number | null;
+            /**
+             * Buffer Before Min
+             * @default 0
+             */
+            buffer_before_min: number;
+            /**
+             * Buffer After Min
+             * @default 0
+             */
+            buffer_after_min: number;
+            /**
+             * Deposit Type
+             * @default none
+             * @enum {string}
+             */
+            deposit_type: "none" | "fixed" | "percent";
+            /** Deposit Value */
+            deposit_value?: number | null;
+            /** Session Count */
+            session_count?: number | null;
+            /** Validity Days */
+            validity_days?: number | null;
+            /** Interval */
+            interval?: number | null;
+            /** Frequency */
+            frequency?: ("day" | "week" | "month" | "year") | null;
             /** Id */
             id: string;
             /** Online Bookable */
@@ -2559,6 +2611,22 @@ export interface components {
             track_stock?: boolean | null;
             /** Low Stock At */
             low_stock_at?: number | null;
+            /** Buffer Before Min */
+            buffer_before_min?: number | null;
+            /** Buffer After Min */
+            buffer_after_min?: number | null;
+            /** Deposit Type */
+            deposit_type?: ("none" | "fixed" | "percent") | null;
+            /** Deposit Value */
+            deposit_value?: number | null;
+            /** Session Count */
+            session_count?: number | null;
+            /** Validity Days */
+            validity_days?: number | null;
+            /** Interval */
+            interval?: number | null;
+            /** Frequency */
+            frequency?: ("day" | "week" | "month" | "year") | null;
         };
         /** LineInput */
         LineInput: {
@@ -2720,6 +2788,8 @@ export interface components {
         };
         /** OrderUpdate */
         OrderUpdate: {
+            /** Client Id */
+            client_id?: string | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][] | null;
             /** Receipt Email */

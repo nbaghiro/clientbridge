@@ -49,6 +49,14 @@ class CatalogService:
             track_stock=data.track_stock,
             stock_on_hand=0 if data.track_stock else None,
             low_stock_at=data.low_stock_at,
+            buffer_before_min=data.buffer_before_min,
+            buffer_after_min=data.buffer_after_min,
+            deposit_type=data.deposit_type,
+            deposit_value=data.deposit_value,
+            session_count=data.session_count,
+            validity_days=data.validity_days,
+            interval=data.interval,
+            frequency=data.frequency,
         )
         _assert_shape(item)
         self.db.add(item)
@@ -103,6 +111,18 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("only services and classes can be booked online")
     if item.track_stock and item.kind != "product":
         raise Unprocessable("only products can track stock")
+    if item.deposit_type != "none" and item.kind not in BOOKABLE_KINDS:
+        raise Unprocessable("only services and classes take a deposit")
+    if (
+        item.deposit_type == "percent"
+        and item.deposit_value is not None
+        and item.deposit_value > 100
+    ):
+        raise Unprocessable("a percentage deposit can't be over 100")
+    if item.session_count is not None and item.kind != "package":
+        raise Unprocessable("only packages have a session count")
+    if (item.interval is not None or item.frequency is not None) and item.kind != "subscription":
+        raise Unprocessable("only subscriptions repeat")
 
 
 def deposit_cents(item: Item) -> int:

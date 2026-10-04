@@ -1,4 +1,5 @@
 import {
+    earningSourceLabel,
     earningStaffLabel,
     earningStatusIntent,
     formatRelativeTime,
@@ -46,7 +47,7 @@ function EarningItem({ row }: { row: EarningRow }) {
                 <div className="min-w-0">
                     <p className="font-medium text-ink">{earningStaffLabel(row)}</p>
                     <p className="truncate text-xs text-muted">
-                        {strings.payouts.sourceBooking} · {formatRelativeTime(row.created_at)}
+                        {earningSourceLabel(row)} · {formatRelativeTime(row.created_at)}
                     </p>
                 </div>
                 <span className="ml-auto shrink-0">

@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from clientbridge.schemas.billing import TaxClass
 
 ItemKind = Literal["service", "class", "product", "package", "subscription", "gift"]
+DepositType = Literal["none", "fixed", "percent"]
+Frequency = Literal["day", "week", "month", "year"]  # Stripe recurring intervals
 
 
 class ItemBase(BaseModel):
@@ -24,6 +26,16 @@ class ItemBase(BaseModel):
     cost_cents: int | None = Field(default=None, ge=0)
     track_stock: bool = False
     low_stock_at: int | None = Field(default=None, ge=0)
+    buffer_before_min: int = Field(default=0, ge=0)
+    buffer_after_min: int = Field(default=0, ge=0)
+    deposit_type: DepositType = "none"
+    deposit_value: float | None = Field(
+        default=None, ge=0
+    )  # cents when fixed, percent when percent
+    session_count: int | None = Field(default=None, ge=1)
+    validity_days: int | None = Field(default=None, ge=1)
+    interval: int | None = Field(default=None, ge=1)
+    frequency: Frequency | None = None
 
 
 class ItemCreate(ItemBase):
@@ -47,6 +59,14 @@ class ItemUpdate(BaseModel):
     cost_cents: int | None = Field(default=None, ge=0)
     track_stock: bool | None = None
     low_stock_at: int | None = Field(default=None, ge=0)
+    buffer_before_min: int | None = Field(default=None, ge=0)
+    buffer_after_min: int | None = Field(default=None, ge=0)
+    deposit_type: DepositType | None = None
+    deposit_value: float | None = Field(default=None, ge=0)
+    session_count: int | None = Field(default=None, ge=1)
+    validity_days: int | None = Field(default=None, ge=1)
+    interval: int | None = Field(default=None, ge=1)
+    frequency: Frequency | None = None
 
 
 class ItemOut(ItemBase):

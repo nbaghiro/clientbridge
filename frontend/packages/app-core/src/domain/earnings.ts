@@ -12,6 +12,7 @@ export interface EarningRow {
     staff_title: string | null;
     staff_role: string | null;
     booking_id: string | null;
+    order_id: string | null;
     amount_cents: number;
     status: string;
     created_at: string;
@@ -23,7 +24,9 @@ export interface EarningRow {
 const EARNINGS_SQL = `
 SELECT * FROM (
     SELECT e.journal_id AS id, e.owner_id AS staff_id, -e.amount_cents AS amount_cents,
-           e.subject_id AS booking_id, e.occurred_at AS created_at,
+           CASE WHEN e.subject_type = 'booking' THEN e.subject_id END AS booking_id,
+           CASE WHEN e.subject_type = 'order' THEN e.subject_id END AS order_id,
+           e.occurred_at AS created_at,
            s.title AS staff_title, s.role AS staff_role,
            CASE
                WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = 'earning:' || e.journal_id || ':reversal')
@@ -80,6 +83,11 @@ export function useEarningFilter(rows: EarningRow[]): EarningFilterView {
 export function earningStaffLabel(row: EarningRow): string {
     const title = row.staff_title ?? "";
     return title.length > 0 ? title : (row.staff_role ?? strings.payouts.staffFallback);
+}
+
+/** Where an earning came from: a completed booking, or retail commission on a sale. */
+export function earningSourceLabel(row: EarningRow): string {
+    return row.order_id !== null ? strings.payouts.sourceSale : strings.payouts.sourceBooking;
 }
 
 export function earningStatusIntent(status: string): Intent {

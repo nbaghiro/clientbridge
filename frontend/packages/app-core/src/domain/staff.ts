@@ -38,7 +38,7 @@ export function staffLabel(s: StaffRow): string {
 }
 
 /** Best display name for the Team list: title → invited email → role. */
-export function staffDisplayName(s: StaffRow): string {
+export function staffDisplayName(s: Pick<StaffRow, "title" | "invite_email" | "role">): string {
     return s.title ?? s.invite_email ?? s.role;
 }
 
@@ -191,4 +191,110 @@ export function useAcceptInviteForm(
     };
 
     return { name, setName, password, setPassword, busy, error, submit };
+}
+
+export interface StaffPayRow {
+    id: string;
+    title: string | null;
+    role: string;
+    invite_email: string | null;
+    is_payee: number | null;
+    rate_type: string | null;
+    default_rate: number | null;
+    retail_rate_bps: number | null;
+}
+
+// Pay columns reach owner/admin devices only (business_full); staff devices read them as NULL.
+const STAFF_PAY_SQL = `
+SELECT id, title, role, invite_email, is_payee, rate_type, default_rate, retail_rate_bps
+FROM staff WHERE status = 'active' ORDER BY role`;
+
+export function useStaffPay(): StaffPayRow[] {
+    return useQuery<StaffPayRow>(STAFF_PAY_SQL).data;
+}
+
+export const RATE_TYPES: { value: string; label: string }[] = [
+    { value: "percent", label: strings.team.ratePercent },
+    { value: "fixed", label: strings.team.rateFixed },
+    { value: "hourly", label: strings.team.rateHourly },
+];
+
+/** A one-line summary of how a member is paid, for the Team list. */
+export function staffPaySummary(row: StaffPayRow): string {
+    if (row.is_payee !== 1) return strings.team.notPaid;
+    const rate = row.default_rate ?? 0;
+    const service =
+        row.rate_type === "percent"
+            ? strings.team.payPercent(rate)
+            : row.rate_type === "hourly"
+              ? strings.team.payHourly(rate.toFixed(2))
+              : strings.team.payFixed(rate.toFixed(2));
+    const retail = row.retail_rate_bps ?? 0;
+    return retail > 0 ? strings.team.payWithRetail(service, retail / 100) : service;
+}
+
+export interface StaffPayForm {
+    isPayee: boolean;
+    setIsPayee: (v: boolean) => void;
+    rateType: string;
+    setRateType: (v: string) => void;
+    defaultRate: string;
+    setDefaultRate: (v: string) => void;
+    retailPercent: string;
+    setRetailPercent: (v: string) => void;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+}
+
+/** How a member is paid: service rate (percent, fixed per booking, or hourly) and the commission
+ *  percentage on products they sell. Owner/admin only (the server enforces it). */
+export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => void): StaffPayForm {
+    const [isPayee, setIsPayee] = useState(row.is_payee === 1);
+    const [rateType, setRateType] = useState(row.rate_type ?? "percent");
+    const [defaultRate, setDefaultRate] = useState(
+        row.default_rate === null ? "" : String(row.default_rate),
+    );
+    const [retailPercent, setRetailPercent] = useState(
+        row.retail_rate_bps === null ? "" : String(row.retail_rate_bps / 100),
+    );
+    const { busy, error, setError, run } = useAsyncAction();
+
+    const submit = (): void => {
+        const rate = defaultRate.trim() === "" ? null : Number(defaultRate);
+        const retail = retailPercent.trim() === "" ? 0 : Number(retailPercent);
+        const badRate = rate !== null && (!Number.isFinite(rate) || rate < 0);
+        if (badRate || (rateType === "percent" && rate !== null && rate > 100)) {
+            setError(strings.team.rateInvalid);
+            return;
+        }
+        if (!Number.isFinite(retail) || retail < 0 || retail > 100) {
+            setError(strings.team.retailInvalid);
+            return;
+        }
+        run(
+            () =>
+                api.patch(`/v1/staff/${row.id}/pay`, {
+                    is_payee: isPayee,
+                    rate_type: rateType,
+                    default_rate: rate,
+                    retail_rate_bps: Math.round(retail * 100),
+                }),
+            { onSuccess: onDone, errorMessage: strings.team.payError },
+        );
+    };
+
+    return {
+        isPayee,
+        setIsPayee,
+        rateType,
+        setRateType,
+        defaultRate,
+        setDefaultRate,
+        retailPercent,
+        setRetailPercent,
+        busy,
+        error,
+        submit,
+    };
 }

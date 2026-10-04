@@ -2,18 +2,24 @@ import {
     type Invite,
     type StaffRole,
     INVITABLE_ROLES,
+    RATE_TYPES,
+    type StaffPayRow,
     acceptInviteUrl,
     canManageStaff,
     decodeJwtSub,
     staffDisplayName,
+    staffPaySummary,
     strings,
     useCurrentRole,
     useInviteForm,
     usePendingInvites,
     useStaff,
+    useStaffPay,
+    useStaffPayForm,
 } from "@clientbridge/app-core";
 import { useState } from "react";
 
+import { DetailSection, DetailView } from "../components/DetailView";
 import { ListPage } from "../components/ListPage";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -25,6 +31,10 @@ export function Team() {
     const staff = useStaff();
     const pending = usePendingInvites();
     const invite = useInviteForm(api);
+    const manager = canManageStaff(role);
+    const pay = useStaffPay();
+    const [editingPay, setEditingPay] = useState<string | null>(null);
+    const payRow = pay.find((p) => p.id === editingPay);
 
     return (
         <div className="max-w-2xl">
@@ -33,6 +43,13 @@ export function Team() {
                 head={strings.team.members}
                 rows={staff}
                 rowKey={(s) => s.id}
+                onRowPress={
+                    manager
+                        ? (s) => {
+                              setEditingPay(s.id);
+                          }
+                        : undefined
+                }
                 empty={strings.team.noMembers}
                 renderRow={(s) => (
                     <div className="flex items-center justify-between">
@@ -48,6 +65,7 @@ export function Team() {
                             {s.invite_email !== null ? (
                                 <p className="text-xs text-muted">{s.invite_email}</p>
                             ) : null}
+                            {manager ? <PaySummary row={pay.find((p) => p.id === s.id)} /> : null}
                         </div>
                         <span className="text-xs font-medium capitalize text-ink-soft">
                             {s.role}
@@ -55,6 +73,16 @@ export function Team() {
                     </div>
                 )}
             />
+
+            {payRow !== undefined ? (
+                <StaffPayDetail
+                    key={payRow.id}
+                    row={payRow}
+                    onClose={() => {
+                        setEditingPay(null);
+                    }}
+                />
+            ) : null}
 
             {pending.length > 0 ? (
                 <section className="mt-6 rounded-lg border border-line bg-surface">
@@ -180,5 +208,96 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
                 </button>
             </div>
         </div>
+    );
+}
+
+function PaySummary({ row }: { row: StaffPayRow | undefined }) {
+    if (row === undefined) return null;
+    return <p className="text-xs text-muted">{staffPaySummary(row)}</p>;
+}
+
+const payField =
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
+
+function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => void }) {
+    const form = useStaffPayForm(api, row, onClose);
+    return (
+        <DetailView
+            open
+            title={staffDisplayName(row)}
+            subtitle={strings.team.payHeading}
+            onClose={onClose}
+            actions={
+                <button
+                    type="button"
+                    onClick={form.submit}
+                    disabled={form.busy}
+                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                >
+                    {form.busy ? strings.catalog.saving : strings.catalog.save}
+                </button>
+            }
+        >
+            <DetailSection>
+                <div className="flex flex-col gap-3">
+                    <label className="flex items-center gap-2 text-sm text-ink">
+                        <input
+                            type="checkbox"
+                            checked={form.isPayee}
+                            onChange={(e) => {
+                                form.setIsPayee(e.target.checked);
+                            }}
+                            className="h-4 w-4 accent-accent"
+                        />
+                        {strings.team.isPayee}
+                    </label>
+                    {form.isPayee ? (
+                        <>
+                            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                                {strings.team.rateType}
+                                <select
+                                    value={form.rateType}
+                                    onChange={(e) => {
+                                        form.setRateType(e.target.value);
+                                    }}
+                                    className={payField}
+                                >
+                                    {RATE_TYPES.map((t) => (
+                                        <option key={t.value} value={t.value}>
+                                            {t.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                                {strings.team.rateLabel(form.rateType)}
+                                <input
+                                    value={form.defaultRate}
+                                    onChange={(e) => {
+                                        form.setDefaultRate(e.target.value);
+                                    }}
+                                    inputMode="decimal"
+                                    className={payField}
+                                />
+                            </label>
+                            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
+                                {strings.team.retailRate}
+                                <input
+                                    value={form.retailPercent}
+                                    onChange={(e) => {
+                                        form.setRetailPercent(e.target.value);
+                                    }}
+                                    inputMode="decimal"
+                                    className={payField}
+                                />
+                            </label>
+                        </>
+                    ) : null}
+                    {form.error !== null ? (
+                        <p className="text-sm text-danger-fg">{form.error}</p>
+                    ) : null}
+                </div>
+            </DetailSection>
+        </DetailView>
     );
 }

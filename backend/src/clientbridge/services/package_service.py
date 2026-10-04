@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -72,6 +74,11 @@ class PackageService:
                 sessions_used=0,
                 status="pending",
                 payment_id=payment.id,
+                expires_at=(
+                    datetime.now(UTC) + timedelta(days=item.validity_days)
+                    if item.validity_days
+                    else None
+                ),
             )
             self.db.add(package)
             await self.db.flush()

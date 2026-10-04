@@ -81,6 +81,8 @@ class OrderService:
             raise Conflict("only an open order can be edited")
         if await self._has_active_payment(order_id):
             raise Conflict("can't edit an order after checkout has started")
+        if data.client_id is not None:
+            await self._client(data.client_id)
 
         async def run(cmd: Command) -> OrderOut:
             lines = (
@@ -88,7 +90,7 @@ class OrderService:
                 if data.lines is not None
                 else await fetch_lines(self.db, self.biz, "order", order.id)
             )
-            for key in ("receipt_email", "receipt_phone"):
+            for key in ("client_id", "receipt_email", "receipt_phone"):
                 if key in data.model_fields_set:
                     setattr(order, key, getattr(data, key))
             await self._apply_totals(order, lines)

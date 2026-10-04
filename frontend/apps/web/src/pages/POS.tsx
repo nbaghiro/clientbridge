@@ -1,6 +1,13 @@
 import {
+    type EntitlementKind,
     canVoidSale,
     type CartLine,
+    checkoutMethods,
+    entitlementKindsOnSale,
+    useClients,
+    useSaleCheckout,
+    useSavedCards,
+    useStripeAccountId,
     type OpenOrderRow,
     type Order,
     filterItems,
@@ -14,9 +21,15 @@ import {
     useOpenOrders,
     useSearch,
 } from "@clientbridge/app-core";
-import { ItemImage, StatusPill } from "@clientbridge/ui";
-import { useMemo } from "react";
+import { ChargeSheet, ItemImage, StatusPill } from "@clientbridge/ui";
+import { useMemo, useState } from "react";
 
+import {
+    ClientSelect,
+    SellGiftCard,
+    SellPackage,
+    StartSubscription,
+} from "../components/EntitlementSales";
 import { IconSearch } from "../components/icons";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -25,6 +38,8 @@ export function POS() {
     const cart = useCart(api);
     const items = useCatalogItems();
     const active = useMemo(() => sellableItems(items), [items]);
+    const entitlements = useMemo(() => entitlementKindsOnSale(items), [items]);
+    const [selling, setSelling] = useState<EntitlementKind | null>(null);
     const { q, setQ, filtered } = useSearch(active, filterItems);
 
     return (
@@ -76,6 +91,42 @@ export function POS() {
                     ) : null}
                 </div>
 
+                {entitlements.length > 0 ? (
+                    <section className="mt-8">
+                        <h2 className="font-display text-base font-semibold text-ink">
+                            {strings.pos.alsoSell}
+                        </h2>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {entitlements.map((kind) => (
+                                <button
+                                    key={kind}
+                                    type="button"
+                                    onClick={() => {
+                                        setSelling(selling === kind ? null : kind);
+                                    }}
+                                    className={`rounded-md border px-3.5 py-2 text-sm font-semibold transition ${
+                                        selling === kind
+                                            ? "border-accent bg-accent-weak text-accent-strong"
+                                            : "border-line text-ink-soft hover:bg-bg"
+                                    }`}
+                                >
+                                    {ENTITLEMENT_LABEL[kind]}
+                                </button>
+                            ))}
+                        </div>
+                        {selling !== null ? (
+                            <div className="mt-3">
+                                <EntitlementSale
+                                    kind={selling}
+                                    onClose={() => {
+                                        setSelling(null);
+                                    }}
+                                />
+                            </div>
+                        ) : null}
+                    </section>
+                ) : null}
+
                 <OpenOrders />
             </section>
 
@@ -86,8 +137,105 @@ export function POS() {
     );
 }
 
+const ENTITLEMENT_LABEL: Record<EntitlementKind, string> = {
+    gift: strings.pos.sellGiftCard,
+    package: strings.pos.sellPackage,
+    subscription: strings.pos.sellSubscription,
+};
+
+function EntitlementSale({ kind, onClose }: { kind: EntitlementKind; onClose: () => void }) {
+    if (kind === "gift") return <SellGiftCard onClose={onClose} />;
+    if (kind === "package") return <SellPackage clientId={null} onClose={onClose} />;
+    return <StartSubscription clientId={null} onClose={onClose} />;
+}
+
+const input =
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
+
+function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
+    const clients = useClients();
+    return (
+        <div className="space-y-2 border-b border-line px-4 py-3">
+            <label className="flex flex-col gap-1 text-xs font-medium text-ink-soft">
+                {strings.pos.clientLabel}
+                <ClientSelect
+                    clients={clients}
+                    value={cart.clientId ?? ""}
+                    onChange={(id) => {
+                        cart.setClientId(id === "" ? null : id);
+                    }}
+                />
+            </label>
+            <div className="flex gap-2">
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-ink-soft">
+                    {strings.pos.receiptEmail}
+                    <input
+                        value={cart.receiptEmail}
+                        onChange={(e) => {
+                            cart.setReceiptEmail(e.target.value);
+                        }}
+                        inputMode="email"
+                        className={input}
+                    />
+                </label>
+                <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-ink-soft">
+                    {strings.pos.receiptPhone}
+                    <input
+                        value={cart.receiptPhone}
+                        onChange={(e) => {
+                            cart.setReceiptPhone(e.target.value);
+                        }}
+                        inputMode="tel"
+                        className={input}
+                    />
+                </label>
+            </div>
+            <p className="text-xs text-muted">{strings.pos.receiptHint}</p>
+        </div>
+    );
+}
+
+function CardPayment({ cart }: { cart: ReturnType<typeof useCart> }) {
+    const cards = useSavedCards(cart.clientId ?? "");
+    const methods = checkoutMethods(cards);
+    const sale = useSaleCheckout(api, cart, methods[0]?.id);
+    const stripeAccount = useStripeAccountId() ?? "";
+    if (cart.order === null) return null;
+    return (
+        <ChargeSheet
+            checkout={sale.checkout}
+            methods={methods}
+            amountLabel={formatMoney(cart.order.total_cents)}
+            stripeAccount={stripeAccount}
+            submitLabel={strings.pos.payCard}
+            busyLabel={strings.pos.paying}
+            onSubmit={sale.submit}
+            onCancel={cart.backToCart}
+        />
+    );
+}
+
 function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
     const canVoid = canVoidSale(useRole());
+    if (cart.phase === "paid" && cart.order !== null) {
+        return (
+            <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
+                <h2 className="font-display text-base font-bold text-ink">
+                    {strings.pos.paidTitle}
+                </h2>
+                <p className="mt-2 text-sm text-ink-soft">
+                    {strings.pos.paidBody(formatMoney(cart.order.total_cents))}
+                </p>
+                <button
+                    type="button"
+                    onClick={cart.newSale}
+                    className="mt-4 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+                >
+                    {strings.pos.newSale}
+                </button>
+            </div>
+        );
+    }
     return (
         <div className="flex max-h-[calc(100vh-4rem)] flex-col rounded-lg border border-line bg-surface shadow-card">
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -102,6 +250,8 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                     </button>
                 )}
             </div>
+
+            <SaleDetails cart={cart} />
 
             <div className="flex-1 overflow-y-auto px-4 py-2">
                 {cart.isEmpty ? (
@@ -126,7 +276,9 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                 {cart.phase === "review" && cart.order !== null ? (
                     <>
                         <Totals order={cart.order} />
-                        <p className="mt-3 text-sm text-muted">{strings.pos.heldForMobile}</p>
+                        <div className="mt-3">
+                            <CardPayment cart={cart} />
+                        </div>
                         <div className="mt-3 flex gap-2">
                             {canVoid ? (
                                 <button
@@ -141,7 +293,7 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                             <button
                                 type="button"
                                 onClick={cart.newSale}
-                                className="flex-1 rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+                                className="flex-1 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
                             >
                                 {strings.pos.newSale}
                             </button>

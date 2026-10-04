@@ -35,7 +35,7 @@ const c = theme.colors;
 export function ReportsScreen() {
     const [year, setYear] = useState(defaultReportRange().year);
     const range = reportRangeForYear(year);
-    const { income, gstHst, t4a, error } = useReports(api, range);
+    const { income, gstHst, t4a, salesByItem, error } = useReports(api, range);
     const {
         error: dlError,
         isDownloading,
@@ -112,6 +112,42 @@ export function ReportsScreen() {
                                     <Text style={styles.lineLabel}>{row.name}</Text>
                                     <Text style={styles.lineValue}>
                                         {formatMoney(row.total_cents)}
+                                    </Text>
+                                </View>
+                            ))
+                        )}
+                    </Card>
+
+                    <Card
+                        title={strings.reports.salesByItemTitle}
+                        subtitle={strings.reports.salesByItemSubtitle}
+                        onDownload={() => {
+                            download("sales-by-item");
+                        }}
+                        downloading={isDownloading("sales-by-item")}
+                    >
+                        {salesByItem === null ? (
+                            <Loading />
+                        ) : salesByItem.length === 0 ? (
+                            <Text style={styles.muted}>{strings.reports.noItemSales}</Text>
+                        ) : (
+                            salesByItem.map((row) => (
+                                <View key={row.item_id} style={styles.line}>
+                                    <View style={styles.itemMain}>
+                                        <Text style={styles.itemName} numberOfLines={1}>
+                                            {row.name}
+                                        </Text>
+                                        <Text style={styles.itemSub}>
+                                            {strings.reports.colQty}{" "}
+                                            {strings.reports.qty(row.quantity)} ·{" "}
+                                            {strings.reports.colTax} {formatMoney(row.tax_cents)}
+                                            {row.refunded_cents > 0
+                                                ? ` · ${strings.reports.colRefunded} ${formatMoney(row.refunded_cents)}`
+                                                : ""}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.lineValue}>
+                                        {formatMoney(row.sales_cents)}
                                     </Text>
                                 </View>
                             ))
@@ -343,6 +379,9 @@ const styles = StyleSheet.create({
     },
     lineLabel: { color: c.inkSoft, fontSize: 14, textTransform: "capitalize" },
     lineValue: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
+    itemMain: { flex: 1, marginRight: 12 },
+    itemName: { color: c.inkSoft, fontSize: 14 },
+    itemSub: { color: c.muted, fontSize: 12, marginTop: 2 },
     loading: { alignSelf: "flex-start" },
     remit: {
         gap: 8,

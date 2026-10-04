@@ -1,45 +1,36 @@
 import {
     type ClientRow,
-    type ItemRow,
     type PackageRow,
     type SavedCardRow,
     type SubscriptionRow,
     canConsume,
     canBeDefault,
     canManagePayments,
-    checkoutMethods,
     cancelSubscription,
     clientStatusIntent,
     consumeSession,
     detachCard,
     filterClients,
     formatDate,
-    formatMoney,
     initials,
     isCancelable,
     isMandate,
     mandateStatusIntent,
-    packageOfferings,
     packageStatusIntent,
     parseTimestamp,
     savedCardLabel,
     sessionsRemaining,
     setDefaultCard,
     strings,
-    subscriptionPlans,
     subscriptionStatusIntent,
     useAddPaymentMethod,
     useAsyncAction,
-    useCatalogItems,
     useClientForm,
     useClientPackages,
     useClientSubscriptions,
     useClients,
-    usePackageSaleForm,
     useSavedCards,
     useSearch,
-    useSubscriptionForm,
-    useStripeAccountId,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type RouteProp, useRoute } from "@react-navigation/native";
@@ -57,7 +48,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { InboxButton } from "../components/InboxButton";
-import { ChargeSheet } from "../ui/ChargeSheet";
+import { SellPackage, StartSubscription } from "../components/EntitlementSales";
+
 import { DetailSection, DetailView } from "../ui/DetailView";
 import { ListPage } from "../ui/ListPage";
 import { Money } from "../ui/Money";
@@ -260,9 +252,6 @@ function CardRow({ card }: { card: SavedCardRow }) {
 
 function SubscriptionsSection({ clientId }: { clientId: string }) {
     const subs = useClientSubscriptions(clientId);
-    const cards = useSavedCards(clientId);
-    const items = useCatalogItems();
-    const plans = subscriptionPlans(items);
     const [starting, setStarting] = useState(false);
 
     return (
@@ -285,10 +274,8 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
                 subs.map((sub) => <SubscriptionRowItem key={sub.id} sub={sub} />)
             )}
             {starting ? (
-                <StartSubscriptionForm
+                <StartSubscription
                     clientId={clientId}
-                    plans={plans}
-                    cards={cards}
                     onClose={() => {
                         setStarting(false);
                     }}
@@ -347,62 +334,8 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
     );
 }
 
-function StartSubscriptionForm({
-    clientId,
-    plans,
-    cards,
-    onClose,
-}: {
-    clientId: string;
-    plans: ItemRow[];
-    cards: SavedCardRow[];
-    onClose: () => void;
-}) {
-    const form = useSubscriptionForm(api, clientId, onClose);
-    const plan = plans.find((p) => p.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={plan ? formatMoney(plan.price_cents) : ""}
-            stripeAccount=""
-            submitLabel={strings.clients.startSubscription}
-            busyLabel={strings.clients.starting}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <Text style={styles.fieldLabel}>{strings.clients.planLabel}</Text>
-            {plans.length === 0 ? (
-                <Text style={styles.note}>{strings.clients.addSubscriptionItemFirst}</Text>
-            ) : (
-                <View style={styles.chipWrap}>
-                    {plans.map((p) => (
-                        <Pressable
-                            key={p.id}
-                            style={[styles.chip, form.itemId === p.id && styles.chipOn]}
-                            onPress={() => {
-                                form.setItemId(p.id);
-                            }}
-                        >
-                            <Text
-                                style={[styles.chipText, form.itemId === p.id && styles.chipTextOn]}
-                            >
-                                {p.name} · {formatMoney(p.price_cents)}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
-            )}
-        </ChargeSheet>
-    );
-}
-
 function PackagesSection({ clientId }: { clientId: string }) {
     const packages = useClientPackages(clientId);
-    const cards = useSavedCards(clientId);
-    const items = useCatalogItems();
-    const offerings = packageOfferings(items);
     const [selling, setSelling] = useState(false);
 
     return (
@@ -425,10 +358,8 @@ function PackagesSection({ clientId }: { clientId: string }) {
                 packages.map((pkg) => <PackageRowItem key={pkg.id} pkg={pkg} />)
             )}
             {selling ? (
-                <SellPackageForm
+                <SellPackage
                     clientId={clientId}
-                    offerings={offerings}
-                    cards={cards}
                     onClose={() => {
                         setSelling(false);
                     }}
@@ -469,60 +400,6 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
             </View>
             {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
         </View>
-    );
-}
-
-function SellPackageForm({
-    clientId,
-    offerings,
-    cards,
-    onClose,
-}: {
-    clientId: string;
-    offerings: ItemRow[];
-    cards: SavedCardRow[];
-    onClose: () => void;
-}) {
-    const form = usePackageSaleForm(api, clientId, onClose);
-    const stripeAccount = useStripeAccountId() ?? "";
-    const offering = offerings.find((o) => o.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
-            }
-            stripeAccount={stripeAccount}
-            submitLabel={strings.clients.sellPackage}
-            busyLabel={strings.clients.selling}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <Text style={styles.fieldLabel}>{strings.clients.packageLabel}</Text>
-            {offerings.length === 0 ? (
-                <Text style={styles.note}>{strings.clients.addPackageItemFirst}</Text>
-            ) : (
-                <View style={styles.chipWrap}>
-                    {offerings.map((o) => (
-                        <Pressable
-                            key={o.id}
-                            style={[styles.chip, form.itemId === o.id && styles.chipOn]}
-                            onPress={() => {
-                                form.setItemId(o.id);
-                            }}
-                        >
-                            <Text
-                                style={[styles.chipText, form.itemId === o.id && styles.chipTextOn]}
-                            >
-                                {o.name} · {formatMoney(o.price_cents)}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
-            )}
-        </ChargeSheet>
     );
 }
 
@@ -644,18 +521,6 @@ const styles = StyleSheet.create({
         borderWidth: 1,
     },
     miniBtnText: { color: c.inkSoft, fontSize: 12, fontWeight: "600" },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
-    chip: {
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: 20,
-        backgroundColor: c.surface,
-        borderWidth: 1,
-        borderColor: c.border,
-    },
-    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
-    chipText: { color: c.ink, fontSize: 13, fontWeight: "500" },
-    chipTextOn: { color: c.accentInk },
     errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
     modalBackdrop: {
         flex: 1,

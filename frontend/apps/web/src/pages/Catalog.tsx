@@ -1,19 +1,32 @@
 import {
+    CATALOG_FILTERS,
+    catalogEmptyText,
+    type CatalogFilter,
+    DEPOSIT_TYPES,
+    FREQUENCIES,
     ITEM_KINDS,
+    type ItemForm,
+    type ItemRow,
     KIND_LABEL,
+    TAX_CLASSES,
     canManageCatalog,
+    filterCatalog,
     filterItems,
     itemImageTarget,
     mediaUrl,
+    stockIntent,
+    stockLabel,
+    stockState,
     strings,
     useCatalogItems,
     useItemForm,
+    useRestockForm,
     useSearch,
 } from "@clientbridge/app-core";
-import { type SubmitEvent, useState } from "react";
+import { ItemImage, StatusPill } from "@clientbridge/ui";
+import { type ReactNode, useMemo, useState } from "react";
 
-import { ItemImage } from "@clientbridge/ui";
-
+import { DetailSection, DetailView } from "../components/DetailView";
 import { ItemImageUpload } from "../components/ItemImageUpload";
 import { ListPage } from "../components/ListPage";
 import { Money } from "../components/Money";
@@ -21,23 +34,37 @@ import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 
 const GRID = "grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-4";
+const field =
+    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
+const primary =
+    "rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60";
+const quiet =
+    "rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60";
 
 export function Catalog() {
     const items = useCatalogItems();
-    const { q, setQ, filtered } = useSearch(items, filterItems);
-    const [adding, setAdding] = useState(false);
+    const [filter, setFilter] = useState<CatalogFilter>("all");
+    const shown = useMemo(() => filterCatalog(items, filter), [items, filter]);
+    const { q, setQ, filtered } = useSearch(shown, filterItems);
+    const [open, setOpen] = useState<ItemRow | "new" | null>(null);
     const editable = canManageCatalog(useRole());
+    const current = open === "new" || open === null ? open : items.find((i) => i.id === open.id);
 
     return (
         <div>
             <ListPage
                 summary={strings.catalog.itemCount(items.length)}
-                action={{
-                    label: strings.catalog.addItem,
-                    onPress: () => {
-                        setAdding(true);
-                    },
-                }}
+                action={
+                    editable
+                        ? {
+                              label: strings.catalog.addItem,
+                              onPress: () => {
+                                  setOpen("new");
+                              },
+                          }
+                        : undefined
+                }
+                segments={{ items: CATALOG_FILTERS, active: filter, onSelect: setFilter }}
                 search={{
                     value: q,
                     onChange: setQ,
@@ -47,58 +74,31 @@ export function Catalog() {
                     <div className={GRID}>
                         <span>{strings.catalog.name}</span>
                         <span>{strings.catalog.type}</span>
-                        <span>{strings.catalog.duration}</span>
+                        <span>
+                            {strings.catalog.duration} / {strings.catalog.stockHeading}
+                        </span>
                         <span className="text-right">{strings.catalog.price}</span>
                     </div>
                 }
                 rows={filtered}
                 rowKey={(i) => i.id}
-                empty={q ? strings.catalog.noMatch : strings.catalog.empty}
-                renderRow={(i) => (
-                    <div className={`${GRID} ${i.active ? "" : "opacity-50"}`}>
-                        <div className="flex items-center gap-3">
-                            {editable ? (
-                                <ItemImageUpload
-                                    src={mediaUrl(apiBaseUrl, i.image_file_id)}
-                                    name={i.name}
-                                    color={i.color}
-                                    target={itemImageTarget(i.id)}
-                                />
-                            ) : (
-                                <ItemImage
-                                    src={mediaUrl(apiBaseUrl, i.image_file_id)}
-                                    name={i.name}
-                                    color={i.color}
-                                />
-                            )}
-                            <div className="min-w-0">
-                                <div className="truncate font-medium text-ink">{i.name}</div>
-                                {i.category ? (
-                                    <div className="text-xs text-muted">{i.category}</div>
-                                ) : null}
-                            </div>
-                        </div>
-                        <span>
-                            <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
-                                {KIND_LABEL[i.kind] ?? i.kind}
-                            </span>
-                        </span>
-                        <span className="text-ink-soft">
-                            {i.duration_min
-                                ? strings.catalog.durationMin(i.duration_min)
-                                : strings.clients.dash}
-                        </span>
-                        <span className="text-right">
-                            <Money cents={i.price_cents} />
-                        </span>
-                    </div>
-                )}
+                onRowPress={
+                    editable
+                        ? (i) => {
+                              setOpen(i);
+                          }
+                        : undefined
+                }
+                empty={catalogEmptyText(q, filter)}
+                renderRow={(i) => <ItemRowView item={i} editable={editable} />}
             />
 
-            {adding ? (
-                <AddItemModal
+            {current !== undefined && current !== null ? (
+                <ItemDetail
+                    key={current === "new" ? "new" : current.id}
+                    item={current === "new" ? null : current}
                     onClose={() => {
-                        setAdding(false);
+                        setOpen(null);
                     }}
                 />
             ) : null}
@@ -106,108 +106,443 @@ export function Catalog() {
     );
 }
 
-function AddItemModal({ onClose }: { onClose: () => void }) {
-    const form = useItemForm(api, onClose);
-    const submit = (e: SubmitEvent): void => {
-        e.preventDefault();
-        form.submit();
-    };
+function ItemRowView({ item, editable }: { item: ItemRow; editable: boolean }) {
+    const state = stockState(item);
+    return (
+        <div className={`${GRID} ${item.active === 1 ? "" : "opacity-50"}`}>
+            <div className="flex items-center gap-3">
+                {editable ? (
+                    <span
+                        onClick={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        <ItemImageUpload
+                            src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                            name={item.name}
+                            color={item.color}
+                            target={itemImageTarget(item.id)}
+                        />
+                    </span>
+                ) : (
+                    <ItemImage
+                        src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                        name={item.name}
+                        color={item.color}
+                    />
+                )}
+                <div className="min-w-0">
+                    <div className="truncate font-medium text-ink">{item.name}</div>
+                    <div className="truncate text-xs text-muted">
+                        {[item.category, item.sku].filter(Boolean).join(" · ")}
+                    </div>
+                </div>
+            </div>
+            <span>
+                <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
+                    {KIND_LABEL[item.kind] ?? item.kind}
+                </span>
+            </span>
+            <span className="text-ink-soft">
+                {state !== "untracked" ? (
+                    <StatusPill status={stockLabel(item)} intent={stockIntent(state)} />
+                ) : item.duration_min ? (
+                    strings.catalog.durationMin(item.duration_min)
+                ) : (
+                    strings.clients.dash
+                )}
+            </span>
+            <span className="text-right">
+                <Money cents={item.price_cents} />
+            </span>
+        </div>
+    );
+}
 
-    const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
+function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => void }) {
+    const form = useItemForm(api, item, onClose);
+    const archived = item !== null && item.active !== 1;
 
     return (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
-            <form
-                onSubmit={submit}
-                className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"
-            >
-                <h2 className="font-display text-lg font-bold text-ink">
-                    {strings.catalog.addItem}
-                </h2>
-                <div className="mt-4 flex flex-col gap-3">
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.catalog.type}
-                        <select
-                            value={form.kind}
-                            onChange={(e) => {
-                                form.setKind(e.target.value);
-                            }}
-                            className={field}
+        <DetailView
+            open
+            title={item?.name ?? strings.catalog.newItem}
+            subtitle={item === null ? undefined : (KIND_LABEL[item.kind] ?? item.kind)}
+            status={
+                archived ? { status: strings.catalog.archivedPill, intent: "neutral" } : undefined
+            }
+            onClose={onClose}
+            actions={
+                <>
+                    {item !== null ? (
+                        <button
+                            type="button"
+                            onClick={archived ? form.restore : form.archive}
+                            disabled={form.busy}
+                            className={quiet}
                         >
-                            {ITEM_KINDS.map((k) => (
-                                <option key={k} value={k}>
-                                    {KIND_LABEL[k]}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.catalog.name}
-                        <input
-                            value={form.name}
-                            onChange={(e) => {
-                                form.setName(e.target.value);
-                            }}
-                            autoFocus
-                            className={field}
-                        />
-                    </label>
-                    <div className="flex gap-3">
-                        <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
-                            {strings.catalog.priceLabel}
-                            <input
-                                value={form.price}
-                                onChange={(e) => {
-                                    form.setPrice(e.target.value);
-                                }}
-                                inputMode="decimal"
-                                placeholder="0.00"
-                                className={field}
-                            />
-                        </label>
-                        <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
-                            {strings.catalog.durationLabel}
-                            <input
-                                value={form.duration}
-                                onChange={(e) => {
-                                    form.setDuration(e.target.value);
-                                }}
-                                inputMode="numeric"
-                                placeholder="—"
-                                className={field}
-                            />
-                        </label>
-                    </div>
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.catalog.category}
-                        <input
-                            value={form.category}
-                            onChange={(e) => {
-                                form.setCategory(e.target.value);
-                            }}
-                            className={field}
-                        />
-                    </label>
-                    {form.error ? <p className="text-sm text-danger-fg">{form.error}</p> : null}
-                </div>
-                <div className="mt-5 flex justify-end gap-2">
+                            {archived ? strings.catalog.restore : strings.catalog.archive}
+                        </button>
+                    ) : null}
                     <button
                         type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
-                        {strings.common.cancel}
-                    </button>
-                    <button
-                        type="submit"
+                        onClick={form.submit}
                         disabled={form.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                        className={primary}
                     >
-                        {form.busy ? strings.catalog.adding : strings.catalog.addItem}
+                        {form.busy
+                            ? strings.catalog.saving
+                            : item === null
+                              ? strings.catalog.addItem
+                              : strings.catalog.save}
                     </button>
+                </>
+            }
+        >
+            <DetailSection>
+                <ItemFields form={form} />
+                {form.error !== null ? (
+                    <p className="mt-3 text-sm text-danger-fg">{form.error}</p>
+                ) : null}
+            </DetailSection>
+            {item !== null && item.track_stock === 1 ? <RestockSection item={item} /> : null}
+        </DetailView>
+    );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+    return (
+        <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
+            {label}
+            {children}
+            {hint !== undefined ? (
+                <span className="text-xs font-normal text-muted">{hint}</span>
+            ) : null}
+        </label>
+    );
+}
+
+function TextField({
+    form,
+    name,
+    label,
+    hint,
+    numeric,
+}: {
+    form: ItemForm;
+    name:
+        | "name"
+        | "category"
+        | "price"
+        | "duration"
+        | "bufferBefore"
+        | "bufferAfter"
+        | "capacity"
+        | "depositValue"
+        | "sessionCount"
+        | "validityDays"
+        | "interval"
+        | "sku"
+        | "cost"
+        | "openingStock"
+        | "lowStockAt";
+    label: string;
+    hint?: string;
+    numeric?: "decimal" | "numeric";
+}) {
+    return (
+        <Field label={label} {...(hint !== undefined ? { hint } : {})}>
+            <input
+                value={form.values[name]}
+                onChange={(e) => {
+                    form.set(name, e.target.value);
+                }}
+                {...(numeric !== undefined ? { inputMode: numeric } : {})}
+                className={field}
+            />
+        </Field>
+    );
+}
+
+function Select({
+    value,
+    options,
+    onChange,
+}: {
+    value: string;
+    options: { value: string; label: string }[];
+    onChange: (v: string) => void;
+}) {
+    return (
+        <select
+            value={value}
+            onChange={(e) => {
+                onChange(e.target.value);
+            }}
+            className={field}
+        >
+            {options.map((o) => (
+                <option key={o.value} value={o.value}>
+                    {o.label}
+                </option>
+            ))}
+        </select>
+    );
+}
+
+function Check({
+    checked,
+    label,
+    onChange,
+}: {
+    checked: boolean;
+    label: string;
+    onChange: (v: boolean) => void;
+}) {
+    return (
+        <label className="flex items-center gap-2 text-sm text-ink">
+            <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => {
+                    onChange(e.target.checked);
+                }}
+                className="h-4 w-4 accent-accent"
+            />
+            {label}
+        </label>
+    );
+}
+
+function ItemFields({ form }: { form: ItemForm }) {
+    const v = form.values;
+    return (
+        <div className="flex flex-col gap-3">
+            {form.editing ? null : (
+                <Field label={strings.catalog.type}>
+                    <Select
+                        value={v.kind}
+                        options={ITEM_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))}
+                        onChange={(k) => {
+                            form.set("kind", k);
+                        }}
+                    />
+                </Field>
+            )}
+            <TextField form={form} name="name" label={strings.catalog.name} />
+            <Field label={strings.catalog.description}>
+                <textarea
+                    value={v.description}
+                    onChange={(e) => {
+                        form.set("description", e.target.value);
+                    }}
+                    rows={2}
+                    className={field}
+                />
+            </Field>
+            <div className="flex gap-3">
+                <TextField
+                    form={form}
+                    name="price"
+                    label={strings.catalog.priceLabel}
+                    numeric="decimal"
+                />
+                <TextField form={form} name="category" label={strings.catalog.category} />
+            </div>
+
+            {form.shows("duration") ? (
+                <div className="flex gap-3">
+                    <TextField
+                        form={form}
+                        name="duration"
+                        label={strings.catalog.durationLabel}
+                        numeric="numeric"
+                    />
+                    <TextField
+                        form={form}
+                        name="bufferBefore"
+                        label={strings.catalog.bufferBefore}
+                        numeric="numeric"
+                    />
+                    <TextField
+                        form={form}
+                        name="bufferAfter"
+                        label={strings.catalog.bufferAfter}
+                        numeric="numeric"
+                    />
                 </div>
-            </form>
+            ) : null}
+            {form.shows("capacity") ? (
+                <TextField
+                    form={form}
+                    name="capacity"
+                    label={strings.catalog.capacity}
+                    numeric="numeric"
+                />
+            ) : null}
+            {form.shows("onlineBookable") ? (
+                <Check
+                    checked={v.onlineBookable}
+                    label={strings.catalog.onlineBookable}
+                    onChange={(c) => {
+                        form.set("onlineBookable", c);
+                    }}
+                />
+            ) : null}
+            {form.shows("depositType") ? (
+                <div className="flex gap-3">
+                    <Field label={strings.catalog.depositType}>
+                        <Select
+                            value={v.depositType}
+                            options={DEPOSIT_TYPES}
+                            onChange={(t) => {
+                                form.set("depositType", t);
+                            }}
+                        />
+                    </Field>
+                    {v.depositType !== "none" ? (
+                        <TextField
+                            form={form}
+                            name="depositValue"
+                            label={
+                                v.depositType === "fixed"
+                                    ? strings.catalog.depositAmount
+                                    : strings.catalog.depositPercentLabel
+                            }
+                            numeric="decimal"
+                        />
+                    ) : null}
+                </div>
+            ) : null}
+
+            {form.shows("sessionCount") ? (
+                <div className="flex gap-3">
+                    <TextField
+                        form={form}
+                        name="sessionCount"
+                        label={strings.catalog.sessionCount}
+                        numeric="numeric"
+                    />
+                    <TextField
+                        form={form}
+                        name="validityDays"
+                        label={strings.catalog.validityDays}
+                        hint={strings.catalog.validityHint}
+                        numeric="numeric"
+                    />
+                </div>
+            ) : null}
+
+            {form.shows("interval") ? (
+                <div className="flex gap-3">
+                    <TextField
+                        form={form}
+                        name="interval"
+                        label={strings.catalog.intervalLabel}
+                        numeric="numeric"
+                    />
+                    <Field label={strings.catalog.repeatsEvery}>
+                        <Select
+                            value={v.frequency}
+                            options={FREQUENCIES}
+                            onChange={(f) => {
+                                form.set("frequency", f);
+                            }}
+                        />
+                    </Field>
+                </div>
+            ) : null}
+
+            {form.shows("sku") ? (
+                <div className="flex gap-3">
+                    <TextField form={form} name="sku" label={strings.catalog.sku} />
+                    <TextField
+                        form={form}
+                        name="cost"
+                        label={strings.catalog.cost}
+                        numeric="decimal"
+                    />
+                </div>
+            ) : null}
+            {form.shows("trackStock") ? (
+                <>
+                    <Check
+                        checked={v.trackStock}
+                        label={strings.catalog.trackStock}
+                        onChange={(c) => {
+                            form.set("trackStock", c);
+                        }}
+                    />
+                    {v.trackStock ? (
+                        <div className="flex gap-3">
+                            {form.editing ? null : (
+                                <TextField
+                                    form={form}
+                                    name="openingStock"
+                                    label={strings.catalog.openingStock}
+                                    numeric="numeric"
+                                />
+                            )}
+                            <TextField
+                                form={form}
+                                name="lowStockAt"
+                                label={strings.catalog.lowStockAt}
+                                numeric="numeric"
+                            />
+                        </div>
+                    ) : null}
+                </>
+            ) : null}
+
+            <Field label={strings.catalog.taxClass} hint={strings.catalog.taxNote}>
+                <Select
+                    value={v.taxClass}
+                    options={TAX_CLASSES}
+                    onChange={(t) => {
+                        form.set("taxClass", t);
+                    }}
+                />
+            </Field>
         </div>
+    );
+}
+
+function RestockSection({ item }: { item: ItemRow }) {
+    const form = useRestockForm(api, item, () => undefined);
+    const state = stockState(item);
+    return (
+        <DetailSection
+            title={strings.catalog.stockHeading}
+            action={<StatusPill status={stockLabel(item)} intent={stockIntent(state)} />}
+        >
+            <div className="flex items-end gap-3">
+                <Field label={strings.catalog.restockQuantity}>
+                    <input
+                        value={form.quantity}
+                        onChange={(e) => {
+                            form.setQuantity(e.target.value);
+                        }}
+                        inputMode="numeric"
+                        className={field}
+                    />
+                </Field>
+                <Field label={strings.catalog.restockNote}>
+                    <input
+                        value={form.note}
+                        onChange={(e) => {
+                            form.setNote(e.target.value);
+                        }}
+                        className={field}
+                    />
+                </Field>
+                <button type="button" onClick={form.submit} disabled={form.busy} className={quiet}>
+                    {form.busy ? strings.catalog.restocking : strings.catalog.restock}
+                </button>
+            </div>
+            <p className="mt-1 text-xs text-muted">{strings.catalog.restockQuantityHint}</p>
+            {form.error !== null ? (
+                <p className="mt-2 text-sm text-danger-fg">{form.error}</p>
+            ) : null}
+        </DetailSection>
     );
 }

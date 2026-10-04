@@ -1,25 +1,16 @@
 import {
-    checkoutMethods,
     type GiftCardRow,
-    formatMoney,
     giftCardStatusIntent,
-    giftItems,
-    useCatalogItems,
-    useClients,
     useGiftCardRedeemForm,
-    GIFT_SALE_MODES,
-    GIFT_SALE_MODE_LABEL,
     strings,
-    useGiftCardSaleForm,
     useGiftCards,
-    useSavedCards,
-    useStripeAccountId,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { ChargeSheet } from "../ui/ChargeSheet";
+import { SellGiftCard } from "../components/EntitlementSales";
+
 import { ListPage } from "../ui/ListPage";
 import { Money } from "../ui/Money";
 import { StatusPill } from "../ui/StatusPill";
@@ -90,136 +81,6 @@ function GiftCardItem({ card }: { card: GiftCardRow }) {
     );
 }
 
-function SellGiftCard({ onClose }: { onClose: () => void }) {
-    const form = useGiftCardSaleForm(api, onClose);
-    const clients = useClients();
-    const cards = useSavedCards(form.purchaserClientId);
-    const items = giftItems(useCatalogItems());
-    const stripeAccount = useStripeAccountId() ?? "";
-
-    return (
-        <ChargeSheet
-            title={strings.giftCards.sell}
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                form.faceAmountCents !== null
-                    ? formatMoney(form.faceAmountCents)
-                    : strings.giftCards.amountFallback
-            }
-            stripeAccount={stripeAccount}
-            submitLabel={strings.giftCards.sellShort}
-            busyLabel={strings.giftCards.selling}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <Text style={styles.fieldLabel}>{strings.giftCards.purchaser}</Text>
-            {clients.length === 0 ? (
-                <Text style={styles.muted}>{strings.giftCards.addClientFirst}</Text>
-            ) : (
-                <View style={styles.chipWrap}>
-                    {clients.map((cl) => (
-                        <Pressable
-                            key={cl.id}
-                            style={[styles.chip, form.purchaserClientId === cl.id && styles.chipOn]}
-                            onPress={() => {
-                                form.setPurchaserClientId(cl.id);
-                            }}
-                        >
-                            <Text
-                                style={[
-                                    styles.chipText,
-                                    form.purchaserClientId === cl.id && styles.chipTextOn,
-                                ]}
-                            >
-                                {cl.name}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
-            )}
-
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>{strings.giftCards.type}</Text>
-            <View style={styles.chipWrap}>
-                {GIFT_SALE_MODES.map((m) => (
-                    <Pressable
-                        key={m}
-                        style={[styles.chip, form.mode === m && styles.chipOn]}
-                        onPress={() => {
-                            form.setMode(m);
-                        }}
-                    >
-                        <Text style={[styles.chipText, form.mode === m && styles.chipTextOn]}>
-                            {GIFT_SALE_MODE_LABEL[m]}
-                        </Text>
-                    </Pressable>
-                ))}
-            </View>
-
-            {form.mode === "preset" ? (
-                <>
-                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                        {strings.giftCards.giftCard}
-                    </Text>
-                    {items.length === 0 ? (
-                        <Text style={styles.muted}>{strings.giftCards.emptyCatalog}</Text>
-                    ) : (
-                        <View style={styles.chipWrap}>
-                            {items.map((it) => (
-                                <Pressable
-                                    key={it.id}
-                                    style={[styles.chip, form.itemId === it.id && styles.chipOn]}
-                                    onPress={() => {
-                                        form.setItemId(it.id);
-                                    }}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.chipText,
-                                            form.itemId === it.id && styles.chipTextOn,
-                                        ]}
-                                    >
-                                        {it.name}
-                                        {it.price_cents !== null
-                                            ? ` · ${formatMoney(it.price_cents)}`
-                                            : ""}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </View>
-                    )}
-                </>
-            ) : (
-                <>
-                    <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                        {strings.giftCards.amountCad}
-                    </Text>
-                    <TextInput
-                        style={styles.input}
-                        value={form.amount}
-                        onChangeText={form.setAmount}
-                        keyboardType="decimal-pad"
-                        placeholder={strings.giftCards.amountPlaceholder}
-                        placeholderTextColor={c.muted}
-                    />
-                </>
-            )}
-
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                {strings.giftCards.recipientOptional}
-            </Text>
-            <TextInput
-                style={styles.input}
-                value={form.recipient}
-                onChangeText={form.setRecipient}
-                placeholder={strings.giftCards.recipientPlaceholder}
-                placeholderTextColor={c.muted}
-                autoCapitalize="none"
-            />
-        </ChargeSheet>
-    );
-}
-
 function RedeemGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardRedeemForm(api, onClose);
 
@@ -268,7 +129,6 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
 }
 
 const styles = StyleSheet.create({
-    muted: { color: c.muted, fontSize: 14 },
     error: { color: c.danFg, fontSize: 13, marginTop: 8 },
     outlineBtn: {
         alignItems: "center",
@@ -304,18 +164,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         backgroundColor: c.bg,
     },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: {
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: 20,
-        backgroundColor: c.bg,
-        borderWidth: 1,
-        borderColor: c.border,
-    },
-    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
-    chipText: { color: c.ink, fontSize: 13, fontWeight: "500" },
-    chipTextOn: { color: c.accentInk },
     panelActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },

@@ -1,4 +1,5 @@
 import {
+    earningSourceLabel,
     earningStaffLabel,
     earningStatusIntent,
     formatRelativeTime,
@@ -50,7 +51,7 @@ function EarningItem({ row }: { row: EarningRow }) {
                 <View style={styles.rowMain}>
                     <Text style={styles.staff}>{earningStaffLabel(row)}</Text>
                     <Text style={styles.meta} numberOfLines={1}>
-                        {strings.payouts.sourceBooking} · {formatRelativeTime(row.created_at)}
+                        {earningSourceLabel(row)} · {formatRelativeTime(row.created_at)}
                     </Text>
                 </View>
                 <Money cents={row.amount_cents} strong />

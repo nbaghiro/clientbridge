@@ -13,6 +13,7 @@ class OrderCreate(BaseModel):
 
 
 class OrderUpdate(BaseModel):
+    client_id: str | None = None  # null = walk-in; only while nothing is charged
     lines: list[LineInput] | None = None
     receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)

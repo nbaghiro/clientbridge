@@ -20,7 +20,7 @@ import { api } from "../lib/api";
 
 export function Reports() {
     const [range, setRange] = useState<ReportRange>(defaultReportRange());
-    const { income, gstHst, t4a, loading, error } = useReports(api, range);
+    const { income, gstHst, t4a, salesByItem, loading, error } = useReports(api, range);
     const {
         error: dlError,
         isDownloading,
@@ -206,6 +206,62 @@ export function Reports() {
                                             <td className="py-2 text-ink">{row.name}</td>
                                             <td className="py-2 text-right font-medium tabular-nums text-ink">
                                                 {formatMoney(row.total_cents)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </Card>
+
+                    <Card
+                        title={strings.reports.salesByItemTitle}
+                        subtitle={strings.reports.salesByItemSubtitle}
+                        onDownload={() => {
+                            download("sales-by-item");
+                        }}
+                        downloading={isDownloading("sales-by-item")}
+                    >
+                        {salesByItem === null ? (
+                            <Skeleton />
+                        ) : salesByItem.length === 0 ? (
+                            <p className="text-sm text-muted">{strings.reports.noItemSales}</p>
+                        ) : (
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="text-left text-xs uppercase tracking-wide text-muted">
+                                        <th className="pb-2 font-semibold">
+                                            {strings.reports.colItem}
+                                        </th>
+                                        <th className="pb-2 text-right font-semibold">
+                                            {strings.reports.colQty}
+                                        </th>
+                                        <th className="pb-2 text-right font-semibold">
+                                            {strings.reports.colSales}
+                                        </th>
+                                        <th className="pb-2 text-right font-semibold">
+                                            {strings.reports.colTax}
+                                        </th>
+                                        <th className="pb-2 text-right font-semibold">
+                                            {strings.reports.colRefunded}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {salesByItem.map((row) => (
+                                        <tr key={row.item_id} className="border-t border-line-soft">
+                                            <td className="py-2 text-ink">{row.name}</td>
+                                            <td className="py-2 text-right tabular-nums text-ink-soft">
+                                                {strings.reports.qty(row.quantity)}
+                                            </td>
+                                            <td className="py-2 text-right font-medium tabular-nums text-ink">
+                                                {formatMoney(row.sales_cents)}
+                                            </td>
+                                            <td className="py-2 text-right tabular-nums text-ink-soft">
+                                                {formatMoney(row.tax_cents)}
+                                            </td>
+                                            <td className="py-2 text-right tabular-nums text-ink-soft">
+                                                {formatMoney(row.refunded_cents)}
                                             </td>
                                         </tr>
                                     ))}

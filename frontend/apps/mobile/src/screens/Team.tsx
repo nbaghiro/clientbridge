@@ -1,15 +1,20 @@
 import {
     type Invite,
     INVITABLE_ROLES,
+    RATE_TYPES,
+    type StaffPayRow,
     acceptInviteUrl,
     canManageStaff,
     decodeJwtSub,
     staffDisplayName,
+    staffPaySummary,
     strings,
     useCurrentRole,
     useInviteForm,
     usePendingInvites,
     useStaff,
+    useStaffPay,
+    useStaffPayForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useEffect, useState } from "react";
@@ -18,12 +23,15 @@ import {
     Pressable,
     Share,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     View,
 } from "react-native";
 
+import { DetailSection, DetailView } from "../ui/DetailView";
 import { ListPage } from "../ui/ListPage";
+import { ui } from "../ui/styles";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
@@ -46,14 +54,34 @@ export function TeamScreen({ footer }: { footer?: ReactNode }) {
     const staff = useStaff();
     const pending = usePendingInvites();
     const invite = useInviteForm(api);
+    const manager = canManageStaff(role);
+    const pay = useStaffPay();
+    const [editingPay, setEditingPay] = useState<string | null>(null);
+    const payRow = pay.find((p) => p.id === editingPay);
 
     return (
         <View style={styles.screen}>
+            {payRow !== undefined ? (
+                <StaffPayDetail
+                    key={payRow.id}
+                    row={payRow}
+                    onClose={() => {
+                        setEditingPay(null);
+                    }}
+                />
+            ) : null}
             <ListPage
                 summary={strings.team.subtitle}
                 head={<Text style={styles.sectionLabel}>{strings.team.members}</Text>}
                 rows={staff}
                 rowKey={(s) => s.id}
+                onRowPress={
+                    manager
+                        ? (s) => {
+                              setEditingPay(s.id);
+                          }
+                        : undefined
+                }
                 empty={strings.team.noMembers}
                 renderRow={(s) => (
                     <View style={styles.member}>
@@ -67,6 +95,7 @@ export function TeamScreen({ footer }: { footer?: ReactNode }) {
                             {s.invite_email !== null ? (
                                 <Text style={styles.rowSub}>{s.invite_email}</Text>
                             ) : null}
+                            {manager ? <PaySummary row={pay.find((p) => p.id === s.id)} /> : null}
                         </View>
                         <Text style={styles.roleText}>{s.role}</Text>
                     </View>
@@ -189,7 +218,82 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
     );
 }
 
+function PaySummary({ row }: { row: StaffPayRow | undefined }) {
+    if (row === undefined) return null;
+    return <Text style={styles.rowSub}>{staffPaySummary(row)}</Text>;
+}
+
+function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => void }) {
+    const form = useStaffPayForm(api, row, onClose);
+    return (
+        <DetailView
+            open
+            title={staffDisplayName(row)}
+            subtitle={strings.team.payHeading}
+            onClose={onClose}
+            actions={
+                <Pressable style={ui.primary} onPress={form.submit} disabled={form.busy}>
+                    {form.busy ? (
+                        <ActivityIndicator color={c.accentInk} />
+                    ) : (
+                        <Text style={ui.primaryText}>{strings.catalog.save}</Text>
+                    )}
+                </Pressable>
+            }
+        >
+            <DetailSection>
+                <View style={styles.payToggle}>
+                    <Text style={styles.payToggleLabel}>{strings.team.isPayee}</Text>
+                    <Switch value={form.isPayee} onValueChange={form.setIsPayee} />
+                </View>
+                {form.isPayee ? (
+                    <>
+                        <Text style={ui.label}>{strings.team.rateType}</Text>
+                        <View style={ui.chipWrap}>
+                            {RATE_TYPES.map((t) => (
+                                <Pressable
+                                    key={t.value}
+                                    style={[ui.chip, form.rateType === t.value ? ui.chipOn : null]}
+                                    onPress={() => {
+                                        form.setRateType(t.value);
+                                    }}
+                                >
+                                    <Text
+                                        style={[
+                                            ui.chipText,
+                                            form.rateType === t.value ? ui.chipTextOn : null,
+                                        ]}
+                                    >
+                                        {t.label}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </View>
+                        <Text style={ui.label}>{strings.team.rateLabel(form.rateType)}</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={form.defaultRate}
+                            onChangeText={form.setDefaultRate}
+                            keyboardType="decimal-pad"
+                        />
+                        <Text style={ui.label}>{strings.team.retailRate}</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={form.retailPercent}
+                            onChangeText={form.setRetailPercent}
+                            keyboardType="decimal-pad"
+                        />
+                    </>
+                ) : null}
+                {form.error !== null ? <Text style={ui.error}>{form.error}</Text> : null}
+            </DetailSection>
+        </DetailView>
+    );
+}
+
 const styles = StyleSheet.create({
+    payToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    payToggleLabel: { color: c.ink, fontSize: 14, flex: 1, marginRight: 12 },
     screen: { flex: 1, backgroundColor: c.bg },
     footer: { paddingTop: 16 },
     member: {

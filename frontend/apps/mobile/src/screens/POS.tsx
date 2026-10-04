@@ -1,5 +1,12 @@
 import {
+    type EntitlementKind,
     canVoidSale,
+    checkoutMethods,
+    entitlementKindsOnSale,
+    useClients,
+    useSaleCheckout,
+    useSavedCards,
+    useStripeAccountId,
     type CartLine,
     type Order,
     filterItems,
@@ -15,7 +22,7 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -27,10 +34,18 @@ import {
     View,
 } from "react-native";
 
+import {
+    ClientChips,
+    SellGiftCard,
+    SellPackage,
+    StartSubscription,
+} from "../components/EntitlementSales";
 import { IconSearch } from "../components/icons";
+import { ChargeSheet } from "../ui/ChargeSheet";
 import { useRole } from "../lib/auth";
 import { ItemImage } from "../ui/ItemImage";
 import { StatusPill } from "../ui/StatusPill";
+import { ui } from "../ui/styles";
 import { TerminalProvider, useTerminalCheckout } from "../components/terminal";
 import { api, apiBaseUrl } from "../lib/api";
 
@@ -44,6 +59,43 @@ export function POSScreen() {
     const { q, setQ, filtered } = useSearch(active, filterItems);
     const reviewing = cart.phase === "awaiting_reader";
     const tokenProvider = useConnectionToken(api); // feeds the Terminal SDK its connection token
+    const entitlements = useMemo(() => entitlementKindsOnSale(items), [items]);
+    const [selling, setSelling] = useState<EntitlementKind | null>(null);
+    const [payingByCard, setPayingByCard] = useState(false);
+
+    if (cart.phase === "paid" && cart.order !== null) {
+        return (
+            <View style={[styles.screen, styles.reader]}>
+                <Text style={styles.readerTitle}>{strings.pos.paidTitle}</Text>
+                <Text style={styles.readerSub}>
+                    {strings.pos.paidBody(formatMoney(cart.order.total_cents))}
+                </Text>
+                <Pressable
+                    style={styles.charge}
+                    onPress={() => {
+                        setPayingByCard(false);
+                        cart.newSale();
+                    }}
+                >
+                    <Text style={styles.chargeText}>{strings.pos.newSale}</Text>
+                </Pressable>
+            </View>
+        );
+    }
+
+    if (payingByCard && cart.phase === "review" && cart.order !== null) {
+        return (
+            <ScrollView style={styles.screen} contentContainerStyle={styles.reader}>
+                <Totals order={cart.order} />
+                <CardPayment
+                    cart={cart}
+                    onCancel={() => {
+                        setPayingByCard(false);
+                    }}
+                />
+            </ScrollView>
+        );
+    }
 
     return (
         <View style={styles.screen}>
@@ -103,19 +155,151 @@ export function POSScreen() {
                                 {q ? strings.pos.searchEmpty : strings.pos.empty}
                             </Text>
                         }
-                        ListFooterComponent={<OpenOrders />}
+                        ListFooterComponent={
+                            <>
+                                {entitlements.length > 0 ? (
+                                    <View style={styles.openOrders}>
+                                        <Text style={styles.openTitle}>{strings.pos.alsoSell}</Text>
+                                        <View style={ui.chipWrap}>
+                                            {entitlements.map((kind) => (
+                                                <Pressable
+                                                    key={kind}
+                                                    style={[
+                                                        ui.chip,
+                                                        selling === kind ? ui.chipOn : null,
+                                                    ]}
+                                                    onPress={() => {
+                                                        setSelling(selling === kind ? null : kind);
+                                                    }}
+                                                >
+                                                    <Text
+                                                        style={[
+                                                            ui.chipText,
+                                                            selling === kind ? ui.chipTextOn : null,
+                                                        ]}
+                                                    >
+                                                        {ENTITLEMENT_LABEL[kind]}
+                                                    </Text>
+                                                </Pressable>
+                                            ))}
+                                        </View>
+                                        {selling !== null ? (
+                                            <EntitlementSale
+                                                kind={selling}
+                                                onClose={() => {
+                                                    setSelling(null);
+                                                }}
+                                            />
+                                        ) : null}
+                                    </View>
+                                ) : null}
+                                <OpenOrders />
+                            </>
+                        }
                     />
 
-                    <CartBar cart={cart} />
+                    <CartBar
+                        cart={cart}
+                        onCard={() => {
+                            setPayingByCard(true);
+                        }}
+                    />
                 </>
             )}
         </View>
     );
 }
 
-function CartBar({ cart }: { cart: ReturnType<typeof useCart> }) {
+const ENTITLEMENT_LABEL: Record<EntitlementKind, string> = {
+    gift: strings.pos.sellGiftCard,
+    package: strings.pos.sellPackage,
+    subscription: strings.pos.sellSubscription,
+};
+
+function EntitlementSale({ kind, onClose }: { kind: EntitlementKind; onClose: () => void }) {
+    if (kind === "gift") return <SellGiftCard onClose={onClose} />;
+    if (kind === "package") return <SellPackage clientId={null} onClose={onClose} />;
+    return <StartSubscription clientId={null} onClose={onClose} />;
+}
+
+function CardPayment({
+    cart,
+    onCancel,
+}: {
+    cart: ReturnType<typeof useCart>;
+    onCancel: () => void;
+}) {
+    const cards = useSavedCards(cart.clientId ?? "");
+    const methods = checkoutMethods(cards);
+    const sale = useSaleCheckout(api, cart, methods[0]?.id);
+    const stripeAccount = useStripeAccountId() ?? "";
+    if (cart.order === null) return null;
+    return (
+        <ChargeSheet
+            checkout={sale.checkout}
+            methods={methods}
+            amountLabel={formatMoney(cart.order.total_cents)}
+            stripeAccount={stripeAccount}
+            submitLabel={strings.pos.payCard}
+            busyLabel={strings.pos.paying}
+            onSubmit={sale.submit}
+            onCancel={onCancel}
+        />
+    );
+}
+
+function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
+    const clients = useClients();
+    const [open, setOpen] = useState(false);
+    const client = clients.find((cl) => cl.id === cart.clientId);
+    return (
+        <View>
+            <Pressable
+                style={styles.detailsToggle}
+                onPress={() => {
+                    setOpen(!open);
+                }}
+            >
+                <Text style={styles.detailsText} numberOfLines={1}>
+                    {strings.pos.clientLabel}: {client?.name ?? strings.pos.walkIn}
+                </Text>
+                <Text style={styles.detailsText}>{open ? "−" : "+"}</Text>
+            </Pressable>
+            {open ? (
+                <View style={styles.details}>
+                    <ClientChips
+                        clients={clients}
+                        value={cart.clientId ?? ""}
+                        onChange={(id) => {
+                            cart.setClientId(id === "" ? null : id);
+                        }}
+                    />
+                    <Text style={ui.label}>{strings.pos.receiptEmail}</Text>
+                    <TextInput
+                        style={styles.detailsInput}
+                        value={cart.receiptEmail}
+                        onChangeText={cart.setReceiptEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                    />
+                    <Text style={ui.label}>{strings.pos.receiptPhone}</Text>
+                    <TextInput
+                        style={styles.detailsInput}
+                        value={cart.receiptPhone}
+                        onChangeText={cart.setReceiptPhone}
+                        keyboardType="phone-pad"
+                    />
+                    <Text style={ui.note}>{strings.pos.receiptHint}</Text>
+                </View>
+            ) : null}
+        </View>
+    );
+}
+
+function CartBar({ cart, onCard }: { cart: ReturnType<typeof useCart>; onCard: () => void }) {
     return (
         <View style={styles.cart}>
+            <SaleDetails cart={cart} />
             {cart.isEmpty ? (
                 <Text style={styles.cartEmpty}>{strings.pos.cartEmptyStart}</Text>
             ) : (
@@ -143,9 +327,12 @@ function CartBar({ cart }: { cart: ReturnType<typeof useCart> }) {
                             <ActivityIndicator color={c.accentInk} />
                         ) : (
                             <Text style={styles.chargeText}>
-                                {strings.pos.charge(formatMoney(cart.order.total_cents))}
+                                {strings.pos.tapToPay} · {formatMoney(cart.order.total_cents)}
                             </Text>
                         )}
+                    </Pressable>
+                    <Pressable style={styles.secondary} onPress={onCard} disabled={cart.busy}>
+                        <Text style={styles.secondaryText}>{strings.pos.payCard}</Text>
                     </Pressable>
                 </>
             ) : (
@@ -447,6 +634,24 @@ const styles = StyleSheet.create({
     void: { paddingVertical: 12, alignItems: "center" },
     voidText: { color: c.muted, fontSize: 14, fontWeight: "600" },
     openOrders: { marginTop: 8, gap: 6 },
+    detailsToggle: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingBottom: 8,
+    },
+    detailsText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
+    details: { paddingBottom: 10 },
+    detailsInput: {
+        borderColor: c.border,
+        borderWidth: 1,
+        borderRadius: theme.radius,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        color: c.ink,
+        fontSize: 14,
+        backgroundColor: c.bg,
+    },
     openTitle: { color: c.ink, fontSize: 15, fontWeight: "700", marginBottom: 2 },
     openRow: {
         flexDirection: "row",

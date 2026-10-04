@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.billing import Invoice, Line, Order
-from clientbridge.models.catalog import Item, StockMovement
+from clientbridge.models.catalog import Item, Package, StockMovement
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
@@ -505,3 +505,91 @@ async def test_paid_invoice_moves_stock(as_owner: httpx.AsyncClient, db: AsyncSe
     assert pay.status_code in (200, 201), pay.text
     await _settle(as_owner, db, pay.json()["payment_id"], "evt_inv_stk")
     assert await _stock(db, SHAMPOO) == 2
+
+
+async def test_item_editor_fields_round_trip(as_owner: httpx.AsyncClient) -> None:
+    groom = await as_owner.post(
+        "/v1/items",
+        json={
+            "kind": "service",
+            "name": "Big Groom",
+            "price_cents": 12000,
+            "duration_min": 90,
+            "buffer_after_min": 15,
+            "deposit_type": "percent",
+            "deposit_value": 25,
+        },
+    )
+    assert groom.status_code == 201, groom.text
+    assert groom.json()["buffer_after_min"] == 15
+    assert groom.json()["deposit_type"] == "percent"
+    plan = await as_owner.post(
+        "/v1/items",
+        json={"kind": "subscription", "name": "Daycare", "interval": 1, "frequency": "month"},
+    )
+    assert plan.status_code == 201, plan.text
+    pack = await as_owner.post(
+        "/v1/items",
+        json={"kind": "package", "name": "10 baths", "session_count": 10, "validity_days": 365},
+    )
+    assert pack.json()["validity_days"] == 365
+    edited = await as_owner.patch(f"/v1/items/{pack.json()['id']}", json={"session_count": 8})
+    assert edited.json()["session_count"] == 8
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"kind": "product", "name": "Brush", "deposit_type": "fixed", "deposit_value": 500},
+        {"kind": "service", "name": "Groom", "deposit_type": "percent", "deposit_value": 120},
+        {"kind": "service", "name": "Groom", "session_count": 5},
+        {"kind": "product", "name": "Brush", "interval": 1, "frequency": "month"},
+        {"kind": "subscription", "name": "Plan", "interval": 1, "frequency": "monthly"},
+    ],
+)
+async def test_item_fields_must_fit_the_kind_422(
+    as_owner: httpx.AsyncClient, body: dict[str, object]
+) -> None:
+    assert (await as_owner.post("/v1/items", json=body)).status_code == 422
+
+
+async def test_package_sale_expires_after_its_validity(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    pack = await as_owner.post(
+        "/v1/items",
+        json={
+            "kind": "package",
+            "name": "5 baths",
+            "price_cents": 20000,
+            "session_count": 5,
+            "validity_days": 30,
+        },
+    )
+    sold = await as_owner.post(
+        "/v1/packages",
+        json={
+            "client_id": "cl_amelie",
+            "item_id": pack.json()["id"],
+            "payment_method_id": "pm_amelie",
+        },
+    )
+    assert sold.status_code == 201, sold.text
+    package = await db.get(Package, sold.json()["package_id"])
+    assert package is not None and package.expires_at is not None
+    assert 29 <= (package.expires_at - package.created_at).days <= 30
+
+
+async def test_sale_client_can_change_before_payment(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sale = await as_owner.post("/v1/orders", json={"lines": [await _line(SHAMPOO, 2400)]})
+    order_id = sale.json()["id"]
+    set_client = await as_owner.patch(f"/v1/orders/{order_id}", json={"client_id": "cl_amelie"})
+    assert set_client.status_code == 200, set_client.text
+    assert set_client.json()["client_id"] == "cl_amelie"
+    other = await Factory(db).business()
+    stranger = await Factory(db).client(business=other)
+    foreign = await as_owner.patch(f"/v1/orders/{order_id}", json={"client_id": stranger.id})
+    assert foreign.status_code == 404

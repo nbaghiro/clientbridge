@@ -1,24 +1,15 @@
 import {
-    checkoutMethods,
-    type ClientRow,
     type GiftCardRow,
     formatMoney,
     giftCardStatusIntent,
-    giftItems,
-    useCatalogItems,
-    useClients,
     useGiftCardRedeemForm,
-    GIFT_SALE_MODES,
-    GIFT_SALE_MODE_LABEL,
     strings,
-    useGiftCardSaleForm,
     useGiftCards,
-    useSavedCards,
-    useStripeAccountId,
 } from "@clientbridge/app-core";
-import { ChargeSheet, StatusPill } from "@clientbridge/ui";
+import { StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
+import { SellGiftCard } from "../components/EntitlementSales";
 import { ListPage } from "../components/ListPage";
 import { Money } from "../components/Money";
 import { api } from "../lib/api";
@@ -106,103 +97,6 @@ function GiftCardRowItem({ card }: { card: GiftCardRow }) {
     );
 }
 
-function SellGiftCard({ onClose }: { onClose: () => void }) {
-    const form = useGiftCardSaleForm(api, onClose);
-    const clients = useClients();
-    const cards = useSavedCards(form.purchaserClientId);
-    const items = giftItems(useCatalogItems());
-    const stripeAccount = useStripeAccountId() ?? "";
-
-    return (
-        <ChargeSheet
-            title={strings.giftCards.sell}
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                form.faceAmountCents !== null
-                    ? formatMoney(form.faceAmountCents)
-                    : strings.giftCards.amountFallback
-            }
-            stripeAccount={stripeAccount}
-            submitLabel={strings.giftCards.sell}
-            busyLabel={strings.giftCards.selling}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.giftCards.purchaser}
-                <ClientSelect
-                    clients={clients}
-                    value={form.purchaserClientId}
-                    onChange={form.setPurchaserClientId}
-                />
-            </label>
-            <div className="flex gap-2">
-                {GIFT_SALE_MODES.map((m) => (
-                    <button
-                        key={m}
-                        type="button"
-                        onClick={() => {
-                            form.setMode(m);
-                        }}
-                        className={`flex-1 rounded-md border px-3 py-2 text-sm font-semibold transition ${
-                            form.mode === m
-                                ? "border-accent bg-accent-weak text-accent-strong"
-                                : "border-line text-ink-soft hover:bg-bg"
-                        }`}
-                    >
-                        {GIFT_SALE_MODE_LABEL[m]}
-                    </button>
-                ))}
-            </div>
-            {form.mode === "preset" ? (
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.giftCard}
-                    <select
-                        value={form.itemId}
-                        onChange={(e) => {
-                            form.setItemId(e.target.value);
-                        }}
-                        className={field}
-                    >
-                        <option value="">{strings.giftCards.selectGiftCard}</option>
-                        {items.map((it) => (
-                            <option key={it.id} value={it.id}>
-                                {it.name}
-                                {it.price_cents !== null ? ` — ${formatMoney(it.price_cents)}` : ""}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            ) : (
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.amountCad}
-                    <input
-                        value={form.amount}
-                        onChange={(e) => {
-                            form.setAmount(e.target.value);
-                        }}
-                        inputMode="decimal"
-                        placeholder={strings.giftCards.amountPlaceholder}
-                        className={field}
-                    />
-                </label>
-            )}
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.giftCards.recipientOptional}
-                <input
-                    value={form.recipient}
-                    onChange={(e) => {
-                        form.setRecipient(e.target.value);
-                    }}
-                    placeholder={strings.giftCards.recipientPlaceholder}
-                    className={field}
-                />
-            </label>
-        </ChargeSheet>
-    );
-}
-
 function RedeemGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardRedeemForm(api, onClose);
 
@@ -267,32 +161,5 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
             <h2 className="mb-3 font-display text-base font-bold text-ink">{title}</h2>
             {children}
         </section>
-    );
-}
-
-function ClientSelect({
-    clients,
-    value,
-    onChange,
-}: {
-    clients: ClientRow[];
-    value: string;
-    onChange: (v: string) => void;
-}) {
-    return (
-        <select
-            value={value}
-            onChange={(e) => {
-                onChange(e.target.value);
-            }}
-            className={field}
-        >
-            <option value="">{strings.giftCards.selectClient}</option>
-            {clients.map((cl) => (
-                <option key={cl.id} value={cl.id}>
-                    {cl.name}
-                </option>
-            ))}
-        </select>
     );
 }

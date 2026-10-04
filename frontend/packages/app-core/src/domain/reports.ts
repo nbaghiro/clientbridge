@@ -28,18 +28,29 @@ export interface T4ARow {
     total_cents: number;
 }
 
+export interface SalesByItemRow {
+    item_id: string;
+    name: string;
+    kind: string;
+    quantity: number;
+    sales_cents: number;
+    tax_cents: number;
+    refunded_cents: number;
+}
+
 export interface ReportRange {
     start: string; // income/GST window start (YYYY-MM-DD)
     end: string; // income/GST window end (YYYY-MM-DD)
     year: number; // T4A calendar year
 }
 
-export type ReportCsvKind = "income" | "gst-hst" | "t4a";
+export type ReportCsvKind = "income" | "gst-hst" | "t4a" | "sales-by-item";
 
 export interface ReportsView {
     income: IncomeReport | null;
     gstHst: GstHstReport | null;
     t4a: T4ARow[] | null;
+    salesByItem: SalesByItemRow[] | null;
     loading: boolean;
     error: boolean;
 }
@@ -59,11 +70,12 @@ export function defaultReportRange(now: Date = new Date()): ReportRange {
     return reportRangeForYear(now.getFullYear(), now);
 }
 
-/** Owner/admin money reports (REST). All three load together; `error` covers a 403 for staff. */
+/** Owner/admin money reports (REST). They load together; `error` covers a 403 for staff. */
 export function useReports(api: ApiLike, range: ReportRange): ReportsView {
     const [income, setIncome] = useState<IncomeReport | null>(null);
     const [gstHst, setGstHst] = useState<GstHstReport | null>(null);
     const [t4a, setT4a] = useState<T4ARow[] | null>(null);
+    const [salesByItem, setSalesByItem] = useState<SalesByItemRow[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
@@ -77,12 +89,14 @@ export function useReports(api: ApiLike, range: ReportRange): ReportsView {
             api.get<IncomeReport>(`/v1/reports/income?${window}`),
             api.get<GstHstReport>(`/v1/reports/gst-hst?${window}`),
             api.get<T4ARow[]>(`/v1/reports/t4a?year=${year}`),
+            api.get<SalesByItemRow[]>(`/v1/reports/sales-by-item?${window}`),
         ])
-            .then(([inc, gst, rows]) => {
+            .then(([inc, gst, rows, items]) => {
                 if (!active) return;
                 setIncome(inc);
                 setGstHst(gst);
                 setT4a(rows);
+                setSalesByItem(items);
             })
             .catch(() => {
                 if (active) setError(true);
@@ -95,7 +109,7 @@ export function useReports(api: ApiLike, range: ReportRange): ReportsView {
         };
     }, [api, start, end, year]);
 
-    return { income, gstHst, t4a, loading, error };
+    return { income, gstHst, t4a, salesByItem, loading, error };
 }
 
 export function reportCsvPath(kind: ReportCsvKind, range: ReportRange): string {

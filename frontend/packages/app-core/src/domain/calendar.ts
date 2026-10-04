@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import type { Viewer } from "../hooks/useCurrentRole";
 import type { ApiLike } from "../util/api";
-import { type ItemRow, useCatalogItems } from "./catalog";
+import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
 import { type ClientRow, useClients } from "./clients";
 import {
     addDays,
@@ -554,7 +554,7 @@ export interface BookingFormState {
  *  owns only the date/time entry widget and passes the resulting Date to submit(). */
 export function useBookingForm(api: ApiLike, onCreated: () => void): BookingFormState {
     const clients = useClients();
-    const items = useCatalogItems();
+    const items = bookableItems(useCatalogItems());
     const staff = useStaff();
     const [clientId, setClientId] = useState("");
     const [itemId, setItemId] = useState("");

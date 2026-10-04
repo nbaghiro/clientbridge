@@ -1,50 +1,42 @@
 import {
     type ClientRow,
-    type ItemRow,
     type PackageRow,
     type SavedCardRow,
     type SubscriptionRow,
     canConsume,
     canBeDefault,
     canManagePayments,
-    checkoutMethods,
     cancelSubscription,
     clientStatusIntent,
     consumeSession,
     detachCard,
     filterClients,
     formatDate,
-    formatMoney,
     initials,
     isCancelable,
     isMandate,
     mandateStatusIntent,
-    packageOfferings,
     packageStatusIntent,
     parseTimestamp,
     savedCardLabel,
     sessionsRemaining,
     setDefaultCard,
     strings,
-    subscriptionPlans,
     subscriptionStatusIntent,
     useAddPaymentMethod,
     useAsyncAction,
-    useCatalogItems,
     useClientForm,
     useClientPackages,
     useClientSubscriptions,
     useClients,
-    usePackageSaleForm,
     useSavedCards,
     useSearch,
-    useStripeAccountId,
-    useSubscriptionForm,
 } from "@clientbridge/app-core";
-import { ChargeSheet, PaymentMethodForm, StatusPill } from "@clientbridge/ui";
-import { type SubmitEvent, useMemo, useState } from "react";
+import { PaymentMethodForm, StatusPill } from "@clientbridge/ui";
+import { type SubmitEvent, useState } from "react";
 
 import { DetailSection, DetailView } from "../components/DetailView";
+import { SellPackage, StartSubscription } from "../components/EntitlementSales";
 import { ListPage } from "../components/ListPage";
 import { Money } from "../components/Money";
 import { api } from "../lib/api";
@@ -275,9 +267,6 @@ function CardRow({ card }: { card: SavedCardRow }) {
 
 function SubscriptionsSection({ clientId }: { clientId: string }) {
     const subs = useClientSubscriptions(clientId);
-    const cards = useSavedCards(clientId);
-    const items = useCatalogItems();
-    const plans = useMemo(() => subscriptionPlans(items), [items]);
     const [starting, setStarting] = useState(false);
 
     return (
@@ -305,10 +294,8 @@ function SubscriptionsSection({ clientId }: { clientId: string }) {
             )}
 
             {starting ? (
-                <StartSubscriptionForm
+                <StartSubscription
                     clientId={clientId}
-                    plans={plans}
-                    cards={cards}
                     onClose={() => {
                         setStarting(false);
                     }}
@@ -362,60 +349,8 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
     );
 }
 
-function StartSubscriptionForm({
-    clientId,
-    plans,
-    cards,
-    onClose,
-}: {
-    clientId: string;
-    plans: ItemRow[];
-    cards: SavedCardRow[];
-    onClose: () => void;
-}) {
-    const form = useSubscriptionForm(api, clientId, onClose);
-    const plan = plans.find((p) => p.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={plan ? formatMoney(plan.price_cents) : ""}
-            stripeAccount=""
-            submitLabel={strings.clients.startSubscription}
-            busyLabel={strings.clients.starting}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.clients.planLabel}
-                <select
-                    value={form.itemId}
-                    onChange={(e) => {
-                        form.setItemId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.clients.selectPlan}</option>
-                    {plans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.name} — {formatMoney(p.price_cents)}
-                        </option>
-                    ))}
-                </select>
-            </label>
-            {plans.length === 0 ? (
-                <p className="text-xs text-muted">{strings.clients.addSubscriptionItemFirst}</p>
-            ) : null}
-        </ChargeSheet>
-    );
-}
-
 function PackagesSection({ clientId }: { clientId: string }) {
     const packages = useClientPackages(clientId);
-    const cards = useSavedCards(clientId);
-    const items = useCatalogItems();
-    const offerings = useMemo(() => packageOfferings(items), [items]);
     const [selling, setSelling] = useState(false);
 
     return (
@@ -443,10 +378,8 @@ function PackagesSection({ clientId }: { clientId: string }) {
             )}
 
             {selling ? (
-                <SellPackageForm
+                <SellPackage
                     clientId={clientId}
-                    offerings={offerings}
-                    cards={cards}
                     onClose={() => {
                         setSelling(false);
                     }}
@@ -492,58 +425,6 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
             </div>
             {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
         </div>
-    );
-}
-
-function SellPackageForm({
-    clientId,
-    offerings,
-    cards,
-    onClose,
-}: {
-    clientId: string;
-    offerings: ItemRow[];
-    cards: SavedCardRow[];
-    onClose: () => void;
-}) {
-    const form = usePackageSaleForm(api, clientId, onClose);
-    const stripeAccount = useStripeAccountId() ?? "";
-    const offering = offerings.find((o) => o.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
-            }
-            stripeAccount={stripeAccount}
-            submitLabel={strings.clients.sellPackage}
-            busyLabel={strings.clients.selling}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.clients.packageLabel}
-                <select
-                    value={form.itemId}
-                    onChange={(e) => {
-                        form.setItemId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.clients.selectPackage}</option>
-                    {offerings.map((o) => (
-                        <option key={o.id} value={o.id}>
-                            {o.name} — {formatMoney(o.price_cents)}
-                        </option>
-                    ))}
-                </select>
-            </label>
-            {offerings.length === 0 ? (
-                <p className="text-xs text-muted">{strings.clients.addPackageItemFirst}</p>
-            ) : null}
-        </ChargeSheet>
     );
 }
 

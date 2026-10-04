@@ -381,7 +381,7 @@ def seed_items(owner: str) -> None:
                 deposit_type="percent" if kind == "service" and price >= 10000 else "none",
                 deposit_value=25 if kind == "service" and price >= 10000 else None,
                 interval=1 if kind == "subscription" else None,
-                frequency="monthly" if kind == "subscription" else None,
+                frequency="month" if kind == "subscription" else None,
                 session_count=5 if iid == "it_pkg5" else None,
                 validity_days=365 if iid == "it_pkg5" else None,
                 active=True,
