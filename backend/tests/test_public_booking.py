@@ -100,7 +100,7 @@ async def test_services_expose_brand(api: httpx.AsyncClient) -> None:
     # the customer surfaces render the business's brand (logo, colour, tagline — seeded)
     body = (await api.get(f"/book/{SLUG}/services")).json()
     brand = body["brand"]
-    assert brand["primary"] == "#3F5E80"
+    assert brand["primary"] == "#2E4A3F"
     assert brand["tagline"] == "Calm, careful grooming on Vancouver Island."
     assert brand["logo_url"].startswith("http")
 
