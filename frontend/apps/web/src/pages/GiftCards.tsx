@@ -1,10 +1,10 @@
 import {
+    checkoutMethods,
     type ClientRow,
     type GiftCardRow,
     formatMoney,
     giftCardStatusIntent,
     giftItems,
-    savedCardLabel,
     useCatalogItems,
     useClients,
     useGiftCardRedeemForm,
@@ -136,7 +136,7 @@ function SellGiftCard({ onClose }: { onClose: () => void }) {
         <ChargeSheet
             title={strings.giftCards.sell}
             checkout={form.checkout}
-            methods={cards.map((c) => ({ id: c.id, label: savedCardLabel(c) }))}
+            methods={checkoutMethods(cards)}
             amountLabel={
                 form.faceAmountCents !== null
                     ? formatMoney(form.faceAmountCents)

@@ -14,6 +14,8 @@ export interface ItemRow {
     price_cents: number | null;
     duration_min: number | null;
     active: number;
+    color: string | null;
+    image_file_id: string | null;
 }
 
 export const KIND_LABEL: Record<string, string> = {
@@ -34,11 +36,20 @@ export const ITEM_KINDS = [
     "gift",
 ] as const;
 
-const ITEMS_SQL =
-    "SELECT id, kind, name, category, price_cents, duration_min, active FROM items ORDER BY active DESC, name COLLATE NOCASE";
+const ITEMS_SQL = `
+SELECT i.id, i.kind, i.name, i.category, i.price_cents, i.duration_min, i.active, i.color,
+       (SELECT f.id FROM files f
+        WHERE f.parent_type = 'item' AND f.parent_id = i.id AND f.kind = 'image'
+        ORDER BY f.created_at DESC LIMIT 1) AS image_file_id
+FROM items i ORDER BY i.active DESC, i.name COLLATE NOCASE`;
 
 export function useCatalogItems(): ItemRow[] {
     return useQuery<ItemRow>(ITEMS_SQL).data;
+}
+
+/** Owner/admin set what the catalog shows customers, including item images. */
+export function canManageCatalog(role: string | null): boolean {
+    return role === "owner" || role === "admin";
 }
 
 export function filterItems(rows: ItemRow[], q: string): ItemRow[] {

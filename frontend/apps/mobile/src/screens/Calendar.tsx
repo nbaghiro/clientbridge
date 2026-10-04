@@ -1,4 +1,5 @@
 import {
+    checkoutMethods,
     type CalendarEvent,
     type Intent,
     type PositionedEvent,
@@ -18,7 +19,6 @@ import {
     minutesSinceMidnight,
     rescheduleByDrag,
     sameDay,
-    savedCardLabel,
     startOfDay,
     statusIntent,
     strings,
@@ -407,7 +407,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
             {canCollectDeposit(event, viewer) ? (
                 <ChargeSheet
                     checkout={deposit.checkout}
-                    methods={cards.map((card) => ({ id: card.id, label: savedCardLabel(card) }))}
+                    methods={checkoutMethods(cards)}
                     amountLabel={amountLabel}
                     stripeAccount={stripeAccount}
                     submitLabel={strings.calendar.collectAmount(amountLabel)}

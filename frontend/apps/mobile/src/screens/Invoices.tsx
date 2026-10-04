@@ -5,6 +5,7 @@ import {
     type InvoiceRow,
     type PaymentRow,
     canManagePayments,
+    docDraft,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
@@ -21,8 +22,6 @@ import {
     useRefundForm,
     strings,
     useAsyncAction,
-    useClients,
-    useDocForm,
     useEstimates,
     useInvoicePayments,
     useInvoices,
@@ -46,6 +45,7 @@ import {
 } from "react-native";
 
 import { IconPlus, IconSearch } from "../components/icons";
+import { DocEditor } from "../ui/DocEditor";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -164,153 +164,14 @@ export function InvoicesScreen({ createToken }: { createToken?: number | undefin
             />
 
             {creating ? (
-                <NewDocSheet
-                    kind={tab}
+                <DocEditor
+                    kind={tab === "invoices" ? "invoice" : "estimate"}
                     onClose={() => {
                         setCreating(false);
                     }}
                 />
             ) : null}
         </View>
-    );
-}
-
-function NewDocSheet({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
-    const clients = useClients();
-    const form = useDocForm(api, kind === "invoices" ? "invoice" : "estimate", onClose);
-
-    return (
-        <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={styles.backdrop} onPress={onClose}>
-                <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.sheetTitle}>
-                        {strings.invoices.newButton(kind === "invoices" ? "invoice" : "estimate")}
-                    </Text>
-                    <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
-                        <Text style={styles.sectionLabel}>{strings.invoices.clientLabel}</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.chipRow}
-                        >
-                            {clients.map((cl) => (
-                                <Pressable
-                                    key={cl.id}
-                                    onPress={() => {
-                                        form.setClientId(cl.id);
-                                    }}
-                                    style={[styles.chip, form.clientId === cl.id && styles.chipOn]}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.chipText,
-                                            form.clientId === cl.id && styles.chipTextOn,
-                                        ]}
-                                    >
-                                        {cl.name}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
-
-                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                            {strings.invoices.linesLabel}
-                        </Text>
-                        {form.lines.map((l) => (
-                            <View key={l.key} style={styles.lineEdit}>
-                                <TextInput
-                                    style={[styles.lineInput, styles.lineDescInput]}
-                                    value={l.description}
-                                    onChangeText={(v) => {
-                                        form.setLine(l.key, { description: v });
-                                    }}
-                                    placeholder={strings.invoices.lineDescriptionPlaceholder}
-                                    placeholderTextColor={c.muted}
-                                />
-                                <TextInput
-                                    style={[styles.lineInput, styles.lineQtyInput]}
-                                    value={l.quantity}
-                                    onChangeText={(v) => {
-                                        form.setLine(l.key, { quantity: v });
-                                    }}
-                                    keyboardType="decimal-pad"
-                                    placeholder={strings.invoices.lineQty}
-                                    placeholderTextColor={c.muted}
-                                />
-                                <TextInput
-                                    style={[styles.lineInput, styles.linePriceInput]}
-                                    value={l.unit}
-                                    onChangeText={(v) => {
-                                        form.setLine(l.key, { unit: v });
-                                    }}
-                                    keyboardType="decimal-pad"
-                                    placeholder={strings.invoices.linePricePlaceholder}
-                                    placeholderTextColor={c.muted}
-                                />
-                                <Pressable
-                                    onPress={() => {
-                                        form.removeLine(l.key);
-                                    }}
-                                    style={styles.lineRemove}
-                                    hitSlop={8}
-                                >
-                                    <Text style={styles.lineRemoveText}>×</Text>
-                                </Pressable>
-                            </View>
-                        ))}
-                        <Pressable
-                            onPress={() => {
-                                form.addLine();
-                            }}
-                        >
-                            <Text style={styles.addLine}>{strings.invoices.addLine}</Text>
-                        </Pressable>
-
-                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                            {strings.invoices.notesLabel}
-                        </Text>
-                        <TextInput
-                            style={styles.notesInput}
-                            value={form.notes}
-                            onChangeText={form.setNotes}
-                            multiline
-                            placeholder={strings.invoices.notesPlaceholder}
-                            placeholderTextColor={c.muted}
-                        />
-                    </ScrollView>
-                    {form.error !== null ? (
-                        <Text style={styles.errorText}>{form.error}</Text>
-                    ) : null}
-                    <View style={styles.createFoot}>
-                        <Text style={styles.subtotal}>
-                            {strings.invoices.subtotal}{" "}
-                            <Text style={styles.subtotalValue}>
-                                {formatMoney(form.subtotalCents)}
-                            </Text>
-                            <Text style={styles.subtotalTax}>{strings.invoices.plusTax}</Text>
-                        </Text>
-                        <View style={styles.actions}>
-                            <Pressable style={styles.cancel} onPress={onClose}>
-                                <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                            </Pressable>
-                            <Pressable
-                                style={styles.save}
-                                disabled={form.busy}
-                                onPress={form.submit}
-                            >
-                                {form.busy ? (
-                                    <ActivityIndicator color={c.accentInk} />
-                                ) : (
-                                    <Text style={styles.saveText}>
-                                        {strings.invoices.saveDraft}
-                                    </Text>
-                                )}
-                            </Pressable>
-                        </View>
-                    </View>
-                </View>
-            </Pressable>
-        </Modal>
     );
 }
 
@@ -326,6 +187,7 @@ function DetailModal({
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
     const { busy, error, run } = useAsyncAction();
     const canRefund = canManagePayments(useRole());
+    const [editing, setEditing] = useState(false);
 
     const isInvoice = kind === "invoices";
     const invoice = isInvoice ? (row as InvoiceRow | null) : null;
@@ -339,90 +201,127 @@ function DetailModal({
     const canPay = invoice !== null && isPayable(invoice);
 
     return (
-        <Modal visible={row !== null} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.backdrop}>
-                <View style={styles.sheet}>
-                    {row !== null ? (
-                        <>
-                            <View style={styles.sheetHead}>
-                                <View>
-                                    <Text style={styles.sheetTitle}>
-                                        {isInvoice
-                                            ? strings.invoices.invoiceHeading
-                                            : strings.invoices.estimateHeading}{" "}
-                                        {row.number !== null
-                                            ? `#${row.number}`
-                                            : strings.invoices.draftHeading}
-                                    </Text>
-                                    <Text style={styles.rowSub}>{row.client_name ?? "—"}</Text>
-                                </View>
-                                <StatusPill
-                                    status={row.status}
-                                    intent={
-                                        isInvoice
-                                            ? invoiceStatusIntent(row.status)
-                                            : estimateStatusIntent(row.status)
-                                    }
-                                />
-                            </View>
-                            <ScrollView style={styles.sheetBody}>
-                                {lines.map((l) => (
-                                    <View key={l.id} style={styles.lineRow}>
-                                        <Text style={styles.lineDesc} numberOfLines={1}>
-                                            {l.description}
+        <>
+            {editing && row !== null ? (
+                <DocEditor
+                    kind={isInvoice ? "invoice" : "estimate"}
+                    draft={docDraft(row, lines)}
+                    onClose={() => {
+                        setEditing(false);
+                    }}
+                />
+            ) : null}
+            <Modal
+                visible={row !== null && !editing}
+                transparent
+                animationType="slide"
+                onRequestClose={onClose}
+            >
+                <View style={styles.backdrop}>
+                    <View style={styles.sheet}>
+                        {row !== null ? (
+                            <>
+                                <View style={styles.sheetHead}>
+                                    <View>
+                                        <Text style={styles.sheetTitle}>
+                                            {isInvoice
+                                                ? strings.invoices.invoiceHeading
+                                                : strings.invoices.estimateHeading}{" "}
+                                            {row.number !== null
+                                                ? `#${row.number}`
+                                                : strings.invoices.draftHeading}
                                         </Text>
-                                        <Text style={styles.lineAmt}>
-                                            {formatMoney(l.amount_cents)}
+                                        <Text style={styles.rowSub}>{row.client_name ?? "—"}</Text>
+                                    </View>
+                                    <StatusPill
+                                        status={row.status}
+                                        intent={
+                                            isInvoice
+                                                ? invoiceStatusIntent(row.status)
+                                                : estimateStatusIntent(row.status)
+                                        }
+                                    />
+                                </View>
+                                <ScrollView style={styles.sheetBody}>
+                                    {lines.map((l) => (
+                                        <View key={l.id} style={styles.lineRow}>
+                                            <Text style={styles.lineDesc} numberOfLines={1}>
+                                                {l.description}
+                                            </Text>
+                                            <Text style={styles.lineAmt}>
+                                                {formatMoney(l.amount_cents)}
+                                            </Text>
+                                        </View>
+                                    ))}
+                                    <View style={styles.totalRow}>
+                                        <Text style={styles.totalLabel}>
+                                            {strings.invoices.total}
+                                        </Text>
+                                        <Text style={styles.totalValue}>
+                                            {formatMoney(row.total_cents)}
                                         </Text>
                                     </View>
-                                ))}
-                                <View style={styles.totalRow}>
-                                    <Text style={styles.totalLabel}>{strings.invoices.total}</Text>
-                                    <Text style={styles.totalValue}>
-                                        {formatMoney(row.total_cents)}
-                                    </Text>
-                                </View>
-                                {canPay && payToken !== null ? (
-                                    <PayLinkRow token={payToken} />
+                                    {canPay && payToken !== null ? (
+                                        <PayLinkRow token={payToken} />
+                                    ) : null}
+                                    {invoice !== null ? (
+                                        <PaymentsSection
+                                            invoiceId={invoice.id}
+                                            canRefund={canRefund}
+                                        />
+                                    ) : null}
+                                </ScrollView>
+                                {error !== null ? (
+                                    <Text style={styles.errorText}>{error}</Text>
                                 ) : null}
-                                {invoice !== null ? (
-                                    <PaymentsSection invoiceId={invoice.id} canRefund={canRefund} />
-                                ) : null}
-                            </ScrollView>
-                            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
-                            <View style={styles.actions}>
-                                <Pressable style={styles.cancel} onPress={onClose}>
-                                    <Text style={styles.cancelText}>{strings.common.close}</Text>
-                                </Pressable>
-                                {actions.map((a) => (
-                                    <Pressable
-                                        key={a.key}
-                                        style={styles.save}
-                                        disabled={busy}
-                                        onPress={() => {
-                                            run(a.run, {
-                                                onSuccess: onClose,
-                                                errorMessage: strings.invoices.actionError(
-                                                    DOC_ACTION_LABEL[a.key].toLowerCase(),
-                                                ),
-                                            });
-                                        }}
-                                    >
-                                        {busy ? (
-                                            <ActivityIndicator color={c.accentInk} />
-                                        ) : (
-                                            <Text style={styles.saveText}>
-                                                {DOC_ACTION_LABEL[a.key]}
-                                            </Text>
-                                        )}
+                                <View style={styles.actions}>
+                                    <Pressable style={styles.cancel} onPress={onClose}>
+                                        <Text style={styles.cancelText}>
+                                            {strings.common.close}
+                                        </Text>
                                     </Pressable>
-                                ))}
-                            </View>
-                        </>
-                    ) : null}
+                                    {row.status === "draft" ? (
+                                        <Pressable
+                                            style={styles.cancel}
+                                            onPress={() => {
+                                                setEditing(true);
+                                            }}
+                                        >
+                                            <Text style={styles.cancelText}>
+                                                {strings.invoices.edit}
+                                            </Text>
+                                        </Pressable>
+                                    ) : null}
+                                    {actions.map((a) => (
+                                        <Pressable
+                                            key={a.key}
+                                            style={styles.save}
+                                            disabled={busy}
+                                            onPress={() => {
+                                                run(a.run, {
+                                                    onSuccess: onClose,
+                                                    errorMessage: strings.invoices.actionError(
+                                                        DOC_ACTION_LABEL[a.key].toLowerCase(),
+                                                    ),
+                                                });
+                                            }}
+                                        >
+                                            {busy ? (
+                                                <ActivityIndicator color={c.accentInk} />
+                                            ) : (
+                                                <Text style={styles.saveText}>
+                                                    {DOC_ACTION_LABEL[a.key]}
+                                                </Text>
+                                            )}
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            </>
+                        ) : null}
+                    </View>
                 </View>
-            </View>
-        </Modal>
+            </Modal>
+        </>
     );
 }
 
@@ -688,51 +587,4 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    sectionSpace: { marginTop: 16 },
-    chipRow: { gap: 8, paddingVertical: 8 },
-    chip: {
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: c.bg,
-        borderWidth: 1,
-        borderColor: c.border,
-    },
-    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
-    chipText: { color: c.ink, fontSize: 14, fontWeight: "500" },
-    chipTextOn: { color: c.accentInk },
-    lineEdit: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-    lineInput: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 10,
-        paddingVertical: 9,
-        color: c.ink,
-        fontSize: 14,
-        backgroundColor: c.bg,
-    },
-    lineDescInput: { flex: 1 },
-    lineQtyInput: { width: 52, textAlign: "center" },
-    linePriceInput: { width: 76, textAlign: "right" },
-    lineRemove: { width: 20, alignItems: "center" },
-    lineRemoveText: { color: c.muted, fontSize: 18 },
-    addLine: { color: c.accent, fontSize: 14, fontWeight: "600", marginTop: 10 },
-    notesInput: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginTop: 8,
-        minHeight: 56,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-        textAlignVertical: "top",
-    },
-    createFoot: { marginTop: 12 },
-    subtotal: { color: c.muted, fontSize: 13 },
-    subtotalValue: { color: c.ink, fontWeight: "700" },
-    subtotalTax: { fontSize: 11 },
 });

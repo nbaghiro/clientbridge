@@ -13,7 +13,7 @@ import {
     strings,
     usePublicBookingForm,
 } from "@clientbridge/app-core/public";
-import { CardForm } from "@clientbridge/ui";
+import { CardForm, ItemImage } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
 import { useParams } from "react-router-dom";
 
@@ -88,6 +88,12 @@ export function PublicBooking() {
 
                 {service !== null ? (
                     <>
+                        <div className="flex items-center gap-3 rounded-md border border-line p-3">
+                            <ItemImage src={service.image_url} name={service.name} size={48} />
+                            <p className="text-sm text-muted">
+                                {service.description ?? service.name}
+                            </p>
+                        </div>
                         <Labeled label={strings.publicBooking.with}>
                             <select
                                 value={form.staffId}

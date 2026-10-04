@@ -19,6 +19,7 @@ export interface InvoiceRow {
     issued_at: string | null;
     due_at: string | null;
     pay_token: string | null;
+    notes: string | null;
     created_at: string;
 }
 
@@ -31,11 +32,13 @@ export interface EstimateRow {
     total_cents: number | null;
     valid_until: string | null;
     converted_invoice_id: string | null;
+    notes: string | null;
     created_at: string;
 }
 
 export interface LineRow {
     id: string;
+    item_id: string | null;
     description: string;
     quantity: number;
     unit_amount_cents: number;
@@ -48,20 +51,21 @@ const INVOICES_SQL = `
 SELECT i.id, i.client_id, c.name AS client_name, i.number, i.status, i.total_cents,
        CASE WHEN i.status = 'draft' THEN i.total_cents
             ELSE COALESCE(${subjectNetSql("receivable", "invoice", "i.id")}, 0) END AS balance_cents,
-       i.issued_at, i.due_at, i.pay_token, i.created_at
+       i.issued_at, i.due_at, i.pay_token, i.notes, i.created_at
 FROM invoices i
 LEFT JOIN clients c ON c.id = i.client_id
 ORDER BY COALESCE(i.issued_at, i.created_at) DESC, i.number DESC`;
 
 const ESTIMATES_SQL = `
 SELECT e.id, e.client_id, c.name AS client_name, e.number, e.status,
-       e.total_cents, e.valid_until, e.converted_invoice_id, e.created_at
+       e.total_cents, e.valid_until, e.converted_invoice_id, e.notes, e.created_at
 FROM estimates e
 LEFT JOIN clients c ON c.id = e.client_id
 ORDER BY e.created_at DESC`;
 
 const LINES_SQL = `
-SELECT id, description, quantity, unit_amount_cents, amount_cents, tax_amount_cents, position
+SELECT id, item_id, description, quantity, unit_amount_cents, amount_cents, tax_amount_cents,
+       position
 FROM lines WHERE parent_type = ? AND parent_id = ? ORDER BY position`;
 
 export function useInvoices(): InvoiceRow[] {
@@ -115,6 +119,7 @@ export interface LineInput {
     description: string;
     quantity: number;
     unit_amount_cents: number;
+    item_id?: string | null;
 }
 
 export interface DocResult {
@@ -232,6 +237,7 @@ export interface DraftLine {
     description: string;
     quantity: string;
     unit: string;
+    itemId: string | null;
 }
 
 export function toLineInputs(drafts: DraftLine[]): LineInput[] {
@@ -241,7 +247,30 @@ export function toLineInputs(drafts: DraftLine[]): LineInput[] {
             description: l.description.trim(),
             quantity: Number(l.quantity) || 0,
             unit_amount_cents: Math.round((Number(l.unit) || 0) * 100),
+            item_id: l.itemId,
         }));
+}
+
+/** An existing draft opened for editing: its client stays fixed, its lines and notes are editable. */
+export interface DocDraft {
+    id: string;
+    clientId: string;
+    notes: string;
+    lines: DraftLine[];
+}
+
+export function docDraft(row: InvoiceRow | EstimateRow, lines: LineRow[]): DocDraft {
+    return {
+        id: row.id,
+        clientId: row.client_id,
+        notes: row.notes ?? "",
+        lines: lines.map((l) => ({
+            description: l.description,
+            quantity: String(l.quantity),
+            unit: (l.unit_amount_cents / 100).toFixed(2),
+            itemId: l.item_id,
+        })),
+    };
 }
 
 export function lineSubtotalCents(lines: LineInput[]): number {
@@ -269,17 +298,18 @@ export function useTaxRates(api: ApiLike): TaxRate[] | null {
     return rates;
 }
 
+export function docEditorTitle(kind: "invoice" | "estimate", editing: boolean): string {
+    return editing ? strings.invoices.editTitle(kind) : strings.invoices.newButton(kind);
+}
+
 export interface KeyedLine extends DraftLine {
     key: string;
 }
 
 let lineSeq = 0;
-const blankLine = (): KeyedLine => ({
-    key: `l${(lineSeq += 1)}`,
-    description: "",
-    quantity: "1",
-    unit: "",
-});
+const keyed = (line: DraftLine): KeyedLine => ({ ...line, key: `l${(lineSeq += 1)}` });
+const blankLine = (): KeyedLine =>
+    keyed({ description: "", quantity: "1", unit: "", itemId: null });
 
 export interface DocForm {
     clientId: string;
@@ -288,6 +318,8 @@ export interface DocForm {
     setLine: (key: string, patch: Partial<DraftLine>) => void;
     addLine: () => void;
     removeLine: (key: string) => void;
+    addCatalogItem: (item: { id: string; name: string; price_cents: number | null }) => void;
+    editing: boolean;
     notes: string;
     setNotes: (v: string) => void;
     subtotalCents: number;
@@ -301,11 +333,14 @@ export interface DocForm {
 export function useDocForm(
     api: ApiLike,
     kind: "invoice" | "estimate",
-    onCreated: () => void,
+    onDone: () => void,
+    draft?: DocDraft,
 ): DocForm {
-    const [clientId, setClientId] = useState("");
-    const [lines, setLines] = useState<KeyedLine[]>([blankLine()]);
-    const [notes, setNotes] = useState("");
+    const [clientId, setClientId] = useState(draft?.clientId ?? "");
+    const [lines, setLines] = useState<KeyedLine[]>(() =>
+        draft !== undefined && draft.lines.length > 0 ? draft.lines.map(keyed) : [blankLine()],
+    );
+    const [notes, setNotes] = useState(draft?.notes ?? "");
     const { busy, error, setError, run } = useAsyncAction();
 
     const setLine = (key: string, patch: Partial<DraftLine>): void => {
@@ -318,6 +353,20 @@ export function useDocForm(
         setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : ls));
     };
 
+    const addCatalogItem = (item: { id: string; name: string; price_cents: number | null }) => {
+        const line = keyed({
+            description: item.name,
+            quantity: "1",
+            unit: ((item.price_cents ?? 0) / 100).toFixed(2),
+            itemId: item.id,
+        });
+        setLines((ls) => {
+            const last = ls.at(-1);
+            const reuse = last?.description.trim() === "" && last.unit === "";
+            return reuse ? [...ls.slice(0, -1), line] : [...ls, line];
+        });
+    };
+
     const subtotalCents = lineSubtotalCents(toLineInputs(lines));
 
     const submit = (): void => {
@@ -326,12 +375,17 @@ export function useDocForm(
             setError(strings.invoices.incompleteInvoice);
             return;
         }
+        const patch = { lines: payload, notes: blankToNull(notes) };
         run(
             () =>
-                kind === "invoice"
-                    ? createInvoice(api, clientId, payload, notes)
-                    : createEstimate(api, clientId, payload, notes),
-            { onSuccess: onCreated, errorMessage: strings.invoices.saveError },
+                draft !== undefined
+                    ? kind === "invoice"
+                        ? updateInvoice(api, draft.id, patch)
+                        : updateEstimate(api, draft.id, patch)
+                    : kind === "invoice"
+                      ? createInvoice(api, clientId, payload, notes)
+                      : createEstimate(api, clientId, payload, notes),
+            { onSuccess: onDone, errorMessage: strings.invoices.saveError },
         );
     };
 
@@ -342,6 +396,8 @@ export function useDocForm(
         setLine,
         addLine,
         removeLine,
+        addCatalogItem,
+        editing: draft !== undefined,
         notes,
         setNotes,
         subtotalCents,

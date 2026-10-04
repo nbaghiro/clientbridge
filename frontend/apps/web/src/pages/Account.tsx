@@ -1,6 +1,14 @@
-import { ACCOUNT_TEXT_FIELDS, LOCALES, strings, useAccountForm } from "@clientbridge/app-core";
+import {
+    ACCOUNT_TEXT_FIELDS,
+    LOCALES,
+    logoTarget,
+    strings,
+    useAccountForm,
+    useFileUpload,
+} from "@clientbridge/app-core";
+import { type ChangeEvent, useRef } from "react";
 
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
 
 const FIELD =
     "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
@@ -67,18 +75,15 @@ export function Account() {
                                 {strings.account.brandSubtitle}
                             </p>
                             <div className="mt-3 space-y-4">
-                                <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                                    {strings.account.logoUrlLabel}
-                                    <input
-                                        type="url"
-                                        value={fields.logo_url}
-                                        onChange={(e) => {
-                                            form.set("logo_url", e.target.value);
+                                {form.businessId !== null ? (
+                                    <LogoField
+                                        src={form.logoSrc(apiBaseUrl)}
+                                        businessId={form.businessId}
+                                        onUploaded={(id) => {
+                                            form.set("logo_file_id", id);
                                         }}
-                                        placeholder={strings.account.logoUrlPlaceholder}
-                                        className={FIELD}
                                     />
-                                </label>
+                                ) : null}
                                 <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
                                     {strings.account.primaryLabel}
                                     <div className="flex items-center gap-3">
@@ -130,6 +135,59 @@ export function Account() {
                     </form>
                 )}
             </div>
+        </div>
+    );
+}
+
+function LogoField({
+    src,
+    businessId,
+    onUploaded,
+}: {
+    src: string | null;
+    businessId: string;
+    onUploaded: (fileId: string) => void;
+}) {
+    const { busy, error, upload } = useFileUpload(api, onUploaded);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const onChange = (e: ChangeEvent<HTMLInputElement>): void => {
+        const file = e.target.files?.[0];
+        if (file === undefined) return;
+        upload(file, logoTarget(businessId), file.type !== "" ? file.type : "image/png", file.size);
+        e.target.value = "";
+    };
+
+    return (
+        <div className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
+            {strings.media.logo}
+            <div className="flex items-center gap-4">
+                {src !== null ? (
+                    <img src={src} alt="" className="h-12 max-w-48 rounded-md object-contain" />
+                ) : null}
+                <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                        inputRef.current?.click();
+                    }}
+                    className="rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                >
+                    {busy
+                        ? strings.fileUpload.uploading
+                        : src !== null
+                          ? strings.media.replaceLogo
+                          : strings.media.uploadLogo}
+                </button>
+                <input
+                    ref={inputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={onChange}
+                    className="hidden"
+                />
+            </div>
+            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
         </div>
     );
 }

@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 import { clearTokens, getTokens, setTokens } from "./auth";
 
 const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string };
-const baseUrl = extra.apiUrl ?? "http://localhost:8701";
+export const apiBaseUrl = extra.apiUrl ?? "http://localhost:8701";
 
 let signedOutHandler: () => void = () => undefined;
 
@@ -14,7 +14,7 @@ export function onSignedOut(handler: () => void): void {
 }
 
 export const api: Session = createSession({
-    baseUrl,
+    baseUrl: apiBaseUrl,
     store: { get: getTokens, set: setTokens, clear: clearTokens },
     onSignedOut: () => {
         signedOutHandler();

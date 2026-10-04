@@ -3,6 +3,7 @@ import {
     KIND_LABEL,
     filterItems,
     formatMoney,
+    mediaUrl,
     strings,
     useCatalogItems,
     useItemForm,
@@ -22,7 +23,8 @@ import {
 } from "react-native";
 
 import { IconPlus, IconSearch } from "../components/icons";
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
+import { ItemImage } from "../ui/ItemImage";
 
 export function CatalogScreen() {
     const items = useCatalogItems();
@@ -59,6 +61,11 @@ export function CatalogScreen() {
                 contentContainerStyle={styles.list}
                 renderItem={({ item }) => (
                     <View style={[styles.row, item.active ? null : styles.dim]}>
+                        <ItemImage
+                            src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                            name={item.name}
+                            color={item.color}
+                        />
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName} numberOfLines={1}>
                                 {item.name}

@@ -51,6 +51,19 @@ export async function putToPresignedUrl(
     }
 }
 
+/** The stable public link for a business logo or item image (`GET /media/{id}` on the API). */
+export function mediaUrl(apiBase: string, fileId: string | null): string | null {
+    return fileId === null ? null : `${apiBase.replace(/\/$/, "")}/media/${fileId}`;
+}
+
+export function itemImageTarget(itemId: string): UploadTarget {
+    return { parentType: "item", parentId: itemId, kind: "image" };
+}
+
+export function logoTarget(businessId: string): UploadTarget {
+    return { parentType: "business", parentId: businessId, kind: "logo" };
+}
+
 /** A short-lived presigned download url for a stored file (`GET /v1/files/{id}/url`). */
 export function fileDownloadUrl(api: ApiLike, fileId: string): Promise<string> {
     return api.get<{ url: string }>(`/v1/files/${fileId}/url`).then((r) => r.url);

@@ -2,7 +2,7 @@ import { type Session, createSession } from "@clientbridge/api-client";
 
 import { clearTokens, getTokens, setTokens } from "./auth";
 
-const baseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8701";
+export const apiBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8701";
 
 let signedOutHandler: () => void = () => undefined;
 
@@ -12,7 +12,7 @@ export function onSignedOut(handler: () => void): void {
 }
 
 export const api: Session = createSession({
-    baseUrl,
+    baseUrl: apiBaseUrl,
     store: {
         get: () => Promise.resolve(getTokens()),
         set: (tokens) => {

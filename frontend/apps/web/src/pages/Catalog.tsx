@@ -1,7 +1,10 @@
 import {
     ITEM_KINDS,
     KIND_LABEL,
+    canManageCatalog,
     filterItems,
+    itemImageTarget,
+    mediaUrl,
     formatMoney,
     strings,
     useCatalogItems,
@@ -10,13 +13,18 @@ import {
 } from "@clientbridge/app-core";
 import { type SubmitEvent, useState } from "react";
 
+import { ItemImage } from "@clientbridge/ui";
+
+import { ItemImageUpload } from "../components/ItemImageUpload";
 import { IconPlus, IconSearch } from "../components/icons";
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
+import { useRole } from "../lib/auth";
 
 export function Catalog() {
     const items = useCatalogItems();
     const { q, setQ, filtered } = useSearch(items, filterItems);
     const [adding, setAdding] = useState(false);
+    const editable = canManageCatalog(useRole());
 
     return (
         <div>
@@ -66,10 +74,30 @@ export function Catalog() {
                                 }`}
                             >
                                 <td className="px-4 py-3">
-                                    <div className="font-medium text-ink">{i.name}</div>
-                                    {i.category ? (
-                                        <div className="text-xs text-muted">{i.category}</div>
-                                    ) : null}
+                                    <div className="flex items-center gap-3">
+                                        {editable ? (
+                                            <ItemImageUpload
+                                                src={mediaUrl(apiBaseUrl, i.image_file_id)}
+                                                name={i.name}
+                                                color={i.color}
+                                                target={itemImageTarget(i.id)}
+                                            />
+                                        ) : (
+                                            <ItemImage
+                                                src={mediaUrl(apiBaseUrl, i.image_file_id)}
+                                                name={i.name}
+                                                color={i.color}
+                                            />
+                                        )}
+                                        <div>
+                                            <div className="font-medium text-ink">{i.name}</div>
+                                            {i.category ? (
+                                                <div className="text-xs text-muted">
+                                                    {i.category}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
                                 </td>
                                 <td className="px-4 py-3">
                                     <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">

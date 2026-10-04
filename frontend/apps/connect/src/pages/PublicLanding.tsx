@@ -5,6 +5,7 @@ import {
     strings,
     usePublicBusiness,
 } from "@clientbridge/app-core/public";
+import { ItemImage } from "@clientbridge/ui";
 import { Link, useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
@@ -60,9 +61,12 @@ export function PublicLanding() {
                             {page.services.map((s) => (
                                 <li
                                     key={s.id}
-                                    className="flex items-baseline justify-between gap-3 border-b border-line pb-2 text-sm"
+                                    className="flex items-center justify-between gap-3 border-b border-line pb-2 text-sm"
                                 >
-                                    <span className="text-ink">{s.name}</span>
+                                    <span className="flex items-center gap-3">
+                                        <ItemImage src={s.image_url} name={s.name} size={36} />
+                                        <span className="text-ink">{s.name}</span>
+                                    </span>
                                     <span className="shrink-0 tabular-nums text-muted">
                                         {serviceMeta(s)}
                                     </span>

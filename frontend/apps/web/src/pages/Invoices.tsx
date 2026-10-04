@@ -5,6 +5,7 @@ import {
     type InvoiceRow,
     type PaymentRow,
     canManagePayments,
+    docDraft,
     estimateActions,
     estimateStatusIntent,
     filterEstimates,
@@ -21,8 +22,6 @@ import {
     useRefundForm,
     strings,
     useAsyncAction,
-    useClients,
-    useDocForm,
     useEstimates,
     useInvoicePayments,
     useInvoices,
@@ -32,6 +31,7 @@ import {
 import { StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
+import { DocEditor } from "../components/DocEditor";
 import { IconPlus, IconSearch } from "../components/icons";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -161,8 +161,8 @@ export function Invoices() {
             </div>
 
             {creating ? (
-                <NewDocModal
-                    kind={tab}
+                <DocEditor
+                    kind={tab === "invoices" ? "invoice" : "estimate"}
                     onClose={() => {
                         setCreating(false);
                     }}
@@ -189,144 +189,6 @@ function Overlay({ children }: { children: React.ReactNode }) {
     );
 }
 
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
-
-function NewDocModal({ kind, onClose }: { kind: DocTab; onClose: () => void }) {
-    const clients = useClients();
-    const form = useDocForm(api, kind === "invoices" ? "invoice" : "estimate", onClose);
-
-    return (
-        <Overlay>
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.submit();
-                }}
-                className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card"
-            >
-                <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold text-ink">
-                    {strings.invoices.newButton(kind === "invoices" ? "invoice" : "estimate")}
-                </h2>
-                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.invoices.clientLabel}
-                        <select
-                            value={form.clientId}
-                            onChange={(e) => {
-                                form.setClientId(e.target.value);
-                            }}
-                            className={field}
-                        >
-                            <option value="">{strings.invoices.clientPlaceholder}</option>
-                            {clients.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-                            <span className="flex-1">{strings.invoices.lineDescription}</span>
-                            <span className="w-12 text-center">{strings.invoices.lineQty}</span>
-                            <span className="w-20 text-right">{strings.invoices.linePrice}</span>
-                            <span className="w-5" />
-                        </div>
-                        {form.lines.map((l) => (
-                            <div key={l.key} className="flex items-center gap-2">
-                                <input
-                                    value={l.description}
-                                    onChange={(e) => {
-                                        form.setLine(l.key, { description: e.target.value });
-                                    }}
-                                    placeholder={strings.invoices.lineDescriptionPlaceholder}
-                                    className={`${field} flex-1`}
-                                />
-                                <input
-                                    value={l.quantity}
-                                    onChange={(e) => {
-                                        form.setLine(l.key, { quantity: e.target.value });
-                                    }}
-                                    inputMode="decimal"
-                                    className={`${field} w-12 text-center`}
-                                />
-                                <input
-                                    value={l.unit}
-                                    onChange={(e) => {
-                                        form.setLine(l.key, { unit: e.target.value });
-                                    }}
-                                    inputMode="decimal"
-                                    placeholder={strings.invoices.linePricePlaceholder}
-                                    className={`${field} w-20 text-right`}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        form.removeLine(l.key);
-                                    }}
-                                    className="w-5 text-muted transition hover:text-danger"
-                                    aria-label={strings.invoices.removeLine}
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                form.addLine();
-                            }}
-                            className="text-sm font-medium text-accent transition hover:opacity-80"
-                        >
-                            {strings.invoices.addLine}
-                        </button>
-                    </div>
-
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.invoices.notesLabel}
-                        <textarea
-                            value={form.notes}
-                            onChange={(e) => {
-                                form.setNotes(e.target.value);
-                            }}
-                            rows={2}
-                            className={field}
-                        />
-                    </label>
-                    {form.error ? <p className="text-sm text-danger">{form.error}</p> : null}
-                </div>
-                <div className="flex items-center justify-between border-t border-line px-6 py-4">
-                    <span className="text-sm text-muted">
-                        {strings.invoices.subtotal}{" "}
-                        <span className="font-semibold text-ink">
-                            {formatMoney(form.subtotalCents)}
-                        </span>
-                        <span className="text-xs">{strings.invoices.plusTax}</span>
-                    </span>
-                    <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                        >
-                            {strings.common.cancel}
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={form.busy}
-                            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                        >
-                            {form.busy ? strings.common.saving : strings.invoices.saveDraft}
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </Overlay>
-    );
-}
-
 function DetailModal({
     kind,
     row,
@@ -339,9 +201,21 @@ function DetailModal({
     const lines = useLines(kind === "invoices" ? "invoice" : "estimate", row?.id ?? "");
     const { busy, error, run } = useAsyncAction();
     const role = useRole();
+    const [editing, setEditing] = useState(false);
 
     if (row === null) return null;
     const isInvoice = kind === "invoices";
+    if (editing) {
+        return (
+            <DocEditor
+                kind={isInvoice ? "invoice" : "estimate"}
+                draft={docDraft(row, lines)}
+                onClose={() => {
+                    setEditing(false);
+                }}
+            />
+        );
+    }
     const canRefund = canManagePayments(role);
 
     const actions = isInvoice
@@ -413,6 +287,17 @@ function DetailModal({
                     >
                         {strings.common.close}
                     </button>
+                    {row.status === "draft" ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setEditing(true);
+                            }}
+                            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
+                        >
+                            {strings.invoices.edit}
+                        </button>
+                    ) : null}
                     {actions.map((a) => (
                         <button
                             key={a.key}

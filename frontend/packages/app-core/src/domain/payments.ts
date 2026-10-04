@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAsyncAction } from "../hooks/useAsyncAction";
 import { strings } from "../strings";
 import type { ApiLike } from "../util/api";
+import type { CheckoutMethod } from "./checkout";
 import { newIdempotencyKey } from "../util/primitives";
 import type { Intent } from "../util/primitives";
 
@@ -333,10 +334,19 @@ export function isMandate(card: SavedCardRow): boolean {
 export function savedCardLabel(card: SavedCardRow): string {
     const noun = isMandate(card)
         ? strings.payments.bankAccountNoun
-        : card.brand
-          ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
-          : strings.payments.cardNoun;
+        : card.type === "interac"
+          ? strings.payments.interacNoun
+          : card.brand
+            ? card.brand.charAt(0).toUpperCase() + card.brand.slice(1)
+            : strings.payments.cardNoun;
     return card.last4 !== null ? strings.payments.savedCardLabel(noun, card.last4) : noun;
+}
+
+/** The saved methods a checkout can charge (an Interac contact can't be), labelled. */
+export function checkoutMethods(cards: SavedCardRow[]): CheckoutMethod[] {
+    return cards
+        .filter((c) => c.type === "card" || (isMandate(c) && c.mandate_status === "active"))
+        .map((c) => ({ id: c.id, label: savedCardLabel(c) }));
 }
 
 export function mandateStatusIntent(status: string): Intent {

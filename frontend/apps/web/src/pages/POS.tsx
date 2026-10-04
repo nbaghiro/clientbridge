@@ -4,6 +4,7 @@ import {
     type Order,
     filterItems,
     formatMoney,
+    mediaUrl,
     orderStatusIntent,
     sellableItems,
     strings,
@@ -12,11 +13,11 @@ import {
     useOpenOrders,
     useSearch,
 } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import { ItemImage, StatusPill } from "@clientbridge/ui";
 import { useMemo } from "react";
 
 import { IconSearch } from "../components/icons";
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
 
 export function POS() {
     const cart = useCart(api);
@@ -52,7 +53,13 @@ export function POS() {
                             }}
                             className="flex flex-col items-start rounded-lg border border-line bg-surface p-3 text-left transition hover:border-accent disabled:opacity-50"
                         >
-                            <span className="line-clamp-2 text-sm font-medium text-ink">
+                            <ItemImage
+                                src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                                name={item.name}
+                                color={item.color}
+                                size={48}
+                            />
+                            <span className="mt-2 line-clamp-2 text-sm font-medium text-ink">
                                 {item.name}
                             </span>
                             <span className="mt-1 text-sm tabular-nums text-muted">

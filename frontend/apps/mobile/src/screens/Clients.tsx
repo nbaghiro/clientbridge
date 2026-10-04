@@ -6,6 +6,7 @@ import {
     type SubscriptionRow,
     canConsume,
     canManagePayments,
+    checkoutMethods,
     cancelSubscription,
     clientStatusIntent,
     consumeSession,
@@ -418,7 +419,7 @@ function StartSubscriptionForm({
     return (
         <ChargeSheet
             checkout={form.checkout}
-            methods={cards.map((card) => ({ id: card.id, label: savedCardLabel(card) }))}
+            methods={checkoutMethods(cards)}
             amountLabel={plan ? formatMoney(plan.price_cents) : ""}
             stripeAccount=""
             submitLabel={strings.clients.startSubscription}
@@ -544,7 +545,7 @@ function SellPackageForm({
     return (
         <ChargeSheet
             checkout={form.checkout}
-            methods={cards.map((card) => ({ id: card.id, label: savedCardLabel(card) }))}
+            methods={checkoutMethods(cards)}
             amountLabel={
                 offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
             }

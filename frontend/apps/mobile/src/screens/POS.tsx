@@ -3,6 +3,7 @@ import {
     type Order,
     filterItems,
     formatMoney,
+    mediaUrl,
     orderStatusIntent,
     sellableItems,
     strings,
@@ -26,9 +27,10 @@ import {
 } from "react-native";
 
 import { IconSearch } from "../components/icons";
+import { ItemImage } from "../ui/ItemImage";
 import { StatusPill } from "../ui/StatusPill";
 import { TerminalProvider, useTerminalCheckout } from "../components/terminal";
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
 
 const c = theme.colors;
 
@@ -79,6 +81,12 @@ export function POSScreen() {
                                     cart.addItem(item);
                                 }}
                             >
+                                <ItemImage
+                                    src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                                    name={item.name}
+                                    color={item.color}
+                                    size={44}
+                                />
                                 <Text style={styles.tileName} numberOfLines={2}>
                                     {item.name}
                                 </Text>
@@ -341,7 +349,7 @@ const styles = StyleSheet.create({
         minHeight: 72,
         justifyContent: "space-between",
     },
-    tileName: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    tileName: { color: c.ink, fontSize: 14, fontWeight: "600", marginTop: 8 },
     tilePrice: { color: c.muted, fontSize: 14, marginTop: 6, fontVariant: ["tabular-nums"] },
     empty: { color: c.muted, textAlign: "center", paddingVertical: 40, fontSize: 14 },
     cart: {

@@ -1,4 +1,5 @@
 import {
+    checkoutMethods,
     type CalendarEvent,
     type Intent,
     type CalendarView,
@@ -27,7 +28,6 @@ import {
     monthMatrix,
     rescheduleByDrag,
     sameDay,
-    savedCardLabel,
     staffLabel,
     startOfDay,
     startOfMonth,
@@ -858,7 +858,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
             {canCollectDeposit(event, viewer) ? (
                 <ChargeSheet
                     checkout={deposit.checkout}
-                    methods={cards.map((c) => ({ id: c.id, label: savedCardLabel(c) }))}
+                    methods={checkoutMethods(cards)}
                     amountLabel={amountLabel}
                     stripeAccount={stripeAccount}
                     submitLabel={strings.calendar.collectAmount(amountLabel)}

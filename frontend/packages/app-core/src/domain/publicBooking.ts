@@ -19,6 +19,7 @@ export interface PublicService {
     currency: string;
     deposit_required: boolean;
     deposit_amount_cents: number;
+    image_url: string | null;
 }
 
 export interface PublicStaff {
