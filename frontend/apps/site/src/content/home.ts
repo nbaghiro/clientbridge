@@ -4,13 +4,13 @@ import type { GlyphName } from "../art/TradeGlyph";
 export const homeMeta = {
     title: "Clientbridge: bookings, invoices and payments for service businesses in Canada",
     description:
-        "Clientbridge runs the front desk and the back office for groomers, stylists, trainers, cleaners, tutors and trades: online booking, invoices, card and Interac payments, and GST/HST worked out for you.",
+        "Clientbridge runs the front desk and the back office for groomers, stylists, trainers, cleaners, tutors and trades: online booking, invoices, products and stock, card and Interac payments, and GST/HST worked out for you.",
 };
 
 export const hero = {
     eyebrow: "For service businesses in Canada",
     title: "Bookings, invoices and payments, kept in one place.",
-    lede: "Clientbridge runs the front desk and the back office for groomers, stylists, trainers, cleaners, tutors and trades. Clients book and pay online, payments are matched to invoices, and GST/HST is worked out for you.",
+    lede: "Clientbridge runs the front desk and the back office for groomers, stylists, trainers, cleaners, tutors and trades. Clients book, buy and pay online, payments are matched to invoices, and GST/HST is worked out for you.",
     primary: "Start free",
     secondary: "See the demo business",
     note: "Web, iPhone and Android. No card required to try it.",
@@ -40,9 +40,10 @@ export const solutionsIntro = {
     lede: "The same app runs a grooming salon, a cleaning business and a tutoring studio. Each one starts from services, booking rules and forms that suit the trade.",
 };
 
-export type FeatureMock = "calendar" | "invoices" | "tapToPay" | "bookingPage";
+export type FeatureMock = "calendar" | "invoices" | "tapToPay" | "products" | "bookingPage";
 
 export interface Feature {
+    id?: string;
     glyph: GlyphName;
     eyebrow: string;
     title: string;
@@ -87,6 +88,19 @@ export const features: Feature[] = [
             "Schedule and client list available offline",
         ],
         mock: "tapToPay",
+    },
+    {
+        id: "products",
+        glyph: "spray",
+        eyebrow: "Products and stock",
+        title: "Sell products too, at the desk and online.",
+        body: "Shampoo, brushes, supplements or styling products sit in the same catalog as your services, with a SKU, a cost and a stock count if you want one. Ring them up on the same ticket as a visit, or let clients order from your shop page and pick up.",
+        points: [
+            "Stock counts drop as you sell, with a low-stock list and restock",
+            "Clients add a product when they book, and it goes on the visit's invoice",
+            "Itemised receipts by email or text, and sales by item for your bookkeeper",
+        ],
+        mock: "products",
     },
     {
         glyph: "camera",
@@ -142,9 +156,29 @@ export const included = {
             body: "Monthly memberships charged to a saved card or by pre-authorized debit.",
         },
         {
+            icon: "shop",
+            title: "Online shop",
+            body: "Clients order products from your booking site, pay by card and pick up. You mark each order ready.",
+        },
+        {
+            icon: "stock",
+            title: "Stock",
+            body: "Optional stock counts per product, a low-stock list, and restock in a tap.",
+        },
+        {
+            icon: "addon",
+            title: "Add-ons at booking",
+            body: "Clients add a product when they book, and it is added to the visit's invoice.",
+        },
+        {
             icon: "staff",
             title: "Staff and pay",
             body: "Roles for owners and staff, earnings on completed work, and pay records.",
+        },
+        {
+            icon: "commission",
+            title: "Retail commission",
+            body: "A commission rate per staff member, recorded on each sale they make.",
         },
         {
             icon: "messaging",
@@ -199,6 +233,7 @@ export const pricing = {
     note: "Placeholder. Final pricing to be confirmed.",
     points: [
         "Unlimited clients and bookings",
+        "Products, stock and an online shop",
         "Web, iPhone and Android",
         "Staff seats [to be confirmed]",
     ],

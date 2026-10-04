@@ -5,6 +5,8 @@ import { type Feature, type FeatureMock, features } from "../content/home";
 import { BookingPageMock } from "../mocks/BookingPageMock";
 import { CalendarMock } from "../mocks/CalendarMock";
 import { InvoicesMock } from "../mocks/InvoicesMock";
+import { ShopPhone } from "../mocks/ShopPhone";
+import { StockListMock } from "../mocks/StockListMock";
 import { TapToPayPhone } from "../mocks/TapToPayPhone";
 
 function Mock({ kind }: { kind: FeatureMock }) {
@@ -25,6 +27,14 @@ function Mock({ kind }: { kind: FeatureMock }) {
                     <TapToPayPhone />
                 </div>
             );
+        case "products":
+            return (
+                <div className="product-pair mock-host">
+                    <ContourField name="small" className="art-topo topo-small" />
+                    <StockListMock />
+                    <ShopPhone />
+                </div>
+            );
         case "bookingPage":
             return (
                 <div className="w-full max-w-[380px] justify-self-center">
@@ -36,7 +46,7 @@ function Mock({ kind }: { kind: FeatureMock }) {
 
 function FeatureBand({ feature, flip }: { feature: Feature; flip: boolean }) {
     return (
-        <div className={`feat split${flip ? " flip" : ""}`}>
+        <div className={`feat split${flip ? " flip" : ""}`} id={feature.id}>
             <div className="feat-text">
                 <div className="marker">
                     <TradeGlyph name={feature.glyph} />

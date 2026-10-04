@@ -160,6 +160,41 @@ const DRAWINGS = {
             <path d="M30 32.5c-1.5 2.5-1 5.5 1.5 6.5" />
         </>
     ),
+    shop: (
+        <>
+            <path d="M9 16h30l-2.4 23.8a2.4 2.4 0 0 1-2.4 2.2H13.8a2.4 2.4 0 0 1-2.4-2.2z" />
+            <path d="M17.5 21v-6.5a6.5 6.5 0 0 1 13 0V21" />
+            <path d="M16 28.5h9M16 33h6" />
+            <rect x="27.5" y="27" width="8" height="8" rx="1.5" />
+        </>
+    ),
+    stock: (
+        <>
+            <rect x="5" y="25" width="17" height="16" rx="1.5" />
+            <rect x="24" y="25" width="17" height="16" rx="1.5" />
+            <rect x="14.5" y="8" width="17" height="16" rx="1.5" />
+            <path d="M10.5 25v5h6v-5M29.5 25v5h6v-5M20 8v5h6V8" />
+            <path d="M44 10v10M41 17l3 3 3-3" />
+        </>
+    ),
+    addon: (
+        <>
+            <rect x="4" y="9" width="28" height="26" rx="3" />
+            <path d="M4 16h28M11 6v6M25 6v6" />
+            <path d="M10 22h7M10 27h11" />
+            <circle cx="35" cy="34" r="8.5" />
+            <path d="M35 30v8M31 34h8" />
+        </>
+    ),
+    commission: (
+        <>
+            <path d="M6 24.5V9a3 3 0 0 1 3-3h15.5L42 23.5a2.5 2.5 0 0 1 0 3.5L27 42a2.5 2.5 0 0 1-3.5 0z" />
+            <circle cx="13.5" cy="13.5" r="2" />
+            <path d="M21 31l9-9" />
+            <circle cx="21.8" cy="23.2" r="1.4" />
+            <circle cx="29.2" cy="30.6" r="1.4" />
+        </>
+    ),
 } satisfies Record<string, ReactNode>;
 
 export type LineIconName = keyof typeof DRAWINGS;

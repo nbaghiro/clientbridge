@@ -211,9 +211,9 @@ export const TRADES: readonly Trade[] = [
                 body: "A review request goes out after pickup. You choose which reviews appear on your page, and clients can share theirs to Google.",
             },
             {
-                icon: "booking",
-                title: "Booking on your own website",
-                body: "Add your booking page to the website you already have with a short snippet. It shows your logo and colour.",
+                icon: "shop",
+                title: "Retail, stock and an online shop",
+                body: "Sell shampoo and brushes at the counter or from your shop page for pickup. Owners can add one when they book, and stock counts drop as you sell.",
             },
             {
                 icon: "offline",
@@ -222,8 +222,8 @@ export const TRADES: readonly Trade[] = [
             },
         ],
         pay: {
-            title: "A groom and a nail grind, paid at pickup.",
-            body: "The owner paid a $20 deposit when they booked online. At pickup the invoice applies it, adds GST and PST, and the owner taps their card on your phone for the balance.",
+            title: "A groom, a nail grind and a shampoo, paid at pickup.",
+            body: "The owner paid a $20 deposit and added a bottle of shampoo when they booked online. At pickup the invoice includes the shampoo, applies the deposit, adds the tax, and the owner taps their card on your phone for the balance.",
         },
         bill: {
             kind: "invoice",
@@ -231,6 +231,7 @@ export const TRADES: readonly Trade[] = [
             lines: [
                 ["Full Groom (Luna)", 8000],
                 ["Nail grind (Luna)", 1800],
+                ["Oatmeal shampoo, 500 ml (add-on)", 2400],
             ],
             taxes: [
                 ["GST 5%", 0.05],
@@ -355,9 +356,9 @@ export const TRADES: readonly Trade[] = [
                 body: "A review request goes out after the appointment. You choose which reviews appear on your page, and clients can share theirs to Google.",
             },
             {
-                icon: "booking",
-                title: "Booking on your own website",
-                body: "Put your booking page on your salon's website or link it from your social profiles, with your logo and colour.",
+                icon: "stock",
+                title: "Stock and retail commission",
+                body: "Track stock on the products you sell, see what is running low and restock. Each sale records a commission for the stylist who made it.",
             },
             {
                 icon: "offline",
@@ -491,9 +492,9 @@ export const TRADES: readonly Trade[] = [
                 body: "Clients get a reminder before each session and class. Replies, cancellations and questions arrive in one inbox.",
             },
             {
-                icon: "reviews",
-                title: "Reviews",
-                body: "A review request goes out after a client's first sessions. You choose which reviews show on your booking page.",
+                icon: "shop",
+                title: "Supplements and gear",
+                body: "Sell protein, bands and water bottles at the desk or from your shop page for pickup, with stock counts that drop as you sell.",
             },
             {
                 icon: "offline",
@@ -915,9 +916,9 @@ export const TRADES: readonly Trade[] = [
                 body: "A review request goes out after the visit. You choose which reviews appear on your booking page.",
             },
             {
-                icon: "booking",
-                title: "Booking on your own website",
-                body: "Put the booking page on your clinic's website with a short snippet, with your logo and colour.",
+                icon: "addon",
+                title: "Products for home care",
+                body: "Sell massage oils and heat packs at checkout, or let clients add one when they book so it is on the visit's invoice.",
             },
         ],
         pay: {

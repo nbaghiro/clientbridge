@@ -31,6 +31,7 @@ export const footer = {
                 { label: "Booking", href: "/features#bookings" },
                 { label: "Invoices and estimates", href: "/features#invoices" },
                 { label: "Payments", href: "/features#payments" },
+                { label: "Products and stock", href: "/features#products" },
                 { label: "Sales tax", href: "/features#tax" },
                 { label: "Staff and pay", href: "/features#staff" },
                 { label: "All features", href: "/features" },

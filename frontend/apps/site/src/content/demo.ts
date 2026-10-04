@@ -201,3 +201,73 @@ export const bookingPage = {
     selectedTime: 1,
     cta: "Book and pay $20 deposit",
 };
+
+export interface StockRow {
+    image: string;
+    name: string;
+    sku: string;
+    stock: string;
+    tone: "ok" | "warn" | "muted";
+    price: string;
+    restock?: boolean;
+}
+
+export const stockList = {
+    title: "Services & products",
+    filters: ["All", "Low stock", "Archived"],
+    activeFilter: 0,
+    rows: [
+        {
+            image: "/images/demo/it_shampoo.png",
+            name: "Oatmeal shampoo",
+            sku: "BB-SHMP-500",
+            stock: "14 in stock",
+            tone: "ok",
+            price: "$24.00",
+        },
+        {
+            image: "/images/demo/it_brush.png",
+            name: "Slicker brush",
+            sku: "BB-BRSH-01",
+            stock: "Low: 2 left",
+            tone: "warn",
+            price: "$29.00",
+            restock: true,
+        },
+        {
+            image: "/images/demo/it_nails.png",
+            name: "Nail trim",
+            sku: "Service",
+            stock: "Not tracked",
+            tone: "muted",
+            price: "$18.00",
+        },
+    ] satisfies StockRow[],
+    restock: "Restock",
+};
+
+export const shop = {
+    title: "Shop",
+    business: "Birchbark Pet Studio",
+    items: [
+        {
+            image: "/images/demo/it_shampoo.png",
+            name: "Oatmeal shampoo",
+            detail: "500 ml",
+            price: "$24.00",
+            qty: 1,
+        },
+        {
+            image: "/images/demo/it_brush.png",
+            name: "Slicker brush",
+            detail: "Only 2 left",
+            price: "$29.00",
+            qty: 1,
+        },
+    ],
+    subtotalLabel: "Subtotal",
+    subtotal: "$53.00",
+    pickup: "Pick up at Birchbark Pet Studio",
+    pay: "Pay by card",
+    minus: "−",
+};
