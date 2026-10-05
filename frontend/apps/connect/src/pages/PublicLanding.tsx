@@ -1,7 +1,6 @@
 import {
-    type PublicService,
     createPublicBookingClient,
-    formatMoneyWithCurrency,
+    serviceSummary,
     strings,
     usePublicBusiness,
 } from "@clientbridge/app-core/public";
@@ -10,8 +9,9 @@ import { Link, useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { isEmbedded } from "../embed";
+import { config } from "../config";
 
-const booking = createPublicBookingClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
+const booking = createPublicBookingClient(config.apiUrl);
 
 /** A business's branded home (`/b/:slug`) — the link-in-bio target for providers without their own
  *  site. Reuses the booking-page profile for the brand + a services preview, then links to booking. */
@@ -68,7 +68,7 @@ export function PublicLanding() {
                                         <span className="text-ink">{s.name}</span>
                                     </span>
                                     <span className="shrink-0 tabular-nums text-muted">
-                                        {serviceMeta(s)}
+                                        {serviceSummary(s)}
                                     </span>
                                 </li>
                             ))}
@@ -92,11 +92,4 @@ export function PublicLanding() {
             ) : null}
         </PublicFrame>
     );
-}
-
-function serviceMeta(s: PublicService): string {
-    const price = formatMoneyWithCurrency(s.price_cents, s.currency);
-    const mins =
-        s.duration_min !== null ? strings.publicBooking.durationSuffix(s.duration_min) : "";
-    return `${price}${mins}`;
 }

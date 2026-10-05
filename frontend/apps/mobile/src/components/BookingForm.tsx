@@ -13,39 +13,16 @@ import { api } from "../lib/api";
 import { Modal } from "../ui/Modal";
 
 const c = theme.colors;
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-function nextDays(n: number): Date[] {
-    const t = new Date();
-    return Array.from(
-        { length: n },
-        (_, i) => new Date(t.getFullYear(), t.getMonth(), t.getDate() + i),
-    );
-}
-
-const TIMES = Array.from({ length: 24 }, (_, i) => {
-    const h = 7 + Math.floor(i / 2);
-    const m = i % 2 === 0 ? 0 : 30;
-    return {
-        h,
-        m,
-        label: new Date(2000, 0, 1, h, m).toLocaleTimeString("en-CA", {
-            hour: "numeric",
-            minute: "2-digit",
-        }),
-    };
-});
-
 export function BookingForm({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const form = useBookingForm(api, onClose);
-    const days = nextDays(14);
+    const days = form.dayOptions;
     const [dayIdx, setDayIdx] = useState(0);
     const [timeIdx, setTimeIdx] = useState<number | null>(null);
 
     const submit = (): void => {
-        const time = timeIdx !== null ? TIMES[timeIdx] : undefined;
+        const time = timeIdx !== null ? form.timeOptions[timeIdx] : undefined;
         const day = days[dayIdx];
-        const startsAt = time && day ? combineDayAndTime(day, `${time.h}:${time.m}`) : null;
+        const startsAt = time && day ? combineDayAndTime(day.date, time.hhmm) : null;
         form.submit(startsAt);
     };
 
@@ -94,8 +71,8 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                 <Section label={strings.calendar.date}>
                     {days.map((d, i) => (
                         <Chip
-                            key={d.toISOString()}
-                            label={`${WEEKDAY[d.getDay()] ?? ""} ${d.getDate()}`}
+                            key={d.date.toISOString()}
+                            label={d.label}
                             on={dayIdx === i}
                             onPress={() => {
                                 setDayIdx(i);
@@ -104,9 +81,9 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                     ))}
                 </Section>
                 <Section label={strings.calendar.time}>
-                    {TIMES.map((t, i) => (
+                    {form.timeOptions.map((t, i) => (
                         <Chip
-                            key={t.label}
+                            key={t.hhmm}
                             label={t.label}
                             on={timeIdx === i}
                             onPress={() => {

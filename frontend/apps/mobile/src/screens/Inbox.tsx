@@ -8,19 +8,19 @@ import {
     channelLabel,
     formatRelativeTime,
     formatTime,
-    markThreadRead,
     messageStatusIntent,
     parseTimestamp,
     strings,
     useBroadcastForm,
     useClients,
     useComposeMessage,
+    useMarkThreadRead,
     useThreadMessages,
     useThreads,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     FlatList,
     KeyboardAvoidingView,
@@ -157,9 +157,7 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
         channel: thread.channel as Channel,
     });
 
-    useEffect(() => {
-        if (thread.unread_count > 0) markThreadRead(api, thread.id).catch(() => undefined);
-    }, [thread.id, thread.unread_count]);
+    useMarkThreadRead(api, thread);
 
     return (
         <KeyboardAvoidingView

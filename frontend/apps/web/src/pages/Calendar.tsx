@@ -1,47 +1,46 @@
 import {
-    checkoutMethods,
+    calendarColumns,
     type CalendarEvent,
-    type Intent,
+    calendarRange,
     type CalendarView,
-    RECUR_FREQUENCIES,
-    type RecurFrequency,
-    type StaffRow,
-    addDays,
     canCollectDeposit,
+    checkoutMethods,
+    combineDayAndTime,
     dateKey,
     dayBounds,
-    dayColumns,
     depositStatusIntent,
     eventLabel,
+    formatFullDate,
     formatHour,
     formatMoney,
+    formatMonthYear,
     formatRangeLabel,
     formatTime,
     formatWeekday,
-    combineDayAndTime,
-    formatFullDate,
-    formatMonthYear,
     groupByDay,
     groupByStaff,
+    type Intent,
     layoutDay,
     minutesSinceMidnight,
     monthMatrix,
+    RECUR_FREQUENCIES,
+    type RecurFrequency,
     rescheduleByDrag,
     sameDay,
+    shiftAnchor,
     staffLabel,
+    type StaffRow,
     startOfDay,
-    startOfMonth,
     statusIntent,
     strings,
+    useBookingAddons,
     useBookingForm,
     useCalendarEvents,
     useCancelBooking,
-    useBookingAddons,
     useCollectDeposit,
     useSavedCards,
     useStaff,
     useStripeAccountId,
-    weekColumns,
 } from "@clientbridge/app-core";
 import { ChargeSheet, DetailSection, DetailView, Modal, Money, StatusPill } from "@clientbridge/ui";
 import {
@@ -93,25 +92,6 @@ const INTENT_DOT: Record<Intent, string> = {
 };
 const dotClass = (s: string): string => INTENT_DOT[statusIntent(s)];
 
-function viewColumns(view: CalendarView, anchor: Date): Date[] {
-    if (view === "day") return [startOfDay(anchor)];
-    if (view === "week") return weekColumns(anchor);
-    return dayColumns(anchor, 14);
-}
-
-function rangeOf(columns: Date[]): { start: Date; end: Date } {
-    const start = columns.at(0) ?? startOfDay(new Date());
-    const last = columns.at(-1) ?? start;
-    return { start, end: addDays(last, 1) };
-}
-
-function shift(view: CalendarView, anchor: Date, dir: 1 | -1): Date {
-    if (view === "day" || view === "staff") return addDays(anchor, dir);
-    if (view === "month") return startOfMonth(addDays(startOfMonth(anchor), dir * 32));
-    if (view === "agenda") return addDays(anchor, dir * 14);
-    return addDays(anchor, dir * 7);
-}
-
 export function Calendar() {
     const [view, setView] = useState<CalendarView>("week");
     const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
@@ -122,10 +102,8 @@ export function Calendar() {
     const isStaff = view === "staff";
     const now = new Date();
     const matrix = monthMatrix(anchor);
-    const dateCols = isStaff ? [] : isMonth ? matrix.flat() : viewColumns(view, anchor);
-    const { start, end } = isStaff
-        ? { start: startOfDay(anchor), end: addDays(startOfDay(anchor), 1) }
-        : rangeOf(isMonth ? matrix.flat() : dateCols);
+    const dateCols = calendarColumns(view, anchor);
+    const { start, end } = calendarRange(view, anchor);
     const events = useCalendarEvents(start, end);
     const staff = useStaff();
 
@@ -168,7 +146,7 @@ export function Calendar() {
                         <div className="flex items-center">
                             <button
                                 onClick={() => {
-                                    setAnchor((a) => shift(view, a, -1));
+                                    setAnchor((a) => shiftAnchor(view, a, -1));
                                 }}
                                 className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
                                 aria-label={strings.calendar.prev}
@@ -177,7 +155,7 @@ export function Calendar() {
                             </button>
                             <button
                                 onClick={() => {
-                                    setAnchor((a) => shift(view, a, 1));
+                                    setAnchor((a) => shiftAnchor(view, a, 1));
                                 }}
                                 className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
                                 aria-label={strings.calendar.next}

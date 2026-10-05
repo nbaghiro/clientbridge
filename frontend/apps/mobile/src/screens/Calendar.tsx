@@ -1,10 +1,8 @@
 import {
-    checkoutMethods,
     type CalendarEvent,
-    type Intent,
-    type PositionedEvent,
-    addDays,
+    calendarRange,
     canCollectDeposit,
+    checkoutMethods,
     dateKey,
     dayBounds,
     depositStatusIntent,
@@ -15,20 +13,23 @@ import {
     formatTime,
     formatWeekday,
     groupByDay,
+    type Intent,
     layoutDay,
     minutesSinceMidnight,
+    type PositionedEvent,
     rescheduleByDrag,
     sameDay,
+    shiftAnchor,
     startOfDay,
     statusIntent,
     strings,
+    useBookingAddons,
     useCalendarEvents,
     useCancelBooking,
-    useBookingAddons,
     useCollectDeposit,
     useSavedCards,
-    weekColumns,
     useStripeAccountId,
+    weekColumns,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useRef, useState } from "react";
@@ -75,8 +76,7 @@ export function CalendarScreen() {
     const [detail, setDetail] = useState<CalendarEvent | null>(null);
 
     const week = weekColumns(anchor);
-    const rangeStart = week[0] ?? startOfDay(anchor);
-    const rangeEnd = addDays(week[6] ?? anchor, 1);
+    const { start: rangeStart, end: rangeEnd } = calendarRange("week", anchor);
     const events = useCalendarEvents(rangeStart, rangeEnd);
     const now = new Date();
 
@@ -108,7 +108,7 @@ export function CalendarScreen() {
             <View style={styles.strip}>
                 <Pressable
                     onPress={() => {
-                        setAnchor((a) => addDays(a, -7));
+                        setAnchor((a) => shiftAnchor("week", a, -1));
                     }}
                     hitSlop={8}
                 >
@@ -142,7 +142,7 @@ export function CalendarScreen() {
                 })}
                 <Pressable
                     onPress={() => {
-                        setAnchor((a) => addDays(a, 7));
+                        setAnchor((a) => shiftAnchor("week", a, 1));
                     }}
                     hitSlop={8}
                 >

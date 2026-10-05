@@ -10,6 +10,7 @@ import {
     formatMoneyWithCurrency,
     formatTime,
     parseTimestamp,
+    serviceOptionLabel,
     strings,
     usePublicBookingForm,
 } from "@clientbridge/app-core/public";
@@ -19,8 +20,9 @@ import { Link, useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
+import { config } from "../config";
 
-const booking = createPublicBookingClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
+const booking = createPublicBookingClient(config.apiUrl);
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
@@ -88,7 +90,7 @@ export function PublicBooking() {
                         <option value="">{strings.publicBooking.selectService}</option>
                         {page.services.map((s) => (
                             <option key={s.id} value={s.id}>
-                                {serviceLabel(s)}
+                                {serviceOptionLabel(s)}
                             </option>
                         ))}
                     </select>
@@ -250,13 +252,6 @@ export function PublicBooking() {
             </form>
         </Frame>
     );
-}
-
-function serviceLabel(s: PublicService): string {
-    const price = formatMoneyWithCurrency(s.price_cents, s.currency);
-    const mins =
-        s.duration_min !== null ? strings.publicBooking.durationSuffix(s.duration_min) : "";
-    return `${s.name} — ${price}${mins}`;
 }
 
 function staffLabel(st: PublicStaff): string {

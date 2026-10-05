@@ -5,11 +5,9 @@ import {
     type StaffPayRow,
     acceptInviteUrl,
     canManageStaff,
-    decodeJwtSub,
     staffDisplayName,
     staffPaySummary,
     strings,
-    useCurrentRole,
     useInviteForm,
     usePendingInvites,
     useStaff,
@@ -17,7 +15,7 @@ import {
     useStaffPayForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -34,23 +32,14 @@ import { ListPage } from "../ui/ListPage";
 import { ui } from "../ui/styles";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useViewer } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
 
 export function Team({ footer }: { footer?: ReactNode }) {
-    const [accessToken, setAccessToken] = useState<string | null>(null);
-    useEffect(() => {
-        getTokens()
-            .then((t) => {
-                setAccessToken(t?.access_token ?? null);
-            })
-            .catch(() => undefined);
-    }, []);
-
-    const role = useCurrentRole(accessToken);
-    const myUserId = decodeJwtSub(accessToken);
+    const viewer = useViewer();
+    const role = viewer?.role ?? null;
     const staff = useStaff();
     const pending = usePendingInvites();
     const invite = useInviteForm(api);
@@ -88,9 +77,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName}>
                                 {staffDisplayName(s)}
-                                {s.user_id !== null && s.user_id === myUserId
-                                    ? strings.team.youSuffix
-                                    : ""}
+                                {s.id === viewer?.staffId ? strings.team.youSuffix : ""}
                             </Text>
                             {s.invite_email !== null ? (
                                 <Text style={styles.rowSub}>{s.invite_email}</Text>

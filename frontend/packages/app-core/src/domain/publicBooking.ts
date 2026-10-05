@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { dateKey } from "../datetime";
+import { formatMoneyWithCurrency } from "../format";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 import { cartSubtotal } from "./publicShop";
 
@@ -20,6 +21,17 @@ export interface PublicService {
     deposit_required: boolean;
     deposit_amount_cents: number;
     image_url: string | null;
+}
+
+/** Price and length of a service, e.g. "$45.00 · 60 min". */
+export function serviceSummary(s: PublicService): string {
+    const mins =
+        s.duration_min !== null ? strings.publicBooking.durationSuffix(s.duration_min) : "";
+    return `${formatMoneyWithCurrency(s.price_cents, s.currency)}${mins}`;
+}
+
+export function serviceOptionLabel(s: PublicService): string {
+    return `${s.name} — ${serviceSummary(s)}`;
 }
 
 export interface PublicStaff {

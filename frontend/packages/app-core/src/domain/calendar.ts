@@ -9,6 +9,8 @@ import { type ClientRow, useClients } from "./clients";
 import {
     addDays,
     dateKey,
+    formatTime,
+    formatWeekday,
     isSameMonth,
     parseTimestamp,
     startOfDay,
@@ -99,6 +101,27 @@ export function monthMatrix(anchor: Date, weekStartsOn = 1): Date[][] {
     return Array.from({ length: 6 }, (_, w) =>
         Array.from({ length: 7 }, (_, d) => addDays(first, w * 7 + d)),
     );
+}
+
+export function calendarColumns(view: CalendarView, anchor: Date): Date[] {
+    if (view === "staff") return [];
+    if (view === "month") return monthMatrix(anchor).flat();
+    if (view === "day") return [startOfDay(anchor)];
+    if (view === "week") return weekColumns(anchor);
+    return dayColumns(anchor, 14);
+}
+
+export function calendarRange(view: CalendarView, anchor: Date): { start: Date; end: Date } {
+    const columns = view === "staff" ? [startOfDay(anchor)] : calendarColumns(view, anchor);
+    const start = columns.at(0) ?? startOfDay(anchor);
+    return { start, end: addDays(columns.at(-1) ?? start, 1) };
+}
+
+export function shiftAnchor(view: CalendarView, anchor: Date, dir: 1 | -1): Date {
+    if (view === "day" || view === "staff") return addDays(anchor, dir);
+    if (view === "month") return startOfMonth(addDays(startOfMonth(anchor), dir * 32));
+    if (view === "agenda") return addDays(anchor, dir * 14);
+    return addDays(anchor, dir * 7);
 }
 
 export function formatRangeLabel(cols: Date[], locale = "en-CA"): string {
@@ -615,6 +638,25 @@ export interface BookingFormState {
     busy: boolean;
     error: string | null;
     submit: (startsAt: Date | null) => void;
+    dayOptions: { date: Date; label: string }[];
+    timeOptions: { hhmm: string; label: string }[];
+}
+
+const PICKER_DAYS = 14;
+const PICKER_FIRST_HOUR = 7;
+const PICKER_LAST_HOUR = 18;
+
+function pickerTimes(): { hhmm: string; label: string }[] {
+    const out: { hhmm: string; label: string }[] = [];
+    for (let h = PICKER_FIRST_HOUR; h <= PICKER_LAST_HOUR; h++) {
+        for (const m of [0, 30]) {
+            out.push({
+                hhmm: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+                label: formatTime(new Date(2000, 0, 1, h, m)),
+            });
+        }
+    }
+    return out;
 }
 
 /** Shared new-booking form: client/service/staff selection, validation, and submit. The platform
@@ -634,6 +676,15 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
     const { busy, error, setError, run } = useAsyncAction();
 
     const effStaff = staffId.length > 0 ? staffId : (staff.at(0)?.id ?? "");
+    const dayOptions = useMemo(
+        () =>
+            dayColumns(new Date(), PICKER_DAYS).map((date) => ({
+                date,
+                label: `${formatWeekday(date)} ${String(date.getDate())}`,
+            })),
+        [],
+    );
+    const timeOptions = useMemo(pickerTimes, []);
 
     const submit = (startsAt: Date | null): void => {
         if (
@@ -708,5 +759,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
         busy,
         error,
         submit,
+        dayOptions,
+        timeOptions,
     };
 }

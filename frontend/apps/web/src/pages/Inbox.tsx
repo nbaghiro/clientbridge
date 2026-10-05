@@ -14,9 +14,9 @@ import {
     useBroadcastForm,
     useClients,
     useComposeMessage,
+    useMarkThreadRead,
     useThreadMessages,
     useThreads,
-    markThreadRead,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
 import { Modal, StatusPill } from "@clientbridge/ui";
@@ -190,10 +190,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
     });
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    // Mark read once on open (and whenever the unread count changes for the open thread).
-    useEffect(() => {
-        if (thread.unread_count > 0) markThreadRead(api, thread.id).catch(() => undefined);
-    }, [thread.id, thread.unread_count]);
+    useMarkThreadRead(api, thread);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ block: "end" });

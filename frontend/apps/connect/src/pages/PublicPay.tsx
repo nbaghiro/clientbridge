@@ -12,9 +12,10 @@ import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
+import { config } from "../config";
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-const pay = createPublicPayClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
+const PUBLISHABLE_KEY = config.stripePublishableKey;
+const pay = createPublicPayClient(config.apiUrl);
 
 export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();

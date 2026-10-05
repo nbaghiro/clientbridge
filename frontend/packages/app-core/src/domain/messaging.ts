@@ -1,5 +1,5 @@
 import { useQuery } from "@powersync/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
@@ -117,6 +117,16 @@ export interface ThreadResult {
 
 export function markThreadRead(api: ApiLike, threadId: string): Promise<ThreadResult> {
     return api.post<ThreadResult>(`/v1/threads/${threadId}/read`, {});
+}
+
+/** Marks the open thread read on open, and again whenever new inbound messages arrive while it is open. */
+export function useMarkThreadRead(
+    api: ApiLike,
+    thread: { id: string; unread_count: number },
+): void {
+    useEffect(() => {
+        if (thread.unread_count > 0) markThreadRead(api, thread.id).catch(() => undefined);
+    }, [api, thread.id, thread.unread_count]);
 }
 
 export interface BroadcastResult {

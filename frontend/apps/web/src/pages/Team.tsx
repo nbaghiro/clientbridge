@@ -6,11 +6,9 @@ import {
     type StaffPayRow,
     acceptInviteUrl,
     canManageStaff,
-    decodeJwtSub,
     staffDisplayName,
     staffPaySummary,
     strings,
-    useCurrentRole,
     useInviteForm,
     usePendingInvites,
     useStaff,
@@ -21,12 +19,11 @@ import { DetailSection, DetailView, ListPage } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
-import { getTokens } from "../lib/auth";
+import { useViewer } from "../lib/auth";
 
 export function Team() {
-    const accessToken = getTokens()?.access_token ?? null;
-    const role = useCurrentRole(accessToken);
-    const myUserId = decodeJwtSub(accessToken);
+    const viewer = useViewer();
+    const role = viewer?.role ?? null;
     const staff = useStaff();
     const pending = usePendingInvites();
     const invite = useInviteForm(api);
@@ -55,7 +52,7 @@ export function Team() {
                         <div>
                             <p className="font-medium text-ink">
                                 {staffDisplayName(s)}
-                                {s.user_id !== null && s.user_id === myUserId ? (
+                                {s.id === viewer?.staffId ? (
                                     <span className="ml-2 rounded-full bg-accent-weak px-2 py-0.5 text-xs font-semibold text-accent">
                                         {strings.team.youBadge}
                                     </span>

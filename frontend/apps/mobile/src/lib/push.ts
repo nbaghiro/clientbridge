@@ -1,3 +1,4 @@
+import { type DevicePlatform, registerDevice } from "@clientbridge/app-core";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
@@ -14,7 +15,7 @@ Notifications.setNotificationHandler({
         }),
 });
 
-function devicePlatform(): "ios" | "android" | "web" {
+function devicePlatform(): DevicePlatform {
     if (Platform.OS === "ios") return "ios";
     if (Platform.OS === "android") return "android";
     return "web";
@@ -30,7 +31,7 @@ export async function registerForPush(): Promise<void> {
         const token = (
             await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)
         ).data;
-        await api.post("/v1/devices/register", { token, platform: devicePlatform() });
+        await registerDevice(api, token, devicePlatform());
     } catch {
         // Best-effort: permission denied, Expo Go (SDK 53+ dropped remote push), or a transient
         // network error must never break app start.

@@ -13,8 +13,9 @@ import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
+import { config } from "../config";
 
-const forms = createPublicFormClient(import.meta.env.VITE_API_URL ?? "http://localhost:8701");
+const forms = createPublicFormClient(config.apiUrl);
 
 const field =
     "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
