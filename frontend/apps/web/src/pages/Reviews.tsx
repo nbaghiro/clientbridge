@@ -96,7 +96,7 @@ function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummar
 
 function Stars({ rating }: { rating: number }) {
     return (
-        <span aria-label={`${rating} out of 5`} className="text-lg text-accent">
+        <span aria-label={strings.reviews.ratingOutOf(rating)} className="text-lg text-accent">
             {"★".repeat(rating)}
             <span className="text-line">{"★".repeat(emptyStars(rating))}</span>
         </span>

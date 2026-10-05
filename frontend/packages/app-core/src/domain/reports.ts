@@ -224,3 +224,25 @@ export function useRemittanceAction(api: ApiLike): RemittanceAction {
     };
     return { filed, period, canRecord: period.start <= period.end, busy, error, record };
 }
+
+export interface BankDepositRow {
+    id: string;
+    amount_cents: number;
+    status: string;
+    arrival_at: string | null;
+    created_at: string;
+}
+
+// A Stripe payout is its ledger journal (bank in, Stripe balance out); a failed one was reversed.
+export const BANK_DEPOSITS_SQL = `
+SELECT e.journal_id AS id, e.amount_cents, e.available_at AS arrival_at, e.occurred_at AS created_at,
+       CASE WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = e.ref || ':failed')
+            THEN 'failed' ELSE 'paid' END AS status
+FROM entries e JOIN accounts a ON a.id = e.account_id
+WHERE e.event = 'payout' AND a.category = 'bank'
+ORDER BY e.occurred_at DESC LIMIT 5`;
+
+/** Recent Stripe payouts into the provider's bank (CAD). */
+export function useBankDeposits(): BankDepositRow[] {
+    return useQuery<BankDepositRow>(BANK_DEPOSITS_SQL).data;
+}

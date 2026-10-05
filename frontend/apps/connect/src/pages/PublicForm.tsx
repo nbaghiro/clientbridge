@@ -226,7 +226,7 @@ function FieldView({
                         <button
                             key={n}
                             type="button"
-                            aria-label={`${n} star${n === 1 ? "" : "s"}`}
+                            aria-label={strings.publicReview.stars(n)}
                             onClick={() => {
                                 onChange(String(n));
                             }}

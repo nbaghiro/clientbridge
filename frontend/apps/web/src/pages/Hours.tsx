@@ -4,7 +4,7 @@ import {
     WEEKDAYS,
     staffLabel,
     strings,
-    useAvailabilityEditor,
+    useHoursEditor,
     useStaff,
 } from "@clientbridge/app-core";
 import { useState } from "react";
@@ -55,7 +55,7 @@ export function Hours() {
 }
 
 function WeeklyHours({ staffId }: { staffId: string }) {
-    const editor = useAvailabilityEditor(staffId);
+    const editor = useHoursEditor(staffId);
     const days = editor.days;
 
     return (

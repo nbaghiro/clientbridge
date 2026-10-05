@@ -5,7 +5,7 @@ import {
     formatRelativeTime,
     isRefundRow,
     strings,
-    useDashboardSummary,
+    useTodaySummary,
     useRecentActivity,
     type ActivityRow,
 } from "@clientbridge/app-core";
@@ -30,7 +30,7 @@ export function Today() {
 }
 
 function MoneyView() {
-    const summary = useDashboardSummary(api);
+    const summary = useTodaySummary(api);
     const activity = useRecentActivity();
 
     return (

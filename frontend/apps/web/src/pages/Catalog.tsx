@@ -94,7 +94,7 @@ export function Catalog() {
                         : undefined
                 }
                 empty={catalogEmptyText(q, filter)}
-                renderRow={(i) => <ItemRowView item={i} editable={editable} />}
+                renderRow={(i) => <ItemRowView item={i} />}
             />
 
             {current !== undefined && current !== null ? (
@@ -110,31 +110,16 @@ export function Catalog() {
     );
 }
 
-function ItemRowView({ item, editable }: { item: ItemRow; editable: boolean }) {
+function ItemRowView({ item }: { item: ItemRow }) {
     const state = stockState(item);
     return (
         <div className={`${GRID} ${item.active === 1 ? "" : "opacity-50"}`}>
             <div className="flex items-center gap-3">
-                {editable ? (
-                    <span
-                        onClick={(e) => {
-                            e.stopPropagation();
-                        }}
-                    >
-                        <ItemImageUpload
-                            src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                            name={item.name}
-                            color={item.color}
-                            target={itemImageTarget(item.id)}
-                        />
-                    </span>
-                ) : (
-                    <ItemImage
-                        src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                        name={item.name}
-                        color={item.color}
-                    />
-                )}
+                <ItemImage
+                    src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                    name={item.name}
+                    color={item.color}
+                />
                 <div className="min-w-0">
                     <div className="truncate font-medium text-ink">{item.name}</div>
                     <div className="truncate text-xs text-muted">
@@ -203,6 +188,20 @@ function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => vo
                 </>
             }
         >
+            {item !== null ? (
+                <DetailSection>
+                    <div className="flex items-center gap-3">
+                        <ItemImageUpload
+                            src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                            name={item.name}
+                            color={item.color}
+                            size={56}
+                            target={itemImageTarget(item.id)}
+                        />
+                        <span className="text-sm text-muted">{strings.files.changeImage}</span>
+                    </div>
+                </DetailSection>
+            ) : null}
             <DetailSection>
                 <ItemFields form={form} />
                 {form.error !== null ? (

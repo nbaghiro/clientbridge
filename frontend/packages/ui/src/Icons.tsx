@@ -42,9 +42,6 @@ export const IconInvoices = ({ className }: { className?: string }) => (
 export const IconInbox = ({ className }: { className?: string }) => (
     <Icon name="inbox" className={className} />
 );
-export const IconCatalog = ({ className }: { className?: string }) => (
-    <Icon name="catalog" className={className} />
-);
 export const IconPlus = ({ className }: { className?: string }) => (
     <Icon name="plus" className={className} />
 );
@@ -53,18 +50,6 @@ export const IconSearch = ({ className }: { className?: string }) => (
 );
 export const IconPos = ({ className }: { className?: string }) => (
     <Icon name="pos" className={className} />
-);
-export const IconReports = ({ className }: { className?: string }) => (
-    <Icon name="reports" className={className} />
-);
-export const IconPayouts = ({ className }: { className?: string }) => (
-    <Icon name="payouts" className={className} />
-);
-export const IconReviews = ({ className }: { className?: string }) => (
-    <Icon name="reviews" className={className} />
-);
-export const IconGift = ({ className }: { className?: string }) => (
-    <Icon name="gift" className={className} />
 );
 export const IconLogout = ({ className }: { className?: string }) => (
     <Icon name="logout" className={className} />

@@ -417,7 +417,11 @@ function EventBlock({
                 cursor: canDrag ? "grab" : "pointer",
                 touchAction: "none",
             }}
-            title={`${formatTime(event.start)} · ${event.title}${event.subtitle ? ` · ${event.subtitle}` : ""}`}
+            title={strings.calendar.eventTooltip(
+                formatTime(event.start),
+                event.title,
+                event.subtitle,
+            )}
         >
             <div className="truncate font-medium">{eventLabel(event)}</div>
             {heightPx > 30 ? (

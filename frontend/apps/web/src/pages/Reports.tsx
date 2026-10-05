@@ -10,7 +10,7 @@ import {
     strings,
     useReportDownload,
     useRemittanceAction,
-    useRecentPayouts,
+    useBankDeposits,
     useReports,
 } from "@clientbridge/app-core";
 import { StatusPill } from "@clientbridge/ui";
@@ -318,7 +318,7 @@ function Remittances() {
 }
 
 function BankDeposits() {
-    const payouts = useRecentPayouts();
+    const payouts = useBankDeposits();
     return (
         <section className="mt-8">
             <h2 className="font-display text-lg font-semibold text-ink">

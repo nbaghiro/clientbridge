@@ -5,20 +5,17 @@ import { strings } from "../strings";
 import type { ApiLike } from "../api";
 import { isRefundRow } from "./payments";
 
-export interface DashboardSummary {
+export interface TodaySummary {
     today_revenue_cents: number;
     awaiting_payment_cents: number;
     gst_hst_set_aside_cents: number;
 }
 
 /** `null` while loading, `"error"` if the fetch failed (403 for staff); bump `reloadKey` to refetch. */
-export function useDashboardSummary(
-    api: ApiLike,
-    reloadKey = 0,
-): DashboardSummary | "error" | null {
-    const [summary, setSummary] = useState<DashboardSummary | "error" | null>(null);
+export function useTodaySummary(api: ApiLike, reloadKey = 0): TodaySummary | "error" | null {
+    const [summary, setSummary] = useState<TodaySummary | "error" | null>(null);
     useEffect(() => {
-        api.get<DashboardSummary>("/v1/dashboard/summary")
+        api.get<TodaySummary>("/v1/dashboard/summary")
             .then(setSummary)
             .catch(() => {
                 setSummary("error");
@@ -55,26 +52,4 @@ export function activityLabel(row: ActivityRow): string {
     if (row.method === "interac") return strings.today.activityInteracReceived;
     if (row.method === "card") return strings.today.activityCardPayment;
     return strings.today.activityPayment;
-}
-
-export interface PayoutRow {
-    id: string;
-    amount_cents: number;
-    status: string;
-    arrival_at: string | null;
-    created_at: string;
-}
-
-// A Stripe payout is its ledger journal (bank in, Stripe balance out); a failed one was reversed.
-export const RECENT_PAYOUTS_SQL = `
-SELECT e.journal_id AS id, e.amount_cents, e.available_at AS arrival_at, e.occurred_at AS created_at,
-       CASE WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = e.ref || ':failed')
-            THEN 'failed' ELSE 'paid' END AS status
-FROM entries e JOIN accounts a ON a.id = e.account_id
-WHERE e.event = 'payout' AND a.category = 'bank'
-ORDER BY e.occurred_at DESC LIMIT 5`;
-
-/** Recent payouts to the provider's bank (CAD). */
-export function useRecentPayouts(): PayoutRow[] {
-    return useQuery<PayoutRow>(RECENT_PAYOUTS_SQL).data;
 }

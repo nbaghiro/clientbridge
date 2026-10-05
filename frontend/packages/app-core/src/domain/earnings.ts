@@ -48,14 +48,6 @@ export function useEarnings(): EarningRow[] {
     return useQuery<EarningRow>(ALL_EARNINGS_SQL).data;
 }
 
-export const PENDING_EARNINGS_SQL = `${EARNINGS_SQL}
-WHERE status = 'pending' ORDER BY created_at DESC`;
-
-/** Earnings still awaiting approval — the actionable queue for a count/badge or quick review. */
-export function usePendingEarnings(): EarningRow[] {
-    return useQuery<EarningRow>(PENDING_EARNINGS_SQL).data;
-}
-
 export type EarningFilter = "pending" | "approved" | "paid" | "all";
 
 export const EARNING_FILTERS: EarningFilter[] = ["pending", "approved", "paid", "all"];

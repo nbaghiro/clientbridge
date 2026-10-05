@@ -203,7 +203,7 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
                         onPress={compose.submit}
                     >
                         <Text style={styles.sendText}>
-                            {compose.busy ? strings.inbox.busyEllipsis : strings.inbox.send}
+                            {compose.busy ? strings.common.busyEllipsis : strings.inbox.send}
                         </Text>
                     </Pressable>
                 </View>

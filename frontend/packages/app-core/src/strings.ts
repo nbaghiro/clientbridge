@@ -15,6 +15,7 @@ export const strings = {
         somethingWrong: "Something went wrong",
         tryAgainLater: "Please try again later.",
         working: "Working…",
+        busyEllipsis: "…",
         stillSyncing: "Still syncing — try again in a moment.",
         relativeTime: {
             justNow: "just now",
@@ -112,7 +113,6 @@ export const strings = {
         totalling: "Totalling…",
         reviewTotal: "Review total",
         clientLabel: "Client",
-        walkInOption: "Walk-in (no client)",
         receiptEmail: "Email receipt to",
         receiptPhone: "Text receipt to",
         receiptHint: "Optional. A client's sale also goes to the client's own contact details.",
@@ -202,6 +202,8 @@ export const strings = {
         redeemError: "Couldn't redeem this gift card. Please try again.",
     },
     calendar: {
+        eventTooltip: (time: string, title: string, subtitle: string) =>
+            [time, title, subtitle].filter(Boolean).join(" · "),
         collectDepositError: "Couldn't collect the deposit. Please try again.",
         addonsTitle: "Added to this visit",
         addonsNote: "Added online by the client. They pay for these with the visit.",
@@ -366,7 +368,6 @@ export const strings = {
         cancelSubscriptionError: "Couldn't cancel this subscription. Please try again.",
         keep: "Keep",
         canceling: "Canceling…",
-        busyEllipsis: "…",
         planLabel: "Plan",
         selectPlan: "Select a subscription plan",
         addSubscriptionItemFirst: "Add a subscription item in your catalog first.",
@@ -415,7 +416,6 @@ export const strings = {
         replyBy: (channel: string) => `Reply by ${channel}…`,
         send: "Send",
         sending: "Sending…",
-        busyEllipsis: "…",
         newMessageTitle: "New message",
         clientLabel: "Client",
         selectClient: "Select a client",
@@ -447,6 +447,7 @@ export const strings = {
         broadcastError: "Couldn't send the broadcast. Please try again.",
     },
     reviews: {
+        ratingOutOf: (n: number) => `${n} out of 5`,
         postReplyError: "Couldn't post your reply. Please try again.",
         hideError: "Couldn't hide this review. Please try again.",
         publishError: "Couldn't publish this review. Please try again.",
@@ -498,7 +499,7 @@ export const strings = {
         taglinePlaceholder: "Calm, careful grooming on the island.",
     },
     hours: {
-        title: "Scheduling",
+        title: "Working hours",
         subtitle:
             "Set each team member’s weekly working hours. Bookings are held to these windows.",
         noStaff: "No team members yet.",
@@ -510,7 +511,7 @@ export const strings = {
         endHint: "17:00",
         timeFormatError: "Times must be in HH:MM format",
         timeOrderError: "Each open day needs a start time before its end time",
-        saveError: "Couldn't save availability. Please try again.",
+        saveError: "Couldn't save hours. Please try again.",
         monday: "Monday",
         tuesday: "Tuesday",
         wednesday: "Wednesday",
@@ -549,7 +550,6 @@ export const strings = {
         roleAdmin: "Admin",
         roleContractor: "Contractor",
         payHeading: "Pay",
-        payEdit: "Edit pay",
         isPayee: "Pay this member through Staff pay",
         rateType: "Paid for services by",
         ratePercent: "Percent of the service price",
@@ -640,14 +640,12 @@ export const strings = {
         openingStockNote: "Opening stock",
         saveError: "Could not save the item",
         newItem: "New item",
-        editItem: "Edit item",
         save: "Save",
         saving: "Saving…",
         archive: "Archive",
         restore: "Restore",
         archivedPill: "Archived",
         restock: "Restock",
-        restockHeading: "Add stock",
         restockQuantity: "Quantity",
         restockQuantityHint: "Use a negative number to correct a miscount.",
         restockNote: "Note (optional)",
@@ -655,7 +653,6 @@ export const strings = {
         restockInvalid: "Enter a whole number other than zero",
         restockError: "Could not update stock",
         stockHeading: "Stock",
-        sellFrom: "Sell",
     },
     taxes: {
         title: "Taxes",
@@ -1073,5 +1070,3 @@ export const strings = {
         saveCard: "Save card",
     },
 } as const;
-
-export type AppStrings = typeof strings;

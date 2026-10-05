@@ -11,14 +11,9 @@ export type IconName =
     | "clients"
     | "invoices"
     | "inbox"
-    | "catalog"
     | "plus"
     | "search"
     | "pos"
-    | "reports"
-    | "payouts"
-    | "reviews"
-    | "gift"
     | "logout"
     | "settings"
     | "chevron";
@@ -44,10 +39,6 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
         { kind: "path", d: "M14 2v6h6M16 13H8M16 17H8M10 9H8" },
     ],
     inbox: [{ kind: "path", d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }],
-    catalog: [
-        { kind: "path", d: "M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10z" },
-        { kind: "circle", cx: 7, cy: 7, r: 1.4 },
-    ],
     plus: [{ kind: "path", d: "M12 5v14M5 12h14" }],
     search: [
         { kind: "circle", cx: 11, cy: 11, r: 8 },
@@ -56,26 +47,6 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     pos: [
         { kind: "rect", x: 2, y: 5, width: 20, height: 14, rx: 2 },
         { kind: "path", d: "M2 10h20M6 15h4" },
-    ],
-    reports: [
-        { kind: "path", d: "M3 3v18h18" },
-        { kind: "path", d: "M7 14v3M12 9v8M17 5v12" },
-    ],
-    payouts: [
-        { kind: "rect", x: 2, y: 6, width: 20, height: 12, rx: 2 },
-        { kind: "circle", cx: 12, cy: 12, r: 2.5 },
-        { kind: "path", d: "M6 12h.01M18 12h.01" },
-    ],
-    reviews: [
-        {
-            kind: "path",
-            d: "M12 17.3 6.16 20.5l1.12-6.53L2.5 9.34l6.56-.95L12 2.5l2.94 5.89 6.56.95-4.78 4.63 1.12 6.53z",
-        },
-    ],
-    gift: [
-        { kind: "rect", x: 3, y: 8, width: 18, height: 4, rx: 1 },
-        { kind: "path", d: "M12 8v13M5 12v9h14v-9" },
-        { kind: "path", d: "M12 8C12 8 11 3 8 3a2 2 0 0 0 0 5zM12 8c0 0 1-5 4-5a2 2 0 0 1 0 5z" },
     ],
     logout: [{ kind: "path", d: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" }],
     settings: [

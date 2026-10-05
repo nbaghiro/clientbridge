@@ -35,7 +35,7 @@ interface RecurringRow {
     available: number;
 }
 
-export interface AvailabilityEditor {
+export interface HoursEditor {
     days: DayHours[] | null; // null until the staff's rows have loaded
     setOpen: (weekday: number, open: boolean) => void;
     setTime: (weekday: number, which: "start" | "end", value: string) => void;
@@ -73,7 +73,7 @@ function seedDays(rows: RecurringRow[]): DayHours[] {
 }
 
 /** Render with `key={staffId}` so switching staff reseeds the grid. */
-export function useAvailabilityEditor(staffId: string | null): AvailabilityEditor {
+export function useHoursEditor(staffId: string | null): HoursEditor {
     const db = usePowerSync();
     const businessId = useBusinessId();
     const { data, isLoading } = useQuery<RecurringRow>(RECURRING_HOURS_SQL, [staffId ?? ""]);

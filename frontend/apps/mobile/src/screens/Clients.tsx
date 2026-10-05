@@ -324,7 +324,7 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
                 {isCancelable(sub.status) ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={cancel}>
                         <Text style={styles.miniBtnText}>
-                            {busy ? strings.clients.busyEllipsis : strings.common.cancel}
+                            {busy ? strings.common.busyEllipsis : strings.common.cancel}
                         </Text>
                     </Pressable>
                 ) : null}
@@ -393,7 +393,7 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
                 {canConsume(pkg) ? (
                     <Pressable style={styles.miniBtn} disabled={busy} onPress={consume}>
                         <Text style={styles.miniBtnText}>
-                            {busy ? strings.clients.busyEllipsis : strings.clients.consumeShort}
+                            {busy ? strings.common.busyEllipsis : strings.clients.consumeShort}
                         </Text>
                     </Pressable>
                 ) : null}

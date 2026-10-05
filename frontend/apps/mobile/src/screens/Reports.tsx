@@ -10,7 +10,7 @@ import {
     paymentStatusIntent,
     reportRangeForYear,
     strings,
-    useRecentPayouts,
+    useBankDeposits,
     useReportDownload,
     useRemittanceAction,
     useReports,
@@ -161,7 +161,7 @@ export function Reports() {
 }
 
 function BankDeposits() {
-    const payouts = useRecentPayouts();
+    const payouts = useBankDeposits();
     return (
         <View style={styles.card}>
             <Text style={styles.cardTitle}>{strings.reports.bankDeposits}</Text>

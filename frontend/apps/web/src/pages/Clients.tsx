@@ -415,7 +415,7 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
                             onClick={consume}
                             className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                         >
-                            {busy ? strings.clients.busyEllipsis : strings.clients.consumeSession}
+                            {busy ? strings.common.busyEllipsis : strings.clients.consumeSession}
                         </button>
                     ) : null}
                 </div>

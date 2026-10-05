@@ -5,7 +5,7 @@ import {
     formatRelativeTime,
     isRefundRow,
     strings,
-    useDashboardSummary,
+    useTodaySummary,
     useRecentActivity,
     type ActivityRow,
 } from "@clientbridge/app-core";
@@ -106,7 +106,7 @@ function SyncStatus({ connected }: { connected: boolean }) {
 }
 
 function MoneyView({ status }: { status: ReactNode }) {
-    const summary = useDashboardSummary(api);
+    const summary = useTodaySummary(api);
     const activity = useRecentActivity();
 
     return (

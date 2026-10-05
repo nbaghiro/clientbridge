@@ -1,6 +1,7 @@
 // Flags inline user-facing strings (JSX text and app-core error sinks) so copy stays in strings.ts.
 
 const LETTER = /\p{L}/u;
+const COPY_ATTRS = new Set(["aria-label", "title", "alt", "placeholder", "accessibilityLabel"]);
 
 /** True when, after removing allow-listed tokens, the trimmed text still contains a letter. */
 function isCopy(raw, allow) {
@@ -39,6 +40,7 @@ export default {
                 "Disallow inline user-facing strings; move copy into the shared `strings` catalog.",
         },
         messages: {
+            attr: "Inline UI string in `{{attr}}`. Move this copy into the `strings` catalog and reference `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
             jsx: "Inline UI string. Move this copy into the `strings` catalog (packages/app-core/src/strings.ts) and render `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
             sink: "Inline UI string passed to `{{sink}}`. Move this copy into the `strings` catalog and reference `strings.<domain>.<key>`. See CLAUDE.md → Copy.",
         },
@@ -69,6 +71,24 @@ export default {
             // A literal rendered as a JSX child, directly or through a ?: or || branch.
             Literal(node) {
                 if (inJsxChildPosition(node)) flagJsx(node, node.value);
+            },
+            JSXAttribute(node) {
+                const attr = node.name.name;
+                if (typeof attr !== "string" || !COPY_ATTRS.has(attr) || node.value === null)
+                    return;
+                const value =
+                    node.value.type === "JSXExpressionContainer"
+                        ? node.value.expression
+                        : node.value;
+                const text =
+                    value.type === "Literal"
+                        ? value.value
+                        : value.type === "TemplateLiteral"
+                          ? value.quasis.map((q) => q.value.cooked).join("")
+                          : null;
+                if (typeof text === "string" && isCopy(text, allow)) {
+                    context.report({ node, messageId: "attr", data: { attr } });
+                }
             },
             'CallExpression[callee.name="setError"] > Literal'(node) {
                 flagSink(node, "setError()");

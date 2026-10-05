@@ -19,10 +19,6 @@ export function addDays(d: Date, n: number): Date {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
 }
 
-export function addMinutes(d: Date, n: number): Date {
-    return new Date(d.getTime() + n * MS_PER_MIN);
-}
-
 export function startOfWeek(d: Date, weekStartsOn = 1): Date {
     const diff = (d.getDay() - weekStartsOn + 7) % 7;
     return addDays(startOfDay(d), -diff);

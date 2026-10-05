@@ -125,10 +125,6 @@ export function publishReview(api: ApiLike, id: string): Promise<ReviewResult> {
     return api.post<ReviewResult>(`/v1/reviews/${id}/publish`, {});
 }
 
-export function markSentToGoogle(api: ApiLike, id: string): Promise<ReviewResult> {
-    return api.post<ReviewResult>(`/v1/reviews/${id}/google`, {});
-}
-
 export function reviewStatusIntent(status: string): Intent {
     switch (status) {
         case "published":

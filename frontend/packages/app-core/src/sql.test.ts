@@ -861,9 +861,6 @@ describe("app-core SQL against the replica schema", () => {
             { id: "j_e_paid", status: "paid", amount_cents: 1500, staff_title: "Owner" },
             { id: "j_e_reversed", status: "reversed", amount_cents: 700, staff_title: "Groomer" },
         ]);
-        expect(pick(run("PENDING_EARNINGS_SQL"), "id", "order_id", "booking_id")).toEqual([
-            { id: "j_e_pending", order_id: "ord_web", booking_id: null },
-        ]);
     });
 
     it("feeds the dashboard activity and payouts", () => {
@@ -874,7 +871,7 @@ describe("app-core SQL against the replica schema", () => {
             { id: "pay_web", kind: "payment", client_name: "ben" },
             { id: "pay_3", kind: "payment", client_name: "ben" },
         ]);
-        expect(pick(run("RECENT_PAYOUTS_SQL"), "id", "amount_cents", "status")).toEqual([
+        expect(pick(run("BANK_DEPOSITS_SQL"), "id", "amount_cents", "status")).toEqual([
             { id: "j_po2", amount_cents: 9000, status: "failed" },
             { id: "j_po1", amount_cents: 40000, status: "paid" },
         ]);

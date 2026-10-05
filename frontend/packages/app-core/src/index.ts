@@ -19,6 +19,7 @@ export * from "./domain/navigation";
 export * from "./domain/billing";
 export * from "./domain/payments";
 export * from "./domain/gettingPaid";
+export * from "./domain/taxes";
 export * from "./domain/checkout";
 export * from "./domain/earnings";
 export * from "./domain/subscriptions";
