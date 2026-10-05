@@ -1,5 +1,5 @@
 import json
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 
 import httpx
 from sqlalchemy import func, select, update
@@ -13,7 +13,16 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.services import ledger
 from clientbridge.services.bookings import booked_count
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
+from clientbridge.services.notifications import Notifier
+from clientbridge.tasks.bookings import run_reap_unpaid_bookings, run_reminders
+from tests.conftest import (
+    BIZ,
+    Factory,
+    FakeEmailSender,
+    FakePaymentGateway,
+    FakePushSender,
+    FakeSmsSender,
+)
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured
@@ -908,3 +917,279 @@ async def test_refunding_a_forfeited_deposit_in_full_unforfeits_it(
     assert await _deposit_status(db, bid) == "refunded"
     after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="revenue")
     assert after == revenue + 2000  # the forfeited deposit no longer counts as revenue
+
+
+# far-future so the global scan can't collide with seeded data
+NOW = datetime(2030, 1, 1, 0, 0, tzinfo=UTC)
+
+
+async def _online_booking(
+    db: AsyncSession,
+    *,
+    created_at: datetime,
+    deposit_required: bool = True,
+    status: str = "confirmed",
+    source: str = "online",
+) -> tuple[str, str]:
+    cid = (
+        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
+        .scalars()
+        .first()
+    )
+    iid = (
+        (await db.execute(select(Item.id).where(Item.business_id == BIZ).limit(1)))
+        .scalars()
+        .first()
+    )
+    starts = NOW + timedelta(days=2)
+    session = Slot(
+        id=new_id("slot"),
+        business_id=BIZ,
+        item_id=iid,
+        staff_id=ST_OWNER,
+        starts_at=starts,
+        ends_at=starts + timedelta(hours=1),
+        capacity=1,
+        status="scheduled",
+    )
+    db.add(session)
+    await db.flush()
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=BIZ,
+        slot_id=session.id,
+        staff_id=ST_OWNER,
+        client_id=cid,
+        status=status,
+        source=source,
+        price_cents=11000,
+        deposit_amount_cents=2750 if deposit_required else 0,
+        created_at=created_at,
+    )
+    db.add(booking)
+    await db.flush()
+    db.add(
+        Payment(
+            id=new_id("payment"),
+            business_id=BIZ,
+            booking_id=booking.id,
+            kind="deposit",
+            amount_cents=2750,
+            method="card",
+            provider="stripe",
+            status="pending",
+        )
+    )
+    await db.flush()
+    return booking.id, session.id
+
+
+async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:
+    bid, sid = await _online_booking(db, created_at=NOW - timedelta(hours=1))
+    assert await run_reap_unpaid_bookings(db, NOW) == 1
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.status == "canceled" and booking.canceled_at == NOW
+    session = (await db.execute(select(Slot).where(Slot.id == sid))).scalar_one()
+    assert session.status == "canceled"  # slot freed
+    assert await booked_count(db, sid) == 0
+
+
+async def test_fresh_unpaid_booking_is_untouched(db: AsyncSession) -> None:
+    bid, _ = await _online_booking(db, created_at=NOW - timedelta(minutes=5))  # inside the TTL
+    assert await run_reap_unpaid_bookings(db, NOW) == 0
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.status == "confirmed"
+
+
+async def test_settled_deposit_is_untouched(db: AsyncSession) -> None:
+    bid, _ = await _online_booking(db, created_at=NOW - timedelta(hours=1))
+    db.add(
+        Payment(
+            id=new_id("payment"),
+            business_id=BIZ,
+            booking_id=bid,
+            kind="deposit",
+            amount_cents=2750,
+            method="card",
+            provider="stripe",
+            status="succeeded",
+        )
+    )
+    await db.flush()
+    assert await run_reap_unpaid_bookings(db, NOW) == 0
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.status == "confirmed"
+
+
+async def test_manual_booking_is_untouched(db: AsyncSession) -> None:
+    # only online bookings auto-cancel on non-payment; a staff-made booking is left to the provider.
+    bid, _ = await _online_booking(db, created_at=NOW - timedelta(hours=1), source="manual")
+    assert await run_reap_unpaid_bookings(db, NOW) == 0
+    booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert booking.status == "confirmed"
+
+
+async def _booking_at(db: AsyncSession, starts_at: datetime, *, status: str = "confirmed") -> str:
+    cid = (
+        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
+        .scalars()
+        .first()
+    )
+    assert cid
+    await db.execute(update(Client).where(Client.id == cid).values(email="rem@example.ca"))
+    iid = (
+        (await db.execute(select(Item.id).where(Item.business_id == BIZ).limit(1)))
+        .scalars()
+        .first()
+    )
+    assert iid
+    sess = Slot(
+        id=new_id("slot"),
+        business_id=BIZ,
+        item_id=iid,
+        staff_id=ST_OWNER,
+        starts_at=starts_at,
+        ends_at=starts_at + timedelta(hours=1),
+        capacity=1,
+        status="scheduled",
+    )
+    db.add(sess)
+    await db.flush()
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=BIZ,
+        slot_id=sess.id,
+        staff_id=ST_OWNER,
+        client_id=cid,
+        status=status,
+        source="manual",
+        price_cents=5000,
+    )
+    db.add(booking)
+    await db.flush()
+    return booking.id
+
+
+def _notifier(email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender) -> Notifier:
+    return Notifier(email, sms, push)
+
+
+async def test_reminds_upcoming_booking(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    bid = await _booking_at(db, NOW + timedelta(hours=12))
+    sent = await run_reminders(db, _notifier(email, sms, push), NOW)
+    assert sent == 1
+    assert len(email.sent) == 1 and email.sent[0].to == "rem@example.ca"
+    bk = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
+    assert bk.reminded_at is not None
+
+
+async def test_skips_booking_outside_window(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    await _booking_at(db, NOW + timedelta(hours=48))  # beyond 24h
+    assert await run_reminders(db, _notifier(email, sms, push), NOW) == 0
+    assert email.sent == []
+
+
+async def test_reminder_is_deduped(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    await _booking_at(db, NOW + timedelta(hours=12))
+    notifier = _notifier(email, sms, push)
+    assert await run_reminders(db, notifier, NOW) == 1
+    assert await run_reminders(db, notifier, NOW) == 0  # reminded_at dedups
+
+
+async def test_skips_canceled_booking(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    await _booking_at(db, NOW + timedelta(hours=12), status="canceled")
+    assert await run_reminders(db, _notifier(email, sms, push), NOW) == 0
+
+
+async def _booking_for(
+    db: AsyncSession,
+    *,
+    business_id: str,
+    staff_id: str,
+    client_id: str,
+    starts_at: datetime,
+) -> str:
+    item = Item(
+        id=new_id("item"),
+        business_id=business_id,
+        kind="service",
+        name="Svc",
+        duration_min=30,
+    )
+    db.add(item)
+    await db.flush()
+    sess = Slot(
+        id=new_id("slot"),
+        business_id=business_id,
+        item_id=item.id,
+        staff_id=staff_id,
+        starts_at=starts_at,
+        ends_at=starts_at + timedelta(hours=1),
+        capacity=1,
+        status="scheduled",
+    )
+    db.add(sess)
+    await db.flush()
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=business_id,
+        slot_id=sess.id,
+        staff_id=staff_id,
+        client_id=client_id,
+        status="confirmed",
+        source="manual",
+        price_cents=5000,
+    )
+    db.add(booking)
+    await db.flush()
+    return booking.id
+
+
+async def test_reminder_reaches_client_email_and_sms(
+    db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
+) -> None:
+    bid = await _booking_at(db, NOW + timedelta(hours=12))
+    cid = (await db.execute(select(Booking.client_id).where(Booking.id == bid))).scalar_one()
+    await db.execute(update(Client).where(Client.id == cid).values(phone="+15145550000"))
+    await db.flush()
+    assert await run_reminders(db, _notifier(email, sms, push), NOW) == 1
+    assert len(email.sent) == 1 and email.sent[0].to == "rem@example.ca"
+    assert len(sms.sent) == 1 and sms.sent[0].to == "+15145550000"
+    # a reminder is a client-facing notice (email + SMS) — it does not fan out to staff push
+    assert push.sent == []
+
+
+async def test_global_scan_is_multi_tenant_and_deduped(
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+    factory: Factory,
+) -> None:
+    await _booking_at(db, NOW + timedelta(hours=12))  # a booking in the seeded business
+    other = await factory.business(name="Second Studio")
+    staff = await factory.staff(business=other)
+    client = await factory.client(business=other)
+    client.email = "second@example.ca"
+    await db.flush()
+    await _booking_for(
+        db,
+        business_id=other.id,
+        staff_id=staff.id,
+        client_id=client.id,
+        starts_at=NOW + timedelta(hours=12),
+    )
+    notifier = _notifier(email, sms, push)
+    # the cron scan is global (not tenant-scoped): both businesses' bookings are reminded
+    assert await run_reminders(db, notifier, NOW) == 2
+    assert {m.to for m in email.sent} >= {"rem@example.ca", "second@example.ca"}
+    # per-booking dedup (reminded_at) holds across tenants — a second pass reminds nobody
+    assert await run_reminders(db, notifier, NOW) == 0
