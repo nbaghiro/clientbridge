@@ -14,9 +14,9 @@ class Settings(BaseSettings):
 
     jwt_secret: str = _DEV_JWT_SECRET  # matches infra/powersync jwks
     jwt_issuer: str = "clientbridge"
-    jwt_ttl_seconds: int = 3600  # PowerSync token TTL
-    access_token_ttl_seconds: int = 900  # app access token — 15 min
-    refresh_token_ttl_days: int = 30  # app refresh token
+    jwt_ttl_seconds: int = 3600  # the PowerSync token, not the app access token
+    access_token_ttl_seconds: int = 900
+    refresh_token_ttl_days: int = 30
 
     redis_url: str = "redis://localhost:8703/0"
 
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     s3_endpoint: str = "http://localhost:8705"
     s3_bucket: str = "clientbridge"
     s3_access_key: str = "minio"
-    s3_secret_key: str = "minio12345"  # dev-only default, overridden in prod
+    s3_secret_key: str = "minio12345"
     s3_region: str = "us-east-1"
     s3_presign_ttl_seconds: int = 3600
 
@@ -32,27 +32,27 @@ class Settings(BaseSettings):
     powersync_kid: str = "clientbridge-dev"  # matches infra/powersync/powersync.yaml
     powersync_use_rs256: bool = False  # prod: sign PowerSync tokens with RS256, verified via JWKS
     powersync_private_key_pem: str = ""  # prod RSA private key (PEM); empty → ephemeral (dev/test)
-    google_client_id: str = ""  # OAuth audience for verifying Google id_tokens
+    google_client_id: str = ""
 
     # Stripe Connect; empty keys in dev and test select the fake gateway.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"
-    api_base_url: str = "http://localhost:8701"  # absolute links to public media
-    web_base_url: str = "http://localhost:8700"  # provider app — onboarding return/refresh targets
-    connect_base_url: str = "http://localhost:8709"  # Connect app — customer link surfaces
-    cors_allow_origins: str = ""  # comma-separated extra origins (e.g. the prod Connect origin)
+    api_base_url: str = "http://localhost:8701"
+    web_base_url: str = "http://localhost:8700"
+    connect_base_url: str = "http://localhost:8709"
+    cors_allow_origins: str = ""
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
-    interac_webhook_secret: str = ""  # shared secret for the inbound e-Transfer auto-match webhook
-    sms_webhook_secret: str = ""  # shared secret for the inbound SMS (Twilio-style) webhook
+    interac_webhook_secret: str = ""
+    sms_webhook_secret: str = ""
 
     # Outreach channels; empty credentials select the no-op console senders.
-    postmark_server_token: str = ""  # set with email_from → real transactional email (else no-op)
-    email_from: str = ""  # verified sender address, e.g. "Clientbridge <no-reply@clientbridge.app>"
+    postmark_server_token: str = ""
+    email_from: str = ""
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_sms_from: str = ""
-    expo_access_token: str = ""  # optional; Expo push accepts device tokens without it
+    expo_access_token: str = ""
 
     # Dev only: an unauthenticated /sync/token call mints a token for this user.
     dev_user_id: str = "us_dev"

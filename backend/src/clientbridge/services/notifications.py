@@ -28,7 +28,8 @@ from clientbridge.models.platform import Device
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
-from clientbridge.services.lines import LineParent, fetch_lines, tax_breakdown
+from clientbridge.services.lines import LineParent, fetch_lines
+from clientbridge.services.tax import tax_breakdown
 
 _log = logging.getLogger(__name__)
 

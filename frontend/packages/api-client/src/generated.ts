@@ -1917,7 +1917,10 @@ export interface components {
         BrandInput: {
             /** Logo Url */
             logo_url?: string | null;
-            /** Logo File Id */
+            /**
+             * Logo File Id
+             * @description An uploaded logo; used instead of logo_url on public pages
+             */
             logo_file_id?: string | null;
             /** Primary */
             primary?: string | null;
@@ -1948,11 +1951,17 @@ export interface components {
             channel: "sms" | "email";
             /** Body */
             body: string;
-            /** Audience */
+            /**
+             * Audience
+             * @description {}, {"all": true} or {"tags": [...]}
+             */
             audience?: {
                 [key: string]: unknown;
             };
-            /** Scheduled At */
+            /**
+             * Scheduled At
+             * @description A future time schedules the broadcast instead of sending now
+             */
             scheduled_at?: string | null;
         };
         /** BusinessOut */
@@ -2101,23 +2110,33 @@ export interface components {
             details_submitted: boolean;
             /**
              * Kyc Status
+             * @description not_started, pending, restricted, enabled or disabled
              * @default not_started
              */
             kyc_status: string;
             /** Disabled Reason */
             disabled_reason?: string | null;
-            /** Currently Due */
+            /**
+             * Currently Due
+             * @description What the business must still submit to Stripe
+             */
             currently_due?: string[];
             /** Past Due */
             past_due?: string[];
-            /** Pending Verification */
+            /**
+             * Pending Verification
+             * @description What Stripe is still reviewing
+             */
             pending_verification?: string[];
         };
         /** ConnectionTokenOut */
         ConnectionTokenOut: {
             /** Secret */
             secret: string;
-            /** Location Id */
+            /**
+             * Location Id
+             * @description The business's Terminal location, for connectReader
+             */
             location_id?: string | null;
         };
         /** ContractSend */
@@ -2129,13 +2148,25 @@ export interface components {
         };
         /** DashboardSummary */
         DashboardSummary: {
-            /** Today Revenue Cents */
+            /**
+             * Today Revenue Cents
+             * @description Cash received today net of refunds, in the business's timezone
+             */
             today_revenue_cents: number;
-            /** Awaiting Payment Cents */
+            /**
+             * Awaiting Payment Cents
+             * @description Balance owed on issued invoices
+             */
             awaiting_payment_cents: number;
-            /** Gst Hst Set Aside Cents */
+            /**
+             * Gst Hst Set Aside Cents
+             * @description Sales tax collected and not yet filed (GST/HST, PST and QST)
+             */
             gst_hst_set_aside_cents: number;
-            /** Gst Hst Filing Due */
+            /**
+             * Gst Hst Filing Due
+             * @description Next quarterly GST/HST filing date; null unless tax-registered
+             */
             gst_hst_filing_due: string | null;
         };
         /** DepositOut */
@@ -2354,13 +2385,25 @@ export interface components {
         };
         /** GstHstReport */
         GstHstReport: {
-            /** Tax Collected Cents */
+            /**
+             * Tax Collected Cents
+             * @description GST and HST booked in the period
+             */
             tax_collected_cents: number;
-            /** Pst Cents */
+            /**
+             * Pst Cents
+             * @description PST booked in the period, filed with the province
+             */
             pst_cents: number;
-            /** Qst Cents */
+            /**
+             * Qst Cents
+             * @description QST booked in the period, filed with Revenu Québec
+             */
             qst_cents: number;
-            /** Taxable Sales Cents */
+            /**
+             * Taxable Sales Cents
+             * @description Sales before tax booked in the period
+             */
             taxable_sales_cents: number;
             /** Gst Hst Number */
             gst_hst_number: string | null;
@@ -2372,13 +2415,25 @@ export interface components {
         };
         /** IncomeReport */
         IncomeReport: {
-            /** Gross Cents */
+            /**
+             * Gross Cents
+             * @description Payments and deposits received in the period
+             */
             gross_cents: number;
-            /** Refunds Cents */
+            /**
+             * Refunds Cents
+             * @description Refunds paid out in the period
+             */
             refunds_cents: number;
-            /** Net Cents */
+            /**
+             * Net Cents
+             * @description Gross minus refunds
+             */
             net_cents: number;
-            /** By Method */
+            /**
+             * By Method
+             * @description Net received per payment method
+             */
             by_method: {
                 [key: string]: number;
             };
@@ -2421,7 +2476,10 @@ export interface components {
             role: string;
             /** Status */
             status: string;
-            /** Invite Token */
+            /**
+             * Invite Token
+             * @description Raw invite token, returned once and also emailed
+             */
             invite_token: string;
         };
         /** InvoiceCreate */
@@ -2535,6 +2593,7 @@ export interface components {
             track_stock: boolean;
             /**
              * Sell Online
+             * @description Products only: listed in the online shop and as add-ons
              * @default false
              */
             sell_online: boolean;
@@ -2556,7 +2615,10 @@ export interface components {
              * @enum {string}
              */
             deposit_type: "none" | "fixed" | "percent";
-            /** Deposit Value */
+            /**
+             * Deposit Value
+             * @description Cents for a fixed deposit, a percent for a percent one
+             */
             deposit_value?: number | null;
             /** Session Count */
             session_count?: number | null;
@@ -2566,7 +2628,10 @@ export interface components {
             interval?: number | null;
             /** Frequency */
             frequency?: ("day" | "week" | "month" | "year") | null;
-            /** Online Bookable */
+            /**
+             * Online Bookable
+             * @description Defaults by kind: services and classes only
+             */
             online_bookable?: boolean | null;
         };
         /** ItemOut */
@@ -2621,6 +2686,7 @@ export interface components {
             track_stock: boolean;
             /**
              * Sell Online
+             * @description Products only: listed in the online shop and as add-ons
              * @default false
              */
             sell_online: boolean;
@@ -2642,7 +2708,10 @@ export interface components {
              * @enum {string}
              */
             deposit_type: "none" | "fixed" | "percent";
-            /** Deposit Value */
+            /**
+             * Deposit Value
+             * @description Cents for a fixed deposit, a percent for a percent one
+             */
             deposit_value?: number | null;
             /** Session Count */
             session_count?: number | null;
@@ -2742,7 +2811,10 @@ export interface components {
             item_id?: string | null;
             /** Booking Id */
             booking_id?: string | null;
-            /** Tax Class */
+            /**
+             * Tax Class
+             * @description Defaults to the item's class, else standard
+             */
             tax_class?: ("standard" | "federal_only" | "exempt") | null;
         };
         /** LineOut */
@@ -2835,7 +2907,10 @@ export interface components {
         };
         /** OrderCreate */
         OrderCreate: {
-            /** Client Id */
+            /**
+             * Client Id
+             * @description Null for a walk-in
+             */
             client_id?: string | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][];
@@ -2886,7 +2961,10 @@ export interface components {
         };
         /** OrderPayIn */
         OrderPayIn: {
-            /** Payment Method Id */
+            /**
+             * Payment Method Id
+             * @description A saved card of the order's client, or 'default'
+             */
             payment_method_id?: string | null;
         };
         /** OrderPickupIn */
@@ -2899,7 +2977,10 @@ export interface components {
         };
         /** OrderUpdate */
         OrderUpdate: {
-            /** Client Id */
+            /**
+             * Client Id
+             * @description Null for a walk-in; changeable until something is charged
+             */
             client_id?: string | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][] | null;
@@ -3043,9 +3124,15 @@ export interface components {
             services: components["schemas"]["PublicService"][];
             /** Staff */
             staff: components["schemas"]["PublicStaff"][];
-            /** Addons */
+            /**
+             * Addons
+             * @description Products a client can add to a visit
+             */
             addons?: components["schemas"]["PublicAddon"][];
-            /** Stripe Account Id */
+            /**
+             * Stripe Account Id
+             * @description Connected account for Stripe Elements, once onboarded
+             */
             stripe_account_id?: string | null;
         };
         /** PublicBookingResult */
@@ -3054,7 +3141,10 @@ export interface components {
             booking_id: string;
             /** Deposit Client Secret */
             deposit_client_secret?: string | null;
-            /** Stripe Account Id */
+            /**
+             * Stripe Account Id
+             * @description Connected account for the deposit charge, once onboarded
+             */
             stripe_account_id?: string | null;
         };
         /**
@@ -3305,6 +3395,7 @@ export interface components {
             /**
              * Starts At
              * Format: date-time
+             * @description First occurrence; its local time repeats
              */
             starts_at: string;
             /**
@@ -3317,11 +3408,20 @@ export interface components {
              * @default 1
              */
             interval: number;
-            /** Byday */
+            /**
+             * Byday
+             * @description Weekdays, for weekly series only
+             */
             byday?: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[] | null;
-            /** Count */
+            /**
+             * Count
+             * @description End after this many; set count or until
+             */
             count?: number | null;
-            /** Until */
+            /**
+             * Until
+             * @description End on this date; set count or until
+             */
             until?: string | null;
             /** Resource Id */
             resource_id?: string | null;
@@ -3335,9 +3435,15 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
-            /** Booking Id */
+            /**
+             * Booking Id
+             * @description Null when the occurrence was skipped
+             */
             booking_id: string | null;
-            /** Skipped */
+            /**
+             * Skipped
+             * @description Why the occurrence was skipped
+             */
             skipped: string | null;
         };
         /** RecurrenceOut */
@@ -3358,9 +3464,15 @@ export interface components {
             interval: number;
             /** Status */
             status: string;
-            /** Created */
+            /**
+             * Created
+             * @description Occurrences that became bookings
+             */
             created: number;
-            /** Skipped */
+            /**
+             * Skipped
+             * @description Occurrences skipped for a clash or outside hours
+             */
             skipped: number;
             /** Occurrences */
             occurrences: components["schemas"]["RecurrenceOccurrence"][];
@@ -3420,7 +3532,10 @@ export interface components {
         };
         /** RemittanceSummary */
         RemittanceSummary: {
-            /** Tax Collected Cents */
+            /**
+             * Tax Collected Cents
+             * @description Sales tax collected and not yet filed
+             */
             tax_collected_cents: number;
         };
         /** ResetPasswordBody */
@@ -3432,10 +3547,47 @@ export interface components {
         };
         /** RestockIn */
         RestockIn: {
-            /** Quantity */
+            /**
+             * Quantity
+             * @description Negative for a count correction; never zero
+             */
             quantity: number;
             /** Note */
             note?: string | null;
+        };
+        /** ReviewLinkOut */
+        ReviewLinkOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Booking Id */
+            booking_id: string | null;
+            /** Rating */
+            rating: number | null;
+            /** Body */
+            body: string | null;
+            /** Response */
+            response: string | null;
+            /** Responded At */
+            responded_at: string | null;
+            /** Sent To Google */
+            sent_to_google: boolean;
+            /** Status */
+            status: string;
+            /** Channel */
+            channel: string | null;
+            /** Requested At */
+            requested_at: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
+            /**
+             * Token
+             * @description The public review link token, returned when requested
+             */
+            token: string;
         };
         /** ReviewOut */
         ReviewOut: {
@@ -3459,6 +3611,8 @@ export interface components {
             sent_to_google: boolean;
             /** Status */
             status: string;
+            /** Channel */
+            channel: string | null;
             /** Requested At */
             requested_at: string | null;
             /** Submitted At */
@@ -3471,25 +3625,6 @@ export interface components {
             /** Booking Id */
             booking_id?: string | null;
         };
-        /** ReviewRequestOut */
-        ReviewRequestOut: {
-            /** Id */
-            id: string;
-            /** Business Id */
-            business_id: string;
-            /** Client Id */
-            client_id: string;
-            /** Booking Id */
-            booking_id: string | null;
-            /** Channel */
-            channel: string;
-            /** Status */
-            status: string;
-            /** Token */
-            token: string;
-            /** Requested At */
-            requested_at: string | null;
-        };
         /** ReviewRespond */
         ReviewRespond: {
             /** Response */
@@ -3497,9 +3632,15 @@ export interface components {
         };
         /** ReviewSummary */
         ReviewSummary: {
-            /** Average */
+            /**
+             * Average
+             * @description Mean rating of published reviews; null if none
+             */
             average: number | null;
-            /** Count */
+            /**
+             * Count
+             * @description Number of published reviews
+             */
             count: number;
         };
         /** SalesByItemRow */
@@ -3512,11 +3653,17 @@ export interface components {
             kind: string;
             /** Quantity */
             quantity: number;
-            /** Sales Cents */
+            /**
+             * Sales Cents
+             * @description Sales before tax, including sales later refunded
+             */
             sales_cents: number;
             /** Tax Cents */
             tax_cents: number;
-            /** Refunded Cents */
+            /**
+             * Refunded Cents
+             * @description Sales in the period that were refunded in full
+             */
             refunded_cents: number;
         };
         /** SetupIntentOut */
@@ -3564,11 +3711,20 @@ export interface components {
             payee?: boolean | null;
             /** Rate Type */
             rate_type?: ("percent" | "fixed" | "hourly") | null;
-            /** Rate Bps */
+            /**
+             * Rate Bps
+             * @description Percent rate in basis points
+             */
             rate_bps?: number | null;
-            /** Rate Cents */
+            /**
+             * Rate Cents
+             * @description Fixed or hourly rate
+             */
             rate_cents?: number | null;
-            /** Retail Rate Bps */
+            /**
+             * Retail Rate Bps
+             * @description Commission on product sales in basis points
+             */
             retail_rate_bps?: number | null;
         };
         /** SubscriptionCreate */
@@ -3601,7 +3757,10 @@ export interface components {
             staff_id: string;
             /** Name */
             name: string;
-            /** Total Cents */
+            /**
+             * Total Cents
+             * @description Earnings paid to the staff member in the calendar year
+             */
             total_cents: number;
         };
         /** TaxRateOut */
@@ -7216,7 +7375,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewRequestOut"];
+                    "application/json": components["schemas"]["ReviewLinkOut"];
                 };
             };
             /** @description Validation Error */

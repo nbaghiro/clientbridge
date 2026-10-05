@@ -38,14 +38,15 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_api.router)
     app.include_router(sync_router)
-    app.include_router(webhooks_router)  # surface #4 (signature-verified, unauthenticated)
-    app.include_router(pay_router)  # surface #4 (pay-link token, unauthenticated)
-    app.include_router(review_router)  # surface #4 (review token, unauthenticated)
-    app.include_router(form_router)  # surface #4 (form token, unauthenticated)
-    app.include_router(contract_router)  # surface #4 (sign token, unauthenticated)
-    app.include_router(booking_router)  # surface #4 (booking-page slug, unauthenticated)
-    app.include_router(media_router)  # surface #4 (logos + item images only, unauthenticated)
-    app.include_router(api_router)  # /v1/* domain routers
+    # Public surfaces: unauthenticated, checked by signature, token or slug instead.
+    app.include_router(webhooks_router)
+    app.include_router(pay_router)
+    app.include_router(review_router)
+    app.include_router(form_router)
+    app.include_router(contract_router)
+    app.include_router(booking_router)
+    app.include_router(media_router)
+    app.include_router(api_router)
     return app
 
 

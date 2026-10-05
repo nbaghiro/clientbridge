@@ -14,6 +14,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   `tests`) holds one file per concept with the same plain plural name and no suffix (`api/bookings.py` →
   `schemas/bookings.py` → `services/bookings.py` → `tasks/bookings.py` → `tests/test_bookings.py`). A file
   may be long if it is one concept; split by concept, never by size. Folders stay one level deep.
+- `models` = tables, `schemas` = API shapes; a column reaches the API only through a schema.
 - Flow: `api` (thin router + DTO, **never queries**) → `services` (logic, owns the
   transaction/commit) → `models`. Services own their queries and **always scope tenancy through
   `core/scoping.scoped(Model, business_id, soft_delete=…)`** (with `scoped_page`/`scoped_count` for

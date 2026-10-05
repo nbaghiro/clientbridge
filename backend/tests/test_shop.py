@@ -54,9 +54,6 @@ async def _settle(api: httpx.AsyncClient, db: AsyncSession, order_id: str, event
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
 
 
-# ── shop listing ──
-
-
 async def test_shop_lists_online_products_without_cost_or_sku(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -88,9 +85,6 @@ async def test_shop_unknown_slug_404(api: httpx.AsyncClient) -> None:
 async def test_only_products_sell_online_422(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.patch(f"/v1/items/{BATH}", json={"sell_online": True})
     assert res.status_code == 422
-
-
-# ── placing an order ──
 
 
 async def test_order_is_online_for_pickup_and_taxed(
@@ -179,9 +173,6 @@ async def test_paid_order_notifies_owner_and_client_with_pickup(
     assert "Collect your order" in to["shopper@example.com"].body
 
 
-# ── pickup ──
-
-
 async def test_staff_mark_an_online_order_ready_then_picked_up(
     as_staff: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
@@ -211,9 +202,6 @@ async def test_pickup_only_for_paid_online_orders_409(
     assert (
         await as_owner.post("/v1/orders/ord_nope/pickup", json={"status": "ready"})
     ).status_code == 404
-
-
-# ── booking add-ons ──
 
 
 async def test_booking_page_offers_add_ons_and_stores_them(

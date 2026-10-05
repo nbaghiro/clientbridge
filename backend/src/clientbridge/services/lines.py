@@ -12,14 +12,7 @@ from clientbridge.core.scoping import scoped, scoped_delete
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.catalog import ENTITLEMENT_KINDS, Item
 from clientbridge.schemas.billing import LineInput, LineOut
-from clientbridge.services.business import business_tax_registered
-from clientbridge.services.tax import (
-    TaxComponent,
-    TaxLine,
-    TaxResult,
-    compute_tax,
-    rates_for_business,
-)
+from clientbridge.services.tax import TaxResult
 
 LineParent = Literal["estimate", "invoice", "order"]
 
@@ -104,33 +97,6 @@ def line_out(ln: Line) -> LineOut:
         booking_id=ln.booking_id,
         position=ln.position,
     )
-
-
-async def tax_for_amount(db: AsyncSession, business_id: str, amount_cents: int) -> TaxResult:
-    """Tax for a single taxable amount, through the line engine."""
-    return await tax_for_lines(db, business_id, [Line(amount_cents=amount_cents)])
-
-
-async def tax_breakdown(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
-    """The tax engine's result for these lines, without writing anything back."""
-    rates = await rates_for_business(db, business_id)
-    registered = await business_tax_registered(db, business_id)
-    return compute_tax(
-        [
-            TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class or "standard")
-            for ln in lines
-        ],
-        [TaxComponent(jurisdiction=r.jurisdiction, rate_bps=r.rate_bps) for r in rates],
-        registered=registered,
-    )
-
-
-async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
-    """Run the tax engine over a parent's lines, writing each line's tax."""
-    result = await tax_breakdown(db, business_id, lines)
-    for ln, line_tax in zip(lines, result.lines, strict=True):
-        ln.tax_amount_cents = line_tax.tax_cents
-    return result
 
 
 def apply_totals(parent: Invoice | Estimate | Order, result: TaxResult) -> None:

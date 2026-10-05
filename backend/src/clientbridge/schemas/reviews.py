@@ -10,17 +10,6 @@ class ReviewRequestCreate(BaseModel):
     booking_id: str | None = None
 
 
-class ReviewRequestOut(BaseModel):
-    id: str
-    business_id: str
-    client_id: str
-    booking_id: str | None
-    channel: str
-    status: str
-    token: str
-    requested_at: datetime | None
-
-
 class ReviewOut(BaseModel):
     id: str
     business_id: str
@@ -32,8 +21,13 @@ class ReviewOut(BaseModel):
     responded_at: datetime | None
     sent_to_google: bool
     status: str
+    channel: str | None
     requested_at: datetime | None
     submitted_at: datetime | None
+
+
+class ReviewLinkOut(ReviewOut):
+    token: str = Field(description="The public review link token, returned when requested")
 
 
 class ReviewRespond(BaseModel):
@@ -41,8 +35,8 @@ class ReviewRespond(BaseModel):
 
 
 class ReviewSummary(BaseModel):
-    average: float | None  # mean rating over published reviews; None when there are none
-    count: int  # number of published reviews
+    average: float | None = Field(description="Mean rating of published reviews; null if none")
+    count: int = Field(description="Number of published reviews")
 
 
 class PublicReviewContext(BaseModel):

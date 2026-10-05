@@ -105,8 +105,7 @@ async def test_account_updated_syncs_kyc_state(api: httpx.AsyncClient, db: Async
 async def test_account_updated_golden_payload_syncs_state(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # the full real-shaped account.updated event — our parser must ignore the noise and read the
-    # requirement buckets through the live webhook path end-to-end.
+    # A full real-shaped account.updated event, read through the live webhook path
     body = (Path(__file__).parent / "fixtures" / "stripe" / "account_updated.json").read_text()
     acct = json.loads(body)["data"]["object"]["id"]
     await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id=acct))

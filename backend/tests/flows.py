@@ -1,5 +1,4 @@
-"""Steps shared by the end-to-end flow tests. Every direct database read or write the flows need
-lives here, so a schema change edits this module and leaves the flow assertions alone."""
+"""Steps shared by the flow tests; every direct database access they need lives here."""
 
 import json
 import uuid
@@ -122,9 +121,9 @@ async def order(db: AsyncSession, order_id: str) -> OrderOut:
 async def booking(db: AsyncSession, booking_id: str) -> BookingOut:
     row = await db.get(Booking, booking_id, populate_existing=True)
     assert row is not None
-    session = await db.get(Slot, row.slot_id, populate_existing=True)
-    assert session is not None
-    return await _booking_out(db, row, session)
+    slot = await db.get(Slot, row.slot_id, populate_existing=True)
+    assert slot is not None
+    return await _booking_out(db, row, slot)
 
 
 async def deposit_held(db: AsyncSession, booking_id: str) -> int:

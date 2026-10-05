@@ -1,9 +1,4 @@
-"""Connect the demo business to a verified Stripe test-mode account.
-
-The seed runs this whenever backend/.env has a test secret key (STRIPE_SECRET_KEY=sk_test_...). It
-reuses the account it created before (found by metadata), so reruns don't pile up accounts. The
-identity and bank values are Stripe's documented test values, which verify instantly.
-"""
+"""Connect the demo business to a verified Stripe test account, reused across runs."""
 
 import asyncio
 import time

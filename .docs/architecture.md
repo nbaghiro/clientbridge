@@ -316,12 +316,12 @@ unauthenticated call mints a token for `dev_user_id` (HS256); prod requires a va
 ### The write path — `WRITE_POLICY` (`sync/upload.py`)
 The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → (min_tier,
 own_only)**. Only low-risk, client-owned tables are sync-writable:
-- **team-writable** (any active staff): `clients` · `subjects` · `notes` · `messages`, and (own-only)
+- **team-writable** (any active staff): `clients` · `subjects` · `notes`, and (own-only)
   `hours`.
 - **admin-writable** (owner/admin): `items` · `resources` · `forms` · `fields` · `contracts`.
 - **not sync-writable** (server-only invariant): everything money/capacity/secret/uniqueness — `payments`,
   `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `slots`/`bookings`/`recurrences`, `invoices`/
-  `estimates`/`orders`/`lines`, `threads`, `broadcasts`, `businesses`, `staff`, `reviews`, files, audit/
+  `estimates`/`orders`/`lines`, `threads`/`messages`, `broadcasts`, `businesses`, `staff`, `reviews`, files, audit/
   webhook logs → each replaced by a `/v1` command.
 
 Per op: resolve the actor's active `staff` rows → look up policy (unknown table → 403) → block cross-tenant

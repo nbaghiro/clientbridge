@@ -1,9 +1,4 @@
-"""Stripe test-mode flows — dormant until STRIPE_TEST_SECRET_KEY is set (see conftest).
-
-What lives here is what only the real API can prove: the KYC requirement shape on a fresh Custom
-account, real card-decline mapping, and that our subscription period parsing matches the *current*
-API version (the gap the pinned-spec mock leaves open).
-"""
+"""Flows only the real Stripe API can prove: KYC shape, real declines, period parsing."""
 
 import pytest
 import stripe
@@ -56,8 +51,7 @@ async def test_declined_test_card_maps_to_card_declined(
 async def test_subscription_period_fields_match_current_api(
     live_gateway: StripeGateway, connected_account_id: str
 ) -> None:
-    """create_subscription reads `current_period_*`; a Test Clock proves they exist at this API
-    version — the drift stripe-mock (pinned spec) can't catch."""
+    """A Test Clock proves `current_period_*` exist at the pinned API version."""
     clock = await stripe.test_helpers.TestClock.create_async(
         frozen_time=1735689600,
         stripe_account=connected_account_id,  # 2025-01-01

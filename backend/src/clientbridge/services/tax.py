@@ -4,7 +4,8 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.services.business import business_province
+from clientbridge.models.billing import Line
+from clientbridge.services.business import business_province, business_tax_registered
 
 _PRECISE: dict[str, Decimal] = {"QST": Decimal("0.09975")}
 _FEDERAL = frozenset({"GST", "HST"})
@@ -141,3 +142,30 @@ def rates_for_province(province: str | None) -> list[ProvinceRate]:
 async def rates_for_business(db: AsyncSession, business_id: str) -> Sequence[ProvinceRate]:
     """The rates a business collects — derived from its province."""
     return rates_for_province(await business_province(db, business_id))
+
+
+async def tax_for_amount(db: AsyncSession, business_id: str, amount_cents: int) -> TaxResult:
+    """Tax for a single taxable amount, through the line engine."""
+    return await tax_for_lines(db, business_id, [Line(amount_cents=amount_cents)])
+
+
+async def tax_breakdown(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
+    """The tax engine's result for these lines, without writing anything back."""
+    rates = await rates_for_business(db, business_id)
+    registered = await business_tax_registered(db, business_id)
+    return compute_tax(
+        [
+            TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class or "standard")
+            for ln in lines
+        ],
+        [TaxComponent(jurisdiction=r.jurisdiction, rate_bps=r.rate_bps) for r in rates],
+        registered=registered,
+    )
+
+
+async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
+    """Run the tax engine over a parent's lines, writing each line's tax."""
+    result = await tax_breakdown(db, business_id, lines)
+    for ln, line_tax in zip(lines, result.lines, strict=True):
+        ln.tax_amount_cents = line_tax.tax_cents
+    return result

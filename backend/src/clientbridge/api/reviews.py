@@ -4,9 +4,9 @@ from fastapi import APIRouter, Header
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep, PushDep, SmsDep
 from clientbridge.schemas.reviews import (
+    ReviewLinkOut,
     ReviewOut,
     ReviewRequestCreate,
-    ReviewRequestOut,
     ReviewRespond,
     ReviewSummary,
 )
@@ -16,7 +16,7 @@ from clientbridge.services.reviews import ReviewService
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 
-@router.post("/request", response_model=ReviewRequestOut, status_code=201)
+@router.post("/request", response_model=ReviewLinkOut, status_code=201)
 async def request_review(
     body: ReviewRequestCreate,
     principal: CurrentPrincipal,
@@ -25,7 +25,7 @@ async def request_review(
     sms: SmsDep,
     push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
-) -> ReviewRequestOut:
+) -> ReviewLinkOut:
     return await ReviewService(db, principal).request_review(
         body, idempotency_key, Notifier(email, sms, push)
     )

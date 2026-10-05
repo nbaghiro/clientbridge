@@ -15,11 +15,18 @@ class ConnectStatus(BaseModel):
     charges_enabled: bool
     payouts_enabled: bool = False
     details_submitted: bool = False
-    kyc_status: str = "not_started"  # not_started | pending | restricted | enabled | disabled
+    kyc_status: str = Field(
+        default="not_started",
+        description="not_started, pending, restricted, enabled or disabled",
+    )
     disabled_reason: str | None = None
-    currently_due: list[str] = Field(default_factory=list)  # what the provider must still submit
+    currently_due: list[str] = Field(
+        default_factory=list, description="What the business must still submit to Stripe"
+    )
     past_due: list[str] = Field(default_factory=list)
-    pending_verification: list[str] = Field(default_factory=list)  # Stripe is reviewing
+    pending_verification: list[str] = Field(
+        default_factory=list, description="What Stripe is still reviewing"
+    )
 
 
 class PayIntentOut(BaseModel):
@@ -64,7 +71,7 @@ class InteracWebhookBody(BaseModel):
 
 
 class RemittanceSummary(BaseModel):
-    tax_collected_cents: int  # tax payable on the ledger: collected and not yet remitted
+    tax_collected_cents: int = Field(description="Sales tax collected and not yet filed")
 
 
 class RemittanceIn(BaseModel):

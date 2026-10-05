@@ -1,5 +1,4 @@
-"""The email adapter swaps to the real provider only when a Postmark token + from-address are set;
-otherwise it stays the no-op console sender. (The provider's HTTP call is `# pragma: no cover`.)"""
+"""The email adapter uses Postmark only when a token and from-address are both set."""
 
 import pytest
 

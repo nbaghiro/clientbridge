@@ -34,7 +34,6 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),
     "subjects": ("team", False),
     "notes": ("team", False),
-    "messages": ("team", False),
     "hours": ("team", True),
     "items": ("admin", False),
     "resources": ("admin", False),
@@ -43,7 +42,7 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "contracts": ("admin", False),
 }
 
-# Timestamps + tenancy the server owns; never settable by a client write.
+# Timestamps the server owns; never settable by a client write.
 SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 
 # Fields only a command may write; a sync op that sets one is rejected.
@@ -102,7 +101,6 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
         has_staff = "staff_id" in table.columns
         data = op.data or {}
 
-        # Existing row's tenancy (required for PATCH/DELETE; optional for PUT).
         cols = [table.columns["business_id"]]
         if has_staff:
             cols.append(table.columns["staff_id"])
@@ -121,12 +119,10 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
             row_business = existing["business_id"]
             row_staff = existing["staff_id"] if has_staff else None
 
-        # No cross-tenant move: a write can't relocate a row to another business.
         new_business = data.get("business_id")
         if isinstance(new_business, str) and new_business != row_business:
             raise Forbidden("cannot change business_id")
 
-        # role + ownership authz
         staff = by_business.get(row_business) if isinstance(row_business, str) else None
         if staff is None:
             raise Forbidden("not a member of that business")
@@ -136,11 +132,10 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
         if own_only and not is_admin and row_staff != staff.id:
             raise Forbidden(f"staff may only modify their own {op.type}")
 
-        # server-owned fields (timestamps, numbering, money) can't be set via a sync write
         if op.op in ("PUT", "PATCH"):
             _reject_owned_fields(op.type, data)
 
-        # apply (op.id is authoritative)
+        # op.id wins over any id in data
         try:
             if op.op == "PUT":
                 values = {**_coerce(table, data), "id": op.id}

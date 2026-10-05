@@ -1,5 +1,4 @@
-"""The database refuses rows outside each column's vocabulary, and the API and sync turn that into
-a 422 before it gets there."""
+"""The database refuses values outside each column's vocabulary, and the API returns 422."""
 
 import httpx
 import pytest

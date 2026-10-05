@@ -1,9 +1,4 @@
-"""Hermetic checks of the real StripeGateway webhook verification.
-
-These exercise `stripe.Webhook.construct_event` for real (the production path the app fakes), so a
-genuinely-signed payload is accepted and a tampered / wrong-secret / stale / malformed one is not.
-No network: we sign with the same HMAC scheme Stripe uses and feed it straight to the gateway.
-"""
+"""The real StripeGateway accepts a correctly signed webhook and rejects anything else."""
 
 import hashlib
 import hmac

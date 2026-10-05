@@ -10,7 +10,7 @@ from tests.flows import column, ok, removed
 CLIENT = "cl_amelie"
 
 
-def _writes(thread_id: str) -> list[tuple[str, dict[str, object], dict[str, object]]]:
+def _writes() -> list[tuple[str, dict[str, object], dict[str, object]]]:
     return [
         ("clients", {"name": "Synced", "tags": "[]", "custom_fields": "{}"}, {"name": "Renamed"}),
         ("subjects", {"client_id": CLIENT, "kind": "pet", "name": "Biscuit"}, {"name": "Bis"}),
@@ -18,11 +18,6 @@ def _writes(thread_id: str) -> list[tuple[str, dict[str, object], dict[str, obje
             "notes",
             {"parent_type": "client", "parent_id": CLIENT, "body": "Allergic to oats"},
             {"body": "Allergic to oats and wheat"},
-        ),
-        (
-            "messages",
-            {"thread_id": thread_id, "direction": "out", "channel": "sms", "body": "Draft"},
-            {"body": "Edited"},
         ),
         (
             "hours",
@@ -52,12 +47,7 @@ async def test_sync_upload_writes_each_policy_table(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     api = as_owner
-    thread = ok(
-        await api.post(
-            "/v1/messages", json={"client_id": CLIENT, "channel": "sms", "body": "Hello"}
-        )
-    ).json()["thread_id"]
-    writes = _writes(thread)
+    writes = _writes()
     assert {table for table, _, _ in writes} == set(WRITE_POLICY)
 
     for table, data, patch in writes:

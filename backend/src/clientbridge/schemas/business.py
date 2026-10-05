@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from clientbridge.schemas.public import HEX_COLOR
 
@@ -36,7 +36,9 @@ class BrandInput(BaseModel):
     """The public brand; values are validated and trimmed so clients can apply them directly."""
 
     logo_url: str | None = None
-    logo_file_id: str | None = None  # an uploaded logo; wins over logo_url on the public pages
+    logo_file_id: str | None = Field(
+        default=None, description="An uploaded logo; used instead of logo_url on public pages"
+    )
     primary: str | None = None
     tagline: str | None = None
 

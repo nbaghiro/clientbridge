@@ -1,9 +1,8 @@
 from datetime import date
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Response
 
-from clientbridge.core.deps import DbSession, Principal, require_role
+from clientbridge.core.deps import AdminPrincipal, DbSession
 from clientbridge.schemas.reports import (
     DashboardSummary,
     GstHstReport,
@@ -14,8 +13,6 @@ from clientbridge.schemas.reports import (
 from clientbridge.services.reports import DashboardService, ReportService
 
 dashboard_router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-
-AdminPrincipal = Annotated[Principal, Depends(require_role("owner", "admin"))]
 
 
 @dashboard_router.get("/summary", response_model=DashboardSummary)

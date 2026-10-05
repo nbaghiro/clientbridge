@@ -455,8 +455,7 @@ async def test_recurring_charge_taxed_and_in_gst_report(
     )
     db.add(sub)
     await db.flush()
-    # ±1 day: the report computes bounds in the business tz, so a single UTC day can miss paid_at
-    # near the boundary. The wide window is tz-stable; the before/after delta still isolates 600.
+    # ±1 day keeps the window stable across timezones; the before/after delta still isolates 600
     day = datetime.now(UTC).date()
     start = (day - timedelta(days=1)).isoformat()
     end = (day + timedelta(days=1)).isoformat()

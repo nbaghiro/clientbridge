@@ -316,7 +316,7 @@ const TESTS = [
   ]},
 
   { id:"tax", eye:"Catalog & tax", title:"Tax configuration", note:"Tax registration + province are now read through business_service accessors (business_tax_registered / business_province); the tax engine no longer imports the Business model.", cases:[
-    { id:"TAX-1", pri:"P1", title:"Small-supplier collects no tax", validates:"business_tax_registered() accessor feeding lines.tax_for_lines.",
+    { id:"TAX-1", pri:"P1", title:"Small-supplier collects no tax", validates:"business_tax_registered() accessor feeding tax.tax_for_lines.",
       pre:["As owner, set the business to NOT tax-registered (Settings → Tax, `tax_registered = false`)."],
       steps:["Create an invoice with a $100 service line and view its totals."],
       expect:["Tax total is $0.00; total equals subtotal.","Flip `tax_registered = true` and re-check a new invoice: GST/HST now applies per province."] },

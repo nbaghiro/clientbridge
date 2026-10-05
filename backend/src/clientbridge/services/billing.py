@@ -32,9 +32,9 @@ from clientbridge.services.lines import (
     fetch_lines,
     line_out,
     replace_lines,
-    tax_for_lines,
 )
 from clientbridge.services.payments import sync_invoice
+from clientbridge.services.tax import tax_for_lines
 
 _DUE_DAYS = 30
 

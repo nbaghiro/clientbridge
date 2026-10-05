@@ -1,5 +1,4 @@
-"""The tenant scoping helpers carry the same business_id (+ soft-delete) guard — the write-side
-helpers verified by compiled SQL, the read-side helpers by real rows across two businesses."""
+"""The tenant scoping helpers all apply the same business and soft-delete guard."""
 
 from datetime import UTC, datetime
 

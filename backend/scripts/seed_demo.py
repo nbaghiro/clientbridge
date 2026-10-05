@@ -1,18 +1,4 @@
-"""Seed a comprehensive, realistic demo business for local QA + demos.
-
-**Birchbark Pet Studio** — a pet grooming & daycare business in Victoria, BC. Owner = the dev user
-(`dev_user_id`), so the mobile/web apps stream this business's data via the dev sync token.
-
-Populates every business table across all 10 domains with realistic data, real copy, and stock
-photos (pravatar for people, picsum for pets/products), exercising the full implemented surface:
-bookings + a group class, invoices/estimates (every status incl. converted), POS orders, payments
-(card/Interac/cash/EFT + deposit + refund), payout splits (booking/tip/sale/class), subscriptions,
-packages, gift cards, messaging (SMS/email/chat), forms (all field types), contracts, and reviews.
-Idempotent: TRUNCATEs every table, then re-inserts. (The `sessions`, `tokens`, `commands`, and
-`devices` tables are runtime-only, so they stay empty.)
-
-Run: ``make seed``  (= ``uv run python -m scripts.seed_demo``). Requires the DB migrated.
-"""
+"""Seed the Birchbark Pet Studio demo business, truncating every table first (`make seed`)."""
 
 from __future__ import annotations
 
@@ -56,7 +42,8 @@ from clientbridge.services.earnings import (
     ensure_earnings,
     load_earning,
 )
-from clientbridge.services.lines import fetch_lines, tax_for_amount, tax_for_lines
+from clientbridge.services.lines import fetch_lines
+from clientbridge.services.tax import tax_for_amount, tax_for_lines
 from scripts.stripe_demo_account import connect_demo_business
 
 NOW = datetime.now().astimezone()  # local-tz aware, so demo hours land in the viewer's local day
@@ -97,7 +84,6 @@ ITEM_COLORS = {
 }
 
 
-# ─────────────────────────────────────────── identity ───────────────────────────────────────────
 def seed_identity() -> tuple[str, str]:
     owner_id = get_settings().dev_user_id  # = us_dev → matches the dev sync token
     rows.append(
@@ -220,7 +206,6 @@ def seed_identity() -> tuple[str, str]:
     return owner_id, "st_diego"
 
 
-# ─────────────────────────────────────────── catalog ────────────────────────────────────────────
 # tax markers driving the line-tax math below (rates are derived at runtime — no table to seed)
 GST = "gst"
 PST = "pst"
@@ -407,7 +392,6 @@ def seed_items(owner: str) -> None:
         )
 
 
-# ─────────────────────────────────────────── clients + pets ─────────────────────────────────────
 # id, name, email, phone, tags, ltv($), face-seed, status, [pets], note
 CLIENTS = [
     (
@@ -619,8 +603,7 @@ def seed_clients(owner: str) -> None:
             )
 
 
-# ─────────────────────────────────────────── resources + availability ───────────────────────────
-def seed_resources_availability() -> None:
+def seed_resources_hours() -> None:
     rows.append(
         Resource(
             id="rs_station_a", business_id=BIZ, name="Grooming Station A", category="equipment"
@@ -689,9 +672,7 @@ def seed_resources_availability() -> None:
     )
 
 
-# ─────────────────── appointments → sessions, bookings, invoices, payments, payouts ──────────────
-# Each tuple drives a coherent slice across many tables.
-# (day_offset, hour, item, member, client, pet, status)  status: completed|confirmed|pending|canceled|no_show
+# (day_offset, hour, item, member, client, pet, status); each drives a slice across many tables
 APPTS = [
     (-28, 9, "it_groom_sm", "st_owner", "cl_amelie", "sj_bella", "completed"),
     (-26, 10, "it_groom_lg", "st_diego", "cl_marcus", "sj_rex", "completed"),
@@ -851,7 +832,6 @@ def _invoice_for(
             EARNING_STAGE[bk] = "paid" if d < -7 else "approved" if d < -3 else "pending"
 
 
-# ─────────────────────────────────────────── catalog instances ──────────────────────────────────
 def seed_catalog_instances() -> None:
     rows.append(
         Package(
@@ -1089,7 +1069,6 @@ def seed_payment_methods() -> None:
     )
 
 
-# ─────────────────────────────────────────── estimates ──────────────────────────────────────────
 def seed_estimates() -> None:
     rows.append(
         Estimate(
@@ -1164,7 +1143,6 @@ def seed_estimates() -> None:
     )
 
 
-# ─────────────────────────────────────────── messaging ──────────────────────────────────────────
 def seed_messaging(owner: str) -> None:
     # each message = (direction, body, status, day_offset, hour, minute)
     convos: list[tuple[str, str, str, list[tuple[str, str, str, int, int, int]]]] = [
@@ -1326,7 +1304,6 @@ def seed_messaging(owner: str) -> None:
     )
 
 
-# ─────────────────────────────────────────── documents ──────────────────────────────────────────
 INTAKE_FIELDS = [
     ("pet_name", "text", "Pet's name", True),
     ("species", "select", "Species", True),
@@ -1495,7 +1472,6 @@ def seed_documents(owner: str) -> None:
         )
 
 
-# ─────────────────────────────────────────── reviews ────────────────────────────────────────────
 REVIEWS = [
     (
         "cl_amelie",
@@ -1589,7 +1565,6 @@ def seed_reviews(owner: str) -> None:
         )
 
 
-# ─────────────────────────────────────────── platform ───────────────────────────────────────────
 def seed_platform(owner: str) -> None:
     rows.append(
         Audit(
@@ -1659,15 +1634,9 @@ def seed_platform(owner: str) -> None:
     )
 
 
-# FK dependency order — parents before children (models define no relationships, so the
-# unit-of-work cannot order inserts itself).
 def seed_coverage() -> None:
-    """Fill the remaining coverage gaps so the demo exercises every implemented surface: POS orders
-    (Terminal + cash + void), deposit + refund payments, a group class, the fuller invoice / estimate /
-    subscription / payout state space, extra rails, device tokens, and review states. Kept together so
-    the reference verticals above stay readable."""
+    """Fill the remaining gaps so the demo exercises every surface, apart from the verticals above."""
 
-    # ── POS orders — Stripe Terminal (card) + cash + a void ──────────────
     rows.append(
         Order(
             id="ord_1",
@@ -1794,7 +1763,6 @@ def seed_coverage() -> None:
         )
     )
 
-    # ── a group PUPPY CLASS (capacity 6, 3 booked) + a deposit + class-session & tip payouts ──
     rows.append(
         Slot(
             id="ses_class",
@@ -1846,7 +1814,6 @@ def seed_coverage() -> None:
         )
     )
 
-    # ── a completed groom that was fully refunded (goodwill) ─────────────
     rows.append(
         Slot(
             id="ses_refund",
@@ -1944,7 +1911,6 @@ def seed_coverage() -> None:
         )
     )
 
-    # ── invoice state coverage: draft · sent · void ──────────────────────
     for iid, num, st in [
         ("inv_void", 1096, "void"),
         ("inv_draft", 1097, "draft"),
@@ -1982,7 +1948,6 @@ def seed_coverage() -> None:
             )
         )
 
-    # ── estimate coverage: declined + accepted-and-converted (links its invoice) ──
     rows.append(
         Estimate(
             id="est_1003",
@@ -2059,7 +2024,6 @@ def seed_coverage() -> None:
         )
     )
 
-    # ── subscription coverage: canceled + past_due + a PAD/EFT payment ───
     rows.append(
         Subscription(
             id="sub_canceled",
@@ -2100,7 +2064,6 @@ def seed_coverage() -> None:
         )
     )
 
-    # ── a saved Interac payment method + a chat-channel thread ───────────
     rows.append(
         PaymentMethod(
             id="pm_amelie_interac",
@@ -2135,7 +2098,6 @@ def seed_coverage() -> None:
         )
     )
 
-    # ── review coverage: a low rating (published) + a hidden one ─────────
     rows.append(
         Review(
             id="rv_low",
@@ -2168,6 +2130,7 @@ def seed_coverage() -> None:
     )
 
 
+# Parents before children: models declare no relationships, so inserts aren't ordered for us.
 INSERT_ORDER = [
     Business,
     User,
@@ -2238,8 +2201,7 @@ async def _purchase(
 
 
 async def seed_ledger(session: AsyncSession) -> None:
-    """Replay the demo's money through the real posting rules, so the ledger is what production
-    would have written: invoices, settlements + fees, refunds, entitlement use, earnings, payouts."""
+    """Replay the demo's money through the real posting rules, so the ledger matches production."""
     invoices = (
         await session.execute(
             select(Invoice)
@@ -2360,8 +2322,7 @@ FILLER_STAFF = {"st_owner": "rs_station_a", "st_diego": "rs_station_b", "st_priy
 
 
 def _working_hours(member: str, day: date) -> tuple[time, time] | None:
-    """A member's open window on a day from the seeded availability (a dated row wins). Like the
-    booking engine, a member with no availability rows is bookable any time (here 9 to 5)."""
+    """A member's open window on a day; a dated row wins, and no rows means 9 to 5."""
     mine = [r for r in rows if isinstance(r, Hours) and r.staff_id == member]
     if not mine:
         return time(9, 0), time(17, 0)
@@ -2374,9 +2335,7 @@ def _working_hours(member: str, day: date) -> tuple[time, time] | None:
 
 
 def seed_calendar_filler() -> None:
-    """Steady bookings from four months back to a month out, inside each member's working hours and
-    never double-booking a member or their station. Past ones are completed with paid invoices, so
-    the money history, reports and staff pay have a realistic depth."""
+    """Steady bookings from four months back to a month out; past ones are completed and paid."""
     rng = random.Random(7)
     INV_SEQ[0] = max(INV_SEQ[0], 1100)  # above the hand-numbered invoices
     pairs = sorted({(client, pet) for *_, client, pet, _ in APPTS})
@@ -2461,7 +2420,7 @@ async def main() -> None:
     owner, _ = seed_identity()
     seed_items(owner)
     seed_clients(owner)
-    seed_resources_availability()
+    seed_resources_hours()
     seed_catalog_instances()
     seed_lapsed_entitlements()
     seed_payment_methods()
@@ -2496,8 +2455,7 @@ async def main() -> None:
 
 
 def upload_demo_assets() -> None:
-    """Put the logo, item images and pet avatars in the bucket the File rows point at. Skipped with
-    a note when no S3 store is running (CI), since nothing reads the bytes there."""
+    """Upload the logo and images the File rows point at; skipped when no S3 store is running."""
     s = get_settings()
     client = boto3.client(
         "s3",

@@ -25,7 +25,7 @@ from tests.conftest import (
 )
 
 ST_OWNER = "st_owner"
-ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured
+ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured
 
 
 async def _client_and_item(db: AsyncSession) -> tuple[str, str]:
@@ -68,7 +68,7 @@ async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSessi
     dup = await as_owner.post("/v1/bookings", json=body)
     assert dup.status_code == 409
     assert "already booked" in dup.text.lower()  # the overlap check, not some other 409
-    # the first booking persisted; the clash created no second session at that slot
+    # the first booking persisted; the clash created no second slot at that time
     n = (
         await db.execute(
             select(func.count())
@@ -85,7 +85,7 @@ async def test_double_book_conflicts(as_owner: httpx.AsyncClient, db: AsyncSessi
 async def test_resource_double_book_conflicts(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # a resource (room/equipment) can't be held by two overlapping sessions, even across staff
+    # a resource (room/equipment) can't be held by two overlapping slots, even across staff
     client_id, item_id = await _client_and_item(db)
     held = Slot(
         id=new_id("slot"),
@@ -122,7 +122,7 @@ async def test_cancel_frees_the_slot(as_owner: httpx.AsyncClient, db: AsyncSessi
     assert (await as_owner.post("/v1/bookings", json=body)).status_code == 201
 
 
-async def test_reschedule_moves_session(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_reschedule_moves_slot(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     created = await as_owner.post(
         "/v1/bookings", json=_body(client_id, item_id, "2027-03-04T18:00:00Z")
@@ -131,13 +131,13 @@ async def test_reschedule_moves_session(as_owner: httpx.AsyncClient, db: AsyncSe
     moved = await as_owner.patch(f"/v1/bookings/{bid}", json={"starts_at": "2027-03-04T22:00:00Z"})
     assert moved.status_code == 200
     assert moved.json()["starts_at"].startswith("2027-03-04T22:00")
-    # the move persisted on the session, not just echoed in the response
-    session = (
+    # the move persisted on the slot, not just echoed in the response
+    slot = (
         await db.execute(
             select(Slot).join(Booking, Booking.slot_id == Slot.id).where(Booking.id == bid)
         )
     ).scalar_one()
-    assert session.starts_at == datetime(2027, 3, 4, 22, tzinfo=UTC)
+    assert slot.starts_at == datetime(2027, 3, 4, 22, tzinfo=UTC)
 
 
 async def test_staff_cannot_book_another_staff(
@@ -313,10 +313,10 @@ async def test_booking_outside_buffer_ok(as_owner: httpx.AsyncClient, db: AsyncS
     assert second.status_code == 201
 
 
-async def test_unconfigured_availability_allows_any_time(
+async def test_unconfigured_hours_allow_any_time(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # st_priya has no availability rows → unconfigured → even an off-hours slot is allowed.
+    # st_priya has no hours rows → unconfigured → even an off-hours slot is allowed.
     client_id, item_id = await _client_and_item(db)
     res = await as_owner.post(
         "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T20:00:00Z", ST_PRIYA)
@@ -351,11 +351,10 @@ async def test_booking_within_window_ok_outside_409(
     assert outside.status_code == 409
 
 
-async def test_availability_windows_are_business_local_not_utc(
+async def test_hours_windows_are_business_local_not_utc(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # regression guard: 12:00 UTC is inside the 09:00-17:00 window if read as UTC, but it's early
-    # morning in America/Vancouver (the seed tz) — outside local hours → must be rejected.
+    # 12:00 UTC is inside 09:00-17:00 only if read as UTC; in Vancouver it's early morning
     client_id, item_id = await _client_and_item(db)
     res = await as_owner.post(
         "/v1/bookings", json=_body(client_id, item_id, "2027-03-02T12:00:00Z")
@@ -363,9 +362,7 @@ async def test_availability_windows_are_business_local_not_utc(
     assert res.status_code == 409, res.text
 
 
-async def test_availability_closure_blocks_booking(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
+async def test_hours_closure_blocks_booking(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     client_id, item_id = await _client_and_item(db)
     db.add(
         Hours(
@@ -384,7 +381,7 @@ async def test_availability_closure_blocks_booking(
     assert res.status_code == 409
 
 
-async def test_class_bookings_share_session_until_full(
+async def test_class_bookings_share_slot_until_full(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     client_id, _ = await _client_and_item(db)
@@ -406,14 +403,14 @@ async def test_class_bookings_share_session_until_full(
     third = await as_owner.post("/v1/bookings", json=body)
     assert first.status_code == 201
     assert second.status_code == 201
-    assert first.json()["slot_id"] == second.json()["slot_id"]  # one shared session
+    assert first.json()["slot_id"] == second.json()["slot_id"]  # one shared slot
     assert third.status_code == 409  # capacity 2 exhausted
     sess = (await db.execute(select(Slot).where(Slot.id == first.json()["slot_id"]))).scalar_one()
     assert sess.capacity == 2
     assert await booked_count(db, sess.id) == 2
 
 
-async def test_non_class_item_mints_single_capacity_session(
+async def test_non_class_item_mints_single_capacity_slot(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     client_id, item_id = await _client_and_item(db)
@@ -426,7 +423,7 @@ async def test_non_class_item_mints_single_capacity_session(
     assert await booked_count(db, sess.id) == 1
 
 
-async def test_foreign_business_session_does_not_block(
+async def test_foreign_business_slot_does_not_block(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     client_id, _ = await _client_and_item(db)
@@ -457,7 +454,7 @@ async def test_foreign_business_session_does_not_block(
         )
     )
     await db.flush()
-    # our owner books the same slot; the cross-tenant session must not block (scoped by business).
+    # our owner books the same slot; the cross-tenant slot must not block (scoped by business).
     res = await as_owner.post(
         "/v1/bookings", json=_body(client_id, "it_groom_sm", "2027-03-02T18:00:00Z")
     )
@@ -498,8 +495,7 @@ async def _deposit_booking(
     )
     db.add(item)
     await db.flush()
-    # book on ST_PRIYA (no availability rows → unconfigured → any time), so these deposit/no-show
-    # tests don't depend on the business's local working hours
+    # ST_PRIYA has no hours rows, so these tests don't depend on the business's working hours
     res = await api.post("/v1/bookings", json=_body(client_id, item.id, starts, ST_PRIYA))
     assert res.status_code == 201, res.text
     return str(res.json()["id"])
@@ -632,7 +628,7 @@ async def test_collect_deposit_foreign_booking_404(
     )
     db.add(item)
     await db.flush()
-    session = Slot(
+    slot = Slot(
         id=new_id("slot"),
         business_id=other.id,
         item_id=item.id,
@@ -642,12 +638,12 @@ async def test_collect_deposit_foreign_booking_404(
         capacity=1,
         status="scheduled",
     )
-    db.add(session)
+    db.add(slot)
     await db.flush()
     booking = Booking(
         id=new_id("booking"),
         business_id=other.id,
-        slot_id=session.id,
+        slot_id=slot.id,
         staff_id=other_staff.id,
         client_id=foreign_client.id,
         status="confirmed",
@@ -740,8 +736,7 @@ async def test_no_show_without_deposit_is_noop(
 async def test_no_show_required_deposit_no_default_card_does_not_forfeit(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    # Deposit is required but the client has NO card on file → off-session capture is impossible,
-    # so the no-show must NOT forfeit and must charge nothing (the pm_ref-None early return).
+    # No card on file, so a no-show can't capture the deposit: nothing forfeits, nothing is charged
     await _enable_payments(db)
     nocard = Client(
         id=new_id("client"), business_id=BIZ, name="No Card Nora", tags=[], custom_fields={}
@@ -759,8 +754,7 @@ async def test_no_show_required_deposit_no_default_card_does_not_forfeit(
 async def test_no_show_with_pending_interactive_deposit_does_not_charge(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    # An interactive deposit is still pending (an open deposit Payment exists, awaiting client
-    # confirmation) → the no-show must early-return on the open deposit, not an off-session charge.
+    # An open interactive deposit means the no-show returns early instead of charging off-session
     await _enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-13T10:00:00Z")
     opened = await as_owner.post(f"/v1/bookings/{bid}/deposit")  # interactive — no payment_method
@@ -786,8 +780,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
     gateway: FakePaymentGateway,
     email: FakeEmailSender,
 ) -> None:
-    # A redelivered deposit settle (same intent, a NEW event id so the Webhook dedup doesn't
-    # mask it) must hit the payment-already-settled guard: collected once, no second receipt.
+    # A new event id for the same intent gets past webhook dedup and must hit the settled guard
     await _enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-14T10:00:00Z")
     pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
@@ -942,7 +935,7 @@ async def _online_booking(
         .first()
     )
     starts = NOW + timedelta(days=2)
-    session = Slot(
+    slot = Slot(
         id=new_id("slot"),
         business_id=BIZ,
         item_id=iid,
@@ -952,12 +945,12 @@ async def _online_booking(
         capacity=1,
         status="scheduled",
     )
-    db.add(session)
+    db.add(slot)
     await db.flush()
     booking = Booking(
         id=new_id("booking"),
         business_id=BIZ,
-        slot_id=session.id,
+        slot_id=slot.id,
         staff_id=ST_OWNER,
         client_id=cid,
         status=status,
@@ -981,7 +974,7 @@ async def _online_booking(
         )
     )
     await db.flush()
-    return booking.id, session.id
+    return booking.id, slot.id
 
 
 async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:
@@ -989,8 +982,8 @@ async def test_reaps_stale_unpaid_online_booking(db: AsyncSession) -> None:
     assert await run_reap_unpaid_bookings(db, NOW) == 1
     booking = (await db.execute(select(Booking).where(Booking.id == bid))).scalar_one()
     assert booking.status == "canceled" and booking.canceled_at == NOW
-    session = (await db.execute(select(Slot).where(Slot.id == sid))).scalar_one()
-    assert session.status == "canceled"  # slot freed
+    slot = (await db.execute(select(Slot).where(Slot.id == sid))).scalar_one()
+    assert slot.status == "canceled"  # slot freed
     assert await booked_count(db, sid) == 0
 
 

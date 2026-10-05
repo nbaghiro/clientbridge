@@ -50,8 +50,12 @@ class PublicBookingPage(BaseModel):
     brand: PublicBrand
     services: list[PublicService]
     staff: list[PublicStaff]
-    addons: list[PublicAddon] = Field(default_factory=list)  # products a client can add to a visit
-    stripe_account_id: str | None = None  # connected account to mount Elements, when onboarded
+    addons: list[PublicAddon] = Field(
+        default_factory=list, description="Products a client can add to a visit"
+    )
+    stripe_account_id: str | None = Field(
+        default=None, description="Connected account for Stripe Elements, once onboarded"
+    )
 
 
 class PublicSlot(BaseModel):
@@ -86,7 +90,9 @@ class PublicBookingCreate(BaseModel):
 class PublicBookingResult(BaseModel):
     booking_id: str
     deposit_client_secret: str | None = None
-    stripe_account_id: str | None = None  # connected account for the deposit charge, when onboarded
+    stripe_account_id: str | None = Field(
+        default=None, description="Connected account for the deposit charge, once onboarded"
+    )
 
 
 # `\Z` rather than `$`, so a trailing newline can't pass.

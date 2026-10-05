@@ -47,7 +47,7 @@ from clientbridge.services.bookings import create_booking_core, open_slots
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.files import item_images, media_url, mint_upload
-from clientbridge.services.lines import apply_totals, replace_lines, tax_for_lines
+from clientbridge.services.lines import apply_totals, replace_lines
 from clientbridge.services.payments import (
     assert_payable,
     open_booking_deposit,
@@ -55,6 +55,7 @@ from clientbridge.services.payments import (
     open_interac_payment,
     open_order_card_payment,
 )
+from clientbridge.services.tax import tax_for_lines
 
 
 def _account(business: Business) -> str | None:

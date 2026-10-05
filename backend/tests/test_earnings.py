@@ -1,5 +1,4 @@
-"""Staff earnings on the ledger (accrue on a paid invoice → approve → pay), Stripe payouts, and
-the remittance figure — against the seeded DB."""
+"""Staff earnings on the ledger: accrue on a paid invoice, approve, pay; Stripe payouts."""
 
 import json
 from datetime import UTC, datetime

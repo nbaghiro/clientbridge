@@ -26,8 +26,6 @@ PREFIXES: dict[str, str] = {
     "line": "ln",
     "payment": "pay",
     "payment_method": "pm",
-    "payout": "po",
-    "payout_allocation": "pal",
     "account": "acc",
     "entry": "ent",
     "journal": "jrn",

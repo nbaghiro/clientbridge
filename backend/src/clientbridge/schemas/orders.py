@@ -7,21 +7,25 @@ from clientbridge.schemas.billing import LineInput, LineOut
 
 
 class OrderCreate(BaseModel):
-    client_id: str | None = None  # null = walk-in
+    client_id: str | None = Field(default=None, description="Null for a walk-in")
     lines: list[LineInput] = Field(default_factory=list)
     receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
 
 
 class OrderUpdate(BaseModel):
-    client_id: str | None = None  # null = walk-in; only while nothing is charged
+    client_id: str | None = Field(
+        default=None, description="Null for a walk-in; changeable until something is charged"
+    )
     lines: list[LineInput] | None = None
     receipt_email: str | None = Field(default=None, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
 
 
 class OrderPayIn(BaseModel):
-    payment_method_id: str | None = None  # a saved card of the order's client, or "default"
+    payment_method_id: str | None = Field(
+        default=None, description="A saved card of the order's client, or 'default'"
+    )
 
 
 class OrderPickupIn(BaseModel):
@@ -56,4 +60,6 @@ class CheckoutOut(BaseModel):
 
 class ConnectionTokenOut(BaseModel):
     secret: str
-    location_id: str | None = None  # the business's Terminal Location, for connectReader
+    location_id: str | None = Field(
+        default=None, description="The business's Terminal location, for connectReader"
+    )

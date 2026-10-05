@@ -33,7 +33,7 @@ def _as_utc(dt: datetime) -> datetime:
     return (dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)).astimezone(UTC)
 
 
-async def is_within_availability(
+async def is_within_hours(
     db: AsyncSession, staff_id: str, business_id: str, start: datetime, end: datetime
 ) -> bool:
     """Whether the window sits inside open hours on its local date, or the day has none set."""

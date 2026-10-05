@@ -12,7 +12,9 @@ class LineInput(BaseModel):
     unit_amount_cents: int = Field(0, ge=0)
     item_id: str | None = None
     booking_id: str | None = None
-    tax_class: TaxClass | None = None  # default: the item's class, else standard
+    tax_class: TaxClass | None = Field(
+        default=None, description="Defaults to the item's class, else standard"
+    )
 
 
 class LineOut(BaseModel):

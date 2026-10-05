@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BookingCreate(BaseModel):
@@ -44,20 +44,22 @@ class RecurrenceCreate(BaseModel):
     client_id: str
     item_id: str
     staff_id: str
-    starts_at: datetime  # first occurrence; its time-of-day repeats across the series
+    starts_at: datetime = Field(description="First occurrence; its local time repeats")
     frequency: Literal["day", "week", "month"]
     interval: int = 1
-    byday: list[Literal["MO", "TU", "WE", "TH", "FR", "SA", "SU"]] | None = None  # weekly only
-    count: int | None = None  # end after N occurrences (set count or until)
-    until: date | None = None  # end on/before this date (set count or until)
+    byday: list[Literal["MO", "TU", "WE", "TH", "FR", "SA", "SU"]] | None = Field(
+        default=None, description="Weekdays, for weekly series only"
+    )
+    count: int | None = Field(default=None, description="End after this many; set count or until")
+    until: date | None = Field(default=None, description="End on this date; set count or until")
     resource_id: str | None = None
     subject_id: str | None = None
 
 
 class RecurrenceOccurrence(BaseModel):
     starts_at: datetime
-    booking_id: str | None  # None when the occurrence was skipped
-    skipped: str | None  # reason (outside hours / overlap) when not booked
+    booking_id: str | None = Field(description="Null when the occurrence was skipped")
+    skipped: str | None = Field(description="Why the occurrence was skipped")
 
 
 class RecurrenceOut(BaseModel):
@@ -69,6 +71,6 @@ class RecurrenceOut(BaseModel):
     frequency: str
     interval: int
     status: str
-    created: int  # occurrences that became bookings
-    skipped: int  # occurrences skipped (conflict / outside hours)
+    created: int = Field(description="Occurrences that became bookings")
+    skipped: int = Field(description="Occurrences skipped for a clash or outside hours")
     occurrences: list[RecurrenceOccurrence]

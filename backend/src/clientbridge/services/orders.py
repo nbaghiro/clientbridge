@@ -28,13 +28,13 @@ from clientbridge.services.lines import (
     fetch_lines,
     line_out,
     replace_lines,
-    tax_for_lines,
 )
 from clientbridge.services.payments import (
     open_order_card_payment,
     open_terminal_payment,
     resolve_saved_method_ref,
 )
+from clientbridge.services.tax import tax_for_lines
 
 _PICKUP_STEPS = {"unfulfilled": 0, "ready": 1, "picked_up": 2}
 

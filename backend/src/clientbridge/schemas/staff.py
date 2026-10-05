@@ -13,15 +13,17 @@ class InviteOut(BaseModel):
     email: str
     role: str
     status: str
-    invite_token: str  # raw token, returned once to the inviter (also emailed)
+    invite_token: str = Field(description="Raw invite token, returned once and also emailed")
 
 
 class StaffPayUpdate(BaseModel):
     payee: bool | None = None
     rate_type: Literal["percent", "fixed", "hourly"] | None = None
-    rate_bps: int | None = Field(default=None, ge=0)  # a percent rate, in basis points
-    rate_cents: int | None = Field(default=None, ge=0)  # a fixed or hourly rate
-    retail_rate_bps: int | None = Field(default=None, ge=0, le=10000)  # commission on products
+    rate_bps: int | None = Field(default=None, ge=0, description="Percent rate in basis points")
+    rate_cents: int | None = Field(default=None, ge=0, description="Fixed or hourly rate")
+    retail_rate_bps: int | None = Field(
+        default=None, ge=0, le=10000, description="Commission on product sales in basis points"
+    )
 
 
 class StaffPayOut(BaseModel):

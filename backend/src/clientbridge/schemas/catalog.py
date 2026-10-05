@@ -7,7 +7,7 @@ from clientbridge.schemas.billing import TaxClass
 
 ItemKind = Literal["service", "class", "product", "package", "subscription", "gift"]
 DepositType = Literal["none", "fixed", "percent"]
-Frequency = Literal["day", "week", "month", "year"]  # Stripe recurring intervals
+Frequency = Literal["day", "week", "month", "year"]
 
 
 class ItemBase(BaseModel):
@@ -25,14 +25,16 @@ class ItemBase(BaseModel):
     sku: str | None = Field(default=None, min_length=1, max_length=64)
     cost_cents: int | None = Field(default=None, ge=0)
     track_stock: bool = False
-    sell_online: bool = False  # products only: listed in the online shop and as booking add-ons
+    sell_online: bool = Field(
+        default=False, description="Products only: listed in the online shop and as add-ons"
+    )
     low_stock_at: int | None = Field(default=None, ge=0)
     buffer_before_min: int = Field(default=0, ge=0)
     buffer_after_min: int = Field(default=0, ge=0)
     deposit_type: DepositType = "none"
     deposit_value: float | None = Field(
-        default=None, ge=0
-    )  # cents when fixed, percent when percent
+        default=None, ge=0, description="Cents for a fixed deposit, a percent for a percent one"
+    )
     session_count: int | None = Field(default=None, ge=1)
     validity_days: int | None = Field(default=None, ge=1)
     interval: int | None = Field(default=None, ge=1)
@@ -40,7 +42,9 @@ class ItemBase(BaseModel):
 
 
 class ItemCreate(ItemBase):
-    online_bookable: bool | None = None  # defaults by kind: services and classes only
+    online_bookable: bool | None = Field(
+        default=None, description="Defaults by kind: services and classes only"
+    )
 
 
 class ItemUpdate(BaseModel):
@@ -83,7 +87,7 @@ class ItemOut(ItemBase):
 
 
 class RestockIn(BaseModel):
-    quantity: int  # negative for a count correction (breakage, shrinkage); never zero
+    quantity: int = Field(description="Negative for a count correction; never zero")
     note: str | None = None
 
     @field_validator("quantity")

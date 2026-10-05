@@ -68,8 +68,7 @@ async def test_accept_invite_activates_staff(as_owner: httpx.AsyncClient, db: As
 async def test_accept_invite_for_existing_user_requires_their_password(
     as_owner: httpx.AsyncClient, api: httpx.AsyncClient
 ) -> None:
-    # A pre-existing account can only be joined by someone who knows ITS password — the raw invite
-    # token (also visible to the inviter) must not be enough to mint the victim's session.
+    # The inviter also sees the raw token, so joining an existing account must need its password
     reg = await api.post(
         "/auth/register", json={"email": "victim@test.ca", "password": "victim-secret-1"}
     )

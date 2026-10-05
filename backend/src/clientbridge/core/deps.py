@@ -142,3 +142,6 @@ def require_role(*roles: str) -> Callable[..., Awaitable[Principal]]:
         return principal
 
     return _check
+
+
+AdminPrincipal = Annotated[Principal, Depends(require_role("owner", "admin"))]

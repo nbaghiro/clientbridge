@@ -128,8 +128,7 @@ async def test_purchase_settles_active_and_notifies_recipient(
 async def test_settle_redelivery_activates_once_and_notifies_once(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    # A redelivered entitlement settle (same intent, a NEW event id so Webhook dedup doesn't
-    # mask it) must hit the payment-already-settled guard: card active once, recipient emailed once.
+    # A new event id for the same intent gets past webhook dedup and must hit the settled guard
     await _enable(db)
     body = (
         await as_owner.post(

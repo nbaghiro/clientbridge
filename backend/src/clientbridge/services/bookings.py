@@ -28,7 +28,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
-from clientbridge.services.hours import is_within_availability, open_windows
+from clientbridge.services.hours import is_within_hours, open_windows
 from clientbridge.services.payments import (
     default_method_ref,
     open_booking_deposit,
@@ -63,7 +63,7 @@ async def _booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> Bookin
 
 
 def booked_count_expr() -> ColumnElement[int]:
-    """Seats taken on a session: its live (not canceled, not deleted) bookings."""
+    """Seats taken on a slot: its live (not canceled, not deleted) bookings."""
     return (
         select(func.count(Booking.id))
         .where(
@@ -80,7 +80,7 @@ async def booked_count(db: AsyncSession, slot_id: str) -> int:
     return int(count.scalar_one())
 
 
-async def conflicting_session(
+async def conflicting_slot(
     db: AsyncSession,
     business_id: str,
     item: Item,
@@ -122,7 +122,7 @@ async def assert_free(
     ends_at: datetime,
     exclude: str | None = None,
 ) -> None:
-    if await conflicting_session(db, business_id, item, staff_id, starts_at, ends_at, exclude):
+    if await conflicting_slot(db, business_id, item, staff_id, starts_at, ends_at, exclude):
         raise Conflict(_OVERLAP)
 
 
@@ -195,7 +195,7 @@ async def create_booking_core(
         {"key": f"{business_id}:{staff_id}"},
     )
     ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
-    if not await is_within_availability(db, staff_id, business_id, starts_at, ends_at):
+    if not await is_within_hours(db, staff_id, business_id, starts_at, ends_at):
         raise Conflict(_OUTSIDE_HOURS)
     is_class = item.kind == "class" and item.capacity is not None and item.capacity > 1
     slot = None
@@ -379,7 +379,7 @@ class BookingService:
             if data.starts_at is not None:
                 duration = slot.ends_at - slot.starts_at
                 new_ends = data.starts_at + duration
-                if not await is_within_availability(
+                if not await is_within_hours(
                     self.db, slot.staff_id, self.biz, data.starts_at, new_ends
                 ):
                     raise Conflict(_OUTSIDE_HOURS)
@@ -580,7 +580,7 @@ class BookingService:
             await self.db.execute(scoped(Slot, self.biz).where(Slot.id == slot_id))
         ).scalar_one_or_none()
         if row is None:
-            raise NotFound("session not found")
+            raise NotFound("slot not found")
         return row
 
 
@@ -603,7 +603,7 @@ async def open_slots(
         limit = datetime.combine(on_date, window_end, tzinfo=tz).astimezone(UTC)
         while start + timedelta(minutes=duration) <= limit:
             end = start + timedelta(minutes=duration)
-            if not await conflicting_session(db, business_id, item, staff_id, start, end):
+            if not await conflicting_slot(db, business_id, item, staff_id, start, end):
                 slots.append(start)
             start += timedelta(minutes=step)
     return slots

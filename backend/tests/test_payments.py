@@ -341,8 +341,7 @@ async def _foreign_invoice(db: AsyncSession, factory: Factory) -> str:
 async def test_pay_foreign_invoice_404_by_scoping(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
-    # BIZ is onboarded (so this can't be the 409 path) — a real invoice in ANOTHER tenant 404s
-    # because the lookup is business-scoped, not because the id is absent.
+    # BIZ is onboarded, so the 404 comes from the business-scoped lookup, not a missing id
     await _enable_payments(db)
     foreign_inv = await _foreign_invoice(db, factory)
     res = await as_owner.post(f"/v1/payments/invoice/{foreign_inv}")

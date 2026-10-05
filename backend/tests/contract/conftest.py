@@ -1,11 +1,4 @@
-"""Contract tier: the real StripeGateway against stripe-mock (the official OpenAPI mock).
-
-These never hit the fake — they run the production gateway so every request shape is validated
-against the live API spec and every response is parsed by our real mapping code. stripe-mock is
-stateless
-(canned, spec-conformant responses), so we assert shapes, not persisted state. Auto-skips when the
-mock isn't running. Start it with `make stripe-mock`; run the tier with `make test-contract`.
-"""
+"""Contract tier: the real StripeGateway against stripe-mock; skipped unless it is running."""
 
 import os
 import socket

@@ -1,34 +1,40 @@
 from datetime import date
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DashboardSummary(BaseModel):
-    today_revenue_cents: int  # net succeeded payments received today (in the business's timezone)
-    awaiting_payment_cents: int  # outstanding balance across sent/partial/overdue invoices
-    gst_hst_set_aside_cents: int  # Σ tax on paid invoices — the CRA remittance to set aside
-    gst_hst_filing_due: date | None  # next CRA filing date (None unless tax-registered)
+    today_revenue_cents: int = Field(
+        description="Cash received today net of refunds, in the business's timezone"
+    )
+    awaiting_payment_cents: int = Field(description="Balance owed on issued invoices")
+    gst_hst_set_aside_cents: int = Field(
+        description="Sales tax collected and not yet filed (GST/HST, PST and QST)"
+    )
+    gst_hst_filing_due: date | None = Field(
+        description="Next quarterly GST/HST filing date; null unless tax-registered"
+    )
 
 
 class IncomeReport(BaseModel):
-    gross_cents: int  # succeeded payment + deposit receipts in the period
-    refunds_cents: int  # succeeded refunds in the period
-    net_cents: int  # gross minus refunds (the T2125 income line)
-    by_method: dict[str, int]  # net per payment method (card/interac/bank_eft/…)
+    gross_cents: int = Field(description="Payments and deposits received in the period")
+    refunds_cents: int = Field(description="Refunds paid out in the period")
+    net_cents: int = Field(description="Gross minus refunds")
+    by_method: dict[str, int] = Field(description="Net received per payment method")
 
 
 class GstHstReport(BaseModel):
-    tax_collected_cents: int  # Σ GST/HST on paid invoices/orders — the federal amount to remit
-    pst_cents: int  # Σ PST (BC/SK/MB) — filed separately with the province
-    qst_cents: int  # Σ QST — filed separately with Revenu Québec
-    taxable_sales_cents: int  # pre-tax sales (total minus tax) on those invoices
+    tax_collected_cents: int = Field(description="GST and HST booked in the period")
+    pst_cents: int = Field(description="PST booked in the period, filed with the province")
+    qst_cents: int = Field(description="QST booked in the period, filed with Revenu Québec")
+    taxable_sales_cents: int = Field(description="Sales before tax booked in the period")
     gst_hst_number: str | None
 
 
 class T4ARow(BaseModel):
     staff_id: str
     name: str
-    total_cents: int  # approved or paid earnings in the calendar year
+    total_cents: int = Field(description="Earnings paid to the staff member in the calendar year")
 
 
 class SalesByItemRow(BaseModel):
@@ -36,6 +42,6 @@ class SalesByItemRow(BaseModel):
     name: str
     kind: str
     quantity: float
-    sales_cents: int  # before tax, including sales later refunded in full
+    sales_cents: int = Field(description="Sales before tax, including sales later refunded")
     tax_cents: int
-    refunded_cents: int  # sales in the period that were refunded in full
+    refunded_cents: int = Field(description="Sales in the period that were refunded in full")

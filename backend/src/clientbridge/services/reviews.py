@@ -14,9 +14,9 @@ from clientbridge.models.crm import Client
 from clientbridge.models.reviews import REVIEW_OPEN, REVIEW_SUBMITTED, Review
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.reviews import (
+    ReviewLinkOut,
     ReviewOut,
     ReviewRequestCreate,
-    ReviewRequestOut,
     ReviewSummary,
 )
 from clientbridge.services.notifications import Notifier
@@ -46,14 +46,14 @@ class ReviewService:
 
     async def request_review(
         self, data: ReviewRequestCreate, idempotency_key: str | None, notify: Notifier
-    ) -> ReviewRequestOut:
+    ) -> ReviewLinkOut:
         self._assert_admin()
         await self._client(data.client_id)
         if data.booking_id is not None:
             await self._booking(data.booking_id)
             await self._assert_no_open_request(data.booking_id)
 
-        async def run(cmd: Command) -> ReviewRequestOut:
+        async def run(cmd: Command) -> ReviewLinkOut:
             request = build_review_request(
                 self.biz, data.client_id, data.booking_id, datetime.now(UTC)
             )
@@ -72,7 +72,7 @@ class ReviewService:
             self.principal,
             action="review.request",
             run=run,
-            response_model=ReviewRequestOut,
+            response_model=ReviewLinkOut,
             idempotency_key=idempotency_key,
         )
 
@@ -182,18 +182,9 @@ class ReviewService:
         return row
 
 
-def _request_out(request: Review) -> ReviewRequestOut:
-    assert request.channel is not None and request.token is not None
-    return ReviewRequestOut(
-        id=request.id,
-        business_id=request.business_id,
-        client_id=request.client_id,
-        booking_id=request.booking_id,
-        channel=request.channel,
-        status=request.status,
-        token=request.token,
-        requested_at=request.requested_at,
-    )
+def _request_out(request: Review) -> ReviewLinkOut:
+    assert request.token is not None
+    return ReviewLinkOut(**_review_out(request).model_dump(), token=request.token)
 
 
 def _review_out(review: Review) -> ReviewOut:
@@ -208,6 +199,7 @@ def _review_out(review: Review) -> ReviewOut:
         responded_at=review.responded_at,
         sent_to_google=review.sent_to_google,
         status=review.status,
+        channel=review.channel,
         requested_at=review.requested_at,
         submitted_at=review.submitted_at,
     )

@@ -1,14 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import DbSession, EmailDep, Principal, require_role
+from clientbridge.core.deps import AdminPrincipal, DbSession, EmailDep
 from clientbridge.schemas.staff import InviteBody, InviteOut, StaffPayOut, StaffPayUpdate
 from clientbridge.services.staff import StaffService
 
 router = APIRouter(prefix="/staff", tags=["staff"])
-
-AdminPrincipal = Annotated[Principal, Depends(require_role("owner", "admin"))]
 
 
 @router.post("/invites", response_model=InviteOut, status_code=201)

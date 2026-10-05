@@ -1,8 +1,8 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import CurrentPrincipal, DbSession, Principal, require_role
+from clientbridge.core.deps import AdminPrincipal, CurrentPrincipal, DbSession
 from clientbridge.core.scoping import Page, PageQuery
 from clientbridge.schemas.catalog import ItemCreate, ItemOut, ItemUpdate, RestockIn
 from clientbridge.services.catalog import CatalogService
@@ -11,7 +11,6 @@ from clientbridge.services.inventory import StockService
 router = APIRouter(prefix="/items", tags=["catalog"])
 
 # Catalog edits are admin-managed — keep in lockstep with WRITE_POLICY["items"] in sync/upload.py.
-AdminPrincipal = Annotated[Principal, Depends(require_role("owner", "admin"))]
 
 
 @router.get("", response_model=Page[ItemOut])

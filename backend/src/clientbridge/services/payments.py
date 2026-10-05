@@ -45,7 +45,8 @@ from clientbridge.services.earnings import (
     reverse_order_earning,
 )
 from clientbridge.services.inventory import sync_parent_stock
-from clientbridge.services.lines import apply_totals, tax_for_amount, tax_for_lines
+from clientbridge.services.lines import apply_totals
+from clientbridge.services.tax import tax_for_amount, tax_for_lines
 
 
 @dataclass(frozen=True)

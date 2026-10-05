@@ -1,7 +1,4 @@
-"""Integration tests for the /sync/upload write path (against the seeded DB).
-
-Calls run as the demo owner (us_dev) via the `as_owner` client; the db fixture rolls back each test.
-"""
+"""The /sync/upload write path, run as the demo owner over the seeded DB."""
 
 import httpx
 from sqlalchemy import text
@@ -112,6 +109,23 @@ async def test_rejects_broadcast_sync_write(as_owner: httpx.AsyncClient) -> None
                     "type": "broadcasts",
                     "id": "bc_x",
                     "data": {"business_id": BIZ, "status": "scheduled", "channel": "sms"},
+                }
+            ]
+        },
+    )
+    assert res.status_code == 403
+
+
+async def test_rejects_faking_an_inbound_message(as_staff: httpx.AsyncClient) -> None:
+    res = await as_staff.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PUT",
+                    "type": "messages",
+                    "id": "msg_fake",
+                    "data": {"business_id": BIZ, "direction": "in", "status": "delivered"},
                 }
             ]
         },
@@ -285,7 +299,7 @@ async def test_item_field_edit_still_works(as_owner: httpx.AsyncClient, db: Asyn
     assert await _scalar(db, "SELECT name FROM items WHERE id='it_groom_sm'") == "Renamed Groom"
 
 
-async def test_availability_recurring_put_and_delete(
+async def test_hours_recurring_put_and_delete(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     # PUT — owner sets a recurring Monday window for a staff member (Time coerced from "HH:MM:SS")
@@ -316,7 +330,7 @@ async def test_availability_recurring_put_and_delete(
         "09:00:00"
     )
 
-    # DELETE — availability has no soft-delete column, so the row is hard-deleted (replace-all path)
+    # DELETE — hours has no soft-delete column, so the row is hard-deleted (replace-all path)
     res = await as_owner.post(
         "/sync/upload",
         json={"ops": [{"op": "DELETE", "type": "hours", "id": "av_test_mon"}]},
@@ -325,8 +339,8 @@ async def test_availability_recurring_put_and_delete(
     assert await _scalar(db, "SELECT id FROM hours WHERE id='av_test_mon'") is None
 
 
-async def test_staff_sets_own_availability(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    # own_only: a non-admin staff may write their OWN availability (st_diego == us_diego)
+async def test_staff_sets_own_hours(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
+    # own_only: a non-admin staff may write their OWN hours (st_diego == us_diego)
     res = await as_staff.post(
         "/sync/upload",
         json={
@@ -352,8 +366,8 @@ async def test_staff_sets_own_availability(as_staff: httpx.AsyncClient, db: Asyn
     assert await _scalar(db, "SELECT weekday FROM hours WHERE id='av_diego_own'") == 2
 
 
-async def test_staff_cannot_set_others_availability(as_staff: httpx.AsyncClient) -> None:
-    # own_only: a non-admin staff cannot touch another staff member's availability
+async def test_staff_cannot_set_others_hours(as_staff: httpx.AsyncClient) -> None:
+    # own_only: a non-admin staff cannot touch another staff member's hours
     res = await as_staff.post(
         "/sync/upload",
         json={

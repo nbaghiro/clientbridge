@@ -26,9 +26,11 @@ class BroadcastSend(BaseModel):
     channel: Channel
     body: str
     audience: dict[str, object] = Field(
-        default_factory=dict
-    )  # {} | {"all": true} | {"tags": [...]}
-    scheduled_at: datetime | None = None  # a future time → create scheduled, don't send now
+        default_factory=dict, description='{}, {"all": true} or {"tags": [...]}'
+    )
+    scheduled_at: datetime | None = Field(
+        default=None, description="A future time schedules the broadcast instead of sending now"
+    )
 
 
 class BroadcastOut(BaseModel):

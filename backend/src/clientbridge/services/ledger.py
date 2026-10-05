@@ -15,8 +15,8 @@ from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
-from clientbridge.services.lines import fetch_lines, tax_for_amount, tax_for_lines
-from clientbridge.services.tax import TaxResult
+from clientbridge.services.lines import fetch_lines
+from clientbridge.services.tax import TaxResult, tax_for_amount, tax_for_lines
 
 type AccountKey = tuple[str, str, str, str]
 type _Id = InstrumentedAttribute[str] | str

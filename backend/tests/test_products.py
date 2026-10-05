@@ -1,5 +1,4 @@
-"""Selling products: bookable kinds, tax classes, entitlement lines, stock, retail commission,
-itemised receipts, sales by item, sale currency, and paying a sale online."""
+"""Selling products: kinds, tax classes, stock, retail commission, receipts, sales by item."""
 
 import json
 
@@ -83,9 +82,6 @@ async def _track(db: AsyncSession, item_id: str, on_hand: int) -> None:
     await db.flush()
 
 
-# ── online booking is for services and classes only ──
-
-
 async def test_new_items_are_bookable_online_by_kind(as_owner: httpx.AsyncClient) -> None:
     product = await as_owner.post("/v1/items", json={"kind": "product", "name": "Brush"})
     service = await as_owner.post("/v1/items", json={"kind": "service", "name": "Trim"})
@@ -114,9 +110,6 @@ async def test_database_refuses_a_bookable_product(db: AsyncSession) -> None:
     with pytest.raises(IntegrityError):
         await db.execute(update(Item).where(Item.id == SHAMPOO).values(online_bookable=True))
     await db.rollback()
-
-
-# ── tax class per item and line ──
 
 
 async def test_tax_class_controls_bc_components(
@@ -152,9 +145,6 @@ async def test_line_keeps_the_class_it_was_sold_under(
     assert line is not None and line.tax_class == "standard"
 
 
-# ── gift cards, packages and subscriptions sell through their own checkout ──
-
-
 @pytest.mark.parametrize("item_id", ["it_gift", "it_pkg5", "it_daycare"])
 async def test_entitlements_cannot_be_order_lines_422(
     as_owner: httpx.AsyncClient, item_id: str
@@ -184,9 +174,6 @@ async def test_another_business_item_is_not_a_line_404(
     await db.commit()
     res = await as_owner.post("/v1/orders", json={"lines": [await _line(item.id, 100)]})
     assert res.status_code == 404
-
-
-# ── product fields and stock ──
 
 
 async def test_product_fields_and_duplicate_sku_409(as_owner: httpx.AsyncClient) -> None:
@@ -300,9 +287,6 @@ async def test_sync_cannot_publish_a_product_for_booking(
     assert item is not None and item.online_bookable is False
 
 
-# ── retail commission ──
-
-
 async def _commission(db: AsyncSession, staff_id: str, bps: int) -> None:
     await db.execute(
         update(Staff).where(Staff.id == staff_id).values(payee=True, retail_rate_bps=bps)
@@ -394,9 +378,6 @@ async def test_staff_cannot_set_pay_403(as_staff: httpx.AsyncClient) -> None:
     assert res.status_code == 403
 
 
-# ── itemised receipts ──
-
-
 async def test_walk_in_gets_an_itemised_receipt(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
@@ -417,9 +398,6 @@ async def test_walk_in_gets_an_itemised_receipt(
 async def test_bad_receipt_email_422(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/orders", json={"lines": [], "receipt_email": "not-an-email"})
     assert res.status_code == 422
-
-
-# ── sales by item ──
 
 
 async def test_sales_by_item_report(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -446,9 +424,6 @@ async def test_sales_by_item_is_owner_only_403(as_staff: httpx.AsyncClient) -> N
     assert res.status_code == 403
 
 
-# ── sale currency ──
-
-
 async def test_sale_takes_its_items_currency(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await db.execute(update(Item).where(Item.id == SHAMPOO).values(currency="USD"))
     await db.commit()
@@ -458,9 +433,6 @@ async def test_sale_takes_its_items_currency(as_owner: httpx.AsyncClient, db: As
         "/v1/orders", json={"lines": [await _line(SHAMPOO, 2400), await _line(BATH, 4500)]}
     )
     assert mixed.status_code == 422
-
-
-# ── paying a sale online (the web till) ──
 
 
 async def test_walk_in_pays_with_a_new_card(

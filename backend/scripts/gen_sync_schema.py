@@ -1,11 +1,4 @@
-"""Generate the PowerSync client AppSchema (TypeScript) from the backend models + sync-rules.
-
-Single source of truth = the SQLAlchemy models. The set of *synced* tables is read from
-``infra/powersync/sync-rules.yaml`` (every ``FROM <table>``); each table's columns + types come
-from the model metadata. Output: ``frontend/packages/sync/src/schema.ts``.
-
-Run: ``make gen-sync-schema`` (regenerates, then prettifies).
-"""
+"""Generate the PowerSync AppSchema from the models and the tables in sync-rules.yaml."""
 
 from __future__ import annotations
 

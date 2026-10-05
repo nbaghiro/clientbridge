@@ -19,7 +19,7 @@ from tests.conftest import BIZ, Factory, FakeEmailSender
 SLUG = "birchbark"
 TZ = ZoneInfo("America/Vancouver")  # the seed business's timezone; hours are local wall-clock
 ST_OWNER = "st_owner"  # seeded groomer, recurring Tue-Sat 09:00-17:00
-ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured
+ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured
 GROOM_SM = "it_groom_sm"  # 75-min service, 10-min after-buffer, no deposit
 GROOM_LG = "it_groom_lg"  # 120-min service, 25% deposit (price ≥ $100)
 SHAMPOO = "it_shampoo"  # product → not online_bookable
@@ -46,7 +46,7 @@ def _body(
 
 async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: datetime) -> None:
     item_row = (await db.execute(select(Item).where(Item.id == item))).scalar_one()
-    session = Slot(
+    slot = Slot(
         id=new_id("slot"),
         business_id=BIZ,
         item_id=item,
@@ -56,13 +56,13 @@ async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: date
         capacity=1,
         status="scheduled",
     )
-    db.add(session)
+    db.add(slot)
     await db.flush()
     db.add(
         Booking(
             id=new_id("booking"),
             business_id=BIZ,
-            slot_id=session.id,
+            slot_id=slot.id,
             staff_id=staff,
             client_id="cl_amelie",
             status="confirmed",
@@ -119,7 +119,7 @@ async def test_services_bad_slug_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/book/nope/services")).status_code == 404
 
 
-async def test_slots_inside_availability(api: httpx.AsyncClient) -> None:
+async def test_slots_inside_hours(api: httpx.AsyncClient) -> None:
     res = await api.get(
         f"/book/{SLUG}/slots",
         params={"item_id": GROOM_SM, "staff_id": ST_OWNER, "date": "2027-03-02"},
@@ -176,7 +176,7 @@ async def test_slots_fully_booked_day_is_empty(api: httpx.AsyncClient, db: Async
 
 
 async def test_slots_unconfigured_day_is_empty(api: httpx.AsyncClient) -> None:
-    # st_priya has no availability on this date → unconfigured → no enumerable slots
+    # st_priya has no hours on this date → unconfigured → no enumerable slots
     res = await api.get(
         f"/book/{SLUG}/slots",
         params={"item_id": GROOM_SM, "staff_id": ST_PRIYA, "date": "2027-03-02"},
@@ -230,7 +230,7 @@ async def test_book_creates_online_booking_and_notifies(
     assert len(email.sent) == 1  # booking-confirmed to the client
 
 
-async def test_book_outside_availability_409(api: httpx.AsyncClient) -> None:
+async def test_book_outside_hours_409(api: httpx.AsyncClient) -> None:
     res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T15:00:00Z"))
     assert res.status_code == 409
 

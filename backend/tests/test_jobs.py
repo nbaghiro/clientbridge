@@ -112,8 +112,7 @@ async def test_overdue_sweep_is_multi_tenant(
     push: FakePushSender,
     factory: Factory,
 ) -> None:
-    # Tenant A (the seeded business) and Tenant B (a second business) each have an overdue invoice;
-    # the ONE global scan must sweep + notify both — proving it isn't accidentally single-business.
+    # Two businesses each have an overdue invoice; the one global scan must sweep both
     cid_a = await _a_client(db, email="tenant-a@example.ca")
     inv_a = await _invoice(db, cid_a, due_at=NOW - timedelta(days=5))
 

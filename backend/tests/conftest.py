@@ -1,9 +1,4 @@
-"""Shared test fixtures (see .docs/engineering.md).
-
-Integration tests run against the migrated + SEEDED dev DB. Each test runs inside a transaction
-rolled back at teardown (savepoint join + a `get_session` override), so the committed seed is the
-baseline and every write vanishes — repeatable, no residue.
-"""
+"""Shared fixtures: each test runs in a transaction rolled back at teardown, over the seeded DB."""
 
 import json
 from collections.abc import AsyncIterator

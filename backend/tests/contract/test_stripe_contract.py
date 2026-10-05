@@ -1,8 +1,4 @@
-"""Every StripeGateway call exercised against stripe-mock — request shapes + response parsing.
-
-A failure here means our adapter sends something the current Stripe spec rejects, or parses a field
-that moved/renamed — exactly the drift the fake can't catch.
-"""
+"""Every StripeGateway call against stripe-mock, catching spec drift the fake can't."""
 
 import pytest
 

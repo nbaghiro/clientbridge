@@ -15,8 +15,8 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.schemas.packages import PackageOut, PackagePurchase, PackagePurchaseOut
 from clientbridge.services import ledger
-from clientbridge.services.lines import tax_for_amount
 from clientbridge.services.payments import open_entitlement_payment, resolve_saved_method_ref
+from clientbridge.services.tax import tax_for_amount
 
 
 class PackageService:

@@ -11,7 +11,7 @@ from clientbridge.models.scheduling import Slot
 from clientbridge.services.recurrences import expand_occurrences
 
 ST_OWNER = "st_owner"
-ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured (all hours open)
+ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured (all hours open)
 
 
 def test_expand_weekly_count() -> None:
@@ -125,7 +125,7 @@ async def test_weekly_series_creates_bookings(
     assert body["created"] == 8
     assert body["skipped"] == 0
     assert len(body["occurrences"]) == 8
-    # every occurrence became a session stamped with the schedule's id
+    # every occurrence became a slot stamped with the recurrence's id
     assert await _slot_count(db, body["id"]) == 8
     # occurrences are one week apart
     first = datetime.fromisoformat(body["occurrences"][0]["starts_at"])
@@ -136,9 +136,7 @@ async def test_weekly_series_creates_bookings(
 async def test_weekly_series_holds_local_time_across_dst(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # A weekly series over a full year straddles both DST transitions. Invariant: every occurrence
-    # lands at the same business-local wall-clock time; the old fixed-offset bug drifted the ones in
-    # the other DST period by an hour (local time differs). Robust to whatever the env's tz db says.
+    # A year of weekly occurrences crosses both DST changes; each must keep the same local time
     client_id, item_id = await _client_and_item(db)
     res = await as_owner.post("/v1/recurrences", json=_body(client_id, item_id, count=53))
     assert res.status_code == 201, res.text

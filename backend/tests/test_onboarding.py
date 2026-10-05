@@ -33,8 +33,7 @@ async def test_onboard_creates_business_owner_and_taxes(
     ).scalar()
     assert role == "owner"
 
-    # rates aren't stored — they're derived from the business's province at request time. Assert the
-    # exact ordered list (not a set) so a duplicate/wrong-count regression can't slip through.
+    # An exact ordered list, so a duplicated or missing rate fails
     rates = (await api.get("/v1/tax-rates")).json()
     assert [(r["jurisdiction"], r["rate_bps"]) for r in rates] == [("GST", 500), ("PST", 700)]
 
