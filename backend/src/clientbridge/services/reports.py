@@ -49,9 +49,10 @@ def next_gst_filing(today: date) -> date:
 
 
 class ReportService:
-    """Read-only CRA-filing aggregates (income, GST/HST, T4A) — owner/admin, gated at the route."""
+    """Read-only CRA-filing aggregates (income, GST/HST, T4A) for owners and admins."""
 
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
+        assert_role(principal, "owner", "admin", message="only an owner or admin can view reports")
         self.db = db
         self.principal = principal
         self.biz = principal.business_id
@@ -63,9 +64,6 @@ class ReportService:
         return business
 
     async def remittance_summary(self) -> RemittanceSummary:
-        assert_role(
-            self.principal, "owner", "admin", message="only an owner or admin can view remittance"
-        )
         return RemittanceSummary(
             tax_collected_cents=-await ledger.account_total(
                 self.db, self.biz, Account.category == "tax"
@@ -262,9 +260,10 @@ class ReportService:
 
 
 class DashboardService:
-    """Read-only money aggregates for the Today dashboard (owner/admin — gated at the route)."""
+    """Read-only money aggregates for the Today dashboard, for owners and admins."""
 
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
+        assert_role(principal, "owner", "admin", message="only an owner or admin can view reports")
         self.db = db
         self.biz = principal.business_id
 

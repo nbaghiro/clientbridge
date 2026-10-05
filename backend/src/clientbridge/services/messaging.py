@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
+from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
@@ -265,6 +265,9 @@ class MessageService:
     async def send_broadcast(
         self, data: BroadcastSend, idempotency_key: str | None = None
     ) -> BroadcastOut:
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can send broadcasts"
+        )
         scheduled = data.scheduled_at is not None and data.scheduled_at > datetime.now(UTC)
         recipients = await broadcast_recipients(self.db, self.biz, data.channel, data.audience)
 

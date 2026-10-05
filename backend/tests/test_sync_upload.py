@@ -1,6 +1,7 @@
 """The /sync/upload write path, run as the demo owner over the seeded DB."""
 
 import httpx
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,55 +12,39 @@ async def _scalar(db: AsyncSession, sql: str) -> object:
     return (await db.execute(text(sql))).scalar()
 
 
-async def test_put_patch_delete_client(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    # PUT — create a client (as the demo owner)
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PUT",
-                    "type": "clients",
-                    "id": "cl_test_upload",
-                    "data": {
-                        "business_id": BIZ,
-                        "name": "Test McUpload",
-                        "status": "active",
-                        "tags": "[]",
-                        "custom_fields": "{}",
-                    },
-                }
-            ]
-        },
-    )
-    assert res.status_code == 200
-    assert (
-        await _scalar(db, "SELECT name FROM clients WHERE id='cl_test_upload'") == "Test McUpload"
-    )
+async def test_put_patch_delete_contract(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    def op(kind: str, data: dict[str, object] | None = None) -> dict[str, object]:
+        return {"ops": [{"op": kind, "type": "contracts", "id": "con_upload", "data": data}]}
 
-    # PATCH — rename
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PATCH",
-                    "type": "clients",
-                    "id": "cl_test_upload",
-                    "data": {"name": "Renamed"},
-                }
-            ]
-        },
-    )
-    assert res.status_code == 200
-    assert await _scalar(db, "SELECT name FROM clients WHERE id='cl_test_upload'") == "Renamed"
+    put = op("PUT", {"business_id": BIZ, "name": "Policy", "body": "Terms"})
+    assert (await as_owner.post("/sync/upload", json=put)).status_code == 200
+    assert await _scalar(db, "SELECT name FROM contracts WHERE id='con_upload'") == "Policy"
 
-    # DELETE — soft delete
-    res = await as_owner.post(
-        "/sync/upload", json={"ops": [{"op": "DELETE", "type": "clients", "id": "cl_test_upload"}]}
-    )
-    assert res.status_code == 200
-    assert await _scalar(db, "SELECT deleted_at FROM clients WHERE id='cl_test_upload'") is not None
+    patch = op("PATCH", {"name": "Policy v2"})
+    assert (await as_owner.post("/sync/upload", json=patch)).status_code == 200
+    assert await _scalar(db, "SELECT name FROM contracts WHERE id='con_upload'") == "Policy v2"
+
+    assert (await as_owner.post("/sync/upload", json=op("DELETE"))).status_code == 200
+    assert await _scalar(db, "SELECT count(*) FROM contracts WHERE id='con_upload'") == 0
+
+
+@pytest.mark.parametrize(
+    ("table", "row_id"),
+    [
+        ("clients", "cl_amelie"),
+        ("subjects", "sj_bella"),
+        ("notes", "nt_x"),
+        ("messages", "msg_x"),
+        ("items", "it_groom_sm"),
+        ("resources", "rs_station_a"),
+    ],
+)
+async def test_tables_written_by_commands_are_refused(
+    as_owner: httpx.AsyncClient, table: str, row_id: str
+) -> None:
+    op = {"op": "PATCH", "type": table, "id": row_id, "data": {"name": "Synced"}}
+    res = await as_owner.post("/sync/upload", json={"ops": [op]})
+    assert res.status_code == 403
 
 
 async def test_rejects_server_only_table(as_owner: httpx.AsyncClient) -> None:
@@ -68,31 +53,6 @@ async def test_rejects_server_only_table(as_owner: httpx.AsyncClient) -> None:
         "/sync/upload",
         json={
             "ops": [{"op": "PUT", "type": "payments", "id": "pay_x", "data": {"business_id": BIZ}}]
-        },
-    )
-    assert res.status_code == 403
-
-
-async def test_rejects_forging_stripe_customer(as_owner: httpx.AsyncClient) -> None:
-    # the Stripe Customer is minted by the payment command — a client can't point it via sync
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PUT",
-                    "type": "clients",
-                    "id": "cl_forge",
-                    "data": {
-                        "business_id": BIZ,
-                        "name": "Forger",
-                        "status": "active",
-                        "tags": "[]",
-                        "custom_fields": "{}",
-                        "stripe_customer_id": "cus_forged",
-                    },
-                }
-            ]
         },
     )
     assert res.status_code == 403
@@ -158,8 +118,8 @@ async def test_rejects_foreign_business(as_owner: httpx.AsyncClient) -> None:
             "ops": [
                 {
                     "op": "PUT",
-                    "type": "clients",
-                    "id": "cl_x",
+                    "type": "forms",
+                    "id": "frm_x",
                     "data": {"business_id": "bz_nope", "name": "x"},
                 }
             ]
@@ -169,22 +129,18 @@ async def test_rejects_foreign_business(as_owner: httpx.AsyncClient) -> None:
 
 
 async def test_admin_table_ok_for_owner(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    # resources require owner/admin; the dev user IS the owner, so a clean write succeeds.
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PUT",
-                    "type": "resources",
-                    "id": "rs_test_upload",
-                    "data": {"business_id": BIZ, "name": "Room 1", "category": "room"},
-                }
-            ]
-        },
-    )
+    form = {"business_id": BIZ, "name": "A"}
+    op = {"op": "PUT", "type": "forms", "id": "frm_upload", "data": form}
+    res = await as_owner.post("/sync/upload", json={"ops": [op]})
     assert res.status_code == 200
-    assert await _scalar(db, "SELECT name FROM resources WHERE id='rs_test_upload'") == "Room 1"
+    assert await _scalar(db, "SELECT name FROM forms WHERE id='frm_upload'") == "A"
+
+
+async def test_admin_table_refused_for_staff(as_staff: httpx.AsyncClient) -> None:
+    form = {"business_id": BIZ, "name": "A"}
+    op = {"op": "PUT", "type": "forms", "id": "frm_upload", "data": form}
+    res = await as_staff.post("/sync/upload", json={"ops": [op]})
+    assert res.status_code == 403
 
 
 async def test_command_only_table_rejected(as_owner: httpx.AsyncClient) -> None:
@@ -213,8 +169,8 @@ async def test_rejects_cross_tenant_move(as_owner: httpx.AsyncClient) -> None:
             "ops": [
                 {
                     "op": "PATCH",
-                    "type": "clients",
-                    "id": "cl_amelie",
+                    "type": "forms",
+                    "id": "frm_satisfaction",
                     "data": {"business_id": "bz_other"},
                 }
             ]
@@ -230,8 +186,8 @@ async def test_rejects_server_timestamps(as_owner: httpx.AsyncClient) -> None:
             "ops": [
                 {
                     "op": "PATCH",
-                    "type": "clients",
-                    "id": "cl_amelie",
+                    "type": "forms",
+                    "id": "frm_satisfaction",
                     "data": {"created_at": "2020-01-01T00:00:00+00:00"},
                 }
             ]
@@ -261,42 +217,6 @@ async def test_rejects_writing_a_file(as_owner: httpx.AsyncClient) -> None:
         },
     )
     assert res.status_code == 403
-
-
-async def test_rejects_setting_item_stripe_price(as_owner: httpx.AsyncClient) -> None:
-    # stripe_price_id caches the recurring Price the subscription command mints — command-only.
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PATCH",
-                    "type": "items",
-                    "id": "it_groom_sm",
-                    "data": {"stripe_price_id": "price_forged"},
-                }
-            ]
-        },
-    )
-    assert res.status_code == 403
-
-
-async def test_item_field_edit_still_works(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PATCH",
-                    "type": "items",
-                    "id": "it_groom_sm",
-                    "data": {"name": "Renamed Groom"},
-                }
-            ]
-        },
-    )
-    assert res.status_code == 200
-    assert await _scalar(db, "SELECT name FROM items WHERE id='it_groom_sm'") == "Renamed Groom"
 
 
 async def test_hours_recurring_put_and_delete(

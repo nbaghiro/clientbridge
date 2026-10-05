@@ -40,13 +40,13 @@ secrets, cross-tenant — must be a **command**, never a sync-write.
 | # | Surface | What it is | Auth | Examples |
 |---|---|---|---|---|
 | 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Rules (buckets) | calendar, clients, invoices on-device |
-| 2 | **Sync-write** | `POST /sync/upload` applies simple CRUD the device queued | `WRITE_POLICY` | edit a client, draft a note, edit working hours |
+| 2 | **Sync-write** | `POST /sync/upload` applies simple CRUD the device queued | `WRITE_POLICY` | edit working hours, build a form, draft a contract |
 | 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | JWT + role | book a slot, issue an invoice, take a payment |
 | 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/Interac/SMS webhooks; book/pay/form/contract/review |
 | 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
 
 **Decision rule** — where does a new operation go?
-- Client can compute it locally and it's just data → **sync-write (2)**.
+- Client can compute it locally, it's just data and needs no service validation → **sync-write (2)**.
 - Needs a server-only invariant (uniqueness/numbering, capacity/conflict, money, secrets, cross-tenant) → **command (3)**.
 - A third party initiates it → **webhook (4)**.
 - Time-based or async → **job (5)**.
@@ -121,7 +121,7 @@ with the subclass's HTTP status.
 |---|---|
 | `command.py` | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it. |
 | `scoping.py` | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_page`/`scoped_count`/`scoped_update`/`scoped_delete` + the `Page[T]` envelope. Services **never** hand-write a `business_id` filter. |
-| `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `StorageDep`…), the auth chain (`current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role` per-method, `require_role` per-router). |
+| `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `StorageDep`…), the auth chain (`current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`). |
 | `config.py` | Pydantic-settings. **Fails closed in prod:** refuses to boot if the JWT secret is still the dev default or the Stripe webhook secret is empty when `env != dev`. |
 | `security.py` | Argon2 password hashing · SHA-256 opaque-token hashing · HS256 access tokens · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod). |
 | `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`) — time-sortable, so `scoped_page` orders `id DESC` for newest-first. |
@@ -130,10 +130,11 @@ with the subclass's HTTP status.
 | `db.py` | Async engine + `SessionLocal` + the `Base` metadata that `sync/upload.py` reflects over. |
 
 ### Role gates
-Live in one of two places by shape: a router where *every* endpoint is admin-only gates once
-(`require_role("owner","admin")` via `AdminPrincipal`); a service whose methods *vary* in who may call them
-(POS order-create is staff, void is admin) gates per-method via `assert_role(self.principal, …)`. Never a
-hand-written `if principal.role not in (...)`.
+A gate lives in the service method that does the work, via `assert_role(self.principal, …)`, because the
+same services also run from jobs and public flows. Services whose every method is owner/admin (reports,
+the dashboard) gate once in their constructor; others gate per method (POS order-create is staff, void is
+admin). `is_manager(role)` covers the one place that holds a bare role string (`sync/upload.py`). Never a
+hand-written role tuple check.
 
 ### External services
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
@@ -315,19 +316,19 @@ unauthenticated call mints a token for `dev_user_id` (HS256); prod requires a va
 
 ### The write path — `WRITE_POLICY` (`sync/upload.py`)
 The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → (min_tier,
-own_only)**. Only low-risk, client-owned tables are sync-writable:
-- **team-writable** (any active staff): `clients` · `subjects` · `notes`, and (own-only)
-  `hours`.
-- **admin-writable** (owner/admin): `items` · `resources` · `forms` · `fields` · `contracts`.
-- **not sync-writable** (server-only invariant): everything money/capacity/secret/uniqueness — `payments`,
-  `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `slots`/`bookings`/`recurrences`, `invoices`/
-  `estimates`/`orders`/`lines`, `threads`/`messages`, `broadcasts`, `businesses`, `staff`, `reviews`, files, audit/
-  webhook logs → each replaced by a `/v1` command.
+own_only)**. Only the tables the apps actually write offline are sync-writable:
+- **team-writable** (any active staff, own rows only): `hours`.
+- **admin-writable** (owner/admin): `forms` · `fields` · `contracts`.
+- **not sync-writable**: everything else. Clients, pets, notes, catalog items and resources go through
+  their `/v1` commands so the service validation applies; money, capacity, secrets and uniqueness
+  (`payments`, `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `slots`/`bookings`/
+  `recurrences`, `invoices`/`estimates`/`orders`/`lines`, `threads`/`messages`, `broadcasts`,
+  `businesses`, `staff`, `reviews`, files, audit and webhook logs) are command-only by nature.
 
 Per op: resolve the actor's active `staff` rows → look up policy (unknown table → 403) → block cross-tenant
-`business_id` change → role + ownership authz → strip `SYSTEM_FIELDS` + per-table `COMMAND_ONLY_FIELDS`
-(e.g. `clients.stripe_customer_id`) → apply (PUT = `on_conflict` upsert, PATCH =
-partial, DELETE = soft-delete where the column exists), coercing SQLite types back to Postgres. The whole
+`business_id` change → role + ownership authz → reject server-owned timestamps (`SYSTEM_FIELDS`) → apply
+(PUT = `on_conflict` upsert, PATCH = partial, DELETE = soft-delete where the column exists), coercing
+SQLite types back to Postgres. The whole
 batch commits as one transaction; any auth failure rolls it all back.
 
 ### The client (`packages/sync`)
@@ -361,7 +362,8 @@ currently same perms as staff).
 | Shared client book (clients, subjects, docs, catalog) | ✅ | ✅ |
 | Own earnings (their own `payable` account + entries) | ✅ all | ✅ own |
 | Financials (invoices, payments, the ledger, others' pay) | ✅ | ❌ |
-| Inbox / broadcasts / reviews | ✅ | ❌ |
+| Inbox: one-to-one messages | ✅ | ✅ |
+| Broadcasts and reviews | ✅ | ❌ |
 | Settings / billing / staff management | owner (+ admin ops) | ❌ |
 
 ### Enforcement — the sync buckets (`infra/powersync/sync-rules.yaml`)

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header
 
-from clientbridge.core.deps import AdminPrincipal, DbSession, EmailDep
+from clientbridge.core.deps import CurrentPrincipal, DbSession, EmailDep
 from clientbridge.schemas.staff import InviteBody, InviteOut, StaffPayOut, StaffPayUpdate
 from clientbridge.services.staff import StaffService
 
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/staff", tags=["staff"])
 @router.post("/invites", response_model=InviteOut, status_code=201)
 async def create_invite(
     body: InviteBody,
-    principal: AdminPrincipal,
+    principal: CurrentPrincipal,
     db: DbSession,
     email: EmailDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
@@ -28,6 +28,6 @@ async def create_invite(
 
 @router.patch("/{staff_id}/pay", response_model=StaffPayOut)
 async def update_pay(
-    staff_id: str, body: StaffPayUpdate, principal: AdminPrincipal, db: DbSession
+    staff_id: str, body: StaffPayUpdate, principal: CurrentPrincipal, db: DbSession
 ) -> StaffPayOut:
     return await StaffService(db).update_pay(principal, staff_id, body)

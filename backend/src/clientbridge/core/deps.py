@@ -1,4 +1,3 @@
-from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends, Header
@@ -120,6 +119,10 @@ async def current_principal(
 CurrentPrincipal = Annotated[Principal, Depends(current_principal)]
 
 
+def is_manager(role: str) -> bool:
+    return role in ("owner", "admin")
+
+
 def assert_role(principal: Principal, *roles: str, message: str) -> None:
     """403 unless the actor holds one of `roles`; for services whose methods vary in access."""
     if principal.role not in roles:
@@ -128,20 +131,7 @@ def assert_role(principal: Principal, *roles: str, message: str) -> None:
 
 def assert_can_act_as(principal: Principal, staff_id: str | None) -> None:
     """Owner/admin may act for anyone; other staff only for their own bookings/schedule."""
-    if principal.role in ("owner", "admin"):
+    if is_manager(principal.role):
         return
     if staff_id != principal.staff_id:
         raise Forbidden("staff can only manage their own bookings")
-
-
-def require_role(*roles: str) -> Callable[..., Awaitable[Principal]]:
-    """Router dependency: 403 unless the actor holds one of `roles`."""
-
-    async def _check(principal: CurrentPrincipal) -> Principal:
-        assert_role(principal, *roles, message=f"requires one of: {', '.join(roles)}")
-        return principal
-
-    return _check
-
-
-AdminPrincipal = Annotated[Principal, Depends(require_role("owner", "admin"))]

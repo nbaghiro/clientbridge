@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
 from clientbridge.core.db import Base
-from clientbridge.core.deps import CurrentUserId, DbSession
+from clientbridge.core.deps import CurrentUserId, DbSession, is_manager
 from clientbridge.core.errors import Forbidden, Unprocessable
 from clientbridge.models.identity import Staff
 
@@ -31,12 +31,7 @@ class UploadBody(BaseModel):
 
 # table -> (min tier, own_only); tables absent here are written only through commands.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
-    "clients": ("team", False),
-    "subjects": ("team", False),
-    "notes": ("team", False),
     "hours": ("team", True),
-    "items": ("admin", False),
-    "resources": ("admin", False),
     "forms": ("admin", False),
     "fields": ("admin", False),
     "contracts": ("admin", False),
@@ -44,13 +39,6 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
 
 # Timestamps the server owns; never settable by a client write.
 SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
-
-# Fields only a command may write; a sync op that sets one is rejected.
-COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
-    "clients": frozenset({"stripe_customer_id"}),  # the Stripe Customer, minted by the payment cmd
-    # the recurring Price cached by the subscription cmd; stock moves only through sales + restock
-    "items": frozenset({"stripe_price_id", "stock_on_hand"}),
-}
 
 
 def _coerce(table: Table, data: dict[str, object]) -> dict[str, object]:
@@ -77,8 +65,8 @@ def _coerce(table: Table, data: dict[str, object]) -> dict[str, object]:
 
 
 def _reject_owned_fields(table_name: str, data: dict[str, object]) -> None:
-    """Reject a write touching server-owned fields (timestamps + per-table command-only columns)."""
-    owned = (SYSTEM_FIELDS | COMMAND_ONLY_FIELDS.get(table_name, frozenset())) & data.keys()
+    """Reject a write that sets a server-owned timestamp."""
+    owned = SYSTEM_FIELDS & data.keys()
     if owned:
         raise Forbidden(f"{table_name}: {sorted(owned)} are server-owned — use a command")
 
@@ -126,7 +114,7 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
         staff = by_business.get(row_business) if isinstance(row_business, str) else None
         if staff is None:
             raise Forbidden("not a member of that business")
-        is_admin = staff.role in ("owner", "admin")
+        is_admin = is_manager(staff.role)
         if min_tier == "admin" and not is_admin:
             raise Forbidden(f"{op.type} requires owner/admin")
         if own_only and not is_admin and row_staff != staff.id:

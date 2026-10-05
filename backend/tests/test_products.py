@@ -282,7 +282,7 @@ async def test_sync_cannot_publish_a_product_for_booking(
             ]
         },
     )
-    assert res.status_code == 422
+    assert res.status_code == 403
     item = await db.get(Item, SHAMPOO, populate_existing=True)
     assert item is not None and item.online_bookable is False
 

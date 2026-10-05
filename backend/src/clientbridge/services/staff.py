@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal
+from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
@@ -44,6 +44,7 @@ class StaffService:
         self, principal: Principal, staff_id: str, data: StaffPayUpdate
     ) -> StaffPayOut:
         """How a team member is paid: service rate, its basis, and retail commission."""
+        assert_role(principal, "owner", "admin", message="only an owner or admin can set pay")
 
         async def run(cmd: Command) -> StaffPayOut:
             staff = (
@@ -75,6 +76,7 @@ class StaffService:
         role: str,
         idempotency_key: str | None = None,
     ) -> InviteOut:
+        assert_role(principal, "owner", "admin", message="only an owner or admin can invite")
         if role not in INVITABLE_ROLES:
             raise AppError(f"cannot invite with role '{role}'", code="invalid_role")
 

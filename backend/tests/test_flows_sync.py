@@ -7,18 +7,9 @@ from clientbridge.sync.upload import WRITE_POLICY
 from tests.conftest import BIZ
 from tests.flows import column, ok, removed
 
-CLIENT = "cl_amelie"
-
 
 def _writes() -> list[tuple[str, dict[str, object], dict[str, object]]]:
     return [
-        ("clients", {"name": "Synced", "tags": "[]", "custom_fields": "{}"}, {"name": "Renamed"}),
-        ("subjects", {"client_id": CLIENT, "kind": "pet", "name": "Biscuit"}, {"name": "Bis"}),
-        (
-            "notes",
-            {"parent_type": "client", "parent_id": CLIENT, "body": "Allergic to oats"},
-            {"body": "Allergic to oats and wheat"},
-        ),
         (
             "hours",
             {
@@ -31,8 +22,6 @@ def _writes() -> list[tuple[str, dict[str, object], dict[str, object]]]:
             },
             {"end_time": "13:00:00"},
         ),
-        ("items", {"kind": "service", "name": "Synced Service"}, {"name": "Renamed Service"}),
-        ("resources", {"name": "Room 9", "category": "room"}, {"name": "Room 10"}),
         ("forms", {"name": "Intake"}, {"name": "Intake v2"}),
         (
             "fields",

@@ -262,6 +262,16 @@ async def test_send_to_foreign_client_404(
     assert res.status_code == 404
 
 
+async def test_staff_cannot_send_a_broadcast_403(
+    as_staff: httpx.AsyncClient, sms: FakeSmsSender
+) -> None:
+    res = await as_staff.post(
+        "/v1/broadcasts", json={"name": "Promo", "channel": "sms", "body": "Sale!"}
+    )
+    assert res.status_code == 403
+    assert sms.sent == []
+
+
 async def test_broadcast_excludes_other_business(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, sms: FakeSmsSender
 ) -> None:

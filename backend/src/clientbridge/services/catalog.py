@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.deps import Principal
+from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_count, scoped_page
@@ -24,7 +24,13 @@ class CatalogService:
     async def get(self, item_id: str) -> Item:
         return await load_item(self.db, self.principal.business_id, item_id, require_active=False)
 
+    def _assert_admin(self) -> None:
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can edit the catalog"
+        )
+
     async def create(self, data: ItemCreate) -> Item:
+        self._assert_admin()
         bookable = (
             data.kind in BOOKABLE_KINDS if data.online_bookable is None else data.online_bookable
         )
@@ -65,6 +71,7 @@ class CatalogService:
         return item
 
     async def update(self, item_id: str, data: ItemUpdate) -> Item:
+        self._assert_admin()
         item = await self.get(item_id)
         changes = data.model_dump(exclude_unset=True)
         for key, value in changes.items():
@@ -87,6 +94,7 @@ class CatalogService:
         await self.db.commit()
 
     async def deactivate(self, item_id: str) -> None:
+        self._assert_admin()
         # Items are referenced by lines/bookings, so "delete" deactivates rather than removing.
         item = await self.get(item_id)
         item.active = False
