@@ -17,9 +17,9 @@ from clientbridge.core.deps import (
 )
 from clientbridge.integrations.payments import WebhookVerificationError
 from clientbridge.schemas.payments import InteracWebhookBody
-from clientbridge.services.message_service import process_inbound_sms
-from clientbridge.services.notification_service import Notifier
-from clientbridge.services.payment_service import process_interac_event, process_stripe_event
+from clientbridge.services.messaging import process_inbound_sms
+from clientbridge.services.notifications import Notifier
+from clientbridge.services.payments import process_interac_event, process_stripe_event
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 

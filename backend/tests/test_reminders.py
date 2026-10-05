@@ -7,8 +7,8 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.notification_service import Notifier
-from clientbridge.tasks.reminders import run_reminders
+from clientbridge.services.notifications import Notifier
+from clientbridge.tasks.bookings import run_reminders
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 
 BIZ = "bz_birchbark"

@@ -133,7 +133,7 @@ can't drift, and matches how the product was designed (by screen). The data-depe
 order (Clients → Catalog/Tax → Booking → Invoices → Payments).
 
 ### The within-slice rhythm
-1. **Backend** — model (if new) → migration → service/command → `api/v1` router + DTOs → tests → `make gen-api`.
+1. **Backend** — model (if new) → migration → service/command → `api` router + DTOs → tests → `make gen-api`.
 2. **Sync** — add table(s) to `sync-rules.yaml` → `make gen-sync-schema`.
 3. **Web** — page(s) under `apps/web/src/pages`; read via `useQuery`, write via the typed api-client. **Put
    UI-agnostic logic (row types, query hooks, mutations, formatters) in `@clientbridge/app-core`, not the screen.**
@@ -159,7 +159,7 @@ Read local, write via command/sync — the server is the source of truth; client
   "leverage" and similar), wording that reads as unfinished product ("beta", "coming soon", "early access",
   "waitlist") and exclamation marks, in the content modules and in the visible text of every built page.
 - **Backend notification copy** is the server-side equivalent: the builder functions in
-  `services/notification_service.py` return `(subject, body[, push])` per event — all in one place.
+  `services/notifications.py` return `(subject, body[, push])` per event — all in one place.
 
 ---
 

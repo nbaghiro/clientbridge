@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.db import SessionLocal
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.models.platform import Device
-from clientbridge.services import ledger_service as ledger
+from clientbridge.services import ledger
 
 _TOKEN_TTL = timedelta(days=60)
 

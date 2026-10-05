@@ -11,8 +11,8 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Hours, Slot
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.booking_service import booked_count
+from clientbridge.services import ledger
+from clientbridge.services.bookings import booked_count
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 
 ST_OWNER = "st_owner"

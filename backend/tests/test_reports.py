@@ -13,10 +13,9 @@ from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.payments import Payment
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.ledger_service import Leg
-from clientbridge.services.tax_rates import rates_for_province
-from clientbridge.services.tax_service import TaxResult
+from clientbridge.services import ledger
+from clientbridge.services.ledger import Leg
+from clientbridge.services.tax import TaxResult, rates_for_province
 
 BIZ = "bz_birchbark"
 WIDE = "start=2000-01-01&end=2100-01-01"

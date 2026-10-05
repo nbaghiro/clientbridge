@@ -15,7 +15,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
 from clientbridge.integrations.payments import get_payment_gateway
 from clientbridge.models.identity import Business
-from clientbridge.services.business_service import apply_account_status
+from clientbridge.services.business import apply_account_status
 
 BIZ = "bz_birchbark"
 DEMO_TAG = {"clientbridge_demo": BIZ}

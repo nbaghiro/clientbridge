@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.scheduling import Slot
-from clientbridge.services.recurrence_service import expand_occurrences
+from clientbridge.services.recurrences import expand_occurrences
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no availability rows → unconfigured (all hours open)

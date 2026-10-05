@@ -3,7 +3,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.identity import Business
-from clientbridge.services.business_service import kyc_status
+from clientbridge.services.business import kyc_status
 
 BIZ = "bz_birchbark"
 

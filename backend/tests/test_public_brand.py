@@ -1,7 +1,7 @@
 """The public brand builder validates owner-set JSON before it reaches the customer client."""
 
 from clientbridge.models.identity import Business
-from clientbridge.services.public_common import public_brand
+from clientbridge.services.public import public_brand
 
 
 def _business(brand: dict[str, object]) -> Business:

@@ -9,8 +9,12 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - **Single-line, concise, imperative subject. No body.** e.g. `Add Phase 1 auth: sessions, invites, OAuth`.
 - Commit or push **only when asked**.
 
-## Backend — layer-first, domain-as-filename
-- Flow: `api/v1` (thin router + DTO, **never queries**) → `services` (logic, owns the
+## Backend — layer-first, one file per concept
+- **File naming:** `models/` is grouped by domain; every other layer (`api`, `schemas`, `services`, `tasks`,
+  `tests`) holds one file per concept with the same plain plural name and no suffix (`api/bookings.py` →
+  `schemas/bookings.py` → `services/bookings.py` → `tasks/bookings.py` → `tests/test_bookings.py`). A file
+  may be long if it is one concept; split by concept, never by size. Folders stay one level deep.
+- Flow: `api` (thin router + DTO, **never queries**) → `services` (logic, owns the
   transaction/commit) → `models`. Services own their queries and **always scope tenancy through
   `core/scoping.scoped(Model, business_id, soft_delete=…)`** (with `scoped_page`/`scoped_count` for
   list endpoints) — the one place the `business_id` (+ soft-delete) filter lives; never hand-write a
@@ -27,7 +31,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   hand-write `if principal.role not in (...)`.
 - Data: prefixed-ULID PKs (`core/ids.py`) · integer cents + currency · text+CHECK enums (`enum_check`) ·
   `business_id` on scoped rows · `created_at/updated_at` · soft-delete `deleted_at`.
-- **Money balances live only in the ledger** (`services/ledger_service.py`): every money movement posts a
+- **Money balances live only in the ledger** (`services/ledger.py`): every money movement posts a
   balanced, append-only journal through `ledger.post` (idempotent on `ref`). Never add a stored balance /
   amount-paid / fee column; derive it from `accounts` + `entries`.
 - Models declare **no `relationship()`s** → the unit-of-work can't FK-order inserts; **flush the parent
@@ -50,7 +54,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   recurrence, account fields) that used to sit inline in the app-core view-model hooks. Non-copy — SQL,
   class names, test ids, route/enum values, icon names — stays out.
 - **Backend notification copy** is the server-side equivalent: the builder functions in
-  `services/notification_service.py` return `(subject, body[, push])` per event, all in one place.
+  `services/notifications.py` return `(subject, body[, push])` per event, all in one place.
 
 ## Testing — the feedback loop (`.docs/engineering.md`)
 - **Integration-first**: `httpx` → real app → real Postgres. Unit-test pure logic only. Don't mock our code.

@@ -14,7 +14,8 @@ from clientbridge.models.catalog import Item, Package, StockMovement
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
-from clientbridge.services import ledger_service as ledger
+from clientbridge.services import ledger
+from clientbridge.services.business import business_tz
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 
 GOOD = {"Stripe-Signature": "good"}
@@ -429,7 +430,7 @@ async def test_sales_by_item_report(as_owner: httpx.AsyncClient, db: AsyncSessio
     assert order is not None
     _, paid_at = await ledger.order_state(db, order)
     assert paid_at is not None
-    day = paid_at.date().isoformat()
+    day = paid_at.astimezone(await business_tz(db, BIZ)).date().isoformat()
     res = await as_owner.get(f"/v1/reports/sales-by-item?start={day}&end={day}")
     assert res.status_code == 200, res.text
     (row,) = [r for r in res.json() if r["item_id"] == SHAMPOO]

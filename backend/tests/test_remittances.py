@@ -12,9 +12,9 @@ from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.schemas.payments import RemittanceIn
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.remittance_service import RemittanceService
-from clientbridge.services.tax_service import TaxResult
+from clientbridge.services import ledger
+from clientbridge.services.remittances import RemittanceService
+from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
 
 Q1 = {"period_start": "2021-01-01", "period_end": "2021-03-31"}

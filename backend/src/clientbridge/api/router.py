@@ -1,23 +1,18 @@
-"""Mounts all versioned API routers under /v1. Domain routers are added here as they land."""
-
 from fastapi import APIRouter
 
-from clientbridge.api.v1 import (
+from clientbridge.api import (
+    billing,
     bookings,
     business,
     catalog,
     clients,
     contracts,
-    dashboard,
-    devices,
     earnings,
-    estimates,
     files,
     forms,
     gift_cards,
-    invoices,
     messaging,
-    onboarding,
+    notifications,
     orders,
     packages,
     payments,
@@ -27,31 +22,30 @@ from clientbridge.api.v1 import (
     staff,
     subscriptions,
     tax,
-    terminal,
 )
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(clients.router)
-api_router.include_router(business.router)
+api_router.include_router(business.business_router)
 api_router.include_router(catalog.router)
 api_router.include_router(bookings.router)
 api_router.include_router(recurrences.router)
-api_router.include_router(invoices.router)
+api_router.include_router(billing.invoices_router)
 api_router.include_router(earnings.router)
-api_router.include_router(estimates.router)
-api_router.include_router(payments.router)
-api_router.include_router(payments.pay_router)
+api_router.include_router(billing.estimates_router)
+api_router.include_router(payments.connect_router)
+api_router.include_router(payments.payments_router)
 api_router.include_router(orders.router)
-api_router.include_router(terminal.router)
+api_router.include_router(payments.terminal_router)
 api_router.include_router(gift_cards.router)
 api_router.include_router(packages.router)
 api_router.include_router(subscriptions.router)
 api_router.include_router(tax.router)
-api_router.include_router(onboarding.router)
+api_router.include_router(business.onboarding_router)
 api_router.include_router(staff.router)
-api_router.include_router(dashboard.router)
-api_router.include_router(devices.router)
-api_router.include_router(reports.router)
+api_router.include_router(reports.dashboard_router)
+api_router.include_router(notifications.router)
+api_router.include_router(reports.reports_router)
 api_router.include_router(reviews.router)
 api_router.include_router(messaging.router)
 api_router.include_router(forms.router)

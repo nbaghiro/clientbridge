@@ -17,9 +17,9 @@ from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.earning_service import ensure_earnings, load_earning
-from clientbridge.services.ledger_service import Leg
+from clientbridge.services import ledger
+from clientbridge.services.earnings import ensure_earnings, load_earning
+from clientbridge.services.ledger import Leg
 from tests.conftest import Factory, book_invoice
 
 BIZ = "bz_birchbark"

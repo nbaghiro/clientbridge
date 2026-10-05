@@ -10,14 +10,14 @@ from clientbridge.models.crm import Client
 from clientbridge.models.platform import Device
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.billing_service import estimate_status
-from clientbridge.services.ledger_service import Leg
-from clientbridge.services.notification_service import Notifier
-from clientbridge.services.review_service import build_review_request
-from clientbridge.tasks.billing_jobs import run_overdue_sweep
+from clientbridge.services import ledger
+from clientbridge.services.billing import estimate_status
+from clientbridge.services.ledger import Leg
+from clientbridge.services.notifications import Notifier
+from clientbridge.services.reviews import build_review_request
+from clientbridge.tasks.billing import run_overdue_sweep
 from clientbridge.tasks.maintenance import run_expiry_sweeps, run_prune_devices
-from clientbridge.tasks.review_jobs import run_review_requests
+from clientbridge.tasks.reviews import run_review_requests
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender, book_invoice
 
 BIZ = "bz_birchbark"

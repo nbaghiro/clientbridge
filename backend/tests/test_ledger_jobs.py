@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.identity import Business
 from clientbridge.models.platform import Audit
-from clientbridge.services import ledger_service as ledger
-from clientbridge.tasks.ledger_jobs import run_reconcile_ledger
+from clientbridge.services import ledger
+from clientbridge.tasks.ledger import run_reconcile_ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
 
 

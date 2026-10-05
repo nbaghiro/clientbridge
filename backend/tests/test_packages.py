@@ -11,7 +11,7 @@ from clientbridge.models.catalog import Item, Package
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.services import ledger_service as ledger
+from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
 
 PKG_ITEM = "it_pkg5"  # seeded package item: price $200, session_count = 5, GST+PST taxable

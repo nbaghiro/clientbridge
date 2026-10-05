@@ -73,9 +73,9 @@ clientbridge/
 │       ├── main.py             FastAPI app factory (ASGI entry)
 │       ├── core/               command · scoping · deps · config · security · db · errors · ids · ratelimit
 │       ├── models/             SQLAlchemy — one file per domain (+ auth, base)
-│       ├── schemas/            Pydantic DTOs — per domain
-│       ├── services/           business logic — the brain, ~40 files
-│       ├── api/                router.py · v1/ (26 routers) · public.py · webhooks.py
+│       ├── schemas/            Pydantic DTOs — one file per concept
+│       ├── services/           business logic — one file per concept (28)
+│       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS) · upload.py (WRITE_POLICY)
 │       ├── integrations/       notifications · oauth · payments · s3 (adapter interfaces)
 │       └── tasks/              arq worker + cron jobs
@@ -98,16 +98,18 @@ clientbridge/
 
 ---
 
-## Backend — layer-first, domain-as-filename
+## Backend — layer-first, one file per concept
 
-Flow: **`api/v1` (thin router + DTO, never queries) → `services` (logic, owns the transaction) → `models`.**
-Each layer directory holds one file per domain (`services/booking_service.py`, `schemas/scheduling.py`),
-matching the `models/` layout. Eleven domains: `identity · crm · catalog · scheduling · billing · payments ·
-ledger · messaging · documents · reviews · platform`.
+Flow: **`api` (thin router, never queries) → `schemas` (DTOs) → `services` (logic, owns the transaction) →
+`models`.** `models/` is grouped by domain, because tables cluster that way (eleven domains: `identity · crm ·
+catalog · scheduling · billing · payments · ledger · messaging · documents · reviews · platform`). Every other
+layer holds one file per concept, with the same plain plural name in each layer and no suffix:
+`api/bookings.py` → `schemas/bookings.py` → `services/bookings.py`, and `tasks/bookings.py` for its jobs. A
+concept with no API or DTOs simply has no file in that layer (`services/hours.py`, `services/lines.py`).
 
 ### The request flow
 ```
-HTTP → api/v1/…  → schemas/ (DTO)  → services/ (logic + txn)  → core/scoping · command  → models/  → Postgres  → WAL  → PowerSync  → device
+HTTP → api/…  → schemas/ (DTO)  → services/ (logic + txn)  → core/scoping · command  → models/  → Postgres  → WAL  → PowerSync  → device
 ```
 Routers are thin: they resolve dependencies, construct a `Service(db, principal, …)`, call one method with
 the validated DTO (threading the `Idempotency-Key` header for mutations), and return a response schema.
@@ -260,7 +262,7 @@ activity feed; server-only), `webhooks` (inbound provider events, `event` = the 
 swaps the hash, replay revokes the family), `tokens` (single-use reset/verify tokens).
 
 > **Note on tax:** there is **no `tax_rates` table** (dropped). Rates are hardcoded per province in
-> `services/tax_rates.py` and derived from `businesses.province`; the tax engine (`services/tax_service.py`)
+> `services/tax.py` and derived from `businesses.province`; the tax engine (also `services/tax.py`)
 > is pure and golden-tested. See *Tax* below.
 
 ### Polymorphic patterns
@@ -407,7 +409,7 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
   refunded in part, more than once, up to what is left; a gift card or package purchase, and a forfeited
   deposit, are refunded only in full (and not once the card is partly redeemed or a session is used).
 
-### Ledger: double-entry, append-only (`services/ledger_service.py`)
+### Ledger: double-entry, append-only (`services/ledger.py`)
 Every money movement is a **journal**: two or more `entries` legs that sum to zero per currency. A
 deferred constraint trigger rejects an unbalanced journal at commit and another trigger rejects any UPDATE
 or DELETE, so corrections are always reversing journals (`ledger.reverse`). `ledger.post` is the only
@@ -418,33 +420,33 @@ What posts, and where:
 
 | Event | Hook | Legs |
 |---|---|---|
-| Invoice issued / voided | `billing_service.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
-| Payment settled | `payment_service._settle_payment` (Stripe webhook), `match_interac`, recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
+| Invoice issued / voided | `billing.send_invoice` / `void_invoice` | client receivable + / revenue − / tax(code) − ; void reverses |
+| Payment settled | `payments._settle_payment` (Stripe webhook), `match_interac`, recurring `invoice.payment_succeeded` | cash + / what it paid for −: invoice receivable, order revenue + tax, booking deposit, package deferred + tax, gift card liability |
 | Fees | same, from the charge's balance transaction (`gateway.get_payment_fees`) | processing fee + / platform fee + / Stripe − ; platform Stripe + / fee revenue − |
 | Refund (full or partial) | `refund_payment`, `charge.refunded` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
 | Dispute opened / won | `charge.dispute.created` / `.closed` | Stripe − / payer receivable + (+ dispute fee); won reverses |
 | Stripe payout paid / failed | `payout.paid` / `payout.failed` | bank + / Stripe − ; failed reverses |
-| Gift card redeemed | `gift_card_service.redeem_gift_card` | gift card liability + / revenue − |
-| Package session used | `package_service.consume_session` | deferred + / revenue − (the last session takes the remainder) |
+| Gift card redeemed | `gift_cards.redeem_gift_card` | gift card liability + / revenue − |
+| Package session used | `packages.consume_session` | deferred + / revenue − (the last session takes the remainder) |
 | Gift card or package expired | `tasks/maintenance.py` expiry sweep (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
-| Tax return filed | `POST /v1/payments/remittances` (`remittance_service`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
-| Deposit forfeited | no-show in `booking_service` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
-| Deposit applied | invoice sent with the booking on a line, or the deposit settling after that (`booking_service.apply_deposit`) | deposit + / client receivable − ; a void or a refund of the deposit reverses it |
-| Staff earning accrued / approved / paid | `earning_service` (invoice fully paid, `/v1/earnings/{id}/approve`, `/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
+| Tax return filed | `POST /v1/payments/remittances` (`remittances`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
+| Deposit forfeited | no-show in `bookings` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
+| Deposit applied | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`) | deposit + / client receivable − ; a void or a refund of the deposit reverses it |
+| Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/{id}/approve`, `/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
 payouts. A booking's `deposit_status` (none/pending/collected/applied/forfeited/refunded) is a lifecycle column set
 as the ledger books the deposit, because staff replicas do not sync the business ledger; the amount stays
 in the ledger. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read entries and account balances.
-`tasks/ledger_jobs.py` reconciles each connected account's ledger Stripe balance against Stripe's nightly
+`tasks/ledger.py` reconciles each connected account's ledger Stripe balance against Stripe's nightly
 and records any drift in `audits`.
 
 ### Tax
 GST/HST/PST/QST computed per **province** at the **line level** (QST at exact 9.975%, half-up rounding).
 The business stores registration numbers; small-supplier mode (`tax_registered=false`) collects nothing.
-The engine (`services/tax_service.py`) is pure and golden-tested; rates are hardcoded per province in
-`services/tax_rates.py` (no table). Each item carries a tax class (`standard` charges every component,
+The engine (`services/tax.py`) is pure and golden-tested; rates are hardcoded per province in the same
+file (no table). Each item carries a tax class (`standard` charges every component,
 `federal_only` only the GST or HST, `exempt` nothing), copied onto each line when it is created, so a later
 change to the item does not alter issued documents. Which services carry PST in BC, Saskatchewan and
 Manitoba still needs an accountant's confirmation before defaults are set.

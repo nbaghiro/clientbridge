@@ -6,7 +6,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
-from clientbridge.services import ledger_service as ledger
+from clientbridge.services import ledger
 from tests.conftest import book_invoice
 
 BIZ = "bz_birchbark"

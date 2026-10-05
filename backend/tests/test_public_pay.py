@@ -10,8 +10,8 @@ from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.ledger_service import Leg
+from clientbridge.services import ledger
+from clientbridge.services.ledger import Leg
 from tests.conftest import book_invoice
 
 BIZ = "bz_birchbark"

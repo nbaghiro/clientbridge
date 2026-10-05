@@ -49,8 +49,8 @@ from clientbridge.models.scheduling import (
     Resource,
     Slot,
 )
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.earning_service import (
+from clientbridge.services import ledger
+from clientbridge.services.earnings import (
     Earning,
     advance_earning,
     ensure_earnings,

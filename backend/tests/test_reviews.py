@@ -12,7 +12,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.review_service import build_review_request
+from clientbridge.services.reviews import build_review_request
 from tests.conftest import Factory, FakeEmailSender
 
 BIZ = "bz_birchbark"

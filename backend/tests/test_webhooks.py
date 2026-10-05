@@ -12,9 +12,9 @@ from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Device, Webhook
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.business_service import kyc_status
-from clientbridge.services.message_service import unread_count
+from clientbridge.services import ledger
+from clientbridge.services.business import kyc_status
+from clientbridge.services.messaging import unread_count
 from tests.conftest import FakePushSender
 
 BIZ = "bz_birchbark"

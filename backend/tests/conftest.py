@@ -52,8 +52,8 @@ from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff, User
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.tax_service import TaxResult
+from clientbridge.services import ledger
+from clientbridge.services.tax import TaxResult
 
 # Seeded baseline (committed): the demo business + two of its users.
 BIZ = "bz_birchbark"

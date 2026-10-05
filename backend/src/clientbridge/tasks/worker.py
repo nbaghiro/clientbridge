@@ -7,13 +7,12 @@ from arq import cron
 from arq.connections import RedisSettings
 
 from clientbridge.core.config import get_settings
-from clientbridge.tasks.billing_jobs import sweep_overdue_invoices
-from clientbridge.tasks.booking_jobs import reap_unpaid_bookings
-from clientbridge.tasks.ledger_jobs import reconcile_ledger
+from clientbridge.tasks.billing import sweep_overdue_invoices
+from clientbridge.tasks.bookings import reap_unpaid_bookings, send_booking_reminders
+from clientbridge.tasks.ledger import reconcile_ledger
 from clientbridge.tasks.maintenance import run_daily_maintenance
-from clientbridge.tasks.messaging_jobs import send_due_broadcasts
-from clientbridge.tasks.reminders import send_booking_reminders
-from clientbridge.tasks.review_jobs import send_review_requests
+from clientbridge.tasks.messaging import send_due_broadcasts
+from clientbridge.tasks.reviews import send_review_requests
 
 
 class WorkerSettings:

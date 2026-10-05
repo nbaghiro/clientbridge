@@ -6,8 +6,8 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.ledger_service import Leg, UnbalancedJournal
+from clientbridge.services import ledger
+from clientbridge.services.ledger import Leg, UnbalancedJournal
 from tests.conftest import BIZ, Factory
 
 

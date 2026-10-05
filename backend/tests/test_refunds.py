@@ -14,8 +14,8 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.tax_service import TaxResult
+from clientbridge.services import ledger
+from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
 
 GOOD = {"Stripe-Signature": "good"}

@@ -8,8 +8,8 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.services.booking_service import booked_count
-from clientbridge.tasks.booking_jobs import run_reap_unpaid_bookings
+from clientbridge.services.bookings import booked_count
+from clientbridge.tasks.bookings import run_reap_unpaid_bookings
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"

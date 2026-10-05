@@ -11,8 +11,8 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.ledger_service import Leg
+from clientbridge.services import ledger
+from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 
 PURCHASER = "cl_marcus"  # seeded client with a default saved card (pm_demo_5454)
@@ -350,9 +350,7 @@ async def test_code_collision_409(
     as_owner: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     await _enable(db)
-    monkeypatch.setattr(
-        "clientbridge.services.gift_card_service._gift_code", lambda: "FIXEDCODE123"
-    )
+    monkeypatch.setattr("clientbridge.services.gift_cards._gift_code", lambda: "FIXEDCODE123")
     body = {"amount_cents": 1000, "purchaser_client_id": PURCHASER, "payment_method_id": "default"}
     first = await as_owner.post("/v1/gift-cards", json=body)
     assert first.status_code == 201

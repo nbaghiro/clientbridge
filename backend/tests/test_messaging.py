@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.crm import Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
-from clientbridge.services.message_service import run_due_broadcasts, unread_count
+from clientbridge.services.messaging import run_due_broadcasts, unread_count
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
 
 BIZ = "bz_birchbark"

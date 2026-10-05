@@ -16,9 +16,14 @@ from clientbridge.core.scoping import scoped, scoped_delete
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.catalog import ENTITLEMENT_KINDS, Item
 from clientbridge.schemas.billing import LineInput, LineOut
-from clientbridge.services.business_service import business_tax_registered
-from clientbridge.services.tax_rates import rates_for_business
-from clientbridge.services.tax_service import TaxComponent, TaxLine, TaxResult, compute_tax
+from clientbridge.services.business import business_tax_registered
+from clientbridge.services.tax import (
+    TaxComponent,
+    TaxLine,
+    TaxResult,
+    compute_tax,
+    rates_for_business,
+)
 
 LineParent = Literal["estimate", "invoice", "order"]
 

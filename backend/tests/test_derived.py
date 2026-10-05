@@ -8,9 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate
 from clientbridge.models.catalog import GiftCard, Package
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.billing_service import estimate_status
-from clientbridge.services.ledger_service import Leg
+from clientbridge.services import ledger
+from clientbridge.services.billing import estimate_status
+from clientbridge.services.ledger import Leg
 from clientbridge.tasks.maintenance import run_expiry_sweeps
 from tests.conftest import BIZ
 

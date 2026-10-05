@@ -12,7 +12,7 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking
-from clientbridge.services import ledger_service as ledger
+from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender
 
 SLUG = "birchbark"

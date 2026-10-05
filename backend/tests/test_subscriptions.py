@@ -14,7 +14,7 @@ from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Webhook
-from clientbridge.services import ledger_service as ledger
+from clientbridge.services import ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
 
 BIZ = "bz_birchbark"
@@ -583,7 +583,7 @@ async def test_unknown_status_maps_to_past_due(api: httpx.AsyncClient, db: Async
 
 
 def test_map_subscription_status_unknown_is_past_due() -> None:
-    from clientbridge.services.payment_service import map_subscription_status
+    from clientbridge.services.payments import map_subscription_status
 
     assert map_subscription_status("incomplete_expired") == "past_due"
     assert map_subscription_status("active") == "active"

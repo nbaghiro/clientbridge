@@ -2,7 +2,7 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
-from clientbridge.schemas.public_common import PublicBrand
+from clientbridge.schemas.public import PublicBrand
 
 
 class OnboardingLink(BaseModel):

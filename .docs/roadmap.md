@@ -227,7 +227,7 @@ resize/success + a config-driven CORS allowlist).
   identity tier** (a `customers` account with magic-link/OTP, linked to the per-business `clients` rows via a
   claim flow), client-scoped reads fanning across a customer's businesses (appointments, invoices/payments,
   saved cards, package/sub balances, messages), and client-initiated writes (rebook, pay any open invoice,
-  reply). The underlying business logic (`create_booking_core`, the `open_*` payment helpers, `file_service`)
+  reply). The underlying business logic (`create_booking_core`, the `open_*` payment helpers, `services/files.py`)
   is already shared. **Risk:** a mis-linked account leaks one customer's data across businesses — the
   tenant-isolation invariant now spans *customer → many businesses*; consider a single-business slice first to
   de-risk the auth plumbing, then layer cross-business linking on top. *(Gated by D3.)*

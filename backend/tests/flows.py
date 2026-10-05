@@ -19,13 +19,13 @@ from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.schemas.billing import InvoiceOut
 from clientbridge.schemas.bookings import BookingOut
 from clientbridge.schemas.orders import OrderOut
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.billing_service import _invoice_out
-from clientbridge.services.booking_service import _booking_out
-from clientbridge.services.earning_service import load_earning
+from clientbridge.services import ledger
+from clientbridge.services.billing import _invoice_out
+from clientbridge.services.bookings import _booking_out
+from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
-from clientbridge.services.message_service import unread_count
-from clientbridge.services.order_service import _out as _order_out
+from clientbridge.services.messaging import unread_count
+from clientbridge.services.orders import _out as _order_out
 from tests.conftest import BIZ
 
 SLUG = "birchbark"

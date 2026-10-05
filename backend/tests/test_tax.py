@@ -1,6 +1,6 @@
 """Golden tax cases — the pure engine, per province + edge cases. No DB."""
 
-from clientbridge.services.tax_service import TaxComponent, TaxLine, compute_tax
+from clientbridge.services.tax import TaxComponent, TaxLine, compute_tax
 
 BC = [TaxComponent("GST", 500), TaxComponent("PST", 700)]
 ON = [TaxComponent("HST", 1300)]

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.billing import Invoice
 from clientbridge.models.scheduling import Booking
-from clientbridge.services import ledger_service as ledger
+from clientbridge.services import ledger
 from tests.test_bookings import (
     CL_AMELIE,
     _deposit_booking,

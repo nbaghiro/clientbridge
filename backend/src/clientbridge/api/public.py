@@ -2,6 +2,7 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request
+from fastapi.responses import RedirectResponse
 
 from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep, StorageDep
 from clientbridge.core.ratelimit import (
@@ -16,27 +17,28 @@ from clientbridge.schemas.contracts import PublicContractContext, PublicContract
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
 from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
-from clientbridge.schemas.public_booking import (
+from clientbridge.schemas.public import (
     PublicBookingCreate,
     PublicBookingPage,
     PublicBookingResult,
-    PublicSlots,
-)
-from clientbridge.schemas.public_shop import (
     PublicShop,
     PublicShopOrderCreate,
     PublicShopOrderResult,
+    PublicSlots,
 )
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
-from clientbridge.services.notification_service import Notifier
-from clientbridge.services.public_booking_service import PublicBookingService
-from clientbridge.services.public_contract_service import PublicContractService
-from clientbridge.services.public_form_service import PublicFormService
-from clientbridge.services.public_pay_service import PublicPayService
-from clientbridge.services.public_review_service import PublicReviewService
-from clientbridge.services.public_shop_service import PublicShopService
+from clientbridge.services.files import public_media_location
+from clientbridge.services.notifications import Notifier
+from clientbridge.services.public import (
+    PublicBookingService,
+    PublicContractService,
+    PublicFormService,
+    PublicPayService,
+    PublicReviewService,
+    PublicShopService,
+)
 
-router = APIRouter(prefix="/pay", tags=["public-pay"])
+pay_router = APIRouter(prefix="/pay", tags=["public-pay"])
 
 RateLimited = Annotated[None, Depends(public_pay_rate_limit)]
 ReviewRateLimited = Annotated[None, Depends(public_review_rate_limit)]
@@ -45,21 +47,21 @@ ContractRateLimited = Annotated[None, Depends(public_contract_rate_limit)]
 BookingRateLimited = Annotated[None, Depends(public_booking_rate_limit)]
 
 
-@router.get("/{token}", response_model=PublicInvoice)
+@pay_router.get("/{token}", response_model=PublicInvoice)
 async def public_invoice(
     token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
 ) -> PublicInvoice:
     return await PublicPayService(db, gateway).invoice(token)
 
 
-@router.post("/{token}/card", response_model=PublicCardIntent)
+@pay_router.post("/{token}/card", response_model=PublicCardIntent)
 async def public_pay_card(
     token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
 ) -> PublicCardIntent:
     return await PublicPayService(db, gateway).pay_card(token)
 
 
-@router.post("/{token}/interac", response_model=InteracRequest)
+@pay_router.post("/{token}/interac", response_model=InteracRequest)
 async def public_pay_interac(
     token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
 ) -> InteracRequest:
@@ -204,3 +206,12 @@ async def public_shop_order(
     _: BookingRateLimited,
 ) -> PublicShopOrderResult:
     return await PublicShopService(db, gateway).order(slug, body, idempotency_key)
+
+
+media_router = APIRouter(prefix="/media", tags=["media"])
+
+
+@media_router.get("/{file_id}", response_class=RedirectResponse, status_code=302)
+async def public_media(file_id: str, db: DbSession, storage: StorageDep) -> RedirectResponse:
+    location = await public_media_location(db, storage, file_id)
+    return RedirectResponse(location, status_code=302, headers={"Cache-Control": "max-age=300"})

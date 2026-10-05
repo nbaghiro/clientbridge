@@ -9,8 +9,8 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.crm import Client
 from clientbridge.models.ledger import Entry
-from clientbridge.services import ledger_service as ledger
-from clientbridge.services.ledger_service import Leg
+from clientbridge.services import ledger
+from clientbridge.services.ledger import Leg
 from clientbridge.tasks.maintenance import run_expiry_sweeps
 from tests.conftest import BIZ, Factory
 
