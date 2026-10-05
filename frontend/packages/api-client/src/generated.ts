@@ -184,10 +184,6 @@ export interface paths {
         /**
          * Sync Token
          * @description Exchange the app session for a short-lived PowerSync token.
-         *
-         *     The client's connector calls this (``fetchCredentials``). In dev, an unauthenticated call
-         *     mints a token for ``dev_user_id`` so the apps can connect before auth exists; in prod a valid
-         *     app JWT is required.
          */
         get: operations["sync_token_sync_token_get"];
         put?: never;
@@ -1916,8 +1912,7 @@ export interface components {
         };
         /**
          * BrandInput
-         * @description The public-facing brand a business sets on its Connect surfaces. Values are validated +
-         *     trimmed here (empty → cleared) so what's stored is what the customer client applies directly.
+         * @description The public brand; values are validated and trimmed so clients can apply them directly.
          */
         BrandInput: {
             /** Logo Url */
@@ -1989,8 +1984,7 @@ export interface components {
         };
         /**
          * BusinessSettingsUpdate
-         * @description Editable account fields (partial — only sent keys are applied). Slug + province are fixed
-         *     here (province drives the derived tax rates); the tax numbers accept "" to clear.
+         * @description Partial update of account fields; tax numbers accept an empty string to clear.
          */
         BusinessSettingsUpdate: {
             /** Name */
@@ -3065,10 +3059,7 @@ export interface components {
         };
         /**
          * PublicBrand
-         * @description A business's public-facing brand, rendered across the customer surfaces (book/pay/form/…).
-         *
-         *     Fields are None when unset or malformed; `primary` is a validated hex colour and `logo_url` an
-         *     http(s) URL, so the client can apply them directly without re-validating.
+         * @description A business's validated public brand; unset or malformed fields are None.
          */
         PublicBrand: {
             /** Logo Url */
