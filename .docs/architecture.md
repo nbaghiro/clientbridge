@@ -2,7 +2,8 @@
 
 The canonical description of **how the system is built**: stack, structure, the data model, sync, and
 authorization. For *how we build it* (the gate, testing, conventions) see [engineering.md](engineering.md);
-for *what's left* see [roadmap.md](roadmap.md); for design/IA see [design/](design/).
+for *what's left* see [roadmap.md](roadmap.md) and the launch stories in
+[launch-readiness.md](launch-readiness.md); for design/IA see [design/](design/).
 
 Clientbridge is a **local-first, all-in-one business OS** for solo and small service providers —
 bookings, clients, catalog, invoicing, payments, messaging, forms, reviews, staff payout-splits — with
@@ -39,7 +40,7 @@ secrets, cross-tenant — must be a **command**, never a sync-write.
 | # | Surface | What it is | Auth | Examples |
 |---|---|---|---|---|
 | 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Rules (buckets) | calendar, clients, invoices on-device |
-| 2 | **Sync-write** | `POST /sync/upload` applies simple CRUD the device queued | `WRITE_POLICY` | edit a client, draft a note, tweak availability |
+| 2 | **Sync-write** | `POST /sync/upload` applies simple CRUD the device queued | `WRITE_POLICY` | edit a client, draft a note, edit working hours |
 | 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | JWT + role | book a slot, issue an invoice, take a payment |
 | 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/Interac/SMS webhooks; book/pay/form/contract/review |
 | 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
@@ -74,7 +75,7 @@ clientbridge/
 │       ├── models/             SQLAlchemy — one file per domain (+ auth, base)
 │       ├── schemas/            Pydantic DTOs — per domain
 │       ├── services/           business logic — the brain, ~40 files
-│       ├── api/                router.py · v1/ (25 routers) · public.py · webhooks.py
+│       ├── api/                router.py · v1/ (26 routers) · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS) · upload.py (WRITE_POLICY)
 │       ├── integrations/       notifications · oauth · payments · s3 (adapter interfaces)
 │       └── tasks/              arq worker + cron jobs
@@ -82,7 +83,8 @@ clientbridge/
 │   ├── apps/
 │   │   ├── web/        React + Vite · provider/admin · :8700
 │   │   ├── mobile/     Expo RN · provider/admin · :8707
-│   │   └── connect/    public customer app · PowerSync-free · :8709
+│   │   ├── connect/    public customer app · PowerSync-free · :8709
+│   │   └── site/       marketing site · static prerender · :8710
 │   └── packages/
 │       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
 │       ├── ui/         shared browser components for web + Connect (PowerSync-free)
@@ -91,7 +93,7 @@ clientbridge/
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
 │       └── config/     shared eslint/prettier + the no-inline-ui-string rule
 ├── infra/powersync/    powersync.yaml (service config) · sync-rules.yaml (read authz)
-└── .docs/              architecture · engineering · roadmap · design/
+└── .docs/              architecture · engineering · roadmap · launch-readiness · design/
 ```
 
 ---
@@ -329,8 +331,8 @@ batch commits as one transaction; any auth failure rolls it all back.
 ### The client (`packages/sync`)
 `schema.ts` is the **generated** `AppSchema` (the synced tables, from models + sync-rules). `connector.ts`
 is the `PowerSyncBackendConnector`: `fetchCredentials()` → `GET /sync/token`, `uploadData()` drains the
-local CRUD queue → `POST /sync/upload`. Server-only tables (`auth_*`) are absent from sync-rules, so they
-never reach the client schema.
+local CRUD queue → `POST /sync/upload`. Server-only tables (`sessions`, `tokens`, `commands`, `webhooks`,
+`audits`) are absent from sync-rules, so they never reach the client schema.
 
 ---
 
@@ -492,8 +494,8 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
 ### `app-core` (the view-model layer, no JSX)
 - **Reads** = a `useX()` hook wrapping `useQuery` over a SQL constant against the local replica.
 - **Writes** = plain functions taking `(api: ApiLike, …)` (money/uniqueness attach an idempotency key). A
-  few invariant-free admin tables write **directly** to local SQLite (availability/form-builder/contract-
-  draft), uploaded via `/sync/upload`.
+  few invariant-free admin tables write **directly** to local SQLite (hours, the form builder, contract
+  drafts), uploaded via `/sync/upload`.
 - **Forms** = `useXForm` hooks on the `useAsyncAction` busy/error primitive.
 - Each domain exports a status→`Intent` mapper (the platform maps `Intent` → its own tokens).
 - **`strings.ts`** is the copy catalog (one object, ~35 domain groups) — the single home of UI copy.
@@ -542,9 +544,6 @@ loader — custom elements (`<connect-booking|pay|…>`) that mount the widget w
 success protocol. The lean-bundle boundary is **enforced by lint**: `no-restricted-imports` bans `@powersync/*`
 from Connect and `app-core/public`.
 
----
-
-
 ### Marketing site (`apps/site`)
 The public website is its own app in the same workspace, built with the same stack (Vite, React 19,
 Tailwind 4, TypeScript strict) and deployed apart from the web app, on its own subdomain. It is a static
@@ -580,5 +579,3 @@ source, with a **CI drift gate** that fails if the committed output diverges.
 only on a definitive 401/403 so a network blip doesn't wipe the replica) and injects the token-store seam.
 `tokens` feeds both platforms from one source: web via CSS variables + a Tailwind v4 @theme (tailwind.css), mobile via
 materialized JS values.
-
-> A browsable visual companion to this document lives at [codebase-atlas.html](codebase-atlas.html).

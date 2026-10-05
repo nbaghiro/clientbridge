@@ -34,7 +34,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   before its FK-dependent children**.
 - External services = an **adapter interface + `get_*` dependency** (e.g. `EmailSender`, `OAuthVerifier`);
   prod implements it, tests override with a recording fake.
-- Server-only tables (`auth_*`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema.
+- Server-only tables (`sessions`, `tokens`, `commands`, `webhooks`, `audits`) are **not** in `sync-rules.yaml` → excluded from the client AppSchema.
 
 ## Frontend — share the view-model, render per-platform
 - Web (React/Vite/Tailwind) + mobile (Expo RN) share everything UI-agnostic via `@clientbridge/app-core`; only rendering, navigation, and platform APIs differ.
@@ -86,5 +86,5 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 ## Docs (`.docs/`)
 Three consolidated docs: **architecture** (system · data model · sync · authorization · frontend) ·
 **engineering** (the gate · testing · shipping method · ports · demo · conventions) · **roadmap** (backlog ·
-execution order · Connect). Design system + IA in `.docs/design/` (screens · tokens · theme-explorer source ·
-codebase-atlas.html).
+execution order · Connect), plus **launch-readiness** (the launch epics and stories tracked in Jira). Design system +
+IA in `.docs/design/app-explorer.html` (screens · tokens · theme source).
