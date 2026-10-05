@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fast pre-commit gate: format-check + lint (ruff + mypy · eslint + tsc + prettier). No tests here —
+# Fast pre-commit gate: format-check + lint + generated-code drift. No tests here;
 # run `make check` before pushing for the full suite. Install with `make hooks`.
 #
 # Default a writable uv cache: this machine's ~/.cache/uv can be root-owned, which breaks `uv run`

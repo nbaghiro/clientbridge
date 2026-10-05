@@ -85,7 +85,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   fails on a multi-line comment, a lowercase component file, and a concept named differently across app-core, strings, web and mobile.
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
-  after model/sync-rule changes (CI has a drift gate).
+  after model/sync-rule changes (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).
 - Python import package = `clientbridge` (at `backend/src/clientbridge/`); the DB name + project are also `clientbridge`.
 
 ## Commands

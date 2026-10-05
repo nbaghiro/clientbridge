@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install stripe-listen dev-api dev-web dev-connect dev-site build-site test-site lighthouse-site dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
+.PHONY: help up down logs-sync install web-install stripe-listen dev-api dev-web dev-connect dev-site build-site test-site lighthouse-site dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "seed           load the Birchbark Pet Studio demo business (idempotent)"
 	@echo "gen-api        regenerate frontend api-client from backend OpenAPI"
 	@echo "gen-sync-schema  regenerate PowerSync client schema from models + sync-rules"
+	@echo "codegen-check  regenerate client, sync schema and themes; fail if they were stale"
 	@echo "test           backend pytest + frontend tests"
 	@echo "test-contract  real StripeGateway vs stripe-mock (starts it; auto-skips if down)"
 	@echo "test-e2e       Stripe test-mode flows (needs STRIPE_TEST_SECRET_KEY)"
@@ -138,11 +139,19 @@ format-check:
 	cd frontend && pnpm format:check
 
 # The fast gate the pre-commit hook runs (no tests).
-precommit: format-check lint
+GENERATED := frontend/packages/api-client/src/generated.ts frontend/packages/sync/src/schema.ts \
+	frontend/packages/tokens/src/themes.css frontend/packages/tokens/src/themes.ts
+
+# Regenerates the backend-derived client, sync schema and themes, and fails if any differ from git.
+codegen-check: gen-api gen-sync-schema gen-themes
+	@git diff --quiet -- $(GENERATED) || { git --no-pager diff --stat -- $(GENERATED); \
+		echo "generated files were stale and have been regenerated: review and stage them"; exit 1; }
+
+precommit: format-check lint codegen-check
 
 # Point git at the versioned hooks (run once per clone).
 hooks:
 	git config core.hooksPath .githooks
 	@echo "git hooks installed → .githooks (pre-commit = format-check + lint)"
 
-check: lint test
+check: lint codegen-check test

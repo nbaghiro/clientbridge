@@ -38,8 +38,9 @@ make lint          # backend: ruff check + mypy strict + structure check   |  fr
 make typecheck     # backend: mypy strict                 |  frontend: tsc --noEmit
 make format        # backend: ruff format                 |  frontend: prettier --write
 make format-check
-make precommit     # format-check + lint  (the pre-commit hook, no tests)
-make check         # lint + test          (the full local gate)
+make codegen-check # regenerate api-client, sync schema and themes; fail if they were stale
+make precommit     # format-check + lint + codegen-check  (the pre-commit hook, no tests)
+make check         # lint + codegen-check + test          (the full local gate)
 ```
 The pre-commit hook (`.githooks/pre-commit`, installed once via `make hooks`) runs `make precommit`. It sets
 a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a root-owned `~/.cache/uv`.
@@ -56,7 +57,7 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | **frontend** | pnpm 9 · `pnpm install --frozen-lockfile` → `pnpm lint` (eslint + `check-structure.mjs`) → `pnpm typecheck` (tsc) → `pnpm format:check` (prettier) → `pnpm test` (vitest) → **`pnpm build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
 | **site** | Node 24 · `pnpm --filter site build` → `lint:content` (copy rules on `src/content` and the built pages) → `test` (content invariants, links and anchors resolve, one h1 per page, demo figures agree) → Playwright e2e on the built site: every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
-| **codegen-drift** | `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then `git diff --exit-code` on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |
+| **codegen-drift** | `make codegen-check`: `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then a diff check on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |
 
 Net effect: no unformatted/untyped/uncovered code, no broken bundle, no drift between backend models and the
 generated frontend contracts/themes.
@@ -171,7 +172,7 @@ Read local, write via command/sync — the server is the source of truth; client
   or add decorative divider banners.
 - **Migrations** live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate** `api-client` (`make gen-api`) whenever the API contract changes; `gen-sync-schema` after
-  model/sync-rule changes; `gen-themes` after editing `app-explorer.html`. CI has drift gates for all three.
+  model/sync-rule changes; `gen-themes` after editing `app-explorer.html`. `make codegen-check` (in the pre-commit hook, `make check` and CI) fails if any of the three is stale.
 - **No build-phase/iteration numbers** in code comments or docstrings (commit messages / plan docs are fine).
 - **Column names:** booleans carry no `is_` prefix (`payee`, `available`, `preferred`, `tax_registered`);
   a column naming the user who did something is `<past participle>_by` (`created_by`, `sent_by`,
