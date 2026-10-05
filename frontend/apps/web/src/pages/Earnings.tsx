@@ -9,7 +9,7 @@ import {
     useEarnings,
     type EarningRow,
 } from "@clientbridge/app-core";
-import { ListPage, Money, primaryButtonSmall, StatusPill } from "@clientbridge/ui";
+import { Button, ListPage, Money, Notice, StatusPill } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -53,27 +53,17 @@ function EarningItem({ row }: { row: EarningRow }) {
                 </span>
                 <StatusPill status={row.status} intent={earningStatusIntent(row.status)} />
                 {canApprove ? (
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={approve}
-                        className={`${primaryButtonSmall} shrink-0`}
-                    >
+                    <Button size="sm" busy={busy} onPress={approve}>
                         {busy ? strings.earnings.approving : strings.earnings.approve}
-                    </button>
+                    </Button>
                 ) : null}
                 {canPay ? (
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={pay}
-                        className={`${primaryButtonSmall} shrink-0`}
-                    >
+                    <Button size="sm" busy={busy} onPress={pay}>
                         {busy ? strings.common.saving : strings.earnings.markPaid}
-                    </button>
+                    </Button>
                 ) : null}
             </div>
-            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
     );
 }

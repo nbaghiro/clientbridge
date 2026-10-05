@@ -1,7 +1,10 @@
 import type { ListPageProps } from "@clientbridge/app-core/public";
 
+import { Button } from "./Button";
+import { Choice } from "./Choice";
 import { Empty } from "./Empty";
-import { IconPlus, IconSearch } from "./Icons";
+import { IconPlus } from "./Icons";
+import { SearchField } from "./SearchField";
 
 export function ListPage<T, K extends string = string>({
     title,
@@ -36,52 +39,34 @@ export function ListPage<T, K extends string = string>({
                     <div className="flex items-center gap-3">
                         {accessory}
                         {action !== undefined ? (
-                            <button
-                                type="button"
-                                onClick={action.onPress}
-                                className="flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+                            <Button
+                                onPress={action.onPress}
+                                icon={<IconPlus className="h-4 w-4" />}
                             >
-                                <IconPlus className="h-4 w-4" /> {action.label}
-                            </button>
+                                {action.label}
+                            </Button>
                         ) : null}
                     </div>
                 </header>
             ) : null}
 
             {segments !== undefined ? (
-                <div className="mt-5 inline-flex rounded-md border border-line bg-surface p-1 text-sm">
-                    {segments.items.map((item) => (
-                        <button
-                            key={item.key}
-                            type="button"
-                            aria-pressed={item.key === segments.active}
-                            onClick={() => {
-                                segments.onSelect(item.key);
-                            }}
-                            className={`rounded px-4 py-1.5 font-medium transition ${
-                                item.key === segments.active
-                                    ? "bg-accent text-accent-ink"
-                                    : "text-ink-soft hover:bg-bg"
-                            }`}
-                        >
-                            {item.label}
-                        </button>
-                    ))}
+                <div className="mt-5">
+                    <Choice
+                        layout="segmented"
+                        options={segments.items}
+                        value={segments.active}
+                        onChange={segments.onSelect}
+                    />
                 </div>
             ) : null}
 
             {search !== undefined ? (
-                <div className="relative mt-4">
-                    <IconSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-                    <input
+                <div className="mt-4">
+                    <SearchField
                         value={search.value}
-                        onChange={(e) => {
-                            search.onChange(e.target.value);
-                        }}
+                        onChange={search.onChange}
                         placeholder={search.placeholder}
-                        aria-label={search.placeholder}
-                        type="search"
-                        className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
                     />
                 </div>
             ) : null}

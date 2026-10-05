@@ -4,7 +4,7 @@ import { type SubmitEvent } from "react";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 import { BrandBackdrop, resolveVariant } from "../components/BrandBackdrop";
-import { fieldLarge, GoogleIcon, Lockup, primaryButtonLarge } from "@clientbridge/ui";
+import { Button, GoogleIcon, Lockup, Notice, TextField } from "@clientbridge/ui";
 
 const backdrop = resolveVariant(new URLSearchParams(window.location.search).get("bg"));
 
@@ -66,59 +66,40 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                         className="mt-6 flex flex-col gap-4"
                     >
                         {login.mode === "signup" ? (
-                            <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                                {strings.auth.name}
-                                <input
-                                    value={login.name}
-                                    onChange={(e) => {
-                                        login.setName(e.target.value);
-                                    }}
-                                    placeholder={strings.auth.namePlaceholder}
-                                    autoComplete="name"
-                                    className={fieldLarge}
-                                />
-                            </label>
+                            <TextField
+                                label={strings.auth.name}
+                                value={login.name}
+                                onChange={login.setName}
+                                placeholder={strings.auth.namePlaceholder}
+                                autoComplete="name"
+                                size="lg"
+                            />
                         ) : null}
 
-                        <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            {strings.auth.email}
-                            <input
-                                type="email"
-                                value={login.email}
-                                onChange={(e) => {
-                                    login.setEmail(e.target.value);
-                                }}
-                                placeholder={strings.auth.emailPlaceholder}
-                                autoComplete="email"
-                                className={fieldLarge}
-                            />
-                        </label>
+                        <TextField
+                            label={strings.auth.email}
+                            type="email"
+                            value={login.email}
+                            onChange={login.setEmail}
+                            placeholder={strings.auth.emailPlaceholder}
+                            autoComplete="email"
+                            size="lg"
+                        />
+                        <TextField
+                            label={strings.auth.password}
+                            type="password"
+                            value={login.password}
+                            onChange={login.setPassword}
+                            placeholder={strings.auth.passwordPlaceholder}
+                            autoComplete={
+                                login.mode === "signin" ? "current-password" : "new-password"
+                            }
+                            size="lg"
+                        />
 
-                        <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            {strings.auth.password}
-                            <input
-                                type="password"
-                                value={login.password}
-                                onChange={(e) => {
-                                    login.setPassword(e.target.value);
-                                }}
-                                placeholder={strings.auth.passwordPlaceholder}
-                                autoComplete={
-                                    login.mode === "signin" ? "current-password" : "new-password"
-                                }
-                                className={fieldLarge}
-                            />
-                        </label>
+                        {login.error ? <Notice tone="danger">{login.error}</Notice> : null}
 
-                        {login.error ? (
-                            <p className="text-sm text-danger-fg">{login.error}</p>
-                        ) : null}
-
-                        <button
-                            type="submit"
-                            disabled={login.busy}
-                            className={`${primaryButtonLarge} mt-1`}
-                        >
+                        <Button submit size="lg" full busy={login.busy}>
                             {login.busy
                                 ? login.mode === "signin"
                                     ? strings.auth.signingIn
@@ -126,7 +107,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                                 : login.mode === "signin"
                                   ? strings.auth.signIn
                                   : strings.auth.createAccount}
-                        </button>
+                        </Button>
                     </form>
 
                     <div className="my-5 flex items-center gap-3 text-xs text-muted">
@@ -135,26 +116,23 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                         <span className="h-px flex-1 bg-line" />
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={login.googleUnavailable}
-                        className="flex w-full items-center justify-center gap-2.5 rounded-md border border-line bg-surface px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-bg"
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        full
+                        onPress={login.googleUnavailable}
+                        icon={<GoogleIcon className="h-5 w-5" />}
                     >
-                        <GoogleIcon className="h-5 w-5" />
                         {strings.auth.continueWithGoogle}
-                    </button>
+                    </Button>
 
                     <p className="mt-6 text-center text-sm text-muted">
                         {login.mode === "signin" ? strings.auth.newToApp : strings.auth.haveAccount}{" "}
-                        <button
-                            type="button"
-                            onClick={login.flip}
-                            className="font-semibold text-accent hover:underline"
-                        >
+                        <Button variant="link" onPress={login.flip}>
                             {login.mode === "signin"
                                 ? strings.auth.createAnAccount
                                 : strings.auth.signIn}
-                        </button>
+                        </Button>
                     </p>
                 </div>
             </main>

@@ -16,17 +16,18 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useState } from "react";
+import { Share, StyleSheet, Text, View } from "react-native";
 import {
-    ActivityIndicator,
-    Pressable,
-    Share,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
-import { DetailSection, DetailView, ListPage, StatusPill, ui } from "@clientbridge/ui";
+    Button,
+    DetailSection,
+    DetailView,
+    ListPage,
+    Notice,
+    Select,
+    StatusPill,
+    TextField,
+    Toggle,
+} from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
@@ -126,50 +127,27 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
         <>
             <Text style={styles.sectionLabel}>{strings.staff.inviteHeading}</Text>
             <View style={styles.panel}>
-                <Text style={styles.fieldLabel}>{strings.staff.email}</Text>
-                <TextInput
-                    style={ui.input}
+                <TextField
+                    label={strings.staff.email}
+                    type="email"
                     value={invite.email}
-                    onChangeText={invite.setEmail}
+                    onChange={invite.setEmail}
                     placeholder={strings.staff.emailPlaceholder}
-                    placeholderTextColor={c.muted}
-                    autoCapitalize="none"
-                    keyboardType="email-address"
+                />
+                <Select
+                    label={strings.staff.role}
+                    value={invite.role}
+                    options={INVITABLE_ROLES.map((r) => ({ key: r.value, label: r.label }))}
+                    onChange={invite.setRole}
                 />
 
-                <Text style={styles.fieldLabel}>{strings.staff.role}</Text>
-                <View style={styles.chipRow}>
-                    {INVITABLE_ROLES.map((r) => {
-                        const on = invite.role === r.value;
-                        return (
-                            <Pressable
-                                key={r.value}
-                                style={[styles.chip, on && styles.chipOn]}
-                                onPress={() => {
-                                    invite.setRole(r.value);
-                                }}
-                            >
-                                <Text style={[styles.chipText, on && styles.chipTextOn]}>
-                                    {r.label}
-                                </Text>
-                            </Pressable>
-                        );
-                    })}
+                {invite.error !== null ? <Notice tone="danger">{invite.error}</Notice> : null}
+
+                <View style={styles.submitGap}>
+                    <Button size="lg" full onPress={invite.submit} busy={invite.busy}>
+                        {strings.staff.sendInvite}
+                    </Button>
                 </View>
-
-                {invite.error !== null ? <Text style={styles.error}>{invite.error}</Text> : null}
-
-                <Pressable
-                    style={[ui.primaryLarge, styles.submitGap, invite.busy && styles.dim]}
-                    onPress={invite.submit}
-                    disabled={invite.busy}
-                >
-                    {invite.busy ? (
-                        <ActivityIndicator color={c.accentInk} />
-                    ) : (
-                        <Text style={ui.primaryLargeText}>{strings.staff.sendInvite}</Text>
-                    )}
-                </Pressable>
 
                 {invite.invite !== null ? (
                     <InviteLink invite={invite.invite} onDone={invite.reset} />
@@ -191,12 +169,12 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
                 {link}
             </Text>
             <View style={styles.linkActions}>
-                <Pressable style={styles.shareBtn} onPress={share}>
-                    <Text style={styles.shareText}>{strings.staff.shareLink}</Text>
-                </Pressable>
-                <Pressable style={styles.doneBtn} onPress={onDone}>
-                    <Text style={styles.doneText}>{strings.common.done}</Text>
-                </Pressable>
+                <Button size="sm" onPress={share}>
+                    {strings.staff.shareLink}
+                </Button>
+                <Button variant="quiet" size="sm" onPress={onDone}>
+                    {strings.common.done}
+                </Button>
             </View>
         </View>
     );
@@ -216,68 +194,46 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
             subtitle={strings.staff.payHeading}
             onClose={onClose}
             actions={
-                <Pressable style={ui.primary} onPress={form.submit} disabled={form.busy}>
-                    {form.busy ? (
-                        <ActivityIndicator color={c.accentInk} />
-                    ) : (
-                        <Text style={ui.primaryText}>{strings.catalog.save}</Text>
-                    )}
-                </Pressable>
+                <Button onPress={form.submit} busy={form.busy}>
+                    {strings.catalog.save}
+                </Button>
             }
         >
             <DetailSection>
-                <View style={styles.payToggle}>
-                    <Text style={styles.payToggleLabel}>{strings.staff.isPayee}</Text>
-                    <Switch value={form.isPayee} onValueChange={form.setIsPayee} />
-                </View>
+                <Toggle
+                    label={strings.staff.isPayee}
+                    value={form.isPayee}
+                    onChange={form.setIsPayee}
+                />
                 {form.isPayee ? (
                     <>
-                        <Text style={ui.label}>{strings.staff.rateType}</Text>
-                        <View style={ui.chipWrap}>
-                            {RATE_TYPES.map((t) => (
-                                <Pressable
-                                    key={t.value}
-                                    style={[ui.chip, form.rateType === t.value ? ui.chipOn : null]}
-                                    onPress={() => {
-                                        form.setRateType(t.value);
-                                    }}
-                                >
-                                    <Text
-                                        style={[
-                                            ui.chipText,
-                                            form.rateType === t.value ? ui.chipTextOn : null,
-                                        ]}
-                                    >
-                                        {t.label}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </View>
-                        <Text style={ui.label}>{strings.staff.rateLabel(form.rateType)}</Text>
-                        <TextInput
-                            style={ui.input}
-                            value={form.rate}
-                            onChangeText={form.setRate}
-                            keyboardType="decimal-pad"
+                        <Select
+                            label={strings.staff.rateType}
+                            value={form.rateType}
+                            options={RATE_TYPES.map((t) => ({ key: t.value, label: t.label }))}
+                            onChange={form.setRateType}
                         />
-                        <Text style={ui.label}>{strings.staff.retailRate}</Text>
-                        <TextInput
-                            style={ui.input}
+                        <TextField
+                            label={strings.staff.rateLabel(form.rateType)}
+                            type="number"
+                            value={form.rate}
+                            onChange={form.setRate}
+                        />
+                        <TextField
+                            label={strings.staff.retailRate}
+                            type="number"
                             value={form.retailPercent}
-                            onChangeText={form.setRetailPercent}
-                            keyboardType="decimal-pad"
+                            onChange={form.setRetailPercent}
                         />
                     </>
                 ) : null}
-                {form.error !== null ? <Text style={ui.error}>{form.error}</Text> : null}
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
             </DetailSection>
         </DetailView>
     );
 }
 
 const styles = StyleSheet.create({
-    payToggle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    payToggleLabel: { color: c.ink, fontSize: 14, flex: 1, marginRight: 12 },
     screen: { flex: 1, backgroundColor: c.bg },
     footer: { paddingTop: 16 },
     member: {
@@ -323,28 +279,7 @@ const styles = StyleSheet.create({
         borderColor: c.border,
         padding: 14,
     },
-    fieldLabel: {
-        color: c.inkSoft,
-        fontSize: 13,
-        fontWeight: "600",
-        marginBottom: 6,
-        marginTop: 10,
-    },
-    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        backgroundColor: c.bg,
-    },
-    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
-    chipText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    chipTextOn: { color: c.accentInk },
-    error: { color: c.danFg, fontSize: 13, marginTop: 10 },
     submitGap: { marginTop: 14 },
-    dim: { opacity: 0.7 },
     linkBox: {
         marginTop: 14,
         padding: 12,
@@ -356,13 +291,4 @@ const styles = StyleSheet.create({
     linkLabel: { color: c.ink, fontSize: 13, fontWeight: "600" },
     link: { color: c.inkSoft, fontSize: 12, marginTop: 6 },
     linkActions: { flexDirection: "row", gap: 8, marginTop: 10 },
-    shareBtn: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 14,
-        paddingVertical: 9,
-    },
-    shareText: { color: c.accentInk, fontSize: 13, fontWeight: "700" },
-    doneBtn: { paddingHorizontal: 12, paddingVertical: 9 },
-    doneText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
 });

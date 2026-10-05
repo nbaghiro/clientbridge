@@ -6,7 +6,6 @@ import {
     useClients,
     useSaleCheckout,
     useSavedCards,
-    useStripeAccountId,
     type CartLine,
     type Order,
     filterItems,
@@ -29,17 +28,18 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useMemo, useState } from "react";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
-    ActivityIndicator,
-    FlatList,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
-import { ChargeSheet, IconSearch, ItemImage, StatusPill, ui } from "@clientbridge/ui";
+    Button,
+    ChargeSheet,
+    Choice,
+    ItemImage,
+    Notice,
+    SearchField,
+    StatusPill,
+    TextField,
+    ui,
+} from "@clientbridge/ui";
 
 import {
     ClientChips,
@@ -72,15 +72,16 @@ export function POS() {
                 <Text style={styles.readerSub}>
                     {strings.pos.paidBody(formatMoney(cart.order.total_cents))}
                 </Text>
-                <Pressable
-                    style={styles.charge}
+                <Button
+                    size="lg"
+                    full
                     onPress={() => {
                         setPayingByCard(false);
                         cart.newSale();
                     }}
                 >
-                    <Text style={styles.chargeText}>{strings.pos.newSale}</Text>
-                </Pressable>
+                    {strings.pos.newSale}
+                </Button>
             </View>
         );
     }
@@ -114,14 +115,10 @@ export function POS() {
             ) : (
                 <>
                     <View style={styles.searchWrap}>
-                        <IconSearch size={16} color={c.muted} />
-                        <TextInput
-                            style={styles.search}
+                        <SearchField
                             value={q}
-                            onChangeText={setQ}
+                            onChange={setQ}
                             placeholder={strings.pos.searchPlaceholder}
-                            placeholderTextColor={c.muted}
-                            autoCapitalize="none"
                         />
                     </View>
 
@@ -162,29 +159,16 @@ export function POS() {
                                 {entitlements.length > 0 ? (
                                     <View style={styles.openOrders}>
                                         <Text style={styles.openTitle}>{strings.pos.alsoSell}</Text>
-                                        <View style={ui.chipWrap}>
-                                            {entitlements.map((kind) => (
-                                                <Pressable
-                                                    key={kind}
-                                                    style={[
-                                                        ui.chip,
-                                                        selling === kind ? ui.chipOn : null,
-                                                    ]}
-                                                    onPress={() => {
-                                                        setSelling(selling === kind ? null : kind);
-                                                    }}
-                                                >
-                                                    <Text
-                                                        style={[
-                                                            ui.chipText,
-                                                            selling === kind ? ui.chipTextOn : null,
-                                                        ]}
-                                                    >
-                                                        {ENTITLEMENT_LABEL[kind]}
-                                                    </Text>
-                                                </Pressable>
-                                            ))}
-                                        </View>
+                                        <Choice
+                                            options={entitlements.map((kind) => ({
+                                                key: kind,
+                                                label: ENTITLEMENT_LABEL[kind],
+                                            }))}
+                                            value={selling}
+                                            onChange={(kind) => {
+                                                setSelling(selling === kind ? null : kind);
+                                            }}
+                                        />
                                         {selling !== null ? (
                                             <EntitlementSale
                                                 kind={selling}
@@ -235,14 +219,12 @@ function CardPayment({
     const cards = useSavedCards(cart.clientId ?? "");
     const methods = checkoutMethods(cards);
     const sale = useSaleCheckout(api, cart, methods[0]?.id);
-    const stripeAccount = useStripeAccountId() ?? "";
     if (cart.order === null) return null;
     return (
         <ChargeSheet
             checkout={sale.checkout}
             methods={methods}
             amountLabel={formatMoney(cart.order.total_cents)}
-            stripeAccount={stripeAccount}
             submitLabel={strings.pos.payCard}
             busyLabel={strings.pos.paying}
             onSubmit={sale.submit}
@@ -257,17 +239,15 @@ function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
     const client = clients.find((cl) => cl.id === cart.clientId);
     return (
         <View>
-            <Pressable
-                style={styles.detailsToggle}
+            <Button
+                variant="quiet"
+                size="sm"
                 onPress={() => {
                     setOpen(!open);
                 }}
             >
-                <Text style={styles.detailsText} numberOfLines={1}>
-                    {strings.pos.clientLabel}: {client?.name ?? strings.pos.walkIn}
-                </Text>
-                <Text style={styles.detailsText}>{open ? "−" : "+"}</Text>
-            </Pressable>
+                {strings.pos.saleDetails(client?.name ?? strings.pos.walkIn, open)}
+            </Button>
             {open ? (
                 <View style={styles.details}>
                     <ClientChips
@@ -277,20 +257,19 @@ function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
                             cart.setClientId(id === "" ? null : id);
                         }}
                     />
-                    <Text style={ui.label}>{strings.pos.receiptEmail}</Text>
-                    <TextInput
-                        style={styles.detailsInput}
+                    <TextField
+                        label={strings.pos.receiptEmail}
+                        type="email"
+                        size="sm"
                         value={cart.receiptEmail}
-                        onChangeText={cart.setReceiptEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
+                        onChange={cart.setReceiptEmail}
                     />
-                    <Text style={ui.label}>{strings.pos.receiptPhone}</Text>
-                    <TextInput
-                        style={styles.detailsInput}
+                    <TextField
+                        label={strings.pos.receiptPhone}
+                        type="tel"
+                        size="sm"
                         value={cart.receiptPhone}
-                        onChangeText={cart.setReceiptPhone}
-                        keyboardType="phone-pad"
+                        onChange={cart.setReceiptPhone}
                     />
                     <Text style={ui.note}>{strings.pos.receiptHint}</Text>
                 </View>
@@ -325,18 +304,20 @@ function CartBar({ cart, onCard }: { cart: ReturnType<typeof useCart>; onCard: (
             {cart.phase === "review" && cart.order !== null ? (
                 <>
                     <Totals order={cart.order} />
-                    <Pressable style={styles.charge} onPress={cart.charge} disabled={cart.busy}>
-                        {cart.busy ? (
-                            <ActivityIndicator color={c.accentInk} />
-                        ) : (
-                            <Text style={styles.chargeText}>
-                                {strings.pos.tapToPay} · {formatMoney(cart.order.total_cents)}
-                            </Text>
-                        )}
-                    </Pressable>
-                    <Pressable style={styles.secondary} onPress={onCard} disabled={cart.busy}>
-                        <Text style={styles.secondaryText}>{strings.pos.payCard}</Text>
-                    </Pressable>
+                    <View style={styles.actions}>
+                        <Button size="lg" full onPress={cart.charge} busy={cart.busy}>
+                            {strings.pos.tapToPayAmount(formatMoney(cart.order.total_cents))}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            full
+                            onPress={onCard}
+                            disabled={cart.busy}
+                        >
+                            {strings.pos.payCard}
+                        </Button>
+                    </View>
                 </>
             ) : (
                 <>
@@ -347,20 +328,20 @@ function CartBar({ cart, onCard }: { cart: ReturnType<typeof useCart>; onCard: (
                             <Text style={styles.subtotalTax}>{strings.pos.plusTax}</Text>
                         </Text>
                     </View>
-                    <Pressable
-                        style={[styles.charge, cart.isEmpty && styles.disabled]}
-                        onPress={cart.review}
-                        disabled={cart.busy || cart.isEmpty}
-                    >
-                        {cart.busy ? (
-                            <ActivityIndicator color={c.accentInk} />
-                        ) : (
-                            <Text style={styles.chargeText}>{strings.pos.reviewTotal}</Text>
-                        )}
-                    </Pressable>
+                    <View style={styles.actions}>
+                        <Button
+                            size="lg"
+                            full
+                            onPress={cart.review}
+                            busy={cart.busy}
+                            disabled={cart.isEmpty}
+                        >
+                            {strings.pos.reviewTotal}
+                        </Button>
+                    </View>
                 </>
             )}
-            {cart.error !== null ? <Text style={styles.error}>{cart.error}</Text> : null}
+            {cart.error !== null ? <Notice tone="danger">{cart.error}</Notice> : null}
         </View>
     );
 }
@@ -471,26 +452,25 @@ function ReaderPanel({
                 <Text style={styles.readerNote}>{strings.pos.readerRequirements}</Text>
             </View>
             {terminal.phase === "done" ? (
-                <Pressable style={styles.charge} onPress={onDone}>
-                    <Text style={styles.chargeText}>{strings.pos.newSale}</Text>
-                </Pressable>
+                <Button size="lg" full onPress={onDone}>
+                    {strings.pos.newSale}
+                </Button>
             ) : (
-                <Pressable
-                    style={styles.charge}
+                <Button
+                    size="lg"
+                    full
                     disabled={!terminal.ready || terminal.phase === "collecting"}
                     onPress={() => {
                         terminal.charge(clientSecret);
                     }}
                 >
-                    <Text style={styles.chargeText}>
-                        {strings.pos.collect(formatMoney(order.total_cents))}
-                    </Text>
-                </Pressable>
+                    {strings.pos.collect(formatMoney(order.total_cents))}
+                </Button>
             )}
             {onVoid !== undefined ? (
-                <Pressable style={styles.void} onPress={onVoid} disabled={busy}>
-                    <Text style={styles.voidText}>{strings.pos.voidSale}</Text>
-                </Pressable>
+                <Button variant="quiet" full onPress={onVoid} disabled={busy}>
+                    {strings.pos.voidSale}
+                </Button>
             ) : null}
         </ScrollView>
     );
@@ -520,23 +500,24 @@ function OnlineOrders() {
                         </Text>
                     </View>
                     {order.summary !== null ? <Text style={ui.note}>{order.summary}</Text> : null}
-                    <View style={ui.chipWrap}>
+                    <View style={styles.steps}>
                         {pickupActions(order.pickup_status).map((step) => (
-                            <Pressable
+                            <Button
                                 key={step.status}
+                                variant="outline"
+                                size="sm"
                                 disabled={pickup.busy}
                                 onPress={() => {
                                     pickup.advance(order.id, step.status);
                                 }}
-                                style={ui.chip}
                             >
-                                <Text style={ui.chipText}>{step.label}</Text>
-                            </Pressable>
+                                {step.label}
+                            </Button>
                         ))}
                     </View>
                 </View>
             ))}
-            {pickup.error !== null ? <Text style={ui.error}>{pickup.error}</Text> : null}
+            {pickup.error !== null ? <Notice tone="danger">{pickup.error}</Notice> : null}
         </View>
     );
 }
@@ -563,19 +544,7 @@ function OpenOrders() {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    searchWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        margin: 16,
-        marginBottom: 8,
-        paddingHorizontal: 12,
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        backgroundColor: c.surface,
-    },
-    search: { flex: 1, paddingVertical: 11, color: c.ink, fontSize: 15 },
+    searchWrap: { margin: 16, marginBottom: 8 },
     grid: { paddingHorizontal: 16, paddingBottom: 16 },
     gridRow: { gap: 12 },
     tile: {
@@ -646,16 +615,8 @@ const styles = StyleSheet.create({
     },
     grandLabel: { color: c.ink, fontSize: 15, fontWeight: "700" },
     grandValue: { color: c.ink, fontSize: 15, fontWeight: "700", fontVariant: ["tabular-nums"] },
-    charge: {
-        marginTop: 12,
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 13,
-        alignItems: "center",
-    },
-    chargeText: { color: c.accentInk, fontSize: 15, fontWeight: "700" },
-    disabled: { opacity: 0.5 },
-    error: { color: c.danFg, fontSize: 13, marginTop: 8 },
+    actions: { marginTop: 12, gap: 8 },
+    steps: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     reader: { padding: 20, gap: 12 },
     readerTitle: { color: c.ink, fontSize: 20, fontWeight: "700" },
     readerSub: { color: c.muted, fontSize: 14 },
@@ -670,36 +631,8 @@ const styles = StyleSheet.create({
     },
     readerWaiting: { color: c.accentStrong, fontSize: 15, fontWeight: "600" },
     readerNote: { color: c.muted, fontSize: 12, marginTop: 6, textAlign: "center" },
-    readerSecret: { color: c.muted, fontSize: 12 },
-    secondary: {
-        borderWidth: 1,
-        borderColor: c.border,
-        borderRadius: theme.radius,
-        paddingVertical: 12,
-        alignItems: "center",
-    },
-    secondaryText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    void: { paddingVertical: 12, alignItems: "center" },
-    voidText: { color: c.muted, fontSize: 14, fontWeight: "600" },
     openOrders: { marginTop: 8, gap: 6 },
-    detailsToggle: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingBottom: 8,
-    },
-    detailsText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
     details: { paddingBottom: 10 },
-    detailsInput: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        color: c.ink,
-        fontSize: 14,
-        backgroundColor: c.bg,
-    },
     openTitle: { color: c.ink, fontSize: 15, fontWeight: "700", marginBottom: 2 },
     openRow: {
         flexDirection: "row",

@@ -24,24 +24,25 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import {
+    Button,
     DetailSection,
     DetailView,
-    field,
     ItemImage,
     ListPage,
     Money,
-    primaryButton,
+    Notice,
+    Select,
     StatusPill,
+    TextField,
+    Toggle,
 } from "@clientbridge/ui";
-import { type ReactNode, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ItemImageUpload } from "../components/ItemImageUpload";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 
 const GRID = "grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-4";
-const quiet =
-    "rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60";
 
 export function Catalog() {
     const items = useCatalogItems();
@@ -162,27 +163,21 @@ function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => vo
             actions={
                 <>
                     {item !== null ? (
-                        <button
-                            type="button"
-                            onClick={archived ? form.restore : form.archive}
+                        <Button
+                            variant="outline"
+                            onPress={archived ? form.restore : form.archive}
                             disabled={form.busy}
-                            className={quiet}
                         >
                             {archived ? strings.catalog.restore : strings.catalog.archive}
-                        </button>
+                        </Button>
                     ) : null}
-                    <button
-                        type="button"
-                        onClick={form.submit}
-                        disabled={form.busy}
-                        className={primaryButton}
-                    >
+                    <Button onPress={form.submit} busy={form.busy}>
                         {form.busy
                             ? strings.catalog.saving
                             : item === null
                               ? strings.catalog.addItem
                               : strings.catalog.save}
-                    </button>
+                    </Button>
                 </>
             }
         >
@@ -203,7 +198,9 @@ function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => vo
             <DetailSection>
                 <ItemFields form={form} />
                 {form.error !== null ? (
-                    <p className="mt-3 text-sm text-danger-fg">{form.error}</p>
+                    <div className="mt-3">
+                        <Notice tone="danger">{form.error}</Notice>
+                    </div>
                 ) : null}
             </DetailSection>
             {item !== null && item.track_stock === 1 ? <RestockSection item={item} /> : null}
@@ -211,24 +208,12 @@ function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => vo
     );
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-    return (
-        <label className="flex flex-1 flex-col gap-1 text-sm font-medium text-ink-soft">
-            {label}
-            {children}
-            {hint !== undefined ? (
-                <span className="text-xs font-normal text-muted">{hint}</span>
-            ) : null}
-        </label>
-    );
-}
-
-function TextField({
+function ItemText({
     form,
     name,
     label,
     hint,
-    numeric,
+    numeric = false,
 }: {
     form: ItemForm;
     name:
@@ -249,70 +234,25 @@ function TextField({
         | "lowStockAt";
     label: string;
     hint?: string;
-    numeric?: "decimal" | "numeric";
+    numeric?: boolean;
 }) {
     return (
-        <Field label={label} {...(hint !== undefined ? { hint } : {})}>
-            <input
+        <div className="flex-1">
+            <TextField
+                label={label}
+                hint={hint}
+                type={numeric ? "number" : "text"}
                 value={form.values[name]}
-                onChange={(e) => {
-                    form.set(name, e.target.value);
+                onChange={(v) => {
+                    form.set(name, v);
                 }}
-                {...(numeric !== undefined ? { inputMode: numeric } : {})}
-                className={field}
             />
-        </Field>
+        </div>
     );
 }
 
-function Select({
-    value,
-    options,
-    onChange,
-}: {
-    value: string;
-    options: { value: string; label: string }[];
-    onChange: (v: string) => void;
-}) {
-    return (
-        <select
-            value={value}
-            onChange={(e) => {
-                onChange(e.target.value);
-            }}
-            className={field}
-        >
-            {options.map((o) => (
-                <option key={o.value} value={o.value}>
-                    {o.label}
-                </option>
-            ))}
-        </select>
-    );
-}
-
-function Check({
-    checked,
-    label,
-    onChange,
-}: {
-    checked: boolean;
-    label: string;
-    onChange: (v: boolean) => void;
-}) {
-    return (
-        <label className="flex items-center gap-2 text-sm text-ink">
-            <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => {
-                    onChange(e.target.checked);
-                }}
-                className="h-4 w-4 accent-accent"
-            />
-            {label}
-        </label>
-    );
+function options(list: readonly { value: string; label: string }[]) {
+    return list.map((o) => ({ key: o.value, label: o.label }));
 }
 
 function ItemFields({ form }: { form: ItemForm }) {
@@ -320,70 +260,58 @@ function ItemFields({ form }: { form: ItemForm }) {
     return (
         <div className="flex flex-col gap-3">
             {form.editing ? null : (
-                <Field label={strings.catalog.type}>
-                    <Select
-                        value={v.kind}
-                        options={ITEM_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))}
-                        onChange={(k) => {
-                            form.set("kind", k);
-                        }}
-                    />
-                </Field>
-            )}
-            <TextField form={form} name="name" label={strings.catalog.name} />
-            <Field label={strings.catalog.description}>
-                <textarea
-                    value={v.description}
-                    onChange={(e) => {
-                        form.set("description", e.target.value);
+                <Select
+                    label={strings.catalog.type}
+                    value={v.kind}
+                    options={ITEM_KINDS.map((k) => ({ key: k, label: KIND_LABEL[k] ?? k }))}
+                    onChange={(k) => {
+                        form.set("kind", k);
                     }}
-                    rows={2}
-                    className={field}
                 />
-            </Field>
+            )}
+            <ItemText form={form} name="name" label={strings.catalog.name} />
+            <TextField
+                label={strings.catalog.description}
+                multiline
+                rows={2}
+                value={v.description}
+                onChange={(d) => {
+                    form.set("description", d);
+                }}
+            />
             <div className="flex gap-3">
-                <TextField
-                    form={form}
-                    name="price"
-                    label={strings.catalog.priceLabel}
-                    numeric="decimal"
-                />
-                <TextField form={form} name="category" label={strings.catalog.category} />
+                <ItemText form={form} name="price" label={strings.catalog.priceLabel} numeric />
+                <ItemText form={form} name="category" label={strings.catalog.category} />
             </div>
 
             {form.shows("duration") ? (
                 <div className="flex gap-3">
-                    <TextField
+                    <ItemText
                         form={form}
                         name="duration"
                         label={strings.catalog.durationLabel}
-                        numeric="numeric"
+                        numeric
                     />
-                    <TextField
+                    <ItemText
                         form={form}
                         name="bufferBefore"
                         label={strings.catalog.bufferBefore}
-                        numeric="numeric"
+                        numeric
                     />
-                    <TextField
+                    <ItemText
                         form={form}
                         name="bufferAfter"
                         label={strings.catalog.bufferAfter}
-                        numeric="numeric"
+                        numeric
                     />
                 </div>
             ) : null}
             {form.shows("capacity") ? (
-                <TextField
-                    form={form}
-                    name="capacity"
-                    label={strings.catalog.capacity}
-                    numeric="numeric"
-                />
+                <ItemText form={form} name="capacity" label={strings.catalog.capacity} numeric />
             ) : null}
             {form.shows("onlineBookable") ? (
-                <Check
-                    checked={v.onlineBookable}
+                <Toggle
+                    value={v.onlineBookable}
                     label={strings.catalog.onlineBookable}
                     onChange={(c) => {
                         form.set("onlineBookable", c);
@@ -392,17 +320,18 @@ function ItemFields({ form }: { form: ItemForm }) {
             ) : null}
             {form.shows("depositType") ? (
                 <div className="flex gap-3">
-                    <Field label={strings.catalog.depositType}>
+                    <div className="flex-1">
                         <Select
+                            label={strings.catalog.depositType}
                             value={v.depositType}
-                            options={DEPOSIT_TYPES}
+                            options={options(DEPOSIT_TYPES)}
                             onChange={(t) => {
                                 form.set("depositType", t);
                             }}
                         />
-                    </Field>
+                    </div>
                     {v.depositType !== "none" ? (
-                        <TextField
+                        <ItemText
                             form={form}
                             name="depositValue"
                             label={
@@ -410,7 +339,7 @@ function ItemFields({ form }: { form: ItemForm }) {
                                     ? strings.catalog.depositAmount
                                     : strings.catalog.depositPercentLabel
                             }
-                            numeric="decimal"
+                            numeric
                         />
                     ) : null}
                 </div>
@@ -418,57 +347,53 @@ function ItemFields({ form }: { form: ItemForm }) {
 
             {form.shows("sessionCount") ? (
                 <div className="flex gap-3">
-                    <TextField
+                    <ItemText
                         form={form}
                         name="sessionCount"
                         label={strings.catalog.sessionCount}
-                        numeric="numeric"
+                        numeric
                     />
-                    <TextField
+                    <ItemText
                         form={form}
                         name="validityDays"
                         label={strings.catalog.validityDays}
                         hint={strings.catalog.validityHint}
-                        numeric="numeric"
+                        numeric
                     />
                 </div>
             ) : null}
 
             {form.shows("interval") ? (
                 <div className="flex gap-3">
-                    <TextField
+                    <ItemText
                         form={form}
                         name="interval"
                         label={strings.catalog.intervalLabel}
-                        numeric="numeric"
+                        numeric
                     />
-                    <Field label={strings.catalog.repeatsEvery}>
+                    <div className="flex-1">
                         <Select
+                            label={strings.catalog.repeatsEvery}
                             value={v.frequency}
-                            options={FREQUENCIES}
+                            options={options(FREQUENCIES)}
                             onChange={(f) => {
                                 form.set("frequency", f);
                             }}
                         />
-                    </Field>
+                    </div>
                 </div>
             ) : null}
 
             {form.shows("sku") ? (
                 <div className="flex gap-3">
-                    <TextField form={form} name="sku" label={strings.catalog.sku} />
-                    <TextField
-                        form={form}
-                        name="cost"
-                        label={strings.catalog.cost}
-                        numeric="decimal"
-                    />
+                    <ItemText form={form} name="sku" label={strings.catalog.sku} />
+                    <ItemText form={form} name="cost" label={strings.catalog.cost} numeric />
                 </div>
             ) : null}
             {form.shows("trackStock") ? (
                 <>
-                    <Check
-                        checked={v.trackStock}
+                    <Toggle
+                        value={v.trackStock}
                         label={strings.catalog.trackStock}
                         onChange={(c) => {
                             form.set("trackStock", c);
@@ -477,26 +402,26 @@ function ItemFields({ form }: { form: ItemForm }) {
                     {v.trackStock ? (
                         <div className="flex gap-3">
                             {form.editing ? null : (
-                                <TextField
+                                <ItemText
                                     form={form}
                                     name="openingStock"
                                     label={strings.catalog.openingStock}
-                                    numeric="numeric"
+                                    numeric
                                 />
                             )}
-                            <TextField
+                            <ItemText
                                 form={form}
                                 name="lowStockAt"
                                 label={strings.catalog.lowStockAt}
-                                numeric="numeric"
+                                numeric
                             />
                         </div>
                     ) : null}
                 </>
             ) : null}
             {form.shows("sellOnline") ? (
-                <Check
-                    checked={v.sellOnline}
+                <Toggle
+                    value={v.sellOnline}
                     label={strings.catalog.sellOnline}
                     onChange={(c) => {
                         form.set("sellOnline", c);
@@ -504,15 +429,15 @@ function ItemFields({ form }: { form: ItemForm }) {
                 />
             ) : null}
 
-            <Field label={strings.catalog.taxClass} hint={strings.catalog.taxNote}>
-                <Select
-                    value={v.taxClass}
-                    options={TAX_CLASSES}
-                    onChange={(t) => {
-                        form.set("taxClass", t);
-                    }}
-                />
-            </Field>
+            <Select
+                label={strings.catalog.taxClass}
+                hint={strings.catalog.taxNote}
+                value={v.taxClass}
+                options={options(TAX_CLASSES)}
+                onChange={(t) => {
+                    form.set("taxClass", t);
+                }}
+            />
         </div>
     );
 }
@@ -526,33 +451,27 @@ function RestockSection({ item }: { item: ItemRow }) {
             action={<StatusPill status={stockLabel(item)} intent={stockIntent(state)} asWritten />}
         >
             <div className="flex items-end gap-3">
-                <Field label={strings.catalog.restockQuantity}>
-                    <input
+                <div className="flex-1">
+                    <TextField
+                        label={strings.catalog.restockQuantity}
+                        type="number"
                         value={form.quantity}
-                        onChange={(e) => {
-                            form.setQuantity(e.target.value);
-                        }}
-                        inputMode="numeric"
-                        className={field}
+                        onChange={form.setQuantity}
                     />
-                </Field>
-                <Field label={strings.catalog.restockNote}>
-                    <input
+                </div>
+                <div className="flex-1">
+                    <TextField
+                        label={strings.catalog.restockNote}
                         value={form.note}
-                        onChange={(e) => {
-                            form.setNote(e.target.value);
-                        }}
-                        className={field}
+                        onChange={form.setNote}
                     />
-                </Field>
-                <button type="button" onClick={form.submit} disabled={form.busy} className={quiet}>
+                </div>
+                <Button variant="outline" onPress={form.submit} busy={form.busy}>
                     {form.busy ? strings.catalog.restocking : strings.catalog.restock}
-                </button>
+                </Button>
             </div>
             <p className="mt-1 text-xs text-muted">{strings.catalog.restockQuantityHint}</p>
-            {form.error !== null ? (
-                <p className="mt-2 text-sm text-danger-fg">{form.error}</p>
-            ) : null}
+            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
         </DetailSection>
     );
 }

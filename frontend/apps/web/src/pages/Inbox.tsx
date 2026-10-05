@@ -21,12 +21,15 @@ import {
 } from "@clientbridge/app-core";
 import { useEffect, useRef, useState } from "react";
 import {
-    field,
+    Button,
+    Choice,
+    Field,
     Modal,
-    primaryButton,
-    primaryButtonLarge,
+    Notice,
+    Select,
     StatusPill,
     Tabs,
+    TextField,
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
@@ -75,24 +78,21 @@ function Messages() {
             <header className="flex items-center justify-between gap-4 pb-4">
                 <p className="text-sm text-muted">{strings.messaging.subtitle}</p>
                 <div className="flex shrink-0 gap-2">
-                    <button
-                        type="button"
-                        onClick={() => {
+                    <Button
+                        variant="outline"
+                        onPress={() => {
                             setPanel("broadcast");
                         }}
-                        className="rounded-md border border-line px-3.5 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                     >
                         {strings.messaging.broadcast}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
+                    </Button>
+                    <Button
+                        onPress={() => {
                             setPanel("new");
                         }}
-                        className={primaryButton}
                     >
                         {strings.messaging.newMessage}
-                    </button>
+                    </Button>
                 </div>
             </header>
 
@@ -230,27 +230,30 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
                 className="border-t border-line px-6 py-3"
             >
                 {compose.error !== null ? (
-                    <p className="mb-2 text-sm text-danger">{compose.error}</p>
+                    <div className="mb-2">
+                        <Notice tone="danger">{compose.error}</Notice>
+                    </div>
                 ) : null}
                 <div className="flex items-end gap-2">
-                    <textarea
-                        value={compose.body}
-                        onChange={(e) => {
-                            compose.setBody(e.target.value);
-                        }}
-                        rows={2}
-                        placeholder={strings.messaging.replyBy(
-                            channelLabel(thread.channel).toLowerCase(),
-                        )}
-                        className={`${field} resize-none`}
-                    />
-                    <button
-                        type="submit"
-                        disabled={compose.busy || compose.body.trim().length === 0}
-                        className={primaryButtonLarge}
+                    <div className="flex-1">
+                        <TextField
+                            multiline
+                            rows={2}
+                            value={compose.body}
+                            onChange={compose.setBody}
+                            placeholder={strings.messaging.replyBy(
+                                channelLabel(thread.channel).toLowerCase(),
+                            )}
+                        />
+                    </div>
+                    <Button
+                        submit
+                        size="lg"
+                        busy={compose.busy}
+                        disabled={compose.body.trim().length === 0}
                     >
                         {compose.busy ? strings.messaging.sending : strings.messaging.send}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </div>
@@ -291,24 +294,14 @@ function Bubble({ message }: { message: MessageRow }) {
 
 function ChannelToggle({ value, onChange }: { value: Channel; onChange: (c: Channel) => void }) {
     return (
-        <div className="flex gap-2">
-            {MESSAGE_CHANNELS.map((ch) => (
-                <button
-                    key={ch}
-                    type="button"
-                    onClick={() => {
-                        onChange(ch);
-                    }}
-                    className={`rounded-md border px-3 py-1.5 text-sm font-medium transition ${
-                        value === ch
-                            ? "border-accent bg-accent-weak text-accent-strong"
-                            : "border-line text-ink-soft hover:bg-bg"
-                    }`}
-                >
-                    {channelLabel(ch)}
-                </button>
-            ))}
-        </div>
+        <Field label={strings.messaging.channelLabel}>
+            <Choice
+                layout="segmented"
+                options={MESSAGE_CHANNELS.map((ch) => ({ key: ch, label: channelLabel(ch) }))}
+                value={value}
+                onChange={onChange}
+            />
+        </Field>
     );
 }
 
@@ -328,53 +321,32 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                 }}
                 className="space-y-3"
             >
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.clientLabel}
-                    <select
-                        value={compose.clientId}
-                        onChange={(e) => {
-                            compose.setClientId(e.target.value);
-                        }}
-                        className={field}
-                    >
-                        <option value="">{strings.messaging.selectClient}</option>
-                        {clients.map((cl) => (
-                            <option key={cl.id} value={cl.id}>
-                                {cl.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <div className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.channelLabel}
-                    <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
-                </div>
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.messageLabel}
-                    <textarea
-                        value={compose.body}
-                        onChange={(e) => {
-                            compose.setBody(e.target.value);
-                        }}
-                        rows={4}
-                        placeholder={strings.messaging.messagePlaceholder}
-                        className={`${field} resize-none`}
-                    />
-                </label>
-                {compose.error !== null ? (
-                    <p className="text-sm text-danger">{compose.error}</p>
-                ) : null}
+                <Select
+                    label={strings.messaging.clientLabel}
+                    value={compose.clientId}
+                    options={[
+                        { key: "", label: strings.messaging.selectClient },
+                        ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
+                    ]}
+                    onChange={compose.setClientId}
+                />
+                <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
+                <TextField
+                    label={strings.messaging.messageLabel}
+                    multiline
+                    rows={4}
+                    value={compose.body}
+                    onChange={compose.setBody}
+                    placeholder={strings.messaging.messagePlaceholder}
+                />
+                {compose.error !== null ? <Notice tone="danger">{compose.error}</Notice> : null}
                 <div className="flex justify-end gap-2 pt-1">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
+                    <Button variant="quiet" onPress={onClose}>
                         {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={compose.busy} className={primaryButton}>
+                    </Button>
+                    <Button submit busy={compose.busy}>
                         {compose.busy ? strings.messaging.sending : strings.messaging.sendMessage}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </Modal>
@@ -397,9 +369,9 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                     <p className="mt-2 text-sm text-muted">
                         {strings.messaging.broadcastRecipients(sent.name, sent.recipient_count)}
                     </p>
-                    <button type="button" onClick={onClose} className={`${primaryButton} mt-5`}>
-                        {strings.common.done}
-                    </button>
+                    <div className="mt-5">
+                        <Button onPress={onClose}>{strings.common.done}</Button>
+                    </div>
                 </div>
             </Modal>
         );
@@ -417,69 +389,43 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                 }}
                 className="space-y-3"
             >
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.nameLabel}
-                    <input
-                        value={form.name}
-                        onChange={(e) => {
-                            form.setName(e.target.value);
-                        }}
-                        placeholder={strings.messaging.namePlaceholder}
-                        className={field}
-                    />
-                </label>
-                <div className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.channelLabel}
-                    <ChannelToggle value={form.channel} onChange={form.setChannel} />
-                </div>
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.messageLabel}
-                    <textarea
-                        value={form.body}
-                        onChange={(e) => {
-                            form.setBody(e.target.value);
-                        }}
-                        rows={4}
-                        placeholder={strings.messaging.announcementPlaceholder}
-                        className={`${field} resize-none`}
-                    />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.audienceTagsLabel}{" "}
-                    <span className="font-normal text-muted">{strings.messaging.optional}</span>
-                    <input
-                        value={form.tags}
-                        onChange={(e) => {
-                            form.setTags(e.target.value);
-                        }}
-                        placeholder={strings.messaging.tagsPlaceholderWeb}
-                        className={field}
-                    />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.messaging.scheduleLabel}{" "}
-                    <span className="font-normal text-muted">{strings.messaging.optional}</span>
-                    <input
-                        type="datetime-local"
-                        value={form.scheduledAt}
-                        onChange={(e) => {
-                            form.setScheduledAt(e.target.value);
-                        }}
-                        className={field}
-                    />
-                </label>
-                {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
+                <TextField
+                    label={strings.messaging.nameLabel}
+                    value={form.name}
+                    onChange={form.setName}
+                    placeholder={strings.messaging.namePlaceholder}
+                />
+                <ChannelToggle value={form.channel} onChange={form.setChannel} />
+                <TextField
+                    label={strings.messaging.messageLabel}
+                    multiline
+                    rows={4}
+                    value={form.body}
+                    onChange={form.setBody}
+                    placeholder={strings.messaging.announcementPlaceholder}
+                />
+                <TextField
+                    label={strings.messaging.audienceTagsLabel}
+                    optional
+                    value={form.tags}
+                    onChange={form.setTags}
+                    placeholder={strings.messaging.tagsPlaceholderWeb}
+                />
+                <TextField
+                    label={strings.messaging.scheduleLabel}
+                    optional
+                    type="datetime-local"
+                    value={form.scheduledAt}
+                    onChange={form.setScheduledAt}
+                />
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <div className="flex justify-end gap-2 pt-1">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
+                    <Button variant="quiet" onPress={onClose}>
                         {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={form.busy} className={primaryButton}>
+                    </Button>
+                    <Button submit busy={form.busy}>
                         {form.busy ? strings.messaging.sending : strings.messaging.sendBroadcast}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </Modal>

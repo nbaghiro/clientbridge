@@ -33,15 +33,16 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import {
+    Button,
     DetailSection,
     DetailView,
-    field,
     ListPage,
     Modal,
     Money,
+    Notice,
     PaymentMethodForm,
-    primaryButton,
     StatusPill,
+    TextField,
 } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
 
@@ -172,13 +173,9 @@ function ClientDetail({ client, onClose }: { client: ClientRow | null; onClose: 
 
 function SectionLink({ label, onClick }: { label: string; onClick: () => void }) {
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="text-sm font-medium text-accent transition hover:opacity-80"
-        >
+        <Button variant="link" onPress={onClick}>
             {label}
-        </button>
+        </Button>
     );
 }
 
@@ -237,26 +234,16 @@ function CardRow({ card }: { card: SavedCardRow }) {
                 ) : null}
                 <div className="ml-auto flex shrink-0 gap-2">
                     {canBeDefault(card) ? (
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={makeDefault}
-                            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                        >
+                        <Button variant="outline" size="sm" disabled={busy} onPress={makeDefault}>
                             {strings.clients.makeDefault}
-                        </button>
+                        </Button>
                     ) : null}
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={remove}
-                        className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                    >
+                    <Button variant="outline" size="sm" disabled={busy} onPress={remove}>
                         {strings.clients.remove}
-                    </button>
+                    </Button>
                 </div>
             </div>
-            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
     );
 }
@@ -329,18 +316,13 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                     <StatusPill status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
                     {isCancelable(sub.status) ? (
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={cancel}
-                            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                        >
+                        <Button variant="outline" size="sm" disabled={busy} onPress={cancel}>
                             {busy ? strings.clients.canceling : strings.common.cancel}
-                        </button>
+                        </Button>
                     ) : null}
                 </div>
             </div>
-            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
     );
 }
@@ -408,18 +390,13 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
                 <div className="ml-auto flex shrink-0 items-center gap-2">
                     <StatusPill status={pkg.status} intent={packageStatusIntent(pkg.status)} />
                     {canConsume(pkg) ? (
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={consume}
-                            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                        >
+                        <Button variant="outline" size="sm" disabled={busy} onPress={consume}>
                             {busy ? strings.common.busyEllipsis : strings.clients.consumeSession}
-                        </button>
+                        </Button>
                     ) : null}
                 </div>
             </div>
-            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
     );
 }
@@ -438,51 +415,33 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                     {strings.clients.addClientTitle}
                 </h2>
                 <div className="mt-4 flex flex-col gap-3">
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.clients.nameLabel}
-                        <input
-                            value={form.name}
-                            onChange={(e) => {
-                                form.setName(e.target.value);
-                            }}
-                            autoFocus
-                            className={field}
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.clients.emailLabel}
-                        <input
-                            type="email"
-                            value={form.email}
-                            onChange={(e) => {
-                                form.setEmail(e.target.value);
-                            }}
-                            className={field}
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.clients.phoneLabel}
-                        <input
-                            value={form.phone}
-                            onChange={(e) => {
-                                form.setPhone(e.target.value);
-                            }}
-                            className={field}
-                        />
-                    </label>
-                    {form.error ? <p className="text-sm text-danger-fg">{form.error}</p> : null}
+                    <TextField
+                        label={strings.clients.nameLabel}
+                        value={form.name}
+                        onChange={form.setName}
+                        autoFocus
+                    />
+                    <TextField
+                        label={strings.clients.emailLabel}
+                        type="email"
+                        value={form.email}
+                        onChange={form.setEmail}
+                    />
+                    <TextField
+                        label={strings.clients.phoneLabel}
+                        type="tel"
+                        value={form.phone}
+                        onChange={form.setPhone}
+                    />
+                    {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
                 </div>
                 <div className="mt-5 flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
+                    <Button variant="quiet" onPress={onClose}>
                         {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={form.busy} className={primaryButton}>
+                    </Button>
+                    <Button submit busy={form.busy}>
                         {form.busy ? strings.clients.adding : strings.clients.addClient}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </Modal>

@@ -11,16 +11,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useMemo, useState } from "react";
-import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
-import { ItemImage, Modal, ui } from "@clientbridge/ui";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Button, Choice, ItemImage, Modal, Notice, TextField } from "@clientbridge/ui";
 
 import { api, apiBaseUrl } from "../lib/api";
 
@@ -50,25 +42,16 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.chipRow}
                 >
-                    {shownClients.map((cl) => (
-                        <Pressable
-                            key={cl.id}
-                            disabled={form.editing}
-                            onPress={() => {
-                                form.setClientId(cl.id);
-                            }}
-                            style={[styles.chip, form.clientId === cl.id && styles.chipOn]}
-                        >
-                            <Text
-                                style={[
-                                    styles.chipText,
-                                    form.clientId === cl.id && styles.chipTextOn,
-                                ]}
-                            >
-                                {cl.name}
-                            </Text>
-                        </Pressable>
-                    ))}
+                    <Choice
+                        label={strings.billing.clientLabel}
+                        options={shownClients.map((cl) => ({
+                            key: cl.id,
+                            label: cl.name,
+                            disabled: form.editing,
+                        }))}
+                        value={form.clientId}
+                        onChange={form.setClientId}
+                    />
                 </ScrollView>
 
                 <Text style={[styles.sectionLabel, styles.sectionSpace]}>
@@ -117,21 +100,23 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     </View>
                 ))}
                 <View style={styles.lineLinks}>
-                    <Pressable
+                    <Button
+                        variant="link"
                         onPress={() => {
                             form.addLine();
                         }}
                     >
-                        <Text style={styles.addLine}>{strings.billing.addLine}</Text>
-                    </Pressable>
+                        {strings.billing.addLine}
+                    </Button>
                     {catalog.length > 0 ? (
-                        <Pressable
+                        <Button
+                            variant="link"
                             onPress={() => {
                                 setPicking((p) => !p);
                             }}
                         >
-                            <Text style={styles.addLine}>{strings.billing.fromCatalog}</Text>
-                        </Pressable>
+                            {strings.billing.fromCatalog}
+                        </Button>
                     ) : null}
                 </View>
                 {picking ? (
@@ -166,19 +151,16 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     </ScrollView>
                 ) : null}
 
-                <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                    {strings.billing.notesLabel}
-                </Text>
-                <TextInput
-                    style={styles.notesInput}
-                    value={form.notes}
-                    onChangeText={form.setNotes}
+                <TextField
+                    label={strings.billing.notesLabel}
                     multiline
+                    rows={2}
+                    value={form.notes}
+                    onChange={form.setNotes}
                     placeholder={strings.billing.notesPlaceholder}
-                    placeholderTextColor={c.muted}
                 />
             </ScrollView>
-            {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
+            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
             <View style={styles.foot}>
                 <Text style={styles.subtotal}>
                     {strings.billing.subtotal}{" "}
@@ -186,20 +168,12 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     <Text style={styles.subtotalTax}>{strings.billing.plusTax}</Text>
                 </Text>
                 <View style={styles.actions}>
-                    <Pressable style={styles.cancel} onPress={onClose}>
-                        <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                    </Pressable>
-                    <Pressable style={ui.primary} disabled={form.busy} onPress={form.submit}>
-                        {form.busy ? (
-                            <ActivityIndicator color={c.accentInk} />
-                        ) : (
-                            <Text style={ui.primaryText}>
-                                {form.editing
-                                    ? strings.billing.saveChanges
-                                    : strings.billing.saveDraft}
-                            </Text>
-                        )}
-                    </Pressable>
+                    <Button variant="quiet" onPress={onClose}>
+                        {strings.common.cancel}
+                    </Button>
+                    <Button busy={form.busy} onPress={form.submit}>
+                        {form.editing ? strings.billing.saveChanges : strings.billing.saveDraft}
+                    </Button>
                 </View>
             </View>
         </Modal>
@@ -207,13 +181,6 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
 }
 
 const styles = StyleSheet.create({
-    sheet: {
-        backgroundColor: c.surface,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        padding: 22,
-        paddingBottom: 36,
-    },
     sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
     sheetBody: { maxHeight: "70%" },
     sectionLabel: {
@@ -224,18 +191,7 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     sectionSpace: { marginTop: 16 },
-    chipRow: { gap: 8, paddingVertical: 8 },
-    chip: {
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 20,
-        backgroundColor: c.bg,
-        borderWidth: 1,
-        borderColor: c.border,
-    },
-    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
-    chipText: { color: c.ink, fontSize: 14, fontWeight: "500" },
-    chipTextOn: { color: c.accentInk },
+    chipRow: { paddingVertical: 8 },
     lineEdit: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
     lineInput: {
         borderColor: c.border,
@@ -252,8 +208,7 @@ const styles = StyleSheet.create({
     linePriceInput: { width: 76, textAlign: "right" },
     lineRemove: { width: 20, alignItems: "center" },
     lineRemoveText: { color: c.muted, fontSize: 18 },
-    lineLinks: { flexDirection: "row", gap: 18 },
-    addLine: { color: c.accent, fontSize: 14, fontWeight: "600", marginTop: 10 },
+    lineLinks: { flexDirection: "row", gap: 18, marginTop: 6 },
     pick: {
         width: 96,
         padding: 8,
@@ -264,25 +219,10 @@ const styles = StyleSheet.create({
     },
     pickName: { color: c.ink, fontSize: 12, fontWeight: "600", marginTop: 6 },
     pickPrice: { color: c.muted, fontSize: 12, marginTop: 2, fontVariant: ["tabular-nums"] },
-    notesInput: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginTop: 8,
-        minHeight: 56,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-        textAlignVertical: "top",
-    },
-    errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
+
     foot: { marginTop: 12 },
     subtotal: { color: c.muted, fontSize: 13 },
     subtotalValue: { color: c.ink, fontWeight: "700" },
     subtotalTax: { fontSize: 11 },
     actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
-    cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
-    cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
 });

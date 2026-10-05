@@ -1,7 +1,7 @@
 import { strings, useAcceptInviteForm } from "@clientbridge/app-core";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { fieldLarge, Lockup, primaryButtonLarge } from "@clientbridge/ui";
+import { Button, Lockup, Notice, TextField } from "@clientbridge/ui";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 
@@ -29,7 +29,9 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                 <p className="mt-1 text-sm text-muted">{strings.auth.inviteSubtitle}</p>
 
                 {token.length === 0 ? (
-                    <p className="mt-6 text-sm text-danger-fg">{strings.auth.inviteMissingCode}</p>
+                    <div className="mt-6">
+                        <Notice tone="danger">{strings.auth.inviteMissingCode}</Notice>
+                    </div>
                 ) : (
                     <form
                         onSubmit={(e) => {
@@ -38,42 +40,29 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                         }}
                         className="mt-6 flex flex-col gap-4"
                     >
-                        <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            {strings.auth.inviteName}
-                            <input
-                                value={form.name}
-                                onChange={(e) => {
-                                    form.setName(e.target.value);
-                                }}
-                                placeholder={strings.auth.namePlaceholder}
-                                autoComplete="name"
-                                className={fieldLarge}
-                            />
-                        </label>
+                        <TextField
+                            label={strings.auth.inviteName}
+                            value={form.name}
+                            onChange={form.setName}
+                            placeholder={strings.auth.namePlaceholder}
+                            autoComplete="name"
+                            size="lg"
+                        />
+                        <TextField
+                            label={strings.auth.password}
+                            type="password"
+                            value={form.password}
+                            onChange={form.setPassword}
+                            placeholder={strings.auth.passwordPlaceholder}
+                            autoComplete="new-password"
+                            size="lg"
+                        />
 
-                        <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            {strings.auth.password}
-                            <input
-                                type="password"
-                                value={form.password}
-                                onChange={(e) => {
-                                    form.setPassword(e.target.value);
-                                }}
-                                placeholder={strings.auth.passwordPlaceholder}
-                                autoComplete="new-password"
-                                className={fieldLarge}
-                            />
-                        </label>
+                        {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
 
-                        {form.error ? <p className="text-sm text-danger-fg">{form.error}</p> : null}
-
-                        <button
-                            type="submit"
-                            disabled={form.busy}
-                            className={`${primaryButtonLarge} mt-1`}
-                        >
+                        <Button submit size="lg" full busy={form.busy}>
                             {form.busy ? strings.auth.joining : strings.auth.joinTeam}
-                        </button>
+                        </Button>
                     </form>
                 )}
             </div>

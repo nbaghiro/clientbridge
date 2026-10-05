@@ -2,16 +2,8 @@ import { strings, useConnectOnboarding } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
-import {
-    ActivityIndicator,
-    Linking,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
-import { ui } from "@clientbridge/ui";
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button, Notice } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -44,7 +36,7 @@ export function GettingPaidScreen() {
                 {phase === "loading" ? (
                     <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
                 ) : phase === "error" ? (
-                    <Text style={styles.error}>{strings.gettingPaid.loadError}</Text>
+                    <Notice tone="danger">{strings.gettingPaid.loadError}</Notice>
                 ) : (
                     <>
                         <Text style={phase === "disabled" ? styles.titleDanger : styles.title}>
@@ -63,37 +55,17 @@ export function GettingPaidScreen() {
                             </Text>
                         ))}
                         {showCta && (
-                            <ConnectButton busy={busy} label={ctaLabel} onPress={connect} />
+                            <View style={styles.buttonGap}>
+                                <Button size="lg" full busy={busy} onPress={connect}>
+                                    {ctaLabel}
+                                </Button>
+                            </View>
                         )}
                     </>
                 )}
-                {error !== null && <Text style={styles.error}>{error}</Text>}
+                {error !== null && <Notice tone="danger">{error}</Notice>}
             </View>
         </ScrollView>
-    );
-}
-
-function ConnectButton({
-    busy,
-    label,
-    onPress,
-}: {
-    busy: boolean;
-    label: string;
-    onPress: () => void;
-}) {
-    return (
-        <Pressable
-            style={[ui.primaryLarge, styles.buttonGap, busy ? styles.buttonDisabled : null]}
-            disabled={busy}
-            onPress={onPress}
-        >
-            {busy ? (
-                <ActivityIndicator color={theme.colors.accentInk} />
-            ) : (
-                <Text style={ui.primaryLargeText}>{label}</Text>
-            )}
-        </Pressable>
     );
 }
 
@@ -114,6 +86,4 @@ const styles = StyleSheet.create({
     requirement: { color: theme.colors.inkSoft, fontSize: 14, marginTop: 6 },
     muted: { color: theme.colors.muted, fontSize: 14, marginTop: 4 },
     buttonGap: { marginTop: 16 },
-    buttonDisabled: { opacity: 0.6 },
-    error: { color: theme.colors.danFg, fontSize: 13, marginTop: 12 },
 });

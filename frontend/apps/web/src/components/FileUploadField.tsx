@@ -1,4 +1,5 @@
 import { type UploadTarget, fileDownloadUrl, strings, useFileUpload } from "@clientbridge/app-core";
+import { Button, Notice } from "@clientbridge/ui";
 import { type ChangeEvent, useRef, useState } from "react";
 
 import { api } from "../lib/api";
@@ -44,28 +45,23 @@ export function FileUploadField({
                 className="hidden"
             />
             <div className="flex items-center gap-2">
-                <button
-                    type="button"
-                    onClick={() => {
+                <Button
+                    variant="outline"
+                    onPress={() => {
                         inputRef.current?.click();
                     }}
-                    disabled={busy}
-                    className="rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
+                    busy={busy}
                 >
                     {busy ? strings.files.uploading : label}
-                </button>
+                </Button>
                 {name !== null ? <span className="truncate text-sm text-muted">{name}</span> : null}
             </div>
             {fileId !== null ? (
-                <button
-                    type="button"
-                    onClick={openDownload}
-                    className="text-sm font-medium text-accent hover:underline"
-                >
+                <Button variant="link" onPress={openDownload}>
                     {strings.files.viewUploadedFile}
-                </button>
+                </Button>
             ) : null}
-            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
     );
 }

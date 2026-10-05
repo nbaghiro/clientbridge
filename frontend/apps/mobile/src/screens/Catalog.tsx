@@ -25,23 +25,19 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
-import {
+    Button,
     DetailSection,
     DetailView,
     ItemImage,
     ListPage,
     Money,
+    Notice,
+    Select,
     StatusPill,
-    ui,
+    TextField,
+    Toggle,
 } from "@clientbridge/ui";
 
 import { api, apiBaseUrl } from "../lib/api";
@@ -153,31 +149,23 @@ function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => vo
             actions={
                 <>
                     {item !== null ? (
-                        <Pressable
-                            style={ui.cancel}
+                        <Button
+                            variant="outline"
                             onPress={archived ? form.restore : form.archive}
                             disabled={form.busy}
                         >
-                            <Text style={ui.cancelText}>
-                                {archived ? strings.catalog.restore : strings.catalog.archive}
-                            </Text>
-                        </Pressable>
+                            {archived ? strings.catalog.restore : strings.catalog.archive}
+                        </Button>
                     ) : null}
-                    <Pressable style={ui.primary} onPress={form.submit} disabled={form.busy}>
-                        {form.busy ? (
-                            <ActivityIndicator color={c.accentInk} />
-                        ) : (
-                            <Text style={ui.primaryText}>
-                                {item === null ? strings.catalog.addItem : strings.catalog.save}
-                            </Text>
-                        )}
-                    </Pressable>
+                    <Button onPress={form.submit} busy={form.busy}>
+                        {item === null ? strings.catalog.addItem : strings.catalog.save}
+                    </Button>
                 </>
             }
         >
             <DetailSection>
                 <ItemFields form={form} />
-                {form.error !== null ? <Text style={ui.error}>{form.error}</Text> : null}
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
             </DetailSection>
             {item !== null && item.track_stock === 1 ? <RestockSection item={item} /> : null}
         </DetailView>
@@ -199,75 +187,33 @@ function Input({
     form,
     name,
     label,
-    numeric,
-    multiline,
+    numeric = false,
+    multiline = false,
 }: {
     form: ItemForm;
     name: TextName;
     label: string;
-    numeric?: "decimal-pad" | "number-pad";
+    numeric?: boolean;
     multiline?: boolean;
 }) {
     return (
         <View style={styles.field}>
-            <Text style={ui.label}>{label}</Text>
-            <TextInput
-                style={[ui.input, multiline === true ? styles.multiline : null]}
+            <TextField
+                label={label}
+                type={numeric ? "number" : "text"}
+                multiline={multiline}
+                rows={2}
                 value={form.values[name]}
-                onChangeText={(v) => {
+                onChange={(v) => {
                     form.set(name, v);
                 }}
-                {...(numeric !== undefined ? { keyboardType: numeric } : {})}
-                multiline={multiline === true}
-                placeholderTextColor={c.muted}
             />
         </View>
     );
 }
 
-function Chips({
-    value,
-    options,
-    onChange,
-}: {
-    value: string;
-    options: { value: string; label: string }[];
-    onChange: (v: string) => void;
-}) {
-    return (
-        <View style={ui.chipWrap}>
-            {options.map((o) => (
-                <Pressable
-                    key={o.value}
-                    style={[ui.chip, value === o.value ? ui.chipOn : null]}
-                    onPress={() => {
-                        onChange(o.value);
-                    }}
-                >
-                    <Text style={[ui.chipText, value === o.value ? ui.chipTextOn : null]}>
-                        {o.label}
-                    </Text>
-                </Pressable>
-            ))}
-        </View>
-    );
-}
-
-function Toggle({
-    value,
-    label,
-    onChange,
-}: {
-    value: boolean;
-    label: string;
-    onChange: (v: boolean) => void;
-}) {
-    return (
-        <View style={styles.toggle}>
-            <Text style={styles.toggleLabel}>{label}</Text>
-            <Switch value={value} onValueChange={onChange} />
-        </View>
-    );
+function options(list: readonly { value: string; label: string }[]) {
+    return list.map((o) => ({ key: o.value, label: o.label }));
 }
 
 function ItemFields({ form }: { form: ItemForm }) {
@@ -275,26 +221,19 @@ function ItemFields({ form }: { form: ItemForm }) {
     return (
         <View>
             {form.editing ? null : (
-                <>
-                    <Text style={ui.label}>{strings.catalog.type}</Text>
-                    <Chips
-                        value={v.kind}
-                        options={ITEM_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] ?? k }))}
-                        onChange={(k) => {
-                            form.set("kind", k);
-                        }}
-                    />
-                </>
+                <Select
+                    label={strings.catalog.type}
+                    value={v.kind}
+                    options={ITEM_KINDS.map((k) => ({ key: k, label: KIND_LABEL[k] ?? k }))}
+                    onChange={(k) => {
+                        form.set("kind", k);
+                    }}
+                />
             )}
             <Input form={form} name="name" label={strings.catalog.name} />
             <Input form={form} name="description" label={strings.catalog.description} multiline />
             <View style={styles.twoCol}>
-                <Input
-                    form={form}
-                    name="price"
-                    label={strings.catalog.priceLabel}
-                    numeric="decimal-pad"
-                />
+                <Input form={form} name="price" label={strings.catalog.priceLabel} numeric />
                 <Input form={form} name="category" label={strings.catalog.category} />
             </View>
 
@@ -304,31 +243,26 @@ function ItemFields({ form }: { form: ItemForm }) {
                         form={form}
                         name="duration"
                         label={strings.catalog.durationLabel}
-                        numeric="number-pad"
+                        numeric
                     />
                     <View style={styles.twoCol}>
                         <Input
                             form={form}
                             name="bufferBefore"
                             label={strings.catalog.bufferBefore}
-                            numeric="number-pad"
+                            numeric
                         />
                         <Input
                             form={form}
                             name="bufferAfter"
                             label={strings.catalog.bufferAfter}
-                            numeric="number-pad"
+                            numeric
                         />
                     </View>
                 </>
             ) : null}
             {form.shows("capacity") ? (
-                <Input
-                    form={form}
-                    name="capacity"
-                    label={strings.catalog.capacity}
-                    numeric="number-pad"
-                />
+                <Input form={form} name="capacity" label={strings.catalog.capacity} numeric />
             ) : null}
             {form.shows("onlineBookable") ? (
                 <Toggle
@@ -341,10 +275,10 @@ function ItemFields({ form }: { form: ItemForm }) {
             ) : null}
             {form.shows("depositType") ? (
                 <>
-                    <Text style={ui.label}>{strings.catalog.depositType}</Text>
-                    <Chips
+                    <Select
+                        label={strings.catalog.depositType}
                         value={v.depositType}
-                        options={DEPOSIT_TYPES}
+                        options={options(DEPOSIT_TYPES)}
                         onChange={(t) => {
                             form.set("depositType", t);
                         }}
@@ -358,7 +292,7 @@ function ItemFields({ form }: { form: ItemForm }) {
                                     ? strings.catalog.depositAmount
                                     : strings.catalog.depositPercentLabel
                             }
-                            numeric="decimal-pad"
+                            numeric
                         />
                     ) : null}
                 </>
@@ -370,13 +304,13 @@ function ItemFields({ form }: { form: ItemForm }) {
                         form={form}
                         name="sessionCount"
                         label={strings.catalog.sessionCount}
-                        numeric="number-pad"
+                        numeric
                     />
                     <Input
                         form={form}
                         name="validityDays"
                         label={strings.catalog.validityDays}
-                        numeric="number-pad"
+                        numeric
                     />
                 </View>
             ) : null}
@@ -387,12 +321,12 @@ function ItemFields({ form }: { form: ItemForm }) {
                         form={form}
                         name="interval"
                         label={strings.catalog.intervalLabel}
-                        numeric="number-pad"
+                        numeric
                     />
-                    <Text style={ui.label}>{strings.catalog.repeatsEvery}</Text>
-                    <Chips
+                    <Select
+                        label={strings.catalog.repeatsEvery}
                         value={v.frequency}
-                        options={FREQUENCIES}
+                        options={options(FREQUENCIES)}
                         onChange={(f) => {
                             form.set("frequency", f);
                         }}
@@ -403,12 +337,7 @@ function ItemFields({ form }: { form: ItemForm }) {
             {form.shows("sku") ? (
                 <View style={styles.twoCol}>
                     <Input form={form} name="sku" label={strings.catalog.sku} />
-                    <Input
-                        form={form}
-                        name="cost"
-                        label={strings.catalog.cost}
-                        numeric="decimal-pad"
-                    />
+                    <Input form={form} name="cost" label={strings.catalog.cost} numeric />
                 </View>
             ) : null}
             {form.shows("trackStock") ? (
@@ -427,14 +356,14 @@ function ItemFields({ form }: { form: ItemForm }) {
                                     form={form}
                                     name="openingStock"
                                     label={strings.catalog.openingStock}
-                                    numeric="number-pad"
+                                    numeric
                                 />
                             )}
                             <Input
                                 form={form}
                                 name="lowStockAt"
                                 label={strings.catalog.lowStockAt}
-                                numeric="number-pad"
+                                numeric
                             />
                         </View>
                     ) : null}
@@ -450,15 +379,15 @@ function ItemFields({ form }: { form: ItemForm }) {
                 />
             ) : null}
 
-            <Text style={ui.label}>{strings.catalog.taxClass}</Text>
-            <Chips
+            <Select
+                label={strings.catalog.taxClass}
+                hint={strings.catalog.taxNote}
                 value={v.taxClass}
-                options={TAX_CLASSES}
+                options={options(TAX_CLASSES)}
                 onChange={(t) => {
                     form.set("taxClass", t);
                 }}
             />
-            <Text style={ui.note}>{strings.catalog.taxNote}</Text>
         </View>
     );
 }
@@ -473,26 +402,28 @@ function RestockSection({ item }: { item: ItemRow }) {
         >
             <View style={styles.twoCol}>
                 <View style={styles.field}>
-                    <Text style={ui.label}>{strings.catalog.restockQuantity}</Text>
-                    <TextInput
-                        style={ui.input}
+                    <TextField
+                        label={strings.catalog.restockQuantity}
+                        type="number"
                         value={form.quantity}
-                        onChangeText={form.setQuantity}
-                        keyboardType="numbers-and-punctuation"
+                        onChange={form.setQuantity}
                     />
                 </View>
                 <View style={styles.field}>
-                    <Text style={ui.label}>{strings.catalog.restockNote}</Text>
-                    <TextInput style={ui.input} value={form.note} onChangeText={form.setNote} />
+                    <TextField
+                        label={strings.catalog.restockNote}
+                        value={form.note}
+                        onChange={form.setNote}
+                    />
                 </View>
             </View>
-            <Text style={ui.note}>{strings.catalog.restockQuantityHint}</Text>
-            {form.error !== null ? <Text style={ui.error}>{form.error}</Text> : null}
-            <Pressable style={ui.outline} onPress={form.submit} disabled={form.busy}>
-                <Text style={ui.outlineText}>
+            <Text style={styles.note}>{strings.catalog.restockQuantityHint}</Text>
+            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+            <View style={styles.restock}>
+                <Button variant="outline" onPress={form.submit} busy={form.busy}>
                     {form.busy ? strings.catalog.restocking : strings.catalog.restock}
-                </Text>
-            </Pressable>
+                </Button>
+            </View>
         </DetailSection>
     );
 }
@@ -506,13 +437,7 @@ const styles = StyleSheet.create({
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     pill: { flexDirection: "row", marginTop: 4 },
     field: { flex: 1 },
-    multiline: { minHeight: 64, textAlignVertical: "top" },
     twoCol: { flexDirection: "row", gap: 10 },
-    toggle: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginTop: 14,
-    },
-    toggleLabel: { color: c.ink, fontSize: 14, flex: 1, marginRight: 12 },
+    note: { color: c.muted, fontSize: 12, marginTop: 6, lineHeight: 17 },
+    restock: { marginTop: 10 },
 });

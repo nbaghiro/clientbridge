@@ -5,7 +5,7 @@ import {
     strings,
     usePublicContractSign,
 } from "@clientbridge/app-core/public";
-import { field, primaryButtonLarge, StatusPill } from "@clientbridge/ui";
+import { Button, Field, Notice, StatusPill, TextField } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
@@ -74,50 +74,35 @@ export function PublicContract() {
             </div>
 
             <form onSubmit={sign} className="mt-6 space-y-3">
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.publicContract.typeNameToSign}
-                    <input
-                        value={form.typedName}
-                        onChange={(e) => {
-                            form.setTypedName(e.target.value);
-                        }}
-                        placeholder={strings.publicContract.fullNamePlaceholder}
-                        className={field}
-                    />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.publicContract.uploadSignature}
+                <TextField
+                    label={strings.publicContract.typeNameToSign}
+                    value={form.typedName}
+                    onChange={form.setTypedName}
+                    placeholder={strings.publicContract.fullNamePlaceholder}
+                    autoComplete="name"
+                />
+                <Field label={strings.publicContract.uploadSignature}>
                     <input
                         type="file"
                         accept="image/*"
+                        aria-label={strings.publicContract.uploadSignature}
                         onChange={uploadImage}
                         className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
                     />
                     {form.imageName !== "" ? (
-                        <span className="text-xs text-ok-fg">
+                        <Notice tone="success">
                             {strings.publicContract.attached(form.imageName)}
-                        </span>
+                        </Notice>
                     ) : null}
-                </label>
-                {form.error !== null ? (
-                    <p className="text-sm text-danger-fg">{form.error}</p>
-                ) : null}
+                </Field>
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <div className="flex gap-2">
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className={`${primaryButtonLarge} flex-1`}
-                    >
+                    <Button submit size="lg" grow busy={form.busy}>
                         {form.busy ? strings.common.working : strings.publicContract.sign}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={form.decline}
-                        disabled={form.busy}
-                        className="rounded-md border border-line px-4 py-2.5 text-sm font-semibold text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                    >
+                    </Button>
+                    <Button variant="outline" size="lg" onPress={form.decline} disabled={form.busy}>
                         {strings.publicContract.decline}
-                    </button>
+                    </Button>
                 </div>
                 <p className="text-xs text-muted">{strings.publicContract.esignConsent}</p>
             </form>

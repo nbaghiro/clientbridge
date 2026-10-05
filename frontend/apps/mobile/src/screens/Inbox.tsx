@@ -25,14 +25,22 @@ import {
     FlatList,
     KeyboardAvoidingView,
     Platform,
-    Pressable,
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     View,
 } from "react-native";
-import { ListPage, Modal, StatusPill, Tabs, ui } from "@clientbridge/ui";
+import {
+    Button,
+    Choice,
+    Field,
+    ListPage,
+    Modal,
+    Notice,
+    StatusPill,
+    Tabs,
+    TextField,
+} from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -65,14 +73,15 @@ function Messages() {
             <ListPage
                 summary={strings.messaging.subtitle}
                 accessory={
-                    <Pressable
-                        style={styles.ghostBtn}
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onPress={() => {
                             setBroadcasting(true);
                         }}
                     >
-                        <Text style={styles.ghostText}>{strings.messaging.broadcast}</Text>
-                    </Pressable>
+                        {strings.messaging.broadcast}
+                    </Button>
                 }
                 action={{
                     label: strings.messaging.newShort,
@@ -165,9 +174,9 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
                 <Text style={styles.sheetTitle} numberOfLines={1}>
                     {thread.client_name ?? strings.messaging.clientFallback}
                 </Text>
-                <Pressable onPress={onClose}>
-                    <Text style={styles.closeText}>{strings.common.close}</Text>
-                </Pressable>
+                <Button variant="link" onPress={onClose}>
+                    {strings.common.close}
+                </Button>
             </View>
 
             <FlatList
@@ -181,30 +190,26 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
             />
 
             <View style={styles.composer}>
-                {compose.error !== null ? <Text style={styles.error}>{compose.error}</Text> : null}
+                {compose.error !== null ? <Notice tone="danger">{compose.error}</Notice> : null}
                 <View style={styles.composerRow}>
-                    <TextInput
-                        style={styles.composerInput}
-                        value={compose.body}
-                        onChangeText={compose.setBody}
-                        placeholder={strings.messaging.replyBy(
-                            channelLabel(thread.channel).toLowerCase(),
-                        )}
-                        placeholderTextColor={c.muted}
-                        multiline
-                    />
-                    <Pressable
-                        style={[
-                            styles.sendBtn,
-                            (compose.busy || compose.body.trim().length === 0) && styles.btnBusy,
-                        ]}
-                        disabled={compose.busy || compose.body.trim().length === 0}
+                    <View style={styles.composerInput}>
+                        <TextField
+                            multiline
+                            rows={1}
+                            value={compose.body}
+                            onChange={compose.setBody}
+                            placeholder={strings.messaging.replyBy(
+                                channelLabel(thread.channel).toLowerCase(),
+                            )}
+                        />
+                    </View>
+                    <Button
+                        busy={compose.busy}
+                        disabled={compose.body.trim().length === 0}
                         onPress={compose.submit}
                     >
-                        <Text style={styles.sendText}>
-                            {compose.busy ? strings.common.busyEllipsis : strings.messaging.send}
-                        </Text>
-                    </Pressable>
+                        {strings.messaging.send}
+                    </Button>
                 </View>
             </View>
         </KeyboardAvoidingView>
@@ -235,21 +240,14 @@ function Bubble({ message }: { message: MessageRow }) {
 
 function ChannelToggle({ value, onChange }: { value: Channel; onChange: (ch: Channel) => void }) {
     return (
-        <View style={styles.chipWrap}>
-            {MESSAGE_CHANNELS.map((ch) => (
-                <Pressable
-                    key={ch}
-                    style={[styles.chip, value === ch && styles.chipOn]}
-                    onPress={() => {
-                        onChange(ch);
-                    }}
-                >
-                    <Text style={[styles.chipText, value === ch && styles.chipTextOn]}>
-                        {channelLabel(ch)}
-                    </Text>
-                </Pressable>
-            ))}
-        </View>
+        <Field label={strings.messaging.channelLabel}>
+            <Choice
+                layout="segmented"
+                options={MESSAGE_CHANNELS.map((ch) => ({ key: ch, label: channelLabel(ch) }))}
+                value={value}
+                onChange={onChange}
+            />
+        </Field>
     );
 }
 
@@ -261,49 +259,28 @@ function ComposeModal({ visible, onClose }: { visible: boolean; onClose: () => v
         <Modal open={visible} onClose={onClose}>
             <Text style={styles.sheetTitle}>{strings.messaging.newMessageTitle}</Text>
             <ScrollView contentContainerStyle={styles.formBody}>
-                <Text style={styles.fieldLabel}>{strings.messaging.clientLabel}</Text>
-                {clients.length === 0 ? (
-                    <Text style={styles.muted}>{strings.messaging.addClientFirst}</Text>
-                ) : (
-                    <View style={styles.chipWrap}>
-                        {clients.map((cl) => (
-                            <Pressable
-                                key={cl.id}
-                                style={[styles.chip, compose.clientId === cl.id && styles.chipOn]}
-                                onPress={() => {
-                                    compose.setClientId(cl.id);
-                                }}
-                            >
-                                <Text
-                                    style={[
-                                        styles.chipText,
-                                        compose.clientId === cl.id && styles.chipTextOn,
-                                    ]}
-                                >
-                                    {cl.name}
-                                </Text>
-                            </Pressable>
-                        ))}
-                    </View>
-                )}
-
-                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                    {strings.messaging.channelLabel}
-                </Text>
+                <Field label={strings.messaging.clientLabel}>
+                    {clients.length === 0 ? (
+                        <Text style={styles.muted}>{strings.messaging.addClientFirst}</Text>
+                    ) : (
+                        <Choice
+                            label={strings.messaging.clientLabel}
+                            options={clients.map((cl) => ({ key: cl.id, label: cl.name }))}
+                            value={compose.clientId}
+                            onChange={compose.setClientId}
+                        />
+                    )}
+                </Field>
                 <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
-
-                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                    {strings.messaging.messageLabel}
-                </Text>
-                <TextInput
-                    style={styles.textArea}
-                    value={compose.body}
-                    onChangeText={compose.setBody}
-                    placeholder={strings.messaging.messagePlaceholder}
-                    placeholderTextColor={c.muted}
+                <TextField
+                    label={strings.messaging.messageLabel}
                     multiline
+                    rows={4}
+                    value={compose.body}
+                    onChange={compose.setBody}
+                    placeholder={strings.messaging.messagePlaceholder}
                 />
-                {compose.error !== null ? <Text style={styles.error}>{compose.error}</Text> : null}
+                {compose.error !== null ? <Notice tone="danger">{compose.error}</Notice> : null}
             </ScrollView>
             <ModalActions
                 busy={compose.busy}
@@ -339,51 +316,35 @@ function BroadcastModal({ visible, onClose }: { visible: boolean; onClose: () =>
                             sent.recipient_count,
                         )}
                     </Text>
-                    <Pressable style={styles.add} onPress={close}>
-                        <Text style={styles.addText}>{strings.common.done}</Text>
-                    </Pressable>
+                    <Button onPress={close}>{strings.common.done}</Button>
                 </View>
             ) : (
                 <>
                     <Text style={styles.sheetTitle}>{strings.messaging.newBroadcastTitle}</Text>
                     <ScrollView contentContainerStyle={styles.formBody}>
-                        <Text style={styles.fieldLabel}>{strings.messaging.nameLabel}</Text>
-                        <TextInput
-                            style={ui.input}
+                        <TextField
+                            label={strings.messaging.nameLabel}
                             value={form.name}
-                            onChangeText={form.setName}
+                            onChange={form.setName}
                             placeholder={strings.messaging.namePlaceholder}
-                            placeholderTextColor={c.muted}
                         />
-                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                            {strings.messaging.channelLabel}
-                        </Text>
                         <ChannelToggle value={form.channel} onChange={form.setChannel} />
-                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                            {strings.messaging.messageLabel}
-                        </Text>
-                        <TextInput
-                            style={styles.textArea}
-                            value={form.body}
-                            onChangeText={form.setBody}
-                            placeholder={strings.messaging.announcementPlaceholder}
-                            placeholderTextColor={c.muted}
+                        <TextField
+                            label={strings.messaging.messageLabel}
                             multiline
+                            rows={4}
+                            value={form.body}
+                            onChange={form.setBody}
+                            placeholder={strings.messaging.announcementPlaceholder}
                         />
-                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                            {strings.messaging.audienceTagsOptional}
-                        </Text>
-                        <TextInput
-                            style={ui.input}
+                        <TextField
+                            label={strings.messaging.audienceTagsLabel}
+                            optional
                             value={form.tags}
-                            onChangeText={form.setTags}
+                            onChange={form.setTags}
                             placeholder={strings.messaging.tagsPlaceholderShort}
-                            placeholderTextColor={c.muted}
-                            autoCapitalize="none"
                         />
-                        {form.error !== null ? (
-                            <Text style={styles.error}>{form.error}</Text>
-                        ) : null}
+                        {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                     </ScrollView>
                     <ModalActions
                         busy={form.busy}
@@ -410,37 +371,18 @@ function ModalActions({
 }) {
     return (
         <View style={styles.actions}>
-            <Pressable style={styles.cancel} onPress={onCancel}>
-                <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-            </Pressable>
-            <Pressable
-                style={[ui.primary, busy && styles.btnBusy]}
-                disabled={busy}
-                onPress={onSubmit}
-            >
-                <Text style={ui.primaryText}>{busy ? strings.messaging.sending : label}</Text>
-            </Pressable>
+            <Button variant="quiet" onPress={onCancel}>
+                {strings.common.cancel}
+            </Button>
+            <Button busy={busy} onPress={onSubmit}>
+                {busy ? strings.messaging.sending : label}
+            </Button>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    ghostBtn: {
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-    },
-    ghostText: { color: c.inkSoft, fontSize: 13, fontWeight: "700" },
-    add: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    addText: { color: c.accentInk, fontSize: 13, fontWeight: "700" },
     row: { flexDirection: "row", alignItems: "center", gap: 12 },
     rowMain: { flex: 1 },
     rowName: { color: c.ink, fontSize: 15, fontWeight: "600" },
@@ -458,7 +400,6 @@ const styles = StyleSheet.create({
     },
     unreadText: { color: c.accentInk, fontSize: 11, fontWeight: "700" },
     muted: { color: c.muted, fontSize: 14 },
-    error: { color: c.danFg, fontSize: 13, marginTop: 6 },
     sheet: { flex: 1, backgroundColor: c.surface },
     threadFill: { flex: 1 },
     sheetHead: {
@@ -471,7 +412,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
     sheetTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    closeText: { color: c.accent, fontSize: 14, fontWeight: "600" },
     messages: { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
     bubbleRow: { maxWidth: "82%" },
     bubbleLeft: { alignSelf: "flex-start", alignItems: "flex-start" },
@@ -492,54 +432,8 @@ const styles = StyleSheet.create({
         backgroundColor: c.surface,
     },
     composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-    composerInput: {
-        flex: 1,
-        backgroundColor: c.bg,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-        color: c.ink,
-        fontSize: 15,
-        maxHeight: 110,
-    },
-    sendBtn: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 11,
-    },
-    sendText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
+    composerInput: { flex: 1 },
     formBody: { paddingVertical: 12, gap: 2 },
     center: { alignItems: "center", gap: 12, paddingVertical: 20 },
-    fieldLabel: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6 },
-    fieldSpace: { marginTop: 14 },
-    textArea: {
-        backgroundColor: c.bg,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        color: c.ink,
-        fontSize: 15,
-        minHeight: 90,
-        textAlignVertical: "top",
-    },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: {
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: 999,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    chipOn: { backgroundColor: c.accentWeak, borderColor: c.accent },
-    chipText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    chipTextOn: { color: c.accentStrong },
     actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
-    cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
-    cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    btnBusy: { opacity: 0.6 },
 });

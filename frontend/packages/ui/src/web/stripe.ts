@@ -8,6 +8,17 @@ export function configureStripe(key: string | undefined): void {
     publishableKey = key ?? "";
 }
 
+let currentAccount = "";
+
+/** The app keeps the signed-in business's connected account here so checkouts don't pass it around. */
+export function setStripeAccount(account: string | null | undefined): void {
+    currentAccount = account ?? "";
+}
+
+export function stripeAccount(): string {
+    return currentAccount;
+}
+
 /** Stripe.js bound to a connected account (direct charges), or null when payments aren't set up. */
 export function stripeFor(account: string): Promise<Stripe | null> | null {
     if (publishableKey === "" || account === "") return null;

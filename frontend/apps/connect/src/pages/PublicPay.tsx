@@ -7,7 +7,7 @@ import {
     strings,
     usePublicPayForm,
 } from "@clientbridge/app-core/public";
-import { CardForm, primaryButtonLarge, StatusPill } from "@clientbridge/ui";
+import { Button, CardForm, Choice, Notice, StatusPill } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
@@ -89,34 +89,28 @@ export function PublicPay() {
                 ) : null}
             </div>
 
-            <h2 className="mt-6 text-sm font-semibold text-ink" id="pay-method-label">
+            <h2 className="mt-6 text-sm font-semibold text-ink">
                 {strings.publicPay.chooseHowToPay}
             </h2>
-            <div role="radiogroup" aria-labelledby="pay-method-label" className="mt-3 space-y-2">
-                {form.methods.map((m) =>
-                    m === "interac" ? (
-                        <MethodOption
-                            key={m}
-                            label={strings.publicPay.interacLabel}
-                            badge={strings.publicPay.interacBadge}
-                            selected={form.method === "interac"}
-                            onSelect={() => {
-                                form.setMethod("interac");
-                                form.setError(null);
-                            }}
-                        />
-                    ) : (
-                        <MethodOption
-                            key={m}
-                            label={strings.publicPay.cardLabel}
-                            selected={form.method === "card"}
-                            onSelect={() => {
-                                form.setMethod("card");
-                                form.setError(null);
-                            }}
-                        />
-                    ),
-                )}
+            <div className="mt-3">
+                <Choice
+                    layout="cards"
+                    label={strings.publicPay.chooseHowToPay}
+                    options={form.methods.map((m) =>
+                        m === "interac"
+                            ? {
+                                  key: m,
+                                  label: strings.publicPay.interacLabel,
+                                  hint: strings.publicPay.interacBadge,
+                              }
+                            : { key: m, label: strings.publicPay.cardLabel },
+                    )}
+                    value={form.method}
+                    onChange={(m) => {
+                        form.setMethod(m);
+                        form.setError(null);
+                    }}
+                />
             </div>
 
             <div className="mt-5">
@@ -124,9 +118,9 @@ export function PublicPay() {
                     form.interac ? (
                         <InteracInstructions result={form.interac} currency={invoice.currency} />
                     ) : (
-                        <PrimaryButton onClick={form.payInterac} busy={form.busy}>
-                            {strings.publicPay.payByInterac}
-                        </PrimaryButton>
+                        <Button size="lg" full onPress={form.payInterac} busy={form.busy}>
+                            {form.busy ? strings.common.working : strings.publicPay.payByInterac}
+                        </Button>
                     )
                 ) : form.card ? (
                     <CardForm
@@ -139,74 +133,17 @@ export function PublicPay() {
                         onDone={form.markPaid}
                     />
                 ) : (
-                    <PrimaryButton onClick={runCard} busy={form.busy}>
-                        {strings.publicPay.payByCard}
-                    </PrimaryButton>
+                    <Button size="lg" full onPress={runCard} busy={form.busy}>
+                        {form.busy ? strings.common.working : strings.publicPay.payByCard}
+                    </Button>
                 )}
-                {form.error ? <p className="mt-3 text-sm text-danger-fg">{form.error}</p> : null}
+                {form.error ? (
+                    <div className="mt-3">
+                        <Notice tone="danger">{form.error}</Notice>
+                    </div>
+                ) : null}
             </div>
         </PublicFrame>
-    );
-}
-
-function MethodOption({
-    label,
-    badge,
-    selected,
-    onSelect,
-}: {
-    label: string;
-    badge?: string;
-    selected: boolean;
-    onSelect: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={onSelect}
-            className={`flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition ${
-                selected
-                    ? "border-accent bg-accent-weak"
-                    : "border-line bg-bg hover:border-accent-line"
-            }`}
-        >
-            <span
-                className={`flex h-4 w-4 items-center justify-center rounded-full border ${
-                    selected ? "border-accent" : "border-line"
-                }`}
-            >
-                {selected ? <span className="h-2 w-2 rounded-full bg-accent" /> : null}
-            </span>
-            <span className="flex-1 text-sm font-medium text-ink">{label}</span>
-            {badge ? (
-                <span className="rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok-fg">
-                    {badge}
-                </span>
-            ) : null}
-        </button>
-    );
-}
-
-function PrimaryButton({
-    children,
-    onClick,
-    busy,
-}: {
-    children: React.ReactNode;
-    onClick: () => void;
-    busy?: boolean;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={busy ?? false}
-            className={`${primaryButtonLarge} w-full`}
-        >
-            {busy ? strings.common.working : children}
-        </button>
     );
 }
 

@@ -28,7 +28,6 @@ import {
     useCancelBooking,
     useCollectDeposit,
     useSavedCards,
-    useStripeAccountId,
     weekColumns,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
@@ -44,10 +43,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+    Button,
     ChargeSheet,
     DetailSection,
     DetailView,
     Money,
+    Notice,
     StatusPill,
     Tabs,
     ui,
@@ -103,14 +104,16 @@ export function CalendarScreen() {
             </View>
 
             <View style={styles.strip}>
-                <Pressable
+                <Button
+                    variant="quiet"
+                    size="sm"
+                    label={strings.calendar.prev}
                     onPress={() => {
                         setAnchor((a) => shiftAnchor("week", a, -1));
                     }}
-                    hitSlop={8}
                 >
                     <Text style={styles.chev}>‹</Text>
-                </Pressable>
+                </Button>
                 {week.map((day) => {
                     const selected = sameDay(day, anchor);
                     const today = sameDay(day, now);
@@ -137,14 +140,16 @@ export function CalendarScreen() {
                         </Pressable>
                     );
                 })}
-                <Pressable
+                <Button
+                    variant="quiet"
+                    size="sm"
+                    label={strings.calendar.next}
                     onPress={() => {
                         setAnchor((a) => shiftAnchor("week", a, 1));
                     }}
-                    hitSlop={8}
                 >
                     <Text style={styles.chev}>›</Text>
-                </Pressable>
+                </Button>
             </View>
 
             {view === "agenda" ? (
@@ -354,15 +359,9 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
             onClose={onClose}
             actions={
                 event.bookingId !== null && event.status !== "canceled" ? (
-                    <Pressable
-                        onPress={cancel}
-                        disabled={busy}
-                        style={[styles.cancelBooking, busy && styles.dim]}
-                    >
-                        <Text style={styles.cancelBookingText}>
-                            {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
-                        </Text>
-                    </Pressable>
+                    <Button variant="danger" onPress={cancel} busy={busy}>
+                        {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
+                    </Button>
                 ) : undefined
             }
         >
@@ -371,7 +370,7 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
             </Text>
             {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
             {event.bookingId !== null ? <AddonsSection event={event} /> : null}
-            {error !== null ? <Text style={styles.detailError}>{error}</Text> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </DetailView>
     );
 }
@@ -392,15 +391,16 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
                         {formatMoney(a.quantity * a.unit_amount_cents)}
                     </Text>
                     {addons.canEdit ? (
-                        <Pressable
+                        <Button
+                            variant="danger"
+                            size="sm"
                             disabled={addons.busy}
                             onPress={() => {
                                 addons.remove(a.id);
                             }}
-                            hitSlop={8}
                         >
-                            <Text style={styles.addonRemove}>{strings.calendar.addonRemove}</Text>
-                        </Pressable>
+                            {strings.calendar.addonRemove}
+                        </Button>
                     ) : null}
                 </View>
             ))}
@@ -408,11 +408,13 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
                 <Text style={ui.note}>{strings.calendar.visitInvoiced}</Text>
             ) : null}
             {addons.canInvoice ? (
-                <Pressable disabled={addons.busy} onPress={addons.createInvoice} style={ui.outline}>
-                    <Text style={ui.outlineText}>{strings.calendar.invoiceVisit}</Text>
-                </Pressable>
+                <View style={styles.invoice}>
+                    <Button variant="outline" disabled={addons.busy} onPress={addons.createInvoice}>
+                        {strings.calendar.invoiceVisit}
+                    </Button>
+                </View>
             ) : null}
-            {addons.error !== null ? <Text style={ui.error}>{addons.error}</Text> : null}
+            {addons.error !== null ? <Notice tone="danger">{addons.error}</Notice> : null}
         </DetailSection>
     );
 }
@@ -421,7 +423,6 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
     const viewer = useViewer();
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(api, event, onClose, cards.at(0)?.id);
-    const stripeAccount = useStripeAccountId() ?? "";
     const amountLabel = formatMoney(event.depositAmountCents);
 
     return (
@@ -440,7 +441,6 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     checkout={deposit.checkout}
                     methods={checkoutMethods(cards)}
                     amountLabel={amountLabel}
-                    stripeAccount={stripeAccount}
                     submitLabel={strings.calendar.collectAmount(amountLabel)}
                     busyLabel={strings.calendar.collecting}
                     onSubmit={deposit.submit}
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     addonRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
     addonName: { flex: 1, color: c.ink, fontSize: 14 },
     addonAmount: { color: c.ink, fontSize: 14, fontVariant: ["tabular-nums"] },
-    addonRemove: { color: c.danFg, fontSize: 13, fontWeight: "600" },
+    invoice: { marginTop: 10 },
     header: {
         flexDirection: "row",
         alignItems: "center",
@@ -522,15 +522,4 @@ const styles = StyleSheet.create({
     eventSub: { fontSize: 11, opacity: 0.8, marginTop: 1 },
     nowLine: { position: "absolute", left: 0, right: 0, height: 2, backgroundColor: c.danFg },
     detailTime: { color: c.ink, fontSize: 14, marginTop: 10 },
-    detailError: { color: c.danFg, fontSize: 13, marginTop: 10 },
-    cancelBooking: {
-        marginTop: 18,
-        borderWidth: StyleSheet.hairlineWidth,
-        borderColor: c.danFg,
-        borderRadius: 10,
-        paddingVertical: 12,
-        alignItems: "center",
-    },
-    cancelBookingText: { color: c.danFg, fontSize: 15, fontWeight: "600" },
-    dim: { opacity: 0.5 },
 });

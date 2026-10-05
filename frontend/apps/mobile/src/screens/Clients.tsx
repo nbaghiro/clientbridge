@@ -34,26 +34,20 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type RouteProp, useRoute } from "@react-navigation/native";
-import { type ComponentProps, useEffect, useState } from "react";
-import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+    Button,
     DetailSection,
     DetailView,
     ListPage,
     Modal,
     Money,
+    Notice,
     PaymentMethodForm,
     StatusPill,
-    ui,
+    TextField,
 } from "@clientbridge/ui";
 
 import { InboxButton } from "../components/InboxButton";
@@ -174,9 +168,9 @@ function ClientDetailSheet({ client, onClose }: { client: ClientRow | null; onCl
 
 function SectionLink({ label, onPress }: { label: string; onPress: () => void }) {
     return (
-        <Pressable onPress={onPress}>
-            <Text style={styles.linkText}>{label}</Text>
-        </Pressable>
+        <Button variant="link" onPress={onPress}>
+            {label}
+        </Button>
     );
 }
 
@@ -241,15 +235,15 @@ function CardRow({ card }: { card: SavedCardRow }) {
             </View>
             <View style={styles.methodActions}>
                 {canBeDefault(card) ? (
-                    <Pressable style={styles.miniBtn} disabled={busy} onPress={makeDefault}>
-                        <Text style={styles.miniBtnText}>{strings.clients.makeDefault}</Text>
-                    </Pressable>
+                    <Button variant="outline" size="sm" disabled={busy} onPress={makeDefault}>
+                        {strings.clients.makeDefault}
+                    </Button>
                 ) : null}
-                <Pressable style={styles.miniBtn} disabled={busy} onPress={remove}>
-                    <Text style={styles.miniBtnText}>{strings.clients.remove}</Text>
-                </Pressable>
+                <Button variant="outline" size="sm" disabled={busy} onPress={remove}>
+                    {strings.clients.remove}
+                </Button>
             </View>
-            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
@@ -326,14 +320,12 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
             <View style={styles.methodActions}>
                 <StatusPill status={sub.status} intent={subscriptionStatusIntent(sub.status)} />
                 {isCancelable(sub.status) ? (
-                    <Pressable style={styles.miniBtn} disabled={busy} onPress={cancel}>
-                        <Text style={styles.miniBtnText}>
-                            {busy ? strings.common.busyEllipsis : strings.common.cancel}
-                        </Text>
-                    </Pressable>
+                    <Button variant="outline" size="sm" disabled={busy} onPress={cancel}>
+                        {busy ? strings.common.busyEllipsis : strings.common.cancel}
+                    </Button>
                 ) : null}
             </View>
-            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
@@ -395,23 +387,12 @@ function PackageRowItem({ pkg }: { pkg: PackageRow }) {
             <View style={styles.methodActions}>
                 <StatusPill status={pkg.status} intent={packageStatusIntent(pkg.status)} />
                 {canConsume(pkg) ? (
-                    <Pressable style={styles.miniBtn} disabled={busy} onPress={consume}>
-                        <Text style={styles.miniBtnText}>
-                            {busy ? strings.common.busyEllipsis : strings.clients.consumeShort}
-                        </Text>
-                    </Pressable>
+                    <Button variant="outline" size="sm" disabled={busy} onPress={consume}>
+                        {busy ? strings.common.busyEllipsis : strings.clients.consumeShort}
+                    </Button>
                 ) : null}
             </View>
-            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
-        </View>
-    );
-}
-
-function ModalField({ label, ...props }: { label: string } & ComponentProps<typeof TextInput>) {
-    return (
-        <View style={styles.field}>
-            <Text style={styles.fieldLabel}>{label}</Text>
-            <TextInput style={ui.input} placeholderTextColor={theme.colors.muted} {...props} />
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
@@ -422,42 +403,32 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
     return (
         <Modal open={visible} onClose={onClose}>
             <Text style={styles.modalTitle}>{strings.clients.addClientTitle}</Text>
-            <ModalField
+            <TextField
                 label={strings.clients.nameLabel}
                 value={form.name}
-                onChangeText={form.setName}
+                onChange={form.setName}
                 autoFocus
             />
-            <ModalField
+            <TextField
                 label={strings.clients.emailLabel}
+                type="email"
                 value={form.email}
-                onChangeText={form.setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
+                onChange={form.setEmail}
             />
-            <ModalField
+            <TextField
                 label={strings.clients.phoneLabel}
+                type="tel"
                 value={form.phone}
-                onChangeText={form.setPhone}
+                onChange={form.setPhone}
             />
-            {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
+            {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
             <View style={styles.modalActions}>
-                <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                </Pressable>
-                <Pressable
-                    style={ui.primary}
-                    onPress={() => {
-                        form.submit();
-                    }}
-                    disabled={form.busy}
-                >
-                    {form.busy ? (
-                        <ActivityIndicator color={theme.colors.accentInk} />
-                    ) : (
-                        <Text style={ui.primaryText}>{strings.clients.addClient}</Text>
-                    )}
-                </Pressable>
+                <Button variant="quiet" onPress={onClose}>
+                    {strings.common.cancel}
+                </Button>
+                <Button onPress={form.submit} busy={form.busy}>
+                    {strings.clients.addClient}
+                </Button>
             </View>
         </Modal>
     );
@@ -488,7 +459,6 @@ const styles = StyleSheet.create({
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     rowRight: { alignItems: "flex-end", gap: 4 },
     note: { color: c.muted, fontSize: 13, marginTop: 6, lineHeight: 18 },
-    linkText: { color: c.accent, fontSize: 14, fontWeight: "600" },
     methodRow: {
         marginTop: 8,
         paddingVertical: 10,
@@ -509,26 +479,6 @@ const styles = StyleSheet.create({
     },
     defaultTagText: { color: c.accent, fontSize: 11, fontWeight: "600" },
     methodActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-    miniBtn: {
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: theme.radius,
-        borderColor: c.border,
-        borderWidth: 1,
-    },
-    miniBtnText: { color: c.inkSoft, fontSize: 12, fontWeight: "600" },
-    errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
-    modal: {
-        width: "100%",
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        padding: 22,
-    },
-    modalTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 14 },
-    field: { marginBottom: 12 },
-    fieldLabel: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 5 },
-    error: { color: c.danFg, fontSize: 13, marginBottom: 4 },
-    modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
-    cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
-    cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
+    modalTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
+    modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 16 },
 });

@@ -1,6 +1,7 @@
 import { type UploadTarget, strings, useFileUpload } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { Button, Notice } from "@clientbridge/ui";
+import { StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 
@@ -37,42 +38,27 @@ export function FileUploadField({
             .catch(() => undefined);
     };
 
-    const disabled = pickFile === undefined || busy;
-
     return (
         <View style={styles.box}>
-            <Pressable
-                style={[styles.btn, disabled && styles.disabled]}
-                disabled={disabled}
+            <Button
+                variant="outline"
+                full
+                disabled={pickFile === undefined}
+                busy={busy}
                 onPress={run}
             >
-                {busy ? (
-                    <ActivityIndicator color={c.inkSoft} />
-                ) : (
-                    <Text style={styles.btnText}>{label}</Text>
-                )}
-            </Pressable>
+                {label}
+            </Button>
             {pickFile === undefined ? (
                 <Text style={styles.note}>{strings.files.pickerNotWired}</Text>
             ) : null}
-            {fileId !== null ? <Text style={styles.ok}>{strings.files.uploaded}</Text> : null}
-            {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+            {fileId !== null ? <Notice tone="success">{strings.files.uploaded}</Notice> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     box: { gap: 6 },
-    btn: {
-        alignItems: "center",
-        paddingVertical: 11,
-        borderRadius: theme.radius,
-        borderColor: c.border,
-        borderWidth: 1,
-    },
-    btnText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    disabled: { opacity: 0.5 },
     note: { color: c.muted, fontSize: 12 },
-    ok: { color: c.okFg, fontSize: 13, fontWeight: "600" },
-    error: { color: c.danFg, fontSize: 13 },
 });

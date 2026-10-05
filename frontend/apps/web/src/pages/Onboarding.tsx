@@ -1,7 +1,7 @@
 import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 
-import { fieldLarge, Lockup, Logo, primaryButtonLarge } from "@clientbridge/ui";
+import { Button, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
@@ -38,75 +38,44 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     }}
                     className="mt-6 flex flex-col gap-4"
                 >
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                        {strings.onboarding.businessName}
-                        <input
-                            value={form.name}
-                            onChange={(e) => {
-                                form.setName(e.target.value);
-                            }}
-                            placeholder={strings.onboarding.businessNamePlaceholder}
-                            autoFocus
-                            className={fieldLarge}
-                        />
-                    </label>
+                    <TextField
+                        label={strings.onboarding.businessName}
+                        value={form.name}
+                        onChange={form.setName}
+                        placeholder={strings.onboarding.businessNamePlaceholder}
+                        autoFocus
+                        size="lg"
+                    />
+                    <TextField
+                        label={strings.onboarding.webAddress}
+                        prefix={strings.onboarding.slugPrefix}
+                        value={form.slug}
+                        onChange={form.setSlug}
+                        placeholder={strings.onboarding.slugPlaceholder}
+                        size="lg"
+                    />
+                    <Select
+                        label={strings.onboarding.province}
+                        value={form.province}
+                        options={PROVINCES.map((p) => ({ key: p.code, label: p.name }))}
+                        onChange={form.setProvince}
+                        size="lg"
+                    />
 
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                        {strings.onboarding.webAddress}
-                        <div className="flex items-center overflow-hidden rounded-md border border-line bg-bg focus-within:border-accent">
-                            <span className="pl-3 text-sm text-muted">
-                                {strings.onboarding.slugPrefix}
-                            </span>
-                            <input
-                                value={form.slug}
-                                onChange={(e) => {
-                                    form.setSlug(e.target.value);
-                                }}
-                                placeholder={strings.onboarding.slugPlaceholder}
-                                className="flex-1 bg-transparent px-1 py-2.5 text-ink outline-hidden placeholder:text-muted"
-                            />
-                        </div>
-                    </label>
+                    {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
 
-                    <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                        {strings.onboarding.province}
-                        <select
-                            value={form.province}
-                            onChange={(e) => {
-                                form.setProvince(e.target.value as typeof form.province);
-                            }}
-                            className={fieldLarge}
-                        >
-                            {PROVINCES.map((p) => (
-                                <option key={p.code} value={p.code}>
-                                    {p.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    {form.error ? <p className="text-sm text-danger-fg">{form.error}</p> : null}
-
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className={`${primaryButtonLarge} mt-1`}
-                    >
+                    <Button submit size="lg" full busy={form.busy}>
                         {form.busy
                             ? strings.onboarding.creating
                             : strings.onboarding.createBusiness}
-                    </button>
+                    </Button>
                 </form>
 
                 <p className="mt-6 text-center text-sm text-muted">
                     {strings.onboarding.notYou}{" "}
-                    <button
-                        type="button"
-                        onClick={onSignOut}
-                        className="font-semibold text-accent hover:underline"
-                    >
+                    <Button variant="link" onPress={onSignOut}>
                         {strings.onboarding.signOut}
-                    </button>
+                    </Button>
                 </p>
             </div>
         </div>

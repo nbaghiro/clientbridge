@@ -9,7 +9,7 @@ import {
     useClients,
     useDocForm,
 } from "@clientbridge/app-core";
-import { field, ItemImage, Modal, primaryButton } from "@clientbridge/ui";
+import { Button, ItemImage, Modal, Notice, Select, TextField } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import { api, apiBaseUrl } from "../lib/api";
@@ -43,24 +43,16 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     {docEditorTitle(kind, form.editing)}
                 </h2>
                 <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.billing.clientLabel}
-                        <select
-                            value={form.clientId}
-                            disabled={form.editing}
-                            onChange={(e) => {
-                                form.setClientId(e.target.value);
-                            }}
-                            className={field}
-                        >
-                            <option value="">{strings.billing.clientPlaceholder}</option>
-                            {clients.map((c) => (
-                                <option key={c.id} value={c.id}>
-                                    {c.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                    <Select
+                        label={strings.billing.clientLabel}
+                        value={form.clientId}
+                        disabled={form.editing}
+                        options={[
+                            { key: "", label: strings.billing.clientPlaceholder },
+                            ...clients.map((c) => ({ key: c.id, label: c.name })),
+                        ]}
+                        onChange={form.setClientId}
+                    />
 
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
@@ -112,25 +104,23 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             </div>
                         ))}
                         <div className="flex gap-4">
-                            <button
-                                type="button"
-                                onClick={() => {
+                            <Button
+                                variant="link"
+                                onPress={() => {
                                     form.addLine();
                                 }}
-                                className="text-sm font-medium text-accent transition hover:opacity-80"
                             >
                                 {strings.billing.addLine}
-                            </button>
+                            </Button>
                             {catalog.length > 0 ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
+                                <Button
+                                    variant="link"
+                                    onPress={() => {
                                         setPicking((p) => !p);
                                     }}
-                                    className="text-sm font-medium text-accent transition hover:opacity-80"
                                 >
                                     {strings.billing.fromCatalog}
-                                </button>
+                                </Button>
                             ) : null}
                         </div>
                         {picking ? (
@@ -165,18 +155,14 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                         ) : null}
                     </div>
 
-                    <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.billing.notesLabel}
-                        <textarea
-                            value={form.notes}
-                            onChange={(e) => {
-                                form.setNotes(e.target.value);
-                            }}
-                            rows={2}
-                            className={field}
-                        />
-                    </label>
-                    {form.error ? <p className="text-sm text-danger">{form.error}</p> : null}
+                    <TextField
+                        label={strings.billing.notesLabel}
+                        multiline
+                        rows={2}
+                        value={form.notes}
+                        onChange={form.setNotes}
+                    />
+                    {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
                 </div>
                 <div className="flex items-center justify-between border-t border-line px-6 py-4">
                     <span className="text-sm text-muted">
@@ -187,20 +173,16 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                         <span className="text-xs">{strings.billing.plusTax}</span>
                     </span>
                     <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                        >
+                        <Button variant="quiet" onPress={onClose}>
                             {strings.common.cancel}
-                        </button>
-                        <button type="submit" disabled={form.busy} className={primaryButton}>
+                        </Button>
+                        <Button submit busy={form.busy}>
                             {form.busy
                                 ? strings.common.saving
                                 : form.editing
                                   ? strings.billing.saveChanges
                                   : strings.billing.saveDraft}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             </form>

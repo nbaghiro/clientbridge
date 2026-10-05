@@ -6,7 +6,7 @@ import {
     strings,
     useGiftCards,
 } from "@clientbridge/app-core";
-import { field, ListPage, Money, Panel, primaryButton, StatusPill } from "@clientbridge/ui";
+import { Button, ListPage, Money, Notice, Panel, StatusPill, TextField } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { SellGiftCard } from "../components/EntitlementSales";
@@ -29,15 +29,14 @@ export function GiftCards() {
                     },
                 }}
                 accessory={
-                    <button
-                        type="button"
-                        onClick={() => {
+                    <Button
+                        variant="outline"
+                        onPress={() => {
                             setMode(mode === "redeem" ? null : "redeem");
                         }}
-                        className="rounded-md border border-line px-3.5 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                     >
                         {strings.giftCards.redeem}
-                    </button>
+                    </Button>
                 }
                 banner={
                     mode === "sell" ? (
@@ -104,42 +103,27 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 }}
                 className="space-y-3"
             >
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.code}
-                    <input
-                        value={form.code}
-                        onChange={(e) => {
-                            form.setCode(e.target.value);
-                        }}
-                        placeholder={strings.giftCards.codePlaceholder}
-                        autoCapitalize="characters"
-                        className={`${field} font-mono`}
-                    />
-                </label>
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.amountCad}
-                    <input
-                        value={form.amount}
-                        onChange={(e) => {
-                            form.setAmount(e.target.value);
-                        }}
-                        inputMode="decimal"
-                        placeholder={strings.giftCards.redeemAmountPlaceholder}
-                        className={field}
-                    />
-                </label>
-                {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
+                <TextField
+                    label={strings.giftCards.code}
+                    value={form.code}
+                    onChange={form.setCode}
+                    placeholder={strings.giftCards.codePlaceholder}
+                />
+                <TextField
+                    label={strings.giftCards.amountCad}
+                    type="number"
+                    value={form.amount}
+                    onChange={form.setAmount}
+                    placeholder={strings.giftCards.redeemAmountPlaceholder}
+                />
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                    >
+                    <Button variant="quiet" onPress={onClose}>
                         {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={form.busy} className={primaryButton}>
+                    </Button>
+                    <Button submit busy={form.busy}>
                         {form.busy ? strings.giftCards.redeeming : strings.giftCards.redeem}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </Panel>

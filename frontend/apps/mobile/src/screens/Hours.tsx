@@ -9,16 +9,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
-import { ui } from "@clientbridge/ui";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Button, Choice, Notice, TextField, Toggle } from "@clientbridge/ui";
 
 import { useViewer } from "../lib/auth";
 
@@ -40,22 +32,15 @@ export function Hours() {
                 <>
                     {staff.length > 1 ? (
                         <View style={styles.chipWrap}>
-                            {staff.map((s: StaffRow) => {
-                                const on = s.id === selected;
-                                return (
-                                    <Pressable
-                                        key={s.id}
-                                        style={[styles.chip, on && styles.chipOn]}
-                                        onPress={() => {
-                                            setStaffId(s.id);
-                                        }}
-                                    >
-                                        <Text style={[styles.chipText, on && styles.chipTextOn]}>
-                                            {staffLabel(s)}
-                                        </Text>
-                                    </Pressable>
-                                );
-                            })}
+                            <Choice
+                                label={strings.hours.teamMember}
+                                options={staff.map((s: StaffRow) => ({
+                                    key: s.id,
+                                    label: staffLabel(s),
+                                }))}
+                                value={selected}
+                                onChange={setStaffId}
+                            />
                         </View>
                     ) : null}
 
@@ -80,38 +65,35 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                 const label = WEEKDAYS[d.weekday]?.label ?? "";
                 return (
                     <View key={d.weekday} style={[styles.row, i > 0 ? styles.rowBorder : null]}>
-                        <View style={styles.rowHead}>
-                            <Text style={styles.day}>{label}</Text>
-                            <Switch
-                                value={d.open}
-                                onValueChange={(v) => {
-                                    editor.setOpen(d.weekday, v);
-                                }}
-                                trackColor={{ true: c.accent, false: c.border }}
-                            />
-                        </View>
+                        <Toggle
+                            label={label}
+                            value={d.open}
+                            onChange={(v) => {
+                                editor.setOpen(d.weekday, v);
+                            }}
+                        />
                         {d.open ? (
                             <View style={styles.times}>
-                                <TextInput
-                                    style={styles.time}
+                                <TextField
+                                    type="time"
+                                    width="auto"
+                                    name={strings.hours.from}
                                     value={d.start}
-                                    onChangeText={(v) => {
+                                    onChange={(v) => {
                                         editor.setTime(d.weekday, "start", v);
                                     }}
                                     placeholder={strings.hours.startHint}
-                                    placeholderTextColor={c.muted}
-                                    keyboardType="numbers-and-punctuation"
                                 />
                                 <Text style={styles.to}>{strings.hours.to}</Text>
-                                <TextInput
-                                    style={styles.time}
+                                <TextField
+                                    type="time"
+                                    width="auto"
+                                    name={strings.hours.to}
                                     value={d.end}
-                                    onChangeText={(v) => {
+                                    onChange={(v) => {
                                         editor.setTime(d.weekday, "end", v);
                                     }}
                                     placeholder={strings.hours.endHint}
-                                    placeholderTextColor={c.muted}
-                                    keyboardType="numbers-and-punctuation"
                                 />
                             </View>
                         ) : (
@@ -121,24 +103,14 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                 );
             })}
 
-            {editor.error !== null ? <Text style={styles.error}>{editor.error}</Text> : null}
-            {editor.saved ? <Text style={styles.saved}>{strings.common.saved}</Text> : null}
+            {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
+            {editor.saved ? <Notice tone="success">{strings.common.saved}</Notice> : null}
 
-            <Pressable
-                style={({ pressed }) => [
-                    ui.primaryLarge,
-                    styles.submitGap,
-                    (editor.busy || pressed) && styles.dim,
-                ]}
-                onPress={editor.submit}
-                disabled={editor.busy}
-            >
-                {editor.busy ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Text style={ui.primaryLargeText}>{strings.hours.saveHours}</Text>
-                )}
-            </Pressable>
+            <View style={styles.submitGap}>
+                <Button size="lg" full onPress={editor.submit} busy={editor.busy}>
+                    {strings.hours.saveHours}
+                </Button>
+            </View>
         </View>
     );
 }
@@ -149,18 +121,7 @@ const styles = StyleSheet.create({
     note: { color: c.muted, fontSize: 13, marginBottom: 14, lineHeight: 18 },
     empty: { color: c.muted, fontSize: 14, textAlign: "center", marginTop: 24 },
     loading: { marginTop: 24 },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
-    chip: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        backgroundColor: c.surface,
-    },
-    chipOn: { backgroundColor: c.accent, borderColor: c.accent },
-    chipText: { color: c.inkSoft, fontSize: 13, fontWeight: "700" },
-    chipTextOn: { color: c.accentInk },
+    chipWrap: { marginBottom: 14 },
     group: {
         backgroundColor: c.surface,
         borderRadius: theme.radius,
@@ -170,25 +131,8 @@ const styles = StyleSheet.create({
     },
     row: { paddingVertical: 12 },
     rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    rowHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    day: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    times: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },
-    time: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 9,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-        minWidth: 88,
-        textAlign: "center",
-    },
+    times: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },
     to: { color: c.muted, fontSize: 13 },
-    closed: { color: c.muted, fontSize: 13, marginTop: 8 },
-    error: { color: c.danFg, fontSize: 13, marginTop: 14 },
-    saved: { color: c.success, fontSize: 13, marginTop: 14 },
+    closed: { color: c.muted, fontSize: 13, marginTop: 4 },
     submitGap: { marginTop: 18 },
-    dim: { opacity: 0.7 },
 });

@@ -20,12 +20,14 @@ import {
     useSendFormForm,
 } from "@clientbridge/app-core";
 import {
+    Button,
     Empty,
-    field,
+    Notice,
     Panel,
-    primaryButton,
-    primaryButtonSmall,
+    Select,
     StatusPill,
+    TextField,
+    Toggle,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
@@ -126,39 +128,25 @@ function SendForm({ forms, onDone }: { forms: FormRow[]; onDone: () => void }) {
 
     return (
         <Panel title={strings.forms.sendFormTitle}>
-            <PickerRow label={strings.forms.form}>
-                <select
-                    value={send.formId}
-                    onChange={(e) => {
-                        send.setFormId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.forms.selectForm}</option>
-                    {forms.map((f) => (
-                        <option key={f.id} value={f.id}>
-                            {f.name}
-                        </option>
-                    ))}
-                </select>
-            </PickerRow>
-            <PickerRow label={strings.forms.client}>
-                <select
-                    value={send.clientId}
-                    onChange={(e) => {
-                        send.setClientId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.forms.selectClient}</option>
-                    {clients.map((cl) => (
-                        <option key={cl.id} value={cl.id}>
-                            {cl.name}
-                        </option>
-                    ))}
-                </select>
-            </PickerRow>
-            {send.error !== null ? <p className="text-sm text-danger">{send.error}</p> : null}
+            <Select
+                label={strings.forms.form}
+                value={send.formId}
+                options={[
+                    { key: "", label: strings.forms.selectForm },
+                    ...forms.map((f) => ({ key: f.id, label: f.name })),
+                ]}
+                onChange={send.setFormId}
+            />
+            <Select
+                label={strings.forms.client}
+                value={send.clientId}
+                options={[
+                    { key: "", label: strings.forms.selectClient },
+                    ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
+                ]}
+                onChange={send.setClientId}
+            />
+            {send.error !== null ? <Notice tone="danger">{send.error}</Notice> : null}
             <PanelActions
                 onCancel={onDone}
                 busy={send.busy}
@@ -174,16 +162,12 @@ function FormBuilderPanel({ onDone }: { onDone: () => void }) {
 
     return (
         <Panel title={strings.forms.newForm}>
-            <PickerRow label={strings.forms.formName}>
-                <input
-                    value={builder.name}
-                    onChange={(e) => {
-                        builder.setName(e.target.value);
-                    }}
-                    placeholder={strings.forms.formNamePlaceholder}
-                    className={field}
-                />
-            </PickerRow>
+            <TextField
+                label={strings.forms.formName}
+                value={builder.name}
+                onChange={builder.setName}
+                placeholder={strings.forms.formNamePlaceholder}
+            />
 
             <div className="space-y-3">
                 {builder.fields.map((f, i) => (
@@ -205,27 +189,17 @@ function FormBuilderPanel({ onDone }: { onDone: () => void }) {
                 ))}
             </div>
 
-            <button
-                type="button"
-                onClick={builder.addField}
-                className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-bg"
-            >
+            <Button variant="outline" size="sm" onPress={builder.addField}>
                 {strings.forms.addField}
-            </button>
+            </Button>
 
-            <label className="flex items-center gap-2 text-sm text-ink-soft">
-                <input
-                    type="checkbox"
-                    checked={builder.requireSignature}
-                    onChange={(e) => {
-                        builder.setRequireSignature(e.target.checked);
-                    }}
-                    className="h-4 w-4"
-                />
-                {strings.forms.requireSignature}
-            </label>
+            <Toggle
+                label={strings.forms.requireSignature}
+                value={builder.requireSignature}
+                onChange={builder.setRequireSignature}
+            />
 
-            {builder.error !== null ? <p className="text-sm text-danger">{builder.error}</p> : null}
+            {builder.error !== null ? <Notice tone="danger">{builder.error}</Notice> : null}
             <PanelActions
                 onCancel={onDone}
                 busy={builder.busy}
@@ -254,59 +228,57 @@ function FieldEditor({
                     {strings.forms.fieldN(index + 1)}
                 </span>
                 {onRemove !== undefined ? (
-                    <button
-                        type="button"
-                        onClick={onRemove}
-                        className="text-xs font-medium text-danger hover:underline"
-                    >
+                    <Button variant="danger" size="sm" onPress={onRemove}>
                         {strings.forms.remove}
-                    </button>
+                    </Button>
                 ) : null}
             </div>
             <div className="mt-2 flex gap-2">
-                <input
-                    value={f.label}
-                    onChange={(e) => {
-                        onChange({ label: e.target.value });
-                    }}
-                    placeholder={strings.forms.fieldLabelPlaceholder}
-                    className={`${field} flex-1`}
-                />
-                <select
-                    value={f.input}
-                    onChange={(e) => {
-                        onChange({ input: e.target.value });
-                    }}
-                    className={`${field} w-40`}
-                >
-                    {BUILDER_FIELD_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                            {FIELD_TYPE_LABEL[t] ?? t}
-                        </option>
-                    ))}
-                </select>
+                <div className="flex-1">
+                    <TextField
+                        surface="surface"
+                        value={f.label}
+                        onChange={(label) => {
+                            onChange({ label });
+                        }}
+                        placeholder={strings.forms.fieldLabelPlaceholder}
+                    />
+                </div>
+                <div className="w-40">
+                    <Select
+                        name={strings.forms.fieldType}
+                        value={f.input}
+                        options={BUILDER_FIELD_TYPES.map((t) => ({
+                            key: t,
+                            label: FIELD_TYPE_LABEL[t] ?? t,
+                        }))}
+                        onChange={(input) => {
+                            onChange({ input });
+                        }}
+                    />
+                </div>
             </div>
             {hasOptions(f.input) ? (
-                <input
-                    value={f.options}
-                    onChange={(e) => {
-                        onChange({ options: e.target.value });
-                    }}
-                    placeholder={strings.forms.optionsPlaceholder}
-                    className={`${field} mt-2`}
-                />
+                <div className="mt-2">
+                    <TextField
+                        surface="surface"
+                        value={f.options}
+                        onChange={(options) => {
+                            onChange({ options });
+                        }}
+                        placeholder={strings.forms.optionsPlaceholder}
+                    />
+                </div>
             ) : null}
-            <label className="mt-2 flex items-center gap-2 text-xs text-ink-soft">
-                <input
-                    type="checkbox"
-                    checked={f.required}
-                    onChange={(e) => {
-                        onChange({ required: e.target.checked });
+            <div className="mt-2">
+                <Toggle
+                    label={strings.forms.required}
+                    value={f.required}
+                    onChange={(required) => {
+                        onChange({ required });
                     }}
-                    className="h-3.5 w-3.5"
                 />
-                {strings.forms.required}
-            </label>
+            </div>
         </div>
     );
 }
@@ -379,39 +351,25 @@ function SendContract({ contracts, onDone }: { contracts: ContractRow[]; onDone:
 
     return (
         <Panel title={strings.contracts.sendForSignature}>
-            <PickerRow label={strings.contracts.contract}>
-                <select
-                    value={send.contractId}
-                    onChange={(e) => {
-                        send.setContractId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.contracts.selectContract}</option>
-                    {contracts.map((cnt) => (
-                        <option key={cnt.id} value={cnt.id}>
-                            {cnt.name}
-                        </option>
-                    ))}
-                </select>
-            </PickerRow>
-            <PickerRow label={strings.contracts.client}>
-                <select
-                    value={send.clientId}
-                    onChange={(e) => {
-                        send.setClientId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.contracts.selectClient}</option>
-                    {clients.map((cl) => (
-                        <option key={cl.id} value={cl.id}>
-                            {cl.name}
-                        </option>
-                    ))}
-                </select>
-            </PickerRow>
-            {send.error !== null ? <p className="text-sm text-danger">{send.error}</p> : null}
+            <Select
+                label={strings.contracts.contract}
+                value={send.contractId}
+                options={[
+                    { key: "", label: strings.contracts.selectContract },
+                    ...contracts.map((cnt) => ({ key: cnt.id, label: cnt.name })),
+                ]}
+                onChange={send.setContractId}
+            />
+            <Select
+                label={strings.contracts.client}
+                value={send.clientId}
+                options={[
+                    { key: "", label: strings.contracts.selectClient },
+                    ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
+                ]}
+                onChange={send.setClientId}
+            />
+            {send.error !== null ? <Notice tone="danger">{send.error}</Notice> : null}
             <PanelActions
                 onCancel={onDone}
                 busy={send.busy}
@@ -440,28 +398,21 @@ function ContractDraftPanel({ onDone }: { onDone: () => void }) {
 
     return (
         <Panel title={strings.contracts.newContract}>
-            <PickerRow label={strings.contracts.name}>
-                <input
-                    value={draft.name}
-                    onChange={(e) => {
-                        draft.setName(e.target.value);
-                    }}
-                    placeholder={strings.contracts.contractNamePlaceholder}
-                    className={field}
-                />
-            </PickerRow>
-            <PickerRow label={strings.contracts.contractText}>
-                <textarea
-                    value={draft.body}
-                    onChange={(e) => {
-                        draft.setBody(e.target.value);
-                    }}
-                    rows={8}
-                    placeholder={strings.contracts.contractTextPlaceholder}
-                    className={`${field} resize-y`}
-                />
-            </PickerRow>
-            {draft.error !== null ? <p className="text-sm text-danger">{draft.error}</p> : null}
+            <TextField
+                label={strings.contracts.name}
+                value={draft.name}
+                onChange={draft.setName}
+                placeholder={strings.contracts.contractNamePlaceholder}
+            />
+            <TextField
+                label={strings.contracts.contractText}
+                multiline
+                rows={8}
+                value={draft.body}
+                onChange={draft.setBody}
+                placeholder={strings.contracts.contractTextPlaceholder}
+            />
+            {draft.error !== null ? <Notice tone="danger">{draft.error}</Notice> : null}
             <PanelActions
                 onCancel={onDone}
                 busy={draft.busy}
@@ -492,28 +443,15 @@ function SectionHead({
             <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
             <div className="flex gap-2">
                 {canSend ? (
-                    <button
-                        type="button"
-                        onClick={onSend}
-                        className="rounded-md border border-line px-3 py-1.5 text-sm font-semibold text-ink-soft transition hover:bg-bg"
-                    >
+                    <Button variant="outline" size="sm" onPress={onSend}>
                         {sendLabel}
-                    </button>
+                    </Button>
                 ) : null}
-                <button type="button" onClick={onCreate} className={primaryButtonSmall}>
+                <Button size="sm" onPress={onCreate}>
                     {createLabel}
-                </button>
+                </Button>
             </div>
         </div>
-    );
-}
-
-function PickerRow({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-            {label}
-            {children}
-        </label>
     );
 }
 
@@ -530,16 +468,12 @@ function PanelActions({
 }) {
     return (
         <div className="flex justify-end gap-2">
-            <button
-                type="button"
-                onClick={onCancel}
-                className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-            >
+            <Button variant="quiet" onPress={onCancel}>
                 {strings.common.cancel}
-            </button>
-            <button type="button" onClick={onSubmit} disabled={busy} className={primaryButton}>
+            </Button>
+            <Button onPress={onSubmit} busy={busy}>
                 {busy ? strings.common.working : label}
-            </button>
+            </Button>
         </div>
     );
 }

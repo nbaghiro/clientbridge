@@ -1,6 +1,6 @@
 import { strings, useConnectOnboarding } from "@clientbridge/app-core";
 
-import { primaryButton } from "@clientbridge/ui";
+import { Button, Notice } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 export function GettingPaid() {
@@ -28,14 +28,12 @@ export function GettingPaid() {
                     <p className="text-sm text-muted">{strings.common.loading}</p>
                 ) : phase === "error" ? (
                     <>
-                        <p className="text-sm text-danger">{strings.gettingPaid.loadError}</p>
-                        <button
-                            type="button"
-                            onClick={refresh}
-                            className="mt-4 rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
-                        >
-                            {strings.gettingPaid.tryAgain}
-                        </button>
+                        <Notice tone="danger">{strings.gettingPaid.loadError}</Notice>
+                        <div className="mt-4">
+                            <Button variant="outline" onPress={refresh}>
+                                {strings.gettingPaid.tryAgain}
+                            </Button>
+                        </div>
                     </>
                 ) : (
                     <>
@@ -65,18 +63,19 @@ export function GettingPaid() {
                             </ul>
                         )}
                         {showCta && (
-                            <button
-                                type="button"
-                                onClick={connect}
-                                disabled={busy}
-                                className={`${primaryButton} mt-4`}
-                            >
-                                {busy ? strings.gettingPaid.opening : ctaLabel}
-                            </button>
+                            <div className="mt-4">
+                                <Button onPress={connect} busy={busy}>
+                                    {busy ? strings.gettingPaid.opening : ctaLabel}
+                                </Button>
+                            </div>
                         )}
                     </>
                 )}
-                {error !== null && <p className="mt-3 text-sm text-danger">{error}</p>}
+                {error !== null && (
+                    <div className="mt-3">
+                        <Notice tone="danger">{error}</Notice>
+                    </div>
+                )}
             </div>
         </div>
     );

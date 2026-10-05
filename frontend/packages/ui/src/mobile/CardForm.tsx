@@ -7,8 +7,10 @@ import {
     useConfirmSetupIntent,
 } from "@stripe/stripe-react-native";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
+import { Button } from "./Button";
+import { Notice } from "./Notice";
 import { stripeConfigured } from "./stripe";
 import { ui } from "./styles";
 
@@ -42,9 +44,9 @@ export function CardForm(props: CardFormProps) {
                 <Text style={ui.note}>{strings.checkout.notConfiguredSavedCard}</Text>
                 {props.onCancel !== undefined ? (
                     <View style={ui.actions}>
-                        <Pressable style={ui.cancel} onPress={props.onCancel}>
-                            <Text style={ui.cancelText}>{strings.checkout.back}</Text>
-                        </Pressable>
+                        <Button variant="quiet" onPress={props.onCancel}>
+                            {strings.checkout.back}
+                        </Button>
                     </View>
                 ) : null}
             </View>
@@ -94,24 +96,16 @@ function ConfirmForm({
                     setReady(d.complete);
                 }}
             />
-            {error !== null ? <Text style={ui.error}>{error}</Text> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
             <View style={ui.actions}>
                 {onCancel !== undefined ? (
-                    <Pressable style={ui.cancel} onPress={onCancel} disabled={busy}>
-                        <Text style={ui.cancelText}>{strings.common.cancel}</Text>
-                    </Pressable>
+                    <Button variant="quiet" onPress={onCancel} disabled={busy}>
+                        {strings.common.cancel}
+                    </Button>
                 ) : null}
-                <Pressable
-                    style={[ui.primary, (!ready || busy) && ui.disabled]}
-                    disabled={!ready || busy}
-                    onPress={submit}
-                >
-                    {busy ? (
-                        <ActivityIndicator color={c.accentInk} />
-                    ) : (
-                        <Text style={ui.primaryText}>{submitLabel}</Text>
-                    )}
-                </Pressable>
+                <Button onPress={submit} busy={busy} disabled={!ready}>
+                    {submitLabel}
+                </Button>
             </View>
         </View>
     );

@@ -13,7 +13,7 @@ import {
     useReviewSummary,
     useReviews,
 } from "@clientbridge/app-core";
-import { field, ListPage, primaryButton, primaryButtonSmall, StatusPill } from "@clientbridge/ui";
+import { Button, ListPage, Notice, Select, StatusPill, TextField } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -71,7 +71,7 @@ function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummar
             {summary === null ? (
                 <p className="text-sm text-muted">{strings.reviews.loadingRating}</p>
             ) : summary === "error" ? (
-                <p className="text-sm text-danger">{strings.reviews.ratingLoadError}</p>
+                <Notice tone="danger">{strings.reviews.ratingLoadError}</Notice>
             ) : summary.count === 0 ? (
                 <p className="text-sm text-muted">{strings.reviews.noPublishedReviews}</p>
             ) : (
@@ -137,76 +137,64 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
 
             {editing ? (
                 <div className="mt-3 space-y-2">
-                    <textarea
-                        value={reply}
-                        onChange={(e) => {
-                            setReply(e.target.value);
-                        }}
+                    <TextField
+                        multiline
                         rows={3}
+                        value={reply}
+                        onChange={setReply}
                         placeholder={strings.reviews.replyPlaceholder}
-                        className={field}
                     />
                     <div className="flex justify-end gap-2">
-                        <button
-                            type="button"
-                            onClick={() => {
+                        <Button
+                            variant="quiet"
+                            size="sm"
+                            onPress={() => {
                                 setReply(review.response ?? "");
                                 setEditing(false);
                             }}
-                            className="rounded-md px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-bg"
                         >
                             {strings.common.cancel}
-                        </button>
-                        <button
-                            type="button"
-                            disabled={busy || reply.trim().length === 0}
-                            onClick={() => {
+                        </Button>
+                        <Button
+                            size="sm"
+                            busy={busy}
+                            disabled={reply.trim().length === 0}
+                            onPress={() => {
                                 respond(reply);
                                 setEditing(false);
                             }}
-                            className={primaryButtonSmall}
                         >
                             {busy ? strings.common.saving : strings.reviews.postReply}
-                        </button>
+                        </Button>
                     </div>
                 </div>
             ) : (
                 <div className="mt-3 flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => {
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onPress={() => {
                             setEditing(true);
                         }}
-                        className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-bg"
                     >
                         {review.response !== null
                             ? strings.reviews.editReply
                             : strings.reviews.reply}
-                    </button>
+                    </Button>
                     {canPublish ? (
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={publish}
-                            className={primaryButtonSmall}
-                        >
+                        <Button size="sm" disabled={busy} onPress={publish}>
                             {busy ? strings.common.working : strings.reviews.publish}
-                        </button>
+                        </Button>
                     ) : null}
                     {canHide ? (
-                        <button
-                            type="button"
-                            disabled={busy}
-                            onClick={hide}
-                            className="rounded-md border border-line px-3 py-1.5 text-xs font-semibold text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                        >
+                        <Button variant="outline" size="sm" disabled={busy} onPress={hide}>
                             {busy ? strings.common.working : strings.reviews.hide}
-                        </button>
+                        </Button>
                     ) : null}
                 </div>
             )}
 
-            {error !== null ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
     );
 }
@@ -227,35 +215,23 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                 }}
                 className="space-y-3"
             >
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.reviews.clientLabel}
-                    <select
-                        value={form.clientId}
-                        onChange={(e) => {
-                            form.setClientId(e.target.value);
-                        }}
-                        className={field}
-                    >
-                        <option value="">{strings.reviews.selectClient}</option>
-                        {clients.map((cl) => (
-                            <option key={cl.id} value={cl.id}>
-                                {cl.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
+                <Select
+                    label={strings.reviews.clientLabel}
+                    value={form.clientId}
+                    options={[
+                        { key: "", label: strings.reviews.selectClient },
+                        ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
+                    ]}
+                    onChange={form.setClientId}
+                />
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <div className="flex justify-end gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
+                    <Button variant="quiet" onPress={onClose}>
                         {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={form.busy} className={primaryButton}>
+                    </Button>
+                    <Button submit busy={form.busy}>
                         {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </section>

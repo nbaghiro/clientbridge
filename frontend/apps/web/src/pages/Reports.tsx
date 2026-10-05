@@ -13,7 +13,7 @@ import {
     useBankDeposits,
     useReports,
 } from "@clientbridge/app-core";
-import { primaryButton, StatusPill } from "@clientbridge/ui";
+import { Button, Notice, StatusPill, TextField } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -39,34 +39,40 @@ export function Reports() {
             <p className="text-sm text-muted">{strings.reports.subtitle}</p>
 
             <div className="mt-6 flex flex-wrap items-end gap-4 rounded-lg border border-line bg-surface p-4">
-                <RangeField
+                <TextField
                     label={strings.reports.rangeFrom}
+                    type="date"
+                    width="auto"
                     value={range.start}
                     onChange={(start) => {
                         setRange((r) => ({ ...r, start }));
                     }}
                 />
-                <RangeField
+                <TextField
                     label={strings.reports.rangeTo}
+                    type="date"
+                    width="auto"
                     value={range.end}
                     onChange={(end) => {
                         setRange((r) => ({ ...r, end }));
                     }}
                 />
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.reports.t4aYear}
-                    <input
-                        type="number"
-                        value={range.year}
-                        onChange={(e) => {
-                            setRange((r) => ({ ...r, year: Number(e.target.value) || r.year }));
-                        }}
-                        className="w-28 rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden focus:border-accent"
-                    />
-                </label>
+                <TextField
+                    label={strings.reports.t4aYear}
+                    type="number"
+                    width="narrow"
+                    value={String(range.year)}
+                    onChange={(v) => {
+                        setRange((r) => ({ ...r, year: Number(v) || r.year }));
+                    }}
+                />
             </div>
 
-            {dlError !== null ? <p className="mt-3 text-sm text-danger">{dlError}</p> : null}
+            {dlError !== null ? (
+                <div className="mt-3">
+                    <Notice tone="danger">{dlError}</Notice>
+                </div>
+            ) : null}
 
             {error ? (
                 <p className="mt-6 text-sm text-muted">{strings.reports.loadError}</p>
@@ -285,18 +291,13 @@ function Remittances() {
         <div className="mt-4 border-t border-line-soft pt-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-ink">{strings.reports.remitTitle}</h3>
-                <button
-                    type="button"
-                    onClick={record}
-                    disabled={!canRecord || busy}
-                    className={primaryButton}
-                >
+                <Button onPress={record} busy={busy} disabled={!canRecord}>
                     {busy
                         ? strings.reports.remitting
                         : strings.reports.remitAction(period.start, period.end)}
-                </button>
+                </Button>
             </div>
-            {error !== null ? <p className="mt-2 text-sm text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
             {filed.length === 0 ? (
                 <p className="mt-2 text-sm text-muted">{strings.reports.remitNone}</p>
             ) : (
@@ -351,30 +352,6 @@ function BankDeposits() {
     );
 }
 
-function RangeField({
-    label,
-    value,
-    onChange,
-}: {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-}) {
-    return (
-        <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-            {label}
-            <input
-                type="date"
-                value={value}
-                onChange={(e) => {
-                    onChange(e.target.value);
-                }}
-                className="rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden focus:border-accent"
-            />
-        </label>
-    );
-}
-
 function Card({
     title,
     subtitle,
@@ -395,14 +372,9 @@ function Card({
                     <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
                     <p className="mt-0.5 text-sm text-muted">{subtitle}</p>
                 </div>
-                <button
-                    type="button"
-                    onClick={onDownload}
-                    disabled={downloading}
-                    className="shrink-0 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                >
+                <Button variant="outline" onPress={onDownload} busy={downloading}>
                     {downloading ? strings.reports.downloading : strings.reports.downloadCsv}
-                </button>
+                </Button>
             </div>
             <div className="mt-4">{children}</div>
         </section>

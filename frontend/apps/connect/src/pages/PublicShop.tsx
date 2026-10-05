@@ -5,7 +5,7 @@ import {
     strings,
     usePublicShop,
 } from "@clientbridge/app-core/public";
-import { CardForm, field, ItemImage, primaryButtonLarge } from "@clientbridge/ui";
+import { Button, CardForm, ItemImage, Notice, TextField } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
@@ -142,53 +142,44 @@ export function PublicShop() {
                         <h2 className="text-sm font-semibold text-ink">
                             {strings.publicShop.yourDetails}
                         </h2>
-                        <input
-                            aria-label={strings.publicShop.name}
+                        <TextField
                             placeholder={strings.publicShop.name}
                             value={form.name}
-                            onChange={(e) => {
-                                form.setName(e.target.value);
-                            }}
-                            className={field}
+                            onChange={form.setName}
+                            autoComplete="name"
                         />
-                        <input
-                            aria-label={strings.publicShop.email}
+                        <TextField
                             placeholder={strings.publicShop.email}
-                            inputMode="email"
+                            type="email"
                             value={form.email}
-                            onChange={(e) => {
-                                form.setEmail(e.target.value);
-                            }}
-                            className={field}
+                            onChange={form.setEmail}
+                            autoComplete="email"
                         />
-                        <input
-                            aria-label={strings.publicShop.phone}
+                        <TextField
                             placeholder={strings.publicShop.phone}
-                            inputMode="tel"
+                            type="tel"
                             value={form.phone}
-                            onChange={(e) => {
-                                form.setPhone(e.target.value);
-                            }}
-                            className={field}
+                            onChange={form.setPhone}
+                            autoComplete="tel"
                         />
                         <p className="text-xs text-muted">{strings.publicShop.reachYouNote}</p>
                     </section>
 
                     {shop.stripe_account_id === null ? (
-                        <p className="rounded-md bg-accent-weak px-3 py-2 text-sm text-accent-strong">
+                        <Notice tone="info" banner>
                             {strings.publicShop.notTakingPayments}
-                        </p>
+                        </Notice>
                     ) : null}
-                    {form.error !== null ? (
-                        <p className="text-sm text-danger-fg">{form.error}</p>
-                    ) : null}
-                    <button
-                        type="submit"
-                        disabled={form.busy || shop.stripe_account_id === null}
-                        className={`${primaryButtonLarge} w-full`}
+                    {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+                    <Button
+                        submit
+                        size="lg"
+                        full
+                        busy={form.busy}
+                        disabled={shop.stripe_account_id === null}
                     >
                         {form.busy ? strings.publicShop.placing : strings.publicShop.placeOrder}
-                    </button>
+                    </Button>
                 </form>
             )}
         </PublicFrame>
@@ -220,15 +211,15 @@ function ShopCard({
                             {strings.publicShop.outOfStock}
                         </span>
                     ) : quantity === 0 ? (
-                        <button
-                            type="button"
-                            onClick={() => {
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onPress={() => {
                                 onQuantity(1);
                             }}
-                            className="rounded-md border border-line px-3 py-1 text-sm font-medium text-ink-soft hover:bg-bg"
                         >
                             {strings.publicShop.add}
-                        </button>
+                        </Button>
                     ) : (
                         <span className="flex items-center gap-2">
                             <button

@@ -13,7 +13,7 @@ import {
     strings,
     usePublicBookingForm,
 } from "@clientbridge/app-core/public";
-import { CardForm, field, ItemImage, primaryButtonLarge } from "@clientbridge/ui";
+import { Button, CardForm, Choice, ItemImage, Notice, Select, TextField } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -77,22 +77,15 @@ export function PublicBooking() {
             ) : null}
 
             <form onSubmit={submit} className="mt-6 space-y-5">
-                <Labeled label={strings.publicBooking.service}>
-                    <select
-                        value={form.itemId}
-                        onChange={(e) => {
-                            form.setItemId(e.target.value);
-                        }}
-                        className={field}
-                    >
-                        <option value="">{strings.publicBooking.selectService}</option>
-                        {page.services.map((s) => (
-                            <option key={s.id} value={s.id}>
-                                {serviceOptionLabel(s)}
-                            </option>
-                        ))}
-                    </select>
-                </Labeled>
+                <Select
+                    label={strings.publicBooking.service}
+                    value={form.itemId}
+                    options={[
+                        { key: "", label: strings.publicBooking.selectService },
+                        ...page.services.map((s) => ({ key: s.id, label: serviceOptionLabel(s) })),
+                    ]}
+                    onChange={form.setItemId}
+                />
 
                 {service !== null ? (
                     <>
@@ -102,34 +95,22 @@ export function PublicBooking() {
                                 {service.description ?? service.name}
                             </p>
                         </div>
-                        <Labeled label={strings.publicBooking.with}>
-                            <select
-                                value={form.staffId}
-                                onChange={(e) => {
-                                    form.setStaffId(e.target.value);
-                                }}
-                                className={field}
-                            >
-                                <option value="">{strings.publicBooking.selectStaff}</option>
-                                {page.staff.map((st) => (
-                                    <option key={st.id} value={st.id}>
-                                        {staffLabel(st)}
-                                    </option>
-                                ))}
-                            </select>
-                        </Labeled>
-
-                        <Labeled label={strings.publicBooking.date}>
-                            <input
-                                type="date"
-                                value={form.date}
-                                min={dateKey(new Date())}
-                                onChange={(e) => {
-                                    form.setDate(e.target.value);
-                                }}
-                                className={field}
-                            />
-                        </Labeled>
+                        <Select
+                            label={strings.publicBooking.with}
+                            value={form.staffId}
+                            options={[
+                                { key: "", label: strings.publicBooking.selectStaff },
+                                ...page.staff.map((st) => ({ key: st.id, label: staffLabel(st) })),
+                            ]}
+                            onChange={form.setStaffId}
+                        />
+                        <TextField
+                            label={strings.publicBooking.date}
+                            type="date"
+                            value={form.date}
+                            min={dateKey(new Date())}
+                            onChange={form.setDate}
+                        />
                     </>
                 ) : null}
 
@@ -188,65 +169,50 @@ export function PublicBooking() {
 
                 {form.startsAt !== "" && service !== null ? (
                     <div className="space-y-3 border-t border-line pt-4">
-                        <Labeled label={strings.publicBooking.yourName}>
-                            <input
-                                value={form.name}
-                                onChange={(e) => {
-                                    form.setName(e.target.value);
-                                }}
-                                placeholder={strings.publicBooking.fullNamePlaceholder}
-                                className={field}
-                            />
-                        </Labeled>
-                        <Labeled label={strings.publicBooking.email}>
-                            <input
-                                value={form.email}
-                                onChange={(e) => {
-                                    form.setEmail(e.target.value);
-                                }}
-                                inputMode="email"
-                                placeholder={strings.publicBooking.emailPlaceholder}
-                                className={field}
-                            />
-                        </Labeled>
-                        <Labeled label={strings.publicBooking.phone}>
-                            <input
-                                value={form.phone}
-                                onChange={(e) => {
-                                    form.setPhone(e.target.value);
-                                }}
-                                inputMode="tel"
-                                placeholder={strings.publicBooking.phonePlaceholder}
-                                className={field}
-                            />
-                        </Labeled>
+                        <TextField
+                            label={strings.publicBooking.yourName}
+                            value={form.name}
+                            onChange={form.setName}
+                            placeholder={strings.publicBooking.fullNamePlaceholder}
+                            autoComplete="name"
+                        />
+                        <TextField
+                            label={strings.publicBooking.email}
+                            type="email"
+                            value={form.email}
+                            onChange={form.setEmail}
+                            placeholder={strings.publicBooking.emailPlaceholder}
+                            autoComplete="email"
+                        />
+                        <TextField
+                            label={strings.publicBooking.phone}
+                            type="tel"
+                            value={form.phone}
+                            onChange={form.setPhone}
+                            placeholder={strings.publicBooking.phonePlaceholder}
+                            autoComplete="tel"
+                        />
                         <p className="text-xs text-muted">{strings.publicBooking.reachYouNote}</p>
                         {service.deposit_required ? (
-                            <p className="rounded-md bg-accent-weak px-3 py-2 text-xs text-accent-strong">
+                            <Notice tone="info" banner>
                                 {strings.publicBooking.depositRequired(
                                     formatMoneyWithCurrency(
                                         service.deposit_amount_cents,
                                         service.currency,
                                     ),
                                 )}
-                            </p>
+                            </Notice>
                         ) : null}
 
-                        <button
-                            type="submit"
-                            disabled={form.busy || !form.canBook}
-                            className={`${primaryButtonLarge} w-full`}
-                        >
+                        <Button submit size="lg" full busy={form.busy} disabled={!form.canBook}>
                             {form.busy
                                 ? strings.publicBooking.booking
                                 : strings.publicBooking.confirmBooking}
-                        </button>
+                        </Button>
                     </div>
                 ) : null}
 
-                {form.error !== null ? (
-                    <p className="text-sm text-danger-fg">{form.error}</p>
-                ) : null}
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
             </form>
         </PublicFrame>
     );
@@ -273,34 +239,21 @@ function Slots({
                 {strings.publicBooking.openTimes}
             </p>
             {error !== null ? (
-                <p className="text-sm text-danger-fg">{error}</p>
+                <Notice tone="danger">{error}</Notice>
             ) : slots === null ? (
                 <p className="text-sm text-muted">{strings.publicBooking.loadingTimes}</p>
             ) : slots.length === 0 ? (
                 <p className="text-sm text-muted">{strings.publicBooking.noOpenTimes}</p>
             ) : (
-                <div className="grid grid-cols-3 gap-2">
-                    {slots.map((slot) => {
-                        const value = slot.starts_at;
-                        const active = value === selected;
-                        return (
-                            <button
-                                key={value}
-                                type="button"
-                                onClick={() => {
-                                    onSelect(value);
-                                }}
-                                className={`rounded-md border px-2 py-2 text-sm font-medium transition ${
-                                    active
-                                        ? "border-accent bg-accent-weak text-accent-strong"
-                                        : "border-line text-ink-soft hover:border-accent-line"
-                                }`}
-                            >
-                                {formatTime(parseTimestamp(value))}
-                            </button>
-                        );
-                    })}
-                </div>
+                <Choice
+                    label={strings.publicBooking.openTimes}
+                    options={slots.map((slot) => ({
+                        key: slot.starts_at,
+                        label: formatTime(parseTimestamp(slot.starts_at)),
+                    }))}
+                    value={selected}
+                    onChange={onSelect}
+                />
             )}
         </div>
     );
@@ -358,20 +311,13 @@ function BookedState({
                     {strings.publicBooking.bookedBody(page.business_name)}
                 </p>
                 {result.deposit_client_secret !== null && result.stripe_account_id === null ? (
-                    <p className="mt-4 rounded-md bg-accent-weak px-3 py-2 text-sm text-accent-strong">
-                        {strings.publicBooking.depositLinkNote}
-                    </p>
+                    <div className="mt-4">
+                        <Notice tone="info" banner>
+                            {strings.publicBooking.depositLinkNote}
+                        </Notice>
+                    </div>
                 ) : null}
             </div>
         </PublicFrame>
-    );
-}
-
-function Labeled({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-            {label}
-            {children}
-        </label>
     );
 }

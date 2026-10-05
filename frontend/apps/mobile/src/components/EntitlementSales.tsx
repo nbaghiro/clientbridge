@@ -14,49 +14,13 @@ import {
     useGiftCardSaleForm,
     usePackageSaleForm,
     useSavedCards,
-    useStripeAccountId,
     useSubscriptionForm,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useMemo, useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
-import { ChargeSheet, ui } from "@clientbridge/ui";
+import { Text, View } from "react-native";
+import { Button, ChargeSheet, Choice, Field, TextField, ui } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
-
-const c = theme.colors;
-
-function ChipChoice<T>({
-    options,
-    selected,
-    label,
-    onPick,
-    keyOf,
-}: {
-    options: readonly T[];
-    selected: (o: T) => boolean;
-    label: (o: T) => string;
-    onPick: (o: T) => void;
-    keyOf: (o: T) => string;
-}) {
-    return (
-        <View style={ui.chipWrap}>
-            {options.map((o) => (
-                <Pressable
-                    key={keyOf(o)}
-                    style={[ui.chip, selected(o) ? ui.chipOn : null]}
-                    onPress={() => {
-                        onPick(o);
-                    }}
-                >
-                    <Text style={[ui.chipText, selected(o) ? ui.chipTextOn : null]}>
-                        {label(o)}
-                    </Text>
-                </Pressable>
-            ))}
-        </View>
-    );
-}
 
 export function ClientChips({
     clients,
@@ -70,13 +34,11 @@ export function ClientChips({
     if (clients.length === 0)
         return <Text style={ui.note}>{strings.giftCards.addClientFirst}</Text>;
     return (
-        <ChipChoice
-            options={clients}
-            keyOf={(cl) => cl.id}
-            selected={(cl) => cl.id === value}
-            label={(cl) => cl.name}
-            onPick={(cl) => {
-                onChange(cl.id === value ? "" : cl.id);
+        <Choice
+            options={clients.map((cl) => ({ key: cl.id, label: cl.name }))}
+            value={value}
+            onChange={(id) => {
+                onChange(id === value ? "" : id);
             }}
         />
     );
@@ -87,7 +49,6 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
     const clients = useClients();
     const cards = useSavedCards(form.purchaserClientId);
     const items = giftItems(useCatalogItems());
-    const stripeAccount = useStripeAccountId() ?? "";
 
     return (
         <ChargeSheet
@@ -99,68 +60,62 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
                     ? formatMoney(form.faceAmountCents)
                     : strings.giftCards.amountFallback
             }
-            stripeAccount={stripeAccount}
             submitLabel={strings.giftCards.sellShort}
             busyLabel={strings.giftCards.selling}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <Text style={ui.label}>{strings.giftCards.purchaser}</Text>
-            <ClientChips
-                clients={clients}
-                value={form.purchaserClientId}
-                onChange={form.setPurchaserClientId}
-            />
-            <Text style={ui.label}>{strings.giftCards.type}</Text>
-            <ChipChoice
-                options={GIFT_SALE_MODES}
-                keyOf={(m) => m}
-                selected={(m) => m === form.mode}
-                label={(m) => GIFT_SALE_MODE_LABEL[m]}
-                onPick={form.setMode}
-            />
+            <Field label={strings.giftCards.purchaser}>
+                <ClientChips
+                    clients={clients}
+                    value={form.purchaserClientId}
+                    onChange={form.setPurchaserClientId}
+                />
+            </Field>
+            <Field label={strings.giftCards.type}>
+                <Choice
+                    layout="segmented"
+                    options={GIFT_SALE_MODES.map((m) => ({
+                        key: m,
+                        label: GIFT_SALE_MODE_LABEL[m],
+                    }))}
+                    value={form.mode}
+                    onChange={form.setMode}
+                />
+            </Field>
             {form.mode === "preset" ? (
-                <>
-                    <Text style={ui.label}>{strings.giftCards.giftCard}</Text>
+                <Field label={strings.giftCards.giftCard}>
                     {items.length === 0 ? (
                         <Text style={ui.note}>{strings.giftCards.emptyCatalog}</Text>
                     ) : (
-                        <ChipChoice
-                            options={items}
-                            keyOf={(it) => it.id}
-                            selected={(it) => it.id === form.itemId}
-                            label={(it) =>
-                                it.price_cents !== null
-                                    ? `${it.name} · ${formatMoney(it.price_cents)}`
-                                    : it.name
-                            }
-                            onPick={(it) => {
-                                form.setItemId(it.id);
-                            }}
+                        <Choice
+                            options={items.map((it) => ({
+                                key: it.id,
+                                label:
+                                    it.price_cents !== null
+                                        ? `${it.name} · ${formatMoney(it.price_cents)}`
+                                        : it.name,
+                            }))}
+                            value={form.itemId}
+                            onChange={form.setItemId}
                         />
                     )}
-                </>
+                </Field>
             ) : (
-                <>
-                    <Text style={ui.label}>{strings.giftCards.amountCad}</Text>
-                    <TextInput
-                        style={ui.input}
-                        value={form.amount}
-                        onChangeText={form.setAmount}
-                        keyboardType="decimal-pad"
-                        placeholder={strings.giftCards.amountPlaceholder}
-                        placeholderTextColor={c.muted}
-                    />
-                </>
+                <TextField
+                    label={strings.giftCards.amountCad}
+                    type="number"
+                    value={form.amount}
+                    onChange={form.setAmount}
+                    placeholder={strings.giftCards.amountPlaceholder}
+                />
             )}
-            <Text style={ui.label}>{strings.giftCards.recipientOptional}</Text>
-            <TextInput
-                style={ui.input}
+            <TextField
+                label={strings.giftCards.recipient}
+                optional
                 value={form.recipient}
-                onChangeText={form.setRecipient}
+                onChange={form.setRecipient}
                 placeholder={strings.giftCards.recipientPlaceholder}
-                placeholderTextColor={c.muted}
-                autoCapitalize="none"
             />
         </ChargeSheet>
     );
@@ -215,9 +170,9 @@ function WithClient({
             <ClientChips clients={clients} value={picked} onChange={setPicked} />
             <Text style={ui.note}>{strings.pos.chooseClient}</Text>
             <View style={ui.actions}>
-                <Pressable style={ui.cancel} onPress={onClose}>
-                    <Text style={ui.cancelText}>{strings.common.cancel}</Text>
-                </Pressable>
+                <Button variant="quiet" onPress={onClose}>
+                    {strings.common.cancel}
+                </Button>
             </View>
         </View>
     );
@@ -228,7 +183,6 @@ function PackageSale({ clientId, onClose }: { clientId: string; onClose: () => v
     const offerings = useMemo(() => packageOfferings(items), [items]);
     const cards = useSavedCards(clientId);
     const form = usePackageSaleForm(api, clientId, onClose);
-    const stripeAccount = useStripeAccountId() ?? "";
     const offering = offerings.find((o) => o.id === form.itemId);
 
     return (
@@ -238,19 +192,19 @@ function PackageSale({ clientId, onClose }: { clientId: string; onClose: () => v
             amountLabel={
                 offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
             }
-            stripeAccount={stripeAccount}
             submitLabel={strings.clients.sellPackage}
             busyLabel={strings.clients.selling}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <Text style={ui.label}>{strings.clients.packageLabel}</Text>
-            <ItemChoice
-                items={offerings}
-                value={form.itemId}
-                onChange={form.setItemId}
-                empty={strings.clients.addPackageItemFirst}
-            />
+            <Field label={strings.clients.packageLabel}>
+                <ItemChoice
+                    items={offerings}
+                    value={form.itemId}
+                    onChange={form.setItemId}
+                    empty={strings.clients.addPackageItemFirst}
+                />
+            </Field>
         </ChargeSheet>
     );
 }
@@ -267,19 +221,19 @@ function SubscriptionStart({ clientId, onClose }: { clientId: string; onClose: (
             checkout={form.checkout}
             methods={checkoutMethods(cards)}
             amountLabel={plan ? formatMoney(plan.price_cents) : ""}
-            stripeAccount=""
             submitLabel={strings.clients.startSubscription}
             busyLabel={strings.clients.starting}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <Text style={ui.label}>{strings.clients.planLabel}</Text>
-            <ItemChoice
-                items={plans}
-                value={form.itemId}
-                onChange={form.setItemId}
-                empty={strings.clients.addSubscriptionItemFirst}
-            />
+            <Field label={strings.clients.planLabel}>
+                <ItemChoice
+                    items={plans}
+                    value={form.itemId}
+                    onChange={form.setItemId}
+                    empty={strings.clients.addSubscriptionItemFirst}
+                />
+            </Field>
         </ChargeSheet>
     );
 }
@@ -297,14 +251,13 @@ function ItemChoice({
 }) {
     if (items.length === 0) return <Text style={ui.note}>{empty}</Text>;
     return (
-        <ChipChoice
-            options={items}
-            keyOf={(i) => i.id}
-            selected={(i) => i.id === value}
-            label={(i) => `${i.name} · ${formatMoney(i.price_cents)}`}
-            onPick={(i) => {
-                onChange(i.id);
-            }}
+        <Choice
+            options={items.map((i) => ({
+                key: i.id,
+                label: `${i.name} · ${formatMoney(i.price_cents)}`,
+            }))}
+            value={value}
+            onChange={onChange}
         />
     );
 }

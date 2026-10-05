@@ -33,17 +33,17 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useEffect, useState } from "react";
+import { Alert, Share, StyleSheet, Text, View } from "react-native";
 import {
-    ActivityIndicator,
-    Alert,
-    Pressable,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
-import { DetailSection, DetailView, ListPage, Money, StatusPill, ui } from "@clientbridge/ui";
+    Button,
+    DetailSection,
+    DetailView,
+    ListPage,
+    Money,
+    Notice,
+    StatusPill,
+    TextField,
+} from "@clientbridge/ui";
 
 import { DocEditor } from "../components/DocEditor";
 import { api } from "../lib/api";
@@ -192,20 +192,19 @@ function DetailModal({
                     actions={
                         <>
                             {row.status === "draft" ? (
-                                <Pressable
-                                    style={styles.cancel}
+                                <Button
+                                    variant="outline"
                                     onPress={() => {
                                         setEditing(true);
                                     }}
                                 >
-                                    <Text style={styles.cancelText}>{strings.billing.edit}</Text>
-                                </Pressable>
+                                    {strings.billing.edit}
+                                </Button>
                             ) : null}
                             {actions.map((a) => (
-                                <Pressable
+                                <Button
                                     key={a.key}
-                                    style={ui.primary}
-                                    disabled={busy}
+                                    busy={busy}
                                     onPress={() => {
                                         run(a.run, {
                                             onSuccess: onClose,
@@ -215,14 +214,8 @@ function DetailModal({
                                         });
                                     }}
                                 >
-                                    {busy ? (
-                                        <ActivityIndicator color={c.accentInk} />
-                                    ) : (
-                                        <Text style={ui.primaryText}>
-                                            {DOC_ACTION_LABEL[a.key]}
-                                        </Text>
-                                    )}
-                                </Pressable>
+                                    {DOC_ACTION_LABEL[a.key]}
+                                </Button>
                             ))}
                         </>
                     }
@@ -247,7 +240,7 @@ function DetailModal({
                     {invoice !== null ? (
                         <PaymentsSection invoiceId={invoice.id} canRefund={canRefund} />
                     ) : null}
-                    {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
+                    {error !== null ? <Notice tone="danger">{error}</Notice> : null}
                 </DetailView>
             ) : null}
         </>
@@ -265,9 +258,9 @@ function PayLinkRow({ token }: { token: string }) {
                 <Text style={styles.payLinkUrl} numberOfLines={1}>
                     {url}
                 </Text>
-                <Pressable style={styles.shareBtn} onPress={share}>
-                    <Text style={styles.shareText}>{strings.billing.share}</Text>
-                </Pressable>
+                <Button variant="outline" size="sm" onPress={share}>
+                    {strings.billing.share}
+                </Button>
             </View>
         </DetailSection>
     );
@@ -325,24 +318,23 @@ function PaymentRowItem({
                 </Text>
                 <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
                 {showRefund ? (
-                    <TextInput
-                        style={styles.refundInput}
-                        value={amount}
-                        onChangeText={setAmount}
-                        keyboardType="decimal-pad"
-                        placeholder={refundPlaceholder(remainingCents)}
-                        placeholderTextColor={c.muted}
-                    />
-                ) : null}
-                {showRefund ? (
-                    <Pressable style={styles.refundBtn} disabled={busy} onPress={refund}>
-                        <Text style={styles.refundText}>
+                    <View style={styles.refund}>
+                        <TextField
+                            type="number"
+                            size="sm"
+                            width="narrow"
+                            name={strings.billing.refund}
+                            value={amount}
+                            onChange={setAmount}
+                            placeholder={refundPlaceholder(remainingCents)}
+                        />
+                        <Button variant="outline" size="sm" busy={busy} onPress={refund}>
                             {busy ? strings.billing.refundingShort : strings.billing.refund}
-                        </Text>
-                    </Pressable>
+                        </Button>
+                    </View>
                 ) : null}
             </View>
-            {error !== null ? <Text style={styles.errorText}>{error}</Text> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
@@ -354,7 +346,6 @@ const styles = StyleSheet.create({
     rowName: { color: c.ink, fontSize: 15, fontWeight: "700" },
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     rowRight: { alignItems: "flex-end", gap: 4 },
-    errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
     payLinkRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -368,14 +359,6 @@ const styles = StyleSheet.create({
         backgroundColor: c.bg,
     },
     payLinkUrl: { flex: 1, color: c.inkSoft, fontSize: 13 },
-    shareBtn: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: theme.radius,
-        borderColor: c.border,
-        borderWidth: 1,
-    },
-    shareText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
     payment: {
         marginTop: 6,
         paddingVertical: 8,
@@ -386,26 +369,7 @@ const styles = StyleSheet.create({
     paymentAmount: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
     paymentRefund: { color: c.danFg },
     paymentMethod: { color: c.muted, fontSize: 13, textTransform: "capitalize" },
-    refundInput: {
-        marginLeft: "auto",
-        width: 96,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: theme.radius,
-        borderColor: c.border,
-        borderWidth: 1,
-        color: c.ink,
-        fontSize: 12,
-    },
-    refundBtn: {
-        marginLeft: 6,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: theme.radius,
-        borderColor: c.border,
-        borderWidth: 1,
-    },
-    refundText: { color: c.inkSoft, fontSize: 12, fontWeight: "600" },
+    refund: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 6 },
     lineRow: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -417,6 +381,4 @@ const styles = StyleSheet.create({
     totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 12 },
     taxRow: { flexDirection: "row", justifyContent: "space-between", paddingTop: 8 },
     totalLabel: { color: c.muted, fontSize: 14 },
-    cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
-    cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
 });

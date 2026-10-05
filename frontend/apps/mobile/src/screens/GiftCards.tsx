@@ -7,8 +7,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { ListPage, Money, StatusPill, ui } from "@clientbridge/ui";
+import { StyleSheet, Text, View } from "react-native";
+import { Button, ListPage, Money, Notice, StatusPill, TextField } from "@clientbridge/ui";
 
 import { SellGiftCard } from "../components/EntitlementSales";
 
@@ -24,14 +24,14 @@ export function GiftCards() {
         <ListPage
             summary={strings.giftCards.issuedCount(cards.length)}
             accessory={
-                <Pressable
-                    style={[styles.outlineBtn, mode === "redeem" && styles.outlineBtnOn]}
+                <Button
+                    variant="outline"
                     onPress={() => {
                         setMode(mode === "redeem" ? null : "redeem");
                     }}
                 >
-                    <Text style={styles.outlineBtnText}>{strings.giftCards.redeem}</Text>
-                </Pressable>
+                    {strings.giftCards.redeem}
+                </Button>
             }
             action={{
                 label: strings.giftCards.sell,
@@ -86,58 +86,34 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
         <View style={styles.panel}>
             <Text style={styles.panelTitle}>{strings.giftCards.redeemTitle}</Text>
 
-            <Text style={styles.fieldLabel}>{strings.giftCards.code}</Text>
-            <TextInput
-                style={ui.input}
+            <TextField
+                label={strings.giftCards.code}
                 value={form.code}
-                onChangeText={form.setCode}
+                onChange={form.setCode}
                 placeholder={strings.giftCards.codePlaceholder}
-                placeholderTextColor={c.muted}
-                autoCapitalize="characters"
-                autoCorrect={false}
             />
-
-            <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                {strings.giftCards.amountCad}
-            </Text>
-            <TextInput
-                style={ui.input}
+            <TextField
+                label={strings.giftCards.amountCad}
+                type="number"
                 value={form.amount}
-                onChangeText={form.setAmount}
-                keyboardType="decimal-pad"
+                onChange={form.setAmount}
                 placeholder={strings.giftCards.redeemAmountPlaceholder}
-                placeholderTextColor={c.muted}
             />
 
-            {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
+            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
             <View style={styles.panelActions}>
-                <Pressable style={styles.cancel} onPress={onClose}>
-                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                </Pressable>
-                <Pressable style={ui.primary} disabled={form.busy} onPress={form.submit}>
-                    {form.busy ? (
-                        <ActivityIndicator color={c.accentInk} />
-                    ) : (
-                        <Text style={ui.primaryText}>{strings.giftCards.redeem}</Text>
-                    )}
-                </Pressable>
+                <Button variant="quiet" onPress={onClose}>
+                    {strings.common.cancel}
+                </Button>
+                <Button busy={form.busy} onPress={form.submit}>
+                    {strings.giftCards.redeem}
+                </Button>
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    error: { color: c.danFg, fontSize: 13, marginTop: 8 },
-    outlineBtn: {
-        alignItems: "center",
-        paddingHorizontal: 13,
-        paddingVertical: 9,
-        borderRadius: theme.radius,
-        borderColor: c.border,
-        borderWidth: 1,
-    },
-    outlineBtnOn: { backgroundColor: c.surface, borderColor: c.accent },
-    outlineBtnText: { color: c.inkSoft, fontSize: 14, fontWeight: "700" },
     row: { flexDirection: "row", alignItems: "center", gap: 10 },
     rowMain: { flex: 1 },
     code: { color: c.ink, fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
@@ -149,10 +125,6 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
         padding: 16,
     },
-    panelTitle: { color: c.ink, fontSize: 16, fontWeight: "700", marginBottom: 12 },
-    fieldLabel: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6 },
-    fieldSpace: { marginTop: 14 },
+    panelTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
     panelActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
-    cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
-    cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
 });

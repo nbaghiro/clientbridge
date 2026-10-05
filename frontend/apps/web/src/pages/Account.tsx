@@ -8,7 +8,7 @@ import {
 } from "@clientbridge/app-core";
 import { type ChangeEvent, useRef } from "react";
 
-import { fieldLarge, primaryButton } from "@clientbridge/ui";
+import { Button, Field, Notice, Select, TextField } from "@clientbridge/ui";
 import { api, apiBaseUrl } from "../lib/api";
 
 export function Account() {
@@ -31,39 +31,27 @@ export function Account() {
                         }}
                     >
                         {ACCOUNT_TEXT_FIELDS.map((f) => (
-                            <label
+                            <TextField
                                 key={f.key}
-                                className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft"
-                            >
-                                {f.label}
-                                <input
-                                    type="text"
-                                    value={fields[f.key]}
-                                    onChange={(e) => {
-                                        form.set(f.key, e.target.value);
-                                    }}
-                                    placeholder={f.placeholder}
-                                    className={fieldLarge}
-                                />
-                            </label>
+                                label={f.label}
+                                value={fields[f.key]}
+                                onChange={(v) => {
+                                    form.set(f.key, v);
+                                }}
+                                placeholder={f.placeholder}
+                                size="lg"
+                            />
                         ))}
                         {LOCALES.length > 1 ? (
-                            <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                                {strings.account.language}
-                                <select
-                                    value={fields.locale}
-                                    onChange={(e) => {
-                                        form.set("locale", e.target.value);
-                                    }}
-                                    className={fieldLarge}
-                                >
-                                    {LOCALES.map((l) => (
-                                        <option key={l.code} value={l.code}>
-                                            {l.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                            <Select
+                                label={strings.account.language}
+                                value={fields.locale}
+                                options={LOCALES.map((l) => ({ key: l.code, label: l.label }))}
+                                onChange={(v) => {
+                                    form.set("locale", v);
+                                }}
+                                size="lg"
+                            />
                         ) : null}
                         <div className="border-t border-line pt-4">
                             <h2 className="font-display text-sm font-semibold text-ink">
@@ -82,8 +70,7 @@ export function Account() {
                                         }}
                                     />
                                 ) : null}
-                                <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                                    {strings.account.primaryLabel}
+                                <Field label={strings.account.primaryLabel}>
                                     <div className="flex items-center gap-3">
                                         <input
                                             type="color"
@@ -94,38 +81,33 @@ export function Account() {
                                             aria-label={strings.account.primaryLabel}
                                             className="h-10 w-14 shrink-0 rounded-md border border-line bg-bg"
                                         />
-                                        <input
-                                            type="text"
+                                        <TextField
+                                            name={strings.account.primaryLabel}
                                             value={fields.primary}
-                                            onChange={(e) => {
-                                                form.set("primary", e.target.value);
+                                            onChange={(v) => {
+                                                form.set("primary", v);
                                             }}
                                             placeholder={strings.account.primaryPlaceholder}
-                                            className={fieldLarge}
+                                            size="lg"
                                         />
                                     </div>
-                                </label>
-                                <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                                    {strings.account.taglineLabel}
-                                    <input
-                                        type="text"
-                                        value={fields.tagline}
-                                        onChange={(e) => {
-                                            form.set("tagline", e.target.value);
-                                        }}
-                                        placeholder={strings.account.taglinePlaceholder}
-                                        className={fieldLarge}
-                                    />
-                                </label>
+                                </Field>
+                                <TextField
+                                    label={strings.account.taglineLabel}
+                                    value={fields.tagline}
+                                    onChange={(v) => {
+                                        form.set("tagline", v);
+                                    }}
+                                    placeholder={strings.account.taglinePlaceholder}
+                                    size="lg"
+                                />
                             </div>
                         </div>
-                        {form.error !== null && <p className="text-sm text-danger">{form.error}</p>}
-                        {form.saved && (
-                            <p className="text-sm text-success">{strings.common.saved}</p>
-                        )}
-                        <button type="submit" disabled={form.busy} className={primaryButton}>
+                        {form.error !== null && <Notice tone="danger">{form.error}</Notice>}
+                        {form.saved && <Notice tone="success">{strings.common.saved}</Notice>}
+                        <Button submit busy={form.busy}>
                             {form.busy ? strings.common.saving : strings.common.save}
-                        </button>
+                        </Button>
                     </form>
                 )}
             </div>
@@ -153,26 +135,24 @@ function LogoField({
     };
 
     return (
-        <div className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-            {strings.files.logo}
+        <Field label={strings.files.logo} error={error}>
             <div className="flex items-center gap-4">
                 {src !== null ? (
                     <img src={src} alt="" className="h-12 max-w-48 rounded-md object-contain" />
                 ) : null}
-                <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => {
+                <Button
+                    variant="outline"
+                    busy={busy}
+                    onPress={() => {
                         inputRef.current?.click();
                     }}
-                    className="rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                 >
                     {busy
                         ? strings.files.uploading
                         : src !== null
                           ? strings.files.replaceLogo
                           : strings.files.uploadLogo}
-                </button>
+                </Button>
                 <input
                     ref={inputRef}
                     type="file"
@@ -181,7 +161,6 @@ function LogoField({
                     className="hidden"
                 />
             </div>
-            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
-        </div>
+        </Field>
     );
 }

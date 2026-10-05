@@ -1,7 +1,7 @@
 import { createPublicReviewClient, strings, usePublicReview } from "@clientbridge/app-core/public";
 import { useParams } from "react-router-dom";
 
-import { field, primaryButtonLarge } from "@clientbridge/ui";
+import { Button, Notice, TextField } from "@clientbridge/ui";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
@@ -65,26 +65,19 @@ export function PublicReview() {
                 </p>
                 <Stars value={form.rating} onSelect={form.setRating} />
             </div>
-            <textarea
-                value={form.body}
-                onChange={(e) => {
-                    form.setBody(e.target.value);
-                }}
-                placeholder={strings.publicReview.notePlaceholder}
-                rows={4}
-                className={`${field} mt-4`}
-            />
-            {form.error !== null ? (
-                <p className="mt-2 text-sm text-danger-fg">{form.error}</p>
-            ) : null}
-            <button
-                type="button"
-                onClick={form.submit}
-                disabled={form.busy}
-                className={`${primaryButtonLarge} mt-4 w-full`}
-            >
-                {form.busy ? strings.publicReview.submitting : strings.publicReview.submit}
-            </button>
+            <div className="mt-4 space-y-4">
+                <TextField
+                    multiline
+                    rows={4}
+                    value={form.body}
+                    onChange={form.setBody}
+                    placeholder={strings.publicReview.notePlaceholder}
+                />
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+                <Button size="lg" full onPress={form.submit} busy={form.busy}>
+                    {form.busy ? strings.publicReview.submitting : strings.publicReview.submit}
+                </Button>
+            </div>
         </PublicFrame>
     );
 }

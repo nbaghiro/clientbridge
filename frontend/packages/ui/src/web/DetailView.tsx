@@ -3,6 +3,7 @@ import {
     type DetailViewProps,
     strings,
 } from "@clientbridge/app-core/public";
+import { Button } from "./Button";
 import { StatusPill } from "./StatusPill";
 import { useEffect } from "react";
 
@@ -57,13 +58,9 @@ export function DetailView({
                 <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">{children}</div>
                 <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-6 py-4">
                     {actions}
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                    >
+                    <Button variant="quiet" onPress={onClose}>
                         {strings.common.close}
-                    </button>
+                    </Button>
                 </div>
             </aside>
         </div>

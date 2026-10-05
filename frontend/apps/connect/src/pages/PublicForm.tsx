@@ -11,7 +11,7 @@ import {
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
-import { field, primaryButtonLarge } from "@clientbridge/ui";
+import { Button, Choice, Field, Notice, Select, TextField, Toggle } from "@clientbridge/ui";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
@@ -77,16 +77,10 @@ export function PublicForm() {
                         }}
                     />
                 ))}
-                {fill.error !== null ? (
-                    <p className="text-sm text-danger-fg">{fill.error}</p>
-                ) : null}
-                <button
-                    type="submit"
-                    disabled={fill.busy}
-                    className={`${primaryButtonLarge} w-full`}
-                >
+                {fill.error !== null ? <Notice tone="danger">{fill.error}</Notice> : null}
+                <Button submit size="lg" full busy={fill.busy}>
                     {fill.busy ? strings.publicForm.submitting : strings.publicForm.submit}
-                </button>
+                </Button>
             </form>
         </PublicFrame>
     );
@@ -103,24 +97,17 @@ function FieldView({
     onChange: (v: FormAnswer) => void;
     onUpload: (file: File) => void;
 }) {
-    const label = (
-        <span className="text-sm font-medium text-ink-soft">
-            {f.label}
-            {f.required ? <span className="text-danger"> *</span> : null}
-        </span>
-    );
-    const help = f.help !== null ? <span className="text-xs text-muted">{f.help}</span> : null;
+    const help = f.help ?? undefined;
 
     if (isFileField(f.input)) {
         const uploaded = typeof value === "string" && value.length > 0;
         const accept = f.input === "image" || f.input === "signature" ? "image/*" : "*/*";
         return (
-            <label className="flex flex-col gap-1">
-                {label}
-                {help}
+            <Field label={f.label} hint={help} required={f.required}>
                 <input
                     type="file"
                     accept={accept}
+                    aria-label={f.label}
                     onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) onUpload(file);
@@ -128,99 +115,57 @@ function FieldView({
                     className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
                 />
                 {uploaded ? (
-                    <span className="text-xs text-ok-fg">{strings.publicForm.fileAttached}</span>
+                    <Notice tone="success">{strings.publicForm.fileAttached}</Notice>
                 ) : null}
-            </label>
+            </Field>
         );
     }
 
     if (f.input === "checkbox") {
-        return (
-            <label className="flex items-start gap-2">
-                <input
-                    type="checkbox"
-                    checked={value === true}
-                    onChange={(e) => {
-                        onChange(e.target.checked);
-                    }}
-                    className="mt-0.5 h-4 w-4"
-                />
-                <span className="flex flex-col gap-0.5">
-                    {label}
-                    {help}
-                </span>
-            </label>
-        );
+        return <Toggle label={f.label} hint={help} value={value === true} onChange={onChange} />;
     }
 
     if (f.input === "select") {
-        const str = typeof value === "string" ? value : "";
         return (
-            <label className="flex flex-col gap-1">
-                {label}
-                {help}
-                <select
-                    value={str}
-                    onChange={(e) => {
-                        onChange(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.publicForm.selectPlaceholder}</option>
-                    {f.options.map((opt, i) => {
+            <Select
+                label={f.label}
+                hint={help}
+                value={typeof value === "string" ? value : ""}
+                options={[
+                    { key: "", label: strings.publicForm.selectPlaceholder },
+                    ...f.options.map((opt) => {
                         const { value: v, label: l } = optionPair(opt);
-                        return (
-                            <option key={`${v}-${i}`} value={v}>
-                                {l}
-                            </option>
-                        );
-                    })}
-                </select>
-            </label>
+                        return { key: v, label: l };
+                    }),
+                ]}
+                onChange={onChange}
+            />
         );
     }
 
     if (f.input === "multiselect") {
         const list = Array.isArray(value) ? value : [];
-        const toggle = (v: string): void => {
-            onChange(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-        };
         return (
-            <div className="flex flex-col gap-1">
-                {label}
-                {help}
-                <div className="flex flex-wrap gap-2">
-                    {f.options.map((opt, i) => {
+            <Field label={f.label} hint={help} required={f.required}>
+                <Choice
+                    label={f.label}
+                    options={f.options.map((opt) => {
                         const { value: v, label: l } = optionPair(opt);
-                        const on = list.includes(v);
-                        return (
-                            <button
-                                key={`${v}-${i}`}
-                                type="button"
-                                onClick={() => {
-                                    toggle(v);
-                                }}
-                                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                                    on
-                                        ? "border-accent bg-accent-weak text-accent-strong"
-                                        : "border-line text-ink-soft hover:bg-bg"
-                                }`}
-                            >
-                                {l}
-                            </button>
-                        );
+                        return { key: v, label: l };
                     })}
-                </div>
-            </div>
+                    value={list}
+                    onChange={(v) => {
+                        onChange(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+                    }}
+                />
+            </Field>
         );
     }
 
     if (f.input === "rating") {
         const current = typeof value === "string" ? Number(value) : 0;
         return (
-            <div className="flex flex-col gap-1">
-                {label}
-                {help}
+            <Field label={f.label} hint={help} required={f.required}>
                 <div className="flex gap-1">
                     {[1, 2, 3, 4, 5].map((n) => (
                         <button
@@ -236,54 +181,32 @@ function FieldView({
                         </button>
                     ))}
                 </div>
-            </div>
+            </Field>
         );
     }
 
-    const str = typeof value === "string" ? value : "";
-    const multiline = f.input === "longtext" || f.input === "address";
-    const inputType =
-        f.input === "date"
-            ? "date"
-            : f.input === "time"
-              ? "time"
-              : f.input === "email"
-                ? "email"
-                : "text";
-    const inputMode =
-        f.input === "number" || f.input === "currency"
-            ? "decimal"
-            : f.input === "phone"
-              ? "tel"
-              : f.input === "email"
-                ? "email"
-                : undefined;
-
     return (
-        <label className="flex flex-col gap-1">
-            {label}
-            {help}
-            {multiline ? (
-                <textarea
-                    value={str}
-                    onChange={(e) => {
-                        onChange(e.target.value);
-                    }}
-                    rows={3}
-                    className={`${field} resize-none`}
-                />
-            ) : (
-                <input
-                    type={inputType}
-                    inputMode={inputMode}
-                    value={str}
-                    onChange={(e) => {
-                        onChange(e.target.value);
-                    }}
-                    className={field}
-                />
-            )}
-        </label>
+        <TextField
+            label={f.label}
+            hint={help}
+            required={f.required}
+            multiline={f.input === "longtext" || f.input === "address"}
+            type={
+                f.input === "date"
+                    ? "date"
+                    : f.input === "time"
+                      ? "time"
+                      : f.input === "email"
+                        ? "email"
+                        : f.input === "phone"
+                          ? "tel"
+                          : f.input === "number" || f.input === "currency"
+                            ? "number"
+                            : "text"
+            }
+            value={typeof value === "string" ? value : ""}
+            onChange={onChange}
+        />
     );
 }
 

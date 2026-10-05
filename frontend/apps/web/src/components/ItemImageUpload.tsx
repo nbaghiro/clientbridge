@@ -1,5 +1,5 @@
 import { type UploadTarget, strings, useFileUpload } from "@clientbridge/app-core";
-import { ItemImage } from "@clientbridge/ui";
+import { ItemImage, Notice } from "@clientbridge/ui";
 import { type ChangeEvent, useRef } from "react";
 
 import { api } from "../lib/api";
@@ -48,7 +48,7 @@ export function ItemImageUpload({
                 onChange={onChange}
                 className="hidden"
             />
-            {error !== null ? <span className="text-xs text-danger">{error}</span> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </span>
     );
 }

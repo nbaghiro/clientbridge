@@ -2,8 +2,9 @@ import { strings, useAsyncAction } from "@clientbridge/app-core/public";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import type { SubmitEvent } from "react";
 
+import { Button } from "./Button";
+import { Notice } from "./Notice";
 import { stripeFor } from "./stripe";
-import { primaryButton, quietButton } from "./styles";
 
 export interface CardFormProps {
     clientSecret: string;
@@ -22,15 +23,15 @@ export function CardForm(props: CardFormProps) {
     if (stripePromise === null) {
         return props.onCancel !== undefined ? (
             <div className="mt-3 rounded-md border border-line bg-bg p-4">
-                <p className="text-sm text-danger">{strings.checkout.notConfiguredSavedCard}</p>
+                <Notice tone="danger">{strings.checkout.notConfiguredSavedCard}</Notice>
                 <div className="mt-3 flex justify-end">
-                    <button type="button" onClick={props.onCancel} className={quietButton}>
+                    <Button variant="quiet" onPress={props.onCancel}>
                         {strings.checkout.back}
-                    </button>
+                    </Button>
                 </div>
             </div>
         ) : (
-            <p className="text-sm text-danger-fg">{strings.checkout.notConfiguredContact}</p>
+            <Notice tone="danger">{strings.checkout.notConfiguredContact}</Notice>
         );
     }
     const form = (
@@ -79,24 +80,20 @@ function ConfirmForm({
     return (
         <form onSubmit={submit} className="space-y-3">
             <PaymentElement />
-            {error !== null ? <p className="text-sm text-danger-fg">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
             {onCancel !== undefined ? (
                 <div className="flex justify-end gap-2">
-                    <button type="button" onClick={onCancel} className={quietButton}>
+                    <Button variant="quiet" onPress={onCancel}>
                         {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={busy || !stripe} className={primaryButton}>
+                    </Button>
+                    <Button submit busy={busy} disabled={!stripe}>
                         {busy ? busyLabel : submitLabel}
-                    </button>
+                    </Button>
                 </div>
             ) : (
-                <button
-                    type="submit"
-                    disabled={busy || !stripe}
-                    className={`w-full ${primaryButton}`}
-                >
+                <Button submit full size="lg" busy={busy} disabled={!stripe}>
                     {busy ? busyLabel : submitLabel}
-                </button>
+                </Button>
             )}
         </form>
     );

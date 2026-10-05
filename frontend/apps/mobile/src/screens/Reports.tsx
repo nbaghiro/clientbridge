@@ -26,7 +26,7 @@ import {
     Text,
     View,
 } from "react-native";
-import { StatusPill } from "@clientbridge/ui";
+import { Button, Notice, StatusPill } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -66,7 +66,7 @@ export function Reports() {
                 </Pressable>
             </View>
 
-            {dlError !== null ? <Text style={styles.error}>{dlError}</Text> : null}
+            {dlError !== null ? <Notice tone="danger">{dlError}</Notice> : null}
 
             {error ? (
                 <Text style={styles.muted}>{strings.reports.loadError}</Text>
@@ -251,18 +251,12 @@ function Remittances() {
                     </View>
                 ))
             )}
-            {error !== null ? <Text style={styles.error}>{error}</Text> : null}
-            <Pressable
-                onPress={record}
-                disabled={!canRecord || busy}
-                style={[styles.remitBtn, (!canRecord || busy) && styles.disabled]}
-            >
-                <Text style={styles.remitBtnText}>
-                    {busy
-                        ? strings.reports.remitting
-                        : strings.reports.remitAction(period.start, period.end)}
-                </Text>
-            </Pressable>
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
+            <Button full onPress={record} busy={busy} disabled={!canRecord}>
+                {busy
+                    ? strings.reports.remitting
+                    : strings.reports.remitAction(period.start, period.end)}
+            </Button>
         </View>
     );
 }
@@ -305,13 +299,9 @@ function Card({
                     <Text style={styles.cardTitle}>{title}</Text>
                     <Text style={styles.cardSub}>{subtitle}</Text>
                 </View>
-                <Pressable style={styles.csv} onPress={onDownload} disabled={downloading}>
-                    {downloading ? (
-                        <ActivityIndicator color={c.inkSoft} size="small" />
-                    ) : (
-                        <Text style={styles.csvText}>{strings.reports.csv}</Text>
-                    )}
-                </Pressable>
+                <Button variant="outline" size="sm" onPress={onDownload} busy={downloading}>
+                    {strings.reports.csv}
+                </Button>
             </View>
             <View style={styles.cardBody}>{children}</View>
         </View>
@@ -327,7 +317,6 @@ const styles = StyleSheet.create({
     center: { alignItems: "center", justifyContent: "center" },
     content: { padding: 16, gap: 14 },
     muted: { color: c.muted, fontSize: 14 },
-    error: { color: c.danFg, fontSize: 13 },
     yearRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20 },
     step: {
         width: 40,
@@ -352,16 +341,6 @@ const styles = StyleSheet.create({
     cardHeadText: { flex: 1 },
     cardTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
     cardSub: { color: c.muted, fontSize: 13, marginTop: 2 },
-    csv: {
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        minWidth: 52,
-        alignItems: "center",
-    },
-    csvText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
     cardBody: { marginTop: 12, gap: 8 },
     figure: {
         flexDirection: "row",
@@ -390,14 +369,6 @@ const styles = StyleSheet.create({
         borderTopColor: c.borderSoft,
     },
     remitTitle: { color: c.ink, fontSize: 14, fontWeight: "700" },
-    remitBtn: {
-        backgroundColor: c.accent,
-        borderRadius: 8,
-        paddingVertical: 10,
-        alignItems: "center",
-    },
-    remitBtnText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    disabled: { opacity: 0.6 },
     deposit: { flexDirection: "row", alignItems: "center", gap: 10 },
     arrival: { color: c.muted, fontSize: 12, marginLeft: "auto" },
 });

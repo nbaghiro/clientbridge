@@ -15,10 +15,9 @@ import {
     useGiftCardSaleForm,
     usePackageSaleForm,
     useSavedCards,
-    useStripeAccountId,
     useSubscriptionForm,
 } from "@clientbridge/app-core";
-import { ChargeSheet, field } from "@clientbridge/ui";
+import { Button, ChargeSheet, Choice, Select, TextField } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import { api } from "../lib/api";
@@ -28,7 +27,6 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
     const clients = useClients();
     const cards = useSavedCards(form.purchaserClientId);
     const items = giftItems(useCatalogItems());
-    const stripeAccount = useStripeAccountId() ?? "";
 
     return (
         <ChargeSheet
@@ -40,110 +38,80 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
                     ? formatMoney(form.faceAmountCents)
                     : strings.giftCards.amountFallback
             }
-            stripeAccount={stripeAccount}
             submitLabel={strings.giftCards.sell}
             busyLabel={strings.giftCards.selling}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.giftCards.purchaser}
-                <ClientSelect
-                    clients={clients}
-                    value={form.purchaserClientId}
-                    onChange={form.setPurchaserClientId}
-                />
-            </label>
-            <div className="flex gap-2">
-                {GIFT_SALE_MODES.map((m) => (
-                    <button
-                        key={m}
-                        type="button"
-                        onClick={() => {
-                            form.setMode(m);
-                        }}
-                        className={`flex-1 rounded-md border px-3 py-2 text-sm font-semibold transition ${
-                            form.mode === m
-                                ? "border-accent bg-accent-weak text-accent-strong"
-                                : "border-line text-ink-soft hover:bg-bg"
-                        }`}
-                    >
-                        {GIFT_SALE_MODE_LABEL[m]}
-                    </button>
-                ))}
-            </div>
+            <ClientSelect
+                label={strings.giftCards.purchaser}
+                clients={clients}
+                value={form.purchaserClientId}
+                onChange={form.setPurchaserClientId}
+            />
+            <Choice
+                layout="segmented"
+                options={GIFT_SALE_MODES.map((m) => ({ key: m, label: GIFT_SALE_MODE_LABEL[m] }))}
+                value={form.mode}
+                onChange={form.setMode}
+            />
             {form.mode === "preset" ? (
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.giftCard}
-                    <select
-                        value={form.itemId}
-                        onChange={(e) => {
-                            form.setItemId(e.target.value);
-                        }}
-                        className={field}
-                    >
-                        <option value="">{strings.giftCards.selectGiftCard}</option>
-                        {items.map((it) => (
-                            <option key={it.id} value={it.id}>
-                                {it.name}
-                                {it.price_cents !== null ? ` — ${formatMoney(it.price_cents)}` : ""}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-            ) : (
-                <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.giftCards.amountCad}
-                    <input
-                        value={form.amount}
-                        onChange={(e) => {
-                            form.setAmount(e.target.value);
-                        }}
-                        inputMode="decimal"
-                        placeholder={strings.giftCards.amountPlaceholder}
-                        className={field}
-                    />
-                </label>
-            )}
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.giftCards.recipientOptional}
-                <input
-                    value={form.recipient}
-                    onChange={(e) => {
-                        form.setRecipient(e.target.value);
-                    }}
-                    placeholder={strings.giftCards.recipientPlaceholder}
-                    className={field}
+                <Select
+                    label={strings.giftCards.giftCard}
+                    value={form.itemId}
+                    options={[
+                        { key: "", label: strings.giftCards.selectGiftCard },
+                        ...items.map((it) => ({
+                            key: it.id,
+                            label:
+                                it.price_cents !== null
+                                    ? `${it.name} — ${formatMoney(it.price_cents)}`
+                                    : it.name,
+                        })),
+                    ]}
+                    onChange={form.setItemId}
                 />
-            </label>
+            ) : (
+                <TextField
+                    label={strings.giftCards.amountCad}
+                    type="number"
+                    value={form.amount}
+                    onChange={form.setAmount}
+                    placeholder={strings.giftCards.amountPlaceholder}
+                />
+            )}
+            <TextField
+                label={strings.giftCards.recipient}
+                optional
+                value={form.recipient}
+                onChange={form.setRecipient}
+                placeholder={strings.giftCards.recipientPlaceholder}
+            />
         </ChargeSheet>
     );
 }
 
 export function ClientSelect({
+    label,
     clients,
     value,
     onChange,
 }: {
+    label: string;
     clients: ClientRow[];
     value: string;
     onChange: (v: string) => void;
 }) {
     return (
-        <select
+        <Select
+            label={label}
             value={value}
-            onChange={(e) => {
-                onChange(e.target.value);
-            }}
-            className={field}
-        >
-            <option value="">{strings.giftCards.selectClient}</option>
-            {clients.map((cl) => (
-                <option key={cl.id} value={cl.id}>
-                    {cl.name}
-                </option>
-            ))}
-        </select>
+            options={[
+                { key: "", label: strings.giftCards.selectClient },
+                ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
+            ]}
+            onChange={onChange}
+        />
     );
 }
 
@@ -215,19 +183,17 @@ function WithClient({
     if (id !== null) return <>{children(id)}</>;
     return (
         <div className="space-y-3 rounded-lg border border-line bg-surface p-4">
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.pos.clientLabel}
-                <ClientSelect clients={clients} value={picked} onChange={setPicked} />
-            </label>
+            <ClientSelect
+                label={strings.pos.clientLabel}
+                clients={clients}
+                value={picked}
+                onChange={setPicked}
+            />
             <p className="text-xs text-muted">{strings.pos.chooseClient}</p>
             <div className="flex justify-end">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg"
-                >
+                <Button variant="quiet" onPress={onClose}>
                     {strings.common.cancel}
-                </button>
+                </Button>
             </div>
         </div>
     );
@@ -252,29 +218,23 @@ function StartSubscriptionForm({
             checkout={form.checkout}
             methods={checkoutMethods(cards)}
             amountLabel={plan ? formatMoney(plan.price_cents) : ""}
-            stripeAccount=""
             submitLabel={strings.clients.startSubscription}
             busyLabel={strings.clients.starting}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.clients.planLabel}
-                <select
-                    value={form.itemId}
-                    onChange={(e) => {
-                        form.setItemId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.clients.selectPlan}</option>
-                    {plans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.name} — {formatMoney(p.price_cents)}
-                        </option>
-                    ))}
-                </select>
-            </label>
+            <Select
+                label={strings.clients.planLabel}
+                value={form.itemId}
+                options={[
+                    { key: "", label: strings.clients.selectPlan },
+                    ...plans.map((p) => ({
+                        key: p.id,
+                        label: `${p.name} — ${formatMoney(p.price_cents)}`,
+                    })),
+                ]}
+                onChange={form.setItemId}
+            />
             {plans.length === 0 ? (
                 <p className="text-xs text-muted">{strings.clients.addSubscriptionItemFirst}</p>
             ) : null}
@@ -294,7 +254,6 @@ function SellPackageForm({
     onClose: () => void;
 }) {
     const form = usePackageSaleForm(api, clientId, onClose);
-    const stripeAccount = useStripeAccountId() ?? "";
     const offering = offerings.find((o) => o.id === form.itemId);
 
     return (
@@ -304,29 +263,23 @@ function SellPackageForm({
             amountLabel={
                 offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
             }
-            stripeAccount={stripeAccount}
             submitLabel={strings.clients.sellPackage}
             busyLabel={strings.clients.selling}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                {strings.clients.packageLabel}
-                <select
-                    value={form.itemId}
-                    onChange={(e) => {
-                        form.setItemId(e.target.value);
-                    }}
-                    className={field}
-                >
-                    <option value="">{strings.clients.selectPackage}</option>
-                    {offerings.map((o) => (
-                        <option key={o.id} value={o.id}>
-                            {o.name} — {formatMoney(o.price_cents)}
-                        </option>
-                    ))}
-                </select>
-            </label>
+            <Select
+                label={strings.clients.packageLabel}
+                value={form.itemId}
+                options={[
+                    { key: "", label: strings.clients.selectPackage },
+                    ...offerings.map((o) => ({
+                        key: o.id,
+                        label: `${o.name} — ${formatMoney(o.price_cents)}`,
+                    })),
+                ]}
+                onChange={form.setItemId}
+            />
             {offerings.length === 0 ? (
                 <p className="text-xs text-muted">{strings.clients.addPackageItemFirst}</p>
             ) : null}

@@ -33,12 +33,14 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import {
+    Button,
     DetailSection,
     DetailView,
     ListPage,
     Money,
-    primaryButton,
+    Notice,
     StatusPill,
+    TextField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
@@ -184,22 +186,20 @@ function DocDetail({
             actions={
                 <>
                     {row.status === "draft" ? (
-                        <button
-                            type="button"
-                            onClick={() => {
+                        <Button
+                            variant="outline"
+                            onPress={() => {
                                 setEditing(true);
                             }}
-                            className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                         >
                             {strings.billing.edit}
-                        </button>
+                        </Button>
                     ) : null}
                     {actions.map((a) => (
-                        <button
+                        <Button
                             key={a.key}
-                            type="button"
                             disabled={busy}
-                            onClick={() => {
+                            onPress={() => {
                                 run(a.run, {
                                     onSuccess: onClose,
                                     errorMessage: strings.billing.actionError(
@@ -207,10 +207,9 @@ function DocDetail({
                                     ),
                                 });
                             }}
-                            className={primaryButton}
                         >
                             {DOC_ACTION_LABEL[a.key]}
-                        </button>
+                        </Button>
                     ))}
                 </>
             }
@@ -242,7 +241,7 @@ function DocDetail({
             </DetailSection>
             {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
             {isInvoice ? <PaymentsSection invoiceId={row.id} canRefund={canRefund} /> : null}
-            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </DetailView>
     );
 }
@@ -267,13 +266,9 @@ function PayLink({ token }: { token: string }) {
         <DetailSection title={strings.billing.payLink}>
             <div className="flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2.5">
                 <span className="flex-1 truncate text-sm text-ink-soft">{url}</span>
-                <button
-                    type="button"
-                    onClick={copy}
-                    className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-surface"
-                >
+                <Button variant="outline" size="sm" onPress={copy}>
                     {copied ? strings.billing.copied : strings.billing.copy}
-                </button>
+                </Button>
             </div>
         </DetailSection>
     );
@@ -339,28 +334,24 @@ function PaymentRowItem({
                 )}
                 <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
                 {showRefund ? (
-                    <input
-                        inputMode="decimal"
-                        value={amount}
-                        onChange={(e) => {
-                            setAmount(e.target.value);
-                        }}
-                        placeholder={refundPlaceholder(remainingCents)}
-                        className="ml-auto w-32 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink outline-hidden focus:border-accent"
-                    />
-                ) : null}
-                {showRefund ? (
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={refund}
-                        className="shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
-                    >
-                        {busy ? strings.billing.refunding : strings.billing.refund}
-                    </button>
+                    <div className="ml-auto flex items-center gap-2">
+                        <TextField
+                            type="number"
+                            size="sm"
+                            width="narrow"
+                            surface="surface"
+                            name={strings.billing.refund}
+                            value={amount}
+                            onChange={setAmount}
+                            placeholder={refundPlaceholder(remainingCents)}
+                        />
+                        <Button variant="outline" size="sm" busy={busy} onPress={refund}>
+                            {busy ? strings.billing.refunding : strings.billing.refund}
+                        </Button>
+                    </div>
                 ) : null}
             </div>
-            {error !== null ? <p className="mt-1 text-xs text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
     );
 }

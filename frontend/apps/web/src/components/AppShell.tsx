@@ -1,5 +1,10 @@
-import { DESTINATIONS, type DestinationKey, strings } from "@clientbridge/app-core";
-import type { ComponentType } from "react";
+import {
+    DESTINATIONS,
+    type DestinationKey,
+    strings,
+    useStripeAccountId,
+} from "@clientbridge/app-core";
+import { type ComponentType, useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import {
     IconCalendar,
@@ -10,6 +15,7 @@ import {
     IconSettings,
     IconToday,
     Lockup,
+    setStripeAccount,
 } from "@clientbridge/ui";
 
 const DESTINATION_WEB: Record<
@@ -31,6 +37,11 @@ const linkClass = ({ isActive }: { isActive: boolean }): string =>
     }`;
 
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
+    const stripeAccount = useStripeAccountId();
+    useEffect(() => {
+        setStripeAccount(stripeAccount);
+    }, [stripeAccount]);
+
     return (
         <div className="flex h-screen bg-bg text-ink">
             <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface">

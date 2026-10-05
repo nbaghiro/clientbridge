@@ -4,8 +4,8 @@ import {
     strings,
     usePublicBusiness,
 } from "@clientbridge/app-core/public";
-import { ItemImage, primaryButtonLarge } from "@clientbridge/ui";
-import { Link, useParams } from "react-router-dom";
+import { Button, ItemImage } from "@clientbridge/ui";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { isEmbedded } from "../embed";
@@ -17,6 +17,11 @@ const booking = createPublicBookingClient(config.apiUrl);
 export function PublicLanding() {
     const { slug = "" } = useParams<{ slug: string }>();
     const { status, page } = usePublicBusiness(booking, slug);
+    const navigate = useNavigate();
+    const go = (to: string): void => {
+        const navigated = navigate(to);
+        if (navigated) navigated.catch(() => undefined);
+    };
 
     if (status === "loading")
         return (
@@ -73,21 +78,32 @@ export function PublicLanding() {
                             ))}
                         </ul>
                     </div>
-                    <Link
-                        to={bookTo}
-                        className={`${primaryButtonLarge} mt-6 block w-full text-center`}
-                    >
-                        {strings.publicLanding.book}
-                    </Link>
+                    <div className="mt-6">
+                        <Button
+                            size="lg"
+                            full
+                            onPress={() => {
+                                go(bookTo);
+                            }}
+                        >
+                            {strings.publicLanding.book}
+                        </Button>
+                    </div>
                 </>
             ) : null}
             {page.addons.length > 0 ? (
-                <Link
-                    to={`/shop/${encodeURIComponent(slug)}`}
-                    className="mt-3 block w-full rounded-md border border-line px-4 py-2.5 text-center text-sm font-semibold text-ink-soft transition hover:bg-bg"
-                >
-                    {strings.publicBooking.shopLink}
-                </Link>
+                <div className="mt-3">
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        full
+                        onPress={() => {
+                            go(`/shop/${encodeURIComponent(slug)}`);
+                        }}
+                    >
+                        {strings.publicBooking.shopLink}
+                    </Button>
+                </div>
             ) : null}
         </PublicFrame>
     );

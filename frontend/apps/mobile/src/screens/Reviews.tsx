@@ -15,8 +15,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import { ListPage, StatusPill } from "@clientbridge/ui";
+import { StyleSheet, Text, View } from "react-native";
+import { Button, Choice, ListPage, Notice, StatusPill, TextField } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -48,7 +48,7 @@ export function Reviews() {
                         {summary === null ? (
                             <Text style={styles.muted}>{strings.reviews.loadingRating}</Text>
                         ) : summary === "error" ? (
-                            <Text style={styles.error}>{strings.reviews.ratingLoadError}</Text>
+                            <Notice tone="danger">{strings.reviews.ratingLoadError}</Notice>
                         ) : summary.count === 0 ? (
                             <Text style={styles.muted}>{strings.reviews.noPublishedReviews}</Text>
                         ) : (
@@ -125,78 +125,63 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
 
             {editing ? (
                 <View style={styles.editor}>
-                    <TextInput
-                        value={reply}
-                        onChangeText={setReply}
-                        placeholder={strings.reviews.replyPlaceholder}
-                        placeholderTextColor={c.muted}
+                    <TextField
                         multiline
-                        style={styles.input}
+                        value={reply}
+                        onChange={setReply}
+                        placeholder={strings.reviews.replyPlaceholder}
                     />
                     <View style={styles.actions}>
-                        <Pressable
-                            style={styles.secondaryBtn}
+                        <Button
+                            variant="outline"
+                            size="sm"
                             onPress={() => {
                                 setReply(review.response ?? "");
                                 setEditing(false);
                             }}
                         >
-                            <Text style={styles.secondaryText}>{strings.common.cancel}</Text>
-                        </Pressable>
-                        <Pressable
-                            style={[styles.primaryBtn, busy && styles.btnBusy]}
-                            disabled={busy || reply.trim().length === 0}
+                            {strings.common.cancel}
+                        </Button>
+                        <Button
+                            size="sm"
+                            busy={busy}
+                            disabled={reply.trim().length === 0}
                             onPress={() => {
                                 respond(reply);
                                 setEditing(false);
                             }}
                         >
-                            <Text style={styles.primaryText}>
-                                {busy ? strings.common.saving : strings.reviews.postReply}
-                            </Text>
-                        </Pressable>
+                            {busy ? strings.common.saving : strings.reviews.postReply}
+                        </Button>
                     </View>
                 </View>
             ) : (
                 <View style={styles.actions}>
-                    <Pressable
-                        style={styles.secondaryBtn}
+                    <Button
+                        variant="outline"
+                        size="sm"
                         onPress={() => {
                             setEditing(true);
                         }}
                     >
-                        <Text style={styles.secondaryText}>
-                            {review.response !== null
-                                ? strings.reviews.editReply
-                                : strings.reviews.reply}
-                        </Text>
-                    </Pressable>
+                        {review.response !== null
+                            ? strings.reviews.editReply
+                            : strings.reviews.reply}
+                    </Button>
                     {canPublish ? (
-                        <Pressable
-                            style={[styles.primaryBtn, busy && styles.btnBusy]}
-                            disabled={busy}
-                            onPress={publish}
-                        >
-                            <Text style={styles.primaryText}>
-                                {busy ? strings.common.working : strings.reviews.publish}
-                            </Text>
-                        </Pressable>
+                        <Button size="sm" disabled={busy} onPress={publish}>
+                            {busy ? strings.common.working : strings.reviews.publish}
+                        </Button>
                     ) : null}
                     {canHide ? (
-                        <Pressable
-                            style={[styles.secondaryBtn, busy && styles.btnBusy]}
-                            disabled={busy}
-                            onPress={hide}
-                        >
-                            <Text style={styles.secondaryText}>
-                                {busy ? strings.common.working : strings.reviews.hide}
-                            </Text>
-                        </Pressable>
+                        <Button variant="outline" size="sm" disabled={busy} onPress={hide}>
+                            {busy ? strings.common.working : strings.reviews.hide}
+                        </Button>
                     ) : null}
                 </View>
             )}
 
-            {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
@@ -211,44 +196,23 @@ function RequestReview({ onClose }: { onClose: () => void }) {
             {clients.length === 0 ? (
                 <Text style={styles.muted}>{strings.reviews.addClientFirst}</Text>
             ) : (
-                <View style={styles.chipWrap}>
-                    {clients.map((cl) => (
-                        <Pressable
-                            key={cl.id}
-                            style={[styles.chip, form.clientId === cl.id && styles.chipOn]}
-                            onPress={() => {
-                                form.setClientId(cl.id);
-                            }}
-                        >
-                            <Text
-                                style={[
-                                    styles.chipText,
-                                    form.clientId === cl.id && styles.chipTextOn,
-                                ]}
-                            >
-                                {cl.name}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
+                <Choice
+                    label={strings.reviews.clientLabel}
+                    options={clients.map((cl) => ({ key: cl.id, label: cl.name }))}
+                    value={form.clientId}
+                    onChange={form.setClientId}
+                />
             )}
-            {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
-            <Pressable
-                style={[styles.primaryBtn, styles.panelBtn, form.busy && styles.btnBusy]}
-                disabled={form.busy}
-                onPress={form.submit}
-            >
-                <Text style={styles.primaryText}>
-                    {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
-                </Text>
-            </Pressable>
+            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+            <Button size="sm" busy={form.busy} onPress={form.submit}>
+                {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
+            </Button>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     muted: { color: c.muted, fontSize: 14 },
-    error: { color: c.danFg, fontSize: 13, marginTop: 6 },
     summary: {
         flexDirection: "row",
         alignItems: "center",
@@ -280,35 +244,7 @@ const styles = StyleSheet.create({
     replyLabel: { color: c.muted, fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
     replyText: { color: c.inkSoft, fontSize: 14, marginTop: 2, lineHeight: 20 },
     editor: { gap: 8 },
-    input: {
-        backgroundColor: c.bg,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        color: c.ink,
-        fontSize: 14,
-        minHeight: 64,
-        textAlignVertical: "top",
-    },
     actions: { flexDirection: "row", gap: 8, alignItems: "center" },
-    primaryBtn: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    primaryText: { color: c.accentInk, fontSize: 13, fontWeight: "700" },
-    secondaryBtn: {
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-    },
-    secondaryText: { color: c.inkSoft, fontSize: 13, fontWeight: "700" },
-    btnBusy: { opacity: 0.6 },
     panel: {
         backgroundColor: c.surface,
         borderColor: c.border,
@@ -318,16 +254,4 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     panelTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
-    panelBtn: { alignSelf: "flex-start" },
-    chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: {
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: 999,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-    },
-    chipOn: { backgroundColor: c.accentWeak, borderColor: c.accent },
-    chipText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
-    chipTextOn: { color: c.accentStrong },
 });

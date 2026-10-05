@@ -40,16 +40,20 @@ import {
     useCollectDeposit,
     useSavedCards,
     useStaff,
-    useStripeAccountId,
 } from "@clientbridge/app-core";
 import {
+    Button,
     ChargeSheet,
+    Choice,
     DetailSection,
     DetailView,
     Modal,
     Money,
-    primaryButtonSmall,
+    Notice,
+    Select,
     StatusPill,
+    TextField,
+    Toggle,
 } from "@clientbridge/ui";
 import {
     type SubmitEvent,
@@ -143,62 +147,55 @@ export function Calendar() {
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-xs">
                 <header className="flex items-center justify-between gap-4 border-b border-line px-5 py-3">
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => {
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onPress={() => {
                                 setAnchor(startOfDay(new Date()));
                             }}
-                            className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-bg"
                         >
                             {strings.calendar.today}
-                        </button>
+                        </Button>
                         <div className="flex items-center">
-                            <button
-                                onClick={() => {
+                            <Button
+                                variant="quiet"
+                                size="sm"
+                                label={strings.calendar.prev}
+                                onPress={() => {
                                     setAnchor((a) => shiftAnchor(view, a, -1));
                                 }}
-                                className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
-                                aria-label={strings.calendar.prev}
                             >
                                 <Chevron dir="left" />
-                            </button>
-                            <button
-                                onClick={() => {
+                            </Button>
+                            <Button
+                                variant="quiet"
+                                size="sm"
+                                label={strings.calendar.next}
+                                onPress={() => {
                                     setAnchor((a) => shiftAnchor(view, a, 1));
                                 }}
-                                className="rounded-lg p-1.5 text-muted hover:bg-bg hover:text-ink"
-                                aria-label={strings.calendar.next}
                             >
                                 <Chevron dir="right" />
-                            </button>
+                            </Button>
                         </div>
                         <h1 className="text-lg font-semibold text-ink">{label}</h1>
                     </div>
                     <div className="flex items-center gap-2">
-                        <div className="flex rounded-lg border border-line p-0.5">
-                            {VIEWS.map((v) => (
-                                <button
-                                    key={v.key}
-                                    onClick={() => {
-                                        setView(v.key);
-                                    }}
-                                    className={`rounded-md px-3 py-1 text-sm font-medium ${
-                                        view === v.key
-                                            ? "bg-accent text-accent-ink"
-                                            : "text-muted hover:text-ink"
-                                    }`}
-                                >
-                                    {v.label}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            onClick={() => {
+                        <Choice
+                            layout="segmented"
+                            label={strings.calendar.viewLabel}
+                            options={VIEWS}
+                            value={view}
+                            onChange={setView}
+                        />
+                        <Button
+                            size="sm"
+                            onPress={() => {
                                 setBooking(true);
                             }}
-                            className={primaryButtonSmall}
                         >
                             {strings.calendar.newBookingButton}
-                        </button>
+                        </Button>
                     </div>
                 </header>
 
@@ -586,9 +583,6 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
     );
 }
 
-const fieldClass =
-    "mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden";
-
 function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => void }) {
     const form = useBookingForm(api, onClose);
     const [date, setDate] = useState(() => dateKey(anchor));
@@ -603,159 +597,95 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
         <Modal onClose={onClose}>
             <form onSubmit={submit} className="space-y-3">
                 <h2 className="text-lg font-semibold text-ink">{strings.calendar.newBooking}</h2>
-                <label className="block">
-                    <span className="text-sm text-muted">{strings.calendar.client}</span>
-                    <select
-                        value={form.clientId}
-                        onChange={(e) => {
-                            form.setClientId(e.target.value);
-                        }}
-                        className={fieldClass}
-                    >
-                        <option value="">{strings.calendar.selectClient}</option>
-                        {form.clients.map((cl) => (
-                            <option key={cl.id} value={cl.id}>
-                                {cl.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label className="block">
-                    <span className="text-sm text-muted">{strings.calendar.service}</span>
-                    <select
-                        value={form.itemId}
-                        onChange={(e) => {
-                            form.setItemId(e.target.value);
-                        }}
-                        className={fieldClass}
-                    >
-                        <option value="">{strings.calendar.selectService}</option>
-                        {form.items.map((it) => (
-                            <option key={it.id} value={it.id}>
-                                {it.name}
-                            </option>
-                        ))}
-                    </select>
-                </label>
+                <Select
+                    label={strings.calendar.client}
+                    value={form.clientId}
+                    options={[
+                        { key: "", label: strings.calendar.selectClient },
+                        ...form.clients.map((cl) => ({ key: cl.id, label: cl.name })),
+                    ]}
+                    onChange={form.setClientId}
+                />
+                <Select
+                    label={strings.calendar.service}
+                    value={form.itemId}
+                    options={[
+                        { key: "", label: strings.calendar.selectService },
+                        ...form.items.map((it) => ({ key: it.id, label: it.name })),
+                    ]}
+                    onChange={form.setItemId}
+                />
                 {form.staff.length > 1 ? (
-                    <label className="block">
-                        <span className="text-sm text-muted">{strings.calendar.staff}</span>
-                        <select
-                            value={form.effStaff}
-                            onChange={(e) => {
-                                form.setStaffId(e.target.value);
-                            }}
-                            className={fieldClass}
-                        >
-                            {form.staff.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {staffLabel(s)}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                ) : null}
-                <div className="flex gap-2">
-                    <label className="block flex-1">
-                        <span className="text-sm text-muted">{strings.calendar.date}</span>
-                        <input
-                            type="date"
-                            value={date}
-                            onChange={(e) => {
-                                setDate(e.target.value);
-                            }}
-                            className={fieldClass}
-                        />
-                    </label>
-                    <label className="block flex-1">
-                        <span className="text-sm text-muted">{strings.calendar.time}</span>
-                        <input
-                            type="time"
-                            value={time}
-                            onChange={(e) => {
-                                setTime(e.target.value);
-                            }}
-                            className={fieldClass}
-                        />
-                    </label>
-                </div>
-                <label className="flex items-center gap-2 pt-1 text-sm text-ink">
-                    <input
-                        type="checkbox"
-                        checked={form.repeat}
-                        onChange={(e) => {
-                            form.setRepeat(e.target.checked);
-                        }}
-                        className="accent-accent"
+                    <Select
+                        label={strings.calendar.staff}
+                        value={form.effStaff}
+                        options={form.staff.map((s) => ({ key: s.id, label: staffLabel(s) }))}
+                        onChange={form.setStaffId}
                     />
-                    {strings.calendar.repeatBooking}
-                </label>
+                ) : null}
+                <div className="grid grid-cols-2 gap-2">
+                    <TextField
+                        label={strings.calendar.date}
+                        type="date"
+                        value={date}
+                        onChange={setDate}
+                    />
+                    <TextField
+                        label={strings.calendar.time}
+                        type="time"
+                        value={time}
+                        onChange={setTime}
+                    />
+                </div>
+                <Toggle
+                    label={strings.calendar.repeatBooking}
+                    value={form.repeat}
+                    onChange={form.setRepeat}
+                />
                 {form.repeat ? (
-                    <div className="flex items-end gap-2">
-                        <label className="block w-20">
-                            <span className="text-sm text-muted">{strings.calendar.every}</span>
-                            <input
-                                type="number"
-                                min={1}
-                                value={form.interval}
-                                onChange={(e) => {
-                                    form.setInterval(Number(e.target.value));
-                                }}
-                                className={fieldClass}
-                            />
-                        </label>
-                        <label className="block flex-1">
-                            <span className="text-sm text-muted">{strings.calendar.frequency}</span>
-                            <select
-                                value={form.frequency}
-                                onChange={(e) => {
-                                    form.setFrequency(e.target.value as RecurFrequency);
-                                }}
-                                className={fieldClass}
-                            >
-                                {RECUR_FREQUENCIES.map((f) => (
-                                    <option key={f.value} value={f.value}>
-                                        {f.unit}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                        <label className="block w-24">
-                            <span className="text-sm text-muted">
-                                {strings.calendar.occurrences}
-                            </span>
-                            <input
-                                type="number"
-                                min={1}
-                                max={60}
-                                value={form.count}
-                                onChange={(e) => {
-                                    form.setCount(Number(e.target.value));
-                                }}
-                                className={fieldClass}
-                            />
-                        </label>
+                    <div className="grid grid-cols-[5rem_1fr_6rem] items-end gap-2">
+                        <TextField
+                            label={strings.calendar.every}
+                            type="number"
+                            value={String(form.interval)}
+                            onChange={(v) => {
+                                form.setInterval(Number(v));
+                            }}
+                        />
+                        <Select
+                            label={strings.calendar.frequency}
+                            value={form.frequency}
+                            options={RECUR_FREQUENCIES.map((f) => ({
+                                key: f.value,
+                                label: f.unit,
+                            }))}
+                            onChange={(f: RecurFrequency) => {
+                                form.setFrequency(f);
+                            }}
+                        />
+                        <TextField
+                            label={strings.calendar.occurrences}
+                            type="number"
+                            value={String(form.count)}
+                            onChange={(v) => {
+                                form.setCount(Number(v));
+                            }}
+                        />
                     </div>
                 ) : null}
-                {form.error !== null ? <p className="text-sm text-danger">{form.error}</p> : null}
-                {form.notice !== null ? (
-                    <p className="text-sm text-success">{form.notice}</p>
-                ) : null}
+                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+                {form.notice !== null ? <Notice tone="success">{form.notice}</Notice> : null}
                 <div className="flex justify-end gap-2 pt-1">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:text-ink"
-                    >
+                    <Button variant="quiet" onPress={onClose}>
                         {strings.common.cancel}
-                    </button>
-                    <button type="submit" disabled={form.busy} className={primaryButtonSmall}>
+                    </Button>
+                    <Button submit busy={form.busy}>
                         {form.busy
                             ? strings.calendar.booking
                             : form.repeat
                               ? strings.calendar.bookSeries
                               : strings.calendar.book}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </Modal>
@@ -773,14 +703,9 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
             onClose={onClose}
             actions={
                 event.bookingId !== null && event.status !== "canceled" ? (
-                    <button
-                        type="button"
-                        onClick={cancel}
-                        disabled={busy}
-                        className="rounded-md border border-danger px-3 py-2 text-sm font-medium text-danger hover:bg-danger hover:text-surface disabled:opacity-50"
-                    >
+                    <Button variant="danger" onPress={cancel} busy={busy}>
                         {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
-                    </button>
+                    </Button>
                 ) : undefined
             }
         >
@@ -789,7 +714,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
             </p>
             {event.depositRequired ? <DepositSection event={event} onClose={onClose} /> : null}
             {event.bookingId !== null ? <AddonsSection event={event} /> : null}
-            {error !== null ? <p className="text-sm text-danger">{error}</p> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </DetailView>
     );
 }
@@ -811,16 +736,16 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
                             {formatMoney(a.quantity * a.unit_amount_cents)}
                         </span>
                         {addons.canEdit ? (
-                            <button
-                                type="button"
+                            <Button
+                                variant="danger"
+                                size="sm"
                                 disabled={addons.busy}
-                                onClick={() => {
+                                onPress={() => {
                                     addons.remove(a.id);
                                 }}
-                                className="text-xs font-semibold text-danger hover:underline disabled:opacity-50"
                             >
                                 {strings.calendar.addonRemove}
-                            </button>
+                            </Button>
                         ) : null}
                     </li>
                 ))}
@@ -829,18 +754,13 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
                 <p className="mt-2 text-xs text-muted">{strings.calendar.visitInvoiced}</p>
             ) : null}
             {addons.canInvoice ? (
-                <button
-                    type="button"
-                    disabled={addons.busy}
-                    onClick={addons.createInvoice}
-                    className="mt-3 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft hover:bg-bg disabled:opacity-50"
-                >
-                    {strings.calendar.invoiceVisit}
-                </button>
+                <div className="mt-3">
+                    <Button variant="outline" disabled={addons.busy} onPress={addons.createInvoice}>
+                        {strings.calendar.invoiceVisit}
+                    </Button>
+                </div>
             ) : null}
-            {addons.error !== null ? (
-                <p className="mt-2 text-sm text-danger">{addons.error}</p>
-            ) : null}
+            {addons.error !== null ? <Notice tone="danger">{addons.error}</Notice> : null}
         </DetailSection>
     );
 }
@@ -849,7 +769,6 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
     const viewer = useViewer();
     const cards = useSavedCards(event.clientId ?? "");
     const deposit = useCollectDeposit(api, event, onClose, cards.at(0)?.id);
-    const stripeAccount = useStripeAccountId() ?? "";
     const amountLabel = formatMoney(event.depositAmountCents);
 
     return (
@@ -868,7 +787,6 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     checkout={deposit.checkout}
                     methods={checkoutMethods(cards)}
                     amountLabel={amountLabel}
-                    stripeAccount={stripeAccount}
                     submitLabel={strings.calendar.collectAmount(amountLabel)}
                     busyLabel={strings.calendar.collecting}
                     onSubmit={deposit.submit}

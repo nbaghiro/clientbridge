@@ -1,7 +1,8 @@
 import { type AddPaymentMethod, strings } from "@clientbridge/app-core/public";
 
+import { Button } from "./Button";
 import { CardForm } from "./CardForm";
-import { outlineButton } from "./styles";
+import { Notice } from "./Notice";
 
 export function PaymentMethodForm({
     flow,
@@ -28,34 +29,34 @@ export function PaymentMethodForm({
     return (
         <>
             <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                    type="button"
-                    disabled={flow.busy}
-                    onClick={() => {
+                <Button
+                    variant="outline"
+                    size="sm"
+                    busy={flow.busy}
+                    onPress={() => {
                         flow.start("card");
                     }}
-                    className={outlineButton}
                 >
                     {flow.busy && flow.kind === "card"
                         ? strings.clients.starting
                         : strings.clients.addCard}
-                </button>
+                </Button>
                 {allowBank ? (
-                    <button
-                        type="button"
-                        disabled={flow.busy}
-                        onClick={() => {
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        busy={flow.busy}
+                        onPress={() => {
                             flow.start("bank");
                         }}
-                        className={outlineButton}
                     >
                         {flow.busy && flow.kind === "bank"
                             ? strings.clients.starting
                             : strings.clients.addBankWeb}
-                    </button>
+                    </Button>
                 ) : null}
             </div>
-            {flow.error !== null ? <p className="mt-2 text-sm text-danger">{flow.error}</p> : null}
+            {flow.error !== null ? <Notice tone="danger">{flow.error}</Notice> : null}
         </>
     );
 }

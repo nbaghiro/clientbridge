@@ -1,6 +1,5 @@
 import {
     type Invite,
-    type StaffRole,
     INVITABLE_ROLES,
     RATE_TYPES,
     type StaffPayRow,
@@ -16,12 +15,14 @@ import {
     useStaffPayForm,
 } from "@clientbridge/app-core";
 import {
+    Button,
     DetailSection,
     DetailView,
-    field,
     ListPage,
-    primaryButton,
-    primaryButtonSmall,
+    Notice,
+    Select,
+    TextField,
+    Toggle,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
@@ -128,40 +129,27 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                 }}
                 className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
             >
-                <label className="flex flex-1 flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                    {strings.staff.email}
-                    <input
+                <div className="flex-1">
+                    <TextField
+                        label={strings.staff.email}
                         type="email"
                         value={invite.email}
-                        onChange={(e) => {
-                            invite.setEmail(e.target.value);
-                        }}
+                        onChange={invite.setEmail}
                         placeholder={strings.staff.emailPlaceholder}
-                        className="w-full rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition placeholder:text-muted focus:border-accent"
                     />
-                </label>
-                <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                    {strings.staff.role}
-                    <select
-                        value={invite.role}
-                        onChange={(e) => {
-                            invite.setRole(e.target.value as StaffRole);
-                        }}
-                        className="rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition focus:border-accent"
-                    >
-                        {INVITABLE_ROLES.map((r) => (
-                            <option key={r.value} value={r.value}>
-                                {r.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <button type="submit" disabled={invite.busy} className={primaryButton}>
+                </div>
+                <Select
+                    label={strings.staff.role}
+                    value={invite.role}
+                    options={INVITABLE_ROLES.map((r) => ({ key: r.value, label: r.label }))}
+                    onChange={invite.setRole}
+                />
+                <Button submit busy={invite.busy}>
                     {invite.busy ? strings.staff.inviting : strings.staff.sendInvite}
-                </button>
+                </Button>
             </form>
 
-            {invite.error ? <p className="mt-2 text-sm text-danger-fg">{invite.error}</p> : null}
+            {invite.error ? <Notice tone="danger">{invite.error}</Notice> : null}
             {invite.invite ? <InviteLink invite={invite.invite} onDone={invite.reset} /> : null}
         </section>
     );
@@ -186,21 +174,15 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
                 {strings.staff.inviteSentWeb(invite.email)}
             </p>
             <div className="mt-2 flex items-center gap-2">
-                <input
-                    readOnly
-                    value={link}
-                    className="flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-ink-soft"
-                />
-                <button type="button" onClick={copy} className={primaryButtonSmall}>
+                <span className="min-w-0 flex-1 truncate rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-ink-soft">
+                    {link}
+                </span>
+                <Button size="sm" onPress={copy}>
                     {copied ? strings.staff.copied : strings.staff.copy}
-                </button>
-                <button
-                    type="button"
-                    onClick={onDone}
-                    className="rounded-md px-2 py-1.5 text-xs font-medium text-ink-soft transition hover:bg-surface"
-                >
+                </Button>
+                <Button variant="quiet" size="sm" onPress={onDone}>
                     {strings.common.done}
-                </button>
+                </Button>
             </div>
         </div>
     );
@@ -220,74 +202,41 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
             subtitle={strings.staff.payHeading}
             onClose={onClose}
             actions={
-                <button
-                    type="button"
-                    onClick={form.submit}
-                    disabled={form.busy}
-                    className={primaryButton}
-                >
+                <Button onPress={form.submit} busy={form.busy}>
                     {form.busy ? strings.catalog.saving : strings.catalog.save}
-                </button>
+                </Button>
             }
         >
             <DetailSection>
                 <div className="flex flex-col gap-3">
-                    <label className="flex items-center gap-2 text-sm text-ink">
-                        <input
-                            type="checkbox"
-                            checked={form.isPayee}
-                            onChange={(e) => {
-                                form.setIsPayee(e.target.checked);
-                            }}
-                            className="h-4 w-4 accent-accent"
-                        />
-                        {strings.staff.isPayee}
-                    </label>
+                    <Toggle
+                        label={strings.staff.isPayee}
+                        value={form.isPayee}
+                        onChange={form.setIsPayee}
+                    />
                     {form.isPayee ? (
                         <>
-                            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                                {strings.staff.rateType}
-                                <select
-                                    value={form.rateType}
-                                    onChange={(e) => {
-                                        form.setRateType(e.target.value);
-                                    }}
-                                    className={field}
-                                >
-                                    {RATE_TYPES.map((t) => (
-                                        <option key={t.value} value={t.value}>
-                                            {t.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                                {strings.staff.rateLabel(form.rateType)}
-                                <input
-                                    value={form.rate}
-                                    onChange={(e) => {
-                                        form.setRate(e.target.value);
-                                    }}
-                                    inputMode="decimal"
-                                    className={field}
-                                />
-                            </label>
-                            <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                                {strings.staff.retailRate}
-                                <input
-                                    value={form.retailPercent}
-                                    onChange={(e) => {
-                                        form.setRetailPercent(e.target.value);
-                                    }}
-                                    inputMode="decimal"
-                                    className={field}
-                                />
-                            </label>
+                            <Select
+                                label={strings.staff.rateType}
+                                value={form.rateType}
+                                options={RATE_TYPES.map((t) => ({ key: t.value, label: t.label }))}
+                                onChange={form.setRateType}
+                            />
+                            <TextField
+                                label={strings.staff.rateLabel(form.rateType)}
+                                type="number"
+                                value={form.rate}
+                                onChange={form.setRate}
+                            />
+                            <TextField
+                                label={strings.staff.retailRate}
+                                type="number"
+                                value={form.retailPercent}
+                                onChange={form.setRetailPercent}
+                            />
                         </>
                     ) : null}
-                    {form.error !== null ? (
-                        <p className="text-sm text-danger-fg">{form.error}</p>
-                    ) : null}
+                    {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 </div>
             </DetailSection>
         </DetailView>

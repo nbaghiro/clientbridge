@@ -10,8 +10,8 @@ import {
     type EarningRow,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { ListPage, Money, StatusPill } from "@clientbridge/ui";
+import { StyleSheet, Text, View } from "react-native";
+import { Button, ListPage, Money, Notice, StatusPill } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -56,12 +56,8 @@ function EarningItem({ row }: { row: EarningRow }) {
                 <StatusPill status={row.status} intent={earningStatusIntent(row.status)} />
             </View>
             {canApprove || canPay ? (
-                <Pressable
-                    style={[styles.action, busy && styles.actionBusy]}
-                    onPress={canApprove ? approve : pay}
-                    disabled={busy}
-                >
-                    <Text style={styles.actionText}>
+                <View style={styles.action}>
+                    <Button size="sm" onPress={canApprove ? approve : pay} busy={busy}>
                         {busy
                             ? canApprove
                                 ? strings.earnings.approving
@@ -69,28 +65,18 @@ function EarningItem({ row }: { row: EarningRow }) {
                             : canApprove
                               ? strings.earnings.approve
                               : strings.earnings.markPaid}
-                    </Text>
-                </Pressable>
+                    </Button>
+                </View>
             ) : null}
-            {error !== null ? <Text style={styles.error}>{error}</Text> : null}
+            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    error: { color: c.danFg, fontSize: 13, marginTop: 6 },
     rowTop: { flexDirection: "row", alignItems: "center", gap: 10 },
     rowMain: { flex: 1 },
     staff: { color: c.ink, fontSize: 14, fontWeight: "600" },
     meta: { color: c.muted, fontSize: 12, marginTop: 1 },
-    action: {
-        marginTop: 10,
-        alignSelf: "flex-start",
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-    },
-    actionBusy: { opacity: 0.6 },
-    actionText: { color: c.accentInk, fontSize: 13, fontWeight: "700" },
+    action: { marginTop: 10 },
 });

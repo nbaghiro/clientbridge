@@ -1,8 +1,9 @@
 import type { ListPageProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { IconPlus, IconSearch } from "./Icons";
+import { IconPlus } from "./Icons";
+import { SearchField } from "./SearchField";
 import { Tabs } from "./Tabs";
 import { Empty } from "./Empty";
 
@@ -62,15 +63,10 @@ export function ListPage<T, K extends string = string>({
             ) : null}
             {search !== undefined ? (
                 <View style={styles.searchWrap}>
-                    <IconSearch size={16} color={c.muted} />
-                    <TextInput
-                        style={styles.search}
+                    <SearchField
                         value={search.value}
-                        onChangeText={search.onChange}
+                        onChange={search.onChange}
                         placeholder={search.placeholder}
-                        accessibilityLabel={search.placeholder}
-                        placeholderTextColor={c.muted}
-                        autoCapitalize="none"
                     />
                 </View>
             ) : null}
@@ -134,20 +130,7 @@ const styles = StyleSheet.create({
         paddingVertical: 9,
     },
     actionText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    searchWrap: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        marginHorizontal: 20,
-        marginTop: 10,
-        marginBottom: 8,
-        paddingHorizontal: 12,
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        backgroundColor: c.surface,
-    },
-    search: { flex: 1, paddingVertical: 11, color: c.ink, fontSize: 15 },
+    searchWrap: { marginHorizontal: 20, marginTop: 10, marginBottom: 8 },
     list: { paddingHorizontal: 20, paddingBottom: 24 },
     head: { paddingTop: 8 },
     banner: { paddingTop: 4, paddingBottom: 8 },
