@@ -51,11 +51,7 @@ def decode_jwt(token: str) -> dict[str, object]:
 
 
 def issue_powersync_token(user_id: str) -> str:
-    """Short-lived token the client presents to the PowerSync service (HS256, aud=powersync).
-
-    PowerSync reads `sub` as the user id; the sync rules derive the user's businesses/role from the
-    `staff` table. (Move to RS256 + JWKS for prod.)
-    """
+    """Short-lived PowerSync token; `sub` is the user, the sync rules derive their businesses."""
     s = get_settings()
     now = int(time.time())
     payload: dict[str, object] = {
@@ -69,8 +65,7 @@ def issue_powersync_token(user_id: str) -> str:
     return jwt.encode(payload, s.jwt_secret, algorithm="HS256", headers={"kid": s.powersync_kid})
 
 
-# Prod loads a PEM private key from settings; dev/test (no PEM) generates an ephemeral key on first
-# use, so the JWKS endpoint + RS256 roundtrip work without any configuration.
+# Without a configured PEM, an ephemeral key keeps the RS256 roundtrip working in dev and tests.
 @lru_cache
 def _private_key() -> rsa.RSAPrivateKey:
     pem = get_settings().powersync_private_key_pem

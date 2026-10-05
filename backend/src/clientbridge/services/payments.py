@@ -292,8 +292,7 @@ class PaymentService:
     async def refund_payment(
         self, payment_id: str, amount_cents: int | None = None, idempotency_key: str | None = None
     ) -> RefundOut:
-        """Refund all or part of what's left on a payment (several partial refunds are fine).
-        Entitlement purchases and forfeited deposits refund in full only."""
+        """Refund all or part of what's left on a payment."""
         self._assert_admin()
         business = await self._business()
         payment = await self._payment(payment_id)
@@ -359,8 +358,7 @@ class PaymentService:
         )
 
     async def _whole_refund_only(self, payment: Payment) -> str | None:
-        """Why this payment can only be refunded in full (None when partial refunds are fine).
-        A gift card or package must also be untouched, so the refund can't lose delivered value."""
+        """Why this payment can only be refunded in full, or None."""
         card = (
             await self.db.execute(
                 scoped(GiftCard, self.biz)
@@ -501,8 +499,7 @@ async def default_method_ref(db: AsyncSession, business_id: str, client_id: str)
 async def resolve_saved_method_ref(
     db: AsyncSession, business_id: str, payment_method_id: str | None, client_id: str
 ) -> str | None:
-    """Resolve a saved-card selection to its provider ref: None (interactive), the `"default"`
-    sentinel (the client's default card), or a specific saved card id. Raises if not on file."""
+    """Resolve a saved-card selection (None, "default" or a card id) to its provider ref."""
     if payment_method_id is None:
         return None
     if payment_method_id == "default":
@@ -523,8 +520,7 @@ async def resolve_saved_method_ref(
 
 
 async def assert_payable(db: AsyncSession, invoice: Invoice) -> int:
-    """Validate an invoice can take a payment; return the outstanding balance. Shared by the authed
-    command path and the public pay-link surface so the rule can't drift between them."""
+    """Check an invoice can take a payment and return its balance."""
     if invoice.status == "draft":
         raise Conflict("send the invoice before taking a payment")
     status, _ = await ledger.invoice_state(db, invoice)
@@ -537,9 +533,7 @@ async def assert_payable(db: AsyncSession, invoice: Invoice) -> int:
 
 
 async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
-    """Reject a new charge that, with payments already pending on this invoice, would overpay it —
-    so a customer paying by two methods/tabs can't drive the balance negative. Locks the invoice row
-    so concurrent partial charges see each other's pending rows instead of both reading zero."""
+    """Reject a charge that would overpay the invoice given pending payments; locks the invoice."""
     await db.execute(select(Invoice.id).where(Invoice.id == invoice.id).with_for_update())
     pending = (
         await db.execute(
@@ -555,9 +549,7 @@ async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
 
 
 async def _assert_order_room(db: AsyncSession, order: Order, amount: int) -> None:
-    """Reject a checkout when a payment is already pending on the order — so editing the total and
-    re-checking-out can't open a second intent. Locks the order row so concurrent checkouts see each
-    other's pending rows."""
+    """Reject a checkout while a payment is pending on the order; locks the order."""
     await db.execute(select(Order.id).where(Order.id == order.id).with_for_update())
     pending = (
         await db.execute(
@@ -575,8 +567,7 @@ async def _assert_order_room(db: AsyncSession, order: Order, amount: int) -> Non
 async def ensure_customer(
     db: AsyncSession, gateway: PaymentGateway, account_id: str, client: Client
 ) -> str:
-    """The client's Stripe Customer id, created once. Locks the client row so two concurrent
-    first-charges don't both create a Customer (populate_existing re-reads under the lock)."""
+    """The client's Stripe Customer id, created once under a row lock."""
     if client.stripe_customer_id is not None:
         return client.stripe_customer_id
     locked = (
@@ -605,8 +596,7 @@ async def ensure_subscription_price(
     interval_count: int,
     frequency: str,
 ) -> str:
-    """The item's Stripe recurring Price, created (and cached on the item) on first use. The Price
-    is the tax-inclusive total, since a recurring charge must collect GST/PST."""
+    """The item's Stripe recurring Price (tax included), created and cached on first use."""
     if item.stripe_price_id is not None:
         return item.stripe_price_id
     tax = await tax_for_amount(db, item.business_id, item.price_cents)
@@ -636,14 +626,10 @@ async def open_card_payment(
     kind: str = "payment",
     idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
-    """Create the direct-charge PaymentIntent (+ app fee, ensuring the client is a Customer) and a
-    pending card Payment (kind "payment" or "deposit"). A saved `payment_method` charges off-session
-    now; otherwise the returned client_secret is confirmed by the frontend. The caller commits."""
+    """Open a card PaymentIntent and pending Payment for an invoice; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
     if payment_method is not None:
-        # a saved method charges synchronously below — reserve room (locks the invoice) FIRST so a
-        # concurrent partial can't also charge. (The authed path is the only off-session caller and
-        # is run_command-idempotent, so this can't wrongly reject a retry.)
+        # Reserve room before charging a saved card, so a concurrent partial can't also charge.
         await _assert_room(db, invoice, amount)
     intent = await gateway.create_payment_intent(
         account_id,
@@ -652,8 +638,7 @@ async def open_card_payment(
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"invoice_id": invoice.id, "business_id": business_id},
-        # key on the caller's Idempotency-Key so a true retry dedups but two distinct same-amount
-        # partials (distinct keys) each get their own intent
+        # Keyed on the Idempotency-Key, so retries dedupe but distinct partials don't.
         idempotency_key=f"{kind}_{invoice.id}_{idempotency_key or amount}",
         payment_method=payment_method,
     )
@@ -700,9 +685,7 @@ async def open_booking_deposit(
     payment_method: str | None = None,
     idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
-    """Create the direct-charge deposit PaymentIntent (+ app fee, ensuring the client is a Customer)
-    and a pending deposit Payment keyed on the booking. A saved `payment_method` charges off-session
-    now; otherwise the returned client_secret is confirmed by the frontend. The caller commits."""
+    """Open a deposit PaymentIntent and pending Payment for a booking; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
     intent = await gateway.create_payment_intent(
         account_id,
@@ -755,10 +738,7 @@ async def open_entitlement_payment(
     payment_method: str | None = None,
     idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
-    """Create the direct-charge PaymentIntent (+ app fee) and a pending Payment for a package/gift-
-    card purchase. A saved `payment_method` charges off-session now; otherwise the returned
-    client_secret is confirmed by the frontend. The caller links the entitlement to the returned
-    Payment (its `payment_id`) and commits; the webhook activates it on settlement."""
+    """Open a PaymentIntent and pending Payment for a package or gift card; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client)
     intent = await gateway.create_payment_intent(
         account_id,
@@ -767,8 +747,7 @@ async def open_entitlement_payment(
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={f"{entitlement_kind}_id": entitlement_id, "business_id": business_id},
-        # the entitlement id is minted fresh per request, so it can't anchor the dedup; key on the
-        # client's Idempotency-Key (a keyless purchase stays per-request, like the deposit route)
+        # The entitlement id is new per request, so dedupe on the client's Idempotency-Key.
         idempotency_key=f"{entitlement_kind}_{idempotency_key or entitlement_id}",
         payment_method=payment_method,
     )
@@ -810,9 +789,7 @@ async def open_order_card_payment(
     payment_method: str | None = None,
     idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
-    """An online card PaymentIntent for a sale (the web till), settled by the same webhook as a
-    reader payment. A saved method charges now; otherwise the client secret goes to the card form.
-    The caller commits."""
+    """Open a card PaymentIntent for a sale; the caller commits."""
     customer_id = await ensure_customer(db, gateway, account_id, client) if client else None
     if payment_method is not None:
         await _assert_order_room(db, order, amount)
@@ -865,17 +842,14 @@ async def open_terminal_payment(
     fee_bps: int,
     idempotency_key: str | None = None,
 ) -> tuple[Payment, str]:
-    """Create a Terminal (card_present) PaymentIntent (+ app fee, no customer) and a pending card
-    Payment linked to the order. The device confirms via the Terminal SDK; the webhook settles. The
-    caller commits."""
+    """Open a Terminal PaymentIntent and pending Payment for a sale; the caller commits."""
     intent = await gateway.create_terminal_payment_intent(
         account_id,
         amount_cents=amount,
         currency=order.currency,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"order_id": order.id, "business_id": business_id},
-        # key on the caller's Idempotency-Key so a true retry dedups; a re-checkout after an edit
-        # (new amount/key) gets a fresh intent that _assert_order_room then rejects
+        # A re-checkout after an edit gets a new intent, which _assert_order_room then rejects.
         idempotency_key=f"order_{order.id}_{idempotency_key or amount}",
     )
     existing = (
@@ -908,8 +882,7 @@ async def open_terminal_payment(
 async def open_interac_payment(
     db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int, kind: str = "payment"
 ) -> Payment:
-    """A pending Interac Payment with a unique auto-match reference code (caller commits). Reuses an
-    open request for the invoice, so a double-submit returns the same code rather than a new one."""
+    """A pending Interac Payment with a unique reference code, reused for a repeat request."""
     existing = (
         (
             await db.execute(
@@ -953,10 +926,7 @@ async def open_interac_payment(
 async def process_stripe_event(
     db: AsyncSession, gateway: PaymentGateway, payload: bytes, signature: str
 ) -> WebhookOutcome | None:
-    """Verify + dedup + dispatch a Stripe webhook (surface #4). Raises WebhookVerificationError on a
-    bad signature. A repeated event id is a no-op; on a dispatch error nothing commits, so Stripe
-    retries. Returns the client notification this delivery warrants (for the caller to fire
-    post-commit), else None."""
+    """Verify, dedupe and apply a Stripe webhook; returns the notification to send after commit."""
     event = gateway.verify_webhook(payload, signature)
     seen = (await db.execute(select(Webhook.id).where(Webhook.id == event.id))).scalar_one_or_none()
     if seen is not None:
@@ -1004,8 +974,7 @@ async def _update_payment_method(
 
 
 async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | None:
-    """Mirror a refund made on Stripe's side (e.g. the dashboard) as a refund row. Our own refund
-    command already wrote its row under the same provider_ref, and a re-delivery finds it too."""
+    """Record a refund made on Stripe's side; our own refunds already have their row."""
     refund_id, intent, amount = data.get("id"), data.get("payment_intent"), data.get("amount")
     if not isinstance(refund_id, str) or not isinstance(intent, str):
         return None
@@ -1181,8 +1150,7 @@ async def _fees(
 
 
 async def _apply_refund(db: AsyncSession, refund: Payment, payment: Payment) -> None:
-    """Book a refund and roll its parent back: a forfeited deposit is un-forfeited first so the
-    refund draws on the deposit it returns; a refunded package/gift card is voided."""
+    """Book a refund and roll its parent back."""
     deposit = payment.booking_id is not None and payment.kind == "deposit"
     reopened: list[str] = []
     if deposit and payment.booking_id is not None:
@@ -1205,8 +1173,7 @@ async def _sync_parent(db: AsyncSession, payment: Payment) -> None:
 
 
 async def _settle_entitlement(db: AsyncSession, payment: Payment) -> str | None:
-    """Activate a pending package/gift card once its purchase charge settles (only a pure
-    entitlement purchase has no invoice/order/booking). Returns the gift card id to notify."""
+    """Activate a pending package or gift card once its purchase settles; returns a gift card id."""
     if payment.invoice_id or payment.order_id or payment.booking_id:
         return None
     # deferred: package/gift_card import this module's builders, so a top-level import would cycle.
@@ -1275,8 +1242,7 @@ async def _sync_order(db: AsyncSession, order_id: str) -> None:
 
 
 def _assert_not_ours(intent: dict[str, object]) -> None:
-    """Our intents carry the business in metadata; one we haven't committed yet (an off-session
-    charge whose command is still open) must be retried by Stripe, not acknowledged."""
+    """An intent whose command hasn't committed yet must be retried by Stripe."""
     metadata = intent.get("metadata")
     if isinstance(metadata, dict) and metadata.get("business_id"):
         raise AppError("payment not recorded yet", status_code=503, code="retry_later")
@@ -1297,8 +1263,7 @@ async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "fail
 
 
 async def sync_invoice(db: AsyncSession, invoice_id: str) -> None:
-    """Move stock and accrue or unwind the staff earnings that hang off an invoice being fully paid,
-    by its status as the ledger now reads it."""
+    """Move stock and earnings for an invoice by its current ledger status."""
     invoice = await db.get(Invoice, invoice_id)
     if invoice is None or invoice.status in ("draft", "void"):
         return
@@ -1343,8 +1308,7 @@ async def _business_for_account(db: AsyncSession, account_id: str | None) -> str
 async def _record_payment_method(
     db: AsyncSession, account_id: str | None, data: dict[str, object]
 ) -> None:
-    """Record a saved card (from a SetupIntent) for reuse: maps the connected account → business and
-    the Stripe customer → client; deduped by provider_ref."""
+    """Record a saved card from a SetupIntent, deduped by provider ref."""
     if account_id is None:
         return
     biz = (
@@ -1412,8 +1376,7 @@ _SUB_STATUS = {
 
 
 def map_subscription_status(stripe_status: str) -> str:
-    """Stripe's subscription status → our `subscriptions.status` enum (unknown → past_due, so a
-    lapsed/odd status never leaves a non-serving sub marked active)."""
+    """Map a Stripe subscription status to ours; unknown statuses read as past_due."""
     return _SUB_STATUS.get(stripe_status, "past_due")
 
 
@@ -1493,9 +1456,7 @@ async def _recurring_method(db: AsyncSession, sub: Subscription) -> str:
 async def _record_recurring_payment(
     db: AsyncSession, gateway: PaymentGateway, data: dict[str, object]
 ) -> str | None:
-    """Record a subscription's recurring charge as a paid Invoice (with line + Canadian tax) and a
-    linked succeeded Payment (deduped on the Stripe charge/intent id, so a re-delivery doesn't
-    double-record). Returns the new payment id for the post-commit receipt, else None."""
+    """Record a recurring charge as a paid invoice and payment, deduped on the Stripe id."""
     sub_id, invoice_id = _invoice_subscription(data), data.get("id")
     if sub_id is None or not isinstance(invoice_id, str):
         return None
@@ -1545,8 +1506,7 @@ async def _record_recurring_payment(
 
 
 async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str) -> str | None:
-    """An internal Invoice + Line for one subscription period, taxed through the line engine and
-    booked to the ledger so the recurring charge settles it like any other invoice."""
+    """An invoice for one subscription period, booked to the ledger like any other."""
     item = await db.get(Item, sub.item_id)
     if item is None:
         return None
@@ -1581,9 +1541,7 @@ async def _recurring_invoice(db: AsyncSession, sub: Subscription, currency: str)
 
 
 async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int) -> str | None:
-    """Match an inbound e-Transfer to its pending payment by reference code (no fee — the wedge).
-    reference_code is globally unique, so the lookup needs no tenant scope. Returns the matched
-    payment id, else None."""
+    """Match an inbound e-Transfer to its pending payment by reference code."""
     payment = (
         await db.execute(
             select(Payment).where(
@@ -1606,8 +1564,7 @@ async def match_interac(db: AsyncSession, reference_code: str, amount_cents: int
 async def process_interac_event(
     db: AsyncSession, reference_code: str, amount_cents: int
 ) -> str | None:
-    """Webhook entry (surface #4): dedup by reference, auto-match, record the event. Returns the
-    matched payment id (for the caller to notify on, post-commit), else None."""
+    """Dedupe, match and record an Interac webhook; returns the matched payment id."""
     event_id = f"interac_{reference_code}"
     seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:

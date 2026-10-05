@@ -1,5 +1,4 @@
-"""The job surface (#5) — an arq worker over Redis. Run with:
-`uv run arq clientbridge.tasks.worker.WorkerSettings`. Add jobs as cron entries or `functions`."""
+"""The arq worker (`uv run arq clientbridge.tasks.worker.WorkerSettings`)."""
 
 from typing import ClassVar
 

@@ -10,12 +10,7 @@ from clientbridge.services.business import business_tz
 async def open_windows(
     db: AsyncSession, staff_id: str, business_id: str, on_date: date
 ) -> list[tuple[time, time]] | None:
-    """The staff member's open work intervals (local business-tz wall-clock) on `on_date`.
-
-    Returns ``None`` when the day is unconfigured — no date override and no recurring window for its
-    weekday — and callers treat that as "no restriction". An empty list means explicitly closed.
-    Date-specific rows override the recurring weekday windows for that date.
-    """
+    """Open work intervals on a date; None when the day has no hours set, [] when closed."""
     rows = (
         (await db.execute(scoped(Hours, business_id).where(Hours.staff_id == staff_id)))
         .scalars()
@@ -41,10 +36,7 @@ def _as_utc(dt: datetime) -> datetime:
 async def is_within_availability(
     db: AsyncSession, staff_id: str, business_id: str, start: datetime, end: datetime
 ) -> bool:
-    """Whether ``[start, end]`` sits inside an open window on its date, or the day is unconfigured.
-
-    Windows are local wall-clock, so the session instants are converted into the business timezone
-    before comparing time-of-day (and picking the local date whose windows apply)."""
+    """Whether the window sits inside open hours on its local date, or the day has none set."""
     tz = await business_tz(db, business_id)
     start_local, end_local = _as_utc(start).astimezone(tz), _as_utc(end).astimezone(tz)
     windows = await open_windows(db, staff_id, business_id, start_local.date())

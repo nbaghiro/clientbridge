@@ -345,8 +345,7 @@ class BillingService:
     async def create_invoice_for_booking(
         self, booking_id: str, idempotency_key: str | None
     ) -> InvoiceOut:
-        """A draft invoice for one visit: the service line, then any add-ons the client chose when
-        booking. The booking points at its invoice, so a visit is invoiced once."""
+        """A draft invoice for one visit and its add-ons; a booking is invoiced once."""
         self._assert_admin()
         booking = await self._booking(booking_id)
         slot = await self.db.get(Slot, booking.slot_id)

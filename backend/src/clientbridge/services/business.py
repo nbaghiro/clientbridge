@@ -14,8 +14,7 @@ from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody
 
 
 async def business_tz(db: AsyncSession, business_id: str) -> ZoneInfo:
-    """The business's local timezone; availability + recurrence store wall-clock times in it, so
-    session instants convert into this zone before comparing time-of-day."""
+    """The business's timezone, in which hours and recurrences store wall-clock times."""
     tz = (
         await db.execute(select(Business.timezone).where(Business.id == business_id))
     ).scalar_one_or_none()
@@ -30,8 +29,7 @@ async def business_province(db: AsyncSession, business_id: str) -> str | None:
 
 
 async def business_tax_registered(db: AsyncSession, business_id: str) -> bool:
-    """Whether the business collects GST/HST — a small supplier under the threshold does not, so the
-    tax engine applies no tax for it."""
+    """Whether the business collects GST/HST (small suppliers don't)."""
     return bool(
         (
             await db.execute(select(Business.tax_registered).where(Business.id == business_id))

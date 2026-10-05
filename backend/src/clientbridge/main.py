@@ -22,9 +22,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Clientbridge API", version="0.1.0")
     app.add_exception_handler(AppError, app_error_handler)
 
-    # Cross-origin callers: the web/Connect apps and Expo clients hit /sync/* and the public
-    # surfaces from another origin. Dev allows any localhost port; prod allows the configured
-    # origins (the Connect origin, so embedded widgets can reach the public API).
+    # Dev allows any localhost origin; prod allows the configured ones, including Connect.
     extra_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,

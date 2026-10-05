@@ -1,10 +1,4 @@
-"""Server-authoritative write path for PowerSync.
-
-The client's `uploadData()` POSTs its local write queue here. For each op we (1) resolve the acting
-user, (2) authorize against the `staff` role policy (see .docs/architecture.md), (3) enforce the
-write rules the schema can't (no cross-tenant moves; server-owned fields; locked rows), (4) coerce
-the client's SQLite types back to Postgres, and (5) apply — all in one transaction.
-"""
+"""Server-authoritative write path for PowerSync uploads."""
 
 import json
 from datetime import UTC, date, datetime, time
@@ -35,55 +29,24 @@ class UploadBody(BaseModel):
     ops: list[UploadOp]
 
 
-# table -> (min_tier, own_only). tier "team" = any active staff; "admin" = owner/admin only.
-# own_only: a non-admin staff may only touch rows assigned to them (staff_id == theirs).
-# Tables absent here are NOT writable via sync (server-authoritative): payments, payouts,
-# payout_allocations, payment_methods, packages, subscriptions, gift_cards, businesses,
-# staff, users, audits, webhooks, files.
+# table -> (min tier, own_only); tables absent here are written only through commands.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "clients": ("team", False),
     "subjects": ("team", False),
     "notes": ("team", False),
-    # files are NOT sync-writable: the row is server-minted so its `s3_key` can't be forged —
-    # creation flows through the file command (POST /v1/files). They stay sync-READABLE.
-    # responses + signatures are NOT sync-writable: the submit/sign token is a server-minted
-    # secret and the status lifecycle is command- + public-token-authoritative (send commands +
-    # public submission/signing), so a client can't forge a link or self-submit/sign by syncing a
-    # row. They stay sync-READABLE (forms/contracts authoring still syncs).
-    # threads are NOT sync-writable: the (business_id, client_id, channel) uniqueness invariant is
-    # server-owned — a thread is created/reused by `open_thread` inside the message-send command, so
-    # a client can't race the unique constraint by syncing a row. They stay sync-READABLE.
     "messages": ("team", False),
-    # slots + bookings + recurrences are NOT sync-writable: every mutation goes through a command
-    # (POST/PATCH /v1/bookings, POST /v1/recurrences) so the atomic conflict check + exclusion
-    # constraint (and, for a recurring series, the per-occurrence expansion) always hold.
     "hours": ("team", True),
     "items": ("admin", False),
-    # packages / subscriptions / gift_cards are NOT sync-writable: balances, consumption counters,
-    # gateway refs, and billing status are server-authoritative (purchase/redeem commands +
-    # webhooks), so a client can't mint store credit or self-grant an active subscription.
     "resources": ("admin", False),
     "forms": ("admin", False),
     "fields": ("admin", False),
     "contracts": ("admin", False),
-    # invoices + estimates + lines are NOT sync-writable: numbering, money totals, tax, and the
-    # status lifecycle are all server-computed, so every mutation goes through the billing commands
-    # (POST/PATCH /v1/invoices, /v1/estimates).
-    # payment_methods + payout_allocations are NOT sync-writable: the gateway/mandate fields and the
-    # computed split amounts/status are server-authoritative (Stripe webhooks + the payout job).
-    # broadcasts are NOT sync-writable: composing + sending is the audited `/v1/broadcasts` command,
-    # so a client can't sync-write a `scheduled` row for the cron job to blast.
-    # reviews are NOT sync-writable: the request token is a server-minted secret
-    # and the review status lifecycle is command- + public-token-authoritative (request
-    # command, public submission, moderation commands), so a client can't forge a review link or
-    # publish/hide a review by syncing a row.
 }
 
 # Timestamps + tenancy the server owns; never settable by a client write.
 SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 
-# Per-table fields only a command may write (numbering, money, counters); a sync op that sets one is
-# rejected.
+# Fields only a command may write; a sync op that sets one is rejected.
 COMMAND_ONLY_FIELDS: dict[str, frozenset[str]] = {
     "clients": frozenset({"stripe_customer_id"}),  # the Stripe Customer, minted by the payment cmd
     # the recurring Price cached by the subscription cmd; stock moves only through sales + restock

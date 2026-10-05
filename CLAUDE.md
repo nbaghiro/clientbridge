@@ -67,7 +67,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 ## Tooling — run the gate before "done"
 - Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **mypy strict** (no `Any`).
   Frontend: eslint strictTypeChecked + tsc strict + prettier (4-space · double · 100).
-- Gate: `ruff check . && ruff format --check . && mypy src scripts tests && pytest --cov…`.
+- Gate: `ruff check . && ruff format --check . && mypy src scripts tests && python -m scripts.check_structure && pytest --cov…`.
 - **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
   router → service; routers never query; every tenant query goes through
@@ -78,7 +78,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   UI-agnostic data layer via `@clientbridge/app-core`, keep only rendering platform-specific); stray
   comments. The Catalog & Tax audit (2026-06-26) caught an unguarded REST write + a router running raw
   queries — exactly the class of thing this pass exists to catch.
-- **Comments: sparing — the default is no comment.** We are not fans of extensive commenting; prefer self-documenting code (clear names) over prose. Add a comment *only* for a non-obvious *why* or an invariant, and keep it to one line. Never narrate *what* the code does, restate types, summarize a function the name already conveys, write multi-clause block/file-header comments, or add decorative `──── section ────` divider banners — split a file before it needs sign-posting.
+- **Comments: sparing — the default is no comment.** We are not fans of extensive commenting; prefer self-documenting code (clear names) over prose. Add a comment *only* for a non-obvious *why* or an invariant, and keep it to one line. Never narrate *what* the code does, restate types, summarize a function the name already conveys, write multi-clause block/file-header comments, or add decorative `──── section ────` divider banners — split a file before it needs sign-posting. In the backend, `scripts/check_structure.py` (part of `make lint`)
+  fails on a docstring or comment block longer than one line, a `*_service.py`/`*_jobs.py` file name, and a
+  folder deeper than `clientbridge/<layer>/<file>.py`.
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
   after model/sync-rule changes (CI has a drift gate).

@@ -1,9 +1,4 @@
-"""Password auth + refresh-token sessions.
-
-Refresh tokens are opaque high-entropy strings, stored only as a SHA-256 hash in `sessions`,
-grouped into a family per login. Each refresh rotates the token; replaying an already-rotated token
-revokes the whole family (reuse-detection). Access tokens are short-lived JWTs.
-"""
+"""Password auth and rotating refresh-token sessions with reuse detection."""
 
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -29,14 +24,12 @@ from clientbridge.schemas.auth import TokenPair
 RESET_TTL = timedelta(hours=1)
 VERIFY_TTL = timedelta(hours=24)
 
-# A valid hash to verify against when the account is missing/password-less, so login latency is
-# the same whether or not an email is registered (no account-enumeration timing oracle).
+# Verified against when an account is missing, so login timing doesn't reveal registered emails.
 _DUMMY_HASH = hash_password("clientbridge-timing-guard")
 
 
 def build_user(*, email: str, password: str, name: str | None) -> User:
-    """A new password account with the password hashed — the one place credentials are minted,
-    shared by registration and staff invite-acceptance."""
+    """A new password account; the one place credentials are minted."""
     return User(
         id=new_id("user"),
         email=email,
@@ -64,8 +57,7 @@ class AuthService:
     async def oauth_login(self, profile: OAuthProfile) -> User:
         """Find-or-create a user by the OAuth email, linking the provider identity."""
         if not profile.email_verified:
-            # An unverified provider email could assert a victim's address and take over their
-            # password account, so we never sign in / link on an unverified email.
+            # An unverified provider email could claim someone else's account.
             raise Unauthorized("your email address is not verified with the provider")
         user = (
             await self.db.execute(select(User).where(User.email == profile.email))

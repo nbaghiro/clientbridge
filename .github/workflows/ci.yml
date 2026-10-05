@@ -37,6 +37,7 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy src scripts tests
+      - run: uv run python -m scripts.check_structure
       - run: uv run alembic upgrade head           # build the schema
       - run: uv run python -m scripts.seed_demo     # seed the demo (tests act as its owner)
       - run: uv run pytest --cov=clientbridge --cov-branch --cov-fail-under=90 -q

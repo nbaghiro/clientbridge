@@ -189,8 +189,7 @@ async def _booking_earnings(db: AsyncSession, business_id: str, booking_id: str)
 async def _split(
     db: AsyncSession, staff: Staff, line_cents: int, booking: Booking
 ) -> tuple[str, int] | None:
-    """The (basis, cents) a payee earns on a booking line: `rate_bps` of it for `percent`, or
-    `rate_cents` per booking for `fixed` and per session hour for `hourly`."""
+    """The (basis, cents) a payee earns on a booking line under their rate type."""
     if staff.rate_type == "percent" and staff.rate_bps is not None:
         return "percent", round(line_cents * staff.rate_bps / 10000)
     rate = staff.rate_cents
@@ -218,8 +217,7 @@ async def _booking_lines(db: AsyncSession, invoice: Invoice) -> list[Line]:
 
 
 async def ensure_earnings(db: AsyncSession, invoice: Invoice) -> None:
-    """Accrue a pending earning for each payee staff on a fully-paid invoice's booking lines, once
-    per booking (a booking whose earning was reversed by a refund can accrue again)."""
+    """Accrue a pending earning per payee on a fully paid invoice's bookings, once each."""
     biz = invoice.business_id
     for line in await _booking_lines(db, invoice):
         assert line.booking_id is not None
@@ -252,8 +250,7 @@ async def ensure_earnings(db: AsyncSession, invoice: Invoice) -> None:
 
 
 async def reverse_earnings(db: AsyncSession, invoice: Invoice) -> None:
-    """Unwind still-pending earnings when an invoice drops below fully paid; approved or paid
-    earnings stand (a clawback is a deliberate adjustment, not an automatic one)."""
+    """Unwind pending earnings when an invoice drops below fully paid; approved ones stand."""
     biz = invoice.business_id
     for line in await _booking_lines(db, invoice):
         assert line.booking_id is not None
@@ -264,8 +261,7 @@ async def reverse_earnings(db: AsyncSession, invoice: Invoice) -> None:
 
 
 async def ensure_order_earning(db: AsyncSession, order: Order) -> None:
-    """Accrue the seller's retail commission once a sale is paid: their retail rate on the sale's
-    product lines (before tax). Once per sale, or again after a refund reversed it."""
+    """Accrue the seller's retail commission on a paid sale's product lines, once per sale."""
     staff = await db.get(Staff, order.staff_id)
     if staff is None or not staff.payee or not staff.retail_rate_bps:
         return

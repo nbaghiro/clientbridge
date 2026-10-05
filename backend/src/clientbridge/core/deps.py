@@ -121,8 +121,7 @@ CurrentPrincipal = Annotated[Principal, Depends(current_principal)]
 
 
 def assert_role(principal: Principal, *roles: str, message: str) -> None:
-    """403 unless the actor holds one of `roles` — the service-level counterpart to `require_role`
-    (for services whose methods vary in who may call them)."""
+    """403 unless the actor holds one of `roles`; for services whose methods vary in access."""
     if principal.role not in roles:
         raise Forbidden(message)
 
@@ -136,8 +135,7 @@ def assert_can_act_as(principal: Principal, staff_id: str | None) -> None:
 
 
 def require_role(*roles: str) -> Callable[..., Awaitable[Principal]]:
-    """Dependency factory: 403 unless the actor's role is one of `roles`. For a router where every
-    endpoint is admin-only; a service with mixed per-method access uses `assert_role` instead."""
+    """Router dependency: 403 unless the actor holds one of `roles`."""
 
     async def _check(principal: CurrentPrincipal) -> Principal:
         assert_role(principal, *roles, message=f"requires one of: {', '.join(roles)}")

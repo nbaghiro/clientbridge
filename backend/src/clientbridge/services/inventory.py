@@ -59,8 +59,7 @@ class StockService:
 async def sync_parent_stock(
     db: AsyncSession, business_id: str, parent: LineParent, parent_id: str, status: str
 ) -> None:
-    """Move stock for a sale's tracked products as its status settles: out once when it is paid,
-    back once when it is fully refunded. Stock may go below zero; it never blocks a sale."""
+    """Move a sale's tracked stock out once when paid and back once when fully refunded."""
     if status not in ("paid", "refunded"):
         return
     rows = await db.execute(

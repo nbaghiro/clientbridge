@@ -1,10 +1,4 @@
-"""The command surface (#3): the path every server-authoritative POST runs through.
-
-A command is one atomic, audited, optionally-idempotent mutation. The service does the work and
-records audit entries on the `Command`; `run_command` owns the transaction — replaying a stored
-response for a repeated `Idempotency-Key`, persisting the audit trail, and committing (or rolling
-back) as a unit.
-"""
+"""The command surface: one atomic, audited, optionally idempotent mutation."""
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -57,12 +51,7 @@ async def run_command[T: BaseModel](
     response_model: type[T],
     idempotency_key: str | None = None,
 ) -> T:
-    """Run `run` as one atomic, audited command.
-
-    With an `idempotency_key`, a repeat (same business + action + key) returns the stored response
-    without re-executing. Otherwise: run the body, persist its audit entries, store the response for
-    replay, and commit. Any exception rolls the whole unit back.
-    """
+    """Run `run` once per idempotency key, committing mutation, audit and response together."""
     if idempotency_key is not None:
         prior = (
             await db.execute(

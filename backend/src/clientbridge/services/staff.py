@@ -1,5 +1,4 @@
-"""Staff invites: owner/admin creates a pending Staff(status=invited) + email; the invitee accepts
-(create-or-link a User, activate, apply the role). Invite tokens are stored SHA-256-hashed."""
+"""Staff invites and pay settings."""
 
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -24,8 +23,7 @@ INVITABLE_ROLES = {"admin", "staff", "contractor"}  # never invite an owner
 
 
 def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
-    """A percent rate is held in basis points and a fixed or hourly one in cents, so a change of
-    basis clears the other unit; a rate sent in the wrong unit for the basis is refused."""
+    """Clear the other rate unit on a basis change, and refuse a rate in the wrong unit."""
     if staff.rate_type is None:
         if staff.rate_bps is not None or staff.rate_cents is not None:
             raise Unprocessable("set how the rate applies (percent, fixed or hourly)")
@@ -132,9 +130,7 @@ class StaffService:
             self.db.add(user)
             await self.db.flush()
         elif user.password_hash is None or not verify_password(password, user.password_hash):
-            # The invited address already has an account: the raw token alone must NOT mint its
-            # session (the token is also visible to the inviter), so the invitee proves ownership
-            # with their existing password before we link + log them in.
+            # The token alone must not sign in an existing account; the inviter can see it.
             raise Unauthorized("enter your existing account password to accept this invite")
         staff.user_id = user.id
         staff.status = "active"
@@ -154,8 +150,7 @@ class StaffService:
 
 
 async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:
-    """Load an active staff member by id, else NotFound. Shared by the booking and scheduling
-    flows, which resolve the staff a booking is assigned to."""
+    """Load an active staff member by id, else NotFound."""
     row = (
         await db.execute(scoped(Staff, biz).where(Staff.id == staff_id, Staff.status == "active"))
     ).scalar_one_or_none()

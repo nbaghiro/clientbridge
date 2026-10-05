@@ -1,9 +1,4 @@
-"""Server-only auth infrastructure (refresh-token families + one-time tokens).
-
-NOT business-scoped and NOT referenced by the sync rules → never reaches a client (excluded from the
-generated AppSchema). A future hardening could move these to a `private` schema + a `FOR TABLES IN
-SCHEMA public` publication so they aren't replicated into PowerSync's server-side storage either.
-"""
+"""Server-only auth tables; not business-scoped and never synced."""
 
 from datetime import datetime
 
@@ -15,8 +10,7 @@ from clientbridge.models.base import PKMixin, enum_check
 
 
 class AuthSession(PKMixin, Base):
-    """One refresh-token family per login/device. Rotation swaps `token_hash`; replay of an old or
-    revoked hash → revoke the whole family."""
+    """One refresh-token family per login; replaying a rotated token revokes the family."""
 
     __tablename__ = "sessions"
     __table_args__ = (

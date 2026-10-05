@@ -143,8 +143,7 @@ class GiftCard(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 
 class StockMovement(PKMixin, BusinessScoped, TimestampMixin, Base):
-    """One signed change to a product's stock; `items.stock_on_hand` is their running total. A sale
-    or refund is keyed on its line, so a re-delivered payment can't move stock twice."""
+    """One signed stock change, keyed on its line so a re-delivered payment moves stock once."""
 
     __tablename__ = "inventory"
     __table_args__ = (

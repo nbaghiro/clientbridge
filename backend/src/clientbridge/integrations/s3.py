@@ -1,9 +1,4 @@
-"""Object-storage adapter — the S3/MinIO boundary (mirrors the email/payments adapters).
-
-Production talks to S3; the dev stack runs MinIO (docker-compose `minio`). Tests override
-`get_file_storage` with a recording fake, so the file command flow is covered without the network.
-Presigning is local HMAC — no round-trip — so the methods are sync.
-"""
+"""Object storage adapter (S3); presigning is local, so the methods are sync."""
 
 from typing import Protocol
 

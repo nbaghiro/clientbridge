@@ -84,8 +84,7 @@ async def dispatch_message(
 async def broadcast_recipients(
     db: AsyncSession, business_id: str, channel: str, audience: dict[str, object]
 ) -> Sequence[tuple[Client, str]]:
-    """Active clients reachable on the channel, narrowed by the broadcast's `audience` JSONB filter.
-    Supported shapes: `{}` / `{"all": true}` → everyone; `{"tags": [...]}` → tag overlap."""
+    """Active clients reachable on the channel, filtered by the broadcast audience."""
     contact = Client.phone if channel == "sms" else Client.email
     query = (
         scoped(Client, business_id, soft_delete=True)
@@ -137,13 +136,7 @@ async def fan_out_broadcast(
 async def process_inbound_sms(
     db: AsyncSession, *, from_phone: str, body: str, message_sid: str
 ) -> str | None:
-    """Inbound-SMS webhook entry (surface #4): dedup by the provider message SID, resolve the
-    sender by phone, and append an unread `in` message to the open thread.
-
-    Number→business assumption (v1): a client's phone number identifies the business. We match a
-    `Client` by `phone` across all businesses; if the same number exists in more than one, we pick
-    deterministically (oldest by created_at, then id). A dedicated per-number routing table is the
-    follow-up. Returns the new message id (or None when deduped / no matching client)."""
+    """Record an inbound SMS on the sender's thread; the phone number identifies the business."""
     event_id = f"twilio_{message_sid}"
     seen = (await db.execute(select(Webhook.id).where(Webhook.id == event_id))).scalar_one_or_none()
     if seen is not None:
@@ -193,8 +186,7 @@ async def process_inbound_sms(
 async def run_due_broadcasts(
     db: AsyncSession, sms: SmsSender, email: EmailSender, now: datetime
 ) -> int:
-    """Send each scheduled broadcast whose `scheduled_at` has arrived, flipping it sending→sent, and
-    return how many were sent. Idempotent — a `sent` broadcast no longer matches `status` filter."""
+    """Send every scheduled broadcast that is due; returns how many were sent."""
     broadcasts = (
         (
             await db.execute(
@@ -221,8 +213,7 @@ async def run_due_broadcasts(
 
 
 class MessageService:
-    """Outbound messaging (surface #3): sending through a channel is a side effect, so it runs as a
-    `run_command` — atomic, audited, idempotent — never a sync write."""
+    """Outbound messages, sent as audited commands."""
 
     def __init__(
         self, db: AsyncSession, principal: Principal, sms: SmsSender, email: EmailSender

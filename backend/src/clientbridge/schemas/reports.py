@@ -28,7 +28,7 @@ class GstHstReport(BaseModel):
 class T4ARow(BaseModel):
     staff_id: str
     name: str
-    total_cents: int  # Σ approved/paid payout allocations in the calendar year
+    total_cents: int  # approved or paid earnings in the calendar year
 
 
 class SalesByItemRow(BaseModel):

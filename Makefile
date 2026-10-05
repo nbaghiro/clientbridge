@@ -122,7 +122,7 @@ test-e2e:
 	cd backend && uv run pytest -m e2e -q
 
 lint:
-	cd backend && uv run ruff check . && uv run mypy src scripts tests
+	cd backend && uv run ruff check . && uv run mypy src scripts tests && uv run python -m scripts.check_structure
 	cd frontend && pnpm lint && pnpm typecheck && pnpm --filter site lint:content
 
 typecheck:

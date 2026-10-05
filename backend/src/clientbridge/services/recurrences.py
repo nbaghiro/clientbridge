@@ -35,8 +35,7 @@ def expand_occurrences(
     count: int | None,
     until: date | None,
 ) -> list[date]:
-    """Occurrence dates for a recurrence rule, bounded by count/until and a hard cap. Weekly
-    honours `byday` (else the start date's weekday); monthly clamps to the last valid day."""
+    """Occurrence dates for a rule, bounded by count, until and a hard cap."""
     interval = max(1, interval)
     limit = min(count if count is not None else _MAX_OCCURRENCES, _MAX_OCCURRENCES)
     dates: list[date] = []
@@ -76,9 +75,7 @@ class RecurrenceService:
         self.biz = principal.business_id
 
     async def create(self, data: RecurrenceCreate, idempotency_key: str | None) -> RecurrenceOut:
-        """Persist a recurrence and expand it into confirmed bookings, one per occurrence. An
-        occurrence that falls outside hours or overlaps an existing booking is skipped (rolled back
-        to its savepoint) and reported, so a single clash never fails the whole series."""
+        """Create the recurrence and its bookings; clashing occurrences are skipped and reported."""
         assert_can_act_as(self.principal, data.staff_id)
         if data.count is None and data.until is None:
             raise AppError("a recurring schedule needs an end: set count or until", status_code=422)
@@ -89,9 +86,7 @@ class RecurrenceService:
         await load_staff(self.db, self.biz, data.staff_id)
 
         base = data.starts_at
-        # Keep the intended wall-clock time (in the business tz) and re-localize it per occurrence
-        # date, so occurrences across a DST boundary land at the same local time — NOT at the first
-        # occurrence's fixed UTC offset (which would drift an hour after the transition).
+        # Re-localize the wall-clock time per date, so occurrences keep their time across DST.
         tz = await business_tz(self.db, self.biz)
         aware = base if base.tzinfo is not None else base.replace(tzinfo=UTC)
         local_time = aware.astimezone(tz).time()

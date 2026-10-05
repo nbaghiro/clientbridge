@@ -17,9 +17,7 @@ _DEFAULT_CONTENT_TYPE = "application/octet-stream"
 
 
 class FileService:
-    """Files back signature images + attachments. Any active member may create/read them (the
-    team-level sync policy files used to carry); the row is server-minted so the s3 key can't be
-    forged, and the upload/download URLs are short-lived presigned ones."""
+    """Signature images and attachments; rows are server-minted so the S3 key can't be forged."""
 
     def __init__(self, db: AsyncSession, principal: Principal, storage: FileStorage) -> None:
         self.db = db
@@ -82,9 +80,7 @@ async def mint_upload(
     content_type: str | None = None,
     size: int | None = None,
 ) -> FileUpload:
-    """Mint a server-keyed File row + its short-lived presigned upload URL. Principal-less so both
-    the authed command path and the token-gated public surfaces share one minting rule — the s3 key
-    is always derived from the resolved business, never the caller."""
+    """Create a File row and its presigned upload URL, keyed by the resolved business."""
     file = File(
         id=new_id("file"),
         business_id=business_id,

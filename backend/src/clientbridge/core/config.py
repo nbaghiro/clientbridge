@@ -20,12 +20,11 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:8703/0"
 
-    # Object storage — the dev stack runs MinIO (docker-compose `minio`, S3 API on 8705); prod
-    # points at S3. Presigned PUT/GET URLs let clients upload/download directly, off the API path.
+    # Object storage: RustFS in dev, S3 in prod; clients upload and download via presigned URLs.
     s3_endpoint: str = "http://localhost:8705"
     s3_bucket: str = "clientbridge"
     s3_access_key: str = "minio"
-    s3_secret_key: str = "minio12345"  # dev-only MinIO default, overridden in prod
+    s3_secret_key: str = "minio12345"  # dev-only default, overridden in prod
     s3_region: str = "us-east-1"
     s3_presign_ttl_seconds: int = 3600
 
@@ -35,8 +34,7 @@ class Settings(BaseSettings):
     powersync_private_key_pem: str = ""  # prod RSA private key (PEM); empty → ephemeral (dev/test)
     google_client_id: str = ""  # OAuth audience for verifying Google id_tokens
 
-    # Stripe Connect — platform account + custom connected accounts. Empty in dev/test → the fake
-    # gateway is used; prod sets the live/test keys.
+    # Stripe Connect; empty keys in dev and test select the fake gateway.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"
@@ -48,8 +46,7 @@ class Settings(BaseSettings):
     interac_webhook_secret: str = ""  # shared secret for the inbound e-Transfer auto-match webhook
     sms_webhook_secret: str = ""  # shared secret for the inbound SMS (Twilio-style) webhook
 
-    # Outreach channels — empty → the no-op Console sender (tests use recording fakes); set creds in
-    # prod to swap in real providers. SMS + email reach clients, push reaches staff devices.
+    # Outreach channels; empty credentials select the no-op console senders.
     postmark_server_token: str = ""  # set with email_from → real transactional email (else no-op)
     email_from: str = ""  # verified sender address, e.g. "Clientbridge <no-reply@clientbridge.app>"
     twilio_account_sid: str = ""
@@ -57,15 +54,12 @@ class Settings(BaseSettings):
     twilio_sms_from: str = ""
     expo_access_token: str = ""  # optional; Expo push accepts device tokens without it
 
-    # Dev-only: /sync/token mints a token for this user when the request is unauthenticated,
-    # so the client apps can connect before real auth exists.
+    # Dev only: an unauthenticated /sync/token call mints a token for this user.
     dev_user_id: str = "us_dev"
 
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
-        """Fail closed outside dev: the JWT signing key and Stripe webhook secret must be set, so a
-        deploy that forgets them refuses to start rather than signing/verifying with a public key or
-        accepting unsigned webhooks (mirrors the interac/sms handlers' empty-secret rejection)."""
+        """Refuse to boot outside dev without real JWT and Stripe webhook secrets."""
         if self.env != "dev":
             missing = []
             if self.jwt_secret == _DEV_JWT_SECRET:

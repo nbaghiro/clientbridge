@@ -77,10 +77,7 @@ def _service_out(item: Item, image_url: str | None) -> PublicService:
 
 
 class PublicBookingService:
-    """The unauthenticated online-booking surface (#4), keyed by ``Business.slug``. The slug is the
-    only credential and scopes everything to one business — no principal is involved (mirrors
-    PublicPay). Reads are open; the booking write enforces the same invariant as the authed command
-    path through ``create_booking_core``, then commits directly."""
+    """Online booking, keyed by business slug; writes go through create_booking_core."""
 
     def __init__(self, db: AsyncSession, gateway: PaymentGateway) -> None:
         self.db = db
@@ -186,8 +183,7 @@ class PublicBookingService:
     async def _open_deposit(
         self, business: Business, booking: Booking, client: Client
     ) -> str | None:
-        """Open an interactive deposit PaymentIntent so the client pays to hold the slot. Skipped
-        when no deposit is due or the business can't take cards yet (the booking still stands)."""
+        """Open a deposit PaymentIntent, unless none is due or the business can't take cards."""
         if booking.deposit_amount_cents <= 0:
             return None
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
@@ -256,8 +252,7 @@ async def resolve_by_token[M: Base](
 
 
 async def business_or_404(db: AsyncSession, business_id: str, message: str) -> Business:
-    """A public link's owning business, else 404 with the same `message` — a link whose business
-    vanished reads as a dead link, not a different error."""
+    """A public link's business, else 404 with the same message."""
     business = await db.get(Business, business_id)
     if business is None:
         raise NotFound(message)
@@ -265,12 +260,7 @@ async def business_or_404(db: AsyncSession, business_id: str, message: str) -> B
 
 
 def public_brand(business: Business) -> PublicBrand:
-    """A business's brand as a validated public DTO — malformed values are dropped, not surfaced.
-
-    The brand is owner-set free JSON; validating here means the customer client can apply `primary`
-    as a colour and `logo_url` as an image src without re-checking (and can't be fed a `javascript:`
-    logo or a CSS-breaking colour).
-    """
+    """A business's brand as a validated public DTO; malformed values are dropped."""
     brand = business.brand or {}
     logo_file_id = brand.get("logo_file_id")
     logo_url = media_url(logo_file_id) if isinstance(logo_file_id, str) else brand.get("logo_url")
@@ -290,9 +280,7 @@ def _is_http(url: str) -> bool:
 
 
 class PublicContractService:
-    """The unauthenticated e-sign surface (#4), like PublicReview. The opaque signature token is the
-    only credential; it resolves one pending signature, so no principal/tenant scope is involved.
-    Signing snapshots the contract body + captures the signer's IP for a durable legal record."""
+    """Public e-signing; the signature token is the only credential."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -382,9 +370,7 @@ def _snapshot(body: str, typed_name: str | None) -> str:
 
 
 class PublicFormService:
-    """The unauthenticated form surface (#4), like PublicReview. The opaque response token is the
-    only credential; it resolves one pending response, so no principal/tenant scope is involved.
-    """
+    """Public forms; the response token is the only credential."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -483,8 +469,7 @@ def _field_out(field: FormField) -> PublicFormField:
 
 
 class PublicPayService:
-    """The unauthenticated pay-by-link surface (#4). The opaque `pay_token` is the only credential —
-    it resolves one invoice, so no principal / tenant scope is involved."""
+    """Public pay links; the pay token is the only credential."""
 
     def __init__(self, db: AsyncSession, gateway: PaymentGateway) -> None:
         self.db = db
@@ -517,8 +502,6 @@ class PublicPayService:
         client = await self.db.get(Client, invoice.client_id)
         if client is None:
             raise NotFound("client not found")
-        # open_card_payment is retry-safe (Stripe idempotency key + provider_ref dedup) — a customer
-        # double-submit reuses the one intent rather than minting another.
         _, client_secret = await open_card_payment(
             self.db,
             self.gateway,
@@ -550,8 +533,7 @@ class PublicPayService:
 
 
 class PublicReviewService:
-    """The unauthenticated review surface (#4). The opaque request token is the only credential — it
-    resolves one review, so no principal / tenant scope is involved (mirrors PublicPay)."""
+    """Public reviews; the review token is the only credential."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -571,8 +553,7 @@ class PublicReviewService:
 
     async def submit(self, token: str, data: PublicReviewSubmit) -> PublicReviewContext:
         review, business = await self._resolve(token)
-        # Lock the row so two concurrent public submits can't both record a rating: the second
-        # blocks here, then sees the submitted status and 409s.
+        # Lock the row so a second concurrent submit sees the first and gets a 409.
         review = (
             await self.db.execute(select(Review).where(Review.id == review.id).with_for_update())
         ).scalar_one()
@@ -632,8 +613,7 @@ async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]
 async def online_items(
     db: AsyncSession, business_id: str, lines: list[PublicShopLine]
 ) -> list[tuple[Item, int]]:
-    """Each requested product with its quantity (repeats merged); only active products listed for
-    sale online in this business."""
+    """Each requested product with its merged quantity, if sold online in this business."""
     wanted: dict[str, int] = {}
     for line in lines:
         wanted[line.item_id] = wanted.get(line.item_id, 0) + line.quantity
@@ -658,8 +638,7 @@ async def online_items(
 
 
 class PublicShopService:
-    """The unauthenticated shop (#4), keyed by ``Business.slug`` like the booking page. An order is
-    paid by card online and collected in person; the webhook settles it like any other sale."""
+    """The online shop, keyed by business slug; orders are paid online and picked up."""
 
     def __init__(self, db: AsyncSession, gateway: PaymentGateway) -> None:
         self.db = db
@@ -683,8 +662,7 @@ class PublicShopService:
             raise Conflict("this shop isn't taking online payments yet")
         prior = (
             await self.db.execute(
-                select(IdempotencyKey).where(
-                    IdempotencyKey.business_id == business.id,
+                scoped(IdempotencyKey, business.id).where(
                     IdempotencyKey.scope == _SCOPE,
                     IdempotencyKey.key == idempotency_key,
                 )

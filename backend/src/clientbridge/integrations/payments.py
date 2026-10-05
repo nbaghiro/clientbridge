@@ -1,9 +1,4 @@
-"""Payment gateway adapter — the Stripe Connect boundary (see .docs/engineering.md).
-
-Production talks to Stripe; tests override `get_payment_gateway` with a recording fake, so the
-onboarding / charge / webhook logic is covered without the network. Connected accounts are Custom
-(the platform owns onboarding + compliance); charges are direct with an application fee.
-"""
+"""Stripe Connect adapter: Custom connected accounts, direct charges with an application fee."""
 
 import json
 from dataclasses import dataclass
@@ -33,8 +28,7 @@ class ConnectAccount:
 
 
 def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAccount:
-    """Parse a Stripe Account object (the get_account result or an account.updated event) into our
-    KYC state — Stripe is the source of truth."""
+    """Parse a Stripe Account object into our KYC state."""
     req = data.get("requirements")
     req = req if isinstance(req, dict) else {}
 
@@ -111,8 +105,6 @@ class PaymentGateway(Protocol):
     async def get_account(self, account_id: str) -> ConnectAccount: ...
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent: ...
 
-    # Direct charges on the connected account: the client is a Customer there, the platform takes
-    # an application fee.
     async def create_customer(self, account_id: str, *, name: str, email: str | None) -> str: ...
     async def create_setup_intent(self, account_id: str, *, customer_id: str) -> SetupIntentResult:
         """Save a card for later off-session use, without charging now."""
@@ -178,8 +170,6 @@ class PaymentGateway(Protocol):
         """Detach a saved card from its Customer so it can no longer be charged."""
         ...
 
-    # Stripe Terminal (in-person POS): the device fetches a connection token, then confirms a
-    # card_present PaymentIntent we create with the platform's application fee.
     async def create_connection_token(self, account_id: str) -> str:
         """A short-lived secret the Terminal SDK exchanges to connect a reader."""
         ...
@@ -487,8 +477,7 @@ class StripeGateway:
             )
         except Exception as exc:
             raise WebhookVerificationError(str(exc)) from exc
-        # construct_event verified the bytes; read them as plain JSON — the SDK's StripeObject is
-        # not a dict (no `.get`, `dict()` fails) so we don't traverse it.
+        # The SDK's StripeObject is not a dict, so read the verified bytes as plain JSON.
         event = json.loads(payload)
         obj = event["data"]["object"]
         account = event.get("account")

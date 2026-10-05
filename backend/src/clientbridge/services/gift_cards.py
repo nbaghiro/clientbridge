@@ -199,8 +199,7 @@ async def _out(db: AsyncSession, card: GiftCard) -> GiftCardOut:
 
 
 async def activate_purchased(db: AsyncSession, payment_id: str) -> str | None:
-    """Activate the gift card a settled purchase charge paid for (pending → active); returns its id
-    so the webhook can notify the recipient."""
+    """Activate the gift card a settled purchase paid for; returns its id."""
     card = (
         await db.execute(select(GiftCard).where(GiftCard.payment_id == payment_id))
     ).scalar_one_or_none()

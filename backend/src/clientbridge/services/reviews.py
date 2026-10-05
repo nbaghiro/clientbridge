@@ -25,8 +25,7 @@ from clientbridge.services.notifications import Notifier
 def build_review_request(
     business_id: str, client_id: str, booking_id: str | None, now: datetime
 ) -> Review:
-    """A requested review with a unique opaque token — shared by the request command and the
-    dispatch job so both mint identical, principal-less rows."""
+    """A requested review with a unique token."""
     return Review(
         id=new_id("review"),
         business_id=business_id,

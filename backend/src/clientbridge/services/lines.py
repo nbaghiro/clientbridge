@@ -1,8 +1,4 @@
-"""Shared line + tax engine for invoices, estimates, and orders.
-
-A `Line` belongs to exactly one estimate, invoice or order (one FK each); these helpers build/
-fetch its rows and run the pure tax engine, so the totals logic can't drift between billing and POS.
-"""
+"""Shared line and tax helpers for invoices, estimates and orders."""
 
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
@@ -111,8 +107,7 @@ def line_out(ln: Line) -> LineOut:
 
 
 async def tax_for_amount(db: AsyncSession, business_id: str, amount_cents: int) -> TaxResult:
-    """Tax breakdown for a single taxable amount (e.g. a subscription item's price) via the line
-    engine. The transient line is discarded; only the rolled-up TaxResult is returned."""
+    """Tax for a single taxable amount, through the line engine."""
     return await tax_for_lines(db, business_id, [Line(amount_cents=amount_cents)])
 
 
@@ -131,8 +126,7 @@ async def tax_breakdown(db: AsyncSession, business_id: str, lines: list[Line]) -
 
 
 async def tax_for_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:
-    """Run the tax engine for a parent's lines, writing each line's tax_amount_cents. The caller
-    applies the subtotal/tax/total rollups to its parent (invoice/estimate/order)."""
+    """Run the tax engine over a parent's lines, writing each line's tax."""
     result = await tax_breakdown(db, business_id, lines)
     for ln, line_tax in zip(lines, result.lines, strict=True):
         ln.tax_amount_cents = line_tax.tax_cents

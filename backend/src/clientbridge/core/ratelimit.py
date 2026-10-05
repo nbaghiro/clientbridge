@@ -7,8 +7,7 @@ from clientbridge.core.errors import TooManyRequests
 
 
 class RateLimiter:
-    """A fixed-window sliding limiter (in-process). Good enough as a per-instance abuse backstop; a
-    multi-instance deploy should swap the store for Redis."""
+    """Fixed-window in-process limiter; a multi-instance deploy would need a shared store."""
 
     def __init__(self, limit: int, window_s: float, *, sweep_at: int = 1024) -> None:
         self.limit = limit
@@ -73,7 +72,6 @@ def public_contract_rate_limit(request: Request) -> None:
 
 
 def public_booking_rate_limit(request: Request) -> None:
-    """Cap how fast one IP hits the unauthenticated booking endpoints (slug probing + slot/book
-    spam that mints sessions and Stripe deposit intents)."""
+    """Cap how fast one IP hits the unauthenticated booking endpoints."""
     if not _public_booking_limiter.check(_client_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")

@@ -37,11 +37,9 @@ def _money(cents: int, currency: str) -> str:
     return f"${cents // 100}.{cents % 100:02d} {currency.upper()}"
 
 
-# The notification copy catalog: every user-facing notification string lives here, in one place, so
-# backend copy never sits inline in the services that send it. See CLAUDE.md.
+# Every notification string lives in this file.
 def _receipt(business_name: str, amount: str, details: list[str]) -> tuple[str, str, str]:
-    """(email subject, email+sms body, push body) for a payment receipt; `details` are the
-    itemised lines, tax lines and total when the payment was for a sale or an invoice."""
+    """(subject, body, push) for a payment receipt with its itemised details."""
     body = f"Thank you! Your payment of {amount} to {business_name} was received."
     if details:
         body += "\n\n" + "\n".join(details)
@@ -207,9 +205,7 @@ def _review_requested(business_name: str, link: str) -> tuple[str, str]:
 
 
 class Notifier:
-    """Unified outreach across channels: client messages (email + SMS) and staff alerts (push) flow
-    through here, so every event reaches every channel from one place. Channel sends are isolated
-    (one failure never blocks the others or the caller)."""
+    """Sends every event to its channels; one channel failing never blocks the others."""
 
     def __init__(self, email: EmailSender, sms: SmsSender, push: PushSender) -> None:
         self.email = email
@@ -347,8 +343,7 @@ class Notifier:
         await self._to_client(db, payment.client_id, subject, body)
 
     async def on_payment_failed(self, db: AsyncSession, payment_id: str) -> None:
-        """Tell the client a one-off charge failed so they can retry (subscription dunning is a
-        separate event)."""
+        """Tell the client a one-off charge failed."""
         payment = await db.get(Payment, payment_id)
         if payment is None:
             return
@@ -391,8 +386,7 @@ class Notifier:
         await self._to_client(db, sub.client_id, subject, body)
 
     async def on_gift_card_issued(self, db: AsyncSession, gift_card_id: str) -> None:
-        """Send the code to the gift card's recipient once the purchase settles. The recipient is a
-        raw email/phone (not a known client), so this is a direct send, not CASL-gated."""
+        """Send a gift card's code to its recipient once the purchase settles."""
         card = await db.get(GiftCard, gift_card_id)
         if card is None or not card.recipient:
             return
@@ -551,8 +545,7 @@ class Notifier:
 
 
 class DeviceService:
-    """Registers the caller's Expo push token (the push outreach target). Upsert by token, so a
-    device that re-logs in just re-points to the current user/business."""
+    """Registers the caller's push token, upserted by token."""
 
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
         self.db = db

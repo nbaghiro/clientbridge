@@ -166,8 +166,7 @@ class OrderService:
     async def pay_by_card(
         self, order_id: str, data: OrderPayIn, idempotency_key: str | None
     ) -> CheckoutOut:
-        """Pay an open sale online: a saved card of the order's client charges now, otherwise a
-        new card is confirmed on the card form. The webhook settles it like a reader payment."""
+        """Pay an open sale by saved card, or by a new card on the card form."""
         order = await self._order(order_id)
         if await _status(self.db, order) != "open":
             raise Conflict("only an open order can be paid")
@@ -247,8 +246,7 @@ class OrderService:
         ).scalar_one_or_none()
         if business is None or business.stripe_account_id is None:
             raise Conflict("connect a Stripe account first")
-        # Mint the Terminal Location once (a reader connects under it) and cache it on the business;
-        # the row lock serializes concurrent first-time mints.
+        # The row lock serializes the first Terminal Location mint.
         if business.stripe_terminal_location_id is None:
             business.stripe_terminal_location_id = await self.gateway.create_terminal_location(
                 business.stripe_account_id,

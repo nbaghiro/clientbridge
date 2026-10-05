@@ -4,8 +4,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 
 from clientbridge.schemas.public import HEX_COLOR
 
-# The 13 Canadian provinces/territories — tax rates are derived per province, so an unknown code
-# would silently collect no tax. Rejected at the boundary (422).
+# An unknown province would silently collect no tax, so it is rejected with a 422.
 ProvinceCode = Literal["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]
 
 
@@ -34,8 +33,7 @@ class BusinessOut(BaseModel):
 
 
 class BrandInput(BaseModel):
-    """The public-facing brand a business sets on its Connect surfaces. Values are validated +
-    trimmed here (empty → cleared) so what's stored is what the customer client applies directly."""
+    """The public brand; values are validated and trimmed so clients can apply them directly."""
 
     logo_url: str | None = None
     logo_file_id: str | None = None  # an uploaded logo; wins over logo_url on the public pages
@@ -69,8 +67,7 @@ class BrandInput(BaseModel):
 
 
 class BusinessSettingsUpdate(BaseModel):
-    """Editable account fields (partial — only sent keys are applied). Slug + province are fixed
-    here (province drives the derived tax rates); the tax numbers accept "" to clear."""
+    """Partial update of account fields; tax numbers accept an empty string to clear."""
 
     name: str | None = None
     timezone: str | None = None

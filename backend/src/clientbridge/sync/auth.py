@@ -11,15 +11,9 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 
 @router.get("/token")
 async def sync_token(authorization: str = Header(default="")) -> dict[str, str]:
-    """Exchange the app session for a short-lived PowerSync token.
-
-    The client's connector calls this (``fetchCredentials``). In dev, an unauthenticated call
-    mints a token for ``dev_user_id`` so the apps can connect before auth exists; in prod a valid
-    app JWT is required.
-    """
+    """Exchange the app session for a short-lived PowerSync token."""
     settings = get_settings()
-    # Tolerate a bare "Bearer" (the browser sends "Bearer " with an empty token, which the HTTP
-    # layer trims) and any casing — only treat it as a token when there's something after "bearer ".
+    # A bare "Bearer" with nothing after it is not a token.
     app_token = authorization[7:].strip() if authorization.lower().startswith("bearer ") else ""
     if app_token:
         try:

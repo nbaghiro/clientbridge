@@ -1,5 +1,4 @@
-"""OAuth verification adapter (Google). Prod verifies a real id_token against Google's certs; tests
-inject a fake returning a fixed profile (the boundary pattern; see .docs/engineering.md)."""
+"""OAuth verification adapter (Google)."""
 
 import asyncio
 from dataclasses import dataclass

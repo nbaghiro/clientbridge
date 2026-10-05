@@ -12,8 +12,7 @@ _TOKEN_TTL = timedelta(days=60)
 
 
 async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
-    """Drop push tokens not seen in 60 days — a coarse staleness heuristic (no delivery-failure
-    signal is tracked yet; reacting to Expo's DeviceNotRegistered is the follow-up)."""
+    """Drop push tokens not seen in 60 days."""
     tokens = (
         (await db.execute(select(Device).where(Device.updated_at < now - _TOKEN_TTL)))
         .scalars()
@@ -26,8 +25,7 @@ async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
 
 
 async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
-    """Lapse active gift cards and packages past `expires_at` to `expired`, booking their unspent
-    balance as breakage revenue. A fully spent card is left as it is (it reads as redeemed)."""
+    """Expire gift cards and packages past their date, booking the unspent balance as revenue."""
     swept = 0
     gift_cards = (
         (
@@ -82,8 +80,6 @@ async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
 
 
 async def run_daily_maintenance(ctx: dict[str, object]) -> int:
-    """arq cron entry — the daily housekeeping pass (token pruning, expiry sweeps). Returns the
-    total rows touched across the sweeps."""
     now = datetime.now(UTC)
     async with SessionLocal() as db:
         return await run_prune_devices(db, now) + await run_expiry_sweeps(db, now)

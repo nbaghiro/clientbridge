@@ -18,9 +18,7 @@ _WINDOW = timedelta(days=7)
 
 
 async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Send one review request per booking completed in the last 7 days that has no request yet, and
-    return how many were sent. Idempotent — any review row for the booking (requested or submitted)
-    dedups it."""
+    """Send one review request per booking completed in the last 7 days."""
     requested = select(Review.booking_id).where(Review.booking_id.is_not(None))
     bookings = (
         (

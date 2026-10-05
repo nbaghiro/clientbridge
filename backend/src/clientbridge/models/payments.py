@@ -12,8 +12,7 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("payments", "kind", "payment", "deposit", "refund"),
         enum_check("payments", "method", "card", "interac", "bank_eft", "cash", "other"),
-        # a refund points at what it refunds; a payment settles at most one invoice or one order,
-        # and an invoice payment may also carry the booking it was taken for
+        # a refund has a parent; a payment settles at most one invoice or order (plus its booking)
         CheckConstraint(
             "(kind = 'refund') = (parent_payment_id IS NOT NULL)"
             " AND num_nonnulls(invoice_id, order_id) <= 1"
@@ -35,8 +34,7 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     parent_payment_id: Mapped[str | None] = mapped_column(ForeignKey("payments.id"))
     invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
     order_id: Mapped[str | None] = mapped_column(ForeignKey("orders.id"))  # Terminal POS sale
-    # use_alter breaks the bookings→packages→payments→bookings FK cycle: this FK is added via
-    # ALTER after the tables exist, so Alembic can order CREATE TABLEs.
+    # use_alter breaks the bookings, packages, payments FK cycle so Alembic can order CREATE TABLE
     booking_id: Mapped[str | None] = mapped_column(
         ForeignKey("bookings.id", use_alter=True, name="fk_payments_booking")
     )

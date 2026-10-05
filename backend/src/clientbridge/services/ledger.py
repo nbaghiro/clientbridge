@@ -60,8 +60,7 @@ async def post(
     available_at: datetime | None = None,
     keep_zero: bool = False,
 ) -> str | None:
-    """Write one balanced journal and return its id; a repeated `ref` returns the original.
-    Zero legs are dropped unless `keep_zero`, for a journal that also counts an event."""
+    """Write one balanced journal; a repeated `ref` returns the original id."""
     existing = await journal_for(db, business_id, ref)
     if existing is not None:
         return existing
@@ -525,8 +524,7 @@ async def _unwind(
     base: int,
     returned: int,
 ) -> list[Leg]:
-    """Each credit leg's share of everything refunded so far, less what earlier refunds already
-    unwound, so the refund that completes the basis clears every leg exactly."""
+    """Each credit leg's share still to unwind, so the final refund clears every leg exactly."""
     refunds = scoped(Payment, original.business_id).where(
         Payment.kind == "refund",
         Payment.id != refund.id,
@@ -568,8 +566,7 @@ async def post_refund(
     amount: int | None = None,
     ref: str | None = None,
 ) -> None:
-    """Return the money and unwind what it paid for, pro rata (an invoice's revenue + tax, or the
-    deposit/package/gift-card liability), so the refund reads as a credit note."""
+    """Return the money and unwind what it paid for, pro rata."""
     biz = original.business_id
     returned = refund.amount_cents if amount is None else amount
     basis = f"invoice:{original.invoice_id}" if original.invoice_id else f"payment:{original.id}"

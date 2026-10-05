@@ -29,9 +29,7 @@ _UNNAMED_PAYEE = "Unnamed payee"
 
 
 def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datetime]:
-    """`[start, end]` day window in the business tz (00:00 to 23:59:59), as UTC instants for the
-    ledger's `occurred_at` — a late-evening sale near a quarter edge must file in the business's
-    local period, not UTC's."""
+    """The [start, end] days in the business timezone, as UTC instants."""
     return (
         datetime.combine(start, time.min, tzinfo=tz).astimezone(UTC),
         datetime.combine(end, time.max, tzinfo=tz).astimezone(UTC),
@@ -39,8 +37,7 @@ def period_bounds(start: date, end: date, tz: ZoneInfo) -> tuple[datetime, datet
 
 
 def next_gst_filing(today: date) -> date:
-    """Next CRA GST/HST remittance due date — quarterly filers remit one month after each quarter
-    end (Apr 30 · Jul 31 · Oct 31 · Jan 31). A sensible default until filing frequency is stored."""
+    """The next quarterly GST/HST remittance due date."""
     due = [
         date(today.year, 1, 31),
         date(today.year, 4, 30),
@@ -162,8 +159,7 @@ class ReportService:
         return stmt if entry is None else stmt.where(entry)
 
     async def sales_by_item(self, start: date, end: date) -> list[SalesByItemRow]:
-        """What sold: catalog lines on paid sales (by payment time) and paid invoices (by issue
-        time, like the GST/HST return), with full refunds shown apart."""
+        """Catalog lines on paid sales and invoices in the period, with full refunds apart."""
         lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))
         sold: dict[str, list[float]] = {}
         for fk, parent, status, at in (

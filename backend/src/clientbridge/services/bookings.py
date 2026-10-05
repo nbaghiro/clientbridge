@@ -89,10 +89,7 @@ async def conflicting_session(
     ends_at: datetime,
     exclude: str | None = None,
 ) -> bool:
-    """Whether a non-canceled session for this staff overlaps ``[starts_at, ends_at]`` once both
-    sides are padded by their item's buffers. A class session with room at the same slot is
-    joinable, not a conflict. The single source of truth the write path asserts on and the slot
-    reader filters on."""
+    """Whether a live slot for this staff overlaps the window, buffers included."""
     new_start = starts_at - timedelta(minutes=item.buffer_before_min)
     new_end = ends_at + timedelta(minutes=item.buffer_after_min)
     q = (
@@ -137,8 +134,7 @@ async def conflicting_resource(
     ends_at: datetime,
     exclude: str | None = None,
 ) -> bool:
-    """Whether a non-canceled session already holds this resource (room/equipment) over the
-    ``[starts_at, ends_at]`` window. Plain overlap — a resource can't be in two places at once."""
+    """Whether a live slot already holds this resource over the window."""
     q = scoped(Slot, business_id).where(
         Slot.resource_id == resource_id,
         Slot.status != "canceled",
@@ -165,8 +161,7 @@ async def open_class_slot(
 async def _client_has_seat(
     db: AsyncSession, business_id: str, slot_id: str, client_id: str
 ) -> bool:
-    """Whether this client already holds a live (non-canceled) booking on the given session — the
-    self-service double-submit guard for shared class sessions."""
+    """Whether this client already has a live booking on the slot."""
     q = (
         scoped(Booking, business_id, soft_delete=True)
         .where(
@@ -193,16 +188,8 @@ async def create_booking_core(
     recurrence_id: str | None = None,
     dedupe_client: bool = False,
 ) -> tuple[Booking, Slot]:
-    """Mint a confirmed booking (+ its session) enforcing the scheduling invariant — availability,
-    buffer/overlap conflicts, and class-capacity reuse — shared by the authed command path and the
-    public online-booking surface so the rule has one home. The caller records/commits.
-
-    ``dedupe_client`` rejects a client who already holds a seat on the class session (the
-    self-service double-submit guard); the authed path leaves it off so staff can seat one client
-    multiple times."""
-    # Serialize all bookings for this staff within the transaction so the conflict + capacity checks
-    # and the insert are atomic against a concurrent booker — the DB exclusion constraints only
-    # catch raw overlap on a NEW session insert, not buffer erosion or a class-session increment.
+    """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
+    # Lock the staff's bookings so conflict and capacity checks are atomic with the insert.
     await db.execute(
         text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
         {"key": f"{business_id}:{staff_id}"},
@@ -264,16 +251,14 @@ async def create_booking_core(
 
 
 async def release_slot(db: AsyncSession, slot: Slot) -> None:
-    """Cancel the session once its last live booking is gone — the cancel-frees-the-slot rule (a
-    canceled session is excluded from the overlap check)."""
+    """Cancel the slot once its last live booking is gone."""
     if await booked_count(db, slot.id) == 0:
         slot.status = "canceled"
     await db.flush()
 
 
 async def settle_deposit(db: AsyncSession, booking_id: str) -> str | None:
-    """A settled deposit is collected (and applied to the booking's open invoice, whose id is
-    returned); on a booking already marked no-show it's forfeited."""
+    """Collect a settled deposit and apply it to the open invoice, or forfeit it after a no-show."""
     booking = await db.get(Booking, booking_id)
     if booking is None:
         return None
@@ -309,8 +294,7 @@ async def unapply_deposit(db: AsyncSession, booking: Booking, invoice_id: str) -
 
 
 async def reverse_deposit(db: AsyncSession, booking_id: str) -> list[str]:
-    """Take back a deposit that's being refunded (un-forfeit it, or un-apply it from its invoices),
-    so the refund draws on the deposit it returns. Returns the invoices it no longer pays."""
+    """Undo a deposit being refunded; returns the invoices it no longer pays."""
     booking = await db.get(Booking, booking_id)
     if booking is None:
         return []
@@ -481,8 +465,7 @@ class BookingService:
         )
 
     async def _forfeit_deposit(self, cmd: Command, booking: Booking) -> None:
-        """No-show forfeiture: keep an already-collected deposit (mark forfeited), or capture it
-        off-session via the client's default card. Idempotent — a re-set no_show never recharges."""
+        """Keep a collected deposit, or charge the default card for one; never charges twice."""
         if booking.deposit_status in ("none", "applied", "forfeited", "refunded"):
             return
         if booking.deposit_status == "collected":
@@ -604,13 +587,7 @@ class BookingService:
 async def open_slots(
     db: AsyncSession, business_id: str, item: Item, staff_id: str, on_date: date
 ) -> list[datetime]:
-    """Bookable start times for ``item`` with ``staff_id`` on ``on_date`` (UTC). Steps the staff's
-    open windows by the item's duration + buffers and drops any candidate that `assert_free`-style
-    overlaps an existing booking — the read mirror of the invariant `create_booking_core` enforces.
-
-    An unconfigured day (no availability rows) yields no slots: the write path treats it as "no
-    restriction" and can't be enumerated, so online booking shows slots only once hours are set.
-    """
+    """Bookable start times for the item and staff on a date, in UTC; none until hours are set."""
     duration = item.duration_min
     if duration is None or duration <= 0:
         return []

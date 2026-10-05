@@ -96,8 +96,7 @@ class CatalogService:
 async def load_item(
     db: AsyncSession, biz: str, item_id: str, *, require_active: bool = True
 ) -> Item:
-    """Load a catalog item by id (active-only by default), else NotFound. Shared by the booking and
-    scheduling flows, which resolve the item they operate on."""
+    """Load a catalog item by id (active only by default), else NotFound."""
     q = scoped(Item, biz).where(Item.id == item_id)
     if require_active:
         q = q.where(Item.active.is_(True))

@@ -61,8 +61,7 @@ class ClientService:
 
 
 async def load_client(db: AsyncSession, biz: str, client_id: str) -> Client:
-    """Load a client by id (soft-deleted included), else NotFound. Shared by the booking and
-    scheduling flows."""
+    """Load a client by id, soft-deleted included, else NotFound."""
     row = (
         await db.execute(scoped(Client, biz, soft_delete=True).where(Client.id == client_id))
     ).scalar_one_or_none()
@@ -80,8 +79,7 @@ async def find_or_create_by_contact(
     phone: str | None,
     source: str,
 ) -> Client:
-    """Match an existing client by email/phone (soft-deleted included), else create one tagged with
-    its acquisition `source`. Used by the online-booking surface to attach a walk-up booker."""
+    """Match a client by email or phone, else create one tagged with its source."""
     match: list[ColumnElement[bool]] = []
     if email:
         match.append(Client.email == email)

@@ -91,8 +91,7 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
     basis: Mapped[str] = mapped_column(String, nullable=False)
     weekday: Mapped[int | None] = mapped_column(SmallInteger)  # 0..6 for recurring
-    # nullable=True is explicit: the attribute name `date` shadows the `date` type, which defeats
-    # SQLAlchemy's Optional/nullable inference.
+    # explicit nullable: the attribute name `date` shadows the type and defeats inference
     date: Mapped[date | None] = mapped_column(Date, nullable=True)  # one-off
     start_time: Mapped[time | None] = mapped_column(Time)
     end_time: Mapped[time | None] = mapped_column(Time)  # null = all-day

@@ -18,10 +18,7 @@ _UNPAID_TTL = timedelta(minutes=30)
 
 
 async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
-    """Cancel public online bookings that have held a slot past the deposit window without paying,
-    freeing the slot so it's bookable again. A confirmed online booking commits before its
-    deposit is paid (an open deposit charge, none settled → the hold was never earned). Idempotent
-    — a canceled booking no longer matches; a row with a settled deposit is left alone."""
+    """Cancel online bookings still holding a slot past the deposit window without paying."""
 
     def deposits(status: str) -> Exists:
         return (
@@ -68,8 +65,7 @@ _WINDOW = timedelta(hours=24)
 
 
 async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Remind each active booking starting within the next 24h that hasn't been reminded yet, and
-    return how many were sent. Idempotent across runs — `reminded_at` dedups."""
+    """Remind each active booking starting in the next 24 hours, once."""
     bookings = (
         (
             await db.execute(
@@ -95,8 +91,6 @@ async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> 
 
 
 async def send_booking_reminders(ctx: dict[str, object]) -> int:
-    """arq cron entry — a global scan (jobs aren't request/tenant-scoped); each reminder resolves
-    its own business + locale."""
     async with SessionLocal() as db:
         notifier = Notifier(get_email_sender(), get_sms_sender(), get_push_sender())
         return await run_reminders(db, notifier, datetime.now(UTC))

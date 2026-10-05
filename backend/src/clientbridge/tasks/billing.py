@@ -15,8 +15,7 @@ from clientbridge.services.notifications import Notifier
 
 
 async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
-    """Notify the client once for each sent, unpaid invoice past its due date. Idempotent:
-    `overdue_notified_at` marks the notice (and makes the invoice read as overdue)."""
+    """Notify the client once for each sent, unpaid invoice past due."""
     invoices = (
         (
             await db.execute(

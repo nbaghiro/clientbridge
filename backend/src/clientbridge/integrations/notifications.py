@@ -1,9 +1,4 @@
-"""Outreach adapters — the three notification channels (email · SMS · push).
-
-Each is the same external-service boundary: a `Protocol` + a no-op Console default + a real provider
-swapped in when configured + a `get_*` FastAPI dependency tests override with a recording fake. Prod
-delivery is covered up to the wire without the network.
-"""
+"""Outreach adapters for email, SMS and push."""
 
 from dataclasses import dataclass
 from typing import Protocol

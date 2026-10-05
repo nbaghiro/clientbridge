@@ -7,11 +7,7 @@ HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
 
 
 class PublicBrand(BaseModel):
-    """A business's public-facing brand, rendered across the customer surfaces (book/pay/form/…).
-
-    Fields are None when unset or malformed; `primary` is a validated hex colour and `logo_url` an
-    http(s) URL, so the client can apply them directly without re-validating.
-    """
+    """A business's validated public brand; unset or malformed fields are None."""
 
     logo_url: str | None = None
     primary: str | None = None
@@ -93,8 +89,7 @@ class PublicBookingResult(BaseModel):
     stripe_account_id: str | None = None  # connected account for the deposit charge, when onboarded
 
 
-# Shared hex-colour rule for the brand (write-validated in `BrandInput`, read-validated in
-# `public_brand`). `\Z` (not `$`) so a trailing newline can't slip through.
+# `\Z` rather than `$`, so a trailing newline can't pass.
 class PublicShopItem(BaseModel):
     id: str
     name: str
