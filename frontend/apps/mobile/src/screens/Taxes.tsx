@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 
-export function TaxesSection() {
+export function Taxes() {
     const rates = useTaxRates(api);
 
     return (

@@ -1,4 +1,4 @@
-import { Icon, type IconName } from "../components/Icon";
+import { Icon, type IconName } from "../art/Icon";
 import { tapToPay } from "../content/demo";
 
 const TABS: IconName[] = ["today", "calendar", "clients", "invoice", "inbox"];

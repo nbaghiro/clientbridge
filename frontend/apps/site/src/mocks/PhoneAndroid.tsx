@@ -1,4 +1,4 @@
-import { Icon, type IconName } from "../components/Icon";
+import { Icon, type IconName } from "../art/Icon";
 import { invoices, invoiceTable, phonePayments } from "../content/demo";
 
 const TAB_ICONS: Record<string, IconName> = {

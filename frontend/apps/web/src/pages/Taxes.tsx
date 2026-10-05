@@ -2,7 +2,7 @@ import { strings, useTaxRates } from "@clientbridge/app-core";
 
 import { api } from "../lib/api";
 
-export function TaxSettings() {
+export function Taxes() {
     const rates = useTaxRates(api);
 
     return (

@@ -1,7 +1,7 @@
 import type { ListPageProps } from "@clientbridge/app-core";
 
 import { Empty } from "./Empty";
-import { IconPlus, IconSearch } from "./icons";
+import { IconPlus, IconSearch } from "./Icons";
 
 export function ListPage<T, K extends string = string>({
     title,

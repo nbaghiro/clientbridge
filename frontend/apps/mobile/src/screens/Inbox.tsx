@@ -39,7 +39,7 @@ import { ListPage } from "../ui/ListPage";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { ReviewsScreen } from "./Reviews";
+import { Reviews } from "./Reviews";
 
 const c = theme.colors;
 export function InboxScreen() {
@@ -51,7 +51,7 @@ export function InboxScreen() {
             {segments.length > 1 ? (
                 <Segmented items={segments} active={segment} onSelect={setSegment} />
             ) : null}
-            {segment === "reviews" ? <ReviewsScreen /> : <Messages />}
+            {segment === "reviews" ? <Reviews /> : <Messages />}
         </View>
     );
 }

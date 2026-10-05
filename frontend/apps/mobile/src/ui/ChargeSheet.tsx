@@ -40,8 +40,8 @@ export function ChargeSheet({
             <CardForm
                 clientSecret={checkout.clientSecret}
                 stripeAccount={stripeAccount}
-                submitLabel={strings.card.charge(amountLabel)}
-                busyLabel={strings.card.charging}
+                submitLabel={strings.checkout.charge(amountLabel)}
+                busyLabel={strings.checkout.charging}
                 onDone={checkout.complete}
                 onCancel={checkout.cancel}
             />

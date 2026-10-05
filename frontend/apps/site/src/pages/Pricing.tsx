@@ -1,4 +1,4 @@
-import { Icon } from "../components/Icon";
+import { Icon } from "../art/Icon";
 import { PageHead } from "../components/PageHead";
 import { links } from "../config";
 import { pricingPage } from "../content/pages";

@@ -160,7 +160,7 @@ function LogoField({
 
     return (
         <div className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-            {strings.media.logo}
+            {strings.files.logo}
             <div className="flex items-center gap-4">
                 {src !== null ? (
                     <img src={src} alt="" className="h-12 max-w-48 rounded-md object-contain" />
@@ -174,10 +174,10 @@ function LogoField({
                     className="rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                 >
                     {busy
-                        ? strings.fileUpload.uploading
+                        ? strings.files.uploading
                         : src !== null
-                          ? strings.media.replaceLogo
-                          : strings.media.uploadLogo}
+                          ? strings.files.replaceLogo
+                          : strings.files.uploadLogo}
                 </button>
                 <input
                     ref={inputRef}

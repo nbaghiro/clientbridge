@@ -15,24 +15,24 @@ import { ListPage } from "../components/ListPage";
 import { Money } from "../components/Money";
 import { api } from "../lib/api";
 
-export function Payouts() {
+export function Earnings() {
     const rows = useEarnings();
     const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
 
     return (
         <ListPage
-            summary={strings.payouts.subtitle}
+            summary={strings.earnings.subtitle}
             segments={{
                 items: filters.map((f) => ({
                     key: f,
-                    label: strings.payouts.filterTab(f, countOf(f)),
+                    label: strings.earnings.filterTab(f, countOf(f)),
                 })),
                 active: filter,
                 onSelect: setFilter,
             }}
             rows={shown}
             rowKey={(row) => row.id}
-            empty={strings.payouts.empty(filter)}
+            empty={strings.earnings.empty(filter)}
             renderRow={(row) => <EarningItem row={row} />}
         />
     );
@@ -61,7 +61,7 @@ function EarningItem({ row }: { row: EarningRow }) {
                         onClick={approve}
                         className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {busy ? strings.payouts.approving : strings.payouts.approve}
+                        {busy ? strings.earnings.approving : strings.earnings.approve}
                     </button>
                 ) : null}
                 {canPay ? (
@@ -71,7 +71,7 @@ function EarningItem({ row }: { row: EarningRow }) {
                         onClick={pay}
                         className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {busy ? strings.common.saving : strings.payouts.markPaid}
+                        {busy ? strings.common.saving : strings.earnings.markPaid}
                     </button>
                 ) : null}
             </div>

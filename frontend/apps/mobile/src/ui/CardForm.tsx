@@ -39,11 +39,11 @@ export function CardForm(props: CardFormProps) {
     if (stripePublishableKey.length === 0) {
         return (
             <View style={ui.box}>
-                <Text style={ui.note}>{strings.card.notConfiguredSavedCard}</Text>
+                <Text style={ui.note}>{strings.checkout.notConfiguredSavedCard}</Text>
                 {props.onCancel !== undefined ? (
                     <View style={ui.actions}>
                         <Pressable style={ui.cancel} onPress={props.onCancel}>
-                            <Text style={ui.cancelText}>{strings.card.back}</Text>
+                            <Text style={ui.cancelText}>{strings.checkout.back}</Text>
                         </Pressable>
                     </View>
                 ) : null}
@@ -77,7 +77,9 @@ function ConfirmForm({
             {
                 onSuccess: onDone,
                 errorMessage:
-                    mode === "payment" ? strings.card.paymentFailed : strings.card.saveError,
+                    mode === "payment"
+                        ? strings.checkout.paymentFailed
+                        : strings.checkout.saveError,
             },
         );
     };

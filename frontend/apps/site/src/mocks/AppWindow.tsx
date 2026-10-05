@@ -1,6 +1,6 @@
 import { Lockup } from "@clientbridge/ui/logo";
 
-import { Icon, type IconName } from "../components/Icon";
+import { Icon, type IconName } from "../art/Icon";
 import { appNav, demoBusiness, today } from "../content/demo";
 
 const NAV_ICONS: Record<(typeof appNav.items)[number], IconName> = {

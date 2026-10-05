@@ -2,7 +2,7 @@ import { strings, useConnectOnboarding } from "@clientbridge/app-core";
 
 import { api } from "../lib/api";
 
-export function PaymentsSettings() {
+export function GettingPaid() {
     const {
         phase,
         busy,
@@ -20,20 +20,20 @@ export function PaymentsSettings() {
 
     return (
         <div>
-            <p className="mt-1 text-sm text-muted">{strings.payments.subtitle}</p>
+            <p className="mt-1 text-sm text-muted">{strings.gettingPaid.subtitle}</p>
 
             <div className="mt-6 rounded-lg border border-line bg-surface p-6">
                 {phase === "loading" ? (
                     <p className="text-sm text-muted">{strings.common.loading}</p>
                 ) : phase === "error" ? (
                     <>
-                        <p className="text-sm text-danger">{strings.payments.loadError}</p>
+                        <p className="text-sm text-danger">{strings.gettingPaid.loadError}</p>
                         <button
                             type="button"
                             onClick={refresh}
                             className="mt-4 rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                         >
-                            {strings.payments.tryAgain}
+                            {strings.gettingPaid.tryAgain}
                         </button>
                     </>
                 ) : (
@@ -50,8 +50,8 @@ export function PaymentsSettings() {
                         {phase === "enabled" && (
                             <p className="mt-1 text-sm text-muted">
                                 {payoutsEnabled
-                                    ? strings.payments.payoutsActive
-                                    : strings.payments.payoutsPending}
+                                    ? strings.gettingPaid.payoutsActive
+                                    : strings.gettingPaid.payoutsPending}
                             </p>
                         )}
                         {requirements.length > 0 && (
@@ -70,7 +70,7 @@ export function PaymentsSettings() {
                                 disabled={busy}
                                 className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-60"
                             >
-                                {busy ? strings.payments.opening : ctaLabel}
+                                {busy ? strings.gettingPaid.opening : ctaLabel}
                             </button>
                         )}
                     </>

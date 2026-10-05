@@ -8,13 +8,13 @@ import { newRowId } from "../util/primitives";
 
 /** Weekday order for the editor, 0 = Monday … 6 = Sunday — matching the server's `date.weekday()`. */
 export const WEEKDAYS: { weekday: number; label: string }[] = [
-    { weekday: 0, label: strings.scheduling.monday },
-    { weekday: 1, label: strings.scheduling.tuesday },
-    { weekday: 2, label: strings.scheduling.wednesday },
-    { weekday: 3, label: strings.scheduling.thursday },
-    { weekday: 4, label: strings.scheduling.friday },
-    { weekday: 5, label: strings.scheduling.saturday },
-    { weekday: 6, label: strings.scheduling.sunday },
+    { weekday: 0, label: strings.hours.monday },
+    { weekday: 1, label: strings.hours.tuesday },
+    { weekday: 2, label: strings.hours.wednesday },
+    { weekday: 3, label: strings.hours.thursday },
+    { weekday: 4, label: strings.hours.friday },
+    { weekday: 5, label: strings.hours.saturday },
+    { weekday: 6, label: strings.hours.sunday },
 ];
 
 const DEFAULT_START = "09:00";
@@ -110,11 +110,11 @@ export function useAvailabilityEditor(staffId: string | null): AvailabilityEdito
         for (const d of days) {
             if (!d.open) continue;
             if (!HHMM.test(d.start) || !HHMM.test(d.end)) {
-                setError(strings.scheduling.timeFormatError);
+                setError(strings.hours.timeFormatError);
                 return;
             }
             if (d.start >= d.end) {
-                setError(strings.scheduling.timeOrderError);
+                setError(strings.hours.timeOrderError);
                 return;
             }
         }
@@ -139,7 +139,7 @@ export function useAvailabilityEditor(staffId: string | null): AvailabilityEdito
                 onSuccess: () => {
                     setSaved(true);
                 },
-                errorMessage: strings.scheduling.saveError,
+                errorMessage: strings.hours.saveError,
             },
         );
     };

@@ -38,12 +38,12 @@ export function GettingPaidScreen() {
 
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <Text style={styles.note}>{strings.payments.subtitle}</Text>
+            <Text style={styles.note}>{strings.gettingPaid.subtitle}</Text>
             <View style={styles.group}>
                 {phase === "loading" ? (
                     <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
                 ) : phase === "error" ? (
-                    <Text style={styles.error}>{strings.payments.loadError}</Text>
+                    <Text style={styles.error}>{strings.gettingPaid.loadError}</Text>
                 ) : (
                     <>
                         <Text style={phase === "disabled" ? styles.titleDanger : styles.title}>
@@ -52,8 +52,8 @@ export function GettingPaidScreen() {
                         {phase === "enabled" && (
                             <Text style={styles.muted}>
                                 {payoutsEnabled
-                                    ? strings.payments.payoutsActive
-                                    : strings.payments.payoutsPending}
+                                    ? strings.gettingPaid.payoutsActive
+                                    : strings.gettingPaid.payoutsPending}
                             </Text>
                         )}
                         {requirements.map((req) => (

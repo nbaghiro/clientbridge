@@ -51,11 +51,11 @@ export function useRecentActivity(): ActivityRow[] {
 }
 
 export function activityLabel(row: ActivityRow): string {
-    if (isRefundRow(row)) return strings.home.activityRefund;
-    if (row.kind === "deposit") return strings.home.activityDepositReceived;
-    if (row.method === "interac") return strings.home.activityInteracReceived;
-    if (row.method === "card") return strings.home.activityCardPayment;
-    return strings.home.activityPayment;
+    if (isRefundRow(row)) return strings.today.activityRefund;
+    if (row.kind === "deposit") return strings.today.activityDepositReceived;
+    if (row.method === "interac") return strings.today.activityInteracReceived;
+    if (row.method === "card") return strings.today.activityCardPayment;
+    return strings.today.activityPayment;
 }
 
 export interface PayoutRow {

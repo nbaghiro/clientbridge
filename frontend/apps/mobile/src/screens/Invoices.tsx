@@ -55,7 +55,7 @@ import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
 
-export function InvoicesScreen({ createToken }: { createToken?: number | undefined }) {
+export function Invoices({ createToken }: { createToken?: number | undefined }) {
     const invoices = useInvoices();
     const estimates = useEstimates();
     const [tab, setTab] = useState<DocTab>("invoices");

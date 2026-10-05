@@ -23,18 +23,18 @@ import { useViewer } from "../lib/auth";
 
 const c = theme.colors;
 
-export function SchedulingSection() {
+export function Hours() {
     const staff = editableStaff(useStaff(), useViewer());
     const [staffId, setStaffId] = useState<string | null>(null);
     const selected = staffId ?? staff[0]?.id ?? null;
 
     return (
         <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{strings.scheduling.title}</Text>
-            <Text style={styles.note}>{strings.scheduling.subtitle}</Text>
+            <Text style={styles.sectionTitle}>{strings.hours.title}</Text>
+            <Text style={styles.note}>{strings.hours.subtitle}</Text>
 
             {selected === null ? (
-                <Text style={styles.empty}>{strings.scheduling.noStaff}</Text>
+                <Text style={styles.empty}>{strings.hours.noStaff}</Text>
             ) : (
                 <>
                     {staff.length > 1 ? (
@@ -97,24 +97,24 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                                     onChangeText={(v) => {
                                         editor.setTime(d.weekday, "start", v);
                                     }}
-                                    placeholder={strings.scheduling.startHint}
+                                    placeholder={strings.hours.startHint}
                                     placeholderTextColor={c.muted}
                                     keyboardType="numbers-and-punctuation"
                                 />
-                                <Text style={styles.to}>{strings.scheduling.to}</Text>
+                                <Text style={styles.to}>{strings.hours.to}</Text>
                                 <TextInput
                                     style={styles.time}
                                     value={d.end}
                                     onChangeText={(v) => {
                                         editor.setTime(d.weekday, "end", v);
                                     }}
-                                    placeholder={strings.scheduling.endHint}
+                                    placeholder={strings.hours.endHint}
                                     placeholderTextColor={c.muted}
                                     keyboardType="numbers-and-punctuation"
                                 />
                             </View>
                         ) : (
-                            <Text style={styles.closed}>{strings.scheduling.closed}</Text>
+                            <Text style={styles.closed}>{strings.hours.closed}</Text>
                         )}
                     </View>
                 );
@@ -131,7 +131,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                 {editor.busy ? (
                     <ActivityIndicator color="#fff" />
                 ) : (
-                    <Text style={styles.submitText}>{strings.scheduling.saveHours}</Text>
+                    <Text style={styles.submitText}>{strings.hours.saveHours}</Text>
                 )}
             </Pressable>
         </View>

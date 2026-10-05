@@ -11,7 +11,7 @@ import {
     IconLogout,
     IconSettings,
     IconToday,
-} from "./icons";
+} from "./Icons";
 
 const DESTINATION_WEB: Record<
     DestinationKey,

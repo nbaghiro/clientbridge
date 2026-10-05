@@ -15,11 +15,11 @@ export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
 export type PaymentsTabKey = "invoices" | "sales" | "giftCards" | "staffPay" | "reports";
 
 export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
-    { key: "invoices", label: strings.paymentsTabs.invoices, managersOnly: true },
-    { key: "sales", label: strings.paymentsTabs.sales, managersOnly: false },
-    { key: "giftCards", label: strings.paymentsTabs.giftCards, managersOnly: true },
-    { key: "staffPay", label: strings.paymentsTabs.staffPay, managersOnly: true },
-    { key: "reports", label: strings.paymentsTabs.reports, managersOnly: true },
+    { key: "invoices", label: strings.nav.paymentsTabs.invoices, managersOnly: true },
+    { key: "sales", label: strings.nav.paymentsTabs.sales, managersOnly: false },
+    { key: "giftCards", label: strings.nav.paymentsTabs.giftCards, managersOnly: true },
+    { key: "staffPay", label: strings.nav.paymentsTabs.staffPay, managersOnly: true },
+    { key: "reports", label: strings.nav.paymentsTabs.reports, managersOnly: true },
 ];
 
 export function visiblePaymentsTabs(role: string | null): typeof PAYMENTS_TABS {
@@ -33,8 +33,8 @@ export function canSeePaymentsTab(role: string | null, key: PaymentsTabKey): boo
 export type InboxSegmentKey = "messages" | "reviews";
 
 export const INBOX_SEGMENTS: { key: InboxSegmentKey; label: string; managersOnly: boolean }[] = [
-    { key: "messages", label: strings.inboxSegments.messages, managersOnly: false },
-    { key: "reviews", label: strings.inboxSegments.reviews, managersOnly: true },
+    { key: "messages", label: strings.nav.inboxSegments.messages, managersOnly: false },
+    { key: "reviews", label: strings.nav.inboxSegments.reviews, managersOnly: true },
 ];
 
 export function visibleInboxSegments(role: string | null): typeof INBOX_SEGMENTS {
@@ -49,18 +49,28 @@ export const SETUP_SECTIONS: {
     webOnly: boolean;
     managersOnly: boolean;
 }[] = [
-    { key: "business", label: strings.setupSections.business, webOnly: false, managersOnly: true },
-    { key: "services", label: strings.setupSections.services, webOnly: false, managersOnly: true },
-    { key: "team", label: strings.setupSections.team, webOnly: false, managersOnly: false },
+    {
+        key: "business",
+        label: strings.nav.setupSections.business,
+        webOnly: false,
+        managersOnly: true,
+    },
+    {
+        key: "services",
+        label: strings.nav.setupSections.services,
+        webOnly: false,
+        managersOnly: true,
+    },
+    { key: "team", label: strings.nav.setupSections.team, webOnly: false, managersOnly: false },
     {
         key: "gettingPaid",
-        label: strings.setupSections.gettingPaid,
+        label: strings.nav.setupSections.gettingPaid,
         webOnly: false,
         managersOnly: true,
     },
     {
         key: "onlineBooking",
-        label: strings.setupSections.onlineBooking,
+        label: strings.nav.setupSections.onlineBooking,
         webOnly: true,
         managersOnly: true,
     },

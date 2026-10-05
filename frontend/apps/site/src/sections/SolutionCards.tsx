@@ -1,5 +1,5 @@
 import { TradeGlyph } from "../art/TradeGlyph";
-import { Icon } from "../components/Icon";
+import { Icon } from "../art/Icon";
 import { Photo } from "../components/Photo";
 import { BRANDS } from "../content/brands";
 import { solutionsPage } from "../content/solutions";

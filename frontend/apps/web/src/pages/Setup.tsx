@@ -5,11 +5,11 @@ import { NavLink, Navigate, useParams } from "react-router-dom";
 import { useRole } from "../lib/auth";
 
 import { Account } from "./Account";
-import { BookingForms } from "./BookingForms";
+import { OnlineBooking } from "./OnlineBooking";
 import { Catalog } from "./Catalog";
-import { PaymentsSettings } from "./PaymentsSettings";
-import { Scheduling } from "./Scheduling";
-import { TaxSettings } from "./TaxSettings";
+import { GettingPaid } from "./GettingPaid";
+import { Hours } from "./Hours";
+import { Taxes } from "./Taxes";
 import { Team } from "./Team";
 
 export const SETUP_SLUGS: Record<SetupSectionKey, string> = {
@@ -26,7 +26,7 @@ function sectionBody(key: SetupSectionKey): ReactElement {
             return (
                 <div className="space-y-10">
                     <Account />
-                    <TaxSettings />
+                    <Taxes />
                 </div>
             );
         case "services":
@@ -35,13 +35,13 @@ function sectionBody(key: SetupSectionKey): ReactElement {
             return (
                 <div className="space-y-10">
                     <Team />
-                    <Scheduling />
+                    <Hours />
                 </div>
             );
         case "gettingPaid":
-            return <PaymentsSettings />;
+            return <GettingPaid />;
         case "onlineBooking":
-            return <BookingForms />;
+            return <OnlineBooking />;
     }
 }
 

@@ -46,18 +46,18 @@ import {
     SellPackage,
     StartSubscription,
 } from "../components/EntitlementSales";
-import { IconSearch } from "../components/icons";
+import { IconSearch } from "../components/Icons";
 import { ChargeSheet } from "../ui/ChargeSheet";
 import { useRole } from "../lib/auth";
 import { ItemImage } from "../ui/ItemImage";
 import { StatusPill } from "../ui/StatusPill";
 import { ui } from "../ui/styles";
-import { TerminalProvider, useTerminalCheckout } from "../components/terminal";
+import { TerminalProvider, useTerminalCheckout } from "../components/Terminal";
 import { api, apiBaseUrl } from "../lib/api";
 
 const c = theme.colors;
 
-export function POSScreen() {
+export function POS() {
     const cart = useCart(api);
     const canVoid = canVoidSale(useRole());
     const items = useCatalogItems();

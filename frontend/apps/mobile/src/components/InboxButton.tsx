@@ -4,7 +4,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable } from "react-native";
 
 import type { RootStackParamList } from "../navigation";
-import { IconInbox } from "./icons";
+import { IconInbox } from "./Icons";
 
 export function InboxButton() {
     const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();

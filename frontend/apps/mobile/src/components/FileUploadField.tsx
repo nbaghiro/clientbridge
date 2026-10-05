@@ -19,7 +19,7 @@ export interface PickedFile {
  *  form file fields. */
 export function FileUploadField({
     target,
-    label = strings.fileUpload.uploadFile,
+    label = strings.files.uploadFile,
     pickFile,
     onUploaded,
 }: {
@@ -56,9 +56,9 @@ export function FileUploadField({
                 )}
             </Pressable>
             {pickFile === undefined ? (
-                <Text style={styles.note}>{strings.fileUpload.pickerNotWired}</Text>
+                <Text style={styles.note}>{strings.files.pickerNotWired}</Text>
             ) : null}
-            {fileId !== null ? <Text style={styles.ok}>{strings.fileUpload.uploaded}</Text> : null}
+            {fileId !== null ? <Text style={styles.ok}>{strings.files.uploaded}</Text> : null}
             {error !== null ? <Text style={styles.error}>{error}</Text> : null}
         </View>
     );

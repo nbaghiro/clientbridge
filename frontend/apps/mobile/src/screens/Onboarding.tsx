@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Lockup, Logo } from "../components/icons";
+import { Lockup, Logo } from "../components/Icons";
 import { api } from "../lib/api";
 
 const c = theme.colors;

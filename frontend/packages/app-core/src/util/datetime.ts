@@ -62,12 +62,12 @@ export function formatRelativeTime(
 ): string {
     const then = parseTimestamp(value);
     const mins = Math.floor((now.getTime() - then.getTime()) / MS_PER_MIN);
-    if (mins < 1) return strings.relativeTime.justNow;
-    if (mins < 60) return strings.relativeTime.minutes(mins);
+    if (mins < 1) return strings.common.relativeTime.justNow;
+    if (mins < 60) return strings.common.relativeTime.minutes(mins);
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return strings.relativeTime.hours(hours);
+    if (hours < 24) return strings.common.relativeTime.hours(hours);
     const days = Math.floor(hours / 24);
-    if (days < 7) return strings.relativeTime.days(days);
+    if (days < 7) return strings.common.relativeTime.days(days);
     return then.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 

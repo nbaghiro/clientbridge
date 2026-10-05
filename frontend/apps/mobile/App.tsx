@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { StripeAppProvider } from "./src/components/stripe";
+import { StripeAppProvider } from "./src/components/Stripe";
 import { TabBar } from "./src/components/TabBar";
 import { api, onSignedOut } from "./src/lib/api";
 import { clearTokens, getTokens } from "./src/lib/auth";
@@ -22,7 +22,7 @@ import { InboxScreen } from "./src/screens/Inbox";
 import { LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
-import { GettingPaidScreen } from "./src/screens/PaymentsSettings";
+import { GettingPaidScreen } from "./src/screens/GettingPaid";
 import { BusinessScreen, SetupScreen, TeamHoursScreen } from "./src/screens/Setup";
 import { TodayScreen } from "./src/screens/Today";
 
@@ -158,22 +158,22 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                         <RootStack.Screen
                             name="Business"
                             component={BusinessScreen}
-                            options={{ title: strings.setupSections.business }}
+                            options={{ title: strings.nav.setupSections.business }}
                         />
                         <RootStack.Screen
                             name="Services"
                             component={CatalogScreen}
-                            options={{ title: strings.setupSections.services }}
+                            options={{ title: strings.nav.setupSections.services }}
                         />
                         <RootStack.Screen
                             name="Team"
                             component={TeamHoursScreen}
-                            options={{ title: strings.setupSections.team }}
+                            options={{ title: strings.nav.setupSections.team }}
                         />
                         <RootStack.Screen
                             name="GettingPaid"
                             component={GettingPaidScreen}
-                            options={{ title: strings.setupSections.gettingPaid }}
+                            options={{ title: strings.nav.setupSections.gettingPaid }}
                         />
                     </RootStack.Group>
                 </RootStack.Navigator>

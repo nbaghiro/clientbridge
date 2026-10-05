@@ -14,25 +14,23 @@ import { useViewer } from "../lib/auth";
 const FIELD =
     "rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition focus:border-accent";
 
-export function Scheduling() {
+export function Hours() {
     const staff = editableStaff(useStaff(), useViewer());
     const [staffId, setStaffId] = useState<string | null>(null);
     const selected = staffId ?? staff[0]?.id ?? null;
 
     return (
         <div className="max-w-2xl">
-            <h2 className="font-display text-lg font-semibold text-ink">
-                {strings.scheduling.title}
-            </h2>
-            <p className="mt-1 text-sm text-muted">{strings.scheduling.subtitle}</p>
+            <h2 className="font-display text-lg font-semibold text-ink">{strings.hours.title}</h2>
+            <p className="mt-1 text-sm text-muted">{strings.hours.subtitle}</p>
 
             {selected === null ? (
-                <p className="mt-6 text-sm text-muted">{strings.scheduling.noStaff}</p>
+                <p className="mt-6 text-sm text-muted">{strings.hours.noStaff}</p>
             ) : (
                 <>
                     {staff.length > 1 ? (
                         <label className="mt-6 flex max-w-xs flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                            {strings.scheduling.teamMember}
+                            {strings.hours.teamMember}
                             <select
                                 value={selected}
                                 onChange={(e) => {
@@ -97,7 +95,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                                             }}
                                             className={FIELD}
                                         />
-                                        <span className="text-muted">{strings.scheduling.to}</span>
+                                        <span className="text-muted">{strings.hours.to}</span>
                                         <input
                                             type="time"
                                             value={d.end}
@@ -109,7 +107,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                                     </div>
                                 ) : (
                                     <span className="text-sm text-muted">
-                                        {strings.scheduling.closed}
+                                        {strings.hours.closed}
                                     </span>
                                 )}
                             </div>
@@ -123,7 +121,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                         disabled={editor.busy}
                         className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
                     >
-                        {editor.busy ? strings.common.saving : strings.scheduling.saveHours}
+                        {editor.busy ? strings.common.saving : strings.hours.saveHours}
                     </button>
                 </form>
             )}

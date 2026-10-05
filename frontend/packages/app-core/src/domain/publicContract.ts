@@ -97,7 +97,7 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
             if (!put.ok)
                 throw new PublicContractError(
                     put.status,
-                    strings.bookingForms.signatureUploadFailedDetail,
+                    strings.publicContract.signatureUploadFailedDetail,
                 );
             return meta.file_id;
         },
@@ -151,7 +151,7 @@ export function usePublicContractSign(
 
     const sign = (): void => {
         if (typedName.trim().length === 0 && imageId === null) {
-            setError(strings.bookingForms.signPrompt);
+            setError(strings.publicContract.signPrompt);
             return;
         }
         run(
@@ -163,7 +163,7 @@ export function usePublicContractSign(
                     }),
                 );
             },
-            { errorMessage: strings.bookingForms.signError },
+            { errorMessage: strings.publicContract.signError },
         );
     };
 
@@ -173,7 +173,7 @@ export function usePublicContractSign(
                 setImageId(await contracts.upload(token, file));
                 setImageName(name);
             },
-            { errorMessage: strings.bookingForms.signatureUploadError },
+            { errorMessage: strings.publicContract.signatureUploadError },
         );
     };
 
@@ -182,7 +182,7 @@ export function usePublicContractSign(
             async () => {
                 setContract(await contracts.decline(token));
             },
-            { errorMessage: strings.bookingForms.recordError },
+            { errorMessage: strings.publicContract.recordError },
         );
     };
 

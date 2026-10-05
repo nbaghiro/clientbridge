@@ -19,24 +19,24 @@ import { Money } from "../ui/Money";
 
 const c = theme.colors;
 
-export function PayoutsScreen() {
+export function Earnings() {
     const rows = useEarnings();
     const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
 
     return (
         <ListPage
-            summary={strings.payouts.subtitle}
+            summary={strings.earnings.subtitle}
             segments={{
                 items: filters.map((f) => ({
                     key: f,
-                    label: strings.payouts.filterTab(f, countOf(f)),
+                    label: strings.earnings.filterTab(f, countOf(f)),
                 })),
                 active: filter,
                 onSelect: setFilter,
             }}
             rows={shown}
             rowKey={(row) => row.id}
-            empty={strings.payouts.empty(filter)}
+            empty={strings.earnings.empty(filter)}
             renderRow={(row) => <EarningItem row={row} />}
         />
     );
@@ -66,11 +66,11 @@ function EarningItem({ row }: { row: EarningRow }) {
                     <Text style={styles.actionText}>
                         {busy
                             ? canApprove
-                                ? strings.payouts.approving
+                                ? strings.earnings.approving
                                 : strings.common.saving
                             : canApprove
-                              ? strings.payouts.approve
-                              : strings.payouts.markPaid}
+                              ? strings.earnings.approve
+                              : strings.earnings.markPaid}
                     </Text>
                 </Pressable>
             ) : null}

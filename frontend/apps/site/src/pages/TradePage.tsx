@@ -1,7 +1,7 @@
 import { ArcDivider, ContourField } from "../art/Art";
 import { TradeGlyph } from "../art/TradeGlyph";
 import { links } from "../config";
-import { Icon } from "../components/Icon";
+import { Icon } from "../art/Icon";
 import { Photo } from "../components/Photo";
 import { BRANDS } from "../content/brands";
 import { testimonialPlaceholder } from "../content/home";

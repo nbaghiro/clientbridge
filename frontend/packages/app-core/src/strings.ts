@@ -17,6 +17,12 @@ export const strings = {
         tryAgainLater: "Please try again later.",
         working: "Working…",
         stillSyncing: "Still syncing — try again in a moment.",
+        relativeTime: {
+            justNow: "just now",
+            minutes: (n: number) => `${n}m`,
+            hours: (n: number) => `${n}h`,
+            days: (n: number) => `${n}d`,
+        },
     },
     invoices: {
         actionSend: "Send",
@@ -144,7 +150,7 @@ export const strings = {
         markPickedUp: "Picked up",
         pickupError: "Couldn't update this order. Please try again.",
     },
-    payouts: {
+    earnings: {
         subtitle: "Approve staff earnings, then mark them paid out.",
         filterTab: (filter: string, count: number) =>
             `${filter.charAt(0).toUpperCase()}${filter.slice(1)} (${String(count)})`,
@@ -157,12 +163,6 @@ export const strings = {
         staffFallback: "Staff",
         sourceBooking: "Booking",
         sourceSale: "Sale commission",
-    },
-    relativeTime: {
-        justNow: "just now",
-        minutes: (n: number) => `${n}m`,
-        hours: (n: number) => `${n}h`,
-        days: (n: number) => `${n}d`,
     },
     giftCards: {
         modePreset: "Preset card",
@@ -255,23 +255,10 @@ export const strings = {
         unitDays: "Days",
         unitWeeks: "Weeks",
         unitMonths: "Months",
-    },
-    booking: {
-        newBooking: "New booking",
-        client: "Client",
-        service: "Service",
-        staff: "Staff",
-        date: "Date",
-        time: "Time",
         repeat: "Repeat",
         oneTime: "One-time",
-        every: "Every",
-        occurrences: "Occurrences",
-        booking: "Booking…",
-        bookSeries: "Book series",
-        book: "Book",
     },
-    bookingForms: {
+    forms: {
         fieldTypeText: "Short text",
         fieldTypeLongtext: "Paragraph",
         fieldTypeEmail: "Email",
@@ -288,9 +275,6 @@ export const strings = {
         fieldTypeFile: "File",
         fieldTypeImage: "Image",
         fieldTypeSignature: "Signature",
-        fileUploadFailedDetail: "the file upload failed",
-        answerRequired: (label: string) => `“${label}” is required.`,
-        signatureUploadFailedDetail: "the signature upload failed",
         ownerAdminOnly: "Only owners and admins can manage forms and contracts.",
         intro: "Build intake forms and contracts, then send them to clients to complete.",
         intakeForms: "Intake forms",
@@ -314,6 +298,14 @@ export const strings = {
         fieldLabelPlaceholder: "Field label",
         optionsPlaceholder: "Options, comma separated",
         required: "Required",
+        sendFormError: "Couldn't send the form. Please try again.",
+        formNameRequired: "Name is required",
+        addFieldError: "Add at least one field",
+        saveFormError: "Couldn't save the form. Please try again.",
+    },
+    contracts: {
+        client: "Client",
+        selectClient: "Select a client",
         contracts: "Contracts",
         newContract: "New contract",
         sendForSignature: "Send for signature",
@@ -329,20 +321,10 @@ export const strings = {
         contractText: "Contract text",
         contractTextPlaceholder: "Paste or write the contract the client will sign…",
         createContract: "Create contract",
-        sendFormError: "Couldn't send the form. Please try again.",
-        formNameRequired: "Name is required",
-        addFieldError: "Add at least one field",
-        saveFormError: "Couldn't save the form. Please try again.",
-        fileUploadError: "We couldn't upload that file. Please try again.",
-        submitAnswersError: "We couldn't submit your answers. Please try again.",
         sendContractError: "Couldn't send the contract. Please try again.",
         contractNameRequired: "Name is required",
         contractTextRequired: "Contract text is required",
         saveContractError: "Couldn't save the contract. Please try again.",
-        signPrompt: "Type your full name or upload a signature image to sign.",
-        signError: "We couldn't record your signature. Please try again.",
-        signatureUploadError: "We couldn't upload that signature image. Please try again.",
-        recordError: "We couldn't record that. Please try again.",
     },
     clients: {
         sellPackageError: "Couldn't sell this package. Please try again.",
@@ -516,7 +498,7 @@ export const strings = {
         taglineLabel: "Tagline",
         taglinePlaceholder: "Calm, careful grooming on the island.",
     },
-    scheduling: {
+    hours: {
         title: "Scheduling",
         subtitle:
             "Set each team member’s weekly working hours. Bookings are held to these windows.",
@@ -686,6 +668,13 @@ export const strings = {
             "Rates are seeded per province; small-supplier and registration settings come with the payments slice.",
     },
     payments: {
+        setupStartError: "Couldn't start payment setup. Please try again.",
+        bankAccountNoun: "Bank account",
+        cardNoun: "Card",
+        interacNoun: "Interac e-Transfer",
+        savedCardLabel: (noun: string, last4: string) => `${noun} ···· ${last4}`,
+    },
+    gettingPaid: {
         reqExternalAccount: "Bank account for payouts",
         reqBusinessWebsite: "Business website",
         reqBusinessCategory: "Business category",
@@ -709,11 +698,6 @@ export const strings = {
         continueSetup: "Continue setup",
         connectStripe: "Connect Stripe",
         onboardingStartError: "Couldn't start Stripe onboarding. Please try again.",
-        setupStartError: "Couldn't start payment setup. Please try again.",
-        bankAccountNoun: "Bank account",
-        cardNoun: "Card",
-        interacNoun: "Interac e-Transfer",
-        savedCardLabel: (noun: string, last4: string) => `${noun} ···· ${last4}`,
         subtitle: "Take card payments through Stripe and get paid out to your bank.",
         loadError: "We couldn’t load your payment status. Please try again.",
         tryAgain: "Try again",
@@ -721,7 +705,7 @@ export const strings = {
         payoutsActive: "Connected to Stripe. Payouts are active.",
         payoutsPending: "Connected to Stripe. Payouts start once your bank details are verified.",
     },
-    home: {
+    today: {
         connected: "connected",
         offline: "offline",
         activityRefund: "Refund",
@@ -981,24 +965,24 @@ export const strings = {
         inbox: "Inbox",
         setup: "Setup",
         signOut: "Sign out",
-    },
-    paymentsTabs: {
-        invoices: "Invoices",
-        sales: "Sales",
-        giftCards: "Gift cards",
-        staffPay: "Staff pay",
-        reports: "Reports",
-    },
-    setupSections: {
-        business: "Business",
-        services: "Services & products",
-        team: "Team & hours",
-        gettingPaid: "Getting paid",
-        onlineBooking: "Online booking",
-    },
-    inboxSegments: {
-        messages: "Messages",
-        reviews: "Reviews",
+        paymentsTabs: {
+            invoices: "Invoices",
+            sales: "Sales",
+            giftCards: "Gift cards",
+            staffPay: "Staff pay",
+            reports: "Reports",
+        },
+        setupSections: {
+            business: "Business",
+            services: "Services & products",
+            team: "Team & hours",
+            gettingPaid: "Getting paid",
+            onlineBooking: "Online booking",
+        },
+        inboxSegments: {
+            messages: "Messages",
+            reviews: "Reviews",
+        },
     },
     publicContract: {
         sign: "Sign contract",
@@ -1018,6 +1002,11 @@ export const strings = {
         decline: "Decline",
         esignConsent:
             "By typing your name and signing, you agree this is your electronic signature.",
+        signatureUploadFailedDetail: "the signature upload failed",
+        signPrompt: "Type your full name or upload a signature image to sign.",
+        signError: "We couldn't record your signature. Please try again.",
+        signatureUploadError: "We couldn't upload that signature image. Please try again.",
+        recordError: "We couldn't record that. Please try again.",
     },
     publicForm: {
         submitting: "Submitting…",
@@ -1029,6 +1018,10 @@ export const strings = {
         selectPlaceholder: "Select…",
         doneTitle: "Thanks — all done",
         doneBody: (businessName: string) => `Your responses have been sent to ${businessName}.`,
+        fileUploadFailedDetail: "the file upload failed",
+        answerRequired: (label: string) => `“${label}” is required.`,
+        fileUploadError: "We couldn't upload that file. Please try again.",
+        submitAnswersError: "We couldn't submit your answers. Please try again.",
     },
     publicReview: {
         prompt: (businessName: string) => `How was your experience with ${businessName}?`,
@@ -1045,24 +1038,20 @@ export const strings = {
         doneTitle: "Thanks for the feedback",
         doneBody: (businessName: string) => `Your review has been shared with ${businessName}.`,
     },
-    connect: {
-        notFoundTitle: "Page not found",
-        notFoundBody: "Check the link the business sent you, or contact them directly.",
-    },
     publicLanding: {
         book: "Book an appointment",
         servicesTitle: "Services",
         notFoundTitle: "Business not found",
         notFoundBody: "This link is invalid or the business is no longer taking bookings here.",
+        pageNotFoundTitle: "Page not found",
+        pageNotFoundBody: "Check the link the business sent you, or contact them directly.",
     },
-    fileUpload: {
+    files: {
         uploadFile: "Upload file",
         uploading: "Uploading…",
         viewUploadedFile: "View uploaded file",
         pickerNotWired: "File picker not wired in this build.",
         uploaded: "Uploaded.",
-    },
-    media: {
         changeImage: "Change image",
         logo: "Logo",
         uploadLogo: "Upload logo",
@@ -1074,8 +1063,6 @@ export const strings = {
         selectSavedMethod: "Select a saved method",
         chooseSavedMethod: "Choose a saved payment method.",
         addMethodFirst: "Add a payment method to the client first.",
-    },
-    card: {
         notConfiguredSavedCard: "Card payments aren’t configured. Charge a saved card instead.",
         notConfiguredContact: "Card payments aren't configured. Please contact the business.",
         back: "Back",

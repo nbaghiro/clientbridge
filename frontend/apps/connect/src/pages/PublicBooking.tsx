@@ -341,7 +341,7 @@ function BookedState({
                     <CardForm
                         clientSecret={result.deposit_client_secret}
                         stripeAccount={result.stripe_account_id}
-                        submitLabel={strings.card.pay(amount)}
+                        submitLabel={strings.checkout.pay(amount)}
                         busyLabel={strings.common.working}
                         onDone={() => {
                             setPaid(true);

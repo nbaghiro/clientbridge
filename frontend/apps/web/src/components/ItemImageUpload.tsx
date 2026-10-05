@@ -32,7 +32,7 @@ export function ItemImageUpload({
         <span className="inline-flex flex-col items-start gap-1">
             <button
                 type="button"
-                title={strings.media.changeImage}
+                title={strings.files.changeImage}
                 disabled={busy}
                 onClick={() => {
                     inputRef.current?.click();

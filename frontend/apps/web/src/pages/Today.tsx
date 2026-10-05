@@ -20,11 +20,11 @@ export function Today() {
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.home.title}</h1>
+            <h1 className="font-display text-2xl font-bold text-ink">{strings.today.title}</h1>
             {canManagePayments(role) ? (
                 <MoneyView />
             ) : (
-                <p className="mt-0.5 text-sm text-muted">{strings.home.staffSubtitle}</p>
+                <p className="mt-0.5 text-sm text-muted">{strings.today.staffSubtitle}</p>
             )}
         </div>
     );
@@ -36,37 +36,37 @@ function MoneyView() {
 
     return (
         <>
-            <p className="mt-0.5 text-sm text-muted">{strings.home.moneySubtitle}</p>
+            <p className="mt-0.5 text-sm text-muted">{strings.today.moneySubtitle}</p>
 
             {summary === "error" ? (
-                <p className="mt-6 text-sm text-muted">{strings.home.numbersError}</p>
+                <p className="mt-6 text-sm text-muted">{strings.today.numbersError}</p>
             ) : (
                 <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <StatCard
-                        label={strings.home.todayRevenue}
+                        label={strings.today.todayRevenue}
                         cents={summary === null ? null : summary.today_revenue_cents}
-                        caption={strings.home.todayRevenueCaption}
+                        caption={strings.today.todayRevenueCaption}
                         tone="success"
                     />
                     <StatCard
-                        label={strings.home.awaitingPayment}
+                        label={strings.today.awaitingPayment}
                         cents={summary === null ? null : summary.awaiting_payment_cents}
-                        caption={strings.home.awaitingPaymentCaption}
+                        caption={strings.today.awaitingPaymentCaption}
                     />
                     <StatCard
-                        label={strings.home.gstSetAside}
+                        label={strings.today.gstSetAside}
                         cents={summary === null ? null : summary.gst_hst_set_aside_cents}
-                        caption={strings.home.gstSetAsideCaption}
+                        caption={strings.today.gstSetAsideCaption}
                     />
                 </div>
             )}
 
             <div className="mt-8">
                 <ListPage
-                    head={strings.home.recentActivity}
+                    head={strings.today.recentActivity}
                     rows={activity}
                     rowKey={(row) => row.id}
-                    empty={strings.home.noPayments}
+                    empty={strings.today.noPayments}
                     renderRow={(row) => <ActivityItem row={row} />}
                 />
             </div>

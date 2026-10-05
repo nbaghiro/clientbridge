@@ -81,7 +81,7 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
             if (file.type) headers["Content-Type"] = file.type;
             const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
             if (!put.ok)
-                throw new PublicFormError(put.status, strings.bookingForms.fileUploadFailedDetail);
+                throw new PublicFormError(put.status, strings.publicForm.fileUploadFailedDetail);
             return meta.file_id;
         },
     };
@@ -152,21 +152,21 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
             async () => {
                 setAnswer(name, await forms.upload(token, file));
             },
-            { errorMessage: strings.bookingForms.fileUploadError },
+            { errorMessage: strings.publicForm.fileUploadError },
         );
     };
 
     const submit = (): void => {
         const missing = form?.fields.find((f) => f.required && isAnswerMissing(answers[f.name]));
         if (missing !== undefined) {
-            setError(strings.bookingForms.answerRequired(missing.label));
+            setError(strings.publicForm.answerRequired(missing.label));
             return;
         }
         run(
             async () => {
                 setForm(await forms.submit(token, answers));
             },
-            { errorMessage: strings.bookingForms.submitAnswersError },
+            { errorMessage: strings.publicForm.submitAnswersError },
         );
     };
 

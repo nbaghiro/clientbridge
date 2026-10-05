@@ -35,9 +35,9 @@ function NotFound() {
         <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
             <div className="w-full max-w-md rounded-xl border border-line bg-surface p-7 text-center shadow-card">
                 <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.connect.notFoundTitle}
+                    {strings.publicLanding.pageNotFoundTitle}
                 </h1>
-                <p className="mt-2 text-sm text-muted">{strings.connect.notFoundBody}</p>
+                <p className="mt-2 text-sm text-muted">{strings.publicLanding.pageNotFoundBody}</p>
             </div>
         </div>
     );

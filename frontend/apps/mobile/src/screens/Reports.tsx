@@ -32,7 +32,7 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 
-export function ReportsScreen() {
+export function Reports() {
     const [year, setYear] = useState(defaultReportRange().year);
     const range = reportRangeForYear(year);
     const { income, gstHst, t4a, salesByItem, error } = useReports(api, range);

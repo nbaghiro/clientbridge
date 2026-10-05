@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GoogleIcon, Lockup } from "../components/icons";
+import { GoogleIcon, Lockup } from "../components/Icons";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 

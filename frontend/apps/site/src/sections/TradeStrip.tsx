@@ -1,6 +1,6 @@
 import { ArcMark } from "../art/Art";
 import { TradeGlyph } from "../art/TradeGlyph";
-import { Icon } from "../components/Icon";
+import { Icon } from "../art/Icon";
 import { solutionsIntro } from "../content/home";
 import { solutionPath, TRADES } from "../content/trades";
 

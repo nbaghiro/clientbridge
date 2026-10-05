@@ -12,7 +12,7 @@ export function PaymentMethodForm({ flow }: { flow: AddPaymentMethod; allowBank:
                 clientSecret={flow.intent.client_secret}
                 stripeAccount={flow.intent.stripe_account_id}
                 mode="setup"
-                submitLabel={strings.card.saveCard}
+                submitLabel={strings.checkout.saveCard}
                 busyLabel={strings.common.saving}
                 onDone={flow.complete}
                 onCancel={flow.cancel}

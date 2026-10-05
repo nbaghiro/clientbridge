@@ -19,7 +19,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DebugOverlay } from "../components/DebugOverlay";
-import { IconSettings, Lockup } from "../components/icons";
+import { IconSettings, Lockup } from "../components/Icons";
 import { InboxButton } from "../components/InboxButton";
 import { api } from "../lib/api";
 import { ListPage } from "../ui/ListPage";
@@ -74,7 +74,7 @@ export function TodayScreen() {
                 <MoneyView status={<SyncStatus connected={connected} />} />
             ) : (
                 <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-                    <Text style={styles.heading}>{strings.home.title}</Text>
+                    <Text style={styles.heading}>{strings.today.title}</Text>
                     <SyncStatus connected={connected} />
                 </ScrollView>
             )}
@@ -99,7 +99,7 @@ function SyncStatus({ connected }: { connected: boolean }) {
                 ]}
             />
             <Text style={styles.status}>
-                PowerSync · {connected ? strings.home.connected : strings.home.offline}
+                PowerSync · {connected ? strings.today.connected : strings.today.offline}
             </Text>
         </View>
     );
@@ -113,35 +113,35 @@ function MoneyView({ status }: { status: ReactNode }) {
         <ListPage
             banner={
                 <>
-                    <Text style={styles.heading}>{strings.home.title}</Text>
+                    <Text style={styles.heading}>{strings.today.title}</Text>
                     {summary === "error" ? (
-                        <Text style={styles.errorText}>{strings.home.numbersError}</Text>
+                        <Text style={styles.errorText}>{strings.today.numbersError}</Text>
                     ) : (
                         <View style={styles.cards}>
                             <MoneyCard
-                                label={strings.home.todayRevenue}
+                                label={strings.today.todayRevenue}
                                 cents={summary === null ? null : summary.today_revenue_cents}
-                                caption={strings.home.todayRevenueCaption}
+                                caption={strings.today.todayRevenueCaption}
                                 tone="success"
                             />
                             <MoneyCard
-                                label={strings.home.awaitingPayment}
+                                label={strings.today.awaitingPayment}
                                 cents={summary === null ? null : summary.awaiting_payment_cents}
-                                caption={strings.home.awaitingPaymentCaption}
+                                caption={strings.today.awaitingPaymentCaption}
                             />
                             <MoneyCard
-                                label={strings.home.gstSetAside}
+                                label={strings.today.gstSetAside}
                                 cents={summary === null ? null : summary.gst_hst_set_aside_cents}
-                                caption={strings.home.gstSetAsideCaption}
+                                caption={strings.today.gstSetAsideCaption}
                             />
                         </View>
                     )}
                 </>
             }
-            head={<Text style={styles.sectionTitle}>{strings.home.recentActivity}</Text>}
+            head={<Text style={styles.sectionTitle}>{strings.today.recentActivity}</Text>}
             rows={activity}
             rowKey={(row) => row.id}
-            empty={strings.home.noPayments}
+            empty={strings.today.noPayments}
             renderRow={(row) => <ActivityItem row={row} />}
             footer={status}
         />

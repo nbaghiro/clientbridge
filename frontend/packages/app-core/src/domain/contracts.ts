@@ -68,11 +68,11 @@ export function useSendContractForm(api: ApiLike, onSent: () => void): SendContr
 
     const submit = (): void => {
         if (contractId === "") {
-            setError(strings.bookingForms.selectContract);
+            setError(strings.contracts.selectContract);
             return;
         }
         if (clientId === "") {
-            setError(strings.bookingForms.selectClient);
+            setError(strings.contracts.selectClient);
             return;
         }
         run(() => sendContract(api, { contract_id: contractId, client_id: clientId }), {
@@ -81,7 +81,7 @@ export function useSendContractForm(api: ApiLike, onSent: () => void): SendContr
                 setClientId("");
                 onSent();
             },
-            errorMessage: strings.bookingForms.sendContractError,
+            errorMessage: strings.contracts.sendContractError,
         });
     };
 
@@ -113,11 +113,11 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
             return;
         }
         if (name.trim().length === 0) {
-            setError(strings.bookingForms.contractNameRequired);
+            setError(strings.contracts.contractNameRequired);
             return;
         }
         if (body.trim().length === 0) {
-            setError(strings.bookingForms.contractTextRequired);
+            setError(strings.contracts.contractTextRequired);
             return;
         }
         run(
@@ -138,7 +138,7 @@ export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
                     setBody("");
                     onCreated();
                 },
-                errorMessage: strings.bookingForms.saveContractError,
+                errorMessage: strings.contracts.saveContractError,
             },
         );
     };

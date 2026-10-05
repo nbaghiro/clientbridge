@@ -1,6 +1,6 @@
 import { ContourField } from "../art/Art";
 import { TradeGlyph } from "../art/TradeGlyph";
-import { Icon } from "../components/Icon";
+import { Icon } from "../art/Icon";
 import { type Feature, type FeatureMock, features } from "../content/home";
 import { BookingPageMock } from "../mocks/BookingPageMock";
 import { CalendarMock } from "../mocks/CalendarMock";

@@ -87,11 +87,11 @@ export function useSendFormForm(api: ApiLike, onSent: () => void): SendFormForm 
 
     const submit = (): void => {
         if (formId === "") {
-            setError(strings.bookingForms.selectForm);
+            setError(strings.forms.selectForm);
             return;
         }
         if (clientId === "") {
-            setError(strings.bookingForms.selectClient);
+            setError(strings.forms.selectClient);
             return;
         }
         run(() => sendForm(api, { form_id: formId, client_id: clientId }), {
@@ -100,7 +100,7 @@ export function useSendFormForm(api: ApiLike, onSent: () => void): SendFormForm 
                 setClientId("");
                 onSent();
             },
-            errorMessage: strings.bookingForms.sendFormError,
+            errorMessage: strings.forms.sendFormError,
         });
     };
 
@@ -121,22 +121,22 @@ export const BUILDER_FIELD_TYPES = [
 ] as const;
 
 export const FIELD_TYPE_LABEL: Record<string, string> = {
-    text: strings.bookingForms.fieldTypeText,
-    longtext: strings.bookingForms.fieldTypeLongtext,
-    email: strings.bookingForms.fieldTypeEmail,
-    phone: strings.bookingForms.fieldTypePhone,
-    number: strings.bookingForms.fieldTypeNumber,
-    currency: strings.bookingForms.fieldTypeCurrency,
-    date: strings.bookingForms.fieldTypeDate,
-    time: strings.bookingForms.fieldTypeTime,
-    select: strings.bookingForms.fieldTypeSelect,
-    multiselect: strings.bookingForms.fieldTypeMultiselect,
-    checkbox: strings.bookingForms.fieldTypeCheckbox,
-    address: strings.bookingForms.fieldTypeAddress,
-    rating: strings.bookingForms.fieldTypeRating,
-    file: strings.bookingForms.fieldTypeFile,
-    image: strings.bookingForms.fieldTypeImage,
-    signature: strings.bookingForms.fieldTypeSignature,
+    text: strings.forms.fieldTypeText,
+    longtext: strings.forms.fieldTypeLongtext,
+    email: strings.forms.fieldTypeEmail,
+    phone: strings.forms.fieldTypePhone,
+    number: strings.forms.fieldTypeNumber,
+    currency: strings.forms.fieldTypeCurrency,
+    date: strings.forms.fieldTypeDate,
+    time: strings.forms.fieldTypeTime,
+    select: strings.forms.fieldTypeSelect,
+    multiselect: strings.forms.fieldTypeMultiselect,
+    checkbox: strings.forms.fieldTypeCheckbox,
+    address: strings.forms.fieldTypeAddress,
+    rating: strings.forms.fieldTypeRating,
+    file: strings.forms.fieldTypeFile,
+    image: strings.forms.fieldTypeImage,
+    signature: strings.forms.fieldTypeSignature,
 };
 
 export function hasOptions(input: string): boolean {
@@ -210,12 +210,12 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
             return;
         }
         if (name.trim().length === 0) {
-            setError(strings.bookingForms.formNameRequired);
+            setError(strings.forms.formNameRequired);
             return;
         }
         const usable = fields.filter((f) => f.label.trim().length > 0);
         if (usable.length === 0) {
-            setError(strings.bookingForms.addFieldError);
+            setError(strings.forms.addFieldError);
             return;
         }
         const taken = new Set<string>();
@@ -272,7 +272,7 @@ export function useFormBuilder(onCreated: () => void): FormBuilder {
                     setFields([newDraftField()]);
                     onCreated();
                 },
-                errorMessage: strings.bookingForms.saveFormError,
+                errorMessage: strings.forms.saveFormError,
             },
         );
     };

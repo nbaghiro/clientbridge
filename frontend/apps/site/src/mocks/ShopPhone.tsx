@@ -1,4 +1,4 @@
-import { Icon } from "../components/Icon";
+import { Icon } from "../art/Icon";
 import { BRANDS, brandStyle } from "../content/brands";
 import { shop } from "../content/demo";
 

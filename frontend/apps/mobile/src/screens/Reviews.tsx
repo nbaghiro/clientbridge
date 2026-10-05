@@ -23,7 +23,7 @@ import { ListPage } from "../ui/ListPage";
 
 const c = theme.colors;
 
-export function ReviewsScreen() {
+export function Reviews() {
     const [reloadKey, setReloadKey] = useState(0);
     const summary = useReviewSummary(api, reloadKey);
     const reviews = useReviews();

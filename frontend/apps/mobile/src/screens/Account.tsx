@@ -17,7 +17,7 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 
-export function AccountScreen({ footer }: { footer?: ReactNode }) {
+export function Account({ footer }: { footer?: ReactNode }) {
     const form = useAccountForm(api);
     const fields = form.fields;
 

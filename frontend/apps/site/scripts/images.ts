@@ -1,5 +1,5 @@
 // Writes each stock photo in assets/photos/ as AVIF, WebP and JPEG at the widths the <Photo>
-// component asks for. Outputs go to public/img/ (git-ignored) and are skipped when already current.
+// component asks for. Outputs go to public/photos/ (git-ignored) and are skipped when already current.
 import { mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,7 +10,7 @@ import { PHOTO_WIDTHS } from "../src/content/photos.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(root, "assets", "photos");
-const out = join(root, "public", "img");
+const out = join(root, "public", "photos");
 mkdirSync(out, { recursive: true });
 
 const FORMATS = {

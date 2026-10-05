@@ -8,11 +8,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Segmented } from "../components/Segmented";
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
-import { GiftCardsScreen } from "./GiftCards";
-import { InvoicesScreen } from "./Invoices";
-import { PayoutsScreen } from "./Payouts";
-import { POSScreen } from "./POS";
-import { ReportsScreen } from "./Reports";
+import { GiftCards } from "./GiftCards";
+import { Invoices } from "./Invoices";
+import { Earnings } from "./Earnings";
+import { POS } from "./POS";
+import { Reports } from "./Reports";
 
 export function PaymentsScreen() {
     const insets = useSafeAreaInsets();
@@ -42,15 +42,15 @@ export function PaymentsScreen() {
 function tabBody(key: PaymentsTabKey, createToken: number | undefined): ReactElement {
     switch (key) {
         case "invoices":
-            return <InvoicesScreen createToken={createToken} />;
+            return <Invoices createToken={createToken} />;
         case "sales":
-            return <POSScreen />;
+            return <POS />;
         case "giftCards":
-            return <GiftCardsScreen />;
+            return <GiftCards />;
         case "staffPay":
-            return <PayoutsScreen />;
+            return <Earnings />;
         case "reports":
-            return <ReportsScreen />;
+            return <Reports />;
     }
 }
 

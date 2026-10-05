@@ -4,13 +4,13 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { IconChevron } from "../components/icons";
+import { IconChevron } from "../components/Icons";
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
-import { AccountScreen } from "./Account";
-import { SchedulingSection } from "./Scheduling";
-import { TaxesSection } from "./Taxes";
-import { TeamScreen } from "./Team";
+import { Account } from "./Account";
+import { Hours } from "./Hours";
+import { Taxes } from "./Taxes";
+import { Team } from "./Team";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -46,11 +46,11 @@ export function SetupScreen() {
 }
 
 export function BusinessScreen() {
-    return <AccountScreen footer={<TaxesSection />} />;
+    return <Account footer={<Taxes />} />;
 }
 
 export function TeamHoursScreen() {
-    return <TeamScreen footer={<SchedulingSection />} />;
+    return <Team footer={<Hours />} />;
 }
 
 const styles = StyleSheet.create({

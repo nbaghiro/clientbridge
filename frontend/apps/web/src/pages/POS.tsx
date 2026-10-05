@@ -36,7 +36,7 @@ import {
     SellPackage,
     StartSubscription,
 } from "../components/EntitlementSales";
-import { IconSearch } from "../components/icons";
+import { IconSearch } from "../components/Icons";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 

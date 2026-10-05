@@ -39,7 +39,7 @@ import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
 
-export function TeamScreen({ footer }: { footer?: ReactNode }) {
+export function Team({ footer }: { footer?: ReactNode }) {
     const [accessToken, setAccessToken] = useState<string | null>(null);
     useEffect(() => {
         getTokens()

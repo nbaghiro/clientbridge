@@ -6,7 +6,7 @@ import { setTokens } from "../lib/auth";
 import { BrandBackdrop, resolveVariant } from "./BrandBackdrop";
 import { Lockup } from "@clientbridge/ui";
 
-import { GoogleIcon } from "./icons";
+import { GoogleIcon } from "./Icons";
 
 const backdrop = resolveVariant(new URLSearchParams(window.location.search).get("bg"));
 

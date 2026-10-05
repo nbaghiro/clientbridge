@@ -71,7 +71,7 @@ export interface EarningFilterView {
 }
 
 /** Shared earnings-list filter: the status tabs, the active selection, the filtered rows, and the
- *  per-tab counts — so both Payouts screens render the same glue. */
+ *  per-tab counts — so both Earnings screens render the same glue. */
 export function useEarningFilter(rows: EarningRow[]): EarningFilterView {
     const [filter, setFilter] = useState<EarningFilter>("pending");
     const shown = filter === "all" ? rows : rows.filter((r) => r.status === filter);
@@ -82,12 +82,12 @@ export function useEarningFilter(rows: EarningRow[]): EarningFilterView {
 
 export function earningStaffLabel(row: EarningRow): string {
     const title = row.staff_title ?? "";
-    return title.length > 0 ? title : (row.staff_role ?? strings.payouts.staffFallback);
+    return title.length > 0 ? title : (row.staff_role ?? strings.earnings.staffFallback);
 }
 
 /** Where an earning came from: a completed booking, or retail commission on a sale. */
 export function earningSourceLabel(row: EarningRow): string {
-    return row.order_id !== null ? strings.payouts.sourceSale : strings.payouts.sourceBooking;
+    return row.order_id !== null ? strings.earnings.sourceSale : strings.earnings.sourceBooking;
 }
 
 export function earningStatusIntent(status: string): Intent {
@@ -141,13 +141,13 @@ export function useEarningActions(
     const approve = (): void => {
         run(() => approveEarning(api, row.id), {
             onSuccess: () => onDone?.(),
-            errorMessage: strings.payouts.approveError,
+            errorMessage: strings.earnings.approveError,
         });
     };
     const pay = (): void => {
         run(() => payEarning(api, row.id), {
             onSuccess: () => onDone?.(),
-            errorMessage: strings.payouts.markPaidError,
+            errorMessage: strings.earnings.markPaidError,
         });
     };
 

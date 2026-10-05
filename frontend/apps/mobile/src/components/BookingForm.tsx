@@ -52,9 +52,9 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <Pressable style={styles.backdrop} onPress={onClose}>
                 <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>{strings.booking.newBooking}</Text>
+                    <Text style={styles.title}>{strings.calendar.newBooking}</Text>
                     <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-                        <Section label={strings.booking.client}>
+                        <Section label={strings.calendar.client}>
                             {form.clients.map((cl) => (
                                 <Chip
                                     key={cl.id}
@@ -66,7 +66,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                 />
                             ))}
                         </Section>
-                        <Section label={strings.booking.service}>
+                        <Section label={strings.calendar.service}>
                             {form.items.map((it) => (
                                 <Chip
                                     key={it.id}
@@ -79,7 +79,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                             ))}
                         </Section>
                         {form.staff.length > 1 ? (
-                            <Section label={strings.booking.staff}>
+                            <Section label={strings.calendar.staff}>
                                 {form.staff.map((s) => (
                                     <Chip
                                         key={s.id}
@@ -92,7 +92,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                 ))}
                             </Section>
                         ) : null}
-                        <Section label={strings.booking.date}>
+                        <Section label={strings.calendar.date}>
                             {days.map((d, i) => (
                                 <Chip
                                     key={d.toISOString()}
@@ -104,7 +104,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                 />
                             ))}
                         </Section>
-                        <Section label={strings.booking.time}>
+                        <Section label={strings.calendar.time}>
                             {TIMES.map((t, i) => (
                                 <Chip
                                     key={t.label}
@@ -116,9 +116,9 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                 />
                             ))}
                         </Section>
-                        <Section label={strings.booking.repeat}>
+                        <Section label={strings.calendar.repeat}>
                             <Chip
-                                label={strings.booking.oneTime}
+                                label={strings.calendar.oneTime}
                                 on={!form.repeat}
                                 onPress={() => {
                                     form.setRepeat(false);
@@ -138,7 +138,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                         </Section>
                         {form.repeat ? (
                             <>
-                                <Section label={strings.booking.every}>
+                                <Section label={strings.calendar.every}>
                                     {[1, 2, 3, 4].map((n) => (
                                         <Chip
                                             key={n}
@@ -150,7 +150,7 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                         />
                                     ))}
                                 </Section>
-                                <Section label={strings.booking.occurrences}>
+                                <Section label={strings.calendar.occurrences}>
                                     {[2, 4, 6, 8, 12].map((n) => (
                                         <Chip
                                             key={n}
@@ -178,10 +178,10 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                         >
                             <Text style={styles.bookText}>
                                 {form.busy
-                                    ? strings.booking.booking
+                                    ? strings.calendar.booking
                                     : form.repeat
-                                      ? strings.booking.bookSeries
-                                      : strings.booking.book}
+                                      ? strings.calendar.bookSeries
+                                      : strings.calendar.book}
                             </Text>
                         </Pressable>
                     </View>

@@ -1,4 +1,4 @@
-import { Icon } from "../components/Icon";
+import { Icon } from "../art/Icon";
 import { links } from "../config";
 import { pricing } from "../content/home";
 

@@ -18,7 +18,7 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 
-export function GiftCardsScreen() {
+export function GiftCards() {
     const cards = useGiftCards();
     const [mode, setMode] = useState<"sell" | "redeem" | null>(null);
 

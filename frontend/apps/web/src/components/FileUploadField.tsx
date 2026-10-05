@@ -9,7 +9,7 @@ import { api } from "../lib/api";
 export function FileUploadField({
     target,
     accept,
-    label = strings.fileUpload.uploadFile,
+    label = strings.files.uploadFile,
     onUploaded,
 }: {
     target: UploadTarget;
@@ -55,7 +55,7 @@ export function FileUploadField({
                     disabled={busy}
                     className="rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                 >
-                    {busy ? strings.fileUpload.uploading : label}
+                    {busy ? strings.files.uploading : label}
                 </button>
                 {name !== null ? <span className="truncate text-sm text-muted">{name}</span> : null}
             </div>
@@ -65,7 +65,7 @@ export function FileUploadField({
                     onClick={openDownload}
                     className="text-sm font-medium text-accent hover:underline"
                 >
-                    {strings.fileUpload.viewUploadedFile}
+                    {strings.files.viewUploadedFile}
                 </button>
             ) : null}
             {error !== null ? <p className="text-sm text-danger">{error}</p> : null}

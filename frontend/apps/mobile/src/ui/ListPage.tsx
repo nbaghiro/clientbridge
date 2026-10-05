@@ -2,7 +2,7 @@ import type { ListPageProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { IconPlus, IconSearch } from "../components/icons";
+import { IconPlus, IconSearch } from "../components/Icons";
 import { Segmented } from "../components/Segmented";
 import { Empty } from "./Empty";
 

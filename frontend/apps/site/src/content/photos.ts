@@ -1,4 +1,4 @@
-/** Stock photos. Sources are in assets/photos/; scripts/images.ts writes the sizes below to /img/. */
+/** Stock photos. Sources are in assets/photos/; scripts/images.ts writes the sizes below to /photos/. */
 export const PHOTO_WIDTHS = [480, 960, 1600] as const;
 
 export interface PhotoInfo {
@@ -134,4 +134,4 @@ export const PHOTOS = {
 export type PhotoName = keyof typeof PHOTOS;
 
 export const photoUrl = (name: PhotoName, width: number, ext: string): string =>
-    `/img/${name}-${String(width)}.${ext}`;
+    `/photos/${name}-${String(width)}.${ext}`;

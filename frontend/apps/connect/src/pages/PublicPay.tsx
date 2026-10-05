@@ -129,7 +129,7 @@ export function PublicPay() {
                     <CardForm
                         clientSecret={form.card.client_secret}
                         stripeAccount={form.card.stripe_account_id}
-                        submitLabel={strings.card.pay(
+                        submitLabel={strings.checkout.pay(
                             formatMoneyWithCurrency(invoice.balance_cents, invoice.currency),
                         )}
                         busyLabel={strings.common.working}

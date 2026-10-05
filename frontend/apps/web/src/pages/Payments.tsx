@@ -6,7 +6,7 @@ import { Tabs } from "../components/Tabs";
 import { useRole } from "../lib/auth";
 import { GiftCards } from "./GiftCards";
 import { Invoices } from "./Invoices";
-import { Payouts } from "./Payouts";
+import { Earnings } from "./Earnings";
 import { POS } from "./POS";
 import { Reports } from "./Reports";
 
@@ -27,7 +27,7 @@ function tabBody(key: PaymentsTabKey): ReactElement {
         case "giftCards":
             return <GiftCards />;
         case "staffPay":
-            return <Payouts />;
+            return <Earnings />;
         case "reports":
             return <Reports />;
     }

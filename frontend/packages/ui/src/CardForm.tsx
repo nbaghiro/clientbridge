@@ -24,15 +24,15 @@ export function CardForm(props: CardFormProps) {
     if (stripePromise === null) {
         return props.onCancel !== undefined ? (
             <div className="mt-3 rounded-md border border-line bg-bg p-4">
-                <p className="text-sm text-danger">{strings.card.notConfiguredSavedCard}</p>
+                <p className="text-sm text-danger">{strings.checkout.notConfiguredSavedCard}</p>
                 <div className="mt-3 flex justify-end">
                     <button type="button" onClick={props.onCancel} className={quietButton}>
-                        {strings.card.back}
+                        {strings.checkout.back}
                     </button>
                 </div>
             </div>
         ) : (
-            <p className="text-sm text-danger-fg">{strings.card.notConfiguredContact}</p>
+            <p className="text-sm text-danger-fg">{strings.checkout.notConfiguredContact}</p>
         );
     }
     const form = (
@@ -57,7 +57,7 @@ function ConfirmForm({
     const stripe = useStripe();
     const elements = useElements();
     const { busy, error, setError, run } = useAsyncAction();
-    const failed = mode === "payment" ? strings.card.paymentFailed : strings.card.saveError;
+    const failed = mode === "payment" ? strings.checkout.paymentFailed : strings.checkout.saveError;
 
     const submit = (e: SubmitEvent): void => {
         e.preventDefault();
