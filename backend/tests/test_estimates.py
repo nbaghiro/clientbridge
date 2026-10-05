@@ -2,6 +2,7 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate
 from clientbridge.models.crm import Client
 from tests.conftest import Factory, FakeEmailSender
@@ -152,3 +153,61 @@ async def test_staff_cannot_convert(as_staff: httpx.AsyncClient) -> None:
     # _assert_admin gates before any lookup, so a bogus id still 403s for staff
     res = await as_staff.post("/v1/estimates/est_x/convert")
     assert res.status_code == 403
+
+
+async def test_edit_draft_estimate_recomputes_totals(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client_id(db)
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
+    res = await as_owner.patch(
+        f"/v1/estimates/{est['id']}",
+        json={"lines": [_line(qty=1, unit=7000)], "notes": "Revised"},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["status"] == "draft"
+    assert (body["subtotal_cents"], body["tax_total_cents"], body["total_cents"]) == (
+        7000,
+        840,
+        7840,
+    )
+
+
+async def test_cannot_edit_declined_estimate_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client_id(db)
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    await as_owner.post(f"/v1/estimates/{est['id']}/decline")
+    res = await as_owner.patch(f"/v1/estimates/{est['id']}", json={"notes": "Too late"})
+    assert res.status_code == 409
+
+
+async def test_cannot_decline_draft_estimate_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client_id(db)
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
+    assert (await as_owner.post(f"/v1/estimates/{est['id']}/decline")).status_code == 409
+
+
+async def test_foreign_estimate_404_by_scoping(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business(name="Rival Co")
+    foreign_client = await factory.client(business=other)
+    est = Estimate(
+        id=new_id("estimate"),
+        business_id=other.id,
+        client_id=foreign_client.id,
+        status="sent",
+    )
+    db.add(est)
+    await db.flush()
+    for action in ("send", "accept", "decline", "convert"):
+        res = await as_owner.post(f"/v1/estimates/{est.id}/{action}")
+        assert res.status_code == 404, action
+    assert (await as_owner.patch(f"/v1/estimates/{est.id}", json={})).status_code == 404
+    assert (await db.get(Estimate, est.id, populate_existing=True)) is not None

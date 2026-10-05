@@ -332,6 +332,9 @@ async def test_gst_hst_csv_returns_text_csv(as_owner: httpx.AsyncClient) -> None
         f"/v1/reports/gst-hst.csv?{WIDE}",
         "/v1/reports/t4a?year=2025",
         "/v1/reports/t4a.csv?year=2025",
+        f"/v1/reports/sales-by-item?{WIDE}",
+        f"/v1/reports/sales-by-item.csv?{WIDE}",
+        "/v1/dashboard/summary",
     ],
 )
 async def test_staff_forbidden(as_staff: httpx.AsyncClient, path: str) -> None:

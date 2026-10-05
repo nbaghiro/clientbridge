@@ -149,7 +149,7 @@ async def test_cannot_send_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSe
     assert res.status_code == 409
 
 
-async def test_cannot_void_another_business_invoice(
+async def test_foreign_invoice_404_by_scoping(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     other = await factory.business(name="Rival Co")
@@ -165,3 +165,8 @@ async def test_cannot_void_another_business_invoice(
     await db.flush()
     res = await as_owner.post(f"/v1/invoices/{inv.id}/void")
     assert res.status_code == 404
+    edited = await as_owner.patch(f"/v1/invoices/{inv.id}", json={"notes": "Mine now"})
+    assert edited.status_code == 404
+    assert (await as_owner.post(f"/v1/invoices/{inv.id}/send")).status_code == 404
+    after = await db.get(Invoice, inv.id, populate_existing=True)
+    assert after is not None and after.status == "draft"

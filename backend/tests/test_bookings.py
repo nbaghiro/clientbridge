@@ -608,7 +608,7 @@ async def test_collect_deposit_not_onboarded_409(
     assert res.status_code == 409
 
 
-async def test_collect_deposit_foreign_booking_404(
+async def test_foreign_booking_404_by_scoping(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     other = await factory.business(name="Rival Co")
@@ -655,6 +655,12 @@ async def test_collect_deposit_foreign_booking_404(
     await db.flush()
     res = await as_owner.post(f"/v1/bookings/{booking.id}/deposit")
     assert res.status_code == 404  # scoped to the caller's business
+    moved = await as_owner.patch(f"/v1/bookings/{booking.id}", json={"status": "canceled"})
+    assert moved.status_code == 404
+    addon = await as_owner.delete(f"/v1/bookings/{booking.id}/addons/bka_any")
+    assert addon.status_code == 404
+    after = await db.get(Booking, booking.id, populate_existing=True)
+    assert after is not None and after.status == "confirmed"
 
 
 async def test_no_show_forfeits_collected_deposit(

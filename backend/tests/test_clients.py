@@ -4,6 +4,8 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.conftest import Factory
+
 BIZ = "bz_birchbark"
 
 
@@ -47,3 +49,12 @@ async def test_create_get_update_delete(as_owner: httpx.AsyncClient, db: AsyncSe
 async def test_get_missing_returns_404(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.get("/v1/clients/cl_does_not_exist")
     assert res.status_code == 404
+
+
+async def test_foreign_client_404_by_scoping(as_owner: httpx.AsyncClient, factory: Factory) -> None:
+    other = await factory.business()
+    foreign = await factory.client(business=other)
+    assert (await as_owner.get(f"/v1/clients/{foreign.id}")).status_code == 404
+    patch = await as_owner.patch(f"/v1/clients/{foreign.id}", json={"name": "Taken"})
+    assert patch.status_code == 404
+    assert (await as_owner.delete(f"/v1/clients/{foreign.id}")).status_code == 404

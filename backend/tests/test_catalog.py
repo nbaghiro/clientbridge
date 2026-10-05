@@ -76,6 +76,8 @@ async def test_foreign_item_404_by_scoping(
     after = await db.get(Item, item.id)
     assert after is not None
     assert after.price_cents == 1000 and after.active is True  # no cross-tenant mutation leaked
+    restock = await as_owner.post(f"/v1/items/{item.id}/restock", json={"quantity": 5})
+    assert restock.status_code == 404
 
 
 async def test_tax_rates_list(as_owner: httpx.AsyncClient) -> None:

@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -249,13 +250,14 @@ async def test_staff_cannot_approve_403(as_staff: httpx.AsyncClient, db: AsyncSe
     assert (await as_staff.post(f"/v1/earnings/{journal}/approve")).status_code == 403
 
 
+@pytest.mark.parametrize("action", ["approve", "pay"])
 async def test_other_business_earning_404(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, action: str
 ) -> None:
     other = await factory.business()
     staff = await factory.staff(business=other)
     journal = await _earning(db, business_id=other.id, staff_id=staff.id)
-    assert (await as_owner.post(f"/v1/earnings/{journal}/approve")).status_code == 404
+    assert (await as_owner.post(f"/v1/earnings/{journal}/{action}")).status_code == 404
 
 
 async def test_idempotent_approve_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

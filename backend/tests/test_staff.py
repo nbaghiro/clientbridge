@@ -5,7 +5,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.platform import Audit
-from tests.conftest import FakeEmailSender
+from tests.conftest import Factory, FakeEmailSender
 
 BIZ = "bz_birchbark"
 
@@ -44,6 +44,20 @@ async def test_staff_cannot_invite_403(as_staff: httpx.AsyncClient) -> None:
 async def test_cannot_invite_owner_role_400(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/staff/invites", json={"email": "x@test.ca", "role": "owner"})
     assert res.status_code == 400
+
+
+async def test_staff_cannot_set_pay_403(as_staff: httpx.AsyncClient) -> None:
+    res = await as_staff.patch("/v1/staff/st_diego/pay", json={"payee": True})
+    assert res.status_code == 403
+
+
+async def test_foreign_staff_pay_404_by_scoping(
+    as_owner: httpx.AsyncClient, factory: Factory
+) -> None:
+    other = await factory.business()
+    member = await factory.staff(business=other, role="staff")
+    res = await as_owner.patch(f"/v1/staff/{member.id}/pay", json={"payee": True})
+    assert res.status_code == 404
 
 
 async def test_accept_invite_activates_staff(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

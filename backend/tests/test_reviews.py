@@ -177,7 +177,9 @@ async def test_moderation_ignores_a_review_not_yet_submitted(
 ) -> None:
     token = await _a_request(db)
     review_id = (await db.execute(select(Review.id).where(Review.token == token))).scalar_one()
-    assert (await as_owner.post(f"/v1/reviews/{review_id}/publish")).status_code == 404
+    for action in ("publish", "hide", "google"):
+        res = await as_owner.post(f"/v1/reviews/{review_id}/{action}")
+        assert res.status_code == 404, action
 
 
 async def test_public_second_submit_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -235,7 +237,8 @@ async def test_mark_sent_to_google(as_owner: httpx.AsyncClient, db: AsyncSession
 
 async def test_moderation_requires_admin(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     rid = await _a_review(db)
-    assert (await as_staff.post(f"/v1/reviews/{rid}/hide")).status_code == 403
+    for action in ("hide", "publish", "google"):
+        assert (await as_staff.post(f"/v1/reviews/{rid}/{action}")).status_code == 403, action
 
 
 async def test_moderation_is_tenant_isolated(
@@ -244,7 +247,12 @@ async def test_moderation_is_tenant_isolated(
     other = await factory.business(name="Rival Reviews")
     await factory.client(business=other)
     rid = await _a_review(db, business_id=other.id)
-    assert (await as_owner.post(f"/v1/reviews/{rid}/hide")).status_code == 404
+    for action in ("hide", "publish", "google"):
+        assert (await as_owner.post(f"/v1/reviews/{rid}/{action}")).status_code == 404, action
+    reply = await as_owner.post(f"/v1/reviews/{rid}/respond", json={"response": "Thanks"})
+    assert reply.status_code == 404
+    after = await db.get(Review, rid, populate_existing=True)
+    assert after is not None and after.response is None
 
 
 async def test_summary_counts_published_only(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

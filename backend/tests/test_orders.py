@@ -170,6 +170,11 @@ async def test_order_tenant_isolation(
     assert (await as_owner.post(f"/v1/orders/{foreign.id}/checkout")).status_code == 404
     assert (await as_owner.post(f"/v1/orders/{foreign.id}/void")).status_code == 404
     assert (await as_owner.patch(f"/v1/orders/{foreign.id}", json={"lines": []})).status_code == 404
+    assert (await as_owner.post(f"/v1/orders/{foreign.id}/pay", json={})).status_code == 404
+    pickup = await as_owner.post(f"/v1/orders/{foreign.id}/pickup", json={"status": "ready"})
+    assert pickup.status_code == 404
+    after = await db.get(Order, foreign.id, populate_existing=True)
+    assert after is not None and after.status == "open"
 
 
 async def test_unknown_order_404(as_owner: httpx.AsyncClient) -> None:

@@ -10,6 +10,7 @@ from clientbridge.core.ratelimit import RateLimiter, public_form_rate_limit
 from clientbridge.main import app
 from clientbridge.models.crm import Client
 from clientbridge.models.documents import Form, FormResponse
+from clientbridge.models.platform import File
 from tests.conftest import Factory, FakeEmailSender
 
 BIZ = "bz_birchbark"
@@ -152,6 +153,26 @@ async def test_public_missing_required_422(api: httpx.AsyncClient, db: AsyncSess
 async def test_public_unknown_token_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/form/nope")).status_code == 404
     assert (await api.post("/form/nope", json={"answers": {}})).status_code == 404
+    assert (await api.post("/form/nope/upload", json={})).status_code == 404
+
+
+async def test_public_upload_attaches_a_file_to_the_response(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _a_response(db)
+    up = await api.post(f"/form/{token}/upload", json={"content_type": "application/pdf"})
+    assert up.status_code == 200, up.text
+    assert up.json()["upload_url"]
+    row = (await db.execute(select(File).where(File.id == up.json()["file_id"]))).scalar_one()
+    response = (
+        await db.execute(select(FormResponse).where(FormResponse.token == token))
+    ).scalar_one()
+    assert (row.business_id, row.parent_type, row.parent_id, row.purpose) == (
+        BIZ,
+        "form_response",
+        response.id,
+        "attachment",
+    )
 
 
 async def test_public_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSession) -> None:

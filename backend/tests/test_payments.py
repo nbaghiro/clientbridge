@@ -346,6 +346,8 @@ async def test_pay_foreign_invoice_404_by_scoping(
     foreign_inv = await _foreign_invoice(db, factory)
     res = await as_owner.post(f"/v1/payments/invoice/{foreign_inv}")
     assert res.status_code == 404
+    interac = await as_owner.post(f"/v1/payments/invoice/{foreign_inv}/interac")
+    assert interac.status_code == 404
     # the foreign invoice is untouched — no payment was minted against it
     minted = (
         await db.execute(select(Payment.id).where(Payment.invoice_id == foreign_inv))

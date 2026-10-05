@@ -305,7 +305,7 @@ async def test_detach_unknown_card_404(as_owner: httpx.AsyncClient, db: AsyncSes
     assert (await as_owner.delete("/v1/payments/methods/pm_nope")).status_code == 404
 
 
-async def test_detach_cross_tenant_404(
+async def test_foreign_client_and_method_404_by_scoping(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     await _enable(db)
@@ -323,6 +323,12 @@ async def test_detach_cross_tenant_404(
     db.add(pm)
     await db.flush()
     assert (await as_owner.delete(f"/v1/payments/methods/{pm.id}")).status_code == 404
+    assert (await as_owner.post(f"/v1/payments/methods/{pm.id}/default")).status_code == 404
+    card = await as_owner.post(f"/v1/payments/setup-intent/{other_client.id}")
+    assert card.status_code == 404
+    bank = await as_owner.post(f"/v1/payments/pad-setup-intent/{other_client.id}")
+    assert bank.status_code == 404
+    assert (await db.get(PaymentMethod, pm.id, populate_existing=True)) is not None
 
 
 async def test_set_default_flips_and_clears_siblings(
