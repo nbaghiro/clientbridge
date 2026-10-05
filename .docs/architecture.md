@@ -533,20 +533,32 @@ only `app-core/public`) and `@clientbridge/ui/src/mobile/` (React Native), with 
 same component. Every app imports `@clientbridge/ui`; the package's `react-native` export condition resolves
 mobile (Metro and the mobile tsconfig's `customConditions`) to the native entry, and everything else to the web
 entry. ESLint keeps React Native out of `src/web` and the DOM out of `src/mobile`, and the structure check
-requires a mobile twin for every web component except the web-only `Logo` and `Panel`. Each platform still
+requires a mobile twin for every web component except the web-only `Logo`. It also fails on a hand-styled
+control in app code (a raw `<button>`, `<input>`, `<select>` or `<textarea>` with a `className`, or a
+`Pressable` or `TextInput` with local styles) outside a short allowlist of layout-specific files. Each platform still
 renders idiomatically, so this is two implementations in one place, not a cross-platform UI framework.
 
 | Component | What it is |
 |---|---|
+| `Button` | primary, outline, quiet, danger and link buttons in three sizes, with a busy state |
+| `Field`, `TextField`, `Select`, `Toggle`, `SearchField` | a labelled control with hint and error; text and multi-line inputs, selects (chips on mobile), checkboxes (switches on mobile) and search |
+| `Choice` | chips, a segmented control or option cards, for one or several values |
+| `Notice` | a danger, success or info line, or a filled box |
 | `ListPage` | header, count, primary action, segments, search, rows and an empty state |
 | `DetailView` | a right-side panel on web, a bottom sheet on mobile, with sections and an action row |
-| `Modal` | a centred dialog on web, a bottom sheet on mobile; `framed={false}` when the content draws its own card |
-| `Panel` | a titled inline card for a form on a page (web) |
-| `ChargeSheet`, `CardForm`, `PaymentMethodForm` | the checkout and card or bank entry |
+| `Modal`, `confirm()` / `ConfirmHost` | a dialog (bottom sheet on mobile); a yes/no question in that dialog on web and the system alert on mobile |
+| `Panel` | a card with an optional title, subtitle and actions; `flush` for lists and tables |
+| `PageHeader` | a page title, subtitle, actions and a tab row under it |
+| `Loading`, `Empty` | loading and empty states |
+| `Badge`, `StatusPill` | a pill or a count, and a status pill, coloured from the shared `INTENT_COLORS` palette |
+| `Stat` | a labelled figure (money or text), large on Today and smaller in Reports |
+| `Stars`, `Stepper` | a rating to show or pick, and a minus/plus quantity control |
+| `ChargeSheet`, `CardForm`, `PaymentMethodForm` | the checkout and card or bank entry; the Stripe account comes from `setStripeAccount` |
 | `Tabs` | the underline tab bar on web, a scrollable segmented row on mobile |
-| `DocEditor` | the one invoice and estimate editor, for new documents and drafts (lives in each app because it reads the replica) |
-| `ItemImage` | a catalog item's image, or its initial on a tint of its colour |
-| `StatusPill`, `Money`, `Empty` | status, amounts and empty states |
+| `ItemImage`, `Money`, `Icons`, `Logo` | a catalog item's image or initial, amounts, icons and the logo |
+
+`DocEditor` (the invoice and estimate editor) lives in each app because it reads the replica. Connect has
+`PublicFrame`, `PublicStatus` and `PublicDone` in `apps/connect/src/components` for its page chrome.
 
 Item images and the business logo are `files` rows served through the public `/media/{file_id}` endpoint
 (see *Public media*). Each app builds the URL with `mediaUrl(apiBase, fileId)`.

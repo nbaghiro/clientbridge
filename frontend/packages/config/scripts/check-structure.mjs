@@ -96,6 +96,78 @@ for (const [dir, label] of [
     }
 }
 
+// App files whose own layout is the control: calendar grid, tile grids, line rows, nav chrome, debug tools.
+const HAND_STYLED_OK = new Set([
+    "apps/web/src/components/AppShell.tsx",
+    "apps/web/src/components/DebugPanel.tsx",
+    "apps/web/src/components/DocEditor.tsx",
+    "apps/web/src/components/ItemImageUpload.tsx",
+    "apps/web/src/pages/Calendar.tsx",
+    "apps/web/src/pages/Inbox.tsx",
+    "apps/web/src/pages/POS.tsx",
+    "apps/mobile/src/components/DocEditor.tsx",
+    "apps/mobile/src/components/TabBar.tsx",
+    "apps/mobile/src/screens/Calendar.tsx",
+    "apps/mobile/src/screens/POS.tsx",
+    "apps/mobile/src/screens/Setup.tsx",
+]);
+
+function openingTags(src, name) {
+    const found = [];
+    const re = new RegExp(`<${name}[\\s>]`, "g");
+    let m;
+    while ((m = re.exec(src)) !== null) {
+        let i = m.index + name.length + 1;
+        let depth = 0;
+        let quote = null;
+        for (; i < src.length; i++) {
+            const ch = src[i];
+            if (quote !== null) {
+                if (ch === quote) quote = null;
+            } else if (ch === '"' || ch === "`" || (ch === "'" && depth > 0)) {
+                quote = ch;
+            } else if (ch === "{") {
+                depth += 1;
+            } else if (ch === "}") {
+                depth -= 1;
+            } else if (ch === ">" && depth === 0) {
+                break;
+            }
+        }
+        found.push({
+            tag: src.slice(m.index, i + 1),
+            line: src.slice(0, m.index).split("\n").length,
+        });
+    }
+    return found;
+}
+
+const appFiles = files.filter(
+    (f) => /^apps\/(web|connect|mobile)\/(src\/|App\.tsx$)/.test(f) && f.endsWith(".tsx"),
+);
+for (const file of appFiles) {
+    if (HAND_STYLED_OK.has(file)) continue;
+    const src = readFileSync(join(root, file), "utf8");
+    for (const name of ["button", "input", "select", "textarea"]) {
+        for (const { tag, line } of openingTags(src, name)) {
+            if (/\bclassName=/.test(tag) && !/type="(file|color)"/.test(tag)) {
+                problems.push(
+                    `${file}:${String(line)}: styled <${name}>; use the @clientbridge/ui control`,
+                );
+            }
+        }
+    }
+    for (const name of ["Pressable", "TextInput"]) {
+        for (const { tag, line } of openingTags(src, name)) {
+            if (/style=\{\[?\s*styles\./.test(tag)) {
+                problems.push(
+                    `${file}:${String(line)}: <${name}> with local styles; use the @clientbridge/ui control`,
+                );
+            }
+        }
+    }
+}
+
 const webUi = new Set(stems("packages/ui/src/web/", ".tsx"));
 const mobileUi = new Set(stems("packages/ui/src/mobile/", ".tsx"));
 for (const name of webUi) {
