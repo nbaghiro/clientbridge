@@ -8,19 +8,16 @@ from clientbridge.api import (
     clients,
     contracts,
     earnings,
+    entitlements,
     files,
     forms,
-    gift_cards,
     messaging,
     notifications,
     orders,
-    packages,
     payments,
-    recurrences,
     reports,
     reviews,
     staff,
-    subscriptions,
     tax,
 )
 
@@ -29,7 +26,7 @@ api_router.include_router(clients.router)
 api_router.include_router(business.business_router)
 api_router.include_router(catalog.router)
 api_router.include_router(bookings.router)
-api_router.include_router(recurrences.router)
+api_router.include_router(bookings.recurrences_router)
 api_router.include_router(billing.invoices_router)
 api_router.include_router(earnings.router)
 api_router.include_router(billing.estimates_router)
@@ -37,9 +34,9 @@ api_router.include_router(payments.connect_router)
 api_router.include_router(payments.payments_router)
 api_router.include_router(orders.router)
 api_router.include_router(payments.terminal_router)
-api_router.include_router(gift_cards.router)
-api_router.include_router(packages.router)
-api_router.include_router(subscriptions.router)
+api_router.include_router(entitlements.gift_cards_router)
+api_router.include_router(entitlements.packages_router)
+api_router.include_router(entitlements.subscriptions_router)
 api_router.include_router(tax.router)
 api_router.include_router(business.onboarding_router)
 api_router.include_router(staff.router)

@@ -10,8 +10,15 @@ from clientbridge.core.deps import (
     PushDep,
     SmsDep,
 )
-from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch, DepositOut
-from clientbridge.services.bookings import BookingService
+from clientbridge.schemas.bookings import (
+    BookingCreate,
+    BookingOut,
+    BookingPatch,
+    DepositOut,
+    RecurrenceCreate,
+    RecurrenceOut,
+)
+from clientbridge.services.bookings import BookingService, RecurrenceService
 from clientbridge.services.notifications import Notifier
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -76,3 +83,16 @@ async def remove_booking_addon(
     gateway: GatewayDep,
 ) -> BookingOut:
     return await BookingService(db, principal, gateway).remove_addon(booking_id, addon_id)
+
+
+recurrences_router = APIRouter(prefix="/recurrences", tags=["recurrences"])
+
+
+@recurrences_router.post("", response_model=RecurrenceOut, status_code=201)
+async def create_recurrence(
+    body: RecurrenceCreate,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> RecurrenceOut:
+    return await RecurrenceService(db, principal).create(body, idempotency_key)

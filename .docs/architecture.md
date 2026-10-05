@@ -105,7 +105,10 @@ Flow: **`api` (thin router, never queries) → `schemas` (DTOs) → `services` (
 catalog · scheduling · billing · payments · ledger · messaging · documents · reviews · platform`). Every other
 layer holds one file per concept, with the same plain plural name in each layer and no suffix:
 `api/bookings.py` → `schemas/bookings.py` → `services/bookings.py`, and `tasks/bookings.py` for its jobs. A
-concept with no API or DTOs simply has no file in that layer (`services/hours.py`, `services/lines.py`).
+concept with no API or DTOs simply has no file in that layer (`services/lines.py`). Closely related
+concepts share one umbrella file: `entitlements` holds packages, subscriptions and gift cards (prepaid
+things sold through their own checkout and held as a liability), and `bookings` holds working hours,
+open slots and recurring series. Their tables stay separate.
 
 ### The request flow
 ```
@@ -428,8 +431,8 @@ What posts, and where:
 | Refund (full or partial) | `refund_payment`, `charge.refunded` (one refund row per Stripe refund) | cash − / the original credit legs unwound pro rata (a credit note; fees stay with Stripe and the platform) |
 | Dispute opened / won | `charge.dispute.created` / `.closed` | Stripe − / payer receivable + (+ dispute fee); won reverses |
 | Stripe payout paid / failed | `payout.paid` / `payout.failed` | bank + / Stripe − ; failed reverses |
-| Gift card redeemed | `gift_cards.redeem_gift_card` | gift card liability + / revenue − |
-| Package session used | `packages.consume_session` | deferred + / revenue − (the last session takes the remainder) |
+| Gift card redeemed | `entitlements.redeem_gift_card` | gift card liability + / revenue − |
+| Package session used | `entitlements.consume_session` | deferred + / revenue − (the last session takes the remainder) |
 | Gift card or package expired | `tasks/maintenance.py` expiry sweep (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
 | Tax return filed | `POST /v1/payments/remittances` (`remittances`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
 | Deposit forfeited | no-show in `bookings` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |

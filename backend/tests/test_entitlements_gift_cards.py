@@ -349,7 +349,7 @@ async def test_code_collision_409(
     as_owner: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     await _enable(db)
-    monkeypatch.setattr("clientbridge.services.gift_cards._gift_code", lambda: "FIXEDCODE123")
+    monkeypatch.setattr("clientbridge.services.entitlements._gift_code", lambda: "FIXEDCODE123")
     body = {"amount_cents": 1000, "purchaser_client_id": PURCHASER, "payment_method_id": "default"}
     first = await as_owner.post("/v1/gift-cards", json=body)
     assert first.status_code == 201

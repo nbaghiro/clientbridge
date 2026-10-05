@@ -1177,11 +1177,11 @@ async def _settle_entitlement(db: AsyncSession, payment: Payment) -> str | None:
     """Activate a pending package or gift card once its purchase settles; returns a gift card id."""
     if payment.invoice_id or payment.order_id or payment.booking_id:
         return None
-    # deferred: package/gift_card import this module's builders, so a top-level import would cycle.
-    from clientbridge.services import gift_cards, packages
+    # deferred: entitlements imports this module's builders, so a top-level import would cycle.
+    from clientbridge.services import entitlements
 
-    await packages.activate_purchased(db, payment.id)
-    return await gift_cards.activate_purchased(db, payment.id)
+    await entitlements.activate_purchased_package(db, payment.id)
+    return await entitlements.activate_purchased_gift_card(db, payment.id)
 
 
 async def _settle_booking_deposit(db: AsyncSession, booking_id: str) -> None:
@@ -1223,11 +1223,11 @@ async def _reverse_entitlement(db: AsyncSession, payment: Payment) -> None:
     """Void a package/gift card whose purchase charge is refunded (mirrors _settle_entitlement)."""
     if payment.invoice_id or payment.order_id or payment.booking_id:
         return
-    # deferred: package/gift_card import this module's builders, so a top-level import would cycle.
-    from clientbridge.services import gift_cards, packages
+    # deferred: entitlements imports this module's builders, so a top-level import would cycle.
+    from clientbridge.services import entitlements
 
-    await packages.void_purchased(db, payment.id)
-    await gift_cards.void_purchased(db, payment.id)
+    await entitlements.void_purchased_package(db, payment.id)
+    await entitlements.void_purchased_gift_card(db, payment.id)
 
 
 async def _sync_order(db: AsyncSession, order_id: str) -> None:

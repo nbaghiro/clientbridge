@@ -1,4 +1,6 @@
-from datetime import UTC, date, datetime, timedelta
+import calendar
+from collections.abc import Sequence
+from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import ColumnElement, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
@@ -22,13 +24,20 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.crm import Client
 from clientbridge.models.identity import Business, Staff
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Addon, Booking, Slot
-from clientbridge.schemas.bookings import BookingCreate, BookingOut, BookingPatch, DepositOut
+from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Slot
+from clientbridge.schemas.bookings import (
+    BookingCreate,
+    BookingOut,
+    BookingPatch,
+    DepositOut,
+    RecurrenceCreate,
+    RecurrenceOccurrence,
+    RecurrenceOut,
+)
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
-from clientbridge.services.hours import is_within_hours, open_windows
 from clientbridge.services.payments import (
     default_method_ref,
     open_booking_deposit,
@@ -607,3 +616,198 @@ async def open_slots(
                 slots.append(start)
             start += timedelta(minutes=step)
     return slots
+
+
+_WEEKDAY_CODES = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+_MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
+
+
+def _add_months(d: date, months: int) -> date:
+    total = d.month - 1 + months
+    year, month = d.year + total // 12, total % 12 + 1
+    return date(year, month, min(d.day, calendar.monthrange(year, month)[1]))
+
+
+def expand_occurrences(
+    *,
+    start_date: date,
+    frequency: str,
+    interval: int,
+    byday: Sequence[str] | None,
+    count: int | None,
+    until: date | None,
+) -> list[date]:
+    """Occurrence dates for a rule, bounded by count, until and a hard cap."""
+    interval = max(1, interval)
+    limit = min(count if count is not None else _MAX_OCCURRENCES, _MAX_OCCURRENCES)
+    dates: list[date] = []
+
+    if frequency == "week":
+        weekdays = sorted({_WEEKDAY_CODES[d] for d in byday}) if byday else [start_date.weekday()]
+        week_start = start_date - timedelta(days=start_date.weekday())
+        for week in range(limit * interval + 8):
+            base = week_start + timedelta(weeks=week * interval)
+            for wd in weekdays:
+                d = base + timedelta(days=wd)
+                if d < start_date:
+                    continue
+                if until is not None and d > until:
+                    return dates
+                dates.append(d)
+                if len(dates) >= limit:
+                    return dates
+        return dates
+
+    for step in range(limit):
+        cur = (
+            start_date + timedelta(days=step * interval)
+            if frequency == "day"
+            else _add_months(start_date, step * interval)
+        )
+        if until is not None and cur > until:
+            break
+        dates.append(cur)
+    return dates
+
+
+class RecurrenceService:
+    def __init__(self, db: AsyncSession, principal: Principal) -> None:
+        self.db = db
+        self.principal = principal
+        self.biz = principal.business_id
+
+    async def create(self, data: RecurrenceCreate, idempotency_key: str | None) -> RecurrenceOut:
+        """Create the recurrence and its bookings; clashing occurrences are skipped and reported."""
+        assert_can_act_as(self.principal, data.staff_id)
+        if data.count is None and data.until is None:
+            raise AppError("a recurring schedule needs an end: set count or until", status_code=422)
+        item = await load_item(self.db, self.biz, data.item_id)
+        if item.duration_min is None or item.duration_min <= 0:
+            raise AppError("that service has no duration and can't be booked", status_code=422)
+        await load_client(self.db, self.biz, data.client_id)
+        await load_staff(self.db, self.biz, data.staff_id)
+
+        base = data.starts_at
+        # Re-localize the wall-clock time per date, so occurrences keep their time across DST.
+        tz = await business_tz(self.db, self.biz)
+        aware = base if base.tzinfo is not None else base.replace(tzinfo=UTC)
+        local_time = aware.astimezone(tz).time()
+        occ_dates = expand_occurrences(
+            start_date=base.date(),
+            frequency=data.frequency,
+            interval=data.interval,
+            byday=data.byday,
+            count=data.count,
+            until=data.until,
+        )
+
+        async def run(cmd: Command) -> RecurrenceOut:
+            recurrence = Recurrence(
+                id=new_id("recurrence"),
+                business_id=self.biz,
+                item_id=item.id,
+                staff_id=data.staff_id,
+                client_id=data.client_id,
+                frequency=data.frequency,
+                interval=data.interval,
+                byday=data.byday,
+                count=data.count,
+                until=data.until,
+                start_date=base.date(),
+                status="active",
+            )
+            self.db.add(recurrence)
+            await self.db.flush()
+
+            occurrences: list[RecurrenceOccurrence] = []
+            created = 0
+            for d in occ_dates:
+                starts_at = datetime.combine(d, local_time, tzinfo=tz).astimezone(UTC)
+                try:
+                    async with self.db.begin_nested():
+                        booking, _ = await create_booking_core(
+                            self.db,
+                            self.biz,
+                            item=item,
+                            staff_id=data.staff_id,
+                            starts_at=starts_at,
+                            client_id=data.client_id,
+                            source="manual",
+                            subject_id=data.subject_id,
+                            resource_id=data.resource_id,
+                            recurrence_id=recurrence.id,
+                        )
+                    created += 1
+                    occurrences.append(
+                        RecurrenceOccurrence(
+                            starts_at=starts_at, booking_id=booking.id, skipped=None
+                        )
+                    )
+                except Conflict as exc:
+                    occurrences.append(
+                        RecurrenceOccurrence(starts_at=starts_at, booking_id=None, skipped=str(exc))
+                    )
+
+            cmd.record("recurrence.create", entity_type="recurrence", entity_id=recurrence.id)
+            return RecurrenceOut(
+                id=recurrence.id,
+                business_id=self.biz,
+                item_id=recurrence.item_id,
+                staff_id=recurrence.staff_id,
+                client_id=recurrence.client_id,
+                frequency=recurrence.frequency,
+                interval=recurrence.interval,
+                status=recurrence.status,
+                created=created,
+                skipped=len(occurrences) - created,
+                occurrences=occurrences,
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="recurrence.create",
+            run=run,
+            response_model=RecurrenceOut,
+            idempotency_key=idempotency_key,
+        )
+
+
+async def open_windows(
+    db: AsyncSession, staff_id: str, business_id: str, on_date: date
+) -> list[tuple[time, time]] | None:
+    """Open work intervals on a date; None when the day has no hours set, [] when closed."""
+    rows = (
+        (await db.execute(scoped(Hours, business_id).where(Hours.staff_id == staff_id)))
+        .scalars()
+        .all()
+    )
+    date_rows = [r for r in rows if r.basis == "date" and r.date == on_date]
+    if date_rows:
+        if any(not r.available and r.start_time is None for r in date_rows):
+            return []
+        return [
+            (r.start_time or time.min, r.end_time or time.max) for r in date_rows if r.available
+        ]
+    weekday_rows = [r for r in rows if r.basis == "recurring" and r.weekday == on_date.weekday()]
+    if not weekday_rows:
+        return None
+    return [(r.start_time or time.min, r.end_time or time.max) for r in weekday_rows if r.available]
+
+
+def _as_utc(dt: datetime) -> datetime:
+    return (dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)).astimezone(UTC)
+
+
+async def is_within_hours(
+    db: AsyncSession, staff_id: str, business_id: str, start: datetime, end: datetime
+) -> bool:
+    """Whether the window sits inside open hours on its local date, or the day has none set."""
+    tz = await business_tz(db, business_id)
+    start_local, end_local = _as_utc(start).astimezone(tz), _as_utc(end).astimezone(tz)
+    windows = await open_windows(db, staff_id, business_id, start_local.date())
+    if windows is None:
+        return True
+    if end_local.date() != start_local.date():
+        return False
+    return any(ws <= start_local.time() and end_local.time() <= we for ws, we in windows)
