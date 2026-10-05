@@ -66,8 +66,8 @@ function Messages() {
     const selected = threads.find((t) => t.id === selectedId) ?? null;
 
     return (
-        <div className="flex min-h-0 flex-1 flex-col">
-            <header className="flex items-center justify-between gap-4 border-b border-line px-8 py-3">
+        <div className="flex min-h-0 flex-1 flex-col px-8 py-6">
+            <header className="flex items-center justify-between gap-4 pb-4">
                 <p className="text-sm text-muted">{strings.inbox.subtitle}</p>
                 <div className="flex shrink-0 gap-2">
                     <button
@@ -91,7 +91,7 @@ function Messages() {
                 </div>
             </header>
 
-            <div className="flex min-h-0 flex-1">
+            <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-line bg-surface shadow-card">
                 <aside className="w-80 shrink-0 overflow-y-auto border-r border-line">
                     {threads.length === 0 ? (
                         <p className="px-5 py-8 text-center text-sm text-muted">
@@ -111,7 +111,7 @@ function Messages() {
                     )}
                 </aside>
 
-                <section className="min-w-0 flex-1 overflow-y-auto">
+                <section className="min-w-0 flex-1 overflow-y-auto bg-bg">
                     {selected !== null ? (
                         // key by thread so switching threads remounts the composer (its clientId +
                         // channel seed once) — otherwise a reply could go to the previous client.
