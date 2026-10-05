@@ -1,5 +1,6 @@
 import { strings, useConnectOnboarding } from "@clientbridge/app-core";
 
+import { primaryButton } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 export function GettingPaid() {
@@ -68,7 +69,7 @@ export function GettingPaid() {
                                 type="button"
                                 onClick={connect}
                                 disabled={busy}
-                                className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-60"
+                                className={`${primaryButton} mt-4`}
                             >
                                 {busy ? strings.gettingPaid.opening : ctaLabel}
                             </button>

@@ -15,6 +15,7 @@ import { ListPage } from "../ui/ListPage";
 import { Money } from "../ui/Money";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 
@@ -90,7 +91,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
 
             <Text style={styles.fieldLabel}>{strings.giftCards.code}</Text>
             <TextInput
-                style={styles.input}
+                style={ui.input}
                 value={form.code}
                 onChangeText={form.setCode}
                 placeholder={strings.giftCards.codePlaceholder}
@@ -103,7 +104,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 {strings.giftCards.amountCad}
             </Text>
             <TextInput
-                style={styles.input}
+                style={ui.input}
                 value={form.amount}
                 onChangeText={form.setAmount}
                 keyboardType="decimal-pad"
@@ -116,11 +117,11 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 <Pressable style={styles.cancel} onPress={onClose}>
                     <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                 </Pressable>
-                <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
+                <Pressable style={ui.primary} disabled={form.busy} onPress={form.submit}>
                     {form.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>{strings.giftCards.redeem}</Text>
+                        <Text style={ui.primaryText}>{strings.giftCards.redeem}</Text>
                     )}
                 </Pressable>
             </View>
@@ -154,26 +155,7 @@ const styles = StyleSheet.create({
     panelTitle: { color: c.ink, fontSize: 16, fontWeight: "700", marginBottom: 12 },
     fieldLabel: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6 },
     fieldSpace: { marginTop: 14 },
-    input: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-    },
     panelActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    save: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        minWidth: 88,
-        alignItems: "center",
-    },
-    saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
 });

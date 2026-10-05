@@ -1,12 +1,11 @@
 import {
-    type PublicBrand,
     type PublicContract as PublicContractData,
     createPublicContractClient,
     signatureStatusIntent,
     strings,
     usePublicContractSign,
 } from "@clientbridge/app-core/public";
-import { StatusPill } from "@clientbridge/ui";
+import { field, primaryButtonLarge, StatusPill } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
@@ -16,9 +15,6 @@ import { config } from "../config";
 
 const contracts = createPublicContractClient(config.apiUrl);
 
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
-
 export function PublicContract() {
     const { token = "" } = useParams<{ token: string }>();
     const form = usePublicContractSign(contracts, token);
@@ -26,26 +22,28 @@ export function PublicContract() {
     useEmbedSuccess(contract?.status === "signed", "contract");
 
     if (form.status === "loading")
-        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
+        return (
+            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
+        );
 
     if (form.status === "not-found")
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.publicContract.notFoundTitle}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.publicContract.notFoundBody}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (form.status === "error" || contract === null)
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.common.somethingWrong}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (form.status === "resolved") return <ResolvedState contract={contract} />;
@@ -61,7 +59,7 @@ export function PublicContract() {
     };
 
     return (
-        <Frame wide brand={contract.brand}>
+        <PublicFrame size="2xl" brand={contract.brand}>
             <p className="text-sm text-muted">{contract.business_name}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">
                 {contract.contract_name}
@@ -108,7 +106,7 @@ export function PublicContract() {
                     <button
                         type="submit"
                         disabled={form.busy}
-                        className="flex-1 rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                        className={`${primaryButtonLarge} flex-1`}
                     >
                         {form.busy ? strings.common.working : strings.publicContract.sign}
                     </button>
@@ -123,14 +121,14 @@ export function PublicContract() {
                 </div>
                 <p className="text-xs text-muted">{strings.publicContract.esignConsent}</p>
             </form>
-        </Frame>
+        </PublicFrame>
     );
 }
 
 function ResolvedState({ contract }: { contract: PublicContractData }) {
     const signed = contract.status === "signed";
     return (
-        <Frame brand={contract.brand}>
+        <PublicFrame brand={contract.brand}>
             <div className="py-4 text-center">
                 <span
                     className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-2xl ${
@@ -162,22 +160,6 @@ function ResolvedState({ contract }: { contract: PublicContractData }) {
                           )}
                 </p>
             </div>
-        </Frame>
-    );
-}
-
-function Frame({
-    brand = null,
-    children,
-    wide = false,
-}: {
-    brand?: PublicBrand | null;
-    children: React.ReactNode;
-    wide?: boolean;
-}) {
-    return (
-        <PublicFrame brand={brand} size={wide ? "2xl" : "md"}>
-            {children}
         </PublicFrame>
     );
 }

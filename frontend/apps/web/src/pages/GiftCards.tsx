@@ -6,14 +6,11 @@ import {
     strings,
     useGiftCards,
 } from "@clientbridge/app-core";
-import { ListPage, Money, Panel, StatusPill } from "@clientbridge/ui";
+import { field, ListPage, Money, Panel, primaryButton, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { SellGiftCard } from "../components/EntitlementSales";
 import { api } from "../lib/api";
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 const GRID = "grid grid-cols-[1.4fr_2fr_1fr_1.4fr] items-center gap-4";
 
@@ -140,11 +137,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                     >
                         {strings.common.cancel}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={form.busy} className={primaryButton}>
                         {form.busy ? strings.giftCards.redeeming : strings.giftCards.redeem}
                     </button>
                 </div>

@@ -209,7 +209,7 @@ function Input({
         <View style={styles.field}>
             <Text style={ui.label}>{label}</Text>
             <TextInput
-                style={[styles.input, multiline === true ? styles.multiline : null]}
+                style={[ui.input, multiline === true ? styles.multiline : null]}
                 value={form.values[name]}
                 onChangeText={(v) => {
                     form.set(name, v);
@@ -472,7 +472,7 @@ function RestockSection({ item }: { item: ItemRow }) {
                 <View style={styles.field}>
                     <Text style={ui.label}>{strings.catalog.restockQuantity}</Text>
                     <TextInput
-                        style={styles.input}
+                        style={ui.input}
                         value={form.quantity}
                         onChangeText={form.setQuantity}
                         keyboardType="numbers-and-punctuation"
@@ -480,7 +480,7 @@ function RestockSection({ item }: { item: ItemRow }) {
                 </View>
                 <View style={styles.field}>
                     <Text style={ui.label}>{strings.catalog.restockNote}</Text>
-                    <TextInput style={styles.input} value={form.note} onChangeText={form.setNote} />
+                    <TextInput style={ui.input} value={form.note} onChangeText={form.setNote} />
                 </View>
             </View>
             <Text style={ui.note}>{strings.catalog.restockQuantityHint}</Text>
@@ -503,16 +503,6 @@ const styles = StyleSheet.create({
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     pill: { flexDirection: "row", marginTop: 4 },
     field: { flex: 1 },
-    input: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-    },
     multiline: { minHeight: 64, textAlignVertical: "top" },
     twoCol: { flexDirection: "row", gap: 10 },
     toggle: {

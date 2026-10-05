@@ -32,7 +32,14 @@ import {
     useLines,
     useSearch,
 } from "@clientbridge/app-core";
-import { DetailSection, DetailView, ListPage, Money, StatusPill } from "@clientbridge/ui";
+import {
+    DetailSection,
+    DetailView,
+    ListPage,
+    Money,
+    primaryButton,
+    StatusPill,
+} from "@clientbridge/ui";
 import { useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
@@ -200,7 +207,7 @@ function DocDetail({
                                     ),
                                 });
                             }}
-                            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                            className={primaryButton}
                         >
                             {DOC_ACTION_LABEL[a.key]}
                         </button>

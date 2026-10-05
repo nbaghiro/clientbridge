@@ -45,13 +45,14 @@ import {
 } from "react-native";
 
 import { DetailSection, DetailView } from "../ui/DetailView";
-import { DocEditor } from "../ui/DocEditor";
+import { DocEditor } from "../components/DocEditor";
 import { ListPage } from "../ui/ListPage";
 import { Money } from "../ui/Money";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 
@@ -207,7 +208,7 @@ function DetailModal({
                             {actions.map((a) => (
                                 <Pressable
                                     key={a.key}
-                                    style={styles.save}
+                                    style={ui.primary}
                                     disabled={busy}
                                     onPress={() => {
                                         run(a.run, {
@@ -221,7 +222,7 @@ function DetailModal({
                                     {busy ? (
                                         <ActivityIndicator color={c.accentInk} />
                                     ) : (
-                                        <Text style={styles.saveText}>
+                                        <Text style={ui.primaryText}>
                                             {DOC_ACTION_LABEL[a.key]}
                                         </Text>
                                     )}
@@ -422,13 +423,4 @@ const styles = StyleSheet.create({
     totalLabel: { color: c.muted, fontSize: 14 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    save: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        minWidth: 84,
-        alignItems: "center",
-    },
-    saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
 });

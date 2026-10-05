@@ -15,7 +15,14 @@ import {
     useStaffPay,
     useStaffPayForm,
 } from "@clientbridge/app-core";
-import { DetailSection, DetailView, ListPage } from "@clientbridge/ui";
+import {
+    DetailSection,
+    DetailView,
+    field,
+    ListPage,
+    primaryButton,
+    primaryButtonSmall,
+} from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -149,11 +156,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                         ))}
                     </select>
                 </label>
-                <button
-                    type="submit"
-                    disabled={invite.busy}
-                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                >
+                <button type="submit" disabled={invite.busy} className={primaryButton}>
                     {invite.busy ? strings.team.inviting : strings.team.sendInvite}
                 </button>
             </form>
@@ -188,11 +191,7 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
                     value={link}
                     className="flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-ink-soft"
                 />
-                <button
-                    type="button"
-                    onClick={copy}
-                    className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90"
-                >
+                <button type="button" onClick={copy} className={primaryButtonSmall}>
                     {copied ? strings.team.copied : strings.team.copy}
                 </button>
                 <button
@@ -212,9 +211,6 @@ function PaySummary({ row }: { row: StaffPayRow | undefined }) {
     return <p className="text-xs text-muted">{staffPaySummary(row)}</p>;
 }
 
-const payField =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
-
 function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => void }) {
     const form = useStaffPayForm(api, row, onClose);
     return (
@@ -228,7 +224,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                     type="button"
                     onClick={form.submit}
                     disabled={form.busy}
-                    className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                    className={primaryButton}
                 >
                     {form.busy ? strings.catalog.saving : strings.catalog.save}
                 </button>
@@ -256,7 +252,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                                     onChange={(e) => {
                                         form.setRateType(e.target.value);
                                     }}
-                                    className={payField}
+                                    className={field}
                                 >
                                     {RATE_TYPES.map((t) => (
                                         <option key={t.value} value={t.value}>
@@ -273,7 +269,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                                         form.setRate(e.target.value);
                                     }}
                                     inputMode="decimal"
-                                    className={payField}
+                                    className={field}
                                 />
                             </label>
                             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
@@ -284,7 +280,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                                         form.setRetailPercent(e.target.value);
                                     }}
                                     inputMode="decimal"
-                                    className={payField}
+                                    className={field}
                                 />
                             </label>
                         </>

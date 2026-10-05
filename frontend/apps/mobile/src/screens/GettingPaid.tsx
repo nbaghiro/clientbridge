@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { api } from "../lib/api";
+import { ui } from "../ui/styles";
 
 export function GettingPaidScreen() {
     const {
@@ -83,14 +84,14 @@ function ConnectButton({
 }) {
     return (
         <Pressable
-            style={[styles.button, busy ? styles.buttonDisabled : null]}
+            style={[ui.primaryLarge, styles.buttonGap, busy ? styles.buttonDisabled : null]}
             disabled={busy}
             onPress={onPress}
         >
             {busy ? (
                 <ActivityIndicator color={theme.colors.accentInk} />
             ) : (
-                <Text style={styles.buttonText}>{label}</Text>
+                <Text style={ui.primaryLargeText}>{label}</Text>
             )}
         </Pressable>
     );
@@ -112,14 +113,7 @@ const styles = StyleSheet.create({
     titleDanger: { color: theme.colors.danFg, fontSize: 15, fontWeight: "500", lineHeight: 20 },
     requirement: { color: theme.colors.inkSoft, fontSize: 14, marginTop: 6 },
     muted: { color: theme.colors.muted, fontSize: 14, marginTop: 4 },
-    button: {
-        backgroundColor: theme.colors.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 12,
-        marginTop: 16,
-        alignItems: "center",
-    },
+    buttonGap: { marginTop: 16 },
     buttonDisabled: { opacity: 0.6 },
-    buttonText: { color: theme.colors.accentInk, fontSize: 15, fontWeight: "600" },
     error: { color: theme.colors.danFg, fontSize: 13, marginTop: 12 },
 });

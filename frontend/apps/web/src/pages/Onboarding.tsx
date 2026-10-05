@@ -1,7 +1,7 @@
 import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 
-import { Lockup, Logo } from "@clientbridge/ui";
+import { fieldLarge, Lockup, Logo, primaryButtonLarge } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
 export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
@@ -9,9 +9,6 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
     const form = useOnboardingForm(api, () => {
         setSubmitted(true);
     });
-
-    const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
     if (submitted) {
         return (
@@ -50,7 +47,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                             }}
                             placeholder={strings.onboarding.businessNamePlaceholder}
                             autoFocus
-                            className={field}
+                            className={fieldLarge}
                         />
                     </label>
 
@@ -78,7 +75,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                             onChange={(e) => {
                                 form.setProvince(e.target.value as typeof form.province);
                             }}
-                            className={field}
+                            className={fieldLarge}
                         >
                             {PROVINCES.map((p) => (
                                 <option key={p.code} value={p.code}>
@@ -93,7 +90,7 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     <button
                         type="submit"
                         disabled={form.busy}
-                        className="mt-1 rounded-md bg-accent px-4 py-2.5 font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                        className={`${primaryButtonLarge} mt-1`}
                     >
                         {form.busy
                             ? strings.onboarding.creating

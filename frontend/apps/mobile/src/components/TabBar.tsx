@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useRole } from "../lib/auth";
 import { BookingForm } from "./BookingForm";
-import { IconCalendar, IconClients, IconInvoices, IconPlus, IconPos, IconToday } from "./Icons";
+import { IconCalendar, IconClients, IconInvoices, IconPlus, IconPos, IconToday } from "../ui/Icons";
 
 const TAB_DESTINATION: Record<string, DestinationKey> = {
     Today: "today",

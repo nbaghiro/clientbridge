@@ -7,7 +7,7 @@ import {
 import type { ReactNode } from "react";
 
 import { CardForm } from "./CardForm";
-import { field, panel, primaryButton, quietButton } from "./styles";
+import { fieldOnBg, panel, primaryButton, quietButton } from "./styles";
 
 export interface ChargeSheetProps {
     checkout: Checkout;
@@ -67,7 +67,7 @@ export function ChargeSheet({
                     onChange={(e) => {
                         checkout.setMethod(e.target.value);
                     }}
-                    className={field}
+                    className={fieldOnBg}
                 >
                     <option value={NEW_CARD}>
                         {checkout.allowNewCard

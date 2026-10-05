@@ -20,6 +20,7 @@ import {
 } from "react-native";
 
 import { useViewer } from "../lib/auth";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 
@@ -124,14 +125,18 @@ function WeeklyHours({ staffId }: { staffId: string }) {
             {editor.saved ? <Text style={styles.saved}>{strings.common.saved}</Text> : null}
 
             <Pressable
-                style={({ pressed }) => [styles.submit, (editor.busy || pressed) && styles.dim]}
+                style={({ pressed }) => [
+                    ui.primaryLarge,
+                    styles.submitGap,
+                    (editor.busy || pressed) && styles.dim,
+                ]}
                 onPress={editor.submit}
                 disabled={editor.busy}
             >
                 {editor.busy ? (
                     <ActivityIndicator color="#fff" />
                 ) : (
-                    <Text style={styles.submitText}>{strings.hours.saveHours}</Text>
+                    <Text style={ui.primaryLargeText}>{strings.hours.saveHours}</Text>
                 )}
             </Pressable>
         </View>
@@ -184,13 +189,6 @@ const styles = StyleSheet.create({
     closed: { color: c.muted, fontSize: 13, marginTop: 8 },
     error: { color: c.danFg, fontSize: 13, marginTop: 14 },
     saved: { color: c.success, fontSize: 13, marginTop: 14 },
-    submit: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 15,
-        alignItems: "center",
-        marginTop: 18,
-    },
+    submitGap: { marginTop: 18 },
     dim: { opacity: 0.7 },
-    submitText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });

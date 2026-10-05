@@ -11,14 +11,12 @@ import {
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
+import { field, primaryButtonLarge } from "@clientbridge/ui";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
 const forms = createPublicFormClient(config.apiUrl);
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function PublicForm() {
     const { token = "" } = useParams<{ token: string }>();
@@ -28,26 +26,28 @@ export function PublicForm() {
     useEmbedSuccess(fill.status === "done", "form");
 
     if (fill.status === "loading")
-        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
+        return (
+            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
+        );
 
     if (fill.status === "not-found")
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.publicForm.notFoundTitle}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.publicForm.notFoundBody}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (fill.status === "error" || form === null)
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.common.somethingWrong}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (fill.status === "done")
@@ -59,7 +59,7 @@ export function PublicForm() {
     };
 
     return (
-        <Frame wide brand={form.brand}>
+        <PublicFrame size="xl" brand={form.brand}>
             <p className="text-sm text-muted">{form.business_name}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">{form.form_name}</h1>
 
@@ -83,12 +83,12 @@ export function PublicForm() {
                 <button
                     type="submit"
                     disabled={fill.busy}
-                    className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                    className={`${primaryButtonLarge} w-full`}
                 >
                     {fill.busy ? strings.publicForm.submitting : strings.publicForm.submit}
                 </button>
             </form>
-        </Frame>
+        </PublicFrame>
     );
 }
 
@@ -295,7 +295,7 @@ function DoneState({
     brand?: PublicBrand | null;
 }) {
     return (
-        <Frame brand={brand}>
+        <PublicFrame brand={brand}>
             <div className="py-4 text-center">
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓
@@ -307,22 +307,6 @@ function DoneState({
                     {strings.publicForm.doneBody(businessName)}
                 </p>
             </div>
-        </Frame>
-    );
-}
-
-function Frame({
-    brand = null,
-    children,
-    wide = false,
-}: {
-    brand?: PublicBrand | null;
-    children: React.ReactNode;
-    wide?: boolean;
-}) {
-    return (
-        <PublicFrame brand={brand} size={wide ? "xl" : "md"}>
-            {children}
         </PublicFrame>
     );
 }

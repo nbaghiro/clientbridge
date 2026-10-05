@@ -9,14 +9,13 @@ import {
     useClients,
     useDocForm,
 } from "@clientbridge/app-core";
-import { ItemImage, Modal } from "@clientbridge/ui";
+import { field, ItemImage, Modal, primaryButton } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import { api, apiBaseUrl } from "../lib/api";
 
 const box =
     "rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
-const field = `w-full ${box}`;
 
 export interface DocEditorProps {
     kind: "invoice" | "estimate";
@@ -196,11 +195,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                         >
                             {strings.common.cancel}
                         </button>
-                        <button
-                            type="submit"
-                            disabled={form.busy}
-                            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                        >
+                        <button type="submit" disabled={form.busy} className={primaryButton}>
                             {form.busy
                                 ? strings.common.saving
                                 : form.editing

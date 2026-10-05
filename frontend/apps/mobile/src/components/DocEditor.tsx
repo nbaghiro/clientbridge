@@ -22,8 +22,9 @@ import {
 } from "react-native";
 
 import { api, apiBaseUrl } from "../lib/api";
-import { ItemImage } from "./ItemImage";
-import { Modal } from "./Modal";
+import { ItemImage } from "../ui/ItemImage";
+import { Modal } from "../ui/Modal";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 
@@ -191,11 +192,11 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     <Pressable style={styles.cancel} onPress={onClose}>
                         <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                     </Pressable>
-                    <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
+                    <Pressable style={ui.primary} disabled={form.busy} onPress={form.submit}>
                         {form.busy ? (
                             <ActivityIndicator color={c.accentInk} />
                         ) : (
-                            <Text style={styles.saveText}>
+                            <Text style={ui.primaryText}>
                                 {form.editing
                                     ? strings.invoices.saveChanges
                                     : strings.invoices.saveDraft}
@@ -287,13 +288,4 @@ const styles = StyleSheet.create({
     actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    save: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        minWidth: 84,
-        alignItems: "center",
-    },
-    saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
 });

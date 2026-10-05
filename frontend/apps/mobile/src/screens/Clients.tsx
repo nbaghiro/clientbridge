@@ -58,6 +58,7 @@ import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
 import { Modal } from "../ui/Modal";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 
@@ -407,11 +408,7 @@ function ModalField({ label, ...props }: { label: string } & ComponentProps<type
     return (
         <View style={styles.field}>
             <Text style={styles.fieldLabel}>{label}</Text>
-            <TextInput
-                style={styles.fieldInput}
-                placeholderTextColor={theme.colors.muted}
-                {...props}
-            />
+            <TextInput style={ui.input} placeholderTextColor={theme.colors.muted} {...props} />
         </View>
     );
 }
@@ -446,7 +443,7 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
                     <Text style={styles.cancelText}>{strings.common.cancel}</Text>
                 </Pressable>
                 <Pressable
-                    style={styles.save}
+                    style={ui.primary}
                     onPress={() => {
                         form.submit();
                     }}
@@ -455,7 +452,7 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
                     {form.busy ? (
                         <ActivityIndicator color={theme.colors.accentInk} />
                     ) : (
-                        <Text style={styles.saveText}>{strings.clients.addClient}</Text>
+                        <Text style={ui.primaryText}>{strings.clients.addClient}</Text>
                     )}
                 </Pressable>
             </View>
@@ -527,27 +524,8 @@ const styles = StyleSheet.create({
     modalTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 14 },
     field: { marginBottom: 12 },
     fieldLabel: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 5 },
-    fieldInput: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-    },
     error: { color: c.danFg, fontSize: 13, marginBottom: 4 },
     modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    save: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        minWidth: 88,
-        alignItems: "center",
-    },
-    saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
 });

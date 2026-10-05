@@ -27,7 +27,14 @@ import {
     pickupIntent,
     useSearch,
 } from "@clientbridge/app-core";
-import { ChargeSheet, IconSearch, ItemImage, StatusPill } from "@clientbridge/ui";
+import {
+    ChargeSheet,
+    field,
+    IconSearch,
+    ItemImage,
+    primaryButtonLarge,
+    StatusPill,
+} from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import {
@@ -155,9 +162,6 @@ function EntitlementSale({ kind, onClose }: { kind: EntitlementKind; onClose: ()
     return <StartSubscription clientId={null} onClose={onClose} />;
 }
 
-const input =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
-
 function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
     const clients = useClients();
     return (
@@ -181,7 +185,7 @@ function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
                             cart.setReceiptEmail(e.target.value);
                         }}
                         inputMode="email"
-                        className={input}
+                        className={field}
                     />
                 </label>
                 <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-ink-soft">
@@ -192,7 +196,7 @@ function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
                             cart.setReceiptPhone(e.target.value);
                         }}
                         inputMode="tel"
-                        className={input}
+                        className={field}
                     />
                 </label>
             </div>
@@ -235,7 +239,7 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                 <button
                     type="button"
                     onClick={cart.newSale}
-                    className="mt-4 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+                    className={`${primaryButtonLarge} mt-4 w-full`}
                 >
                     {strings.pos.newSale}
                 </button>
@@ -318,7 +322,7 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
                             type="button"
                             onClick={cart.review}
                             disabled={cart.busy || cart.isEmpty}
-                            className="mt-3 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                            className={`${primaryButtonLarge} mt-3 w-full`}
                         >
                             {cart.busy ? strings.pos.totalling : strings.pos.reviewTotal}
                         </button>

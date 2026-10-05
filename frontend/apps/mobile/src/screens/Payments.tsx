@@ -5,7 +5,7 @@ import { type ReactElement, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Segmented } from "../components/Segmented";
+import { Tabs } from "../components/Tabs";
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
 import { GiftCards } from "./GiftCards";
@@ -29,7 +29,7 @@ export function PaymentsScreen() {
             <Text style={styles.title}>{strings.nav.payments}</Text>
             {current === undefined ? null : (
                 <>
-                    <Segmented items={tabs} active={current.key} onSelect={setTab} />
+                    <Tabs items={tabs} active={current.key} onSelect={setTab} />
                     <View style={styles.body}>
                         {tabBody(current.key, tab === "invoices" ? params?.create : undefined)}
                     </View>

@@ -131,7 +131,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
             <View style={styles.panel}>
                 <Text style={styles.fieldLabel}>{strings.team.email}</Text>
                 <TextInput
-                    style={styles.input}
+                    style={ui.input}
                     value={invite.email}
                     onChangeText={invite.setEmail}
                     placeholder={strings.team.emailPlaceholder}
@@ -163,14 +163,14 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                 {invite.error !== null ? <Text style={styles.error}>{invite.error}</Text> : null}
 
                 <Pressable
-                    style={[styles.submit, invite.busy && styles.dim]}
+                    style={[ui.primaryLarge, styles.submitGap, invite.busy && styles.dim]}
                     onPress={invite.submit}
                     disabled={invite.busy}
                 >
                     {invite.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={styles.submitText}>{strings.team.sendInvite}</Text>
+                        <Text style={ui.primaryLargeText}>{strings.team.sendInvite}</Text>
                     )}
                 </Pressable>
 
@@ -258,14 +258,14 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                         </View>
                         <Text style={ui.label}>{strings.team.rateLabel(form.rateType)}</Text>
                         <TextInput
-                            style={styles.input}
+                            style={ui.input}
                             value={form.rate}
                             onChangeText={form.setRate}
                             keyboardType="decimal-pad"
                         />
                         <Text style={ui.label}>{strings.team.retailRate}</Text>
                         <TextInput
-                            style={styles.input}
+                            style={ui.input}
                             value={form.retailPercent}
                             onChangeText={form.setRetailPercent}
                             keyboardType="decimal-pad"
@@ -333,16 +333,6 @@ const styles = StyleSheet.create({
         marginBottom: 6,
         marginTop: 10,
     },
-    input: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 11,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-    },
     chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     chip: {
         borderColor: c.border,
@@ -356,15 +346,8 @@ const styles = StyleSheet.create({
     chipText: { color: c.inkSoft, fontSize: 13, fontWeight: "600" },
     chipTextOn: { color: c.accentInk },
     error: { color: c.danFg, fontSize: 13, marginTop: 10 },
-    submit: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 13,
-        alignItems: "center",
-        marginTop: 14,
-    },
+    submitGap: { marginTop: 14 },
     dim: { opacity: 0.7 },
-    submitText: { color: c.accentInk, fontSize: 15, fontWeight: "700" },
     linkBox: {
         marginTop: 14,
         padding: 12,

@@ -46,7 +46,7 @@ import {
     SellPackage,
     StartSubscription,
 } from "../components/EntitlementSales";
-import { IconSearch } from "../components/Icons";
+import { IconSearch } from "../ui/Icons";
 import { ChargeSheet } from "../ui/ChargeSheet";
 import { useRole } from "../lib/auth";
 import { ItemImage } from "../ui/ItemImage";

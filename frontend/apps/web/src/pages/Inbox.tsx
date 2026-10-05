@@ -19,16 +19,13 @@ import {
     useThreads,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
-import { Modal, StatusPill } from "@clientbridge/ui";
+import { field, Modal, primaryButton, primaryButtonLarge, StatusPill } from "@clientbridge/ui";
 import { useEffect, useRef, useState } from "react";
 
 import { Tabs } from "../components/Tabs";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { Reviews } from "./Reviews";
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 type Panel = "none" | "new" | "broadcast";
 
@@ -84,7 +81,7 @@ function Messages() {
                         onClick={() => {
                             setPanel("new");
                         }}
-                        className="rounded-md bg-accent px-3.5 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
+                        className={primaryButton}
                     >
                         {strings.inbox.newMessage}
                     </button>
@@ -240,7 +237,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
                     <button
                         type="submit"
                         disabled={compose.busy || compose.body.trim().length === 0}
-                        className="rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                        className={primaryButtonLarge}
                     >
                         {compose.busy ? strings.inbox.sending : strings.inbox.send}
                     </button>
@@ -365,11 +362,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                     >
                         {strings.common.cancel}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={compose.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={compose.busy} className={primaryButton}>
                         {compose.busy ? strings.inbox.sending : strings.inbox.sendMessage}
                     </button>
                 </div>
@@ -394,11 +387,7 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                     <p className="mt-2 text-sm text-muted">
                         {strings.inbox.broadcastRecipients(sent.name, sent.recipient_count)}
                     </p>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="mt-5 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                    >
+                    <button type="button" onClick={onClose} className={`${primaryButton} mt-5`}>
                         {strings.common.done}
                     </button>
                 </div>
@@ -478,11 +467,7 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                     >
                         {strings.common.cancel}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={form.busy} className={primaryButton}>
                         {form.busy ? strings.inbox.sending : strings.inbox.sendBroadcast}
                     </button>
                 </div>

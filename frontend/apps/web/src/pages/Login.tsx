@@ -3,8 +3,8 @@ import { type SubmitEvent } from "react";
 
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
-import { BrandBackdrop, resolveVariant } from "./BrandBackdrop";
-import { GoogleIcon, Lockup } from "@clientbridge/ui";
+import { BrandBackdrop, resolveVariant } from "../components/BrandBackdrop";
+import { fieldLarge, GoogleIcon, Lockup, primaryButtonLarge } from "@clientbridge/ui";
 
 const backdrop = resolveVariant(new URLSearchParams(window.location.search).get("bg"));
 
@@ -13,9 +13,6 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
         defaultEmail: "hannah@birchbarkpets.ca",
         defaultPassword: "demo1234",
     });
-
-    const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
     return (
         <div className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
@@ -78,7 +75,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                                     }}
                                     placeholder={strings.auth.namePlaceholder}
                                     autoComplete="name"
-                                    className={field}
+                                    className={fieldLarge}
                                 />
                             </label>
                         ) : null}
@@ -93,7 +90,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                                 }}
                                 placeholder={strings.auth.emailPlaceholder}
                                 autoComplete="email"
-                                className={field}
+                                className={fieldLarge}
                             />
                         </label>
 
@@ -109,7 +106,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                                 autoComplete={
                                     login.mode === "signin" ? "current-password" : "new-password"
                                 }
-                                className={field}
+                                className={fieldLarge}
                             />
                         </label>
 
@@ -120,7 +117,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
                         <button
                             type="submit"
                             disabled={login.busy}
-                            className="mt-1 rounded-md bg-accent px-4 py-2.5 font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                            className={`${primaryButtonLarge} mt-1`}
                         >
                             {login.busy
                                 ? login.mode === "signin"

@@ -1,7 +1,6 @@
 import {
     type PublicBookingPage,
     type PublicBookingResult,
-    type PublicBrand,
     type PublicService,
     type PublicSlot,
     type PublicStaff,
@@ -14,7 +13,7 @@ import {
     strings,
     usePublicBookingForm,
 } from "@clientbridge/app-core/public";
-import { CardForm, ItemImage } from "@clientbridge/ui";
+import { CardForm, field, ItemImage, primaryButtonLarge } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -24,9 +23,6 @@ import { config } from "../config";
 
 const booking = createPublicBookingClient(config.apiUrl);
 
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
-
 export function PublicBooking() {
     const { slug = "" } = useParams<{ slug: string }>();
     const form = usePublicBookingForm(booking, slug);
@@ -35,26 +31,28 @@ export function PublicBooking() {
     useEmbedSuccess(form.result !== null, "booking");
 
     if (form.status === "loading")
-        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
+        return (
+            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
+        );
 
     if (form.status === "not-found")
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.publicBooking.notFoundTitle}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.publicBooking.notFoundBody}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (form.status === "error" || page === null)
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.common.somethingWrong}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (form.result !== null)
@@ -66,7 +64,7 @@ export function PublicBooking() {
     };
 
     return (
-        <Frame brand={page.brand}>
+        <PublicFrame brand={page.brand}>
             <p className="text-sm text-muted">{strings.publicBooking.bookWith}</p>
             <h1 className="mt-1 font-display text-xl font-bold text-ink">{page.business_name}</h1>
             {page.addons.length > 0 ? (
@@ -237,7 +235,7 @@ export function PublicBooking() {
                         <button
                             type="submit"
                             disabled={form.busy || !form.canBook}
-                            className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                            className={`${primaryButtonLarge} w-full`}
                         >
                             {form.busy
                                 ? strings.publicBooking.booking
@@ -250,7 +248,7 @@ export function PublicBooking() {
                     <p className="text-sm text-danger-fg">{form.error}</p>
                 ) : null}
             </form>
-        </Frame>
+        </PublicFrame>
     );
 }
 
@@ -325,7 +323,7 @@ function BookedState({
                 ? formatMoneyWithCurrency(service.deposit_amount_cents, service.currency)
                 : strings.publicBooking.theDeposit;
         return (
-            <Frame brand={page.brand}>
+            <PublicFrame brand={page.brand}>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.publicBooking.holdSpotTitle}
                 </h1>
@@ -343,12 +341,12 @@ function BookedState({
                         }}
                     />
                 </div>
-            </Frame>
+            </PublicFrame>
         );
     }
 
     return (
-        <Frame brand={page.brand}>
+        <PublicFrame brand={page.brand}>
             <div className="py-4 text-center">
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓
@@ -365,7 +363,7 @@ function BookedState({
                     </p>
                 ) : null}
             </div>
-        </Frame>
+        </PublicFrame>
     );
 }
 
@@ -376,14 +374,4 @@ function Labeled({ label, children }: { label: string; children: React.ReactNode
             {children}
         </label>
     );
-}
-
-function Frame({
-    brand = null,
-    children,
-}: {
-    brand?: PublicBrand | null;
-    children: React.ReactNode;
-}) {
-    return <PublicFrame brand={brand}>{children}</PublicFrame>;
 }

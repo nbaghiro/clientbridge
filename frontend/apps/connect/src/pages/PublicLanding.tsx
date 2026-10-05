@@ -4,7 +4,7 @@ import {
     strings,
     usePublicBusiness,
 } from "@clientbridge/app-core/public";
-import { ItemImage } from "@clientbridge/ui";
+import { ItemImage, primaryButtonLarge } from "@clientbridge/ui";
 import { Link, useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
@@ -75,7 +75,7 @@ export function PublicLanding() {
                     </div>
                     <Link
                         to={bookTo}
-                        className="mt-6 block w-full rounded-md bg-accent px-4 py-2.5 text-center text-sm font-semibold text-accent-ink transition hover:opacity-90"
+                        className={`${primaryButtonLarge} mt-6 block w-full text-center`}
                     >
                         {strings.publicLanding.book}
                     </Link>

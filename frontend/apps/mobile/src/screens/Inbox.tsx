@@ -33,13 +33,14 @@ import {
     View,
 } from "react-native";
 
-import { Segmented } from "../components/Segmented";
+import { Tabs } from "../components/Tabs";
 import { ListPage } from "../ui/ListPage";
 import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { Reviews } from "./Reviews";
 import { Modal } from "../ui/Modal";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 export function InboxScreen() {
@@ -49,7 +50,7 @@ export function InboxScreen() {
     return (
         <View style={styles.screen}>
             {segments.length > 1 ? (
-                <Segmented items={segments} active={segment} onSelect={setSegment} />
+                <Tabs items={segments} active={segment} onSelect={setSegment} />
             ) : null}
             {segment === "reviews" ? <Reviews /> : <Messages />}
         </View>
@@ -347,7 +348,7 @@ function BroadcastModal({ visible, onClose }: { visible: boolean; onClose: () =>
                     <ScrollView contentContainerStyle={styles.formBody}>
                         <Text style={styles.fieldLabel}>{strings.inbox.nameLabel}</Text>
                         <TextInput
-                            style={styles.input}
+                            style={ui.input}
                             value={form.name}
                             onChangeText={form.setName}
                             placeholder={strings.inbox.namePlaceholder}
@@ -372,7 +373,7 @@ function BroadcastModal({ visible, onClose }: { visible: boolean; onClose: () =>
                             {strings.inbox.audienceTagsOptional}
                         </Text>
                         <TextInput
-                            style={styles.input}
+                            style={ui.input}
                             value={form.tags}
                             onChangeText={form.setTags}
                             placeholder={strings.inbox.tagsPlaceholderShort}
@@ -412,11 +413,11 @@ function ModalActions({
                 <Text style={styles.cancelText}>{strings.common.cancel}</Text>
             </Pressable>
             <Pressable
-                style={[styles.save, busy && styles.btnBusy]}
+                style={[ui.primary, busy && styles.btnBusy]}
                 disabled={busy}
                 onPress={onSubmit}
             >
-                <Text style={styles.saveText}>{busy ? strings.inbox.sending : label}</Text>
+                <Text style={ui.primaryText}>{busy ? strings.inbox.sending : label}</Text>
             </Pressable>
         </View>
     );
@@ -513,16 +514,6 @@ const styles = StyleSheet.create({
     center: { alignItems: "center", gap: 12, paddingVertical: 20 },
     fieldLabel: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6 },
     fieldSpace: { marginTop: 14 },
-    input: {
-        backgroundColor: c.bg,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        color: c.ink,
-        fontSize: 15,
-    },
     textArea: {
         backgroundColor: c.bg,
         borderColor: c.border,
@@ -549,14 +540,5 @@ const styles = StyleSheet.create({
     actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
     cancel: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
     cancelText: { color: c.inkSoft, fontSize: 14, fontWeight: "600" },
-    save: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        minWidth: 96,
-        alignItems: "center",
-    },
-    saveText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
     btnBusy: { opacity: 0.6 },
 });

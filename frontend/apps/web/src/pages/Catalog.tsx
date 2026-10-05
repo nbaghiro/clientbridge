@@ -26,9 +26,11 @@ import {
 import {
     DetailSection,
     DetailView,
+    field,
     ItemImage,
     ListPage,
     Money,
+    primaryButton,
     StatusPill,
 } from "@clientbridge/ui";
 import { type ReactNode, useMemo, useState } from "react";
@@ -38,10 +40,6 @@ import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 
 const GRID = "grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-4";
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
-const primary =
-    "rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60";
 const quiet =
     "rounded-md border border-line px-3 py-2 text-sm font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60";
 
@@ -177,7 +175,7 @@ function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => vo
                         type="button"
                         onClick={form.submit}
                         disabled={form.busy}
-                        className={primary}
+                        className={primaryButton}
                     >
                         {form.busy
                             ? strings.catalog.saving

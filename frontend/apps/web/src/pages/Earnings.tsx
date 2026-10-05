@@ -9,7 +9,7 @@ import {
     useEarnings,
     type EarningRow,
 } from "@clientbridge/app-core";
-import { ListPage, Money, StatusPill } from "@clientbridge/ui";
+import { ListPage, Money, primaryButtonSmall, StatusPill } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -57,7 +57,7 @@ function EarningItem({ row }: { row: EarningRow }) {
                         type="button"
                         disabled={busy}
                         onClick={approve}
-                        className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                        className={`${primaryButtonSmall} shrink-0`}
                     >
                         {busy ? strings.earnings.approving : strings.earnings.approve}
                     </button>
@@ -67,7 +67,7 @@ function EarningItem({ row }: { row: EarningRow }) {
                         type="button"
                         disabled={busy}
                         onClick={pay}
-                        className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                        className={`${primaryButtonSmall} shrink-0`}
                     >
                         {busy ? strings.common.saving : strings.earnings.markPaid}
                     </button>

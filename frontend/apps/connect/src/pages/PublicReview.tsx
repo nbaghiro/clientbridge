@@ -1,14 +1,12 @@
 import { createPublicReviewClient, strings, usePublicReview } from "@clientbridge/app-core/public";
 import { useParams } from "react-router-dom";
 
+import { field, primaryButtonLarge } from "@clientbridge/ui";
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
 const reviews = createPublicReviewClient(config.apiUrl);
-
-const field =
-    "mt-4 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function PublicReview() {
     const { token = "" } = useParams<{ token: string }>();
@@ -74,7 +72,7 @@ export function PublicReview() {
                 }}
                 placeholder={strings.publicReview.notePlaceholder}
                 rows={4}
-                className={field}
+                className={`${field} mt-4`}
             />
             {form.error !== null ? (
                 <p className="mt-2 text-sm text-danger-fg">{form.error}</p>
@@ -83,7 +81,7 @@ export function PublicReview() {
                 type="button"
                 onClick={form.submit}
                 disabled={form.busy}
-                className="mt-4 w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                className={`${primaryButtonLarge} mt-4 w-full`}
             >
                 {form.busy ? strings.publicReview.submitting : strings.publicReview.submit}
             </button>

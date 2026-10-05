@@ -1,7 +1,7 @@
 import { strings, useAcceptInviteForm } from "@clientbridge/app-core";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { Lockup } from "@clientbridge/ui";
+import { fieldLarge, Lockup, primaryButtonLarge } from "@clientbridge/ui";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 
@@ -17,9 +17,6 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
         const navigated = navigate("/", { replace: true });
         if (navigated) navigated.catch(() => undefined);
     });
-
-    const field =
-        "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-bg px-6 py-12">
@@ -50,7 +47,7 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                                 }}
                                 placeholder={strings.auth.namePlaceholder}
                                 autoComplete="name"
-                                className={field}
+                                className={fieldLarge}
                             />
                         </label>
 
@@ -64,7 +61,7 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                                 }}
                                 placeholder={strings.auth.passwordPlaceholder}
                                 autoComplete="new-password"
-                                className={field}
+                                className={fieldLarge}
                             />
                         </label>
 
@@ -73,7 +70,7 @@ export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
                         <button
                             type="submit"
                             disabled={form.busy}
-                            className="mt-1 rounded-md bg-accent px-4 py-2.5 font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                            className={`${primaryButtonLarge} mt-1`}
                         >
                             {form.busy ? strings.auth.joining : strings.auth.joinTeam}
                         </button>

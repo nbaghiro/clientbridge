@@ -19,14 +19,18 @@ import {
     useSendContractForm,
     useSendFormForm,
 } from "@clientbridge/app-core";
-import { Empty, Panel, StatusPill } from "@clientbridge/ui";
+import {
+    Empty,
+    field,
+    Panel,
+    primaryButton,
+    primaryButtonSmall,
+    StatusPill,
+} from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function OnlineBooking() {
     const role = useRole();
@@ -496,11 +500,7 @@ function SectionHead({
                         {sendLabel}
                     </button>
                 ) : null}
-                <button
-                    type="button"
-                    onClick={onCreate}
-                    className="rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink transition hover:opacity-90"
-                >
+                <button type="button" onClick={onCreate} className={primaryButtonSmall}>
                     {createLabel}
                 </button>
             </div>
@@ -537,12 +537,7 @@ function PanelActions({
             >
                 {strings.common.cancel}
             </button>
-            <button
-                type="button"
-                onClick={onSubmit}
-                disabled={busy}
-                className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-            >
+            <button type="button" onClick={onSubmit} disabled={busy} className={primaryButton}>
                 {busy ? strings.common.working : label}
             </button>
         </div>

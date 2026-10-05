@@ -14,6 +14,7 @@ import {
 } from "react-native";
 
 import { api } from "../lib/api";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 
@@ -41,7 +42,7 @@ export function Account({ footer }: { footer?: ReactNode }) {
                     <View key={f.key}>
                         <Text style={styles.label}>{f.label}</Text>
                         <TextInput
-                            style={styles.input}
+                            style={ui.inputLarge}
                             value={fields[f.key]}
                             onChangeText={(v) => {
                                 form.set(f.key, v);
@@ -82,14 +83,18 @@ export function Account({ footer }: { footer?: ReactNode }) {
                 {form.saved ? <Text style={styles.saved}>{strings.common.saved}</Text> : null}
 
                 <Pressable
-                    style={({ pressed }) => [styles.submit, (form.busy || pressed) && styles.dim]}
+                    style={({ pressed }) => [
+                        ui.primaryLarge,
+                        styles.submitGap,
+                        (form.busy || pressed) && styles.dim,
+                    ]}
                     onPress={form.submit}
                     disabled={form.busy}
                 >
                     {form.busy ? (
                         <ActivityIndicator color="#fff" />
                     ) : (
-                        <Text style={styles.submitText}>{strings.common.save}</Text>
+                        <Text style={ui.primaryLargeText}>{strings.common.save}</Text>
                     )}
                 </Pressable>
                 {footer}
@@ -105,16 +110,6 @@ const styles = StyleSheet.create({
     loading: { marginTop: 24 },
     note: { color: c.muted, fontSize: 13, marginBottom: 6, lineHeight: 18 },
     label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 14 },
-    input: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 13,
-        paddingVertical: 13,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.surface,
-    },
     chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 2 },
     chip: {
         borderColor: c.border,
@@ -129,13 +124,6 @@ const styles = StyleSheet.create({
     chipTextOn: { color: c.accentInk },
     error: { color: c.danFg, fontSize: 13, marginTop: 16 },
     saved: { color: c.success, fontSize: 13, marginTop: 16 },
-    submit: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 15,
-        alignItems: "center",
-        marginTop: 22,
-    },
+    submitGap: { marginTop: 22 },
     dim: { opacity: 0.7 },
-    submitText: { color: "#fff", fontWeight: "700", fontSize: 15 },
 });

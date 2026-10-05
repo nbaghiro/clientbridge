@@ -19,7 +19,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { DebugOverlay } from "../components/DebugOverlay";
-import { IconSettings, Lockup } from "../components/Icons";
+import { IconSettings, Lockup } from "../ui/Icons";
 import { InboxButton } from "../components/InboxButton";
 import { api } from "../lib/api";
 import { ListPage } from "../ui/ListPage";

@@ -9,6 +9,7 @@ import {
 } from "@clientbridge/app-core";
 import { useState } from "react";
 
+import { primaryButton } from "@clientbridge/ui";
 import { useViewer } from "../lib/auth";
 
 const FIELD =
@@ -116,11 +117,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
 
                     {editor.error !== null && <p className="text-sm text-danger">{editor.error}</p>}
                     {editor.saved && <p className="text-sm text-success">{strings.common.saved}</p>}
-                    <button
-                        type="submit"
-                        disabled={editor.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={editor.busy} className={primaryButton}>
                         {editor.busy ? strings.common.saving : strings.hours.saveHours}
                     </button>
                 </form>

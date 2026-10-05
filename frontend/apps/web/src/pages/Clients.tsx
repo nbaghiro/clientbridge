@@ -35,10 +35,12 @@ import {
 import {
     DetailSection,
     DetailView,
+    field,
     ListPage,
     Modal,
     Money,
     PaymentMethodForm,
+    primaryButton,
     StatusPill,
 } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
@@ -46,9 +48,6 @@ import { type SubmitEvent, useState } from "react";
 import { SellPackage, StartSubscription } from "../components/EntitlementSales";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function Clients() {
     const clients = useClients();
@@ -481,11 +480,7 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                     >
                         {strings.common.cancel}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={form.busy} className={primaryButton}>
                         {form.busy ? strings.clients.adding : strings.clients.addClient}
                     </button>
                 </div>

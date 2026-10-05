@@ -13,13 +13,10 @@ import {
     useReviewSummary,
     useReviews,
 } from "@clientbridge/app-core";
-import { ListPage, StatusPill } from "@clientbridge/ui";
+import { field, ListPage, primaryButton, primaryButtonSmall, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function Reviews() {
     const [reloadKey, setReloadKey] = useState(0);
@@ -167,7 +164,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                                 respond(reply);
                                 setEditing(false);
                             }}
-                            className="rounded-md bg-accent px-3.5 py-1.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                            className={primaryButtonSmall}
                         >
                             {busy ? strings.common.saving : strings.reviews.postReply}
                         </button>
@@ -191,7 +188,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
                             type="button"
                             disabled={busy}
                             onClick={publish}
-                            className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                            className={primaryButtonSmall}
                         >
                             {busy ? strings.common.working : strings.reviews.publish}
                         </button>
@@ -256,11 +253,7 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                     >
                         {strings.common.cancel}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                    >
+                    <button type="submit" disabled={form.busy} className={primaryButton}>
                         {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
                     </button>
                 </div>

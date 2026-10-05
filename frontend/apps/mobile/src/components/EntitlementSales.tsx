@@ -19,7 +19,7 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 import { api } from "../lib/api";
 import { ChargeSheet } from "../ui/ChargeSheet";
@@ -145,7 +145,7 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
                 <>
                     <Text style={ui.label}>{strings.giftCards.amountCad}</Text>
                     <TextInput
-                        style={styles.input}
+                        style={ui.input}
                         value={form.amount}
                         onChangeText={form.setAmount}
                         keyboardType="decimal-pad"
@@ -156,7 +156,7 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
             )}
             <Text style={ui.label}>{strings.giftCards.recipientOptional}</Text>
             <TextInput
-                style={styles.input}
+                style={ui.input}
                 value={form.recipient}
                 onChangeText={form.setRecipient}
                 placeholder={strings.giftCards.recipientPlaceholder}
@@ -309,16 +309,3 @@ function ItemChoice({
         />
     );
 }
-
-const styles = StyleSheet.create({
-    input: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.bg,
-    },
-});

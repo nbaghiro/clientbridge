@@ -51,6 +51,7 @@ import { StatusPill } from "../ui/StatusPill";
 import { ui } from "../ui/styles";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { Tabs } from "../components/Tabs";
 
 const c = theme.colors;
 const HOUR_PX = 56;
@@ -86,23 +87,16 @@ export function CalendarScreen() {
         <SafeAreaView edges={["top"]} style={styles.screen}>
             <View style={styles.header}>
                 <Text style={styles.month}>{formatMonthYear(anchor)}</Text>
-                <View style={styles.segment}>
-                    {(["agenda", "day"] as const).map((v) => (
-                        <Pressable
-                            key={v}
-                            onPress={() => {
-                                setView(v);
-                            }}
-                            style={[styles.segBtn, view === v && styles.segBtnOn]}
-                        >
-                            <Text style={[styles.segText, view === v && styles.segTextOn]}>
-                                {v === "agenda"
-                                    ? strings.calendar.viewAgenda
-                                    : strings.calendar.viewDay}
-                            </Text>
-                        </Pressable>
-                    ))}
-                </View>
+                <Tabs
+                    pill
+                    inset={false}
+                    items={[
+                        { key: "agenda", label: strings.calendar.viewAgenda },
+                        { key: "day", label: strings.calendar.viewDay },
+                    ]}
+                    active={view}
+                    onSelect={setView}
+                />
             </View>
 
             <View style={styles.strip}>
@@ -468,11 +462,6 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
     },
     month: { color: c.ink, fontSize: 20, fontWeight: "700", letterSpacing: -0.3 },
-    segment: { flexDirection: "row", backgroundColor: c.surface, borderRadius: 8, padding: 2 },
-    segBtn: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 6 },
-    segBtnOn: { backgroundColor: c.accent },
-    segText: { color: c.muted, fontSize: 13, fontWeight: "600" },
-    segTextOn: { color: c.accentInk },
     strip: {
         flexDirection: "row",
         alignItems: "center",

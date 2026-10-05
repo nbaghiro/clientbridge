@@ -15,9 +15,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GoogleIcon, Lockup } from "../components/Icons";
+import { GoogleIcon, Lockup } from "../ui/Icons";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
+import { ui } from "../ui/styles";
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
     const login = useLogin(api, setTokens, onSuccess, {
@@ -88,7 +89,8 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
 
                         <Pressable
                             style={({ pressed }) => [
-                                styles.submit,
+                                ui.primaryLarge,
+                                styles.submitGap,
                                 (login.busy || pressed) && styles.dim,
                             ]}
                             onPress={() => {
@@ -99,7 +101,7 @@ export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
                             {login.busy ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={styles.submitText}>
+                                <Text style={ui.primaryLargeText}>
                                     {signin ? strings.auth.signIn : strings.auth.createAccount}
                                 </Text>
                             )}
@@ -137,7 +139,7 @@ function Field({ label, ...props }: { label: string } & ComponentProps<typeof Te
     return (
         <View style={styles.field}>
             <Text style={styles.label}>{label}</Text>
-            <TextInput style={styles.input} placeholderTextColor={theme.colors.muted} {...props} />
+            <TextInput style={ui.inputLarge} placeholderTextColor={theme.colors.muted} {...props} />
         </View>
     );
 }
@@ -171,26 +173,9 @@ const styles = StyleSheet.create({
     or: { color: theme.colors.muted, fontSize: 12 },
     field: { marginBottom: 14 },
     label: { color: theme.colors.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6 },
-    input: {
-        borderColor: theme.colors.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 13,
-        paddingVertical: 13,
-        color: theme.colors.ink,
-        fontSize: 15,
-        backgroundColor: theme.colors.surface,
-    },
     error: { color: theme.colors.danFg, fontSize: 13, marginBottom: 6 },
-    submit: {
-        backgroundColor: theme.colors.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 15,
-        alignItems: "center",
-        marginTop: 10,
-    },
+    submitGap: { marginTop: 10 },
     dim: { opacity: 0.7 },
-    submitText: { color: "#fff", fontWeight: "700", fontSize: 15 },
     toggleRow: {
         flexDirection: "row",
         justifyContent: "center",

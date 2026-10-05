@@ -42,7 +42,15 @@ import {
     useStaff,
     useStripeAccountId,
 } from "@clientbridge/app-core";
-import { ChargeSheet, DetailSection, DetailView, Modal, Money, StatusPill } from "@clientbridge/ui";
+import {
+    ChargeSheet,
+    DetailSection,
+    DetailView,
+    Modal,
+    Money,
+    primaryButtonSmall,
+    StatusPill,
+} from "@clientbridge/ui";
 import {
     type SubmitEvent,
     type PointerEvent as ReactPointerEvent,
@@ -187,7 +195,7 @@ export function Calendar() {
                             onClick={() => {
                                 setBooking(true);
                             }}
-                            className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong"
+                            className={primaryButtonSmall}
                         >
                             {strings.calendar.newBookingButton}
                         </button>
@@ -741,11 +749,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                     >
                         {strings.common.cancel}
                     </button>
-                    <button
-                        type="submit"
-                        disabled={form.busy}
-                        className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent-strong disabled:opacity-50"
-                    >
+                    <button type="submit" disabled={form.busy} className={primaryButtonSmall}>
                         {form.busy
                             ? strings.calendar.booking
                             : form.repeat

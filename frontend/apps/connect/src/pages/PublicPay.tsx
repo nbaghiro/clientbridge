@@ -7,7 +7,7 @@ import {
     strings,
     usePublicPayForm,
 } from "@clientbridge/app-core/public";
-import { CardForm, StatusPill } from "@clientbridge/ui";
+import { CardForm, primaryButtonLarge, StatusPill } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
 import { PublicCentered, PublicFrame } from "../components/PublicFrame";
@@ -24,26 +24,28 @@ export function PublicPay() {
     useEmbedSuccess(form.status === "paid", "pay");
 
     if (form.status === "loading")
-        return <Frame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</Frame>;
+        return (
+            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
+        );
 
     if (form.status === "not-found")
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.publicPay.notFoundTitle}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.publicPay.notFoundBody}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (form.status === "error" || invoice === null)
         return (
-            <Frame>
+            <PublicFrame>
                 <h1 className="font-display text-xl font-bold text-ink">
                     {strings.common.somethingWrong}
                 </h1>
                 <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </Frame>
+            </PublicFrame>
         );
 
     if (form.status === "paid")
@@ -58,7 +60,7 @@ export function PublicPay() {
     };
 
     return (
-        <Frame brand={invoice.brand}>
+        <PublicFrame brand={invoice.brand}>
             <p className="text-sm text-muted">
                 {strings.publicPay.requestingPayment(invoice.business_name)}
             </p>
@@ -143,18 +145,8 @@ export function PublicPay() {
                 )}
                 {form.error ? <p className="mt-3 text-sm text-danger-fg">{form.error}</p> : null}
             </div>
-        </Frame>
+        </PublicFrame>
     );
-}
-
-function Frame({
-    brand = null,
-    children,
-}: {
-    brand?: PublicBrand | null;
-    children: React.ReactNode;
-}) {
-    return <PublicFrame brand={brand}>{children}</PublicFrame>;
 }
 
 function MethodOption({
@@ -211,7 +203,7 @@ function PrimaryButton({
             type="button"
             onClick={onClick}
             disabled={busy ?? false}
-            className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+            className={`${primaryButtonLarge} w-full`}
         >
             {busy ? strings.common.working : children}
         </button>
@@ -251,7 +243,7 @@ function PaidState({
     brand?: PublicBrand | null;
 }) {
     return (
-        <Frame brand={brand}>
+        <PublicFrame brand={brand}>
             <div className="py-4 text-center">
                 <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
                     ✓
@@ -263,6 +255,6 @@ function PaidState({
                     {strings.publicPay.paidBody(businessName)}
                 </p>
             </div>
-        </Frame>
+        </PublicFrame>
     );
 }

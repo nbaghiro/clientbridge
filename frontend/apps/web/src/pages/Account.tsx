@@ -8,10 +8,8 @@ import {
 } from "@clientbridge/app-core";
 import { type ChangeEvent, useRef } from "react";
 
+import { fieldLarge, primaryButton } from "@clientbridge/ui";
 import { api, apiBaseUrl } from "../lib/api";
-
-const FIELD =
-    "w-full rounded-md border border-line bg-bg px-3 py-2.5 text-ink outline-hidden transition placeholder:text-muted focus:border-accent";
 
 export function Account() {
     const form = useAccountForm(api);
@@ -45,7 +43,7 @@ export function Account() {
                                         form.set(f.key, e.target.value);
                                     }}
                                     placeholder={f.placeholder}
-                                    className={FIELD}
+                                    className={fieldLarge}
                                 />
                             </label>
                         ))}
@@ -57,7 +55,7 @@ export function Account() {
                                     onChange={(e) => {
                                         form.set("locale", e.target.value);
                                     }}
-                                    className={FIELD}
+                                    className={fieldLarge}
                                 >
                                     {LOCALES.map((l) => (
                                         <option key={l.code} value={l.code}>
@@ -103,7 +101,7 @@ export function Account() {
                                                 form.set("primary", e.target.value);
                                             }}
                                             placeholder={strings.account.primaryPlaceholder}
-                                            className={FIELD}
+                                            className={fieldLarge}
                                         />
                                     </div>
                                 </label>
@@ -116,7 +114,7 @@ export function Account() {
                                             form.set("tagline", e.target.value);
                                         }}
                                         placeholder={strings.account.taglinePlaceholder}
-                                        className={FIELD}
+                                        className={fieldLarge}
                                     />
                                 </label>
                             </div>
@@ -125,11 +123,7 @@ export function Account() {
                         {form.saved && (
                             <p className="text-sm text-success">{strings.common.saved}</p>
                         )}
-                        <button
-                            type="submit"
-                            disabled={form.busy}
-                            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
-                        >
+                        <button type="submit" disabled={form.busy} className={primaryButton}>
                             {form.busy ? strings.common.saving : strings.common.save}
                         </button>
                     </form>

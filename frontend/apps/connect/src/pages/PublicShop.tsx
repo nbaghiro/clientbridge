@@ -5,7 +5,7 @@ import {
     strings,
     usePublicShop,
 } from "@clientbridge/app-core/public";
-import { CardForm, ItemImage } from "@clientbridge/ui";
+import { CardForm, field, ItemImage, primaryButtonLarge } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
@@ -14,9 +14,6 @@ import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
 const shopClient = createPublicShopClient(config.apiUrl);
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function PublicShop() {
     const { slug = "" } = useParams<{ slug: string }>();
@@ -188,7 +185,7 @@ export function PublicShop() {
                     <button
                         type="submit"
                         disabled={form.busy || shop.stripe_account_id === null}
-                        className="w-full rounded-md bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                        className={`${primaryButtonLarge} w-full`}
                     >
                         {form.busy ? strings.publicShop.placing : strings.publicShop.placeOrder}
                     </button>

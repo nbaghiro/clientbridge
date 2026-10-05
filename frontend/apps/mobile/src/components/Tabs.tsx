@@ -1,23 +1,25 @@
 import { theme } from "@clientbridge/tokens/theme";
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
-export function Segmented<K extends string>({
+export function Tabs<K extends string>({
     items,
     active,
     onSelect,
     pill = false,
+    inset = true,
 }: {
     items: { key: K; label: string }[];
     active: K;
     onSelect: (key: K) => void;
     pill?: boolean;
+    inset?: boolean;
 }) {
     return (
         <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={pill ? styles.pillBar : styles.bar}
-            contentContainerStyle={pill ? styles.pillRow : styles.row}
+            contentContainerStyle={[pill ? styles.pillRow : styles.row, !inset && styles.flush]}
         >
             {items.map((item) => (
                 <Pressable
@@ -69,4 +71,5 @@ const styles = StyleSheet.create({
     },
     pillOn: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
     pillLabelOn: { color: theme.colors.accentInk },
+    flush: { paddingHorizontal: 0 },
 });

@@ -13,7 +13,7 @@ import {
     useBankDeposits,
     useReports,
 } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import { primaryButton, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -289,7 +289,7 @@ function Remittances() {
                     type="button"
                     onClick={record}
                     disabled={!canRecord || busy}
-                    className="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-60"
+                    className={primaryButton}
                 >
                     {busy
                         ? strings.reports.remitting

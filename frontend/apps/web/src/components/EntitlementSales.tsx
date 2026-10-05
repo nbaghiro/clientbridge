@@ -18,13 +18,10 @@ import {
     useStripeAccountId,
     useSubscriptionForm,
 } from "@clientbridge/app-core";
-import { ChargeSheet } from "@clientbridge/ui";
+import { ChargeSheet, field } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import { api } from "../lib/api";
-
-const field =
-    "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
 
 export function SellGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardSaleForm(api, onClose);

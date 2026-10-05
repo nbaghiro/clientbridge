@@ -15,8 +15,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Lockup, Logo } from "../components/Icons";
+import { Lockup, Logo } from "../ui/Icons";
 import { api } from "../lib/api";
+import { ui } from "../ui/styles";
 
 const c = theme.colors;
 
@@ -59,7 +60,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
 
                     <Text style={styles.label}>{strings.onboarding.businessName}</Text>
                     <TextInput
-                        style={styles.input}
+                        style={ui.inputLarge}
                         value={form.name}
                         onChangeText={form.setName}
                         placeholder={strings.onboarding.businessNamePlaceholder}
@@ -103,7 +104,8 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
 
                     <Pressable
                         style={({ pressed }) => [
-                            styles.submit,
+                            ui.primaryLarge,
+                            styles.submitGap,
                             (form.busy || pressed) && styles.dim,
                         ]}
                         onPress={form.submit}
@@ -112,7 +114,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         {form.busy ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <Text style={styles.submitText}>
+                            <Text style={ui.primaryLargeText}>
                                 {strings.onboarding.createBusiness}
                             </Text>
                         )}
@@ -137,16 +139,6 @@ const styles = StyleSheet.create({
     title: { color: c.ink, fontSize: 28, fontWeight: "700", letterSpacing: -0.5 },
     subtitle: { color: c.muted, fontSize: 14.5, marginTop: 5, marginBottom: 22 },
     label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 14 },
-    input: {
-        borderColor: c.border,
-        borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 13,
-        paddingVertical: 13,
-        color: c.ink,
-        fontSize: 15,
-        backgroundColor: c.surface,
-    },
     slugRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -171,15 +163,8 @@ const styles = StyleSheet.create({
     chipText: { color: c.inkSoft, fontSize: 13, fontWeight: "700" },
     chipTextOn: { color: c.accentInk },
     error: { color: c.danFg, fontSize: 13, marginTop: 14 },
-    submit: {
-        backgroundColor: c.accent,
-        borderRadius: theme.radius,
-        paddingVertical: 15,
-        alignItems: "center",
-        marginTop: 22,
-    },
+    submitGap: { marginTop: 22 },
     dim: { opacity: 0.7 },
-    submitText: { color: "#fff", fontWeight: "700", fontSize: 15 },
     signOut: { alignItems: "center", paddingTop: 20 },
     signOutText: { color: c.muted, fontSize: 14, fontWeight: "600" },
 });
