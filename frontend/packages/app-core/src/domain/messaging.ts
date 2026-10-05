@@ -62,11 +62,11 @@ export function useThreadMessages(threadId: string): MessageRow[] {
 export function channelLabel(channel: string): string {
     switch (channel) {
         case "sms":
-            return strings.inbox.channelSms;
+            return strings.messaging.channelSms;
         case "email":
-            return strings.inbox.channelEmail;
+            return strings.messaging.channelEmail;
         case "chat":
-            return strings.inbox.channelChat;
+            return strings.messaging.channelChat;
         default:
             return channel;
     }
@@ -183,11 +183,11 @@ export function useComposeMessage(
 
     const submit = (): void => {
         if (clientId === "") {
-            setError(strings.inbox.selectClient);
+            setError(strings.messaging.selectClient);
             return;
         }
         if (body.trim().length === 0) {
-            setError(strings.inbox.writeMessage);
+            setError(strings.messaging.writeMessage);
             return;
         }
         run(() => sendMessage(api, { client_id: clientId, channel, body: body.trim() }), {
@@ -196,7 +196,7 @@ export function useComposeMessage(
                 if (initial?.clientId === undefined) setClientId("");
                 onSent();
             },
-            errorMessage: strings.inbox.sendError,
+            errorMessage: strings.messaging.sendError,
         });
     };
 
@@ -240,11 +240,11 @@ export function useBroadcastForm(
 
     const submit = (): void => {
         if (name.trim().length === 0) {
-            setError(strings.inbox.nameBroadcast);
+            setError(strings.messaging.nameBroadcast);
             return;
         }
         if (body.trim().length === 0) {
-            setError(strings.inbox.writeMessage);
+            setError(strings.messaging.writeMessage);
             return;
         }
         const tagList = parseTags(tags);
@@ -270,7 +270,7 @@ export function useBroadcastForm(
                     setTags("");
                     setScheduledAt("");
                 },
-                errorMessage: strings.inbox.broadcastError,
+                errorMessage: strings.messaging.broadcastError,
             },
         );
     };

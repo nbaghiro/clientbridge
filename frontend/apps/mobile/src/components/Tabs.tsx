@@ -17,6 +17,7 @@ export function Tabs<K extends string>({
     return (
         <ScrollView
             horizontal
+            accessibilityRole="tablist"
             showsHorizontalScrollIndicator={false}
             style={pill ? styles.pillBar : styles.bar}
             contentContainerStyle={[pill ? styles.pillRow : styles.row, !inset && styles.flush]}
@@ -24,6 +25,8 @@ export function Tabs<K extends string>({
             {items.map((item) => (
                 <Pressable
                     key={item.key}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: item.key === active }}
                     style={
                         pill
                             ? [styles.pill, item.key === active && styles.pillOn]

@@ -147,32 +147,32 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                         <RootStack.Screen
                             name="Inbox"
                             component={InboxScreen}
-                            options={{ title: strings.nav.inbox }}
+                            options={{ title: strings.navigation.inbox }}
                         />
                         <RootStack.Screen
                             name="Setup"
                             component={SetupScreen}
-                            options={{ title: strings.nav.setup }}
+                            options={{ title: strings.navigation.setup }}
                         />
                         <RootStack.Screen
                             name="Business"
                             component={BusinessScreen}
-                            options={{ title: strings.nav.setupSections.business }}
+                            options={{ title: strings.navigation.setupSections.business }}
                         />
                         <RootStack.Screen
                             name="Services"
                             component={CatalogScreen}
-                            options={{ title: strings.nav.setupSections.services }}
+                            options={{ title: strings.navigation.setupSections.services }}
                         />
                         <RootStack.Screen
                             name="Team"
                             component={TeamHoursScreen}
-                            options={{ title: strings.nav.setupSections.team }}
+                            options={{ title: strings.navigation.setupSections.team }}
                         />
                         <RootStack.Screen
                             name="GettingPaid"
                             component={GettingPaidScreen}
-                            options={{ title: strings.nav.setupSections.gettingPaid }}
+                            options={{ title: strings.navigation.setupSections.gettingPaid }}
                         />
                     </RootStack.Group>
                 </RootStack.Navigator>

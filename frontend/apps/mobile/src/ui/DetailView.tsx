@@ -23,7 +23,7 @@ export function DetailView({
                 <View style={styles.headMain}>
                     {leading}
                     <View style={styles.headText}>
-                        <Text style={styles.title} numberOfLines={1}>
+                        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
                             {title}
                         </Text>
                         {subtitle !== undefined ? (
@@ -46,7 +46,7 @@ export function DetailView({
             </ScrollView>
             <View style={styles.footer}>
                 {actions}
-                <Pressable style={styles.close} onPress={onClose}>
+                <Pressable style={styles.close} onPress={onClose} accessibilityRole="button">
                     <Text style={styles.closeText}>{strings.common.close}</Text>
                 </Pressable>
             </View>

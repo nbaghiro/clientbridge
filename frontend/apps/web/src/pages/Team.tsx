@@ -42,8 +42,8 @@ export function Team() {
     return (
         <div className="max-w-2xl">
             <ListPage
-                summary={strings.team.subtitle}
-                head={strings.team.members}
+                summary={strings.staff.subtitle}
+                head={strings.staff.members}
                 rows={staff}
                 rowKey={(s) => s.id}
                 onRowPress={
@@ -53,7 +53,7 @@ export function Team() {
                           }
                         : undefined
                 }
-                empty={strings.team.noMembers}
+                empty={strings.staff.noMembers}
                 renderRow={(s) => (
                     <div className="flex items-center justify-between">
                         <div>
@@ -61,7 +61,7 @@ export function Team() {
                                 {staffDisplayName(s)}
                                 {s.id === viewer?.staffId ? (
                                     <span className="ml-2 rounded-full bg-accent-weak px-2 py-0.5 text-xs font-semibold text-accent">
-                                        {strings.team.youBadge}
+                                        {strings.staff.youBadge}
                                     </span>
                                 ) : null}
                             </p>
@@ -90,7 +90,7 @@ export function Team() {
             {pending.length > 0 ? (
                 <section className="mt-6 rounded-lg border border-line bg-surface">
                     <h2 className="border-b border-line px-4 py-3 text-sm font-semibold text-ink">
-                        {strings.team.pending}
+                        {strings.staff.pending}
                     </h2>
                     <ul>
                         {pending.map((s) => (
@@ -100,7 +100,7 @@ export function Team() {
                             >
                                 <p className="text-sm text-ink">{s.invite_email ?? "—"}</p>
                                 <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold capitalize text-warn-fg">
-                                    {strings.team.invitedBadge(s.role)}
+                                    {strings.staff.invitedBadge(s.role)}
                                 </span>
                             </li>
                         ))}
@@ -111,7 +111,7 @@ export function Team() {
             {canManageStaff(role) ? (
                 <InviteForm invite={invite} />
             ) : (
-                <p className="mt-6 text-sm text-muted">{strings.team.cannotInvite}</p>
+                <p className="mt-6 text-sm text-muted">{strings.staff.cannotInvite}</p>
             )}
         </div>
     );
@@ -120,7 +120,7 @@ export function Team() {
 function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
     return (
         <section className="mt-6 rounded-lg border border-line bg-surface p-4">
-            <h2 className="text-sm font-semibold text-ink">{strings.team.inviteHeading}</h2>
+            <h2 className="text-sm font-semibold text-ink">{strings.staff.inviteHeading}</h2>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -129,19 +129,19 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                 className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
             >
                 <label className="flex flex-1 flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                    {strings.team.email}
+                    {strings.staff.email}
                     <input
                         type="email"
                         value={invite.email}
                         onChange={(e) => {
                             invite.setEmail(e.target.value);
                         }}
-                        placeholder={strings.team.emailPlaceholder}
+                        placeholder={strings.staff.emailPlaceholder}
                         className="w-full rounded-md border border-line bg-bg px-3 py-2 text-ink outline-hidden transition placeholder:text-muted focus:border-accent"
                     />
                 </label>
                 <label className="flex flex-col gap-1.5 text-sm font-medium text-ink-soft">
-                    {strings.team.role}
+                    {strings.staff.role}
                     <select
                         value={invite.role}
                         onChange={(e) => {
@@ -157,7 +157,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                     </select>
                 </label>
                 <button type="submit" disabled={invite.busy} className={primaryButton}>
-                    {invite.busy ? strings.team.inviting : strings.team.sendInvite}
+                    {invite.busy ? strings.staff.inviting : strings.staff.sendInvite}
                 </button>
             </form>
 
@@ -183,7 +183,7 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
     return (
         <div className="mt-3 rounded-md border border-accent-line bg-accent-weak p-3">
             <p className="text-sm font-medium text-ink">
-                {strings.team.inviteSentWeb(invite.email)}
+                {strings.staff.inviteSentWeb(invite.email)}
             </p>
             <div className="mt-2 flex items-center gap-2">
                 <input
@@ -192,7 +192,7 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
                     className="flex-1 rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-ink-soft"
                 />
                 <button type="button" onClick={copy} className={primaryButtonSmall}>
-                    {copied ? strings.team.copied : strings.team.copy}
+                    {copied ? strings.staff.copied : strings.staff.copy}
                 </button>
                 <button
                     type="button"
@@ -217,7 +217,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
         <DetailView
             open
             title={staffDisplayName(row)}
-            subtitle={strings.team.payHeading}
+            subtitle={strings.staff.payHeading}
             onClose={onClose}
             actions={
                 <button
@@ -241,12 +241,12 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                             }}
                             className="h-4 w-4 accent-accent"
                         />
-                        {strings.team.isPayee}
+                        {strings.staff.isPayee}
                     </label>
                     {form.isPayee ? (
                         <>
                             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                                {strings.team.rateType}
+                                {strings.staff.rateType}
                                 <select
                                     value={form.rateType}
                                     onChange={(e) => {
@@ -262,7 +262,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                                 </select>
                             </label>
                             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                                {strings.team.rateLabel(form.rateType)}
+                                {strings.staff.rateLabel(form.rateType)}
                                 <input
                                     value={form.rate}
                                     onChange={(e) => {
@@ -273,7 +273,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                                 />
                             </label>
                             <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                                {strings.team.retailRate}
+                                {strings.staff.retailRate}
                                 <input
                                     value={form.retailPercent}
                                     onChange={(e) => {

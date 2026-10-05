@@ -117,17 +117,17 @@ export function docTotals(doc: DocAmounts, byCode: TaxByCode[]): DocTotalRow[] {
         split.length > 0 && split.reduce((sum, t) => sum + t.cents, 0) === tax
             ? split.map((t) => ({ key: t.code, label: t.code, cents: t.cents, strong: false }))
             : tax !== 0
-              ? [{ key: "tax", label: strings.invoices.tax, cents: tax, strong: false }]
+              ? [{ key: "tax", label: strings.billing.tax, cents: tax, strong: false }]
               : [];
     return [
         {
             key: "subtotal",
-            label: strings.invoices.subtotal,
+            label: strings.billing.subtotal,
             cents: doc.subtotal_cents ?? 0,
             strong: false,
         },
         ...taxRows,
-        { key: "total", label: strings.invoices.total, cents: doc.total_cents ?? 0, strong: true },
+        { key: "total", label: strings.billing.total, cents: doc.total_cents ?? 0, strong: true },
     ];
 }
 
@@ -260,23 +260,23 @@ export type DocActionKey = "send" | "void" | "accept" | "decline" | "convert";
 export type DocTab = "invoices" | "estimates";
 
 export const DOC_TABS: { key: DocTab; label: string }[] = [
-    { key: "invoices", label: strings.invoices.tabInvoices },
-    { key: "estimates", label: strings.invoices.tabEstimates },
+    { key: "invoices", label: strings.billing.tabInvoices },
+    { key: "estimates", label: strings.billing.tabEstimates },
 ];
 
 export function docHeading(kind: DocTab, number: number | null): string {
     const noun =
-        kind === "invoices" ? strings.invoices.invoiceHeading : strings.invoices.estimateHeading;
-    return `${noun} ${number !== null ? `#${String(number)}` : strings.invoices.draftHeading}`;
+        kind === "invoices" ? strings.billing.invoiceHeading : strings.billing.estimateHeading;
+    return `${noun} ${number !== null ? `#${String(number)}` : strings.billing.draftHeading}`;
 }
 
 /** Button copy for each document action — shared so web + mobile can't drift (they had). */
 export const DOC_ACTION_LABEL: Record<DocActionKey, string> = {
-    send: strings.invoices.actionSend,
-    void: strings.invoices.actionVoid,
-    accept: strings.invoices.actionAccept,
-    decline: strings.invoices.actionDecline,
-    convert: strings.invoices.actionConvert,
+    send: strings.billing.actionSend,
+    void: strings.billing.actionVoid,
+    accept: strings.billing.actionAccept,
+    decline: strings.billing.actionDecline,
+    convert: strings.billing.actionConvert,
 };
 
 export interface DocAction {
@@ -350,7 +350,7 @@ export function lineSubtotalCents(lines: LineInput[]): number {
 }
 
 export function docEditorTitle(kind: "invoice" | "estimate", editing: boolean): string {
-    return editing ? strings.invoices.editTitle(kind) : strings.invoices.newButton(kind);
+    return editing ? strings.billing.editTitle(kind) : strings.billing.newButton(kind);
 }
 
 export interface KeyedLine extends DraftLine {
@@ -421,7 +421,7 @@ export function useDocForm(
     const submit = (): void => {
         const payload = toLineInputs(lines);
         if (clientId.length === 0 || payload.length === 0) {
-            setError(strings.invoices.incompleteInvoice);
+            setError(strings.billing.incompleteInvoice);
             return;
         }
         const patch = { lines: payload, notes: blankToNull(notes) };
@@ -434,7 +434,7 @@ export function useDocForm(
                     : kind === "invoice"
                       ? createInvoice(api, clientId, payload, notes)
                       : createEstimate(api, clientId, payload, notes),
-            { onSuccess: onDone, errorMessage: strings.invoices.saveError },
+            { onSuccess: onDone, errorMessage: strings.billing.saveError },
         );
     };
 

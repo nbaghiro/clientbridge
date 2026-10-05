@@ -19,25 +19,6 @@ import { Payments } from "./pages/Payments";
 import { Setup } from "./pages/Setup";
 import { Today } from "./pages/Today";
 
-const LEGACY_REDIRECTS: [string, string][] = [
-    ["home", "/today"],
-    ["calendar", "/schedule"],
-    ["invoices", "/payments/invoices"],
-    ["pos", "/payments/sales"],
-    ["gift-cards", "/payments/gift-cards"],
-    ["payouts", "/payments/staff-pay"],
-    ["reports", "/payments/reports"],
-    ["reviews", "/inbox"],
-    ["settings", "/setup/business"],
-    ["settings/account", "/setup/business"],
-    ["settings/taxes", "/setup/business"],
-    ["settings/catalog", "/setup/services"],
-    ["settings/team", "/setup/team"],
-    ["settings/scheduling", "/setup/team"],
-    ["settings/payments", "/setup/getting-paid"],
-    ["settings/booking", "/setup/online-booking"],
-];
-
 export function App() {
     const [authed, setAuthed] = useState(isAuthenticated());
 
@@ -117,9 +98,6 @@ function AppRoutes({
                         <Route path="payments/:tab?" element={<Payments />} />
                         <Route path="inbox" element={<Inbox />} />
                         <Route path="setup/:section?" element={<Setup />} />
-                        {LEGACY_REDIRECTS.map(([from, to]) => (
-                            <Route key={from} path={from} element={<Navigate to={to} replace />} />
-                        ))}
                         <Route path="*" element={<Navigate to="/today" replace />} />
                     </Route>
                 )

@@ -60,8 +60,8 @@ export function Team({ footer }: { footer?: ReactNode }) {
                 />
             ) : null}
             <ListPage
-                summary={strings.team.subtitle}
-                head={<Text style={styles.sectionLabel}>{strings.team.members}</Text>}
+                summary={strings.staff.subtitle}
+                head={<Text style={styles.sectionLabel}>{strings.staff.members}</Text>}
                 rows={staff}
                 rowKey={(s) => s.id}
                 onRowPress={
@@ -71,13 +71,13 @@ export function Team({ footer }: { footer?: ReactNode }) {
                           }
                         : undefined
                 }
-                empty={strings.team.noMembers}
+                empty={strings.staff.noMembers}
                 renderRow={(s) => (
                     <View style={styles.member}>
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName}>
                                 {staffDisplayName(s)}
-                                {s.id === viewer?.staffId ? strings.team.youSuffix : ""}
+                                {s.id === viewer?.staffId ? strings.staff.youSuffix : ""}
                             </Text>
                             {s.invite_email !== null ? (
                                 <Text style={styles.rowSub}>{s.invite_email}</Text>
@@ -91,7 +91,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                     <View style={styles.footer}>
                         {pending.length > 0 ? (
                             <>
-                                <Text style={styles.sectionLabel}>{strings.team.pending}</Text>
+                                <Text style={styles.sectionLabel}>{strings.staff.pending}</Text>
                                 <View style={styles.group}>
                                     {pending.map((s, i) => (
                                         <View
@@ -102,7 +102,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                                                 {s.invite_email ?? "—"}
                                             </Text>
                                             <StatusPill
-                                                status={strings.team.invitedBadge(s.role)}
+                                                status={strings.staff.invitedBadge(s.role)}
                                                 intent="warning"
                                             />
                                         </View>
@@ -114,7 +114,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                         {canManageStaff(role) ? (
                             <InviteForm invite={invite} />
                         ) : (
-                            <Text style={styles.note}>{strings.team.cannotInvite}</Text>
+                            <Text style={styles.note}>{strings.staff.cannotInvite}</Text>
                         )}
                         {footer}
                     </View>
@@ -127,20 +127,20 @@ export function Team({ footer }: { footer?: ReactNode }) {
 function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
     return (
         <>
-            <Text style={styles.sectionLabel}>{strings.team.inviteHeading}</Text>
+            <Text style={styles.sectionLabel}>{strings.staff.inviteHeading}</Text>
             <View style={styles.panel}>
-                <Text style={styles.fieldLabel}>{strings.team.email}</Text>
+                <Text style={styles.fieldLabel}>{strings.staff.email}</Text>
                 <TextInput
                     style={ui.input}
                     value={invite.email}
                     onChangeText={invite.setEmail}
-                    placeholder={strings.team.emailPlaceholder}
+                    placeholder={strings.staff.emailPlaceholder}
                     placeholderTextColor={c.muted}
                     autoCapitalize="none"
                     keyboardType="email-address"
                 />
 
-                <Text style={styles.fieldLabel}>{strings.team.role}</Text>
+                <Text style={styles.fieldLabel}>{strings.staff.role}</Text>
                 <View style={styles.chipRow}>
                     {INVITABLE_ROLES.map((r) => {
                         const on = invite.role === r.value;
@@ -170,7 +170,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                     {invite.busy ? (
                         <ActivityIndicator color={c.accentInk} />
                     ) : (
-                        <Text style={ui.primaryLargeText}>{strings.team.sendInvite}</Text>
+                        <Text style={ui.primaryLargeText}>{strings.staff.sendInvite}</Text>
                     )}
                 </Pressable>
 
@@ -189,13 +189,13 @@ function InviteLink({ invite, onDone }: { invite: Invite; onDone: () => void }) 
     };
     return (
         <View style={styles.linkBox}>
-            <Text style={styles.linkLabel}>{strings.team.inviteSentMobile(invite.email)}</Text>
+            <Text style={styles.linkLabel}>{strings.staff.inviteSentMobile(invite.email)}</Text>
             <Text style={styles.link} numberOfLines={2} selectable>
                 {link}
             </Text>
             <View style={styles.linkActions}>
                 <Pressable style={styles.shareBtn} onPress={share}>
-                    <Text style={styles.shareText}>{strings.team.shareLink}</Text>
+                    <Text style={styles.shareText}>{strings.staff.shareLink}</Text>
                 </Pressable>
                 <Pressable style={styles.doneBtn} onPress={onDone}>
                     <Text style={styles.doneText}>{strings.common.done}</Text>
@@ -216,7 +216,7 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
         <DetailView
             open
             title={staffDisplayName(row)}
-            subtitle={strings.team.payHeading}
+            subtitle={strings.staff.payHeading}
             onClose={onClose}
             actions={
                 <Pressable style={ui.primary} onPress={form.submit} disabled={form.busy}>
@@ -230,12 +230,12 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
         >
             <DetailSection>
                 <View style={styles.payToggle}>
-                    <Text style={styles.payToggleLabel}>{strings.team.isPayee}</Text>
+                    <Text style={styles.payToggleLabel}>{strings.staff.isPayee}</Text>
                     <Switch value={form.isPayee} onValueChange={form.setIsPayee} />
                 </View>
                 {form.isPayee ? (
                     <>
-                        <Text style={ui.label}>{strings.team.rateType}</Text>
+                        <Text style={ui.label}>{strings.staff.rateType}</Text>
                         <View style={ui.chipWrap}>
                             {RATE_TYPES.map((t) => (
                                 <Pressable
@@ -256,14 +256,14 @@ function StaffPayDetail({ row, onClose }: { row: StaffPayRow; onClose: () => voi
                                 </Pressable>
                             ))}
                         </View>
-                        <Text style={ui.label}>{strings.team.rateLabel(form.rateType)}</Text>
+                        <Text style={ui.label}>{strings.staff.rateLabel(form.rateType)}</Text>
                         <TextInput
                             style={ui.input}
                             value={form.rate}
                             onChangeText={form.setRate}
                             keyboardType="decimal-pad"
                         />
-                        <Text style={ui.label}>{strings.team.retailRate}</Text>
+                        <Text style={ui.label}>{strings.staff.retailRate}</Text>
                         <TextInput
                             style={ui.input}
                             value={form.retailPercent}

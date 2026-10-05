@@ -13,18 +13,10 @@ const GENERATED = new Set([
 ]);
 const ENTRY_FILES = new Set(["main.tsx", "entry-server.tsx", "routes.tsx"]);
 
-// Domain files whose copy lives under another strings group, or that hold no copy.
-const STRINGS_GROUP_FOR = {
-    billing: "invoices",
-    messaging: "inbox",
-    staff: "team",
-    navigation: "nav",
-    packages: null,
-    subscriptions: null,
-    ledger: null,
-    notifications: null,
-    publicResource: null,
-};
+// Domain files that hold no copy of their own.
+const NO_STRINGS = new Set(["packages", "subscriptions", "ledger", "notifications", "publicResource"]);
+// Pages named by their nav label rather than the concept they render.
+const PAGE_CONCEPT = { invoices: "billing", inbox: "messaging", team: "staff" };
 // Screens that compose several concepts and so have no domain file or strings group of their own.
 const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "onlineBooking", "setup"]);
 
@@ -74,9 +66,8 @@ const groups = new Set([...stringsSrc.matchAll(/^ {4}(\w+): \{$/gm)].map((m) => 
 const domains = new Set(stems("packages/app-core/src/domain/", ".ts"));
 
 for (const domain of domains) {
-    const group = domain in STRINGS_GROUP_FOR ? STRINGS_GROUP_FOR[domain] : domain;
-    if (group !== null && !groups.has(group)) {
-        problems.push(`app-core domain "${domain}" has no strings group "${group}"`);
+    if (!NO_STRINGS.has(domain) && !groups.has(domain)) {
+        problems.push(`app-core domain "${domain}" has no strings group "${domain}"`);
     }
 }
 
@@ -86,7 +77,7 @@ for (const [dir, label] of [
     ["apps/mobile/src/screens/", "mobile screen"],
 ]) {
     for (const screen of stems(dir, ".tsx")) {
-        const concept = lowerFirst(screen);
+        const concept = PAGE_CONCEPT[lowerFirst(screen)] ?? lowerFirst(screen);
         if (!known.has(concept) && !COMPOSITE_SCREENS.has(concept)) {
             problems.push(`${label} "${screen}" matches no app-core domain file or strings group`);
         }

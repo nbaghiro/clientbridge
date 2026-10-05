@@ -77,9 +77,9 @@ export function Invoices({ createToken }: { createToken?: number | undefined }) 
     return (
         <View style={styles.screen}>
             <ListPage
-                summary={strings.invoices.countSummary(invoices.length, estimates.length)}
+                summary={strings.billing.countSummary(invoices.length, estimates.length)}
                 action={{
-                    label: strings.invoices.newShort,
+                    label: strings.billing.newShort,
                     onPress: () => {
                         setCreating(true);
                     },
@@ -88,21 +88,21 @@ export function Invoices({ createToken }: { createToken?: number | undefined }) 
                 search={{
                     value: q,
                     onChange: setQ,
-                    placeholder: strings.invoices.searchPlaceholder(tab),
+                    placeholder: strings.billing.searchPlaceholder(tab),
                 }}
                 rows={filtered}
                 rowKey={(r) => r.id}
                 onRowPress={(r) => {
                     setOpenId(r.id);
                 }}
-                empty={q ? strings.invoices.searchEmpty(tab) : strings.invoices.empty(tab)}
+                empty={q ? strings.billing.searchEmpty(tab) : strings.billing.empty(tab)}
                 renderRow={(item) => (
                     <View style={styles.row}>
                         <View style={styles.rowMain}>
                             <Text style={styles.rowName}>
                                 {item.number !== null
                                     ? `#${String(item.number)}`
-                                    : strings.invoices.draftRow}
+                                    : strings.billing.draftRow}
                             </Text>
                             <Text style={styles.rowSub} numberOfLines={1}>
                                 {item.client_name ?? strings.clients.dash}
@@ -202,7 +202,7 @@ function DetailModal({
                                         setEditing(true);
                                     }}
                                 >
-                                    <Text style={styles.cancelText}>{strings.invoices.edit}</Text>
+                                    <Text style={styles.cancelText}>{strings.billing.edit}</Text>
                                 </Pressable>
                             ) : null}
                             {actions.map((a) => (
@@ -213,7 +213,7 @@ function DetailModal({
                                     onPress={() => {
                                         run(a.run, {
                                             onSuccess: onClose,
-                                            errorMessage: strings.invoices.actionError(
+                                            errorMessage: strings.billing.actionError(
                                                 DOC_ACTION_LABEL[a.key].toLowerCase(),
                                             ),
                                         });
@@ -264,13 +264,13 @@ function PayLinkRow({ token }: { token: string }) {
         Share.share({ message: url }).catch(() => undefined);
     };
     return (
-        <DetailSection title={strings.invoices.payLink}>
+        <DetailSection title={strings.billing.payLink}>
             <View style={styles.payLinkRow}>
                 <Text style={styles.payLinkUrl} numberOfLines={1}>
                     {url}
                 </Text>
                 <Pressable style={styles.shareBtn} onPress={share}>
-                    <Text style={styles.shareText}>{strings.invoices.share}</Text>
+                    <Text style={styles.shareText}>{strings.billing.share}</Text>
                 </Pressable>
             </View>
         </DetailSection>
@@ -281,7 +281,7 @@ function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefun
     const payments = useInvoicePayments(invoiceId);
     if (payments.length === 0) return null;
     return (
-        <DetailSection title={strings.invoices.payments}>
+        <DetailSection title={strings.billing.payments}>
             {payments.map((p) => (
                 <PaymentRowItem key={p.id} payment={p} payments={payments} canRefund={canRefund} />
             ))}
@@ -307,10 +307,10 @@ function PaymentRowItem({
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
-        Alert.alert(strings.invoices.refundTitle, strings.invoices.refundConfirm, [
+        Alert.alert(strings.billing.refundTitle, strings.billing.refundConfirm, [
             { text: strings.common.cancel, style: "cancel" },
             {
-                text: strings.invoices.refund,
+                text: strings.billing.refund,
                 style: "destructive",
                 onPress: submit,
             },
@@ -325,7 +325,7 @@ function PaymentRowItem({
                     {formatMoneyWithCurrency(payment.amount_cents, payment.currency)}
                 </Text>
                 <Text style={styles.paymentMethod}>
-                    {isRefund ? strings.invoices.refundBadge : payment.method}
+                    {isRefund ? strings.billing.refundBadge : payment.method}
                 </Text>
                 <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
                 {showRefund ? (
@@ -341,7 +341,7 @@ function PaymentRowItem({
                 {showRefund ? (
                     <Pressable style={styles.refundBtn} disabled={busy} onPress={refund}>
                         <Text style={styles.refundText}>
-                            {busy ? strings.invoices.refundingShort : strings.invoices.refund}
+                            {busy ? strings.billing.refundingShort : strings.billing.refund}
                         </Text>
                     </Pressable>
                 ) : null}

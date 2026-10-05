@@ -45,7 +45,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                 </h2>
                 <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.invoices.clientLabel}
+                        {strings.billing.clientLabel}
                         <select
                             value={form.clientId}
                             disabled={form.editing}
@@ -54,7 +54,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             }}
                             className={field}
                         >
-                            <option value="">{strings.invoices.clientPlaceholder}</option>
+                            <option value="">{strings.billing.clientPlaceholder}</option>
                             {clients.map((c) => (
                                 <option key={c.id} value={c.id}>
                                     {c.name}
@@ -65,9 +65,9 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
 
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-                            <span className="flex-1">{strings.invoices.lineDescription}</span>
-                            <span className="w-14 text-center">{strings.invoices.lineQty}</span>
-                            <span className="w-24 text-right">{strings.invoices.linePrice}</span>
+                            <span className="flex-1">{strings.billing.lineDescription}</span>
+                            <span className="w-14 text-center">{strings.billing.lineQty}</span>
+                            <span className="w-24 text-right">{strings.billing.linePrice}</span>
                             <span className="w-5" />
                         </div>
                         {form.lines.map((l) => (
@@ -80,7 +80,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                             itemId: null,
                                         });
                                     }}
-                                    placeholder={strings.invoices.lineDescriptionPlaceholder}
+                                    placeholder={strings.billing.lineDescriptionPlaceholder}
                                     className={`${box} min-w-0 flex-1`}
                                 />
                                 <input
@@ -97,7 +97,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                         form.setLine(l.key, { unit: e.target.value });
                                     }}
                                     inputMode="decimal"
-                                    placeholder={strings.invoices.linePricePlaceholder}
+                                    placeholder={strings.billing.linePricePlaceholder}
                                     className={`${box} w-24 shrink-0 text-right`}
                                 />
                                 <button
@@ -106,7 +106,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                         form.removeLine(l.key);
                                     }}
                                     className="w-5 text-muted transition hover:text-danger"
-                                    aria-label={strings.invoices.removeLine}
+                                    aria-label={strings.billing.removeLine}
                                 >
                                     ×
                                 </button>
@@ -120,7 +120,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                 }}
                                 className="text-sm font-medium text-accent transition hover:opacity-80"
                             >
-                                {strings.invoices.addLine}
+                                {strings.billing.addLine}
                             </button>
                             {catalog.length > 0 ? (
                                 <button
@@ -130,7 +130,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                     }}
                                     className="text-sm font-medium text-accent transition hover:opacity-80"
                                 >
-                                    {strings.invoices.fromCatalog}
+                                    {strings.billing.fromCatalog}
                                 </button>
                             ) : null}
                         </div>
@@ -167,7 +167,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     </div>
 
                     <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                        {strings.invoices.notesLabel}
+                        {strings.billing.notesLabel}
                         <textarea
                             value={form.notes}
                             onChange={(e) => {
@@ -181,11 +181,11 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                 </div>
                 <div className="flex items-center justify-between border-t border-line px-6 py-4">
                     <span className="text-sm text-muted">
-                        {strings.invoices.subtotal}{" "}
+                        {strings.billing.subtotal}{" "}
                         <span className="font-semibold text-ink">
                             {formatMoney(form.subtotalCents)}
                         </span>
-                        <span className="text-xs">{strings.invoices.plusTax}</span>
+                        <span className="text-xs">{strings.billing.plusTax}</span>
                     </span>
                     <div className="flex gap-2">
                         <button
@@ -199,8 +199,8 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             {form.busy
                                 ? strings.common.saving
                                 : form.editing
-                                  ? strings.invoices.saveChanges
-                                  : strings.invoices.saveDraft}
+                                  ? strings.billing.saveChanges
+                                  : strings.billing.saveDraft}
                         </button>
                     </div>
                 </div>

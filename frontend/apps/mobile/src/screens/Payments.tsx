@@ -26,7 +26,7 @@ export function PaymentsScreen() {
 
     return (
         <View style={[styles.screen, { paddingTop: insets.top }]}>
-            <Text style={styles.title}>{strings.nav.payments}</Text>
+            <Text style={styles.title}>{strings.navigation.payments}</Text>
             {current === undefined ? null : (
                 <>
                     <Tabs items={tabs} active={current.key} onSelect={setTab} />

@@ -58,7 +58,7 @@ export function Setup() {
         <div className="mx-auto flex max-w-6xl gap-8 px-8 py-8">
             <nav className="w-52 shrink-0">
                 <h1 className="mb-3 px-3 font-display text-lg font-bold text-ink">
-                    {strings.nav.setup}
+                    {strings.navigation.setup}
                 </h1>
                 <div className="space-y-0.5">
                     {sections.map((s) => (

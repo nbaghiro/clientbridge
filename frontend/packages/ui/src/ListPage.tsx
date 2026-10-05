@@ -54,6 +54,7 @@ export function ListPage<T, K extends string = string>({
                         <button
                             key={item.key}
                             type="button"
+                            aria-pressed={item.key === segments.active}
                             onClick={() => {
                                 segments.onSelect(item.key);
                             }}
@@ -78,6 +79,8 @@ export function ListPage<T, K extends string = string>({
                             search.onChange(e.target.value);
                         }}
                         placeholder={search.placeholder}
+                        aria-label={search.placeholder}
+                        type="search"
                         className="w-full rounded-md border border-line bg-surface py-2.5 pl-9 pr-3 text-sm outline-hidden placeholder:text-muted focus:border-accent"
                     />
                 </div>

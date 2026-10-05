@@ -55,9 +55,9 @@ export function editableStaff(staff: StaffRow[], viewer: Viewer | null): StaffRo
 export type StaffRole = "admin" | "staff" | "contractor";
 
 export const INVITABLE_ROLES: { value: StaffRole; label: string }[] = [
-    { value: "staff", label: strings.team.roleStaff },
-    { value: "admin", label: strings.team.roleAdmin },
-    { value: "contractor", label: strings.team.roleContractor },
+    { value: "staff", label: strings.staff.roleStaff },
+    { value: "admin", label: strings.staff.roleAdmin },
+    { value: "contractor", label: strings.staff.roleContractor },
 ];
 
 /** Matches the backend InviteOut; `invite_token` is the raw token, returned once to the inviter. */
@@ -124,7 +124,7 @@ export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void
 
     const submit = (): void => {
         if (email.trim().length === 0) {
-            setError(strings.team.emailRequired);
+            setError(strings.staff.emailRequired);
             return;
         }
         run(
@@ -134,7 +134,7 @@ export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void
                 setEmail("");
                 onInvited?.(created);
             },
-            { errorMessage: strings.team.inviteError },
+            { errorMessage: strings.staff.inviteError },
         );
     };
 
@@ -169,11 +169,11 @@ export function useAcceptInviteForm(
 
     const submit = (): void => {
         if (token.length === 0) {
-            setError(strings.team.inviteMissingCode);
+            setError(strings.staff.inviteMissingCode);
             return;
         }
         if (password.length < 8) {
-            setError(strings.team.passwordTooShort);
+            setError(strings.staff.passwordTooShort);
             return;
         }
         run(
@@ -182,7 +182,7 @@ export function useAcceptInviteForm(
             },
             {
                 onSuccess,
-                errorMessage: strings.team.acceptInviteError,
+                errorMessage: strings.staff.acceptInviteError,
             },
         );
     };
@@ -212,9 +212,9 @@ export function useStaffPay(): StaffPayRow[] {
 }
 
 export const RATE_TYPES: { value: string; label: string }[] = [
-    { value: "percent", label: strings.team.ratePercent },
-    { value: "fixed", label: strings.team.rateFixed },
-    { value: "hourly", label: strings.team.rateHourly },
+    { value: "percent", label: strings.staff.ratePercent },
+    { value: "fixed", label: strings.staff.rateFixed },
+    { value: "hourly", label: strings.staff.rateHourly },
 ];
 
 /** The service rate as typed: percentage points for `percent`, dollars for `fixed` and `hourly`. */
@@ -225,16 +225,16 @@ function rateValue(row: StaffPayRow): number | null {
 
 /** A one-line summary of how a member is paid, for the Team list. */
 export function staffPaySummary(row: StaffPayRow): string {
-    if (row.payee !== 1) return strings.team.notPaid;
+    if (row.payee !== 1) return strings.staff.notPaid;
     const rate = rateValue(row) ?? 0;
     const service =
         row.rate_type === "percent"
-            ? strings.team.payPercent(rate)
+            ? strings.staff.payPercent(rate)
             : row.rate_type === "hourly"
-              ? strings.team.payHourly(rate.toFixed(2))
-              : strings.team.payFixed(rate.toFixed(2));
+              ? strings.staff.payHourly(rate.toFixed(2))
+              : strings.staff.payFixed(rate.toFixed(2));
     const retail = row.retail_rate_bps ?? 0;
-    return retail > 0 ? strings.team.payWithRetail(service, retail / 100) : service;
+    return retail > 0 ? strings.staff.payWithRetail(service, retail / 100) : service;
 }
 
 export interface StaffPayForm {
@@ -269,11 +269,11 @@ export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => vo
         const retail = retailPercent.trim() === "" ? 0 : Number(retailPercent);
         const badRate = amount !== null && (!Number.isFinite(amount) || amount < 0);
         if (badRate || (rateType === "percent" && amount !== null && amount > 100)) {
-            setError(strings.team.rateInvalid);
+            setError(strings.staff.rateInvalid);
             return;
         }
         if (!Number.isFinite(retail) || retail < 0 || retail > 100) {
-            setError(strings.team.retailInvalid);
+            setError(strings.staff.retailInvalid);
             return;
         }
         run(
@@ -287,7 +287,7 @@ export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => vo
                         rateType !== "percent" && amount !== null ? Math.round(amount * 100) : null,
                     retail_rate_bps: Math.round(retail * 100),
                 }),
-            { onSuccess: onDone, errorMessage: strings.team.payError },
+            { onSuccess: onDone, errorMessage: strings.staff.payError },
         );
     };
 

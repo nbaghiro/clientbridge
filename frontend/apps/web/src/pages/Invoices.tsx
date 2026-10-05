@@ -67,9 +67,9 @@ export function Invoices() {
     return (
         <div>
             <ListPage
-                summary={strings.invoices.countSummary(invoices.length, estimates.length)}
+                summary={strings.billing.countSummary(invoices.length, estimates.length)}
                 action={{
-                    label: strings.invoices.newButton(noun),
+                    label: strings.billing.newButton(noun),
                     onPress: () => {
                         setCreating(true);
                     },
@@ -78,14 +78,14 @@ export function Invoices() {
                 search={{
                     value: q,
                     onChange: setQ,
-                    placeholder: strings.invoices.searchPlaceholder(tab),
+                    placeholder: strings.billing.searchPlaceholder(tab),
                 }}
                 head={
                     <div className={GRID}>
-                        <span>{strings.invoices.colNumber}</span>
-                        <span>{strings.invoices.colClient}</span>
-                        <span>{strings.invoices.colStatus}</span>
-                        <span className="text-right">{strings.invoices.colTotal}</span>
+                        <span>{strings.billing.colNumber}</span>
+                        <span>{strings.billing.colClient}</span>
+                        <span>{strings.billing.colStatus}</span>
+                        <span className="text-right">{strings.billing.colTotal}</span>
                     </div>
                 }
                 rows={filtered}
@@ -93,7 +93,7 @@ export function Invoices() {
                 onRowPress={(r) => {
                     setOpenId(r.id);
                 }}
-                empty={q ? strings.invoices.searchEmpty(tab) : strings.invoices.empty(tab)}
+                empty={q ? strings.billing.searchEmpty(tab) : strings.billing.empty(tab)}
                 renderRow={(r) => (
                     <div className={GRID}>
                         <span className="font-medium tabular-nums text-ink">
@@ -191,7 +191,7 @@ function DocDetail({
                             }}
                             className="rounded-md border border-line px-4 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                         >
-                            {strings.invoices.edit}
+                            {strings.billing.edit}
                         </button>
                     ) : null}
                     {actions.map((a) => (
@@ -202,7 +202,7 @@ function DocDetail({
                             onClick={() => {
                                 run(a.run, {
                                     onSuccess: onClose,
-                                    errorMessage: strings.invoices.actionError(
+                                    errorMessage: strings.billing.actionError(
                                         DOC_ACTION_LABEL[a.key].toLowerCase(),
                                     ),
                                 });
@@ -264,7 +264,7 @@ function PayLink({ token }: { token: string }) {
     };
 
     return (
-        <DetailSection title={strings.invoices.payLink}>
+        <DetailSection title={strings.billing.payLink}>
             <div className="flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2.5">
                 <span className="flex-1 truncate text-sm text-ink-soft">{url}</span>
                 <button
@@ -272,7 +272,7 @@ function PayLink({ token }: { token: string }) {
                     onClick={copy}
                     className="shrink-0 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink-soft transition hover:bg-surface"
                 >
-                    {copied ? strings.invoices.copied : strings.invoices.copy}
+                    {copied ? strings.billing.copied : strings.billing.copy}
                 </button>
             </div>
         </DetailSection>
@@ -284,7 +284,7 @@ function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefun
     if (payments.length === 0) return null;
 
     return (
-        <DetailSection title={strings.invoices.payments}>
+        <DetailSection title={strings.billing.payments}>
             <div className="divide-y divide-line-soft rounded-md border border-line">
                 {payments.map((p) => (
                     <PaymentRowItem
@@ -317,7 +317,7 @@ function PaymentRowItem({
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
-        if (!window.confirm(strings.invoices.refundConfirm)) return;
+        if (!window.confirm(strings.billing.refundConfirm)) return;
         submit();
     };
 
@@ -332,7 +332,7 @@ function PaymentRowItem({
                 </span>
                 {isRefund ? (
                     <span className="rounded-full bg-bg px-2 py-0.5 text-xs font-medium text-muted">
-                        {strings.invoices.refundBadge}
+                        {strings.billing.refundBadge}
                     </span>
                 ) : (
                     <span className="capitalize text-muted">{payment.method}</span>
@@ -356,7 +356,7 @@ function PaymentRowItem({
                         onClick={refund}
                         className="shrink-0 rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition hover:bg-bg disabled:opacity-60"
                     >
-                        {busy ? strings.invoices.refunding : strings.invoices.refund}
+                        {busy ? strings.billing.refunding : strings.billing.refund}
                     </button>
                 ) : null}
             </div>

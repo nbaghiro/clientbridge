@@ -24,7 +24,7 @@ export const strings = {
             days: (n: number) => `${n}d`,
         },
     },
-    invoices: {
+    billing: {
         actionSend: "Send",
         actionVoid: "Void",
         actionAccept: "Accept",
@@ -400,7 +400,7 @@ export const strings = {
         choosePlan: "Choose a subscription plan",
         startSubscriptionError: "Couldn't start the subscription. Please try again.",
     },
-    inbox: {
+    messaging: {
         channelSms: "Text",
         channelEmail: "Email",
         channelChat: "Chat",
@@ -520,7 +520,7 @@ export const strings = {
         saturday: "Saturday",
         sunday: "Sunday",
     },
-    team: {
+    staff: {
         inviteMissingCode: "This invite link is missing its code.",
         passwordTooShort: "Choose a password of at least 8 characters.",
         acceptInviteError: "Couldn’t accept this invite — it may be invalid or expired.",
@@ -948,7 +948,7 @@ export const strings = {
         incomplete: "Add a product, your name and an email or phone.",
         orderError: "We couldn't place the order. Please try again.",
     },
-    nav: {
+    navigation: {
         createMenu: "Create",
         newClient: "New client",
         newBooking: "New booking",

@@ -39,7 +39,12 @@ export function ListPage<T, K extends string = string>({
                     <View style={styles.headerActions}>
                         {accessory}
                         {action !== undefined ? (
-                            <Pressable style={styles.action} onPress={action.onPress}>
+                            <Pressable
+                                style={styles.action}
+                                onPress={action.onPress}
+                                accessibilityRole="button"
+                                accessibilityLabel={action.label}
+                            >
                                 <IconPlus size={16} color={c.accentInk} />
                                 <Text style={styles.actionText}>{action.label}</Text>
                             </Pressable>
@@ -63,6 +68,7 @@ export function ListPage<T, K extends string = string>({
                         value={search.value}
                         onChangeText={search.onChange}
                         placeholder={search.placeholder}
+                        accessibilityLabel={search.placeholder}
                         placeholderTextColor={c.muted}
                         autoCapitalize="none"
                     />
@@ -88,6 +94,7 @@ export function ListPage<T, K extends string = string>({
                     onRowPress !== undefined ? (
                         <Pressable
                             style={styles.row}
+                            accessibilityRole="button"
                             onPress={() => {
                                 onRowPress(item);
                             }}

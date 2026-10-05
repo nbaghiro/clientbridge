@@ -36,7 +36,9 @@ export function Inbox() {
     return (
         <div className="flex h-full flex-col">
             <header className="border-b border-line px-8 pt-6">
-                <h1 className="font-display text-2xl font-bold text-ink">{strings.inbox.title}</h1>
+                <h1 className="font-display text-2xl font-bold text-ink">
+                    {strings.messaging.title}
+                </h1>
                 {segments.length > 1 ? (
                     <div className="mt-3">
                         <Tabs items={segments} active={segment} onSelect={setSegment} />
@@ -65,7 +67,7 @@ function Messages() {
     return (
         <div className="flex min-h-0 flex-1 flex-col px-8 py-6">
             <header className="flex items-center justify-between gap-4 pb-4">
-                <p className="text-sm text-muted">{strings.inbox.subtitle}</p>
+                <p className="text-sm text-muted">{strings.messaging.subtitle}</p>
                 <div className="flex shrink-0 gap-2">
                     <button
                         type="button"
@@ -74,7 +76,7 @@ function Messages() {
                         }}
                         className="rounded-md border border-line px-3.5 py-2 text-sm font-semibold text-ink-soft transition hover:bg-bg"
                     >
-                        {strings.inbox.broadcast}
+                        {strings.messaging.broadcast}
                     </button>
                     <button
                         type="button"
@@ -83,7 +85,7 @@ function Messages() {
                         }}
                         className={primaryButton}
                     >
-                        {strings.inbox.newMessage}
+                        {strings.messaging.newMessage}
                     </button>
                 </div>
             </header>
@@ -92,7 +94,7 @@ function Messages() {
                 <aside className="w-80 shrink-0 overflow-y-auto border-r border-line">
                     {threads.length === 0 ? (
                         <p className="px-5 py-8 text-center text-sm text-muted">
-                            {strings.inbox.noConversations}
+                            {strings.messaging.noConversations}
                         </p>
                     ) : (
                         threads.map((t) => (
@@ -114,7 +116,9 @@ function Messages() {
                         <ThreadView key={selected.id} thread={selected} />
                     ) : (
                         <div className="flex h-full items-center justify-center">
-                            <p className="text-sm text-muted">{strings.inbox.selectConversation}</p>
+                            <p className="text-sm text-muted">
+                                {strings.messaging.selectConversation}
+                            </p>
                         </div>
                     )}
                 </section>
@@ -157,7 +161,7 @@ function ThreadListItem({
         >
             <div className="flex items-center gap-2">
                 <span className="flex-1 truncate text-sm font-semibold text-ink">
-                    {thread.client_name ?? strings.inbox.clientFallback}
+                    {thread.client_name ?? strings.messaging.clientFallback}
                 </span>
                 {thread.last_message_at !== null ? (
                     <span className="text-xs text-muted">
@@ -196,7 +200,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
         <div className="flex h-full flex-col">
             <div className="flex items-center gap-2 border-b border-line px-6 py-3.5">
                 <h2 className="font-display text-base font-bold text-ink">
-                    {thread.client_name ?? strings.inbox.clientFallback}
+                    {thread.client_name ?? strings.messaging.clientFallback}
                 </h2>
                 <StatusPill status={channelLabel(thread.channel)} intent="neutral" />
             </div>
@@ -204,7 +208,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
             <div className="flex-1 space-y-2 overflow-y-auto px-6 py-4">
                 {messages.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted">
-                        {strings.inbox.noMessages}
+                        {strings.messaging.noMessages}
                     </p>
                 ) : (
                     messages.map((m) => <Bubble key={m.id} message={m} />)
@@ -229,7 +233,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
                             compose.setBody(e.target.value);
                         }}
                         rows={2}
-                        placeholder={strings.inbox.replyBy(
+                        placeholder={strings.messaging.replyBy(
                             channelLabel(thread.channel).toLowerCase(),
                         )}
                         className={`${field} resize-none`}
@@ -239,7 +243,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
                         disabled={compose.busy || compose.body.trim().length === 0}
                         className={primaryButtonLarge}
                     >
-                        {compose.busy ? strings.inbox.sending : strings.inbox.send}
+                        {compose.busy ? strings.messaging.sending : strings.messaging.send}
                     </button>
                 </div>
             </form>
@@ -309,7 +313,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
     return (
         <Modal onClose={onClose}>
             <h2 className="mb-4 font-display text-lg font-bold text-ink">
-                {strings.inbox.newMessageTitle}
+                {strings.messaging.newMessageTitle}
             </h2>
             <form
                 onSubmit={(e) => {
@@ -319,7 +323,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.clientLabel}
+                    {strings.messaging.clientLabel}
                     <select
                         value={compose.clientId}
                         onChange={(e) => {
@@ -327,7 +331,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                         }}
                         className={field}
                     >
-                        <option value="">{strings.inbox.selectClient}</option>
+                        <option value="">{strings.messaging.selectClient}</option>
                         {clients.map((cl) => (
                             <option key={cl.id} value={cl.id}>
                                 {cl.name}
@@ -336,18 +340,18 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                     </select>
                 </label>
                 <div className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.channelLabel}
+                    {strings.messaging.channelLabel}
                     <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
                 </div>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.messageLabel}
+                    {strings.messaging.messageLabel}
                     <textarea
                         value={compose.body}
                         onChange={(e) => {
                             compose.setBody(e.target.value);
                         }}
                         rows={4}
-                        placeholder={strings.inbox.messagePlaceholder}
+                        placeholder={strings.messaging.messagePlaceholder}
                         className={`${field} resize-none`}
                     />
                 </label>
@@ -363,7 +367,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                         {strings.common.cancel}
                     </button>
                     <button type="submit" disabled={compose.busy} className={primaryButton}>
-                        {compose.busy ? strings.inbox.sending : strings.inbox.sendMessage}
+                        {compose.busy ? strings.messaging.sending : strings.messaging.sendMessage}
                     </button>
                 </div>
             </form>
@@ -381,11 +385,11 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                 <div className="py-4 text-center">
                     <h2 className="font-display text-lg font-bold text-ink">
                         {sent.status === "scheduled"
-                            ? strings.inbox.broadcastScheduled
-                            : strings.inbox.broadcastSent}
+                            ? strings.messaging.broadcastScheduled
+                            : strings.messaging.broadcastSent}
                     </h2>
                     <p className="mt-2 text-sm text-muted">
-                        {strings.inbox.broadcastRecipients(sent.name, sent.recipient_count)}
+                        {strings.messaging.broadcastRecipients(sent.name, sent.recipient_count)}
                     </p>
                     <button type="button" onClick={onClose} className={`${primaryButton} mt-5`}>
                         {strings.common.done}
@@ -398,7 +402,7 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
     return (
         <Modal onClose={onClose}>
             <h2 className="mb-4 font-display text-lg font-bold text-ink">
-                {strings.inbox.newBroadcastTitle}
+                {strings.messaging.newBroadcastTitle}
             </h2>
             <form
                 onSubmit={(e) => {
@@ -408,47 +412,47 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.nameLabel}
+                    {strings.messaging.nameLabel}
                     <input
                         value={form.name}
                         onChange={(e) => {
                             form.setName(e.target.value);
                         }}
-                        placeholder={strings.inbox.namePlaceholder}
+                        placeholder={strings.messaging.namePlaceholder}
                         className={field}
                     />
                 </label>
                 <div className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.channelLabel}
+                    {strings.messaging.channelLabel}
                     <ChannelToggle value={form.channel} onChange={form.setChannel} />
                 </div>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.messageLabel}
+                    {strings.messaging.messageLabel}
                     <textarea
                         value={form.body}
                         onChange={(e) => {
                             form.setBody(e.target.value);
                         }}
                         rows={4}
-                        placeholder={strings.inbox.announcementPlaceholder}
+                        placeholder={strings.messaging.announcementPlaceholder}
                         className={`${field} resize-none`}
                     />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.audienceTagsLabel}{" "}
-                    <span className="font-normal text-muted">{strings.inbox.optional}</span>
+                    {strings.messaging.audienceTagsLabel}{" "}
+                    <span className="font-normal text-muted">{strings.messaging.optional}</span>
                     <input
                         value={form.tags}
                         onChange={(e) => {
                             form.setTags(e.target.value);
                         }}
-                        placeholder={strings.inbox.tagsPlaceholderWeb}
+                        placeholder={strings.messaging.tagsPlaceholderWeb}
                         className={field}
                     />
                 </label>
                 <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
-                    {strings.inbox.scheduleLabel}{" "}
-                    <span className="font-normal text-muted">{strings.inbox.optional}</span>
+                    {strings.messaging.scheduleLabel}{" "}
+                    <span className="font-normal text-muted">{strings.messaging.optional}</span>
                     <input
                         type="datetime-local"
                         value={form.scheduledAt}
@@ -468,7 +472,7 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                         {strings.common.cancel}
                     </button>
                     <button type="submit" disabled={form.busy} className={primaryButton}>
-                        {form.busy ? strings.inbox.sending : strings.inbox.sendBroadcast}
+                        {form.busy ? strings.messaging.sending : strings.messaging.sendBroadcast}
                     </button>
                 </div>
             </form>

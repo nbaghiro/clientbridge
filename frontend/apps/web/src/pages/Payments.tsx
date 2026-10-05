@@ -49,7 +49,9 @@ export function Payments() {
 
     return (
         <div className="mx-auto max-w-6xl px-8 py-8">
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.nav.payments}</h1>
+            <h1 className="font-display text-2xl font-bold text-ink">
+                {strings.navigation.payments}
+            </h1>
             <div className="mt-4 border-b border-line">
                 <Tabs
                     items={tabs}

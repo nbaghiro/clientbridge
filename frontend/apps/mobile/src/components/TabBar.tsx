@@ -92,7 +92,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     }}
                 >
                     <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-                        <Text style={styles.sheetTitle}>{strings.nav.createMenu}</Text>
+                        <Text style={styles.sheetTitle}>{strings.navigation.createMenu}</Text>
                         <Pressable
                             style={styles.menuRow}
                             onPress={() => {
@@ -100,7 +100,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <IconClients size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>{strings.nav.newClient}</Text>
+                            <Text style={styles.menuText}>{strings.navigation.newClient}</Text>
                         </Pressable>
                         <Pressable
                             style={styles.menuRow}
@@ -110,7 +110,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <IconCalendar size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>{strings.nav.newBooking}</Text>
+                            <Text style={styles.menuText}>{strings.navigation.newBooking}</Text>
                         </Pressable>
                         {canInvoice ? (
                             <Pressable
@@ -120,7 +120,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                                 }}
                             >
                                 <IconInvoices size={20} color={theme.colors.accent} />
-                                <Text style={styles.menuText}>{strings.nav.newInvoice}</Text>
+                                <Text style={styles.menuText}>{strings.navigation.newInvoice}</Text>
                             </Pressable>
                         ) : null}
                         <Pressable
@@ -130,7 +130,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                             }}
                         >
                             <IconPos size={20} color={theme.colors.accent} />
-                            <Text style={styles.menuText}>{strings.nav.newSale}</Text>
+                            <Text style={styles.menuText}>{strings.navigation.newSale}</Text>
                         </Pressable>
                     </View>
                 </Pressable>

@@ -53,7 +53,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                 <div className="space-y-1 border-t border-line p-3">
                     <NavLink to="/setup" className={linkClass}>
                         <IconSettings className="h-[18px] w-[18px]" />
-                        {strings.nav.setup}
+                        {strings.navigation.setup}
                     </NavLink>
                     <button
                         type="button"
@@ -61,7 +61,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                         className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:bg-bg hover:text-ink-soft"
                     >
                         <IconLogout className="h-[18px] w-[18px]" />
-                        {strings.nav.signOut}
+                        {strings.navigation.signOut}
                     </button>
                 </div>
             </aside>

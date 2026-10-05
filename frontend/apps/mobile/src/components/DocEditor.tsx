@@ -47,7 +47,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
         <Modal onClose={onClose}>
             <Text style={styles.sheetTitle}>{docEditorTitle(kind, form.editing)}</Text>
             <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
-                <Text style={styles.sectionLabel}>{strings.invoices.clientLabel}</Text>
+                <Text style={styles.sectionLabel}>{strings.billing.clientLabel}</Text>
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -75,7 +75,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                 </ScrollView>
 
                 <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                    {strings.invoices.linesLabel}
+                    {strings.billing.linesLabel}
                 </Text>
                 {form.lines.map((l) => (
                     <View key={l.key} style={styles.lineEdit}>
@@ -85,7 +85,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             onChangeText={(v) => {
                                 form.setLine(l.key, { description: v, itemId: null });
                             }}
-                            placeholder={strings.invoices.lineDescriptionPlaceholder}
+                            placeholder={strings.billing.lineDescriptionPlaceholder}
                             placeholderTextColor={c.muted}
                         />
                         <TextInput
@@ -95,7 +95,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                 form.setLine(l.key, { quantity: v });
                             }}
                             keyboardType="decimal-pad"
-                            placeholder={strings.invoices.lineQty}
+                            placeholder={strings.billing.lineQty}
                             placeholderTextColor={c.muted}
                         />
                         <TextInput
@@ -105,7 +105,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                 form.setLine(l.key, { unit: v });
                             }}
                             keyboardType="decimal-pad"
-                            placeholder={strings.invoices.linePricePlaceholder}
+                            placeholder={strings.billing.linePricePlaceholder}
                             placeholderTextColor={c.muted}
                         />
                         <Pressable
@@ -125,7 +125,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                             form.addLine();
                         }}
                     >
-                        <Text style={styles.addLine}>{strings.invoices.addLine}</Text>
+                        <Text style={styles.addLine}>{strings.billing.addLine}</Text>
                     </Pressable>
                     {catalog.length > 0 ? (
                         <Pressable
@@ -133,7 +133,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                 setPicking((p) => !p);
                             }}
                         >
-                            <Text style={styles.addLine}>{strings.invoices.fromCatalog}</Text>
+                            <Text style={styles.addLine}>{strings.billing.fromCatalog}</Text>
                         </Pressable>
                     ) : null}
                 </View>
@@ -170,23 +170,23 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                 ) : null}
 
                 <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                    {strings.invoices.notesLabel}
+                    {strings.billing.notesLabel}
                 </Text>
                 <TextInput
                     style={styles.notesInput}
                     value={form.notes}
                     onChangeText={form.setNotes}
                     multiline
-                    placeholder={strings.invoices.notesPlaceholder}
+                    placeholder={strings.billing.notesPlaceholder}
                     placeholderTextColor={c.muted}
                 />
             </ScrollView>
             {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
             <View style={styles.foot}>
                 <Text style={styles.subtotal}>
-                    {strings.invoices.subtotal}{" "}
+                    {strings.billing.subtotal}{" "}
                     <Text style={styles.subtotalValue}>{formatMoney(form.subtotalCents)}</Text>
-                    <Text style={styles.subtotalTax}>{strings.invoices.plusTax}</Text>
+                    <Text style={styles.subtotalTax}>{strings.billing.plusTax}</Text>
                 </Text>
                 <View style={styles.actions}>
                     <Pressable style={styles.cancel} onPress={onClose}>
@@ -198,8 +198,8 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                         ) : (
                             <Text style={ui.primaryText}>
                                 {form.editing
-                                    ? strings.invoices.saveChanges
-                                    : strings.invoices.saveDraft}
+                                    ? strings.billing.saveChanges
+                                    : strings.billing.saveDraft}
                             </Text>
                         )}
                     </Pressable>

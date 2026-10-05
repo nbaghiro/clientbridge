@@ -49,7 +49,7 @@ export function useRefundForm(
     const submit = (): void => {
         const cents = amount.trim() === "" ? remainingCents : Math.round(Number(amount) * 100);
         if (!Number.isFinite(cents) || cents <= 0 || cents > remainingCents) {
-            setError(strings.invoices.refundAmountInvalid);
+            setError(strings.billing.refundAmountInvalid);
             return;
         }
         keyRef.current ??= newIdempotencyKey();
@@ -58,7 +58,7 @@ export function useRefundForm(
             onSuccess: () => {
                 setAmount("");
             },
-            errorMessage: strings.invoices.refundError,
+            errorMessage: strings.billing.refundError,
         });
     };
 
@@ -98,7 +98,7 @@ export function refundableCents(payment: PaymentRow, allPayments: PaymentRow[]):
 }
 
 export function refundPlaceholder(remainingCents: number): string {
-    return strings.invoices.refundAmountPlaceholder(formatMoney(remainingCents));
+    return strings.billing.refundAmountPlaceholder(formatMoney(remainingCents));
 }
 
 export function isRefundable(payment: PaymentRow, allPayments: PaymentRow[]): boolean {

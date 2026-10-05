@@ -1,4 +1,4 @@
-import type { ModalProps } from "@clientbridge/app-core";
+import { type ModalProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { Modal as NativeModal, Pressable, StyleSheet, View } from "react-native";
 
@@ -7,10 +7,16 @@ const c = theme.colors;
 export function Modal({ open = true, onClose, size = "md", framed = true, children }: ModalProps) {
     return (
         <NativeModal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={styles.backdrop} onPress={onClose}>
+            <Pressable
+                style={styles.backdrop}
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel={strings.common.close}
+            >
                 <View
                     style={[styles.sheet, size === "xl" && styles.tall, framed && styles.framed]}
                     onStartShouldSetResponder={() => true}
+                    accessibilityViewIsModal
                 >
                     {children}
                 </View>
