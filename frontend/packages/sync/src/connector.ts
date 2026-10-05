@@ -1,7 +1,4 @@
-// PowerSync backend connector — bridges to our FastAPI backend through an authenticated fetch that
-// transparently refreshes the access token (and signs out when the session is unrecoverable).
-//  - fetchCredentials(): exchange the app session for a PowerSync token (GET /sync/token)
-//  - uploadData():       POST the local write queue to the server-authoritative endpoint (/sync/upload)
+// PowerSync connector: fetchCredentials() calls /sync/token and uploadData() posts to /sync/upload.
 import type {
     CommonPowerSyncDatabase,
     CrudEntry,

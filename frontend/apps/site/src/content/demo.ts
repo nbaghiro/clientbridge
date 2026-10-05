@@ -1,5 +1,4 @@
-// Birchbark Pet Studio, the demo business, as the app mocks show it. The laptop and phone read the
-// same rows so the figures agree everywhere on the page.
+// The demo business as the app mocks show it; the laptop and phone read the same rows.
 
 export const demoBusiness = {
     name: "Birchbark Pet Studio",

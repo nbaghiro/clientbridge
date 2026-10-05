@@ -48,8 +48,6 @@ export interface Business {
     status: string;
 }
 
-/** Provision the caller's business (POST /v1/onboarding) — the owner Staff row + the province's tax
- *  rates are seeded server-side, then sync down into the local replica. */
 export function onboard(api: ApiLike, input: OnboardInput): Promise<Business> {
     return api.post<Business>("/v1/onboarding", {
         name: input.name.trim(),
@@ -82,8 +80,6 @@ export interface OnboardingForm {
     submit: () => void;
 }
 
-/** Create-your-business view-model: name (auto-slugged until edited) + province + validation + submit;
- *  the platform owns only the inputs and the province picker. */
 export function useOnboardingForm(
     api: ApiLike,
     onCreated: (business: Business) => void,

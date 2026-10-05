@@ -400,8 +400,6 @@ export interface DocForm {
     submit: () => void;
 }
 
-/** Shared invoice/estimate builder: client + keyed draft lines + notes + validation + submit.
- *  The platform owns only the row/select widgets. */
 export function useDocForm(
     api: ApiLike,
     kind: "invoice" | "estimate",

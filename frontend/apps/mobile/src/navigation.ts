@@ -1,9 +1,7 @@
 import type { PaymentsTabKey } from "@clientbridge/app-core";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
-// A React Navigation param list must stay a `type` (object-literal types satisfy ParamListBase;
-// an interface would need a typing-weakening index signature).
-// `create` is a one-shot token: a fresh value asks the screen to open its new-item form.
+// Param lists stay `type`s: an interface would need an index signature to satisfy ParamListBase.
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type TabParamList = {
     Today: undefined;

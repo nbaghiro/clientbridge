@@ -13,10 +13,7 @@ export interface PickedFile {
     name?: string;
 }
 
-/** Reusable file-upload control. The image/file picker is the only platform seam: inject `pickFile`
- *  (e.g. expo-image-picker → fetch(uri).then((r) => r.blob())) to wire it; undefined → a disabled
- *  placeholder (mirrors PurchaseConfirmPanel). #36 supplies the picker for contract signatures and
- *  form file fields. */
+/** The file picker is the only platform seam: without `pickFile` the control renders disabled. */
 export function FileUploadField({
     target,
     label = strings.files.uploadFile,

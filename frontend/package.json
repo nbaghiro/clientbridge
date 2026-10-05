@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "turbo run dev",
         "build": "turbo run build",
-        "lint": "eslint .",
+        "lint": "eslint . && node packages/config/scripts/check-structure.mjs",
         "typecheck": "turbo run typecheck",
         "format": "prettier --write \"**/*.{ts,tsx,css,md,json}\"",
         "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json}\"",

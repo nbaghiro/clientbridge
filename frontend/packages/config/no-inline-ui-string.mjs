@@ -1,11 +1,4 @@
-// Custom ESLint rule: flag inline user-facing strings so copy stays in the shared catalog.
-//
-// Every user-facing string belongs in `packages/app-core/src/strings.ts` (see CLAUDE.md → Copy),
-// rendered as `strings.<domain>.<key>`. This rule catches the two ways new copy sneaks back inline:
-//   1. JSX text / string-literal children  — `<Text>Save</Text>`, `<p>{"Save"}</p>`
-//   2. the app-core copy sinks             — `setError("…")`, `{ errorMessage: "…" }`
-// It ignores anything without a letter (symbols, numbers, punctuation) and the `allow`-listed brand
-// tokens (stripped word-by-word, so "PowerSync · offline" reads as symbol-only once the brand is removed).
+// Flags inline user-facing strings (JSX text and app-core error sinks) so copy stays in strings.ts.
 
 const LETTER = /\p{L}/u;
 
@@ -17,12 +10,7 @@ function isCopy(raw, allow) {
     return LETTER.test(text);
 }
 
-/**
- * True when a string Literal lands in a JSX *child render position* — a direct `{"x"}` child, or a
- * branch of a `?:` / `||` / `??` that is rendered as a child (`{busy ? "Saving…" : "Save"}`). Walks up
- * through those transparent wrappers only; stops (returns false) at attributes, comparisons, call
- * args, object/array literals, etc. — so classNames, `status === "paid"` checks, and props are ignored.
- */
+/** True when a literal is rendered as a JSX child, directly or through ?:, || or ??. */
 function inJsxChildPosition(node) {
     let child = node;
     let parent = node.parent;
@@ -78,8 +66,7 @@ export default {
             JSXText(node) {
                 flagJsx(node, node.value);
             },
-            // String literal rendered as a JSX child — directly (`<X>{"copy"}</X>`) or via a `?:` / `||`
-            // branch (`{busy ? "Saving…" : "Save"}`). Attributes and comparisons are excluded.
+            // A literal rendered as a JSX child, directly or through a ?: or || branch.
             Literal(node) {
                 if (inJsxChildPosition(node)) flagJsx(node, node.value);
             },

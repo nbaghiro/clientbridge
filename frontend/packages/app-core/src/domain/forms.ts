@@ -183,8 +183,7 @@ export interface FormBuilder {
     submit: () => void;
 }
 
-/** Minimal form authoring via sync-write: a name + an ordered list of fields, inserted as one
- *  transaction (form first, then its fields) so the FK holds. A full drag-drop builder is a follow. */
+/** Inserts the form before its fields in one transaction so the foreign key holds. */
 export function useFormBuilder(onCreated: () => void): FormBuilder {
     const db = usePowerSync();
     const businessId = useBusinessId();

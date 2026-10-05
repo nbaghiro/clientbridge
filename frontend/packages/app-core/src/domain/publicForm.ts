@@ -1,7 +1,3 @@
-// Unauthenticated form-fill client. The URL token is the only credential, so these hit the API with
-// a plain `fetch` (never the authed session) against a base URL each platform supplies. PowerSync-free
-// so it can ship in the lean Connect bundle (`@clientbridge/app-core/public`).
-
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks";
@@ -47,8 +43,7 @@ export interface PublicFormClient {
     upload(token: string, file: Blob): Promise<string>; // returns a file_id to store as the answer
 }
 
-/** Build a form-fill client bound to the API origin (web `VITE_API_URL`), mirroring
- *  `createPublicPayClient`. Answers are keyed by each field's `name`. */
+/** Answers are keyed by each field's `name`. */
 export function createPublicFormClient(baseUrl: string): PublicFormClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
@@ -86,14 +81,11 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
     };
 }
 
-/** File-capture field types — now uploadable on the public fill page via the upload endpoint, the
- *  answer being the resulting file_id. */
 export function isFileField(input: string): boolean {
     return input === "file" || input === "image" || input === "signature";
 }
 
-/** Whether a required answer is present (empty string / empty list / unchecked all count as missing),
- *  mirroring the server's `_validate`. */
+/** Mirrors the server's required-answer check. */
 export function isAnswerMissing(value: FormAnswer | undefined): boolean {
     if (value === undefined) return true;
     if (typeof value === "string") return value.trim().length === 0;
@@ -101,8 +93,7 @@ export function isAnswerMissing(value: FormAnswer | undefined): boolean {
     return !value;
 }
 
-/** Normalize one entry of a select/multiselect field's `options` (a string, a number/bool, or a
- *  `{value,label}` object) into a `{value,label}` pair for rendering. */
+/** Options may be strings, numbers or `{value,label}` objects. */
 export function optionPair(option: unknown): { value: string; label: string } {
     if (typeof option === "string") return { value: option, label: option };
     if (typeof option === "number" || typeof option === "boolean") {
@@ -132,8 +123,6 @@ export interface PublicFormFill {
     setError: (message: string | null) => void;
 }
 
-/** View-model for the public form-fill page: load the form, track answers by field name, upload
- *  file-fields, validate required fields, and submit. The field inputs render per-platform. */
 export function usePublicFormFill(forms: PublicFormClient, token: string): PublicFormFill {
     const { status: load, data: form, setData: setForm } = usePublicResource(forms.getForm, token);
     const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});

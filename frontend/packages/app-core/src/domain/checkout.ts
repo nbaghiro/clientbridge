@@ -31,9 +31,7 @@ export interface Checkout {
     cancel: () => void;
 }
 
-/** One checkout for every sale (deposit, gift card, package, subscription): a saved card charges
- *  off-session and finishes; a new card returns a client secret the platform's card form confirms.
- *  One idempotency key per attempt, kept across retries so a double-submit can't double-charge. */
+/** One idempotency key per attempt, kept across retries so a double-submit can't double-charge. */
 export function useCheckout(
     onDone: () => void,
     opts: { allowNewCard?: boolean; defaultMethod?: string } = {},
@@ -139,8 +137,7 @@ export interface AddPaymentMethod {
     setError: (message: string | null) => void;
 }
 
-/** Save a card (or, on web, a PAD bank mandate) for a client: opens a SetupIntent and hands its
- *  client secret to the platform's PaymentMethodForm, which calls `complete` once confirmed. */
+/** The platform's PaymentMethodForm confirms the SetupIntent and then calls `complete`. */
 export function useAddPaymentMethod(
     api: ApiLike,
     clientId: string,

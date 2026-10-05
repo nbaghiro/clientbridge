@@ -5,8 +5,7 @@ import { Lockup } from "@clientbridge/ui";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
 
-/** Public page an invitee lands on from the emailed link (`/accept-invite?token=…`). Setting a
- *  password creates/links their account and signs them straight into the business they joined. */
+/** Setting a password creates or links the account and signs the invitee into the business. */
 export function AcceptInvite({ onAuthed }: { onAuthed: () => void }) {
     const [params] = useSearchParams();
     const navigate = useNavigate();

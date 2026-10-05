@@ -8,10 +8,7 @@ const URL_SCHEME = "clientbridge";
 
 // A native module: needs an Expo dev build and a publishable key; it does not run in Expo Go.
 
-/** Root Stripe init for the authed app. The connected account (the single business' Stripe account,
- *  read off the synced `businesses` row) is set on the provider, so every card confirm is a direct
- *  charge on it — matching the web `loadStripe(pk, { stripeAccount })`. No key → render children bare
- *  (the card forms then show a not-configured note). */
+/** Charges go directly to the business's connected Stripe account; with no key the card forms say so. */
 export function StripeAppProvider({ children }: { children: ReactElement }) {
     const account = useStripeAccountId();
     if (stripePublishableKey.length === 0) return children;

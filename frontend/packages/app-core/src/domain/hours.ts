@@ -54,8 +54,7 @@ export const CLEAR_RECURRING_HOURS_SQL =
 export const INSERT_RECURRING_HOURS_SQL =
     "INSERT INTO hours (id, business_id, staff_id, basis, weekday, start_time, end_time, available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
 
-/** Seed a full 7-day grid from the staff's recurring rows; unconfigured days fall back to
- *  business-hours defaults (weekdays open 9–5, weekends closed). */
+/** Days with no rows default to weekdays 9 to 5 and weekends closed. */
 function seedDays(rows: RecurringRow[]): DayHours[] {
     const byWeekday = new Map<number, RecurringRow>();
     for (const r of rows) if (r.weekday !== null) byWeekday.set(r.weekday, r);
@@ -73,9 +72,7 @@ function seedDays(rows: RecurringRow[]): DayHours[] {
     });
 }
 
-/** Weekly-availability editor for one staff member (recurring windows, sync-write). Seeds a 7-day
- *  grid from the synced rows, then replaces that staff's recurring rows on save. Render the consumer
- *  with `key={staffId}` so switching staff remounts and reseeds cleanly. */
+/** Render with `key={staffId}` so switching staff reseeds the grid. */
 export function useAvailabilityEditor(staffId: string | null): AvailabilityEditor {
     const db = usePowerSync();
     const businessId = useBusinessId();

@@ -19,8 +19,7 @@ export interface SessionOptions {
     lock?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
-/** Per-request write options. `idempotencyKey` is sent as the `Idempotency-Key` header so a retried
- *  money/uniqueness command dedups server-side. */
+/** `idempotencyKey` is sent as `Idempotency-Key` so a retried command dedups server-side. */
 export interface PostOptions {
     idempotencyKey?: string;
 }
@@ -42,8 +41,7 @@ export function createSession(opts: SessionOptions): Session {
     const runLocked = opts.lock ?? (<T>(fn: () => Promise<T>) => fn());
     let pending: Promise<boolean> | null = null;
 
-    // POST /auth/refresh. Signs out ONLY on a definitive 401/403; a network error or 5xx keeps the
-    // tokens so the request can retry later (a transient blip must not log everyone out + wipe data).
+    // Sign out only on a definitive 401/403; a network error or 5xx keeps the tokens for a retry.
     const doRefresh = async (): Promise<boolean> => {
         const tokens = await opts.store.get();
         if (tokens === null) return false; // not logged in (e.g. a failed login) — nothing to refresh
@@ -68,9 +66,7 @@ export function createSession(opts: SessionOptions): Session {
         return false;
     };
 
-    // Single-flight (in-context) + cross-context serialized (the lock). `staleToken` is the access
-    // token whose request 401'd; if another tab/context already rotated, skip the refresh and retry —
-    // this prevents two contexts replaying the same refresh token (which revokes the whole family).
+    // One refresh at a time across tabs, so two contexts never replay a refresh token (that revokes the family).
     const recover = (staleToken: string): Promise<boolean> => {
         pending ??= runLocked(async () => {
             const current = (await opts.store.get())?.access_token ?? "";

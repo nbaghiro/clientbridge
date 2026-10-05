@@ -1,6 +1,3 @@
-// Unauthenticated online shop: a business's products bought online and collected in person. Keyed
-// by the business slug like the booking page; hits the API with a plain `fetch`.
-
 import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
@@ -109,8 +106,7 @@ export interface PublicShopForm {
     error: string | null;
 }
 
-/** View-model for the shop page: pick products, give a name and an email or phone, then pay by card
- *  for pickup. One idempotency key per order attempt, kept across retries until it succeeds. */
+/** One idempotency key per order attempt, kept across retries until it succeeds. */
 export function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
     const { status: load, data: shop } = usePublicResource(client.getShop, slug);
     const [cart, setCart] = useState<Record<string, number>>({});

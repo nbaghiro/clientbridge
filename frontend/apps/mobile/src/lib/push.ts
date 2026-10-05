@@ -33,7 +33,6 @@ export async function registerForPush(): Promise<void> {
         ).data;
         await registerDevice(api, token, devicePlatform());
     } catch {
-        // Best-effort: permission denied, Expo Go (SDK 53+ dropped remote push), or a transient
-        // network error must never break app start.
+        // Best-effort: denied permission, Expo Go or a network error must never block app start.
     }
 }

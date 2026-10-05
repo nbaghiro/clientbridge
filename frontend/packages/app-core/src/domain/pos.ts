@@ -78,8 +78,7 @@ export function updateOrder(
     return api.patch<Order>(`/v1/orders/${orderId}`, { ...detailsBody(details), lines });
 }
 
-/** Pay an open sale by online card: a saved card of the sale's client charges now; otherwise the
- *  returned client secret is confirmed by the card form. The webhook settles it. */
+/** The webhook settles the payment. */
 export function payOrder(
     api: ApiLike,
     orderId: string,
@@ -105,8 +104,7 @@ export function requestConnectionToken(api: ApiLike): Promise<string> {
     return api.post<{ secret: string }>("/v1/terminal/connection-token", {}).then((r) => r.secret);
 }
 
-/** The Stripe Terminal token-provider seam. The native reader SDK (NOT wired here) calls this to
- *  authorize the card reader; the hook returns a stable provider to hand to the SDK on connect. */
+/** Returns a stable token provider for the Terminal SDK. */
 export function useConnectionToken(api: ApiLike): () => Promise<string> {
     return useCallback(() => requestConnectionToken(api), [api]);
 }
@@ -263,9 +261,7 @@ let cartSeq = 0;
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-/** Register view-model: a local cart of catalog lines → server-totalled order (tax computed
- *  server-side on create/update) → checkout (returns a Terminal client_secret). Editing the cart
- *  after a review drops back to the cart phase so the total is re-fetched before charging. */
+/** Editing the cart after review drops back to the cart phase so the total is refetched before charging. */
 export function useCart(api: ApiLike): Cart {
     const [lines, setLines] = useState<CartLine[]>([]);
     const [phase, setPhase] = useState<RegisterPhase>("cart");
@@ -431,8 +427,6 @@ export interface SaleCheckout {
     submit: () => void;
 }
 
-/** Card payment for a reviewed sale through the shared checkout; the sale's client's saved card is
- *  the default, a walk-in pays with a new card. */
 export function useSaleCheckout(api: ApiLike, cart: Cart, defaultMethod?: string): SaleCheckout {
     const checkout = useCheckout(
         cart.markPaid,

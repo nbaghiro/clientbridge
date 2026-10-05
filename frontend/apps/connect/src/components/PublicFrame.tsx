@@ -5,9 +5,7 @@ import { isEmbedded } from "../embed";
 
 const WIDTHS = { md: "max-w-md", xl: "max-w-xl", "2xl": "max-w-2xl" } as const;
 
-/** The card shell shared by every public customer surface. Applies the business's brand colour (as
- *  the `--accent` token) + shows its logo + tagline, falling back to plain Pewter when unbranded.
- *  When embedded it drops the full-screen chrome and sizes to its content so the host iframe fits it. */
+/** Card shell for every public page, in the business's colours; sized to content when embedded. */
 export function PublicFrame({
     brand,
     size = "md",

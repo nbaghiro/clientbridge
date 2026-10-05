@@ -81,9 +81,6 @@ export const ACCOUNT_TEXT_FIELDS: {
     },
 ];
 
-/**
- * The account's selectable UI languages. The picker renders only when more than one is listed.
- */
 export const LOCALES: { code: string; label: string }[] = [{ code: "en", label: "English" }];
 
 export interface AccountForm {
@@ -101,8 +98,7 @@ export interface AccountForm {
 export const ACCOUNT_SQL =
     "SELECT id, name, timezone, locale, billing_email, gst_hst_number, qst_number, brand FROM businesses LIMIT 1";
 
-/** Account-settings view-model: seed the form from the synced `businesses` row, PATCH the changes.
- *  The saved row flows back via sync, so the form reflects the server on the next render. */
+/** The saved row flows back through sync, so the form shows the server's values on the next render. */
 export function useAccountForm(api: ApiLike): AccountForm {
     const row = useQuery<AccountRow>(ACCOUNT_SQL).data[0] ?? null;
     const { busy, error, setError, run } = useAsyncAction();
@@ -144,8 +140,7 @@ export function useAccountForm(api: ApiLike): AccountForm {
             setError(strings.account.nameRequired);
             return;
         }
-        // Send `brand` only when it changed, so the mobile Account screen (no brand UI) doesn't
-        // overwrite it with empty values.
+        // Send `brand` only when it changed, so mobile (no brand fields) doesn't blank it.
         const { logo_file_id, primary, tagline, ...text } = fields;
         const b = loadedBrand.current;
         const brandChanged =
@@ -176,8 +171,7 @@ export function useAccountForm(api: ApiLike): AccountForm {
 
 export const BUSINESS_ID_SQL = "SELECT id FROM businesses LIMIT 1";
 
-/** The current business id from the synced `businesses` row (one per replica). `null` until it
- *  syncs — sync-write inserts need it to set tenancy. */
+/** `null` until the business row syncs; sync-write inserts need it for tenancy. */
 export function useBusinessId(): string | null {
     return useQuery<{ id: string }>(BUSINESS_ID_SQL).data[0]?.id ?? null;
 }

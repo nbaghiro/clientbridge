@@ -104,9 +104,6 @@ function ymdToLocalDate(ymd: string): Date {
     return new Date(y, mo - 1, d);
 }
 
-/** Combine a calendar day (a Date or a "YYYY-MM-DD" string) with a wall-clock "HH:MM" into a local
- *  Date — the single home for turning a picked day + time into a booking start (web string-parsed it
- *  while mobile built it numerically; sharing it keeps the two from drifting). */
 export function combineDayAndTime(day: Date | string, hhmm: string): Date {
     const base = typeof day === "string" ? ymdToLocalDate(day) : day;
     const [h = 0, m = 0] = hhmm.split(":").map(Number);

@@ -34,8 +34,7 @@ function useAccessToken(): string | null {
     return token;
 }
 
-/** The signed-in member: the (async) mobile side of the token seam behind app-core's shared
- *  decode. SecureStore is read once on mount, then the member resolves from the token. */
+/** SecureStore is read once on mount, then the member resolves from the token. */
 export function useViewer(): Viewer | null {
     return useCurrentViewer(useAccessToken());
 }

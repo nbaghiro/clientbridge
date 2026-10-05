@@ -48,8 +48,7 @@ export function App() {
     }, []);
 
     const handleAuthed = useCallback(async (): Promise<void> => {
-        // Accept-invite while already authed: the [authed] connect effect won't re-fire, so purge the
-        // previous tenant's replica + reconnect here.
+        // Already signed in, the connect effect won't re-fire, so drop the old replica and reconnect here.
         if (authed) {
             await db.disconnectAndClear();
             await connectPowerSync(api.authFetch);
@@ -85,8 +84,7 @@ export function App() {
     );
 }
 
-/** Routes split per session state. Inside PowerSyncContext so it can gate an authed-but-no-business
- *  user (a fresh sign-up) into the onboarding step until their business has synced. */
+/** Holds a fresh sign-up in onboarding until their business has synced. */
 function AppRoutes({
     authed,
     onSignOut,

@@ -21,8 +21,6 @@ export interface ChargeSheetProps {
     children?: ReactNode;
 }
 
-/** The one place a sale is paid for: the sale's fields, a saved card or a new card, then the card
- *  confirm when a new card needs it. */
 export function ChargeSheet({
     checkout,
     methods,

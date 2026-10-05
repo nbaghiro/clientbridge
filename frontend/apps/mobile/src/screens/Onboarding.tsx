@@ -20,8 +20,6 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 
-/** Create-your-business step shown to an authed user with no business yet (right after sign-up). On
- *  success the new business syncs down and the app's gate routes through into the tabs. */
 export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
     const [submitted, setSubmitted] = useState(false);
     const form = useOnboardingForm(api, () => {

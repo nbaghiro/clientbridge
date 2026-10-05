@@ -53,7 +53,7 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | Job | Steps |
 |---|---|
 | **backend** | Postgres 16 service · Python 3.14 · `uv sync` → `ruff check` → `ruff format --check` → `mypy src scripts tests` → `python -m scripts.check_structure` → `alembic upgrade head` → `python -m scripts.seed_demo` → `pytest --cov=clientbridge --cov-branch --cov-fail-under=90` |
-| **frontend** | pnpm 9 · `pnpm install --frozen-lockfile` → `pnpm lint` (eslint) → `pnpm typecheck` (tsc) → `pnpm format:check` (prettier) → `pnpm test` (vitest) → **`pnpm build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
+| **frontend** | pnpm 9 · `pnpm install --frozen-lockfile` → `pnpm lint` (eslint + `check-structure.mjs`) → `pnpm typecheck` (tsc) → `pnpm format:check` (prettier) → `pnpm test` (vitest) → **`pnpm build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
 | **site** | Node 24 · `pnpm --filter site build` → `lint:content` (copy rules on `src/content` and the built pages) → `test` (content invariants, links and anchors resolve, one h1 per page, demo figures agree) → Playwright e2e on the built site: every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
 | **codegen-drift** | `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then `git diff --exit-code` on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |

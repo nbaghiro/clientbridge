@@ -11,10 +11,7 @@ export interface TableCount {
     rows: number;
 }
 
-/**
- * One `UNION ALL` query returning a live row count per synced table from the local SQLite DB.
- * Drives the debug view's "client state" — what this device actually has on disk.
- */
+/** Live row counts per synced table, for the debug view. */
 export function countsQuery(): string {
     return TABLE_NAMES.map((t) => `SELECT '${t}' AS "table", count(*) AS rows FROM "${t}"`).join(
         "\nUNION ALL ",

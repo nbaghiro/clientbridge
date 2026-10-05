@@ -34,8 +34,7 @@ export function requestUpload(
         .then((r) => ({ fileId: r.file.id, uploadUrl: r.upload_url }));
 }
 
-/** PUT the bytes straight to the presigned S3 url — bypasses ApiLike (an external, unauthed url).
- *  `Blob` resolves per platform (web File/Blob, RN Blob); each one's fetch accepts its own Blob. */
+/** Bypasses ApiLike: the presigned url is external and unauthenticated. */
 export async function putToPresignedUrl(
     uploadUrl: string,
     body: Blob,
@@ -77,8 +76,7 @@ export interface FileUpload {
     reset: () => void;
 }
 
-/** Shared file-upload action: request a presigned url, PUT the platform's blob to it, then surface
- *  the new `file_id`. The only platform seam is the file/blob source (web input, mobile picker). */
+/** The only platform seam is the blob source (web input, mobile picker). */
 export function useFileUpload(api: ApiLike, onUploaded?: (fileId: string) => void): FileUpload {
     const [fileId, setFileId] = useState<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();

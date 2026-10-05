@@ -1,7 +1,3 @@
-// Unauthenticated e-sign client. The URL token is the only credential, so these hit the API with a
-// plain `fetch` (never the authed session) against a base URL each platform supplies. PowerSync-free
-// so it can ship in the lean Connect bundle (`@clientbridge/app-core/public`).
-
 import { useEffect, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
@@ -54,8 +50,6 @@ export interface PublicContractClient {
     upload(token: string, file: Blob): Promise<string>; // returns a file_id to pass as signature_image_id
 }
 
-/** Build an e-sign client bound to the API origin (web `VITE_API_URL`), mirroring
- *  `createPublicPayClient`. */
 export function createPublicContractClient(baseUrl: string): PublicContractClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
@@ -119,9 +113,7 @@ export interface PublicContractSign {
     setError: (message: string | null) => void;
 }
 
-/** View-model for the public e-sign page: load the contract, capture a typed name or an uploaded
- *  signature image, then sign or decline. The file `<input>`/picker stays per-platform; it hands the
- *  Blob + name to `uploadImage`. */
+/** The file input stays per platform and hands its Blob to `uploadImage`. */
 export function usePublicContractSign(
     contracts: PublicContractClient,
     token: string,

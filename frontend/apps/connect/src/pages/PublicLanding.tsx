@@ -13,8 +13,7 @@ import { config } from "../config";
 
 const booking = createPublicBookingClient(config.apiUrl);
 
-/** A business's branded home (`/b/:slug`) — the link-in-bio target for providers without their own
- *  site. Reuses the booking-page profile for the brand + a services preview, then links to booking. */
+/** The business home page (`/b/:slug`) for providers without their own site. */
 export function PublicLanding() {
     const { slug = "" } = useParams<{ slug: string }>();
     const { status, page } = usePublicBusiness(booking, slug);

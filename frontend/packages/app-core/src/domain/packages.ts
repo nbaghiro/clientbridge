@@ -80,8 +80,6 @@ export interface PackageSaleForm {
     submit: () => void;
 }
 
-/** Sell-package form: pick a `kind="package"` item + a saved card (off-session) or a new card
- *  (interactive Elements confirm). Mirrors `useSubscriptionForm` over the shared purchase seam. */
 export function usePackageSaleForm(
     api: ApiLike,
     clientId: string,

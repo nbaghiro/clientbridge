@@ -16,9 +16,7 @@ export interface CardFormProps {
     onCancel?: () => void;
 }
 
-/** Stripe Elements confirm for a server-minted client secret on the business's connected account.
- *  With `onCancel` it renders framed with a cancel action (staff screens); without, it is the bare
- *  full-width form the public pages use. */
+/** With `onCancel` it renders framed with a cancel action; without, it is the bare public form. */
 export function CardForm(props: CardFormProps) {
     const stripePromise = stripeFor(props.stripeAccount);
     if (stripePromise === null) {

@@ -10,8 +10,7 @@ import { PublicPay } from "./pages/PublicPay";
 import { PublicReview } from "./pages/PublicReview";
 import { PublicShop } from "./pages/PublicShop";
 
-/** Connect — the unauthenticated customer surfaces. Each route's URL token/slug is the only
- *  credential; there is no session and no PowerSync. */
+// Connect: the public customer pages, where the URL token or slug is the only credential.
 export function App() {
     useEmbedResize();
     return (

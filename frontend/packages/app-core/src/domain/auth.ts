@@ -29,8 +29,7 @@ export interface LoginForm {
     googleUnavailable: () => void;
 }
 
-/** Shared sign-in / sign-up form: state + the /auth call + error copy. `setTokens` is injected
- *  (web sync, mobile async); the platform owns only the inputs + layout. T = the token-pair shape. */
+/** `setTokens` is injected because web stores tokens synchronously and mobile asynchronously. */
 export function useLogin(
     api: ApiLike,
     setTokens: (tokens: AuthTokens) => void | Promise<void>,
@@ -105,8 +104,7 @@ function base64UrlDecode(input: string): string {
     return out;
 }
 
-/** Read the `sub` (user id) claim from an unverified JWT. The value only scopes a local read;
- *  the server still authorizes every write. Returns `null` for a missing/malformed token. */
+/** Unverified: the value only scopes a local read; the server authorizes every write. */
 export function decodeJwtSub(token: string | null): string | null {
     if (token === null) return null;
     const payload = token.split(".")[1];
@@ -127,8 +125,7 @@ export interface Viewer {
 export const CURRENT_VIEWER_SQL =
     "SELECT id, role FROM staff WHERE user_id = ? AND status = 'active' LIMIT 1";
 
-/** The signed-in member, from the synced `staff` row whose `user_id` matches the access token's
- *  `sub`. `null` until that row syncs (or when signed out / token undecodable). */
+/** `null` until the member's staff row syncs, or when signed out. */
 export function useCurrentViewer(accessToken: string | null): Viewer | null {
     const userId = useMemo(() => decodeJwtSub(accessToken), [accessToken]);
     const rows = useQuery<{ id: string; role: string }>(CURRENT_VIEWER_SQL, [userId]).data;

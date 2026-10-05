@@ -500,8 +500,12 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   drafts), uploaded via `/sync/upload`.
 - **Forms** = `useXForm` hooks on the `useAsyncAction` busy/error primitive.
 - Each domain exports a status→`Intent` mapper (the platform maps `Intent` → its own tokens).
-- **`strings.ts`** is the copy catalog (one object, ~35 domain groups) — the single home of UI copy.
+- **`strings.ts`** is the copy catalog (one object, a group per concept) — the single home of UI copy.
   **`icons.ts`** is icon geometry as data (rendered `<svg>` on web, `react-native-svg` on mobile).
+- **Layout:** one file per concept in `domain/` (`today`, `hours`, `earnings`, `gettingPaid`, `auth`…),
+  named the same as its strings group, web page and mobile screen; the shared plumbing sits flat at the
+  root (`api`, `hooks`, `format`, `datetime`, `ui`, `debug`). `packages/config/scripts/check-structure.mjs`
+  in `pnpm lint` fails when a concept's names drift apart.
 - **Two entrypoints:** `index.ts` (full) and **`public.ts`** — the PowerSync-free lean subpath the Connect
   app imports.
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
@@ -520,8 +524,8 @@ and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`, 
 `editableStaff`, `canVoidSale`) live in app-core so both apps gate the same way.
 
 ### Shared components
-A screen composes shared components and never re-implements a list, a detail view, a checkout or a card
-form. The prop contracts are types in `app-core/src/ui.ts`, and each platform implements them once:
+A screen composes shared components and never re-implements a list, a detail view, a modal, a checkout or
+a card form. The prop contracts are types in `app-core/src/ui.ts`, and each platform implements them once:
 `@clientbridge/ui` for web and Connect (it imports only `app-core/public`), and `apps/mobile/src/ui/` for
 mobile.
 
@@ -529,6 +533,8 @@ mobile.
 |---|---|
 | `ListPage` | header, count, primary action, segments, search, rows and an empty state |
 | `DetailView` | a right-side panel on web, a bottom sheet on mobile, with sections and an action row |
+| `Modal` | a centred dialog on web, a bottom sheet on mobile; `framed={false}` when the content draws its own card |
+| `Panel` | a titled inline card for a form on a page (web) |
 | `ChargeSheet`, `CardForm`, `PaymentMethodForm` | the checkout and card or bank entry |
 | `DocEditor` | the one invoice and estimate editor, for new documents and drafts (lives in each app because it reads the replica) |
 | `ItemImage` | a catalog item's image, or its initial on a tint of its colour |

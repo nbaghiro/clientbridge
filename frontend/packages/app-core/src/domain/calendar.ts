@@ -290,10 +290,6 @@ interface Row {
     deposit_status: string | null;
 }
 
-// PowerSync stores timestamptz with a bare "+00" offset (e.g. "2026-06-26 10:00:00+00"), which
-// SQLite datetime() can't parse (it needs "+00:00"/"Z") and would return NULL for — silently
-// filtering out EVERY event. Appending ":00" makes it "+00:00" so datetime() parses it; the ISO
-// params (…Z) parse as-is. (Mirrors parseTimestamp's bare-offset fix.)
 // The replica stores timestamptz as "...Z" or a bare "+00" offset, which SQLite only parses as "+00:00".
 function utcSql(column: string): string {
     return `datetime(CASE WHEN ${column} LIKE '%+__' THEN ${column} || ':00' ELSE ${column} END)`;
@@ -382,8 +378,7 @@ export function createBooking(api: ApiLike, input: NewBooking): Promise<BookingR
 
 export type RecurFrequency = "day" | "week" | "month";
 
-/** Recurrence options with both display forms so each platform keeps its own phrasing without drift:
- *  `label` for a standalone chip ("Weekly"), `unit` for an "Every N …" control ("Weeks"). */
+/** `label` for a chip ("Weekly"), `unit` for an "Every N" control ("Weeks"). */
 export const RECUR_FREQUENCIES: { value: RecurFrequency; label: string; unit: string }[] = [
     { value: "day", label: strings.calendar.freqDaily, unit: strings.calendar.unitDays },
     { value: "week", label: strings.calendar.freqWeekly, unit: strings.calendar.unitWeeks },
@@ -438,8 +433,7 @@ export function setBookingStatus(
     return api.patch<BookingResult>(`/v1/bookings/${bookingId}`, { status });
 }
 
-// Drag-drop reschedule: snap the vertical delta to a new start and PATCH it (fire-and-forget; a
-// rejected move just leaves the booking where it was once sync reconciles).
+// Fire-and-forget: a rejected move snaps back once sync reconciles.
 export function rescheduleByDrag(
     api: ApiLike,
     event: CalendarEvent,
@@ -458,8 +452,7 @@ export interface CancelBooking {
     cancel: () => void;
 }
 
-/** Shared cancel-booking action: busy/error state + the status PATCH, calling `onDone` on success.
- *  An event with no booking (a bare session) just closes. */
+/** An event with no booking (a bare slot) just closes. */
 export function useCancelBooking(
     api: ApiLike,
     event: CalendarEvent,
@@ -491,9 +484,7 @@ export interface CollectDepositOptions {
     idempotencyKey?: string;
 }
 
-/** Collect a booking's deposit (`POST /v1/bookings/{id}/deposit`). A saved `paymentMethodId` charges
- *  off-session now; without one the returned `client_secret` is confirmed by the platform card seam.
- *  `payment_method_id` is a query param (the endpoint takes no body). */
+/** A saved method charges now; otherwise the platform card form confirms the returned client secret. */
 export function collectDeposit(
     api: ApiLike,
     bookingId: string,
@@ -576,8 +567,7 @@ export interface BookingAddons {
     error: string | null;
 }
 
-/** Products a client added to their visit online: staff can drop them until the visit is invoiced,
- *  and an owner/admin invoices the visit with them as extra lines. */
+/** Staff can remove add-ons until the visit is invoiced; an owner or admin invoices them as lines. */
 export function useBookingAddons(
     api: ApiLike,
     event: CalendarEvent,
@@ -659,8 +649,7 @@ function pickerTimes(): { hhmm: string; label: string }[] {
     return out;
 }
 
-/** Shared new-booking form: client/service/staff selection, validation, and submit. The platform
- *  owns only the date/time entry widget and passes the resulting Date to submit(). */
+/** The platform owns only the date and time entry and passes the resulting Date to submit(). */
 export function useBookingForm(api: ApiLike, onCreated: () => void): BookingFormState {
     const clients = useClients();
     const items = bookableItems(useCatalogItems());

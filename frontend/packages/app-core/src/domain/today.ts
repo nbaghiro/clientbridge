@@ -11,8 +11,7 @@ export interface DashboardSummary {
     gst_hst_set_aside_cents: number;
 }
 
-/** Today dashboard money aggregates (REST — owner/admin only). `null` = loading, `"error"` =
- *  the fetch failed (e.g. 403 for staff). Bump `reloadKey` to refetch. */
+/** `null` while loading, `"error"` if the fetch failed (403 for staff); bump `reloadKey` to refetch. */
 export function useDashboardSummary(
     api: ApiLike,
     reloadKey = 0,

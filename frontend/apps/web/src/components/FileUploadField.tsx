@@ -3,9 +3,6 @@ import { type ChangeEvent, useRef, useState } from "react";
 
 import { api } from "../lib/api";
 
-/** Reusable file-upload control: pick a file → presigned PUT to S3 → yields the new `file_id` plus a
- *  download link. #36 (contract drawn-signature + form file fields) drops this in by passing the
- *  parent target. */
 export function FileUploadField({
     target,
     accept,

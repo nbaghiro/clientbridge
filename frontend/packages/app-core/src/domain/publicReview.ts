@@ -1,7 +1,3 @@
-// Unauthenticated review client. The URL token is the only credential, so these hit the API with a
-// plain `fetch` (never the authed session) against a base URL each platform supplies. PowerSync-free
-// so it can ship in the lean Connect bundle (`@clientbridge/app-core/public`).
-
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks";
@@ -35,8 +31,6 @@ export interface PublicReviewClient {
     submit(token: string, input: PublicReviewSubmit): Promise<PublicReviewContext>;
 }
 
-/** Build a review client bound to the API origin (web `VITE_API_URL`), mirroring
- *  `createPublicPayClient`. */
 export function createPublicReviewClient(baseUrl: string): PublicReviewClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);
@@ -73,8 +67,6 @@ export interface PublicReviewForm {
     setError: (message: string | null) => void;
 }
 
-/** View-model for the public review page: load the request context, capture a 1–5 rating + optional
- *  note, then submit. The star picker + textarea render per-platform. */
 export function usePublicReview(reviews: PublicReviewClient, token: string): PublicReviewForm {
     const {
         status: load,

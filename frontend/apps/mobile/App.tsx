@@ -114,8 +114,7 @@ function Root() {
     );
 }
 
-/** Inside PowerSyncContext so it can gate an authed-but-no-business user (a fresh sign-up) into the
- *  onboarding step until their business has synced, then mount the Stripe-enabled app. */
+/** Holds a fresh sign-up in onboarding until their business has synced. */
 function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     const hasSynced = useStatus().hasSynced ?? false;
     const businessId = useBusinessId();

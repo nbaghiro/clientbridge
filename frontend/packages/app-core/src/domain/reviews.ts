@@ -28,8 +28,7 @@ LEFT JOIN clients c ON c.id = r.client_id
 WHERE r.status IN ('submitted', 'published', 'hidden')
 ORDER BY COALESCE(r.submitted_at, r.created_at) DESC`;
 
-/** Every submitted review, newest first, joined to the client's name (LEFT — a deleted client
- *  still lists). Requests the client hasn't answered yet are counted by `useAwaitingReviews`. */
+/** LEFT join so a deleted client's reviews still list; unanswered requests are in `useAwaitingReviews`. */
 export function useReviews(): ReviewRow[] {
     return useQuery<ReviewRow>(REVIEWS_SQL).data;
 }
@@ -64,8 +63,7 @@ export function emptyStars(filled: number): number {
     return Math.max(0, MAX_STARS - filled);
 }
 
-/** The published-reviews summary (REST). `null` = loading, `"error"` = the fetch failed. Bump
- *  `reloadKey` to refetch after a publish/hide changes which reviews count. */
+/** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
 export function useReviewSummary(api: ApiLike, reloadKey = 0): ReviewSummary | "error" | null {
     const [summary, setSummary] = useState<ReviewSummary | "error" | null>(null);
     useEffect(() => {
@@ -152,9 +150,7 @@ export interface ReviewActions {
     publish: () => void;
 }
 
-/** The respond / hide / publish lifecycle as a view-model, mirroring `useAllocationActions`. The
- *  synced row updates itself once a command lands; `onDone` is for surfaces that also want to react
- *  (e.g. refresh the summary, close an inline editor). */
+/** The synced row updates itself once a command lands; `onDone` is for refreshing the summary. */
 export function useReviewActions(
     api: ApiLike,
     review: ReviewRow,

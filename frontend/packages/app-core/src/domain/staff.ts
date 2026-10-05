@@ -88,8 +88,7 @@ export interface AcceptInviteInput {
     password: string;
 }
 
-/** Accept an emailed invite (POST /auth/accept-invite) — creates/links the user and returns a session
- *  (the invitee is logged straight into the business they joined). */
+/** Creates or links the user and returns a session in the business they joined. */
 export function acceptInvite(api: ApiLike, input: AcceptInviteInput): Promise<AuthTokens> {
     return api.post<AuthTokens>("/auth/accept-invite", {
         token: input.token,
@@ -157,8 +156,7 @@ export interface AcceptInviteForm {
     submit: () => void;
 }
 
-/** Accept-invite view-model for the public emailed-link page: name + password + submit; `setTokens`
- *  is injected (web sync, mobile async) and `onSuccess` flips the app into its authed state. */
+/** `setTokens` is injected because web stores tokens synchronously and mobile asynchronously. */
 export function useAcceptInviteForm(
     api: ApiLike,
     token: string,
@@ -253,8 +251,7 @@ export interface StaffPayForm {
     submit: () => void;
 }
 
-/** How a member is paid: service rate (percent, fixed per booking, or hourly) and the commission
- *  percentage on products they sell. Owner/admin only (the server enforces it). */
+/** Owner and admin only; the server enforces it. */
 export function useStaffPayForm(api: ApiLike, row: StaffPayRow, onDone: () => void): StaffPayForm {
     const [isPayee, setIsPayee] = useState(row.payee === 1);
     const [rateType, setRateType] = useState(row.rate_type ?? "percent");

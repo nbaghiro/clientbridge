@@ -9,8 +9,7 @@ interface EmbedMessage {
 
 const SOURCE = "clientbridge-connect";
 
-/** True when running inside an embed: the loader appends `?embed=1`, and a bare `<iframe>` embed is
- *  detected by being framed (cross-origin `window.top` access throws, which also means framed). */
+/** Embedded when the loader added `?embed=1` or the page is framed (a framed cross-origin read throws). */
 export function isEmbedded(): boolean {
     if (typeof window === "undefined") return false;
     if (new URLSearchParams(window.location.search).get("embed") === "1") return true;
@@ -23,14 +22,11 @@ export function isEmbedded(): boolean {
 
 function postToParent(message: EmbedMessage): void {
     if (typeof window === "undefined" || window.parent === window) return;
-    // targetOrigin "*" is safe here: the payload is only a height + a success flag, and the loader
-    // filters by `source` + the iframe it owns.
+    // "*" is safe: the payload is only a height and a success flag, and the loader checks `source`.
     window.parent.postMessage({ source: SOURCE, ...message }, "*");
 }
 
-/** Continuously report the content height so the host can size the iframe to fit (no inner scrollbar).
- *  Measures the body's rendered box (embed mode sets `height:auto`, so it tracks content and can
- *  shrink) — NOT `documentElement.scrollHeight`, which is viewport-floored and would never shrink. */
+/** Reports the body's height so the host sizes the iframe; documentElement.scrollHeight never shrinks. */
 export function useEmbedResize(): void {
     useEffect(() => {
         if (!isEmbedded()) return undefined;
@@ -49,10 +45,7 @@ export function useEmbedResize(): void {
     }, []);
 }
 
-/** Fire a one-shot `success` up to the host when a flow completes (booking booked, invoice paid, …),
- *  so the embedder can show its own confirmation / fire a conversion pixel / redirect. Fires only on a
- *  completion that happens this session — not when a customer merely reopens an already-done link
- *  (that would re-fire the host's conversion pixel for a non-event). */
+/** Tells the host a flow finished this session, but not when a customer reopens a finished link. */
 export function useEmbedSuccess(active: boolean, widget: string): void {
     const sent = useRef(false);
     const seenInactive = useRef(false);

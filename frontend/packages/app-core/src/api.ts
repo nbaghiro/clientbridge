@@ -1,5 +1,3 @@
-// Per-request options for a write. `idempotencyKey` dedups a retried money/uniqueness command
-// server-side (sent as the `Idempotency-Key` header).
 export interface PostOptions {
     idempotencyKey?: string;
 }
@@ -14,14 +12,12 @@ export interface ApiLike {
     delete<T>(path: string): Promise<T>;
 }
 
-/** A fresh idempotency key for one write attempt, reused across that attempt's retries so the server
- *  dedups instead of double-charging. `crypto.randomUUID` is available on web and RN (Hermes). */
+/** One key per write attempt, reused across its retries so the server dedups instead of double-charging. */
 export function newIdempotencyKey(): string {
     return crypto.randomUUID();
 }
 
-/** A client-minted row id for a sync-write insert (`prefix_<uuid>`). On `/sync/upload` the client id
- *  is authoritative and unchecked for shape, so this only has to be unique. */
+/** The client id is authoritative on `/sync/upload`, so it only has to be unique. */
 export function newRowId(prefix: string): string {
     return `${prefix}_${crypto.randomUUID()}`;
 }

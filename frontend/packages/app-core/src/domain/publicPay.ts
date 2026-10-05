@@ -1,6 +1,3 @@
-// Unauthenticated pay-by-link client. The URL token is the only credential, so these hit the API
-// with a plain `fetch` (never the authed session) against a base URL each platform supplies.
-
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks";
@@ -111,9 +108,6 @@ export interface PublicPayForm {
     setError: (message: string | null) => void;
 }
 
-/** View-model for the public pay-by-link page: load the invoice, pick a method, create the Interac
- *  request or card intent, and track paid state. Platforms render Stripe Elements / native card UI
- *  from `card`; everything else (the state machine) is shared. */
 export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPayForm {
     const { status: load, data: invoice } = usePublicResource(pay.getPublicInvoice, token);
     const [method, setMethod] = useState<PayMethod>("interac");

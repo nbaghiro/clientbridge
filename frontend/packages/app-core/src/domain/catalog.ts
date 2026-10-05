@@ -58,8 +58,7 @@ export const ITEM_KINDS = [
 
 /** Kinds a client can book on the calendar or the booking page. */
 export const BOOKABLE_KINDS = ["service", "class"];
-/** Kinds a sale or invoice carries as lines; packages, subscriptions and gift cards sell through
- *  their own checkout so the entitlement (and its liability) is created. */
+/** Packages, subscriptions and gift cards sell through their own checkout so the liability is created. */
 export const LINE_KINDS = ["service", "class", "product"];
 export const ENTITLEMENT_KINDS = ["gift", "package", "subscription"] as const;
 export type EntitlementKind = (typeof ENTITLEMENT_KINDS)[number];
@@ -398,8 +397,7 @@ export interface ItemForm {
     restore: () => void;
 }
 
-/** The item editor's view-model, for both adding and editing: every field the item's kind uses,
- *  validation, save, and archive/restore. On create, an opening stock count is booked as a restock. */
+/** On create, an opening stock count is booked as a restock. */
 export function useItemForm(api: ApiLike, item: ItemRow | null, onDone: () => void): ItemForm {
     const [values, setValues] = useState<ItemFormValues>(() => initialValues(item));
     const { busy, error, setError, run } = useAsyncAction();

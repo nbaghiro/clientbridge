@@ -4,14 +4,8 @@ import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { stripeTerminalLocationId, terminalSimulated } from "../lib/config";
 
-// NOTE: @stripe/stripe-terminal-react-native is a native module — it needs an EAS / Expo dev build
-// AND a Tap-to-Pay-capable device (or a simulated reader) to run; it does NOT work in Expo Go, and
-// tsc passes without either. The Terminal *location id* the reader connects under is minted by the
-// backend on the first connection-token call (then synced); config is only a fallback. With
-// `terminalSimulated` the SDK discovers a test reader instead of real hardware.
+// Needs a dev build and a Tap to Pay device or `terminalSimulated`; it does not run in Expo Go.
 
-/** Wraps a subtree in the Terminal SDK, feeding it our backend connection-token endpoint as the
- *  token provider (the same `useConnectionToken(api)` seam the POS already exposes). */
 export function TerminalProvider({
     tokenProvider,
     children,
@@ -33,8 +27,7 @@ export interface TerminalCheckout {
     charge: (clientSecret: string) => void;
 }
 
-/** Card-present checkout over Tap to Pay: initialize → discover → connect a reader, then
- *  retrieve → collect → confirm the order's PaymentIntent. The caller watches `phase` for "done". */
+/** Tap to Pay: connect a reader, then collect and confirm the order's PaymentIntent. */
 export function useTerminalCheckout(): TerminalCheckout {
     const {
         initialize,

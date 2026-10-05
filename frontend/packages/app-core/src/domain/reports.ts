@@ -54,8 +54,7 @@ export interface ReportsView {
     error: boolean;
 }
 
-/** The financial report period for a calendar year (income/GST span the year; T4A keys off it).
- *  The current year ends today so partial-year totals match the dashboard. */
+/** The current year ends today so partial-year totals match the dashboard. */
 export function reportRangeForYear(year: number, now: Date = new Date()): ReportRange {
     const pad = (n: number): string => `${n}`.padStart(2, "0");
     const end =
@@ -120,8 +119,6 @@ export function reportCsvFilename(kind: ReportCsvKind): string {
     return `${kind}.csv`;
 }
 
-/** Fetch a report's CSV body. The URL/params are shared here; each platform saves or shares the
- *  returned text (web: Blob download; mobile: Share). */
 export function downloadReportCsv(
     api: ApiLike,
     kind: ReportCsvKind,
@@ -137,9 +134,7 @@ export interface ReportDownload {
     download: (kind: ReportCsvKind) => void;
 }
 
-/** Shared CSV-export view-model: tracks which report is downloading + the error, fetches the CSV
- *  body, and hands it (with a filename) to the platform `save` seam — the only difference between
- *  web (Blob/anchor) and mobile (Share). */
+/** The platform `save` seam is the only difference: a Blob download on web, Share on mobile. */
 export function useReportDownload(
     api: ApiLike,
     range: ReportRange,

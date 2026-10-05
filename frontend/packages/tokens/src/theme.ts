@@ -1,5 +1,4 @@
-// React Native theme — the default theme's tokens as plain values (RN has no CSS vars).
-// Change DEFAULT_THEME to switch the app's theme; mirrors the web's [data-theme] default.
+// The default theme's tokens as plain values, since React Native has no CSS variables.
 import { type ThemeKey, themes } from "./index";
 
 export const DEFAULT_THEME: ThemeKey = "pewter";

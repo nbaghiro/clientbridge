@@ -89,8 +89,6 @@ export function isRefundRow(payment: { kind: string }): boolean {
     return payment.kind === "refund";
 }
 
-/** Refundable only once: a succeeded non-refund payment with no sibling refund yet (matches the
- *  backend's one-refund-per-payment 409 — so the button disappears after a refund posts). */
 /** What's still refundable on a payment after the refunds already made against it. */
 export function refundableCents(payment: PaymentRow, allPayments: PaymentRow[]): number {
     const refunded = allPayments
@@ -140,8 +138,7 @@ export function isPayable(row: { status: string; balance_cents: number | null })
     );
 }
 
-/** Public pay-page URL for an invoice token. `base` is the public-web origin each app supplies
- *  (web `window.location.origin`; mobile a configured URL). */
+/** `base` is the public-web origin each app supplies. */
 export function payLinkUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/pay/${token}`;
 }
@@ -218,16 +215,13 @@ export const STRIPE_ACCOUNT_SQL =
 export const TERMINAL_LOCATION_SQL =
     "SELECT stripe_terminal_location_id FROM businesses WHERE stripe_terminal_location_id IS NOT NULL LIMIT 1";
 
-/** The connected Stripe account id, read off the synced `businesses` row. The package/gift-card
- *  purchase responses return only a `client_secret`; the web Elements confirm needs the account to
- *  target the direct charge, so it reads it here (the saved-card/PublicPay seams get it inline). */
+/** Package and gift card purchases return only a client secret; the web confirm needs the account. */
 export function useStripeAccountId(): string | null {
     const rows = useQuery<{ stripe_account_id: string | null }>(STRIPE_ACCOUNT_SQL).data;
     return rows[0]?.stripe_account_id ?? null;
 }
 
-/** The business's Stripe Terminal Location (minted server-side on first POS use, then synced) —
- *  the POS reader connects under it. Null until the connection-token call has minted it. */
+/** Null until the first connection-token call mints the location. */
 export function useStripeTerminalLocation(): string | null {
     const rows = useQuery<{ stripe_terminal_location_id: string | null }>(
         TERMINAL_LOCATION_SQL,

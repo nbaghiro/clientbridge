@@ -16,11 +16,7 @@ function statusOf(err: unknown): number | null {
     return null;
 }
 
-/** The load half shared by every public surface: fetch a token/slug-keyed resource once, mapping a
- *  404 → "not-found" and any other failure → "error", with a liveness guard against stale sets.
- *  `load` must be a stable reference — the public fetch clients are built at module scope, so a caller
- *  passes `client.method` directly. Each surface layers its own state + terminal status on top; a
- *  surface that mutates the resource on submit uses `setData`. */
+/** `load` must be stable (the public clients are built at module scope); 404 maps to "not-found". */
 export function usePublicResource<T>(
     load: (token: string) => Promise<T>,
     token: string,
@@ -60,8 +56,7 @@ export function usePublicResource<T>(
     return { status, data, setData };
 }
 
-/** A business's public-facing brand, rendered across the customer surfaces (book/pay/form/…).
- *  Values are pre-validated by the server: `primary` is a hex colour, `logo_url` an http(s) URL. */
+/** Pre-validated by the server: `primary` is a hex colour and `logo_url` an http(s) URL. */
 export interface PublicBrand {
     logo_url: string | null;
     primary: string | null;

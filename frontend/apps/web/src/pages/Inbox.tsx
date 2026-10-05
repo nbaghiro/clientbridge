@@ -113,8 +113,7 @@ function Messages() {
 
                 <section className="min-w-0 flex-1 overflow-y-auto bg-bg">
                     {selected !== null ? (
-                        // key by thread so switching threads remounts the composer (its clientId +
-                        // channel seed once) — otherwise a reply could go to the previous client.
+                        // Keyed by thread so the composer reseeds; otherwise a reply could go to the previous client.
                         <ThreadView key={selected.id} thread={selected} />
                     ) : (
                         <div className="flex h-full items-center justify-center">

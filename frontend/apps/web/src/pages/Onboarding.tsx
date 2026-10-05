@@ -4,8 +4,6 @@ import { useState } from "react";
 import { Lockup, Logo } from "@clientbridge/ui";
 import { api } from "../lib/api";
 
-/** Create-your-business step: shown to an authenticated user who has no business yet (right after
- *  sign-up). On success the new business syncs down and the App routes through into the app. */
 export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
     const [submitted, setSubmitted] = useState(false);
     const form = useOnboardingForm(api, () => {

@@ -35,8 +35,7 @@ FROM threads t
 LEFT JOIN clients c ON c.id = t.client_id
 ORDER BY last_message_at DESC`;
 
-/** Every conversation, most-recently-active first, joined to the client's name (LEFT — a deleted
- *  client still lists). Threads sync only in the owner/admin `business_full` bucket. */
+/** LEFT join so a deleted client's threads still list. */
 export function useThreads(): ThreadRow[] {
     return useQuery<ThreadRow>(THREADS_SQL).data;
 }
@@ -171,9 +170,7 @@ export interface ComposeMessage {
     submit: () => void;
 }
 
-/** Shared message composer used both for a "New message" (pick a client + channel) and an in-thread
- *  reply (the platform passes the thread's client + channel and only renders the body). On success
- *  the body always clears; the client clears only when it wasn't fixed by `initial`. */
+/** The client clears on success only when `initial` did not fix it. */
 export function useComposeMessage(
     api: ApiLike,
     onSent: () => void,
@@ -229,9 +226,7 @@ function parseTags(raw: string): string[] {
         .filter((t) => t.length > 0);
 }
 
-/** Shared broadcast composer: name + channel + body + optional audience tags + optional schedule.
- *  Empty tags → the whole audience (`{all: true}`); tags → `{tags: [...]}`. A local datetime is sent
- *  as ISO so the server can schedule a future fan-out. */
+/** No tags sends to everyone; a local datetime is sent as ISO for a scheduled send. */
 export function useBroadcastForm(
     api: ApiLike,
     onSent: (result: BroadcastResult) => void,

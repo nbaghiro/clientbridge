@@ -42,13 +42,14 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 
 ## Frontend — share the view-model, render per-platform
 - Web (React/Vite/Tailwind) + mobile (Expo RN) share everything UI-agnostic via `@clientbridge/app-core`; only rendering, navigation, and platform APIs differ.
-- **Shared components** live in `@clientbridge/ui` (web + Connect) and `apps/mobile/src/ui` with the same props from `app-core/src/ui.ts`; a screen composes them and never re-implements a list, detail, checkout or card form.
+- **Shared components** live in `@clientbridge/ui` (web + Connect) and `apps/mobile/src/ui` with the same props from `app-core/src/ui.ts` (`ListPage`, `DetailView`, `Modal`, `Empty`, `Money`, `ChargeSheet`, `CardForm`…); a screen composes them and never re-implements a list, detail, modal, checkout or card form.
+- **One name per concept** across `app-core/src/domain/<concept>.ts`, `strings.<concept>`, the web page and the mobile screen (`hours.ts` · `strings.hours` · `Hours.tsx`). App-core stays flat: `domain/` plus `api`, `hooks`, `format`, `datetime`, `ui`, `strings`, `icons`, `debug` at the root. Mobile exports `XScreen` for navigator screens and a bare name for embedded sections.
 - **Every feature's view-model is an app-core hook** — the form (`useXForm`: field state + validation + submit, built on the `useAsyncAction` primitive), the list (`useSearch`), the lifecycle actions, and the status→`Intent` decision. A new screen is thin rendering over a shared hook, never re-implemented glue (mirror `useBookingForm` / `useClientForm` / `useDocForm`).
 - Reads = `useQuery` over the local replica (SQL lives in app-core); writes = shared fns taking `ApiLike` (each app builds its concrete `api` from `createSession`). The only platform seams are the **SQLite driver, the token store, and rendering**. Design tokens come from `@clientbridge/tokens` (one source → Tailwind theme + RN theme); per-platform token maps key off the neutral `Intent` type. No cross-platform UI framework (it would rewrite the idiomatic web UI to dedupe the cheapest layer).
 
 ## Copy — one catalog
 - **Every user-facing UI string lives in `frontend/packages/app-core/src/strings.ts`** — a single
-  `strings` object grouped by domain, shared by web + mobile. Screens/components render
+  `strings` object grouped by concept (the same name as the app-core domain file), shared by web + mobile. Screens/components render
   `strings.<domain>.<key>` (values are literals or functions for interpolation) and **never hold inline
   copy**. This includes validation/error messages and shared descriptor labels (weekdays, nav, roles,
   recurrence, account fields) that used to sit inline in the app-core view-model hooks. Non-copy — SQL,
@@ -80,7 +81,8 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   queries — exactly the class of thing this pass exists to catch.
 - **Comments: sparing — the default is no comment.** We are not fans of extensive commenting; prefer self-documenting code (clear names) over prose. Add a comment *only* for a non-obvious *why* or an invariant, and keep it to one line. Never narrate *what* the code does, restate types, summarize a function the name already conveys, write multi-clause block/file-header comments, or add decorative `──── section ────` divider banners — split a file before it needs sign-posting. In the backend, `scripts/check_structure.py` (part of `make lint`)
   fails on a docstring or comment block longer than one line, a `*_service.py`/`*_jobs.py` file name, and a
-  folder deeper than `clientbridge/<layer>/<file>.py`.
+  folder deeper than `clientbridge/<layer>/<file>.py`. In the frontend, `packages/config/scripts/check-structure.mjs` (part of `pnpm lint`)
+  fails on a multi-line comment, a lowercase component file, and a concept named differently across app-core, strings, web and mobile.
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
   after model/sync-rule changes (CI has a drift gate).

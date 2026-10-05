@@ -1,33 +1,10 @@
-/*
- * Clientbridge Connect — embed loader.
- *
- * A business drops this on their own site to embed a customer widget:
- *
- *   <script src="https://connect.example.com/embed.js" async></script>
- *   <connect-booking slug="birchbark"></connect-booking>
- *   <connect-pay token="PAY_TOKEN"></connect-pay>
- *   <connect-form token="FORM_TOKEN"></connect-form>
- *   <connect-contract token="SIGN_TOKEN"></connect-contract>
- *   <connect-review token="REVIEW_TOKEN"></connect-review>
- *
- * Each element renders the matching Connect page inside an <iframe> (so it's isolated from the host
- * page's CSS/JS), auto-resizes to fit its content, and emits a bubbling `connect:success` DOM event
- * when the flow completes:
- *
- *   document.addEventListener("connect:success", function (e) {
- *     // e.detail.widget is "booking" | "pay" | "form" | "contract" | "review"
- *   });
- *
- * The Connect origin is inferred from this script's own URL; override per element with `base="…"`,
- * or globally with `window.CONNECT_BASE` before the script loads. No script tag? A plain
- * `<iframe src="https://connect.example.com/book/birchbark?embed=1">` also works (without auto-resize).
- */
+// Connect embed loader: <script src=".../embed.js" async></script> then <connect-booking slug="…">,
+// <connect-pay|form|contract|review token="…">; each fires a bubbling `connect:success` event.
 (function () {
     "use strict";
 
     var thisScript = document.currentScript;
-    // Normalize to a bare origin (scheme://host:port) — tolerates a configured base with a trailing
-    // slash or path, which would otherwise fail the `e.origin === base` check + double-slash the src.
+    // A bare origin, so a configured base with a path still matches `e.origin`.
     function originOf(u) {
         try {
             return new URL(u).origin;
@@ -63,8 +40,7 @@
                     iframe.src = base + cfg.path + encodeURIComponent(id) + "?embed=1";
                     iframe.title = cfg.title;
                     iframe.setAttribute("allow", "payment");
-                    // Initial height only (a pre-message flash); the resize protocol sets it precisely
-                    // and must be free to shrink, so no min-height floor here.
+                    // Initial height only; the resize protocol must be free to shrink it.
                     iframe.style.cssText =
                         "width:100%;border:0;display:block;overflow:hidden;height:200px;";
                     if (this.style.display === "") this.style.display = "block";

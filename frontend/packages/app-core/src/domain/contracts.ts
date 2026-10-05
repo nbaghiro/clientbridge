@@ -97,8 +97,6 @@ export interface ContractDraftForm {
     submit: () => void;
 }
 
-/** Minimal contract authoring via sync-write (`contracts` is admin-writable). Inserts a name + body;
- *  the row uploads through `/sync/upload`. A richer editor (versions, expiry) is a follow. */
 export function useContractDraftForm(onCreated: () => void): ContractDraftForm {
     const db = usePowerSync();
     const businessId = useBusinessId();

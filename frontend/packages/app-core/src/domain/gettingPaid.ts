@@ -16,8 +16,7 @@ export interface ConnectStatus {
     pending_verification: string[];
 }
 
-/** Provider's Stripe Connect status (REST). `null` = loading, `"error"` = the fetch failed.
- *  Bump `reloadKey` to refetch (e.g. after onboarding). */
+/** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
 export function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
     const [status, setStatus] = useState<ConnectStatus | "error" | null>(null);
     useEffect(() => {
@@ -108,8 +107,7 @@ function phaseOf(status: ConnectStatus): ConnectPhase {
     }
 }
 
-/** Shared Stripe Connect onboarding view-model: the KYC phase, what Stripe still needs, the connect
- *  action, and error copy. `openUrl` is injected per platform (web `location.href`, mobile `Linking`). */
+/** `openUrl` is injected per platform (web `location.href`, mobile `Linking`). */
 export function useConnectOnboarding(
     api: ApiLike,
     openUrl: (url: string) => void,

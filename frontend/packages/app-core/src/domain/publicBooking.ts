@@ -1,6 +1,4 @@
-// Unauthenticated online-booking client. A business booking slug is the only credential, so these
-// hit the API with a plain `fetch` (never the authed session) against a base URL each platform
-// supplies — mirroring `createPublicPayClient`.
+// Public clients use plain fetch, never the authed session; the slug or token is the credential.
 
 import { useEffect, useState } from "react";
 
@@ -183,16 +181,13 @@ export interface PublicBusiness {
     page: PublicBookingPage | null;
 }
 
-/** Lean loader for the business landing page (`/b/:slug`): just the profile + brand + services, no
- *  booking-form state. Reuses the booking-page endpoint. */
+/** Profile, brand and services only, from the booking-page endpoint. */
 export function usePublicBusiness(booking: PublicBookingClient, slug: string): PublicBusiness {
     const { status, data } = usePublicResource(booking.getServices, slug);
     return { status, page: data };
 }
 
-/** View-model for the public online-booking wizard: load the page, pick service/staff/date (which
- *  refetches open slots), pick a time, enter contact details, then book. The deposit-card Elements
- *  render per-platform from `result.deposit_client_secret`. */
+/** Changing service, staff or date refetches open slots. */
 export function usePublicBookingForm(
     booking: PublicBookingClient,
     slug: string,

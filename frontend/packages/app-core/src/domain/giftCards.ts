@@ -107,9 +107,7 @@ export interface GiftCardSaleForm {
     submit: () => void;
 }
 
-/** Sell-gift-card form: a purchaser client + either a preset gift item (`item_id`) or a custom face
- *  value (`amount_cents`) — exactly one — plus an optional recipient, charged to a saved card
- *  (off-session) or a new card (interactive Elements confirm). */
+/** Exactly one of a preset gift item or a custom amount. */
 export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardSaleForm {
     const [purchaserClientId, setPurchaserClientId] = useState("");
     const [mode, setMode] = useState<GiftSaleMode>("custom");

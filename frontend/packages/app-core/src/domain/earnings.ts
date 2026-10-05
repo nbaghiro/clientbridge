@@ -18,9 +18,7 @@ export interface EarningRow {
     created_at: string;
 }
 
-// An earning is its accrual journal; how far it has gone is whether its approval, staff payment, or
-// reversal journal exists (the same rule the server applies). `users` isn't synced, so the label
-// keys off the synced `staff` row's title, falling back to role.
+// An earning's stage is whether its approval, payment or reversal journal exists, as on the server.
 const EARNINGS_SQL = `
 SELECT * FROM (
     SELECT e.journal_id AS id, e.owner_id AS staff_id, -e.amount_cents AS amount_cents,
@@ -70,8 +68,6 @@ export interface EarningFilterView {
     countOf: (f: EarningFilter) => number;
 }
 
-/** Shared earnings-list filter: the status tabs, the active selection, the filtered rows, and the
- *  per-tab counts — so both Earnings screens render the same glue. */
 export function useEarningFilter(rows: EarningRow[]): EarningFilterView {
     const [filter, setFilter] = useState<EarningFilter>("pending");
     const shown = filter === "all" ? rows : rows.filter((r) => r.status === filter);
@@ -128,9 +124,7 @@ export interface EarningActions {
     pay: () => void;
 }
 
-/** The approve → pay lifecycle as a view-model: which action is available for the row's status, plus
- *  busy/error from the shared async primitive. The synced row updates itself once the command lands,
- *  so `onDone` is only for surfaces that want to react (e.g. close a sheet). */
+/** The synced row updates itself once the command lands; `onDone` is only for closing a sheet. */
 export function useEarningActions(
     api: ApiLike,
     row: EarningRow,
