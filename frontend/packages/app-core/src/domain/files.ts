@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
+import type { ApiLike } from "../api";
 
 /** Where a file attaches. The server mints the row + s3 key; (parent_type, parent_id) own it. */
 export interface UploadTarget {

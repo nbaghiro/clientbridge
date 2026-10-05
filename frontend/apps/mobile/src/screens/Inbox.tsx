@@ -24,7 +24,6 @@ import { useEffect, useState } from "react";
 import {
     FlatList,
     KeyboardAvoidingView,
-    Modal,
     Platform,
     Pressable,
     ScrollView,
@@ -40,6 +39,7 @@ import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { Reviews } from "./Reviews";
+import { Modal } from "../ui/Modal";
 
 const c = theme.colors;
 export function InboxScreen() {
@@ -142,11 +142,9 @@ function ThreadRowView({ thread }: { thread: ThreadRow }) {
 
 function ThreadModal({ thread, onClose }: { thread: ThreadRow | null; onClose: () => void }) {
     return (
-        <Modal visible={thread !== null} animationType="slide" transparent onRequestClose={onClose}>
-            <View style={styles.backdrop}>
-                <View style={styles.sheet}>
-                    {thread !== null ? <ThreadBody thread={thread} onClose={onClose} /> : null}
-                </View>
+        <Modal open={thread !== null} onClose={onClose} size="xl" framed={false}>
+            <View style={styles.sheet}>
+                {thread !== null ? <ThreadBody thread={thread} onClose={onClose} /> : null}
             </View>
         </Modal>
     );
@@ -263,68 +261,59 @@ function ComposeModal({ visible, onClose }: { visible: boolean; onClose: () => v
     const clients = useClients();
 
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.backdrop}>
-                <View style={styles.formSheet}>
-                    <Text style={styles.sheetTitle}>{strings.inbox.newMessageTitle}</Text>
-                    <ScrollView contentContainerStyle={styles.formBody}>
-                        <Text style={styles.fieldLabel}>{strings.inbox.clientLabel}</Text>
-                        {clients.length === 0 ? (
-                            <Text style={styles.muted}>{strings.inbox.addClientFirst}</Text>
-                        ) : (
-                            <View style={styles.chipWrap}>
-                                {clients.map((cl) => (
-                                    <Pressable
-                                        key={cl.id}
-                                        style={[
-                                            styles.chip,
-                                            compose.clientId === cl.id && styles.chipOn,
-                                        ]}
-                                        onPress={() => {
-                                            compose.setClientId(cl.id);
-                                        }}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.chipText,
-                                                compose.clientId === cl.id && styles.chipTextOn,
-                                            ]}
-                                        >
-                                            {cl.name}
-                                        </Text>
-                                    </Pressable>
-                                ))}
-                            </View>
-                        )}
+        <Modal open={visible} onClose={onClose}>
+            <Text style={styles.sheetTitle}>{strings.inbox.newMessageTitle}</Text>
+            <ScrollView contentContainerStyle={styles.formBody}>
+                <Text style={styles.fieldLabel}>{strings.inbox.clientLabel}</Text>
+                {clients.length === 0 ? (
+                    <Text style={styles.muted}>{strings.inbox.addClientFirst}</Text>
+                ) : (
+                    <View style={styles.chipWrap}>
+                        {clients.map((cl) => (
+                            <Pressable
+                                key={cl.id}
+                                style={[styles.chip, compose.clientId === cl.id && styles.chipOn]}
+                                onPress={() => {
+                                    compose.setClientId(cl.id);
+                                }}
+                            >
+                                <Text
+                                    style={[
+                                        styles.chipText,
+                                        compose.clientId === cl.id && styles.chipTextOn,
+                                    ]}
+                                >
+                                    {cl.name}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                )}
 
-                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                            {strings.inbox.channelLabel}
-                        </Text>
-                        <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
+                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                    {strings.inbox.channelLabel}
+                </Text>
+                <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
 
-                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                            {strings.inbox.messageLabel}
-                        </Text>
-                        <TextInput
-                            style={styles.textArea}
-                            value={compose.body}
-                            onChangeText={compose.setBody}
-                            placeholder={strings.inbox.messagePlaceholder}
-                            placeholderTextColor={c.muted}
-                            multiline
-                        />
-                        {compose.error !== null ? (
-                            <Text style={styles.error}>{compose.error}</Text>
-                        ) : null}
-                    </ScrollView>
-                    <ModalActions
-                        busy={compose.busy}
-                        onCancel={onClose}
-                        onSubmit={compose.submit}
-                        label={strings.inbox.send}
-                    />
-                </View>
-            </View>
+                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                    {strings.inbox.messageLabel}
+                </Text>
+                <TextInput
+                    style={styles.textArea}
+                    value={compose.body}
+                    onChangeText={compose.setBody}
+                    placeholder={strings.inbox.messagePlaceholder}
+                    placeholderTextColor={c.muted}
+                    multiline
+                />
+                {compose.error !== null ? <Text style={styles.error}>{compose.error}</Text> : null}
+            </ScrollView>
+            <ModalActions
+                busy={compose.busy}
+                onCancel={onClose}
+                onSubmit={compose.submit}
+                label={strings.inbox.send}
+            />
         </Modal>
     );
 }
@@ -339,78 +328,71 @@ function BroadcastModal({ visible, onClose }: { visible: boolean; onClose: () =>
     };
 
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={close}>
-            <View style={styles.backdrop}>
-                <View style={styles.formSheet}>
-                    {sent !== null ? (
-                        <View style={styles.center}>
-                            <Text style={styles.sheetTitle}>
-                                {sent.status === "scheduled"
-                                    ? strings.inbox.broadcastScheduled
-                                    : strings.inbox.broadcastSent}
-                            </Text>
-                            <Text style={styles.muted}>
-                                {strings.inbox.broadcastRecipientsShort(
-                                    sent.name,
-                                    sent.recipient_count,
-                                )}
-                            </Text>
-                            <Pressable style={styles.add} onPress={close}>
-                                <Text style={styles.addText}>{strings.common.done}</Text>
-                            </Pressable>
-                        </View>
-                    ) : (
-                        <>
-                            <Text style={styles.sheetTitle}>{strings.inbox.newBroadcastTitle}</Text>
-                            <ScrollView contentContainerStyle={styles.formBody}>
-                                <Text style={styles.fieldLabel}>{strings.inbox.nameLabel}</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={form.name}
-                                    onChangeText={form.setName}
-                                    placeholder={strings.inbox.namePlaceholder}
-                                    placeholderTextColor={c.muted}
-                                />
-                                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                                    {strings.inbox.channelLabel}
-                                </Text>
-                                <ChannelToggle value={form.channel} onChange={form.setChannel} />
-                                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                                    {strings.inbox.messageLabel}
-                                </Text>
-                                <TextInput
-                                    style={styles.textArea}
-                                    value={form.body}
-                                    onChangeText={form.setBody}
-                                    placeholder={strings.inbox.announcementPlaceholder}
-                                    placeholderTextColor={c.muted}
-                                    multiline
-                                />
-                                <Text style={[styles.fieldLabel, styles.fieldSpace]}>
-                                    {strings.inbox.audienceTagsOptional}
-                                </Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={form.tags}
-                                    onChangeText={form.setTags}
-                                    placeholder={strings.inbox.tagsPlaceholderShort}
-                                    placeholderTextColor={c.muted}
-                                    autoCapitalize="none"
-                                />
-                                {form.error !== null ? (
-                                    <Text style={styles.error}>{form.error}</Text>
-                                ) : null}
-                            </ScrollView>
-                            <ModalActions
-                                busy={form.busy}
-                                onCancel={close}
-                                onSubmit={form.submit}
-                                label={strings.inbox.sendBroadcast}
-                            />
-                        </>
-                    )}
+        <Modal open={visible} onClose={close}>
+            {sent !== null ? (
+                <View style={styles.center}>
+                    <Text style={styles.sheetTitle}>
+                        {sent.status === "scheduled"
+                            ? strings.inbox.broadcastScheduled
+                            : strings.inbox.broadcastSent}
+                    </Text>
+                    <Text style={styles.muted}>
+                        {strings.inbox.broadcastRecipientsShort(sent.name, sent.recipient_count)}
+                    </Text>
+                    <Pressable style={styles.add} onPress={close}>
+                        <Text style={styles.addText}>{strings.common.done}</Text>
+                    </Pressable>
                 </View>
-            </View>
+            ) : (
+                <>
+                    <Text style={styles.sheetTitle}>{strings.inbox.newBroadcastTitle}</Text>
+                    <ScrollView contentContainerStyle={styles.formBody}>
+                        <Text style={styles.fieldLabel}>{strings.inbox.nameLabel}</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={form.name}
+                            onChangeText={form.setName}
+                            placeholder={strings.inbox.namePlaceholder}
+                            placeholderTextColor={c.muted}
+                        />
+                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                            {strings.inbox.channelLabel}
+                        </Text>
+                        <ChannelToggle value={form.channel} onChange={form.setChannel} />
+                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                            {strings.inbox.messageLabel}
+                        </Text>
+                        <TextInput
+                            style={styles.textArea}
+                            value={form.body}
+                            onChangeText={form.setBody}
+                            placeholder={strings.inbox.announcementPlaceholder}
+                            placeholderTextColor={c.muted}
+                            multiline
+                        />
+                        <Text style={[styles.fieldLabel, styles.fieldSpace]}>
+                            {strings.inbox.audienceTagsOptional}
+                        </Text>
+                        <TextInput
+                            style={styles.input}
+                            value={form.tags}
+                            onChangeText={form.setTags}
+                            placeholder={strings.inbox.tagsPlaceholderShort}
+                            placeholderTextColor={c.muted}
+                            autoCapitalize="none"
+                        />
+                        {form.error !== null ? (
+                            <Text style={styles.error}>{form.error}</Text>
+                        ) : null}
+                    </ScrollView>
+                    <ModalActions
+                        busy={form.busy}
+                        onCancel={close}
+                        onSubmit={form.submit}
+                        label={strings.inbox.sendBroadcast}
+                    />
+                </>
+            )}
         </Modal>
     );
 }
@@ -477,14 +459,7 @@ const styles = StyleSheet.create({
     unreadText: { color: c.accentInk, fontSize: 11, fontWeight: "700" },
     muted: { color: c.muted, fontSize: 14 },
     error: { color: c.danFg, fontSize: 13, marginTop: 6 },
-    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
-    sheet: {
-        backgroundColor: c.surface,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        height: "82%",
-        overflow: "hidden",
-    },
+    sheet: { flex: 1, backgroundColor: c.surface },
     threadFill: { flex: 1 },
     sheetHead: {
         flexDirection: "row",
@@ -536,14 +511,6 @@ const styles = StyleSheet.create({
         paddingVertical: 11,
     },
     sendText: { color: c.accentInk, fontSize: 14, fontWeight: "700" },
-    formSheet: {
-        backgroundColor: c.surface,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        maxHeight: "86%",
-        padding: 20,
-        paddingBottom: 32,
-    },
     formBody: { paddingVertical: 12, gap: 2 },
     center: { alignItems: "center", gap: 12, paddingVertical: 20 },
     fieldLabel: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6 },

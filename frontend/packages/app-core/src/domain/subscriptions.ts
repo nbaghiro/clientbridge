@@ -2,8 +2,8 @@ import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
-import type { Intent } from "../util/primitives";
+import type { ApiLike } from "../api";
+import type { Intent } from "../ui";
 import { type Checkout, useCheckout } from "./checkout";
 
 export interface SubscriptionRow {

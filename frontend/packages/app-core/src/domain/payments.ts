@@ -1,13 +1,12 @@
 import { useQuery } from "@powersync/react";
 import { useRef, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { formatMoney } from "../util/format";
-import type { ApiLike } from "../util/api";
+import { formatMoney } from "../format";
+import { type ApiLike, newIdempotencyKey } from "../api";
 import type { CheckoutMethod } from "./checkout";
-import { newIdempotencyKey } from "../util/primitives";
-import type { Intent } from "../util/primitives";
+import type { Intent } from "../ui";
 
 export function refundPayment(
     api: ApiLike,

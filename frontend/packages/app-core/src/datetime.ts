@@ -1,5 +1,5 @@
 // Generic date utilities shared across the app (not calendar-specific).
-import { strings } from "../strings";
+import { strings } from "./strings";
 
 const MS_PER_MIN = 60_000;
 

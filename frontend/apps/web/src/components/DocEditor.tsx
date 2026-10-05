@@ -9,7 +9,7 @@ import {
     useClients,
     useDocForm,
 } from "@clientbridge/app-core";
-import { ItemImage } from "@clientbridge/ui";
+import { ItemImage, Modal } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import { api, apiBaseUrl } from "../lib/api";
@@ -33,13 +33,13 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
     const [picking, setPicking] = useState(false);
 
     return (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
+        <Modal onClose={onClose} size="lg" framed={false}>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
                     form.submit();
                 }}
-                className="flex max-h-[88vh] w-full max-w-lg flex-col rounded-lg border border-line bg-surface shadow-card"
+                className="flex max-h-[88vh] flex-col rounded-lg border border-line bg-surface shadow-card"
             >
                 <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold text-ink">
                     {docEditorTitle(kind, form.editing)}
@@ -210,6 +210,6 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     </div>
                 </div>
             </form>
-        </div>
+        </Modal>
     );
 }

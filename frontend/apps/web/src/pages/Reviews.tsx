@@ -13,10 +13,9 @@ import {
     useReviewSummary,
     useReviews,
 } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import { ListPage, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
-import { ListPage } from "../components/ListPage";
 import { api } from "../lib/api";
 
 const field =

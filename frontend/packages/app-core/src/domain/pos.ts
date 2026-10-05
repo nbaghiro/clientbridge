@@ -1,10 +1,10 @@
 import { useQuery } from "@powersync/react";
 import { useCallback, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
-import type { Intent } from "../util/primitives";
+import type { ApiLike } from "../api";
+import type { Intent } from "../ui";
 import type { ItemRow } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
 import { collectedSql, orderStatusSql } from "./ledger";

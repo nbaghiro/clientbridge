@@ -2,7 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
+import type { ApiLike } from "../api";
 import { isRefundRow } from "./payments";
 
 export interface DashboardSummary {

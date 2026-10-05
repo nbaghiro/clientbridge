@@ -1,4 +1,4 @@
-import type { ListPageProps } from "@clientbridge/app-core";
+import type { ListPageProps } from "@clientbridge/app-core/public";
 
 import { Empty } from "./Empty";
 import { IconPlus, IconSearch } from "./Icons";

@@ -1,11 +1,10 @@
 import { useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
-import { newIdempotencyKey } from "../util/primitives";
-import type { Intent } from "../util/primitives";
+import { type ApiLike, newIdempotencyKey } from "../api";
+import type { Intent } from "../ui";
 
 export interface ReviewRow {
     id: string;

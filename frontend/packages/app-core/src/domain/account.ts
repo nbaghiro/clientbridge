@@ -1,9 +1,9 @@
 import { useQuery } from "@powersync/react";
 import { useEffect, useRef, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
+import type { ApiLike } from "../api";
 import { mediaUrl } from "./files";
 
 interface AccountRow {
@@ -172,4 +172,12 @@ export function useAccountForm(api: ApiLike): AccountForm {
             : legacyLogoUrl;
 
     return { fields, businessId: row?.id ?? null, logoSrc, set, busy, error, saved, submit };
+}
+
+export const BUSINESS_ID_SQL = "SELECT id FROM businesses LIMIT 1";
+
+/** The current business id from the synced `businesses` row (one per replica). `null` until it
+ *  syncs — sync-write inserts need it to set tenancy. */
+export function useBusinessId(): string | null {
+    return useQuery<{ id: string }>(BUSINESS_ID_SQL).data[0]?.id ?? null;
 }

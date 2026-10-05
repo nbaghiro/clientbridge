@@ -7,9 +7,10 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
+import { Modal } from "../ui/Modal";
 
 const c = theme.colors;
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -49,144 +50,140 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
     };
 
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={styles.backdrop} onPress={onClose}>
-                <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.title}>{strings.calendar.newBooking}</Text>
-                    <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-                        <Section label={strings.calendar.client}>
-                            {form.clients.map((cl) => (
-                                <Chip
-                                    key={cl.id}
-                                    label={cl.name}
-                                    on={form.clientId === cl.id}
-                                    onPress={() => {
-                                        form.setClientId(cl.id);
-                                    }}
-                                />
-                            ))}
-                        </Section>
-                        <Section label={strings.calendar.service}>
-                            {form.items.map((it) => (
-                                <Chip
-                                    key={it.id}
-                                    label={it.name}
-                                    on={form.itemId === it.id}
-                                    onPress={() => {
-                                        form.setItemId(it.id);
-                                    }}
-                                />
-                            ))}
-                        </Section>
-                        {form.staff.length > 1 ? (
-                            <Section label={strings.calendar.staff}>
-                                {form.staff.map((s) => (
-                                    <Chip
-                                        key={s.id}
-                                        label={staffLabel(s)}
-                                        on={form.effStaff === s.id}
-                                        onPress={() => {
-                                            form.setStaffId(s.id);
-                                        }}
-                                    />
-                                ))}
-                            </Section>
-                        ) : null}
-                        <Section label={strings.calendar.date}>
-                            {days.map((d, i) => (
-                                <Chip
-                                    key={d.toISOString()}
-                                    label={`${WEEKDAY[d.getDay()] ?? ""} ${d.getDate()}`}
-                                    on={dayIdx === i}
-                                    onPress={() => {
-                                        setDayIdx(i);
-                                    }}
-                                />
-                            ))}
-                        </Section>
-                        <Section label={strings.calendar.time}>
-                            {TIMES.map((t, i) => (
-                                <Chip
-                                    key={t.label}
-                                    label={t.label}
-                                    on={timeIdx === i}
-                                    onPress={() => {
-                                        setTimeIdx(i);
-                                    }}
-                                />
-                            ))}
-                        </Section>
-                        <Section label={strings.calendar.repeat}>
+        <Modal open={visible} onClose={onClose}>
+            <Text style={styles.title}>{strings.calendar.newBooking}</Text>
+            <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+                <Section label={strings.calendar.client}>
+                    {form.clients.map((cl) => (
+                        <Chip
+                            key={cl.id}
+                            label={cl.name}
+                            on={form.clientId === cl.id}
+                            onPress={() => {
+                                form.setClientId(cl.id);
+                            }}
+                        />
+                    ))}
+                </Section>
+                <Section label={strings.calendar.service}>
+                    {form.items.map((it) => (
+                        <Chip
+                            key={it.id}
+                            label={it.name}
+                            on={form.itemId === it.id}
+                            onPress={() => {
+                                form.setItemId(it.id);
+                            }}
+                        />
+                    ))}
+                </Section>
+                {form.staff.length > 1 ? (
+                    <Section label={strings.calendar.staff}>
+                        {form.staff.map((s) => (
                             <Chip
-                                label={strings.calendar.oneTime}
-                                on={!form.repeat}
+                                key={s.id}
+                                label={staffLabel(s)}
+                                on={form.effStaff === s.id}
                                 onPress={() => {
-                                    form.setRepeat(false);
+                                    form.setStaffId(s.id);
                                 }}
                             />
-                            {RECUR_FREQUENCIES.map((f) => (
+                        ))}
+                    </Section>
+                ) : null}
+                <Section label={strings.calendar.date}>
+                    {days.map((d, i) => (
+                        <Chip
+                            key={d.toISOString()}
+                            label={`${WEEKDAY[d.getDay()] ?? ""} ${d.getDate()}`}
+                            on={dayIdx === i}
+                            onPress={() => {
+                                setDayIdx(i);
+                            }}
+                        />
+                    ))}
+                </Section>
+                <Section label={strings.calendar.time}>
+                    {TIMES.map((t, i) => (
+                        <Chip
+                            key={t.label}
+                            label={t.label}
+                            on={timeIdx === i}
+                            onPress={() => {
+                                setTimeIdx(i);
+                            }}
+                        />
+                    ))}
+                </Section>
+                <Section label={strings.calendar.repeat}>
+                    <Chip
+                        label={strings.calendar.oneTime}
+                        on={!form.repeat}
+                        onPress={() => {
+                            form.setRepeat(false);
+                        }}
+                    />
+                    {RECUR_FREQUENCIES.map((f) => (
+                        <Chip
+                            key={f.value}
+                            label={f.label}
+                            on={form.repeat && form.frequency === f.value}
+                            onPress={() => {
+                                form.setRepeat(true);
+                                form.setFrequency(f.value);
+                            }}
+                        />
+                    ))}
+                </Section>
+                {form.repeat ? (
+                    <>
+                        <Section label={strings.calendar.every}>
+                            {[1, 2, 3, 4].map((n) => (
                                 <Chip
-                                    key={f.value}
-                                    label={f.label}
-                                    on={form.repeat && form.frequency === f.value}
+                                    key={n}
+                                    label={String(n)}
+                                    on={form.interval === n}
                                     onPress={() => {
-                                        form.setRepeat(true);
-                                        form.setFrequency(f.value);
+                                        form.setInterval(n);
                                     }}
                                 />
                             ))}
                         </Section>
-                        {form.repeat ? (
-                            <>
-                                <Section label={strings.calendar.every}>
-                                    {[1, 2, 3, 4].map((n) => (
-                                        <Chip
-                                            key={n}
-                                            label={String(n)}
-                                            on={form.interval === n}
-                                            onPress={() => {
-                                                form.setInterval(n);
-                                            }}
-                                        />
-                                    ))}
-                                </Section>
-                                <Section label={strings.calendar.occurrences}>
-                                    {[2, 4, 6, 8, 12].map((n) => (
-                                        <Chip
-                                            key={n}
-                                            label={String(n)}
-                                            on={form.count === n}
-                                            onPress={() => {
-                                                form.setCount(n);
-                                            }}
-                                        />
-                                    ))}
-                                </Section>
-                            </>
-                        ) : null}
-                    </ScrollView>
-                    {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
-                    {form.notice !== null ? <Text style={styles.notice}>{form.notice}</Text> : null}
-                    <View style={styles.actions}>
-                        <Pressable onPress={onClose} style={styles.cancelBtn}>
-                            <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                        </Pressable>
-                        <Pressable
-                            onPress={submit}
-                            disabled={form.busy}
-                            style={[styles.bookBtn, form.busy && styles.dim]}
-                        >
-                            <Text style={styles.bookText}>
-                                {form.busy
-                                    ? strings.calendar.booking
-                                    : form.repeat
-                                      ? strings.calendar.bookSeries
-                                      : strings.calendar.book}
-                            </Text>
-                        </Pressable>
-                    </View>
-                </View>
-            </Pressable>
+                        <Section label={strings.calendar.occurrences}>
+                            {[2, 4, 6, 8, 12].map((n) => (
+                                <Chip
+                                    key={n}
+                                    label={String(n)}
+                                    on={form.count === n}
+                                    onPress={() => {
+                                        form.setCount(n);
+                                    }}
+                                />
+                            ))}
+                        </Section>
+                    </>
+                ) : null}
+            </ScrollView>
+            {form.error !== null ? <Text style={styles.error}>{form.error}</Text> : null}
+            {form.notice !== null ? <Text style={styles.notice}>{form.notice}</Text> : null}
+            <View style={styles.actions}>
+                <Pressable onPress={onClose} style={styles.cancelBtn}>
+                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
+                </Pressable>
+                <Pressable
+                    onPress={submit}
+                    disabled={form.busy}
+                    style={[styles.bookBtn, form.busy && styles.dim]}
+                >
+                    <Text style={styles.bookText}>
+                        {form.busy
+                            ? strings.calendar.booking
+                            : form.repeat
+                              ? strings.calendar.bookSeries
+                              : strings.calendar.book}
+                    </Text>
+                </Pressable>
+            </View>
         </Modal>
     );
 }
@@ -215,15 +212,6 @@ function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () 
 }
 
 const styles = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
-    sheet: {
-        backgroundColor: c.bg,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        paddingHorizontal: 20,
-        paddingTop: 18,
-        paddingBottom: 36,
-    },
     title: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 8 },
     scroll: { maxHeight: 430 },
     section: { marginTop: 14 },

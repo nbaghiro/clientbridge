@@ -32,13 +32,18 @@ import {
     useSavedCards,
     useSearch,
 } from "@clientbridge/app-core";
-import { PaymentMethodForm, StatusPill } from "@clientbridge/ui";
+import {
+    DetailSection,
+    DetailView,
+    ListPage,
+    Modal,
+    Money,
+    PaymentMethodForm,
+    StatusPill,
+} from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
 
-import { DetailSection, DetailView } from "../components/DetailView";
 import { SellPackage, StartSubscription } from "../components/EntitlementSales";
-import { ListPage } from "../components/ListPage";
-import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 
@@ -137,14 +142,6 @@ function Avatar({ name, large = false }: { name: string; large?: boolean }) {
         >
             {initials(name)}
         </span>
-    );
-}
-
-function Overlay({ children }: { children: React.ReactNode }) {
-    return (
-        <div className="fixed inset-0 z-20 flex items-center justify-center bg-scrim p-4">
-            {children}
-        </div>
     );
 }
 
@@ -436,11 +433,8 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
     };
 
     return (
-        <Overlay>
-            <form
-                onSubmit={submit}
-                className="w-full max-w-sm rounded-lg border border-line bg-surface p-6 shadow-card"
-            >
+        <Modal onClose={onClose} size="sm">
+            <form onSubmit={submit}>
                 <h2 className="font-display text-lg font-bold text-ink">
                     {strings.clients.addClientTitle}
                 </h2>
@@ -496,6 +490,6 @@ function AddClientModal({ onClose }: { onClose: () => void }) {
                     </button>
                 </div>
             </form>
-        </Overlay>
+        </Modal>
     );
 }

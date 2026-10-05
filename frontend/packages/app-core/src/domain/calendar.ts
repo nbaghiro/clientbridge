@@ -1,9 +1,9 @@
 import { useQuery } from "@powersync/react";
 import { useMemo, useRef, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
-import type { Viewer } from "../hooks/useCurrentRole";
-import type { ApiLike } from "../util/api";
+import { useAsyncAction } from "../hooks";
+import type { Viewer } from "./auth";
+import { type ApiLike, newIdempotencyKey } from "../api";
 import { type ItemRow, bookableItems, useCatalogItems } from "./catalog";
 import { type ClientRow, useClients } from "./clients";
 import {
@@ -14,8 +14,8 @@ import {
     startOfDay,
     startOfMonth,
     startOfWeek,
-} from "../util/datetime";
-import { type Intent, newIdempotencyKey } from "../util/primitives";
+} from "../datetime";
+import { type Intent } from "../ui";
 import { strings } from "../strings";
 import { type Checkout, useCheckout } from "./checkout";
 import { canManagePayments } from "./payments";

@@ -23,13 +23,17 @@ import {
     useRestockForm,
     useSearch,
 } from "@clientbridge/app-core";
-import { ItemImage, StatusPill } from "@clientbridge/ui";
+import {
+    DetailSection,
+    DetailView,
+    ItemImage,
+    ListPage,
+    Money,
+    StatusPill,
+} from "@clientbridge/ui";
 import { type ReactNode, useMemo, useState } from "react";
 
-import { DetailSection, DetailView } from "../components/DetailView";
 import { ItemImageUpload } from "../components/ItemImageUpload";
-import { ListPage } from "../components/ListPage";
-import { Money } from "../components/Money";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 

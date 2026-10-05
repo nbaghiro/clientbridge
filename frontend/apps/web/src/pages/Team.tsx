@@ -17,10 +17,9 @@ import {
     useStaffPay,
     useStaffPayForm,
 } from "@clientbridge/app-core";
+import { DetailSection, DetailView, ListPage } from "@clientbridge/ui";
 import { useState } from "react";
 
-import { DetailSection, DetailView } from "../components/DetailView";
-import { ListPage } from "../components/ListPage";
 import { api } from "../lib/api";
 import { getTokens } from "../lib/auth";
 

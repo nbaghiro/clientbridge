@@ -1,5 +1,6 @@
 import { usePowerSync } from "@powersync/react";
 import { useCallback, useEffect, useState } from "react";
+import { Modal } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { connectPowerSync, powersyncUrl } from "../lib/powersync";
@@ -111,16 +112,8 @@ function Overlay({ onClose }: { onClose: () => void }) {
     };
 
     return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-6 backdrop-blur-sm"
-            onClick={onClose}
-        >
-            <aside
-                className="flex h-[86vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink font-mono text-xs text-bg shadow-2xl"
-                onClick={(e) => {
-                    e.stopPropagation();
-                }}
-            >
+        <Modal onClose={onClose} size="xl" framed={false}>
+            <aside className="flex h-[86vh] flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink font-mono text-xs text-bg shadow-2xl">
                 <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
                     <span className="font-sans text-sm font-semibold tracking-wide">
                         client state · debug
@@ -215,7 +208,7 @@ function Overlay({ onClose }: { onClose: () => void }) {
                     />
                 )}
             </aside>
-        </div>
+        </Modal>
     );
 }
 

@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
-import { newIdempotencyKey } from "../util/primitives";
+import { type ApiLike, newIdempotencyKey } from "../api";
 
 /** The payment-method choice that means "enter a new card" rather than charge a saved one. */
 export const NEW_CARD = "";

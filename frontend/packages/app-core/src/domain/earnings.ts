@@ -1,9 +1,9 @@
 import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
-import type { ApiLike } from "../util/api";
-import type { Intent } from "../util/primitives";
+import { useAsyncAction } from "../hooks";
+import type { ApiLike } from "../api";
+import type { Intent } from "../ui";
 import { strings } from "../strings";
 
 export interface EarningRow {

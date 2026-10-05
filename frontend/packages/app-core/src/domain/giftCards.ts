@@ -1,10 +1,10 @@
 import { useQuery } from "@powersync/react";
 import { useRef, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
-import type { ApiLike } from "../util/api";
-import { blankToNull } from "../util/format";
-import { type Intent, newIdempotencyKey } from "../util/primitives";
+import { useAsyncAction } from "../hooks";
+import { type ApiLike, newIdempotencyKey } from "../api";
+import { blankToNull } from "../format";
+import { type Intent } from "../ui";
 import { strings } from "../strings";
 import { giftItems, useCatalogItems } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";

@@ -3,11 +3,10 @@
 
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { Intent } from "../util/primitives";
-import type { PublicBrand } from "./publicBrand";
-import { usePublicResource } from "./publicResource";
+import type { Intent } from "../ui";
+import { type PublicBrand, usePublicResource } from "./publicResource";
 
 export type PayMethod = "interac" | "card";
 

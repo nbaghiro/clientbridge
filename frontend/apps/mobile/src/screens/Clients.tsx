@@ -38,7 +38,6 @@ import { type ComponentProps, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Modal,
     Pressable,
     StyleSheet,
     Text,
@@ -58,6 +57,7 @@ import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
+import { Modal } from "../ui/Modal";
 
 const c = theme.colors;
 
@@ -420,48 +420,44 @@ function AddClientModal({ visible, onClose }: { visible: boolean; onClose: () =>
     const form = useClientForm(api, onClose);
 
     return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={styles.modalBackdrop}>
-                <View style={styles.modal}>
-                    <Text style={styles.modalTitle}>{strings.clients.addClientTitle}</Text>
-                    <ModalField
-                        label={strings.clients.nameLabel}
-                        value={form.name}
-                        onChangeText={form.setName}
-                        autoFocus
-                    />
-                    <ModalField
-                        label={strings.clients.emailLabel}
-                        value={form.email}
-                        onChangeText={form.setEmail}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
-                    <ModalField
-                        label={strings.clients.phoneLabel}
-                        value={form.phone}
-                        onChangeText={form.setPhone}
-                    />
-                    {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
-                    <View style={styles.modalActions}>
-                        <Pressable style={styles.cancel} onPress={onClose}>
-                            <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                        </Pressable>
-                        <Pressable
-                            style={styles.save}
-                            onPress={() => {
-                                form.submit();
-                            }}
-                            disabled={form.busy}
-                        >
-                            {form.busy ? (
-                                <ActivityIndicator color={theme.colors.accentInk} />
-                            ) : (
-                                <Text style={styles.saveText}>{strings.clients.addClient}</Text>
-                            )}
-                        </Pressable>
-                    </View>
-                </View>
+        <Modal open={visible} onClose={onClose}>
+            <Text style={styles.modalTitle}>{strings.clients.addClientTitle}</Text>
+            <ModalField
+                label={strings.clients.nameLabel}
+                value={form.name}
+                onChangeText={form.setName}
+                autoFocus
+            />
+            <ModalField
+                label={strings.clients.emailLabel}
+                value={form.email}
+                onChangeText={form.setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+            />
+            <ModalField
+                label={strings.clients.phoneLabel}
+                value={form.phone}
+                onChangeText={form.setPhone}
+            />
+            {form.error ? <Text style={styles.error}>{form.error}</Text> : null}
+            <View style={styles.modalActions}>
+                <Pressable style={styles.cancel} onPress={onClose}>
+                    <Text style={styles.cancelText}>{strings.common.cancel}</Text>
+                </Pressable>
+                <Pressable
+                    style={styles.save}
+                    onPress={() => {
+                        form.submit();
+                    }}
+                    disabled={form.busy}
+                >
+                    {form.busy ? (
+                        <ActivityIndicator color={theme.colors.accentInk} />
+                    ) : (
+                        <Text style={styles.saveText}>{strings.clients.addClient}</Text>
+                    )}
+                </Pressable>
             </View>
         </Modal>
     );
@@ -522,13 +518,6 @@ const styles = StyleSheet.create({
     },
     miniBtnText: { color: c.inkSoft, fontSize: 12, fontWeight: "600" },
     errorText: { color: c.danFg, fontSize: 13, marginTop: 8 },
-    modalBackdrop: {
-        flex: 1,
-        backgroundColor: c.scrim,
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-    },
     modal: {
         width: "100%",
         backgroundColor: c.surface,

@@ -19,7 +19,7 @@ import {
     markThreadRead,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import { Modal, StatusPill } from "@clientbridge/ui";
 import { useEffect, useRef, useState } from "react";
 
 import { Tabs } from "../components/Tabs";
@@ -286,24 +286,6 @@ function Bubble({ message }: { message: MessageRow }) {
     );
 }
 
-function ModalFrame({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-    return (
-        <div
-            className="fixed inset-0 z-40 flex items-center justify-center bg-ink/40 p-6"
-            onClick={onClose}
-        >
-            <div
-                className="w-full max-w-md rounded-xl border border-line bg-surface p-6 shadow-card"
-                onClick={(e) => {
-                    e.stopPropagation();
-                }}
-            >
-                {children}
-            </div>
-        </div>
-    );
-}
-
 function ChannelToggle({ value, onChange }: { value: Channel; onChange: (c: Channel) => void }) {
     return (
         <div className="flex gap-2">
@@ -332,7 +314,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
     const clients = useClients();
 
     return (
-        <ModalFrame onClose={onClose}>
+        <Modal onClose={onClose}>
             <h2 className="mb-4 font-display text-lg font-bold text-ink">
                 {strings.inbox.newMessageTitle}
             </h2>
@@ -396,7 +378,7 @@ function NewMessageModal({ onClose }: { onClose: () => void }) {
                     </button>
                 </div>
             </form>
-        </ModalFrame>
+        </Modal>
     );
 }
 
@@ -406,7 +388,7 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
 
     if (sent !== null) {
         return (
-            <ModalFrame onClose={onClose}>
+            <Modal onClose={onClose}>
                 <div className="py-4 text-center">
                     <h2 className="font-display text-lg font-bold text-ink">
                         {sent.status === "scheduled"
@@ -424,12 +406,12 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                         {strings.common.done}
                     </button>
                 </div>
-            </ModalFrame>
+            </Modal>
         );
     }
 
     return (
-        <ModalFrame onClose={onClose}>
+        <Modal onClose={onClose}>
             <h2 className="mb-4 font-display text-lg font-bold text-ink">
                 {strings.inbox.newBroadcastTitle}
             </h2>
@@ -509,6 +491,6 @@ function BroadcastModal({ onClose }: { onClose: () => void }) {
                     </button>
                 </div>
             </form>
-        </ModalFrame>
+        </Modal>
     );
 }

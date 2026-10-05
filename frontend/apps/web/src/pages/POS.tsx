@@ -27,7 +27,7 @@ import {
     pickupIntent,
     useSearch,
 } from "@clientbridge/app-core";
-import { ChargeSheet, ItemImage, StatusPill } from "@clientbridge/ui";
+import { ChargeSheet, IconSearch, ItemImage, StatusPill } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import {
@@ -36,7 +36,6 @@ import {
     SellPackage,
     StartSubscription,
 } from "../components/EntitlementSales";
-import { IconSearch } from "../components/Icons";
 import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 

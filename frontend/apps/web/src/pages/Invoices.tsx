@@ -32,13 +32,10 @@ import {
     useLines,
     useSearch,
 } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import { DetailSection, DetailView, ListPage, Money, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
-import { DetailSection, DetailView } from "../components/DetailView";
-import { ListPage } from "../components/ListPage";
-import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 

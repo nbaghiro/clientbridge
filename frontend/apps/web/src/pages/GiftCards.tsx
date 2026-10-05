@@ -6,12 +6,10 @@ import {
     strings,
     useGiftCards,
 } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import { ListPage, Money, Panel, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { SellGiftCard } from "../components/EntitlementSales";
-import { ListPage } from "../components/ListPage";
-import { Money } from "../components/Money";
 import { api } from "../lib/api";
 
 const field =
@@ -152,14 +150,5 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 </div>
             </form>
         </Panel>
-    );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <section className="mt-5 rounded-lg border border-line bg-surface p-5 shadow-card">
-            <h2 className="mb-3 font-display text-base font-bold text-ink">{title}</h2>
-            {children}
-        </section>
     );
 }

@@ -1,8 +1,8 @@
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
+import type { ApiLike } from "../api";
 
 // The 13 Canadian provinces/territories the backend seeds tax rates for; an unknown code is a 422.
 export type ProvinceCode =

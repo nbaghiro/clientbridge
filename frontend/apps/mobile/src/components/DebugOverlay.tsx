@@ -1,52 +1,51 @@
 // Hidden debug view (mobile) — opened by the 5-tap wordmark gesture. Shows live PowerSync + local rows.
 import { theme } from "@clientbridge/tokens/theme";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useClientState } from "@clientbridge/app-core";
+import { Modal } from "../ui/Modal";
 
 export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const { status, tables, totalRows } = useClientState();
 
     return (
-        <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-            <View style={styles.backdrop}>
-                <View style={styles.panel}>
-                    <View style={styles.header}>
-                        <Text style={styles.title}>client state · debug</Text>
-                        <Pressable onPress={onClose} hitSlop={16}>
-                            <Text style={styles.close}>✕</Text>
-                        </Pressable>
-                    </View>
-
-                    <View style={styles.section}>
-                        <Row k="connected" v={String(status.connected)} good={status.connected} />
-                        <Row k="connecting" v={String(status.connecting)} />
-                        <Row k="has synced" v={String(status.hasSynced ?? false)} />
-                        <Row k="last synced" v={status.lastSyncedAt?.toLocaleTimeString() ?? "—"} />
-                        <Row k="downloading" v={String(status.downloading)} />
-                        <Row k="uploading" v={String(status.uploading)} />
-                    </View>
-
-                    <View style={styles.totals}>
-                        <Text style={styles.dim}>{tables.length} tables with rows</Text>
-                        <Text style={styles.dim}>{totalRows} rows on device</Text>
-                    </View>
-
-                    <ScrollView style={styles.list}>
-                        {tables.length === 0 ? (
-                            <Text style={styles.empty}>
-                                no local rows yet — waiting for first sync…
-                            </Text>
-                        ) : (
-                            tables.map((t) => (
-                                <View key={t.table} style={styles.tableRow}>
-                                    <Text style={styles.mono}>{t.table}</Text>
-                                    <Text style={styles.monoDim}>{t.rows}</Text>
-                                </View>
-                            ))
-                        )}
-                    </ScrollView>
+        <Modal open={visible} onClose={onClose} framed={false}>
+            <View style={styles.panel}>
+                <View style={styles.header}>
+                    <Text style={styles.title}>client state · debug</Text>
+                    <Pressable onPress={onClose} hitSlop={16}>
+                        <Text style={styles.close}>✕</Text>
+                    </Pressable>
                 </View>
+
+                <View style={styles.section}>
+                    <Row k="connected" v={String(status.connected)} good={status.connected} />
+                    <Row k="connecting" v={String(status.connecting)} />
+                    <Row k="has synced" v={String(status.hasSynced ?? false)} />
+                    <Row k="last synced" v={status.lastSyncedAt?.toLocaleTimeString() ?? "—"} />
+                    <Row k="downloading" v={String(status.downloading)} />
+                    <Row k="uploading" v={String(status.uploading)} />
+                </View>
+
+                <View style={styles.totals}>
+                    <Text style={styles.dim}>{tables.length} tables with rows</Text>
+                    <Text style={styles.dim}>{totalRows} rows on device</Text>
+                </View>
+
+                <ScrollView style={styles.list}>
+                    {tables.length === 0 ? (
+                        <Text style={styles.empty}>
+                            no local rows yet — waiting for first sync…
+                        </Text>
+                    ) : (
+                        tables.map((t) => (
+                            <View key={t.table} style={styles.tableRow}>
+                                <Text style={styles.mono}>{t.table}</Text>
+                                <Text style={styles.monoDim}>{t.rows}</Text>
+                            </View>
+                        ))
+                    )}
+                </ScrollView>
             </View>
         </Modal>
     );
@@ -63,7 +62,6 @@ function Row({ k, v, good }: { k: string; v: string; good?: boolean }) {
 
 const mono = "Courier";
 const styles = StyleSheet.create({
-    backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(20,22,26,0.45)" },
     panel: {
         maxHeight: "85%",
         backgroundColor: theme.colors.ink,

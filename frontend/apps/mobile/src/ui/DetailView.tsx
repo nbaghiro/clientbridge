@@ -1,8 +1,9 @@
 import { type DetailSectionProps, type DetailViewProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { StatusPill } from "./StatusPill";
+import { Modal } from "./Modal";
 
 const c = theme.colors;
 
@@ -17,41 +18,37 @@ export function DetailView({
     children,
 }: DetailViewProps) {
     return (
-        <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-            <View style={styles.backdrop}>
-                <View style={styles.sheet}>
-                    <View style={styles.head}>
-                        <View style={styles.headMain}>
-                            {leading}
-                            <View style={styles.headText}>
-                                <Text style={styles.title} numberOfLines={1}>
-                                    {title}
-                                </Text>
-                                {subtitle !== undefined ? (
-                                    <Text style={styles.subtitle} numberOfLines={1}>
-                                        {subtitle}
-                                    </Text>
-                                ) : null}
-                            </View>
-                        </View>
-                        {status !== undefined ? (
-                            <StatusPill status={status.status} intent={status.intent} />
+        <Modal open={open} onClose={onClose}>
+            <View style={styles.head}>
+                <View style={styles.headMain}>
+                    {leading}
+                    <View style={styles.headText}>
+                        <Text style={styles.title} numberOfLines={1}>
+                            {title}
+                        </Text>
+                        {subtitle !== undefined ? (
+                            <Text style={styles.subtitle} numberOfLines={1}>
+                                {subtitle}
+                            </Text>
                         ) : null}
                     </View>
-                    <ScrollView
-                        style={styles.body}
-                        contentContainerStyle={styles.bodyContent}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        {children}
-                    </ScrollView>
-                    <View style={styles.footer}>
-                        {actions}
-                        <Pressable style={styles.close} onPress={onClose}>
-                            <Text style={styles.closeText}>{strings.common.close}</Text>
-                        </Pressable>
-                    </View>
                 </View>
+                {status !== undefined ? (
+                    <StatusPill status={status.status} intent={status.intent} />
+                ) : null}
+            </View>
+            <ScrollView
+                style={styles.body}
+                contentContainerStyle={styles.bodyContent}
+                keyboardShouldPersistTaps="handled"
+            >
+                {children}
+            </ScrollView>
+            <View style={styles.footer}>
+                {actions}
+                <Pressable style={styles.close} onPress={onClose}>
+                    <Text style={styles.closeText}>{strings.common.close}</Text>
+                </Pressable>
             </View>
         </Modal>
     );
@@ -76,15 +73,6 @@ export function DetailSection({ title, action, children }: DetailSectionProps) {
 }
 
 const styles = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
-    sheet: {
-        backgroundColor: c.surface,
-        borderTopLeftRadius: 18,
-        borderTopRightRadius: 18,
-        padding: 22,
-        paddingBottom: 36,
-        maxHeight: "88%",
-    },
     head: {
         flexDirection: "row",
         alignItems: "center",

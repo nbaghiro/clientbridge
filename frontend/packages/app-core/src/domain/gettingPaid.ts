@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
+import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
+import type { ApiLike } from "../api";
 
 export interface ConnectStatus {
     connected: boolean;

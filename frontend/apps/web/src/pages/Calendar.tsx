@@ -43,7 +43,7 @@ import {
     useStripeAccountId,
     weekColumns,
 } from "@clientbridge/app-core";
-import { ChargeSheet, StatusPill } from "@clientbridge/ui";
+import { ChargeSheet, DetailSection, DetailView, Modal, Money, StatusPill } from "@clientbridge/ui";
 import {
     type SubmitEvent,
     type PointerEvent as ReactPointerEvent,
@@ -53,8 +53,6 @@ import {
     useState,
 } from "react";
 
-import { DetailSection, DetailView } from "../components/DetailView";
-import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 
@@ -598,24 +596,6 @@ function Chevron({ dir }: { dir: "left" | "right" }) {
     );
 }
 
-function Overlay({ children, onClose }: { children: ReactNode; onClose: () => void }) {
-    return (
-        <div
-            onClick={onClose}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-scrim p-4"
-        >
-            <div
-                onClick={(e) => {
-                    e.stopPropagation();
-                }}
-                className="w-full max-w-md rounded-xl border border-line bg-surface p-5 shadow-lg"
-            >
-                {children}
-            </div>
-        </div>
-    );
-}
-
 const fieldClass =
     "mt-1 w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink focus:border-accent focus:outline-hidden";
 
@@ -630,7 +610,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
     };
 
     return (
-        <Overlay onClose={onClose}>
+        <Modal onClose={onClose}>
             <form onSubmit={submit} className="space-y-3">
                 <h2 className="text-lg font-semibold text-ink">{strings.calendar.newBooking}</h2>
                 <label className="block">
@@ -792,7 +772,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                     </button>
                 </div>
             </form>
-        </Overlay>
+        </Modal>
     );
 }
 

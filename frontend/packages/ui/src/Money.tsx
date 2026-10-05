@@ -1,4 +1,4 @@
-import { type MoneyProps, formatMoney } from "@clientbridge/app-core";
+import { type MoneyProps, formatMoney } from "@clientbridge/app-core/public";
 
 const TONES: Record<NonNullable<MoneyProps["tone"]>, string> = {
     ink: "text-ink",

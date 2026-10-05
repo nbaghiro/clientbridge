@@ -13,7 +13,6 @@ import { theme } from "@clientbridge/tokens/theme";
 import { useMemo, useState } from "react";
 import {
     ActivityIndicator,
-    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -24,6 +23,7 @@ import {
 
 import { api, apiBaseUrl } from "../lib/api";
 import { ItemImage } from "./ItemImage";
+import { Modal } from "./Modal";
 
 const c = theme.colors;
 
@@ -43,187 +43,172 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
     const shownClients = form.editing ? clients.filter((cl) => cl.id === form.clientId) : clients;
 
     return (
-        <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-            <Pressable style={styles.backdrop} onPress={onClose}>
-                <View style={styles.sheet} onStartShouldSetResponder={() => true}>
-                    <Text style={styles.sheetTitle}>{docEditorTitle(kind, form.editing)}</Text>
-                    <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
-                        <Text style={styles.sectionLabel}>{strings.invoices.clientLabel}</Text>
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.chipRow}
+        <Modal onClose={onClose}>
+            <Text style={styles.sheetTitle}>{docEditorTitle(kind, form.editing)}</Text>
+            <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
+                <Text style={styles.sectionLabel}>{strings.invoices.clientLabel}</Text>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.chipRow}
+                >
+                    {shownClients.map((cl) => (
+                        <Pressable
+                            key={cl.id}
+                            disabled={form.editing}
+                            onPress={() => {
+                                form.setClientId(cl.id);
+                            }}
+                            style={[styles.chip, form.clientId === cl.id && styles.chipOn]}
                         >
-                            {shownClients.map((cl) => (
-                                <Pressable
-                                    key={cl.id}
-                                    disabled={form.editing}
-                                    onPress={() => {
-                                        form.setClientId(cl.id);
-                                    }}
-                                    style={[styles.chip, form.clientId === cl.id && styles.chipOn]}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.chipText,
-                                            form.clientId === cl.id && styles.chipTextOn,
-                                        ]}
-                                    >
-                                        {cl.name}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
-
-                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                            {strings.invoices.linesLabel}
-                        </Text>
-                        {form.lines.map((l) => (
-                            <View key={l.key} style={styles.lineEdit}>
-                                <TextInput
-                                    style={[styles.lineInput, styles.lineDescInput]}
-                                    value={l.description}
-                                    onChangeText={(v) => {
-                                        form.setLine(l.key, { description: v, itemId: null });
-                                    }}
-                                    placeholder={strings.invoices.lineDescriptionPlaceholder}
-                                    placeholderTextColor={c.muted}
-                                />
-                                <TextInput
-                                    style={[styles.lineInput, styles.lineQtyInput]}
-                                    value={l.quantity}
-                                    onChangeText={(v) => {
-                                        form.setLine(l.key, { quantity: v });
-                                    }}
-                                    keyboardType="decimal-pad"
-                                    placeholder={strings.invoices.lineQty}
-                                    placeholderTextColor={c.muted}
-                                />
-                                <TextInput
-                                    style={[styles.lineInput, styles.linePriceInput]}
-                                    value={l.unit}
-                                    onChangeText={(v) => {
-                                        form.setLine(l.key, { unit: v });
-                                    }}
-                                    keyboardType="decimal-pad"
-                                    placeholder={strings.invoices.linePricePlaceholder}
-                                    placeholderTextColor={c.muted}
-                                />
-                                <Pressable
-                                    onPress={() => {
-                                        form.removeLine(l.key);
-                                    }}
-                                    style={styles.lineRemove}
-                                    hitSlop={8}
-                                >
-                                    <Text style={styles.lineRemoveText}>×</Text>
-                                </Pressable>
-                            </View>
-                        ))}
-                        <View style={styles.lineLinks}>
-                            <Pressable
-                                onPress={() => {
-                                    form.addLine();
-                                }}
+                            <Text
+                                style={[
+                                    styles.chipText,
+                                    form.clientId === cl.id && styles.chipTextOn,
+                                ]}
                             >
-                                <Text style={styles.addLine}>{strings.invoices.addLine}</Text>
-                            </Pressable>
-                            {catalog.length > 0 ? (
-                                <Pressable
-                                    onPress={() => {
-                                        setPicking((p) => !p);
-                                    }}
-                                >
-                                    <Text style={styles.addLine}>
-                                        {strings.invoices.fromCatalog}
-                                    </Text>
-                                </Pressable>
-                            ) : null}
-                        </View>
-                        {picking ? (
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.chipRow}
-                            >
-                                {catalog.map((item) => (
-                                    <Pressable
-                                        key={item.id}
-                                        style={styles.pick}
-                                        onPress={() => {
-                                            form.addCatalogItem(item);
-                                            setPicking(false);
-                                        }}
-                                    >
-                                        <ItemImage
-                                            src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                                            name={item.name}
-                                            color={item.color}
-                                            size={40}
-                                        />
-                                        <Text style={styles.pickName} numberOfLines={2}>
-                                            {item.name}
-                                        </Text>
-                                        <Text style={styles.pickPrice}>
-                                            {formatMoney(item.price_cents)}
-                                        </Text>
-                                    </Pressable>
-                                ))}
-                            </ScrollView>
-                        ) : null}
+                                {cl.name}
+                            </Text>
+                        </Pressable>
+                    ))}
+                </ScrollView>
 
-                        <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                            {strings.invoices.notesLabel}
-                        </Text>
+                <Text style={[styles.sectionLabel, styles.sectionSpace]}>
+                    {strings.invoices.linesLabel}
+                </Text>
+                {form.lines.map((l) => (
+                    <View key={l.key} style={styles.lineEdit}>
                         <TextInput
-                            style={styles.notesInput}
-                            value={form.notes}
-                            onChangeText={form.setNotes}
-                            multiline
-                            placeholder={strings.invoices.notesPlaceholder}
+                            style={[styles.lineInput, styles.lineDescInput]}
+                            value={l.description}
+                            onChangeText={(v) => {
+                                form.setLine(l.key, { description: v, itemId: null });
+                            }}
+                            placeholder={strings.invoices.lineDescriptionPlaceholder}
                             placeholderTextColor={c.muted}
                         />
-                    </ScrollView>
-                    {form.error !== null ? (
-                        <Text style={styles.errorText}>{form.error}</Text>
-                    ) : null}
-                    <View style={styles.foot}>
-                        <Text style={styles.subtotal}>
-                            {strings.invoices.subtotal}{" "}
-                            <Text style={styles.subtotalValue}>
-                                {formatMoney(form.subtotalCents)}
-                            </Text>
-                            <Text style={styles.subtotalTax}>{strings.invoices.plusTax}</Text>
-                        </Text>
-                        <View style={styles.actions}>
-                            <Pressable style={styles.cancel} onPress={onClose}>
-                                <Text style={styles.cancelText}>{strings.common.cancel}</Text>
-                            </Pressable>
-                            <Pressable
-                                style={styles.save}
-                                disabled={form.busy}
-                                onPress={form.submit}
-                            >
-                                {form.busy ? (
-                                    <ActivityIndicator color={c.accentInk} />
-                                ) : (
-                                    <Text style={styles.saveText}>
-                                        {form.editing
-                                            ? strings.invoices.saveChanges
-                                            : strings.invoices.saveDraft}
-                                    </Text>
-                                )}
-                            </Pressable>
-                        </View>
+                        <TextInput
+                            style={[styles.lineInput, styles.lineQtyInput]}
+                            value={l.quantity}
+                            onChangeText={(v) => {
+                                form.setLine(l.key, { quantity: v });
+                            }}
+                            keyboardType="decimal-pad"
+                            placeholder={strings.invoices.lineQty}
+                            placeholderTextColor={c.muted}
+                        />
+                        <TextInput
+                            style={[styles.lineInput, styles.linePriceInput]}
+                            value={l.unit}
+                            onChangeText={(v) => {
+                                form.setLine(l.key, { unit: v });
+                            }}
+                            keyboardType="decimal-pad"
+                            placeholder={strings.invoices.linePricePlaceholder}
+                            placeholderTextColor={c.muted}
+                        />
+                        <Pressable
+                            onPress={() => {
+                                form.removeLine(l.key);
+                            }}
+                            style={styles.lineRemove}
+                            hitSlop={8}
+                        >
+                            <Text style={styles.lineRemoveText}>×</Text>
+                        </Pressable>
                     </View>
+                ))}
+                <View style={styles.lineLinks}>
+                    <Pressable
+                        onPress={() => {
+                            form.addLine();
+                        }}
+                    >
+                        <Text style={styles.addLine}>{strings.invoices.addLine}</Text>
+                    </Pressable>
+                    {catalog.length > 0 ? (
+                        <Pressable
+                            onPress={() => {
+                                setPicking((p) => !p);
+                            }}
+                        >
+                            <Text style={styles.addLine}>{strings.invoices.fromCatalog}</Text>
+                        </Pressable>
+                    ) : null}
                 </View>
-            </Pressable>
+                {picking ? (
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.chipRow}
+                    >
+                        {catalog.map((item) => (
+                            <Pressable
+                                key={item.id}
+                                style={styles.pick}
+                                onPress={() => {
+                                    form.addCatalogItem(item);
+                                    setPicking(false);
+                                }}
+                            >
+                                <ItemImage
+                                    src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                                    name={item.name}
+                                    color={item.color}
+                                    size={40}
+                                />
+                                <Text style={styles.pickName} numberOfLines={2}>
+                                    {item.name}
+                                </Text>
+                                <Text style={styles.pickPrice}>
+                                    {formatMoney(item.price_cents)}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </ScrollView>
+                ) : null}
+
+                <Text style={[styles.sectionLabel, styles.sectionSpace]}>
+                    {strings.invoices.notesLabel}
+                </Text>
+                <TextInput
+                    style={styles.notesInput}
+                    value={form.notes}
+                    onChangeText={form.setNotes}
+                    multiline
+                    placeholder={strings.invoices.notesPlaceholder}
+                    placeholderTextColor={c.muted}
+                />
+            </ScrollView>
+            {form.error !== null ? <Text style={styles.errorText}>{form.error}</Text> : null}
+            <View style={styles.foot}>
+                <Text style={styles.subtotal}>
+                    {strings.invoices.subtotal}{" "}
+                    <Text style={styles.subtotalValue}>{formatMoney(form.subtotalCents)}</Text>
+                    <Text style={styles.subtotalTax}>{strings.invoices.plusTax}</Text>
+                </Text>
+                <View style={styles.actions}>
+                    <Pressable style={styles.cancel} onPress={onClose}>
+                        <Text style={styles.cancelText}>{strings.common.cancel}</Text>
+                    </Pressable>
+                    <Pressable style={styles.save} disabled={form.busy} onPress={form.submit}>
+                        {form.busy ? (
+                            <ActivityIndicator color={c.accentInk} />
+                        ) : (
+                            <Text style={styles.saveText}>
+                                {form.editing
+                                    ? strings.invoices.saveChanges
+                                    : strings.invoices.saveDraft}
+                            </Text>
+                        )}
+                    </Pressable>
+                </View>
+            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
     sheet: {
         backgroundColor: c.surface,
         borderTopLeftRadius: 18,

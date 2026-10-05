@@ -19,7 +19,7 @@ import {
     useSendContractForm,
     useSendFormForm,
 } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import { Empty, Panel, StatusPill } from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -87,7 +87,7 @@ function FormsSection() {
 
             <div className="mt-4 space-y-2">
                 {forms.length === 0 ? (
-                    <Empty>{strings.forms.emptyForms}</Empty>
+                    <Empty message={strings.forms.emptyForms} />
                 ) : (
                     forms.map((f) => <FormRowItem key={f.id} form={f} />)
                 )}
@@ -344,7 +344,7 @@ function ContractsSection() {
 
             <div className="mt-4 space-y-2">
                 {contracts.length === 0 ? (
-                    <Empty>{strings.contracts.emptyContracts}</Empty>
+                    <Empty message={strings.contracts.emptyContracts} />
                 ) : (
                     contracts.map((cnt) => <ContractRowItem key={cnt.id} contract={cnt} />)
                 )}
@@ -508,15 +508,6 @@ function SectionHead({
     );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-        <section className="mt-4 space-y-3 rounded-lg border border-line bg-surface p-5 shadow-card">
-            <h3 className="font-display text-base font-bold text-ink">{title}</h3>
-            {children}
-        </section>
-    );
-}
-
 function PickerRow({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <label className="flex flex-col gap-1 text-sm font-medium text-ink-soft">
@@ -564,8 +555,4 @@ function ListRow({ children }: { children: React.ReactNode }) {
             {children}
         </div>
     );
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-    return <p className="py-6 text-center text-sm text-muted">{children}</p>;
 }

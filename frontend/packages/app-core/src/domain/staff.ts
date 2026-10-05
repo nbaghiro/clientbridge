@@ -1,11 +1,10 @@
 import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks/useAsyncAction";
-import type { Viewer } from "../hooks/useCurrentRole";
-import type { AuthTokens } from "../hooks/useLogin";
+import { useAsyncAction } from "../hooks";
+import type { AuthTokens, Viewer } from "./auth";
 import { strings } from "../strings";
-import type { ApiLike } from "../util/api";
+import type { ApiLike } from "../api";
 
 export interface StaffRow {
     id: string;

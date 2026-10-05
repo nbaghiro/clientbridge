@@ -9,9 +9,8 @@ import {
     useRecentActivity,
     type ActivityRow,
 } from "@clientbridge/app-core";
+import { ListPage, Money } from "@clientbridge/ui";
 
-import { ListPage } from "../components/ListPage";
-import { Money } from "../components/Money";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 

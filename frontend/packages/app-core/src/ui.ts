@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-import type { Intent } from "./util/primitives";
+// Domain-neutral visual tone. Each platform maps it to its own tokens (Tailwind classes / RN colors).
+export type Intent = "accent" | "success" | "warning" | "danger" | "neutral";
 
 // Prop contracts for the per-platform building blocks; web and mobile implement the same shapes.
 
@@ -68,4 +69,19 @@ export interface MoneyProps {
 
 export interface EmptyProps {
     message: string;
+}
+
+export interface ModalProps {
+    open?: boolean | undefined;
+    onClose: () => void;
+    // sm/md/lg set the web width; xl is the large panel (wide on web, a tall sheet on mobile).
+    size?: "sm" | "md" | "lg" | "xl" | undefined;
+    // false when the children draw their own surface (an editor or a debug panel).
+    framed?: boolean | undefined;
+    children: ReactNode;
+}
+
+export interface PanelProps {
+    title: string;
+    children: ReactNode;
 }

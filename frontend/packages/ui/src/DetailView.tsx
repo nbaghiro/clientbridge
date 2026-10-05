@@ -1,5 +1,9 @@
-import { type DetailSectionProps, type DetailViewProps, strings } from "@clientbridge/app-core";
-import { StatusPill } from "@clientbridge/ui";
+import {
+    type DetailSectionProps,
+    type DetailViewProps,
+    strings,
+} from "@clientbridge/app-core/public";
+import { StatusPill } from "./StatusPill";
 import { useEffect } from "react";
 
 export function DetailView({

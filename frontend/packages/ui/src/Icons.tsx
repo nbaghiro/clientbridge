@@ -1,4 +1,4 @@
-import { type IconName, type IconPrimitive, ICON_SPECS } from "@clientbridge/app-core";
+import { type IconName, type IconPrimitive, ICON_SPECS } from "@clientbridge/app-core/public";
 import type { ReactNode } from "react";
 
 function prims(name: IconName): ReactNode {
