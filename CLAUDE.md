@@ -13,7 +13,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - **File naming:** `models/` is grouped by domain; every other layer (`api`, `schemas`, `services`, `tasks`,
   `tests`) holds one file per concept with the same plain plural name and no suffix (`api/bookings.py` →
   `schemas/bookings.py` → `services/bookings.py` → `tasks/bookings.py` → `tests/test_bookings.py`). A file
-  may be long if it is one concept; split by concept, never by size. Folders stay one level deep.
+  may be long if it is one concept; split by concept, never by size. Folders stay one level deep. Test
+  files are `test_<concept>[_<aspect>].py` (`test_payments_refunds.py`); only cross-cutting suites
+  (`test_flows_*`, `test_sync_*`, `test_derived`, `test_integrity`…) are exempt.
 - `models` = tables, `schemas` = API shapes; a column reaches the API only through a schema.
 - Flow: `api` (thin router + DTO, **never queries**) → `services` (logic, owns the
   transaction/commit) → `models`. Services own their queries and **always scope tenancy through
@@ -80,8 +82,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   comments. The Catalog & Tax audit (2026-06-26) caught an unguarded REST write + a router running raw
   queries — exactly the class of thing this pass exists to catch.
 - **Comments: sparing — the default is no comment.** We are not fans of extensive commenting; prefer self-documenting code (clear names) over prose. Add a comment *only* for a non-obvious *why* or an invariant, and keep it to one line. Never narrate *what* the code does, restate types, summarize a function the name already conveys, write multi-clause block/file-header comments, or add decorative `──── section ────` divider banners — split a file before it needs sign-posting. In the backend, `scripts/check_structure.py` (part of `make lint`)
-  fails on a docstring or comment block longer than one line, a `*_service.py`/`*_jobs.py` file name, and a
-  folder deeper than `clientbridge/<layer>/<file>.py`. In the frontend, `packages/config/scripts/check-structure.mjs` (part of `pnpm lint`)
+  fails on a docstring or comment block longer than one line or a divider banner (in `src`, `tests` and
+  `scripts`), a `*_service.py`/`*_jobs.py` file name, a folder deeper than `clientbridge/<layer>/<file>.py`,
+  and a test file not named after a concept. In the frontend, `packages/config/scripts/check-structure.mjs` (part of `pnpm lint`)
   fails on a multi-line comment, a lowercase component file, and a concept named differently across app-core, strings, web and mobile.
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`

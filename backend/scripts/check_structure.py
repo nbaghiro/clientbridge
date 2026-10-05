@@ -4,7 +4,22 @@ import pathlib
 import sys
 import tokenize
 
-PACKAGE = pathlib.Path(__file__).resolve().parents[1] / "src" / "clientbridge"
+BACKEND = pathlib.Path(__file__).resolve().parents[1]
+PACKAGE = BACKEND / "src" / "clientbridge"
+TESTS = BACKEND / "tests"
+SCRIPTS = BACKEND / "scripts"
+CROSS_CUTTING_TESTS = {
+    "command",
+    "derived",
+    "harness",
+    "integrity",
+    "jobs",
+    "ratelimit",
+    "scoping",
+    "security",
+}
+CROSS_CUTTING_PREFIXES = ("flows_", "sync_")
+BANNER_MARKS = ("# ─", "# ━", "# ===", "# ---", "# ###")
 BANNED_SUFFIXES = ("_service", "_jobs")
 DIRECTIVES = ("# noqa", "# type:", "# pragma")
 
@@ -45,6 +60,27 @@ def comment_block_problems(path: pathlib.Path, source: str) -> list[str]:
     return problems
 
 
+def banner_problems(path: pathlib.Path, source: str) -> list[str]:
+    return [
+        f"{path}:{number}: divider banner"
+        for number, line in enumerate(source.splitlines(), 1)
+        if line.strip().startswith(BANNER_MARKS)
+    ]
+
+
+def concepts() -> set[str]:
+    return {p.stem for layer in ("services", "api") for p in (PACKAGE / layer).glob("*.py")}
+
+
+def naming_problems(path: pathlib.Path, known: set[str]) -> list[str]:
+    name = path.stem.removeprefix("test_")
+    if name in CROSS_CUTTING_TESTS or name.startswith(CROSS_CUTTING_PREFIXES):
+        return []
+    if any(name == concept or name.startswith(f"{concept}_") for concept in known):
+        return []
+    return [f"{path}: name a test file test_<concept>[_<aspect>] after a services/ or api/ file"]
+
+
 def layout_problems(path: pathlib.Path) -> list[str]:
     problems = []
     relative = path.relative_to(PACKAGE)
@@ -55,13 +91,25 @@ def layout_problems(path: pathlib.Path) -> list[str]:
     return problems
 
 
+def comment_problems(path: pathlib.Path) -> list[str]:
+    source = path.read_text()
+    return (
+        docstring_problems(path, ast.parse(source))
+        + comment_block_problems(path, source)
+        + banner_problems(path, source)
+    )
+
+
 def main() -> int:
     problems: list[str] = []
     for path in sorted(PACKAGE.rglob("*.py")):
-        source = path.read_text()
         problems += layout_problems(path)
-        problems += docstring_problems(path, ast.parse(source))
-        problems += comment_block_problems(path, source)
+        problems += comment_problems(path)
+    for path in sorted([*TESTS.rglob("*.py"), *SCRIPTS.rglob("*.py")]):
+        problems += comment_problems(path)
+    known = concepts()
+    for path in sorted(TESTS.glob("test_*.py")):
+        problems += naming_problems(path, known)
     for problem in problems:
         print(problem)
     return 1 if problems else 0

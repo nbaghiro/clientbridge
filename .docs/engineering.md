@@ -72,7 +72,7 @@ contracts, or security regress — not line-count theater.
 
 ### Shape: integration-first
 - **Integration tests dominate** — `httpx.AsyncClient` → the real FastAPI app → real migrated + seeded
-  Postgres. One test file per router/domain. They cover the true HTTP contract + auth + DB constraints.
+  Postgres. One test file per concept (`test_<concept>[_<aspect>].py`). They cover the true HTTP contract + auth + DB constraints.
 - **Unit tests** only for pure logic with many cases (JWT, password hashing, tax math, RRULE expansion,
   the frontend `parseTimestamp`). No DB, no HTTP.
 - **We don't mock our own code.** The DB is real; our services run for real.
