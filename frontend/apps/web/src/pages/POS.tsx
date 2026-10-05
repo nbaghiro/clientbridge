@@ -30,8 +30,10 @@ import {
     Button,
     ChargeSheet,
     Choice,
+    Empty,
     ItemImage,
     Notice,
+    Panel,
     SearchField,
     StatusPill,
     TextField,
@@ -94,9 +96,11 @@ export function POS() {
                         </button>
                     ))}
                     {filtered.length === 0 ? (
-                        <p className="col-span-full py-12 text-center text-sm text-muted">
-                            {q ? strings.pos.searchEmpty : strings.pos.emptyCatalog}
-                        </p>
+                        <div className="col-span-full">
+                            <Empty
+                                message={q ? strings.pos.searchEmpty : strings.pos.emptyCatalog}
+                            />
+                        </div>
                     ) : null}
                 </div>
 
@@ -206,19 +210,14 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
     const canVoid = canVoidSale(useRole());
     if (cart.phase === "paid" && cart.order !== null) {
         return (
-            <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
-                <h2 className="font-display text-base font-bold text-ink">
-                    {strings.pos.paidTitle}
-                </h2>
-                <p className="mt-2 text-sm text-ink-soft">
+            <Panel title={strings.pos.paidTitle}>
+                <p className="text-sm text-ink-soft">
                     {strings.pos.paidBody(formatMoney(cart.order.total_cents))}
                 </p>
-                <div className="mt-4">
-                    <Button size="lg" full onPress={cart.newSale}>
-                        {strings.pos.newSale}
-                    </Button>
-                </div>
-            </div>
+                <Button size="lg" full onPress={cart.newSale}>
+                    {strings.pos.newSale}
+                </Button>
+            </Panel>
         );
     }
     return (
@@ -236,7 +235,7 @@ function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
 
             <div className="flex-1 overflow-y-auto px-4 py-2">
                 {cart.isEmpty ? (
-                    <p className="py-10 text-center text-sm text-muted">{strings.pos.cartEmpty}</p>
+                    <Empty message={strings.pos.cartEmpty} />
                 ) : (
                     cart.lines.map((line) => (
                         <CartLineRow
@@ -393,40 +392,49 @@ function OnlineOrders() {
             <h2 className="font-display text-base font-semibold text-ink">
                 {strings.pos.onlineOrders}
             </h2>
-            <div className="mt-2 divide-y divide-line-soft rounded-lg border border-line bg-surface">
-                {orders.map((order) => (
-                    <div key={order.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-ink">
-                                {order.client_name ?? strings.pos.walkIn}
-                            </p>
-                            {order.summary !== null ? (
-                                <p className="truncate text-xs text-muted">{order.summary}</p>
-                            ) : null}
-                        </div>
-                        <StatusPill
-                            status={PICKUP_LABEL[order.pickup_status]}
-                            intent={pickupIntent(order.pickup_status)}
-                            asWritten
-                        />
-                        <span className="font-medium tabular-nums text-ink">
-                            {formatMoneyWithCurrency(order.total_cents, order.currency)}
-                        </span>
-                        {pickupActions(order.pickup_status).map((step) => (
-                            <Button
-                                key={step.status}
-                                variant="outline"
-                                size="sm"
-                                disabled={pickup.busy}
-                                onPress={() => {
-                                    pickup.advance(order.id, step.status);
-                                }}
+            <div className="mt-2">
+                <Panel flush>
+                    <div className="divide-y divide-line-soft">
+                        {orders.map((order) => (
+                            <div
+                                key={order.id}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm"
                             >
-                                {step.label}
-                            </Button>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-ink">
+                                        {order.client_name ?? strings.pos.walkIn}
+                                    </p>
+                                    {order.summary !== null ? (
+                                        <p className="truncate text-xs text-muted">
+                                            {order.summary}
+                                        </p>
+                                    ) : null}
+                                </div>
+                                <StatusPill
+                                    status={PICKUP_LABEL[order.pickup_status]}
+                                    intent={pickupIntent(order.pickup_status)}
+                                    asWritten
+                                />
+                                <span className="font-medium tabular-nums text-ink">
+                                    {formatMoneyWithCurrency(order.total_cents, order.currency)}
+                                </span>
+                                {pickupActions(order.pickup_status).map((step) => (
+                                    <Button
+                                        key={step.status}
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={pickup.busy}
+                                        onPress={() => {
+                                            pickup.advance(order.id, step.status);
+                                        }}
+                                    >
+                                        {step.label}
+                                    </Button>
+                                ))}
+                            </div>
                         ))}
                     </div>
-                ))}
+                </Panel>
             </div>
             {pickup.error !== null ? <Notice tone="danger">{pickup.error}</Notice> : null}
         </section>
@@ -442,21 +450,28 @@ function OpenOrders() {
             <h2 className="font-display text-base font-semibold text-ink">
                 {strings.pos.openOrders}
             </h2>
-            <div className="mt-2 divide-y divide-line-soft rounded-lg border border-line bg-surface">
-                {orders.map((order: OpenOrderRow) => (
-                    <div key={order.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                        <span className="min-w-0 flex-1 truncate text-ink">
-                            {order.client_name ?? strings.pos.walkIn}
-                        </span>
-                        <StatusPill
-                            status={order.status}
-                            intent={orderStatusIntent(order.status)}
-                        />
-                        <span className="font-medium tabular-nums text-ink">
-                            {formatMoney(order.total_cents)}
-                        </span>
+            <div className="mt-2">
+                <Panel flush>
+                    <div className="divide-y divide-line-soft">
+                        {orders.map((order: OpenOrderRow) => (
+                            <div
+                                key={order.id}
+                                className="flex items-center gap-3 px-4 py-2.5 text-sm"
+                            >
+                                <span className="min-w-0 flex-1 truncate text-ink">
+                                    {order.client_name ?? strings.pos.walkIn}
+                                </span>
+                                <StatusPill
+                                    status={order.status}
+                                    intent={orderStatusIntent(order.status)}
+                                />
+                                <span className="font-medium tabular-nums text-ink">
+                                    {formatMoney(order.total_cents)}
+                                </span>
+                            </div>
+                        ))}
                     </div>
-                ))}
+                </Panel>
             </div>
         </section>
     );

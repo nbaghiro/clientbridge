@@ -18,7 +18,7 @@ import {
 } from "@clientbridge/app-core";
 import { type ReactNode, useMemo, useState } from "react";
 import { Text, View } from "react-native";
-import { Button, ChargeSheet, Choice, Field, TextField, ui } from "@clientbridge/ui";
+import { Button, ChargeSheet, Choice, Field, Panel, TextField, ui } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -165,8 +165,7 @@ function WithClient({
     const id = clientId ?? (picked === "" ? null : picked);
     if (id !== null) return <>{children(id)}</>;
     return (
-        <View style={ui.panel}>
-            <Text style={ui.title}>{strings.pos.clientLabel}</Text>
+        <Panel title={strings.pos.clientLabel}>
             <ClientChips clients={clients} value={picked} onChange={setPicked} />
             <Text style={ui.note}>{strings.pos.chooseClient}</Text>
             <View style={ui.actions}>
@@ -174,7 +173,7 @@ function WithClient({
                     {strings.common.cancel}
                 </Button>
             </View>
-        </View>
+        </Panel>
     );
 }
 

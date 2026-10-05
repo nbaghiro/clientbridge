@@ -127,33 +127,35 @@ function SendForm({ forms, onDone }: { forms: FormRow[]; onDone: () => void }) {
     const clients = useClients();
 
     return (
-        <Panel title={strings.forms.sendFormTitle}>
-            <Select
-                label={strings.forms.form}
-                value={send.formId}
-                options={[
-                    { key: "", label: strings.forms.selectForm },
-                    ...forms.map((f) => ({ key: f.id, label: f.name })),
-                ]}
-                onChange={send.setFormId}
-            />
-            <Select
-                label={strings.forms.client}
-                value={send.clientId}
-                options={[
-                    { key: "", label: strings.forms.selectClient },
-                    ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
-                ]}
-                onChange={send.setClientId}
-            />
-            {send.error !== null ? <Notice tone="danger">{send.error}</Notice> : null}
-            <PanelActions
-                onCancel={onDone}
-                busy={send.busy}
-                onSubmit={send.submit}
-                label={strings.forms.sendForm}
-            />
-        </Panel>
+        <div className="mt-4">
+            <Panel title={strings.forms.sendFormTitle}>
+                <Select
+                    label={strings.forms.form}
+                    value={send.formId}
+                    options={[
+                        { key: "", label: strings.forms.selectForm },
+                        ...forms.map((f) => ({ key: f.id, label: f.name })),
+                    ]}
+                    onChange={send.setFormId}
+                />
+                <Select
+                    label={strings.forms.client}
+                    value={send.clientId}
+                    options={[
+                        { key: "", label: strings.forms.selectClient },
+                        ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
+                    ]}
+                    onChange={send.setClientId}
+                />
+                {send.error !== null ? <Notice tone="danger">{send.error}</Notice> : null}
+                <PanelActions
+                    onCancel={onDone}
+                    busy={send.busy}
+                    onSubmit={send.submit}
+                    label={strings.forms.sendForm}
+                />
+            </Panel>
+        </div>
     );
 }
 
@@ -161,52 +163,54 @@ function FormBuilderPanel({ onDone }: { onDone: () => void }) {
     const builder = useFormBuilder(onDone);
 
     return (
-        <Panel title={strings.forms.newForm}>
-            <TextField
-                label={strings.forms.formName}
-                value={builder.name}
-                onChange={builder.setName}
-                placeholder={strings.forms.formNamePlaceholder}
-            />
+        <div className="mt-4">
+            <Panel title={strings.forms.newForm}>
+                <TextField
+                    label={strings.forms.formName}
+                    value={builder.name}
+                    onChange={builder.setName}
+                    placeholder={strings.forms.formNamePlaceholder}
+                />
 
-            <div className="space-y-3">
-                {builder.fields.map((f, i) => (
-                    <FieldEditor
-                        key={f.key}
-                        field={f}
-                        index={i}
-                        onChange={(patch) => {
-                            builder.updateField(f.key, patch);
-                        }}
-                        onRemove={
-                            builder.fields.length > 1
-                                ? () => {
-                                      builder.removeField(f.key);
-                                  }
-                                : undefined
-                        }
-                    />
-                ))}
-            </div>
+                <div className="space-y-3">
+                    {builder.fields.map((f, i) => (
+                        <FieldEditor
+                            key={f.key}
+                            field={f}
+                            index={i}
+                            onChange={(patch) => {
+                                builder.updateField(f.key, patch);
+                            }}
+                            onRemove={
+                                builder.fields.length > 1
+                                    ? () => {
+                                          builder.removeField(f.key);
+                                      }
+                                    : undefined
+                            }
+                        />
+                    ))}
+                </div>
 
-            <Button variant="outline" size="sm" onPress={builder.addField}>
-                {strings.forms.addField}
-            </Button>
+                <Button variant="outline" size="sm" onPress={builder.addField}>
+                    {strings.forms.addField}
+                </Button>
 
-            <Toggle
-                label={strings.forms.requireSignature}
-                value={builder.requireSignature}
-                onChange={builder.setRequireSignature}
-            />
+                <Toggle
+                    label={strings.forms.requireSignature}
+                    value={builder.requireSignature}
+                    onChange={builder.setRequireSignature}
+                />
 
-            {builder.error !== null ? <Notice tone="danger">{builder.error}</Notice> : null}
-            <PanelActions
-                onCancel={onDone}
-                busy={builder.busy}
-                onSubmit={builder.submit}
-                label={strings.forms.createForm}
-            />
-        </Panel>
+                {builder.error !== null ? <Notice tone="danger">{builder.error}</Notice> : null}
+                <PanelActions
+                    onCancel={onDone}
+                    busy={builder.busy}
+                    onSubmit={builder.submit}
+                    label={strings.forms.createForm}
+                />
+            </Panel>
+        </div>
     );
 }
 
@@ -350,36 +354,38 @@ function SendContract({ contracts, onDone }: { contracts: ContractRow[]; onDone:
     const clients = useClients();
 
     return (
-        <Panel title={strings.contracts.sendForSignature}>
-            <Select
-                label={strings.contracts.contract}
-                value={send.contractId}
-                options={[
-                    { key: "", label: strings.contracts.selectContract },
-                    ...contracts.map((cnt) => ({ key: cnt.id, label: cnt.name })),
-                ]}
-                onChange={send.setContractId}
-            />
-            <Select
-                label={strings.contracts.client}
-                value={send.clientId}
-                options={[
-                    { key: "", label: strings.contracts.selectClient },
-                    ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
-                ]}
-                onChange={send.setClientId}
-            />
-            {send.error !== null ? <Notice tone="danger">{send.error}</Notice> : null}
-            <PanelActions
-                onCancel={onDone}
-                busy={send.busy}
-                onSubmit={send.submit}
-                label={strings.contracts.send}
-            />
-            <p className="text-xs text-muted">
-                {strings.contracts.secureLinkNotice} <SignatureStatusLegend />
-            </p>
-        </Panel>
+        <div className="mt-4">
+            <Panel title={strings.contracts.sendForSignature}>
+                <Select
+                    label={strings.contracts.contract}
+                    value={send.contractId}
+                    options={[
+                        { key: "", label: strings.contracts.selectContract },
+                        ...contracts.map((cnt) => ({ key: cnt.id, label: cnt.name })),
+                    ]}
+                    onChange={send.setContractId}
+                />
+                <Select
+                    label={strings.contracts.client}
+                    value={send.clientId}
+                    options={[
+                        { key: "", label: strings.contracts.selectClient },
+                        ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
+                    ]}
+                    onChange={send.setClientId}
+                />
+                {send.error !== null ? <Notice tone="danger">{send.error}</Notice> : null}
+                <PanelActions
+                    onCancel={onDone}
+                    busy={send.busy}
+                    onSubmit={send.submit}
+                    label={strings.contracts.send}
+                />
+                <p className="text-xs text-muted">
+                    {strings.contracts.secureLinkNotice} <SignatureStatusLegend />
+                </p>
+            </Panel>
+        </div>
     );
 }
 
@@ -397,29 +403,31 @@ function ContractDraftPanel({ onDone }: { onDone: () => void }) {
     const draft = useContractDraftForm(onDone);
 
     return (
-        <Panel title={strings.contracts.newContract}>
-            <TextField
-                label={strings.contracts.name}
-                value={draft.name}
-                onChange={draft.setName}
-                placeholder={strings.contracts.contractNamePlaceholder}
-            />
-            <TextField
-                label={strings.contracts.contractText}
-                multiline
-                rows={8}
-                value={draft.body}
-                onChange={draft.setBody}
-                placeholder={strings.contracts.contractTextPlaceholder}
-            />
-            {draft.error !== null ? <Notice tone="danger">{draft.error}</Notice> : null}
-            <PanelActions
-                onCancel={onDone}
-                busy={draft.busy}
-                onSubmit={draft.submit}
-                label={strings.contracts.createContract}
-            />
-        </Panel>
+        <div className="mt-4">
+            <Panel title={strings.contracts.newContract}>
+                <TextField
+                    label={strings.contracts.name}
+                    value={draft.name}
+                    onChange={draft.setName}
+                    placeholder={strings.contracts.contractNamePlaceholder}
+                />
+                <TextField
+                    label={strings.contracts.contractText}
+                    multiline
+                    rows={8}
+                    value={draft.body}
+                    onChange={draft.setBody}
+                    placeholder={strings.contracts.contractTextPlaceholder}
+                />
+                {draft.error !== null ? <Notice tone="danger">{draft.error}</Notice> : null}
+                <PanelActions
+                    onCancel={onDone}
+                    busy={draft.busy}
+                    onSubmit={draft.submit}
+                    label={strings.contracts.createContract}
+                />
+            </Panel>
+        </div>
     );
 }
 

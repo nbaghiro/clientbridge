@@ -17,16 +17,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
-import { Button, Notice, StatusPill } from "@clientbridge/ui";
+import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Button, Empty, Loading, Notice, Panel, Stat, StatusPill } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -72,7 +64,7 @@ export function Reports() {
                 <Text style={styles.muted}>{strings.reports.loadError}</Text>
             ) : (
                 <>
-                    <Card
+                    <ReportPanel
                         title={strings.reports.incomeTitle}
                         subtitle={strings.reports.incomeSubtitle}
                         onDownload={() => {
@@ -80,10 +72,10 @@ export function Reports() {
                         }}
                         downloading={isDownloading("income")}
                     >
-                        {income === null ? <Loading /> : <IncomeBody income={income} />}
-                    </Card>
+                        {income === null ? <Loading inline /> : <IncomeBody income={income} />}
+                    </ReportPanel>
 
-                    <Card
+                    <ReportPanel
                         title={strings.reports.gstTitle}
                         subtitle={strings.reports.gstSubtitleMobile}
                         onDownload={() => {
@@ -91,10 +83,10 @@ export function Reports() {
                         }}
                         downloading={isDownloading("gst-hst")}
                     >
-                        {gstHst === null ? <Loading /> : <GstBody report={gstHst} />}
-                    </Card>
+                        {gstHst === null ? <Loading inline /> : <GstBody report={gstHst} />}
+                    </ReportPanel>
 
-                    <Card
+                    <ReportPanel
                         title={strings.reports.t4aTitle(year)}
                         subtitle={strings.reports.t4aSubtitleMobile}
                         onDownload={() => {
@@ -103,7 +95,7 @@ export function Reports() {
                         downloading={isDownloading("t4a")}
                     >
                         {t4a === null ? (
-                            <Loading />
+                            <Loading inline />
                         ) : t4a.length === 0 ? (
                             <Text style={styles.muted}>{strings.reports.noPayeeAmounts(year)}</Text>
                         ) : (
@@ -116,9 +108,9 @@ export function Reports() {
                                 </View>
                             ))
                         )}
-                    </Card>
+                    </ReportPanel>
 
-                    <Card
+                    <ReportPanel
                         title={strings.reports.salesByItemTitle}
                         subtitle={strings.reports.salesByItemSubtitle}
                         onDownload={() => {
@@ -127,7 +119,7 @@ export function Reports() {
                         downloading={isDownloading("sales-by-item")}
                     >
                         {salesByItem === null ? (
-                            <Loading />
+                            <Loading inline />
                         ) : salesByItem.length === 0 ? (
                             <Text style={styles.muted}>{strings.reports.noItemSales}</Text>
                         ) : (
@@ -152,7 +144,7 @@ export function Reports() {
                                 </View>
                             ))
                         )}
-                    </Card>
+                    </ReportPanel>
                 </>
             )}
             <BankDeposits />
@@ -163,12 +155,10 @@ export function Reports() {
 function BankDeposits() {
     const payouts = useBankDeposits();
     return (
-        <View style={styles.card}>
-            <Text style={styles.cardTitle}>{strings.reports.bankDeposits}</Text>
-            <Text style={styles.cardSub}>{strings.reports.bankDepositsSubtitle}</Text>
+        <Panel title={strings.reports.bankDeposits} subtitle={strings.reports.bankDepositsSubtitle}>
             <View style={styles.cardBody}>
                 {payouts.length === 0 ? (
-                    <Text style={styles.muted}>{strings.reports.noBankDeposits}</Text>
+                    <Empty message={strings.reports.noBankDeposits} />
                 ) : (
                     payouts.map((row) => (
                         <View key={row.id} style={styles.deposit}>
@@ -188,16 +178,16 @@ function BankDeposits() {
                     ))
                 )}
             </View>
-        </View>
+        </Panel>
     );
 }
 
 function IncomeBody({ income }: { income: IncomeReport }) {
     return (
         <>
-            <Figure label={strings.reports.gross} cents={income.gross_cents} />
-            <Figure label={strings.reports.refunds} cents={income.refunds_cents} tone="danger" />
-            <Figure label={strings.reports.net} cents={income.net_cents} tone="success" />
+            <Stat label={strings.reports.gross} cents={income.gross_cents} />
+            <Stat label={strings.reports.refunds} cents={income.refunds_cents} tone="danger" />
+            <Stat label={strings.reports.net} cents={income.net_cents} tone="success" />
             {Object.entries(income.by_method).map(([method, cents]) => (
                 <View key={method} style={styles.line}>
                     <Text style={styles.lineLabel}>{method}</Text>
@@ -211,18 +201,18 @@ function IncomeBody({ income }: { income: IncomeReport }) {
 function GstBody({ report }: { report: GstHstReport }) {
     return (
         <>
-            <Figure
+            <Stat
                 label={strings.reports.taxCollected}
                 cents={report.tax_collected_cents}
                 tone="success"
             />
             {report.pst_cents > 0 ? (
-                <Figure label={strings.reports.pstCollected} cents={report.pst_cents} />
+                <Stat label={strings.reports.pstCollected} cents={report.pst_cents} />
             ) : null}
             {report.qst_cents > 0 ? (
-                <Figure label={strings.reports.qstCollected} cents={report.qst_cents} />
+                <Stat label={strings.reports.qstCollected} cents={report.qst_cents} />
             ) : null}
-            <Figure label={strings.reports.taxableSales} cents={report.taxable_sales_cents} />
+            <Stat label={strings.reports.taxableSales} cents={report.taxable_sales_cents} />
             <View style={styles.line}>
                 <Text style={styles.lineLabel}>{strings.reports.gstNumberLabel}</Text>
                 <Text style={styles.lineValue}>
@@ -261,25 +251,7 @@ function Remittances() {
     );
 }
 
-function Figure({
-    label,
-    cents,
-    tone = "ink",
-}: {
-    label: string;
-    cents: number;
-    tone?: "ink" | "success" | "danger";
-}) {
-    const color = tone === "success" ? c.success : tone === "danger" ? c.danFg : c.ink;
-    return (
-        <View style={styles.figure}>
-            <Text style={styles.figureLabel}>{label}</Text>
-            <Text style={[styles.figureValue, { color }]}>{formatMoney(cents)}</Text>
-        </View>
-    );
-}
-
-function Card({
+function ReportPanel({
     title,
     subtitle,
     onDownload,
@@ -293,23 +265,18 @@ function Card({
     children: React.ReactNode;
 }) {
     return (
-        <View style={styles.card}>
-            <View style={styles.cardHead}>
-                <View style={styles.cardHeadText}>
-                    <Text style={styles.cardTitle}>{title}</Text>
-                    <Text style={styles.cardSub}>{subtitle}</Text>
-                </View>
+        <Panel
+            title={title}
+            subtitle={subtitle}
+            actions={
                 <Button variant="outline" size="sm" onPress={onDownload} busy={downloading}>
                     {strings.reports.csv}
                 </Button>
-            </View>
+            }
+        >
             <View style={styles.cardBody}>{children}</View>
-        </View>
+        </Panel>
     );
-}
-
-function Loading() {
-    return <ActivityIndicator color={c.muted} style={styles.loading} />;
 }
 
 const styles = StyleSheet.create({
@@ -330,25 +297,13 @@ const styles = StyleSheet.create({
     },
     stepText: { color: c.ink, fontSize: 22, fontWeight: "600" },
     year: { color: c.ink, fontSize: 22, fontWeight: "700", minWidth: 72, textAlign: "center" },
-    card: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 16,
-    },
-    cardHead: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-    cardHeadText: { flex: 1 },
-    cardTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
-    cardSub: { color: c.muted, fontSize: 13, marginTop: 2 },
-    cardBody: { marginTop: 12, gap: 8 },
+    cardBody: { gap: 8 },
     figure: {
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
     },
     figureLabel: { color: c.muted, fontSize: 14 },
-    figureValue: { fontSize: 18, fontWeight: "700", fontVariant: ["tabular-nums"] },
     line: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -361,7 +316,6 @@ const styles = StyleSheet.create({
     itemMain: { flex: 1, marginRight: 12 },
     itemName: { color: c.inkSoft, fontSize: 14 },
     itemSub: { color: c.muted, fontSize: 12, marginTop: 2 },
-    loading: { alignSelf: "flex-start" },
     remit: {
         gap: 8,
         paddingTop: 8,

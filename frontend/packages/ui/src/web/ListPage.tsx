@@ -71,7 +71,7 @@ export function ListPage<T, K extends string = string>({
                 </div>
             ) : null}
 
-            {banner}
+            {banner !== undefined ? <div className="mt-4 space-y-3">{banner}</div> : null}
 
             <div className="mt-4 overflow-hidden rounded-lg border border-line bg-surface">
                 {head !== undefined ? (

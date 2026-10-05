@@ -1,7 +1,6 @@
 import {
     activityLabel,
     canManagePayments,
-    formatMoneyWithCurrency,
     formatRelativeTime,
     isRefundRow,
     strings,
@@ -17,7 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { IconSettings, ListPage, Lockup, Money } from "@clientbridge/ui";
+import { IconSettings, ListPage, Lockup, Money, Stat } from "@clientbridge/ui";
 
 import { DebugOverlay } from "../components/DebugOverlay";
 import { InboxButton } from "../components/InboxButton";
@@ -116,21 +115,24 @@ function MoneyView({ status }: { status: ReactNode }) {
                         <Text style={styles.errorText}>{strings.today.numbersError}</Text>
                     ) : (
                         <View style={styles.cards}>
-                            <MoneyCard
+                            <Stat
+                                size="lg"
                                 label={strings.today.todayRevenue}
                                 cents={summary === null ? null : summary.today_revenue_cents}
-                                caption={strings.today.todayRevenueCaption}
+                                hint={strings.today.todayRevenueCaption}
                                 tone="success"
                             />
-                            <MoneyCard
+                            <Stat
+                                size="lg"
                                 label={strings.today.awaitingPayment}
                                 cents={summary === null ? null : summary.awaiting_payment_cents}
-                                caption={strings.today.awaitingPaymentCaption}
+                                hint={strings.today.awaitingPaymentCaption}
                             />
-                            <MoneyCard
+                            <Stat
+                                size="lg"
                                 label={strings.today.gstSetAside}
                                 cents={summary === null ? null : summary.gst_hst_set_aside_cents}
-                                caption={strings.today.gstSetAsideCaption}
+                                hint={strings.today.gstSetAsideCaption}
                             />
                         </View>
                     )}
@@ -167,37 +169,6 @@ function ActivityItem({ row }: { row: ActivityRow }) {
     );
 }
 
-function MoneyCard({
-    label,
-    cents,
-    caption,
-    tone = "ink",
-}: {
-    label: string;
-    cents: number | null;
-    caption: string;
-    tone?: "ink" | "success";
-}) {
-    return (
-        <View style={styles.card}>
-            <Text style={styles.cardLabel}>{label}</Text>
-            {cents === null ? (
-                <View style={styles.skeleton} />
-            ) : (
-                <Text
-                    style={[
-                        styles.cardAmount,
-                        tone === "success" ? styles.cardAmountSuccess : null,
-                    ]}
-                >
-                    {formatMoneyWithCurrency(cents, "CAD")}
-                </Text>
-            )}
-            <Text style={styles.cardCaption}>{caption}</Text>
-        </View>
-    );
-}
-
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.colors.bg },
     topbar: {
@@ -212,31 +183,6 @@ const styles = StyleSheet.create({
     bodyContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 16 },
     heading: { color: theme.colors.ink, fontSize: 22, fontWeight: "700", marginTop: 8 },
     cards: { gap: 12, marginTop: 14 },
-    card: {
-        backgroundColor: theme.colors.surface,
-        borderColor: theme.colors.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-    },
-    cardLabel: { color: theme.colors.muted, fontSize: 13, fontWeight: "600" },
-    cardAmount: {
-        color: theme.colors.ink,
-        fontSize: 26,
-        fontWeight: "700",
-        marginTop: 4,
-        letterSpacing: -0.3,
-    },
-    cardAmountSuccess: { color: theme.colors.success },
-    cardCaption: { color: theme.colors.muted, fontSize: 12, marginTop: 4 },
-    skeleton: {
-        height: 30,
-        width: 130,
-        borderRadius: 6,
-        backgroundColor: theme.colors.bg,
-        marginTop: 6,
-    },
     errorText: { color: theme.colors.muted, fontSize: 14 },
     sectionTitle: { color: theme.colors.ink, fontSize: 16, fontWeight: "700", marginTop: 12 },
     row: { flexDirection: "row", alignItems: "center", gap: 10 },

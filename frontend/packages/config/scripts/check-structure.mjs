@@ -26,7 +26,7 @@ const PAGE_CONCEPT = { invoices: "billing", inbox: "messaging", team: "staff" };
 // Screens that compose several concepts and so have no domain file or strings group of their own.
 const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "onlineBooking", "setup"]);
 // Shared components drawn on web only so far; every other one has a same-named mobile twin.
-const WEB_ONLY_UI = new Set(["Logo", "Panel"]);
+const WEB_ONLY_UI = new Set(["Logo"]);
 
 const files = execFileSync("git", ["ls-files", "apps", "packages"], { cwd: root, encoding: "utf8" })
     .split("\n")

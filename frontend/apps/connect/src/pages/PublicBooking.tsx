@@ -17,7 +17,8 @@ import { Button, CardForm, Choice, ItemImage, Notice, Select, TextField } from "
 import { type SubmitEvent, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { PublicFrame } from "../components/PublicFrame";
+import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
@@ -30,30 +31,18 @@ export function PublicBooking() {
     const service = form.service;
     useEmbedSuccess(form.result !== null, "booking");
 
-    if (form.status === "loading")
-        return (
-            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
-        );
+    if (form.status === "loading") return <PublicStatus kind="loading" />;
 
     if (form.status === "not-found")
         return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicBooking.notFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicBooking.notFoundBody}</p>
-            </PublicFrame>
+            <PublicStatus
+                kind="notFound"
+                title={strings.publicBooking.notFoundTitle}
+                body={strings.publicBooking.notFoundBody}
+            />
         );
 
-    if (form.status === "error" || page === null)
-        return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.common.somethingWrong}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </PublicFrame>
-        );
+    if (form.status === "error" || page === null) return <PublicStatus kind="error" />;
 
     if (form.result !== null)
         return <BookedState page={page} result={form.result} service={service} />;
@@ -299,25 +288,16 @@ function BookedState({
     }
 
     return (
-        <PublicFrame brand={page.brand}>
-            <div className="py-4 text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
-                    ✓
-                </span>
-                <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                    {strings.publicBooking.bookedTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">
-                    {strings.publicBooking.bookedBody(page.business_name)}
-                </p>
-                {result.deposit_client_secret !== null && result.stripe_account_id === null ? (
-                    <div className="mt-4">
-                        <Notice tone="info" banner>
-                            {strings.publicBooking.depositLinkNote}
-                        </Notice>
-                    </div>
-                ) : null}
-            </div>
-        </PublicFrame>
+        <PublicDone
+            brand={page.brand}
+            title={strings.publicBooking.bookedTitle}
+            body={strings.publicBooking.bookedBody(page.business_name)}
+        >
+            {result.deposit_client_secret !== null && result.stripe_account_id === null ? (
+                <Notice tone="info" banner>
+                    {strings.publicBooking.depositLinkNote}
+                </Notice>
+            ) : undefined}
+        </PublicDone>
     );
 }

@@ -47,6 +47,7 @@ import {
     ChargeSheet,
     DetailSection,
     DetailView,
+    Empty,
     Money,
     Notice,
     StatusPill,
@@ -177,11 +178,7 @@ function AgendaList({
     onEventPress: (e: CalendarEvent) => void;
 }) {
     if (events.length === 0) {
-        return (
-            <View style={styles.empty}>
-                <Text style={styles.emptyText}>{strings.calendar.noBookings}</Text>
-            </View>
-        );
+        return <Empty message={strings.calendar.noBookings} />;
     }
     return (
         <ScrollView contentContainerStyle={styles.agenda}>
@@ -479,8 +476,6 @@ const styles = StyleSheet.create({
     pillNum: { color: c.ink, fontSize: 16, fontWeight: "700", marginTop: 2 },
     pillToday: { color: c.accent },
     pillTextOn: { color: c.accentInk },
-    empty: { flex: 1, alignItems: "center", justifyContent: "center" },
-    emptyText: { color: c.muted, fontSize: 15 },
     agenda: { paddingHorizontal: 16, paddingTop: 4 },
     agendaRow: {
         flexDirection: "row",

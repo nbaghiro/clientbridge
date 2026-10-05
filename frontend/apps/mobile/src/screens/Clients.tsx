@@ -38,6 +38,7 @@ import { useEffect, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
+    Badge,
     Button,
     DetailSection,
     DetailView,
@@ -220,11 +221,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
             <View style={styles.methodMain}>
                 <Text style={styles.methodLabel}>{savedCardLabel(card)}</Text>
                 <View style={styles.methodTags}>
-                    {isDefault ? (
-                        <View style={styles.defaultTag}>
-                            <Text style={styles.defaultTagText}>{strings.clients.defaultTag}</Text>
-                        </View>
-                    ) : null}
+                    {isDefault ? <Badge label={strings.clients.defaultTag} /> : null}
                     {isMandate(card) ? (
                         <StatusPill
                             status={card.mandate_status}
@@ -471,13 +468,6 @@ const styles = StyleSheet.create({
     methodMain: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     methodLabel: { color: c.ink, fontSize: 14, fontWeight: "600", flexShrink: 1 },
     methodTags: { flexDirection: "row", alignItems: "center", gap: 6 },
-    defaultTag: {
-        borderRadius: 999,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        backgroundColor: c.accentWeak,
-    },
-    defaultTagText: { color: c.accent, fontSize: 11, fontWeight: "600" },
     methodActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
     modalTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
     modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 16 },

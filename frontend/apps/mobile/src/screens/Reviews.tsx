@@ -16,7 +16,16 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Button, Choice, ListPage, Notice, StatusPill, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    Choice,
+    ListPage,
+    Loading,
+    Notice,
+    Panel,
+    StatusPill,
+    TextField,
+} from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -44,27 +53,31 @@ export function Reviews() {
             }}
             banner={
                 <>
-                    <View style={styles.summary}>
-                        {summary === null ? (
-                            <Text style={styles.muted}>{strings.reviews.loadingRating}</Text>
-                        ) : summary === "error" ? (
-                            <Notice tone="danger">{strings.reviews.ratingLoadError}</Notice>
-                        ) : summary.count === 0 ? (
-                            <Text style={styles.muted}>{strings.reviews.noPublishedReviews}</Text>
-                        ) : (
-                            <>
-                                <Text style={styles.average}>
-                                    {formatAverageRating(summary.average)}
-                                </Text>
-                                <Stars rating={roundedRating(summary.average)} />
+                    <Panel>
+                        <View style={styles.summary}>
+                            {summary === null ? (
+                                <Loading inline label={strings.reviews.loadingRating} />
+                            ) : summary === "error" ? (
+                                <Notice tone="danger">{strings.reviews.ratingLoadError}</Notice>
+                            ) : summary.count === 0 ? (
                                 <Text style={styles.muted}>
-                                    {strings.reviews.publishedCount(summary.count)}
+                                    {strings.reviews.noPublishedReviews}
                                 </Text>
-                            </>
-                        )}
-                    </View>
+                            ) : (
+                                <>
+                                    <Text style={styles.average}>
+                                        {formatAverageRating(summary.average)}
+                                    </Text>
+                                    <Stars rating={roundedRating(summary.average)} />
+                                    <Text style={styles.muted}>
+                                        {strings.reviews.publishedCount(summary.count)}
+                                    </Text>
+                                </>
+                            )}
+                        </View>
+                    </Panel>
                     {awaiting > 0 ? (
-                        <Text style={styles.muted}>{strings.reviews.awaitingCount(awaiting)}</Text>
+                        <Notice tone="info">{strings.reviews.awaitingCount(awaiting)}</Notice>
                     ) : null}
                     {requesting ? (
                         <RequestReview
@@ -191,8 +204,7 @@ function RequestReview({ onClose }: { onClose: () => void }) {
     const clients = useClients();
 
     return (
-        <View style={styles.panel}>
-            <Text style={styles.panelTitle}>{strings.reviews.requestTitle}</Text>
+        <Panel title={strings.reviews.requestTitle}>
             {clients.length === 0 ? (
                 <Text style={styles.muted}>{strings.reviews.addClientFirst}</Text>
             ) : (
@@ -204,26 +216,18 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                 />
             )}
             {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-            <Button size="sm" busy={form.busy} onPress={form.submit}>
-                {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
-            </Button>
-        </View>
+            <View style={styles.send}>
+                <Button size="sm" busy={form.busy} onPress={form.submit}>
+                    {form.busy ? strings.reviews.sending : strings.reviews.sendRequest}
+                </Button>
+            </View>
+        </Panel>
     );
 }
 
 const styles = StyleSheet.create({
     muted: { color: c.muted, fontSize: 14 },
-    summary: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        backgroundColor: c.surface,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-    },
+    summary: { flexDirection: "row", alignItems: "center", gap: 10 },
     average: { color: c.ink, fontSize: 30, fontWeight: "800", fontVariant: ["tabular-nums"] },
     stars: { color: c.accent, fontSize: 16 },
     starsEmpty: { color: c.border },
@@ -245,13 +249,5 @@ const styles = StyleSheet.create({
     replyText: { color: c.inkSoft, fontSize: 14, marginTop: 2, lineHeight: 20 },
     editor: { gap: 8 },
     actions: { flexDirection: "row", gap: 8, alignItems: "center" },
-    panel: {
-        backgroundColor: c.surface,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        padding: 14,
-        gap: 10,
-    },
-    panelTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
+    send: { marginTop: 10 },
 });

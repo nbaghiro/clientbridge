@@ -9,8 +9,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Button, Choice, Notice, TextField, Toggle } from "@clientbridge/ui";
+import { StyleSheet, Text, View } from "react-native";
+import { Button, Choice, Empty, Loading, Notice, Panel, TextField, Toggle } from "@clientbridge/ui";
 
 import { useViewer } from "../lib/auth";
 
@@ -27,7 +27,7 @@ export function Hours() {
             <Text style={styles.note}>{strings.hours.subtitle}</Text>
 
             {selected === null ? (
-                <Text style={styles.empty}>{strings.hours.noStaff}</Text>
+                <Empty message={strings.hours.noStaff} />
             ) : (
                 <>
                     {staff.length > 1 ? (
@@ -56,11 +56,11 @@ function WeeklyHours({ staffId }: { staffId: string }) {
     const days = editor.days;
 
     if (days === null) {
-        return <ActivityIndicator style={styles.loading} color={c.muted} />;
+        return <Loading />;
     }
 
     return (
-        <View style={styles.group}>
+        <Panel>
             {days.map((d, i) => {
                 const label = WEEKDAYS[d.weekday]?.label ?? "";
                 return (
@@ -111,7 +111,7 @@ function WeeklyHours({ staffId }: { staffId: string }) {
                     {strings.hours.saveHours}
                 </Button>
             </View>
-        </View>
+        </Panel>
     );
 }
 
@@ -119,16 +119,7 @@ const styles = StyleSheet.create({
     section: { marginTop: 28 },
     sectionTitle: { color: c.ink, fontSize: 17, fontWeight: "700", marginBottom: 8 },
     note: { color: c.muted, fontSize: 13, marginBottom: 14, lineHeight: 18 },
-    empty: { color: c.muted, fontSize: 14, textAlign: "center", marginTop: 24 },
-    loading: { marginTop: 24 },
     chipWrap: { marginBottom: 14 },
-    group: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 16,
-    },
     row: { paddingVertical: 12 },
     rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
     times: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 6 },

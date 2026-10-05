@@ -23,6 +23,7 @@ import {
     DetailView,
     ListPage,
     Notice,
+    Panel,
     Select,
     StatusPill,
     TextField,
@@ -90,7 +91,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                         {pending.length > 0 ? (
                             <>
                                 <Text style={styles.sectionLabel}>{strings.staff.pending}</Text>
-                                <View style={styles.group}>
+                                <Panel flush>
                                     {pending.map((s, i) => (
                                         <View
                                             key={s.id}
@@ -105,7 +106,7 @@ export function Team({ footer }: { footer?: ReactNode }) {
                                             />
                                         </View>
                                     ))}
-                                </View>
+                                </Panel>
                             </>
                         ) : null}
 
@@ -126,7 +127,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
     return (
         <>
             <Text style={styles.sectionLabel}>{strings.staff.inviteHeading}</Text>
-            <View style={styles.panel}>
+            <Panel>
                 <TextField
                     label={strings.staff.email}
                     type="email"
@@ -152,7 +153,7 @@ function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
                 {invite.invite !== null ? (
                     <InviteLink invite={invite.invite} onDone={invite.reset} />
                 ) : null}
-            </View>
+            </Panel>
         </>
     );
 }
@@ -251,13 +252,6 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         marginTop: 18,
     },
-    group: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        overflow: "hidden",
-    },
     row: {
         flexDirection: "row",
         alignItems: "center",
@@ -272,13 +266,6 @@ const styles = StyleSheet.create({
     rowSub: { color: c.muted, fontSize: 12, marginTop: 1 },
     roleText: { color: c.inkSoft, fontSize: 12, fontWeight: "600", textTransform: "capitalize" },
     note: { color: c.muted, fontSize: 13, marginTop: 18 },
-    panel: {
-        backgroundColor: c.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        padding: 14,
-    },
     submitGap: { marginTop: 14 },
     linkBox: {
         marginTop: 14,

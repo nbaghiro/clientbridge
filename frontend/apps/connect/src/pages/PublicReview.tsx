@@ -2,7 +2,8 @@ import { createPublicReviewClient, strings, usePublicReview } from "@clientbridg
 import { useParams } from "react-router-dom";
 
 import { Button, Notice, TextField } from "@clientbridge/ui";
-import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { PublicFrame } from "../components/PublicFrame";
+import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
@@ -14,46 +15,26 @@ export function PublicReview() {
     const ctx = form.context;
     useEmbedSuccess(form.status === "done", "review");
 
-    if (form.status === "loading")
-        return (
-            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
-        );
+    if (form.status === "loading") return <PublicStatus kind="loading" />;
 
     if (form.status === "not-found")
         return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicReview.notFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicReview.notFoundBody}</p>
-            </PublicFrame>
+            <PublicStatus
+                kind="notFound"
+                title={strings.publicReview.notFoundTitle}
+                body={strings.publicReview.notFoundBody}
+            />
         );
 
-    if (form.status === "error" || ctx === null)
-        return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.common.somethingWrong}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </PublicFrame>
-        );
+    if (form.status === "error" || ctx === null) return <PublicStatus kind="error" />;
 
     if (form.status === "done")
         return (
-            <PublicFrame brand={ctx.brand}>
-                <div className="py-4 text-center">
-                    <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
-                        ✓
-                    </span>
-                    <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                        {strings.publicReview.doneTitle}
-                    </h1>
-                    <p className="mt-2 text-sm text-muted">
-                        {strings.publicReview.doneBody(ctx.business_name)}
-                    </p>
-                </div>
-            </PublicFrame>
+            <PublicDone
+                brand={ctx.brand}
+                title={strings.publicReview.doneTitle}
+                body={strings.publicReview.doneBody(ctx.business_name)}
+            />
         );
 
     return (

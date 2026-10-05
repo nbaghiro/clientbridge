@@ -1,6 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 
+import { PublicStatus } from "./components/PublicStatus";
 import { useEmbedResize } from "./embed";
 import { PublicBooking } from "./pages/PublicBooking";
 import { PublicContract } from "./pages/PublicContract";
@@ -31,13 +32,10 @@ export function App() {
 
 function NotFound() {
     return (
-        <div className="flex min-h-screen items-center justify-center bg-bg px-4 py-10">
-            <div className="w-full max-w-md rounded-xl border border-line bg-surface p-7 text-center shadow-card">
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicLanding.pageNotFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicLanding.pageNotFoundBody}</p>
-            </div>
-        </div>
+        <PublicStatus
+            kind="notFound"
+            title={strings.publicLanding.pageNotFoundTitle}
+            body={strings.publicLanding.pageNotFoundBody}
+        />
     );
 }

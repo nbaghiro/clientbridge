@@ -7,6 +7,7 @@ import { CardForm } from "./CardForm";
 import { Choice } from "./Choice";
 import { Field } from "./Field";
 import { Notice } from "./Notice";
+import { Panel } from "./Panel";
 import { stripeAccount as currentStripeAccount } from "./stripe";
 import { ui } from "./styles";
 
@@ -51,8 +52,7 @@ export function ChargeSheet({
         ? [{ id: NEW_CARD, label: strings.checkout.newCard }, ...methods]
         : methods;
     return (
-        <View style={ui.panel}>
-            {title !== undefined ? <Text style={ui.title}>{title}</Text> : null}
+        <Panel title={title}>
             {children}
             <Field label={strings.checkout.payment}>
                 {options.length === 0 ? (
@@ -75,6 +75,6 @@ export function ChargeSheet({
                     {checkout.busy ? busyLabel : submitLabel}
                 </Button>
             </View>
-        </View>
+        </Panel>
     );
 }

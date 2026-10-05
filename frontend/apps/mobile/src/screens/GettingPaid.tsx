@@ -2,8 +2,8 @@ import { strings, useConnectOnboarding } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
-import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Notice } from "@clientbridge/ui";
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button, Loading, Notice, Panel } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -32,9 +32,9 @@ export function GettingPaidScreen() {
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <Text style={styles.note}>{strings.gettingPaid.subtitle}</Text>
-            <View style={styles.group}>
+            <Panel>
                 {phase === "loading" ? (
-                    <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
+                    <Loading inline />
                 ) : phase === "error" ? (
                     <Notice tone="danger">{strings.gettingPaid.loadError}</Notice>
                 ) : (
@@ -64,7 +64,7 @@ export function GettingPaidScreen() {
                     </>
                 )}
                 {error !== null && <Notice tone="danger">{error}</Notice>}
-            </View>
+            </Panel>
         </ScrollView>
     );
 }
@@ -73,14 +73,6 @@ const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.colors.bg },
     content: { padding: 16 },
     note: { color: theme.colors.muted, fontSize: 13, marginBottom: 14, lineHeight: 18 },
-    loading: { marginVertical: 8 },
-    group: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        padding: 16,
-    },
     title: { color: theme.colors.ink, fontSize: 15, fontWeight: "500", lineHeight: 20 },
     titleDanger: { color: theme.colors.danFg, fontSize: 15, fontWeight: "500", lineHeight: 20 },
     requirement: { color: theme.colors.inkSoft, fontSize: 14, marginTop: 6 },

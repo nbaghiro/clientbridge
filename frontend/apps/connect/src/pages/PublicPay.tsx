@@ -10,7 +10,8 @@ import {
 import { Button, CardForm, Choice, Notice, StatusPill } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
-import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { PublicFrame } from "../components/PublicFrame";
+import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
@@ -23,30 +24,18 @@ export function PublicPay() {
     const invoice = form.invoice;
     useEmbedSuccess(form.status === "paid", "pay");
 
-    if (form.status === "loading")
-        return (
-            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
-        );
+    if (form.status === "loading") return <PublicStatus kind="loading" />;
 
     if (form.status === "not-found")
         return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicPay.notFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicPay.notFoundBody}</p>
-            </PublicFrame>
+            <PublicStatus
+                kind="notFound"
+                title={strings.publicPay.notFoundTitle}
+                body={strings.publicPay.notFoundBody}
+            />
         );
 
-    if (form.status === "error" || invoice === null)
-        return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.common.somethingWrong}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </PublicFrame>
-        );
+    if (form.status === "error" || invoice === null) return <PublicStatus kind="error" />;
 
     if (form.status === "paid")
         return <PaidState businessName={invoice.business_name} brand={invoice.brand} />;
@@ -180,18 +169,10 @@ function PaidState({
     brand?: PublicBrand | null;
 }) {
     return (
-        <PublicFrame brand={brand}>
-            <div className="py-4 text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
-                    ✓
-                </span>
-                <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                    {strings.publicPay.paidTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">
-                    {strings.publicPay.paidBody(businessName)}
-                </p>
-            </div>
-        </PublicFrame>
+        <PublicDone
+            brand={brand}
+            title={strings.publicPay.paidTitle}
+            body={strings.publicPay.paidBody(businessName)}
+        />
     );
 }

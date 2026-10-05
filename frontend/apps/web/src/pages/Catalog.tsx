@@ -24,6 +24,7 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import {
+    Badge,
     Button,
     DetailSection,
     DetailView,
@@ -127,9 +128,7 @@ function ItemRowView({ item }: { item: ItemRow }) {
                 </div>
             </div>
             <span>
-                <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
-                    {KIND_LABEL[item.kind] ?? item.kind}
-                </span>
+                <Badge label={KIND_LABEL[item.kind] ?? item.kind} />
             </span>
             <span className="text-ink-soft">
                 {state !== "untracked" ? (

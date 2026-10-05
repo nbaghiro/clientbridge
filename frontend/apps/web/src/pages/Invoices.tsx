@@ -33,6 +33,7 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import {
+    Badge,
     Button,
     DetailSection,
     DetailView,
@@ -326,9 +327,7 @@ function PaymentRowItem({
                     {formatMoneyWithCurrency(payment.amount_cents, payment.currency)}
                 </span>
                 {isRefund ? (
-                    <span className="rounded-full bg-bg px-2 py-0.5 text-xs font-medium text-muted">
-                        {strings.billing.refundBadge}
-                    </span>
+                    <Badge label={strings.billing.refundBadge} intent="neutral" />
                 ) : (
                     <span className="capitalize text-muted">{payment.method}</span>
                 )}

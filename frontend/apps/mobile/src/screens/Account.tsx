@@ -1,16 +1,8 @@
 import { ACCOUNT_TEXT_FIELDS, LOCALES, strings, useAccountForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import type { ReactNode } from "react";
-import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
-import { Button, Notice, Select, TextField } from "@clientbridge/ui";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Button, Loading, Notice, Select, TextField } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -21,7 +13,7 @@ export function Account({ footer }: { footer?: ReactNode }) {
     const fields = form.fields;
 
     if (fields === null) {
-        return <ActivityIndicator style={styles.loading} color={c.muted} />;
+        return <Loading />;
     }
 
     return (
@@ -80,7 +72,6 @@ const styles = StyleSheet.create({
     fill: { flex: 1 },
     screen: { flex: 1, backgroundColor: c.bg },
     content: { padding: 16 },
-    loading: { marginTop: 24 },
     note: { color: c.muted, fontSize: 13, marginBottom: 6, lineHeight: 18 },
     submitGap: { marginTop: 22 },
 });

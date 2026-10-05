@@ -7,7 +7,8 @@ import {
 import { Button, ItemImage } from "@clientbridge/ui";
 import { useNavigate, useParams } from "react-router-dom";
 
-import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { PublicFrame } from "../components/PublicFrame";
+import { PublicStatus } from "../components/PublicStatus";
 import { isEmbedded } from "../embed";
 import { config } from "../config";
 
@@ -23,30 +24,18 @@ export function PublicLanding() {
         if (navigated) navigated.catch(() => undefined);
     };
 
-    if (status === "loading")
-        return (
-            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
-        );
+    if (status === "loading") return <PublicStatus kind="loading" />;
 
     if (status === "not-found")
         return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicLanding.notFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicLanding.notFoundBody}</p>
-            </PublicFrame>
+            <PublicStatus
+                kind="notFound"
+                title={strings.publicLanding.notFoundTitle}
+                body={strings.publicLanding.notFoundBody}
+            />
         );
 
-    if (status === "error" || page === null)
-        return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.common.somethingWrong}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </PublicFrame>
-        );
+    if (status === "error" || page === null) return <PublicStatus kind="error" />;
 
     const bookTo = `/book/${encodeURIComponent(slug)}${isEmbedded() ? "?embed=1" : ""}`;
 

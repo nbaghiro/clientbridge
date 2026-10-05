@@ -5,11 +5,12 @@ import {
     strings,
     usePublicShop,
 } from "@clientbridge/app-core/public";
-import { Button, CardForm, ItemImage, Notice, TextField } from "@clientbridge/ui";
+import { Button, CardForm, Empty, ItemImage, Notice, TextField } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
-import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { PublicFrame } from "../components/PublicFrame";
+import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
@@ -21,46 +22,26 @@ export function PublicShop() {
     const shop = form.shop;
     useEmbedSuccess(form.status === "paid", "shop");
 
-    if (form.status === "loading")
-        return (
-            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
-        );
+    if (form.status === "loading") return <PublicStatus kind="loading" />;
 
     if (form.status === "not-found")
         return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicShop.notFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicShop.notFoundBody}</p>
-            </PublicFrame>
+            <PublicStatus
+                kind="notFound"
+                title={strings.publicShop.notFoundTitle}
+                body={strings.publicShop.notFoundBody}
+            />
         );
 
-    if (form.status === "error" || shop === null)
-        return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.common.somethingWrong}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </PublicFrame>
-        );
+    if (form.status === "error" || shop === null) return <PublicStatus kind="error" />;
 
     if (form.status === "paid")
         return (
-            <PublicFrame brand={shop.brand}>
-                <div className="py-4 text-center">
-                    <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
-                        ✓
-                    </span>
-                    <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                        {strings.publicShop.paidTitle}
-                    </h1>
-                    <p className="mt-2 text-sm text-muted">
-                        {strings.publicShop.paidBody(shop.business_name)}
-                    </p>
-                </div>
-            </PublicFrame>
+            <PublicDone
+                brand={shop.brand}
+                title={strings.publicShop.paidTitle}
+                body={strings.publicShop.paidBody(shop.business_name)}
+            />
         );
 
     if (form.status === "paying" && form.order !== null) {
@@ -99,7 +80,7 @@ export function PublicShop() {
             <p className="mt-1 text-sm text-muted">{strings.publicShop.subtitle}</p>
 
             {shop.items.length === 0 ? (
-                <p className="mt-6 text-sm text-muted">{strings.publicShop.empty}</p>
+                <Empty message={strings.publicShop.empty} />
             ) : (
                 <form onSubmit={submit} className="mt-6 space-y-6">
                     <ul className="grid gap-3 sm:grid-cols-2">

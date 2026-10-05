@@ -9,7 +9,8 @@ import { Button, Field, Notice, StatusPill, TextField } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
-import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { PublicFrame } from "../components/PublicFrame";
+import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { isEmbedded, useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
@@ -21,30 +22,18 @@ export function PublicContract() {
     const contract = form.contract;
     useEmbedSuccess(contract?.status === "signed", "contract");
 
-    if (form.status === "loading")
-        return (
-            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
-        );
+    if (form.status === "loading") return <PublicStatus kind="loading" />;
 
     if (form.status === "not-found")
         return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicContract.notFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicContract.notFoundBody}</p>
-            </PublicFrame>
+            <PublicStatus
+                kind="notFound"
+                title={strings.publicContract.notFoundTitle}
+                body={strings.publicContract.notFoundBody}
+            />
         );
 
-    if (form.status === "error" || contract === null)
-        return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.common.somethingWrong}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </PublicFrame>
-        );
+    if (form.status === "error" || contract === null) return <PublicStatus kind="error" />;
 
     if (form.status === "resolved") return <ResolvedState contract={contract} />;
 
@@ -113,38 +102,29 @@ export function PublicContract() {
 function ResolvedState({ contract }: { contract: PublicContractData }) {
     const signed = contract.status === "signed";
     return (
-        <PublicFrame brand={contract.brand}>
-            <div className="py-4 text-center">
-                <span
-                    className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-2xl ${
-                        signed ? "bg-ok-bg text-ok-fg" : "bg-bg text-muted"
-                    }`}
-                >
-                    {signed ? "✓" : "—"}
-                </span>
-                <div className="mt-4 flex items-center justify-center gap-2">
-                    <h1 className="font-display text-xl font-bold text-ink">
-                        {signed
-                            ? strings.publicContract.signedStatus
-                            : strings.publicContract.declinedStatus}
-                    </h1>
-                    <StatusPill
-                        status={contract.status}
-                        intent={signatureStatusIntent(contract.status)}
-                    />
-                </div>
-                <p className="mt-2 text-sm text-muted">
-                    {signed
-                        ? strings.publicContract.signedThanks(
-                              contract.contract_name,
-                              contract.business_name,
-                          )
-                        : strings.publicContract.declinedNote(
-                              contract.contract_name,
-                              contract.business_name,
-                          )}
-                </p>
-            </div>
-        </PublicFrame>
+        <PublicDone
+            brand={contract.brand}
+            closed={!signed}
+            title={
+                signed ? strings.publicContract.signedStatus : strings.publicContract.declinedStatus
+            }
+            aside={
+                <StatusPill
+                    status={contract.status}
+                    intent={signatureStatusIntent(contract.status)}
+                />
+            }
+            body={
+                signed
+                    ? strings.publicContract.signedThanks(
+                          contract.contract_name,
+                          contract.business_name,
+                      )
+                    : strings.publicContract.declinedNote(
+                          contract.contract_name,
+                          contract.business_name,
+                      )
+            }
+        />
     );
 }

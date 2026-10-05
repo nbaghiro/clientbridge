@@ -18,3 +18,6 @@ export { Choice } from "./Choice";
 export { Field, Select, TextField, Toggle } from "./Field";
 export { Notice } from "./Notice";
 export { SearchField } from "./SearchField";
+export { Badge } from "./Badge";
+export { Loading } from "./Loading";
+export { Stat } from "./Stat";

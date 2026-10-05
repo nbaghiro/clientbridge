@@ -1,7 +1,6 @@
 import {
     activityLabel,
     canManagePayments,
-    formatMoneyWithCurrency,
     formatRelativeTime,
     isRefundRow,
     strings,
@@ -9,7 +8,7 @@ import {
     useRecentActivity,
     type ActivityRow,
 } from "@clientbridge/app-core";
-import { ListPage, Money } from "@clientbridge/ui";
+import { ListPage, Money, Stat } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -41,21 +40,24 @@ function MoneyView() {
                 <p className="mt-6 text-sm text-muted">{strings.today.numbersError}</p>
             ) : (
                 <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <StatCard
+                    <Stat
+                        size="lg"
                         label={strings.today.todayRevenue}
                         cents={summary === null ? null : summary.today_revenue_cents}
-                        caption={strings.today.todayRevenueCaption}
+                        hint={strings.today.todayRevenueCaption}
                         tone="success"
                     />
-                    <StatCard
+                    <Stat
+                        size="lg"
                         label={strings.today.awaitingPayment}
                         cents={summary === null ? null : summary.awaiting_payment_cents}
-                        caption={strings.today.awaitingPaymentCaption}
+                        hint={strings.today.awaitingPaymentCaption}
                     />
-                    <StatCard
+                    <Stat
+                        size="lg"
                         label={strings.today.gstSetAside}
                         cents={summary === null ? null : summary.gst_hst_set_aside_cents}
-                        caption={strings.today.gstSetAsideCaption}
+                        hint={strings.today.gstSetAsideCaption}
                     />
                 </div>
             )}
@@ -90,36 +92,6 @@ function ActivityItem({ row }: { row: ActivityRow }) {
             <span className="w-12 shrink-0 text-right text-xs text-muted">
                 {formatRelativeTime(row.at)}
             </span>
-        </div>
-    );
-}
-
-function StatCard({
-    label,
-    cents,
-    caption,
-    tone = "ink",
-}: {
-    label: string;
-    cents: number | null;
-    caption: string;
-    tone?: "ink" | "success";
-}) {
-    return (
-        <div className="rounded-lg border border-line bg-surface p-5 shadow-card">
-            <p className="text-sm text-muted">{label}</p>
-            {cents === null ? (
-                <div className="mt-2 h-8 w-32 animate-pulse rounded-base bg-bg" />
-            ) : (
-                <p
-                    className={`mt-1 font-display text-3xl font-bold tabular-nums ${
-                        tone === "success" ? "text-success" : "text-ink"
-                    }`}
-                >
-                    {formatMoneyWithCurrency(cents, "CAD")}
-                </p>
-            )}
-            <p className="mt-1.5 text-xs text-muted">{caption}</p>
         </div>
     );
 }

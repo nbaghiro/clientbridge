@@ -1,6 +1,7 @@
 import { strings, useTaxRates } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Badge, Empty, Loading, Panel } from "@clientbridge/ui";
+import { StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
 
@@ -12,23 +13,21 @@ export function Taxes() {
             <Text style={styles.sectionTitle}>{strings.taxes.title}</Text>
             <Text style={styles.note}>{strings.taxes.subtitle}</Text>
             {rates === null ? (
-                <ActivityIndicator style={styles.loading} color={theme.colors.muted} />
+                <Loading />
             ) : rates.length === 0 ? (
-                <Text style={styles.empty}>{strings.taxes.empty}</Text>
+                <Empty message={strings.taxes.empty} />
             ) : (
-                <View style={styles.group}>
+                <Panel flush>
                     {rates.map((r, i) => (
                         <View key={r.id} style={[styles.row, i > 0 ? styles.rowBorder : null]}>
                             <View style={styles.rowMain}>
-                                <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>{r.jurisdiction}</Text>
-                                </View>
+                                <Badge label={r.jurisdiction} />
                                 <Text style={styles.name}>{r.name}</Text>
                             </View>
                             <Text style={styles.prov}>{r.province}</Text>
                         </View>
                     ))}
-                </View>
+                </Panel>
             )}
         </View>
     );
@@ -38,15 +37,6 @@ const styles = StyleSheet.create({
     section: { marginTop: 28 },
     sectionTitle: { color: theme.colors.ink, fontSize: 17, fontWeight: "700", marginBottom: 8 },
     note: { color: theme.colors.muted, fontSize: 13, marginBottom: 14, lineHeight: 18 },
-    loading: { marginTop: 24 },
-    empty: { color: theme.colors.muted, fontSize: 14, textAlign: "center", marginTop: 24 },
-    group: {
-        backgroundColor: theme.colors.surface,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: theme.colors.border,
-        overflow: "hidden",
-    },
     row: {
         flexDirection: "row",
         alignItems: "center",
@@ -56,13 +46,6 @@ const styles = StyleSheet.create({
     },
     rowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
     rowMain: { flexDirection: "row", alignItems: "center", gap: 10 },
-    badge: {
-        backgroundColor: theme.colors.accentWeak,
-        borderRadius: 999,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-    },
-    badgeText: { color: theme.colors.accent, fontSize: 11, fontWeight: "700" },
     name: { color: theme.colors.ink, fontSize: 15, fontWeight: "500" },
     prov: { color: theme.colors.muted, fontSize: 14 },
 });

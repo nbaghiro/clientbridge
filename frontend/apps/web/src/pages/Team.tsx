@@ -15,12 +15,15 @@ import {
     useStaffPayForm,
 } from "@clientbridge/app-core";
 import {
+    Badge,
     Button,
     DetailSection,
     DetailView,
     ListPage,
     Notice,
+    Panel,
     Select,
+    StatusPill,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
@@ -58,12 +61,10 @@ export function Team() {
                 renderRow={(s) => (
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="font-medium text-ink">
+                            <p className="flex items-center gap-2 font-medium text-ink">
                                 {staffDisplayName(s)}
                                 {s.id === viewer?.staffId ? (
-                                    <span className="ml-2 rounded-full bg-accent-weak px-2 py-0.5 text-xs font-semibold text-accent">
-                                        {strings.staff.youBadge}
-                                    </span>
+                                    <Badge label={strings.staff.youBadge} />
                                 ) : null}
                             </p>
                             {s.invite_email !== null ? (
@@ -89,24 +90,24 @@ export function Team() {
             ) : null}
 
             {pending.length > 0 ? (
-                <section className="mt-6 rounded-lg border border-line bg-surface">
-                    <h2 className="border-b border-line px-4 py-3 text-sm font-semibold text-ink">
-                        {strings.staff.pending}
-                    </h2>
-                    <ul>
-                        {pending.map((s) => (
-                            <li
-                                key={s.id}
-                                className="flex items-center justify-between border-b border-line px-4 py-3 last:border-0"
-                            >
-                                <p className="text-sm text-ink">{s.invite_email ?? "—"}</p>
-                                <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-semibold capitalize text-warn-fg">
-                                    {strings.staff.invitedBadge(s.role)}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </section>
+                <div className="mt-6">
+                    <Panel flush title={strings.staff.pending}>
+                        <ul>
+                            {pending.map((s) => (
+                                <li
+                                    key={s.id}
+                                    className="flex items-center justify-between border-b border-line px-4 py-3 last:border-0"
+                                >
+                                    <p className="text-sm text-ink">{s.invite_email ?? "—"}</p>
+                                    <StatusPill
+                                        status={strings.staff.invitedBadge(s.role)}
+                                        intent="warning"
+                                    />
+                                </li>
+                            ))}
+                        </ul>
+                    </Panel>
+                </div>
             ) : null}
 
             {canManageStaff(role) ? (
@@ -120,38 +121,39 @@ export function Team() {
 
 function InviteForm({ invite }: { invite: ReturnType<typeof useInviteForm> }) {
     return (
-        <section className="mt-6 rounded-lg border border-line bg-surface p-4">
-            <h2 className="text-sm font-semibold text-ink">{strings.staff.inviteHeading}</h2>
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    invite.submit();
-                }}
-                className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
-            >
-                <div className="flex-1">
-                    <TextField
-                        label={strings.staff.email}
-                        type="email"
-                        value={invite.email}
-                        onChange={invite.setEmail}
-                        placeholder={strings.staff.emailPlaceholder}
+        <div className="mt-6">
+            <Panel title={strings.staff.inviteHeading}>
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        invite.submit();
+                    }}
+                    className="flex flex-col gap-3 sm:flex-row sm:items-end"
+                >
+                    <div className="flex-1">
+                        <TextField
+                            label={strings.staff.email}
+                            type="email"
+                            value={invite.email}
+                            onChange={invite.setEmail}
+                            placeholder={strings.staff.emailPlaceholder}
+                        />
+                    </div>
+                    <Select
+                        label={strings.staff.role}
+                        value={invite.role}
+                        options={INVITABLE_ROLES.map((r) => ({ key: r.value, label: r.label }))}
+                        onChange={invite.setRole}
                     />
-                </div>
-                <Select
-                    label={strings.staff.role}
-                    value={invite.role}
-                    options={INVITABLE_ROLES.map((r) => ({ key: r.value, label: r.label }))}
-                    onChange={invite.setRole}
-                />
-                <Button submit busy={invite.busy}>
-                    {invite.busy ? strings.staff.inviting : strings.staff.sendInvite}
-                </Button>
-            </form>
+                    <Button submit busy={invite.busy}>
+                        {invite.busy ? strings.staff.inviting : strings.staff.sendInvite}
+                    </Button>
+                </form>
 
-            {invite.error ? <Notice tone="danger">{invite.error}</Notice> : null}
-            {invite.invite ? <InviteLink invite={invite.invite} onDone={invite.reset} /> : null}
-        </section>
+                {invite.error ? <Notice tone="danger">{invite.error}</Notice> : null}
+                {invite.invite ? <InviteLink invite={invite.invite} onDone={invite.reset} /> : null}
+            </Panel>
+        </div>
     );
 }
 

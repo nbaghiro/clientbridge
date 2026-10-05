@@ -12,7 +12,8 @@ import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
 import { Button, Choice, Field, Notice, Select, TextField, Toggle } from "@clientbridge/ui";
-import { PublicCentered, PublicFrame } from "../components/PublicFrame";
+import { PublicFrame } from "../components/PublicFrame";
+import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
 
@@ -25,30 +26,18 @@ export function PublicForm() {
     const answers = fill.answers;
     useEmbedSuccess(fill.status === "done", "form");
 
-    if (fill.status === "loading")
-        return (
-            <PublicFrame>{<PublicCentered>{strings.common.loading}</PublicCentered>}</PublicFrame>
-        );
+    if (fill.status === "loading") return <PublicStatus kind="loading" />;
 
     if (fill.status === "not-found")
         return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.publicForm.notFoundTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.publicForm.notFoundBody}</p>
-            </PublicFrame>
+            <PublicStatus
+                kind="notFound"
+                title={strings.publicForm.notFoundTitle}
+                body={strings.publicForm.notFoundBody}
+            />
         );
 
-    if (fill.status === "error" || form === null)
-        return (
-            <PublicFrame>
-                <h1 className="font-display text-xl font-bold text-ink">
-                    {strings.common.somethingWrong}
-                </h1>
-                <p className="mt-2 text-sm text-muted">{strings.common.tryAgainLater}</p>
-            </PublicFrame>
-        );
+    if (fill.status === "error" || form === null) return <PublicStatus kind="error" />;
 
     if (fill.status === "done")
         return <DoneState businessName={form.business_name} brand={form.brand} />;
@@ -218,18 +207,10 @@ function DoneState({
     brand?: PublicBrand | null;
 }) {
     return (
-        <PublicFrame brand={brand}>
-            <div className="py-4 text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-2xl text-ok-fg">
-                    ✓
-                </span>
-                <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                    {strings.publicForm.doneTitle}
-                </h1>
-                <p className="mt-2 text-sm text-muted">
-                    {strings.publicForm.doneBody(businessName)}
-                </p>
-            </div>
-        </PublicFrame>
+        <PublicDone
+            brand={brand}
+            title={strings.publicForm.doneTitle}
+            body={strings.publicForm.doneBody(businessName)}
+        />
     );
 }

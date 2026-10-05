@@ -41,7 +41,3 @@ export function PublicFrame({
         </div>
     );
 }
-
-export function PublicCentered({ children }: { children: ReactNode }) {
-    return <p className="py-8 text-center text-sm text-muted">{children}</p>;
-}

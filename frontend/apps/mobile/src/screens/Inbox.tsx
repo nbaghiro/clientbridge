@@ -31,8 +31,10 @@ import {
     View,
 } from "react-native";
 import {
+    Badge,
     Button,
     Choice,
+    Empty,
     Field,
     ListPage,
     Modal,
@@ -137,9 +139,7 @@ function ThreadRowView({ thread }: { thread: ThreadRow }) {
                     <Text style={styles.time}>{formatRelativeTime(thread.last_message_at)}</Text>
                 ) : null}
                 {thread.unread_count > 0 ? (
-                    <View style={styles.unread}>
-                        <Text style={styles.unreadText}>{thread.unread_count}</Text>
-                    </View>
+                    <Badge kind="count" label={thread.unread_count} />
                 ) : null}
             </View>
         </View>
@@ -184,9 +184,7 @@ function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => voi
                 keyExtractor={(m) => m.id}
                 contentContainerStyle={styles.messages}
                 renderItem={({ item }) => <Bubble message={item} />}
-                ListEmptyComponent={
-                    <Text style={styles.muted}>{strings.messaging.noMessages}</Text>
-                }
+                ListEmptyComponent={<Empty message={strings.messaging.noMessages} />}
             />
 
             <View style={styles.composer}>
@@ -389,16 +387,6 @@ const styles = StyleSheet.create({
     rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
     rowRight: { alignItems: "flex-end", gap: 4 },
     time: { color: c.muted, fontSize: 12 },
-    unread: {
-        minWidth: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: c.accent,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 5,
-    },
-    unreadText: { color: c.accentInk, fontSize: 11, fontWeight: "700" },
     muted: { color: c.muted, fontSize: 14 },
     sheet: { flex: 1, backgroundColor: c.surface },
     threadFill: { flex: 1 },

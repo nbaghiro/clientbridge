@@ -33,6 +33,7 @@ import {
     useSearch,
 } from "@clientbridge/app-core";
 import {
+    Badge,
     Button,
     DetailSection,
     DetailView,
@@ -221,11 +222,7 @@ function CardRow({ card }: { card: SavedCardRow }) {
         <div className="px-3 py-2.5 text-sm">
             <div className="flex items-center gap-2">
                 <span className="font-medium text-ink">{savedCardLabel(card)}</span>
-                {isDefault ? (
-                    <span className="rounded-full bg-accent-weak px-2 py-0.5 text-xs font-medium text-accent">
-                        {strings.clients.defaultTag}
-                    </span>
-                ) : null}
+                {isDefault ? <Badge label={strings.clients.defaultTag} /> : null}
                 {isMandate(card) ? (
                     <StatusPill
                         status={card.mandate_status}

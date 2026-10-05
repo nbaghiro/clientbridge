@@ -17,7 +17,7 @@ import {
     useSavedCards,
     useSubscriptionForm,
 } from "@clientbridge/app-core";
-import { Button, ChargeSheet, Choice, Select, TextField } from "@clientbridge/ui";
+import { Button, ChargeSheet, Choice, Panel, Select, TextField } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
 
 import { api } from "../lib/api";
@@ -182,7 +182,7 @@ function WithClient({
     const id = clientId ?? (picked === "" ? null : picked);
     if (id !== null) return <>{children(id)}</>;
     return (
-        <div className="space-y-3 rounded-lg border border-line bg-surface p-4">
+        <Panel>
             <ClientSelect
                 label={strings.pos.clientLabel}
                 clients={clients}
@@ -195,7 +195,7 @@ function WithClient({
                     {strings.common.cancel}
                 </Button>
             </div>
-        </div>
+        </Panel>
     );
 }
 

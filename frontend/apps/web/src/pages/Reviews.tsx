@@ -13,7 +13,16 @@ import {
     useReviewSummary,
     useReviews,
 } from "@clientbridge/app-core";
-import { Button, ListPage, Notice, Select, StatusPill, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    ListPage,
+    Loading,
+    Notice,
+    Panel,
+    Select,
+    StatusPill,
+    TextField,
+} from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -43,9 +52,7 @@ export function Reviews() {
                     <>
                         <SummaryHeader summary={summary} />
                         {awaiting > 0 ? (
-                            <p className="mt-2 text-sm text-muted">
-                                {strings.reviews.awaitingCount(awaiting)}
-                            </p>
+                            <Notice tone="info">{strings.reviews.awaitingCount(awaiting)}</Notice>
                         ) : null}
                         {requesting ? (
                             <RequestReview
@@ -67,27 +74,29 @@ export function Reviews() {
 
 function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummary> }) {
     return (
-        <div className="mt-6 flex items-center gap-4 rounded-lg border border-line bg-surface px-5 py-4 shadow-card">
-            {summary === null ? (
-                <p className="text-sm text-muted">{strings.reviews.loadingRating}</p>
-            ) : summary === "error" ? (
-                <Notice tone="danger">{strings.reviews.ratingLoadError}</Notice>
-            ) : summary.count === 0 ? (
-                <p className="text-sm text-muted">{strings.reviews.noPublishedReviews}</p>
-            ) : (
-                <>
-                    <div className="flex items-baseline gap-1">
-                        <span className="font-display text-4xl font-bold tabular-nums text-ink">
-                            {formatAverageRating(summary.average)}
-                        </span>
-                        <Stars rating={roundedRating(summary.average)} />
-                    </div>
-                    <p className="text-sm text-muted">
-                        {strings.reviews.publishedCount(summary.count)}
-                    </p>
-                </>
-            )}
-        </div>
+        <Panel>
+            <div className="flex items-center gap-4">
+                {summary === null ? (
+                    <Loading inline label={strings.reviews.loadingRating} />
+                ) : summary === "error" ? (
+                    <Notice tone="danger">{strings.reviews.ratingLoadError}</Notice>
+                ) : summary.count === 0 ? (
+                    <p className="text-sm text-muted">{strings.reviews.noPublishedReviews}</p>
+                ) : (
+                    <>
+                        <div className="flex items-baseline gap-1">
+                            <span className="font-display text-4xl font-bold tabular-nums text-ink">
+                                {formatAverageRating(summary.average)}
+                            </span>
+                            <Stars rating={roundedRating(summary.average)} />
+                        </div>
+                        <p className="text-sm text-muted">
+                            {strings.reviews.publishedCount(summary.count)}
+                        </p>
+                    </>
+                )}
+            </div>
+        </Panel>
     );
 }
 
@@ -204,10 +213,7 @@ function RequestReview({ onClose }: { onClose: () => void }) {
     const clients = useClients();
 
     return (
-        <section className="mt-5 rounded-lg border border-line bg-surface p-5 shadow-card">
-            <h2 className="mb-3 font-display text-base font-bold text-ink">
-                {strings.reviews.requestTitle}
-            </h2>
+        <Panel title={strings.reviews.requestTitle}>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -234,6 +240,6 @@ function RequestReview({ onClose }: { onClose: () => void }) {
                     </Button>
                 </div>
             </form>
-        </section>
+        </Panel>
     );
 }

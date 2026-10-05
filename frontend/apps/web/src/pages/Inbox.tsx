@@ -21,8 +21,10 @@ import {
 } from "@clientbridge/app-core";
 import { useEffect, useRef, useState } from "react";
 import {
+    Badge,
     Button,
     Choice,
+    Empty,
     Field,
     Modal,
     Notice,
@@ -99,9 +101,7 @@ function Messages() {
             <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-line bg-surface shadow-card">
                 <aside className="w-80 shrink-0 overflow-y-auto border-r border-line">
                     {threads.length === 0 ? (
-                        <p className="px-5 py-8 text-center text-sm text-muted">
-                            {strings.messaging.noConversations}
-                        </p>
+                        <Empty message={strings.messaging.noConversations} />
                     ) : (
                         threads.map((t) => (
                             <ThreadListItem
@@ -175,9 +175,7 @@ function ThreadListItem({
                     </span>
                 ) : null}
                 {thread.unread_count > 0 ? (
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-ink">
-                        {thread.unread_count}
-                    </span>
+                    <Badge kind="count" label={thread.unread_count} />
                 ) : null}
             </div>
             <span className="truncate text-xs text-muted">
@@ -213,9 +211,7 @@ function ThreadView({ thread }: { thread: ThreadRow }) {
 
             <div className="flex-1 space-y-2 overflow-y-auto px-6 py-4">
                 {messages.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted">
-                        {strings.messaging.noMessages}
-                    </p>
+                    <Empty message={strings.messaging.noMessages} />
                 ) : (
                     messages.map((m) => <Bubble key={m.id} message={m} />)
                 )}

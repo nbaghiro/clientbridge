@@ -33,6 +33,7 @@ import {
     Button,
     ChargeSheet,
     Choice,
+    Empty,
     ItemImage,
     Notice,
     SearchField,
@@ -150,9 +151,7 @@ export function POS() {
                             </Pressable>
                         )}
                         ListEmptyComponent={
-                            <Text style={styles.empty}>
-                                {q ? strings.pos.searchEmpty : strings.pos.empty}
-                            </Text>
+                            <Empty message={q ? strings.pos.searchEmpty : strings.pos.empty} />
                         }
                         ListFooterComponent={
                             <>
@@ -560,7 +559,6 @@ const styles = StyleSheet.create({
     },
     tileName: { color: c.ink, fontSize: 14, fontWeight: "600", marginTop: 8 },
     tilePrice: { color: c.muted, fontSize: 14, marginTop: 6, fontVariant: ["tabular-nums"] },
-    empty: { color: c.muted, textAlign: "center", paddingVertical: 40, fontSize: 14 },
     cart: {
         borderTopColor: c.border,
         borderTopWidth: 1,

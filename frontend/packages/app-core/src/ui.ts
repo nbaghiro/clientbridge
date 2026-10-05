@@ -223,6 +223,8 @@ export interface StatProps {
     value?: string | undefined;
     tone?: "ink" | "muted" | "success" | "danger" | undefined;
     hint?: string | undefined;
+    // lg is a headline figure (Today); md sits several to a card (Reports).
+    size?: "md" | "lg" | undefined;
 }
 
 export interface StarsProps {

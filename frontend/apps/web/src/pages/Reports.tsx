@@ -12,8 +12,18 @@ import {
     useRemittanceAction,
     useBankDeposits,
     useReports,
+    type ReportCsvKind,
 } from "@clientbridge/app-core";
-import { Button, Notice, StatusPill, TextField } from "@clientbridge/ui";
+import {
+    Button,
+    Empty,
+    Loading,
+    Notice,
+    Panel,
+    Stat,
+    StatusPill,
+    TextField,
+} from "@clientbridge/ui";
 import { useState } from "react";
 
 import { api } from "../lib/api";
@@ -38,34 +48,38 @@ export function Reports() {
         <div>
             <p className="text-sm text-muted">{strings.reports.subtitle}</p>
 
-            <div className="mt-6 flex flex-wrap items-end gap-4 rounded-lg border border-line bg-surface p-4">
-                <TextField
-                    label={strings.reports.rangeFrom}
-                    type="date"
-                    width="auto"
-                    value={range.start}
-                    onChange={(start) => {
-                        setRange((r) => ({ ...r, start }));
-                    }}
-                />
-                <TextField
-                    label={strings.reports.rangeTo}
-                    type="date"
-                    width="auto"
-                    value={range.end}
-                    onChange={(end) => {
-                        setRange((r) => ({ ...r, end }));
-                    }}
-                />
-                <TextField
-                    label={strings.reports.t4aYear}
-                    type="number"
-                    width="narrow"
-                    value={String(range.year)}
-                    onChange={(v) => {
-                        setRange((r) => ({ ...r, year: Number(v) || r.year }));
-                    }}
-                />
+            <div className="mt-6">
+                <Panel>
+                    <div className="flex flex-wrap items-end gap-4">
+                        <TextField
+                            label={strings.reports.rangeFrom}
+                            type="date"
+                            width="auto"
+                            value={range.start}
+                            onChange={(start) => {
+                                setRange((r) => ({ ...r, start }));
+                            }}
+                        />
+                        <TextField
+                            label={strings.reports.rangeTo}
+                            type="date"
+                            width="auto"
+                            value={range.end}
+                            onChange={(end) => {
+                                setRange((r) => ({ ...r, end }));
+                            }}
+                        />
+                        <TextField
+                            label={strings.reports.t4aYear}
+                            type="number"
+                            width="narrow"
+                            value={String(range.year)}
+                            onChange={(v) => {
+                                setRange((r) => ({ ...r, year: Number(v) || r.year }));
+                            }}
+                        />
+                    </div>
+                </Panel>
             </div>
 
             {dlError !== null ? (
@@ -75,32 +89,37 @@ export function Reports() {
             ) : null}
 
             {error ? (
-                <p className="mt-6 text-sm text-muted">{strings.reports.loadError}</p>
+                <div className="mt-6">
+                    <Notice tone="danger">{strings.reports.loadError}</Notice>
+                </div>
             ) : (
                 <div className="mt-6 space-y-5">
-                    <Card
+                    <Panel
                         title={strings.reports.incomeTitle}
                         subtitle={strings.reports.incomeSubtitle}
-                        onDownload={() => {
-                            download("income");
-                        }}
-                        downloading={isDownloading("income")}
+                        actions={
+                            <Download
+                                report="income"
+                                busy={isDownloading("income")}
+                                onPress={download}
+                            />
+                        }
                     >
                         {income === null ? (
-                            <Skeleton />
+                            <Loading inline />
                         ) : (
                             <>
                                 <div className="grid gap-4 sm:grid-cols-3">
-                                    <Figure
+                                    <Stat
                                         label={strings.reports.gross}
                                         cents={income.gross_cents}
                                     />
-                                    <Figure
+                                    <Stat
                                         label={strings.reports.refunds}
                                         cents={income.refunds_cents}
                                         tone="danger"
                                     />
-                                    <Figure
+                                    <Stat
                                         label={strings.reports.net}
                                         cents={income.net_cents}
                                         tone="success"
@@ -129,39 +148,42 @@ export function Reports() {
                                 ) : null}
                             </>
                         )}
-                    </Card>
+                    </Panel>
 
-                    <Card
+                    <Panel
                         title={strings.reports.gstTitle}
                         subtitle={strings.reports.gstSubtitle}
-                        onDownload={() => {
-                            download("gst-hst");
-                        }}
-                        downloading={isDownloading("gst-hst")}
+                        actions={
+                            <Download
+                                report="gst-hst"
+                                busy={isDownloading("gst-hst")}
+                                onPress={download}
+                            />
+                        }
                     >
                         {gstHst === null ? (
-                            <Skeleton />
+                            <Loading inline />
                         ) : (
                             <>
                                 <div className="grid gap-4 sm:grid-cols-2">
-                                    <Figure
+                                    <Stat
                                         label={strings.reports.taxCollected}
                                         cents={gstHst.tax_collected_cents}
                                         tone="success"
                                     />
                                     {gstHst.pst_cents > 0 ? (
-                                        <Figure
+                                        <Stat
                                             label={strings.reports.pstCollected}
                                             cents={gstHst.pst_cents}
                                         />
                                     ) : null}
                                     {gstHst.qst_cents > 0 ? (
-                                        <Figure
+                                        <Stat
                                             label={strings.reports.qstCollected}
                                             cents={gstHst.qst_cents}
                                         />
                                     ) : null}
-                                    <Figure
+                                    <Stat
                                         label={strings.reports.taxableSales}
                                         cents={gstHst.taxable_sales_cents}
                                     />
@@ -175,18 +197,17 @@ export function Reports() {
                                 <Remittances />
                             </>
                         )}
-                    </Card>
+                    </Panel>
 
-                    <Card
+                    <Panel
                         title={strings.reports.t4aTitle(range.year)}
                         subtitle={strings.reports.t4aSubtitle}
-                        onDownload={() => {
-                            download("t4a");
-                        }}
-                        downloading={isDownloading("t4a")}
+                        actions={
+                            <Download report="t4a" busy={isDownloading("t4a")} onPress={download} />
+                        }
                     >
                         {t4a === null ? (
-                            <Skeleton />
+                            <Loading inline />
                         ) : t4a.length === 0 ? (
                             <p className="text-sm text-muted">
                                 {strings.reports.noPayeeAmounts(range.year)}
@@ -218,18 +239,21 @@ export function Reports() {
                                 </tbody>
                             </table>
                         )}
-                    </Card>
+                    </Panel>
 
-                    <Card
+                    <Panel
                         title={strings.reports.salesByItemTitle}
                         subtitle={strings.reports.salesByItemSubtitle}
-                        onDownload={() => {
-                            download("sales-by-item");
-                        }}
-                        downloading={isDownloading("sales-by-item")}
+                        actions={
+                            <Download
+                                report="sales-by-item"
+                                busy={isDownloading("sales-by-item")}
+                                onPress={download}
+                            />
+                        }
                     >
                         {salesByItem === null ? (
-                            <Skeleton />
+                            <Loading inline />
                         ) : salesByItem.length === 0 ? (
                             <p className="text-sm text-muted">{strings.reports.noItemSales}</p>
                         ) : (
@@ -274,12 +298,10 @@ export function Reports() {
                                 </tbody>
                             </table>
                         )}
-                    </Card>
+                    </Panel>
                 </div>
             )}
-            {loading ? (
-                <p className="mt-4 text-xs text-muted">{strings.reports.loadingReports}</p>
-            ) : null}
+            {loading ? <Loading inline label={strings.reports.loadingReports} /> : null}
             <BankDeposits />
         </div>
     );
@@ -326,82 +348,57 @@ function BankDeposits() {
                 {strings.reports.bankDeposits}
             </h2>
             <p className="mt-0.5 text-sm text-muted">{strings.reports.bankDepositsSubtitle}</p>
-            {payouts.length === 0 ? (
-                <p className="mt-2 text-sm text-muted">{strings.reports.noBankDeposits}</p>
-            ) : (
-                <div className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface shadow-card">
-                    {payouts.map((row) => (
-                        <div key={row.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                            <span className="font-medium tabular-nums text-ink">
-                                {formatMoneyWithCurrency(row.amount_cents, "CAD")}
-                            </span>
-                            <StatusPill
-                                status={row.status}
-                                intent={paymentStatusIntent(row.status)}
-                            />
-                            {row.arrival_at !== null ? (
-                                <span className="ml-auto shrink-0 text-xs text-muted">
-                                    {formatMonthDay(parseTimestamp(row.arrival_at))}
-                                </span>
-                            ) : null}
+            <div className="mt-3">
+                <Panel flush>
+                    {payouts.length === 0 ? (
+                        <Empty message={strings.reports.noBankDeposits} />
+                    ) : (
+                        <div className="divide-y divide-line">
+                            {payouts.map((row) => (
+                                <div
+                                    key={row.id}
+                                    className="flex items-center gap-3 px-4 py-2.5 text-sm"
+                                >
+                                    <span className="font-medium tabular-nums text-ink">
+                                        {formatMoneyWithCurrency(row.amount_cents, "CAD")}
+                                    </span>
+                                    <StatusPill
+                                        status={row.status}
+                                        intent={paymentStatusIntent(row.status)}
+                                    />
+                                    {row.arrival_at !== null ? (
+                                        <span className="ml-auto shrink-0 text-xs text-muted">
+                                            {formatMonthDay(parseTimestamp(row.arrival_at))}
+                                        </span>
+                                    ) : null}
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            )}
-        </section>
-    );
-}
-
-function Card({
-    title,
-    subtitle,
-    onDownload,
-    downloading,
-    children,
-}: {
-    title: string;
-    subtitle: string;
-    onDownload: () => void;
-    downloading: boolean;
-    children: React.ReactNode;
-}) {
-    return (
-        <section className="rounded-lg border border-line bg-surface p-5 shadow-card">
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
-                    <p className="mt-0.5 text-sm text-muted">{subtitle}</p>
-                </div>
-                <Button variant="outline" onPress={onDownload} busy={downloading}>
-                    {downloading ? strings.reports.downloading : strings.reports.downloadCsv}
-                </Button>
+                    )}
+                </Panel>
             </div>
-            <div className="mt-4">{children}</div>
         </section>
     );
 }
 
-function Figure({
-    label,
-    cents,
-    tone = "ink",
+function Download({
+    report,
+    busy,
+    onPress,
 }: {
-    label: string;
-    cents: number;
-    tone?: "ink" | "success" | "danger";
+    report: ReportCsvKind;
+    busy: boolean;
+    onPress: (report: ReportCsvKind) => void;
 }) {
-    const toneClass =
-        tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-ink";
     return (
-        <div className="rounded-md border border-line bg-bg p-4">
-            <p className="text-sm text-muted">{label}</p>
-            <p className={`mt-1 font-display text-2xl font-bold tabular-nums ${toneClass}`}>
-                {formatMoney(cents)}
-            </p>
-        </div>
+        <Button
+            variant="outline"
+            busy={busy}
+            onPress={() => {
+                onPress(report);
+            }}
+        >
+            {busy ? strings.reports.downloading : strings.reports.downloadCsv}
+        </Button>
     );
-}
-
-function Skeleton() {
-    return <div className="h-8 w-40 animate-pulse rounded-base bg-bg" />;
 }

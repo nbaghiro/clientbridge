@@ -8,7 +8,7 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Button, ListPage, Money, Notice, StatusPill, TextField } from "@clientbridge/ui";
+import { Button, ListPage, Money, Notice, Panel, StatusPill, TextField } from "@clientbridge/ui";
 
 import { SellGiftCard } from "../components/EntitlementSales";
 
@@ -83,9 +83,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardRedeemForm(api, onClose);
 
     return (
-        <View style={styles.panel}>
-            <Text style={styles.panelTitle}>{strings.giftCards.redeemTitle}</Text>
-
+        <Panel title={strings.giftCards.redeemTitle}>
             <TextField
                 label={strings.giftCards.code}
                 value={form.code}
@@ -109,7 +107,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                     {strings.giftCards.redeem}
                 </Button>
             </View>
-        </View>
+        </Panel>
     );
 }
 
@@ -118,13 +116,5 @@ const styles = StyleSheet.create({
     rowMain: { flex: 1 },
     code: { color: c.ink, fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
     meta: { color: c.muted, fontSize: 12, marginTop: 1 },
-    panel: {
-        backgroundColor: c.surface,
-        borderColor: c.border,
-        borderWidth: theme.borderWidth,
-        borderRadius: theme.radius,
-        padding: 16,
-    },
-    panelTitle: { color: c.ink, fontSize: 16, fontWeight: "700" },
     panelActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
 });

@@ -5,9 +5,9 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { configureStripe } from "@clientbridge/ui";
+import { configureStripe, Loading } from "@clientbridge/ui";
 
 import { StripeAppProvider } from "./src/components/Stripe";
 import { TabBar } from "./src/components/TabBar";
@@ -93,8 +93,8 @@ function Root() {
 
     if (authed === null) {
         return (
-            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                <ActivityIndicator />
+            <View style={styles.boot}>
+                <Loading />
             </View>
         );
     }
@@ -126,8 +126,8 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     if (businessId === null) {
         if (!hasSynced) {
             return (
-                <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                    <ActivityIndicator />
+                <View style={styles.boot}>
+                    <Loading />
                 </View>
             );
         }
@@ -184,3 +184,7 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
         </StripeAppProvider>
     );
 }
+
+const styles = StyleSheet.create({
+    boot: { flex: 1, alignItems: "center", justifyContent: "center" },
+});
