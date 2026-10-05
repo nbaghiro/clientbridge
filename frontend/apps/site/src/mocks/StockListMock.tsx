@@ -2,7 +2,6 @@ import { stockList } from "../content/demo";
 
 const TONE = { ok: "pill-ok", warn: "pill-warn", muted: "pill-muted" } as const;
 
-/** Setup › Services & products with stock counts, as on the web app. */
 export function StockListMock() {
     return (
         <div className="mock card stock-list" aria-hidden="true">

@@ -3,7 +3,6 @@ import { tapToPay } from "../content/demo";
 
 const TABS: IconName[] = ["today", "calendar", "clients", "invoice", "inbox"];
 
-/** The mobile Tap to Pay screen in a simple phone frame. */
 export function TapToPayPhone() {
     return (
         <div className="mock phone" aria-hidden="true">

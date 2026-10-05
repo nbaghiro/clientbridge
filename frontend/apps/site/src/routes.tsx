@@ -32,7 +32,6 @@ function tradeRoute(trade: Trade): SiteRoute {
     return { path: solutionPath(trade.slug), Page, meta: tradeMeta(trade) };
 }
 
-/** Every page of the site. The build writes one HTML file per entry (see scripts/prerender.ts). */
 export const ROUTES: readonly SiteRoute[] = [
     { path: "/", Page: Home, meta: homeMeta },
     { path: "/solutions", Page: Solutions, meta: solutionsMeta },

@@ -95,7 +95,6 @@ const ev = (
     ...(variant ? { variant } : {}),
 });
 
-/** The trades on the solutions pages, with each page's copy and example business data. */
 export const TRADES: readonly Trade[] = [
     {
         slug: "pet-grooming",

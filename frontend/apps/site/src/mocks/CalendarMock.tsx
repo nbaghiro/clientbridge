@@ -1,6 +1,5 @@
 import { calendar } from "../content/demo";
 
-/** A five-day slice of the Schedule, as on the web app's week view. */
 export function CalendarMock() {
     return (
         <div className="mock cal" aria-hidden="true">

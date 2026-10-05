@@ -5,7 +5,6 @@ import { BRANDS } from "../content/brands";
 import { solutionsPage } from "../content/solutions";
 import { solutionPath, TRADES } from "../content/trades";
 
-/** One card per trade: its photo with the example business's avatar, and a line about it. */
 export function SolutionCards() {
     return (
         <div className="sol-grid">

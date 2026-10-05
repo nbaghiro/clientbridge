@@ -52,7 +52,6 @@ function parseBrand(raw: string | null): Brand & { legacyLogoUrl: string | null 
     }
 }
 
-/** The editable business-profile text fields, shared so web + mobile render the same set + labels. */
 export const ACCOUNT_TEXT_FIELDS: {
     key: keyof AccountFields;
     label: string;

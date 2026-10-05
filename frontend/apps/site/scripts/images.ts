@@ -1,5 +1,4 @@
-// Writes each stock photo in assets/photos/ as AVIF, WebP and JPEG at the widths the <Photo>
-// component asks for. Outputs go to public/photos/ (git-ignored) and are skipped when already current.
+// Writes each photo as AVIF, WebP and JPEG at the widths <Photo> asks for, into git-ignored public/photos.
 import { mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

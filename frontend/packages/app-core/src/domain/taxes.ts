@@ -10,7 +10,6 @@ export interface TaxRate {
     name: string;
 }
 
-/** Province tax rates (REST today; the abstraction is the single place to move to sync later). */
 export function useTaxRates(api: ApiLike): TaxRate[] | null {
     const [rates, setRates] = useState<TaxRate[] | null>(null);
     useEffect(() => {

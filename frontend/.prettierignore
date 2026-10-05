@@ -15,3 +15,5 @@ apps/mobile/android/
 apps/mobile/.expo/
 apps/site/test-results
 apps/site/playwright-report
+apps/web/test-results
+apps/web/playwright-report

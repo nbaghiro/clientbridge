@@ -61,7 +61,6 @@ function TodayMain() {
     );
 }
 
-/** The web app's Today screen in a window, as on the desktop hero. */
 export function AppWindow() {
     return (
         <div className="mock appwin framed">

@@ -41,7 +41,6 @@ SELECT p.id, p.kind, p.method, p.amount_cents, p.currency, p.status,
 FROM payments p LEFT JOIN clients c ON c.id = p.client_id
 WHERE p.status = 'succeeded' ORDER BY at DESC LIMIT 12`;
 
-/** Recent succeeded payments (with the paying client's name) for the Today activity feed. */
 export function useRecentActivity(): ActivityRow[] {
     return useQuery<ActivityRow>(RECENT_ACTIVITY_SQL).data;
 }

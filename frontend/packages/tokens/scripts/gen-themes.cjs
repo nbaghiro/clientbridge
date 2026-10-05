@@ -1,5 +1,3 @@
-// Regenerate themes.css + themes.ts from the design exploration's app-explorer.html.
-// Run: `node packages/tokens/scripts/gen-themes.cjs` from the frontend root (or anywhere).
 const fs = require("fs");
 const path = require("path");
 

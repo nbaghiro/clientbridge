@@ -193,7 +193,6 @@ export interface GiftCardRedeemForm {
     submit: () => void;
 }
 
-/** Redeem form: draw an amount against a gift card code. */
 export function useGiftCardRedeemForm(api: ApiLike, onDone: () => void): GiftCardRedeemForm {
     const [code, setCodeState] = useState("");
     const [amount, setAmountState] = useState("");

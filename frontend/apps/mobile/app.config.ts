@@ -3,8 +3,7 @@ import type { ExpoConfig } from "expo/config";
 // Apple Pay merchant id for the Stripe SDK (also the iOS in-app-payments entitlement the plugin adds).
 const STRIPE_MERCHANT_ID = process.env.STRIPE_MERCHANT_ID ?? "merchant.ca.clientbridge.app";
 
-// op-sqlite + @stripe/stripe-react-native are native modules → run via Expo dev build / EAS Build,
-// NOT Expo Go (see docs/sync.md). The Stripe config plugin wires the native iOS/Android entitlements.
+// Native modules (op-sqlite, Stripe) need an Expo dev build, not Expo Go; see .docs/engineering.md.
 const config: ExpoConfig = {
     name: "Clientbridge",
     slug: "clientbridge",
@@ -30,9 +29,7 @@ const config: ExpoConfig = {
             "@stripe/stripe-react-native",
             { merchantIdentifier: STRIPE_MERCHANT_ID, enableGooglePay: false },
         ],
-        // POS card-present (Tap to Pay). Its config plugin adds the iOS/Android entitlements +
-        // permissions; needs an EAS dev build + a Tap-to-Pay-capable device (or a simulated reader).
-        // Its plugin reads props without a null check, so an options object is required.
+        // Tap to Pay; the plugin reads its options without a null check, so pass an object.
         ["@stripe/stripe-terminal-react-native", {}],
         // Stripe Terminal's Android SDK requires minSdk 26 (React Native defaults to 24).
         ["expo-build-properties", { android: { minSdkVersion: 26 } }],
@@ -44,8 +41,7 @@ const config: ExpoConfig = {
         // Stripe publishable (platform) key — NOT a secret; left blank until configured per env.
         stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
         stripeMerchantId: STRIPE_MERCHANT_ID,
-        // Stripe Terminal location id for connecting a Tap-to-Pay reader (the backend doesn't mint
-        // one yet — set it from the Stripe dashboard). Empty + simulated=true uses a test reader.
+        // Set from the Stripe dashboard for now; empty with simulated=true uses a test reader.
         stripeTerminalLocationId: process.env.STRIPE_TERMINAL_LOCATION_ID ?? "",
         terminalSimulated: (process.env.STRIPE_TERMINAL_SIMULATED ?? "true") === "true",
     },

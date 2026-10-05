@@ -89,7 +89,6 @@ export function isRefundRow(payment: { kind: string }): boolean {
     return payment.kind === "refund";
 }
 
-/** What's still refundable on a payment after the refunds already made against it. */
 export function refundableCents(payment: PaymentRow, allPayments: PaymentRow[]): number {
     const refunded = allPayments
         .filter((p) => p.parent_payment_id === payment.id && p.status === "succeeded")
@@ -191,7 +190,6 @@ export function canBeDefault(card: SavedCardRow): boolean {
     return card.preferred !== 1 && isChargeable(card);
 }
 
-/** The saved methods a checkout can charge, labelled. */
 export function checkoutMethods(cards: SavedCardRow[]): CheckoutMethod[] {
     return cards.filter(isChargeable).map((c) => ({ id: c.id, label: savedCardLabel(c) }));
 }

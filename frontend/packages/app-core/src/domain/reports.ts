@@ -129,7 +129,6 @@ export function downloadReportCsv(
 
 export interface ReportDownload {
     error: string | null;
-    /** Whether `kind` is the report currently being fetched. */
     isDownloading: (kind: ReportCsvKind) => boolean;
     download: (kind: ReportCsvKind) => void;
 }
@@ -172,7 +171,6 @@ FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE e.event = 'remittance' AND a.category = 'bank'
 ORDER BY period_end DESC`;
 
-/** Sales-tax returns already filed, newest first. */
 export function useRemittances(): RemittanceRow[] {
     return useQuery<RemittanceRow>(REMITTANCES_SQL).data;
 }
@@ -212,7 +210,6 @@ export interface RemittanceAction {
     record: () => void;
 }
 
-/** Filing a return: the period it would cover, the returns already filed, and the command. */
 export function useRemittanceAction(api: ApiLike): RemittanceAction {
     const filed = useRemittances();
     const period = nextRemittancePeriod(filed);
@@ -242,7 +239,6 @@ FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE e.event = 'payout' AND a.category = 'bank'
 ORDER BY e.occurred_at DESC LIMIT 5`;
 
-/** Recent Stripe payouts into the provider's bank (CAD). */
 export function useBankDeposits(): BankDepositRow[] {
     return useQuery<BankDepositRow>(BANK_DEPOSITS_SQL).data;
 }

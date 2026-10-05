@@ -85,7 +85,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   fails on a docstring or comment block longer than one line or a divider banner (in `src`, `tests` and
   `scripts`), a `*_service.py`/`*_jobs.py` file name, a folder deeper than `clientbridge/<layer>/<file>.py`,
   and a test file not named after a concept. In the frontend, `packages/config/scripts/check-structure.mjs` (part of `pnpm lint`)
-  fails on a multi-line comment, a lowercase component file, and a concept named differently across app-core, strings, web and mobile.
+  fails on a multi-line comment in any tracked JS/TS file, a lowercase component file, and a concept named differently across app-core, strings, web and mobile (pages named by their nav label map to their concept: Invoices → billing, Inbox → messaging, Team → staff).
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed).
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
   after model/sync-rule changes (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).

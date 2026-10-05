@@ -1,6 +1,5 @@
 import { invoices, invoiceTable } from "../content/demo";
 
-/** The Payments › Invoices list as a table, as on the web app. */
 export function InvoicesMock() {
     const cols = invoiceTable.columns;
     return (

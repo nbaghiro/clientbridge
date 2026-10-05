@@ -5,7 +5,7 @@ import { defineConfig } from "vite";
 export default defineConfig({
     plugins: [react(), tailwindcss()],
     server: {
-        port: 8700, // Clientbridge web — see docs/ports.md
+        port: 8700, // see .docs/engineering.md (ports)
         strictPort: true,
     },
     preview: { port: 8700 },

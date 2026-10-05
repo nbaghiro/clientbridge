@@ -13,7 +13,6 @@ export interface AsyncAction {
     ) => void;
 }
 
-/** Shared busy/error wrapper for a one-shot mutation: sets busy, clears error, runs, reports failure. */
 export function useAsyncAction(): AsyncAction {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);

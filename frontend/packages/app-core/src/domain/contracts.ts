@@ -59,7 +59,6 @@ export interface SendContractForm {
     submit: () => void;
 }
 
-/** Shared "send for signature" form: pick a contract + client, then POST the send command. */
 export function useSendContractForm(api: ApiLike, onSent: () => void): SendContractForm {
     const [contractId, setContractId] = useState("");
     const [clientId, setClientId] = useState("");

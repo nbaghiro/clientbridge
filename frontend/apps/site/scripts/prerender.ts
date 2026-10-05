@@ -1,5 +1,4 @@
-// Turns the client build (dist/index.html + CSS) and the SSR build (dist-server) into one static HTML
-// file per route. The pages need no JavaScript, so the dev-only client script is dropped.
+// The pages need no JavaScript, so the client script is dropped from each prerendered route.
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";

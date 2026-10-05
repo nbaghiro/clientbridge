@@ -36,7 +36,6 @@ export function useReviews(): ReviewRow[] {
 export const AWAITING_REVIEWS_SQL =
     "SELECT COUNT(*) AS n FROM reviews WHERE status IN ('requested', 'opened')";
 
-/** How many review requests are still waiting for the client's rating. */
 export function useAwaitingReviews(): number {
     return useQuery<{ n: number }>(AWAITING_REVIEWS_SQL).data[0]?.n ?? 0;
 }
@@ -53,12 +52,10 @@ export function formatAverageRating(average: number | null): string {
     return (average ?? 0).toFixed(1);
 }
 
-/** The whole-star count for an average (rounded; drives the filled stars). */
 export function roundedRating(average: number | null): number {
     return Math.round(average ?? 0);
 }
 
-/** The empty-star count that pads a filled rating out to `MAX_STARS`. */
 export function emptyStars(filled: number): number {
     return Math.max(0, MAX_STARS - filled);
 }
@@ -194,7 +191,6 @@ export interface RequestReviewForm {
     submit: () => void;
 }
 
-/** Shared "request a review" form: the picked client + busy/error + submit (mirrors `useClientForm`). */
 export function useRequestReviewForm(api: ApiLike, onSent: () => void): RequestReviewForm {
     const [clientId, setClientId] = useState("");
     const { busy, error, setError, run } = useAsyncAction();

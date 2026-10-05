@@ -56,7 +56,6 @@ export const ITEM_KINDS = [
     "gift",
 ] as const;
 
-/** Kinds a client can book on the calendar or the booking page. */
 export const BOOKABLE_KINDS = ["service", "class"];
 /** Packages, subscriptions and gift cards sell through their own checkout so the liability is created. */
 export const LINE_KINDS = ["service", "class", "product"];
@@ -117,7 +116,6 @@ function isActive(item: ItemRow): boolean {
     return item.active === 1;
 }
 
-/** Active services and classes: what a booking can be made for. */
 export function bookableItems(items: ItemRow[]): ItemRow[] {
     return items.filter((i) => isActive(i) && BOOKABLE_KINDS.includes(i.kind));
 }
@@ -134,17 +132,14 @@ export function entitlementKindsOnSale(items: ItemRow[]): EntitlementKind[] {
     return ENTITLEMENT_KINDS.filter((k) => items.some((i) => isActive(i) && i.kind === k));
 }
 
-/** Active `subscription` items — the plans a client subscription can start on. */
 export function subscriptionPlans(items: ItemRow[]): ItemRow[] {
     return items.filter((i) => isActive(i) && i.kind === "subscription");
 }
 
-/** Active `package` items — the offerings a client package can be sold from. */
 export function packageOfferings(items: ItemRow[]): ItemRow[] {
     return items.filter((i) => isActive(i) && i.kind === "package");
 }
 
-/** Active `gift` items — the preset gift cards a sale can ring up by `item_id`. */
 export function giftItems(items: ItemRow[]): ItemRow[] {
     return items.filter((i) => isActive(i) && i.kind === "gift");
 }
@@ -244,7 +239,6 @@ const KIND_FIELDS: Record<string, ItemField[]> = {
     gift: [],
 };
 
-/** Whether the editor shows a field for this kind of item (common fields always show). */
 export function itemFieldShown(kind: string, field: ItemField): boolean {
     return (KIND_FIELDS[kind] ?? []).includes(field);
 }

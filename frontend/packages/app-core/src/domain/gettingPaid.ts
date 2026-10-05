@@ -51,7 +51,6 @@ const REQUIREMENT_LABELS: Record<string, string> = {
     "tos_acceptance.date": strings.gettingPaid.reqTosAcceptance,
 };
 
-/** Humanize a Stripe requirement key (e.g. `individual.dob.day`) into provider-facing copy. */
 export function formatRequirement(key: string): string {
     const known = REQUIREMENT_LABELS[key];
     if (known !== undefined) return known;

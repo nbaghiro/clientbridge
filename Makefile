@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install web-install stripe-listen dev-api dev-web dev-connect dev-site build-site test-site lighthouse-site dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
+.PHONY: help up down logs-sync install web-install stripe-listen dev-api dev-web dev-connect dev-site build-site test-site test-web lighthouse-site dev-mobile migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-contract test-e2e stripe-mock lint typecheck format format-check precommit hooks check worker
 .DEFAULT_GOAL := help
 
 help:
@@ -11,6 +11,7 @@ help:
 	@echo "dev-site       run the marketing site (Vite) on :8710"
 	@echo "build-site     build the marketing site to static HTML in frontend/apps/site/dist"
 	@echo "test-site      build the site, then the browser pass (links, images, phone width, a11y)"
+	@echo "test-web       web smoke test: every page and dialog (needs the local stack + seed)"
 	@echo "lighthouse-site Lighthouse budget against the site preview on :8710"
 	@echo "dev-mobile     run mobile (Expo/Metro) on :8707"
 	@echo "migrate        alembic upgrade head"
@@ -76,6 +77,9 @@ build-site:
 # The site's browser pass (every page, links, images, phone width, accessibility) on a fresh build.
 test-site:
 	cd frontend && pnpm --filter site build && pnpm --filter site e2e
+
+test-web:
+	cd frontend && pnpm --filter web e2e
 
 # Lighthouse budget (desktop >= 95 per category); needs the built site served on :8710 (make dev-site
 # serves source, so run `cd frontend && pnpm --filter site preview` first).

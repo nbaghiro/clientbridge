@@ -2,7 +2,6 @@ import { Icon } from "../art/Icon";
 import { BRANDS, brandStyle } from "../content/brands";
 import { shop } from "../content/demo";
 
-/** The client-facing shop page on a phone, in the business's own logo and colour. */
 export function ShopPhone() {
     const brand = BRANDS["pet-grooming"];
     return (

@@ -1,5 +1,3 @@
-// Draws one 1200x630 share image per page (og/<page>.png) from its title, in the site's font with the
-// C monogram and a contour field. Called by prerender.ts after the pages are written.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";

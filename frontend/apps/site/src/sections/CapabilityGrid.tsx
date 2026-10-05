@@ -1,6 +1,5 @@
 import { LineIcon, type LineIconName } from "../art/LineIcon";
 
-/** A grid of capabilities, each with its line drawing, as on the home page's "also included". */
 export function CapabilityGrid({
     items,
     className = "more",

@@ -518,7 +518,6 @@ export interface CollectDeposit {
     submit: () => void;
 }
 
-/** Collect a booking deposit through the shared checkout (saved card by default when one exists). */
 export function useCollectDeposit(
     api: ApiLike,
     event: CalendarEvent,

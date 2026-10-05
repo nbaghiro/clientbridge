@@ -1,6 +1,4 @@
-// Lighthouse budget for the built site: desktop scores must be at least 95 in every category on the
-// home page, the solutions page and one trade page. Mobile scores are printed for reference.
-// Run against a served build: `pnpm preview` (or any static server), then `pnpm lighthouse`.
+// Fails below 95 in any desktop category on three pages; run `pnpm preview` first.
 import { launch } from "chrome-launcher";
 import lighthouse from "lighthouse";
 import desktopConfig from "lighthouse/core/config/desktop-config.js";

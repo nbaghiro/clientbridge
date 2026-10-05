@@ -9,7 +9,6 @@ const HOURS = 6;
 const hourLabel = (h: number): string =>
     h === 12 ? "12 p.m." : h > 12 ? `${String(h - 12)} p.m.` : `${String(h)} a.m.`;
 
-/** A day of the web app's Schedule, one column per staff member or room. */
 export function ScheduleMock({ schedule, business }: { schedule: Schedule; business: string }) {
     const start = schedule.startHour ?? 9;
     return (

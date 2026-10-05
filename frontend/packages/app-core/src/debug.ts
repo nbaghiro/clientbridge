@@ -9,7 +9,6 @@ export interface ClientState {
     refresh: () => void;
 }
 
-/** Live view of what this device holds: connection status + per-table row counts from local SQLite. */
 export function useClientState(pollMs = 1500): ClientState {
     const db = usePowerSync();
     const status = useStatus();

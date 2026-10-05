@@ -63,7 +63,6 @@ export function logoTarget(businessId: string): UploadTarget {
     return { parentType: "business", parentId: businessId, purpose: "logo" };
 }
 
-/** A short-lived presigned download url for a stored file (`GET /v1/files/{id}/url`). */
 export function fileDownloadUrl(api: ApiLike, fileId: string): Promise<string> {
     return api.get<{ url: string }>(`/v1/files/${fileId}/url`).then((r) => r.url);
 }

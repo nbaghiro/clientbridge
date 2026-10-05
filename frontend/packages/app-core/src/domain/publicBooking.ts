@@ -104,7 +104,6 @@ export interface PublicBookingClient {
     ): Promise<PublicBookingResult>;
 }
 
-/** Build a public-booking client bound to the API origin (web `VITE_API_URL`, mobile config). */
 export function createPublicBookingClient(baseUrl: string): PublicBookingClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);

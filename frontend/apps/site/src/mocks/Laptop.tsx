@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 
-/** A laptop drawn in CSS: dark bezel with a camera notch over a light aluminium base. */
 export function Laptop({ children }: { children: ReactNode }) {
     return (
         <div className="laptop" aria-hidden="true">

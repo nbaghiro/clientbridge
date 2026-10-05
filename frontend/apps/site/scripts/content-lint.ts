@@ -1,6 +1,4 @@
-// Checks the marketing copy against the house style: no em-dashes, no hype words, nothing that reads
-// as unfinished product, no exclamation marks. Scans the string literals in src/content and, when a
-// build exists, the visible text of every page in dist.
+// Holds src/content and the built pages to the house style: no em-dashes, hype words or "coming soon".
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -2,9 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-// Clientbridge Connect — the customer-facing surfaces (booking, pay, form, contract, review).
-// Deliberately NO cross-origin-isolation headers: unlike apps/web this app has no PowerSync/OPFS
-// SQLite, and dropping COEP keeps it embeddable in a business's own site.
+// No cross-origin-isolation headers, so businesses can embed these pages in their own sites.
 export default defineConfig({
     plugins: [react(), tailwindcss()],
     server: {

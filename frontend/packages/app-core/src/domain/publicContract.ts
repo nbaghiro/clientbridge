@@ -5,7 +5,6 @@ import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
-/** Visual tone for a signature lifecycle status (pending | signed | declined | expired). */
 export function signatureStatusIntent(status: string): Intent {
     switch (status) {
         case "signed":

@@ -3,7 +3,6 @@ import { tradePage } from "../content/solutions";
 import type { Bill } from "../content/trades";
 import { money, taxOn } from "../format";
 
-/** An invoice or estimate as the client sees it, from the example business. */
 export function BillMock({ bill, brand }: { bill: Bill; brand: Brand }) {
     const subtotal = bill.lines.reduce((sum, [, cents]) => sum + cents, 0);
     const taxes = bill.taxes.map(([label, rate]) => [label, taxOn(subtotal, rate)] as const);

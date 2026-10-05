@@ -10,7 +10,6 @@ export const db = new PowerSyncDatabase({
 
 type AuthFetch = (path: string, init?: RequestInit) => Promise<Response>;
 
-/** Connect to PowerSync using the session's authenticated fetch (handles token refresh + sign-out). */
 export async function connectPowerSync(authFetch: AuthFetch): Promise<void> {
     await db.connect(createConnector({ powersyncUrl, authFetch }));
 }

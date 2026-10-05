@@ -11,8 +11,7 @@ const routePath = (req: IncomingMessage): string | null => {
     return path === "/" || /\.[a-z0-9]+$/i.test(path) ? null : path.replace(/\/+$/, "");
 };
 
-// Serves clean URLs (/solutions) locally the way a static host does: preview maps them to the
-// pre-rendered solutions/index.html (or 404.html with a 404), dev to the client entry.
+// Serves clean URLs (/solutions) locally the way the static host will.
 const cleanUrls = (): Plugin => ({
     name: "clean-urls",
     configureServer(server) {
@@ -39,8 +38,6 @@ const cleanUrls = (): Plugin => ({
     },
 });
 
-// Clientbridge marketing site. Built to static HTML per route (scripts/prerender.ts), deployed apart
-// from the web app; it shares the theme and logo through @clientbridge/tokens and @clientbridge/ui.
 export default defineConfig({
     plugins: [react(), tailwindcss(), cleanUrls()],
     appType: "mpa",

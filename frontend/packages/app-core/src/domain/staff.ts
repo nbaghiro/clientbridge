@@ -26,7 +26,6 @@ export function useStaff(): StaffRow[] {
     return useQuery<StaffRow>(STAFF_SQL).data;
 }
 
-/** Pending (invited, not-yet-accepted) staff — shown in the Team list alongside the active members. */
 export function usePendingInvites(): StaffRow[] {
     return useQuery<StaffRow>(PENDING_INVITES_SQL).data;
 }
@@ -41,7 +40,6 @@ export function staffDisplayName(s: Pick<StaffRow, "title" | "invite_email" | "r
     return s.title ?? s.invite_email ?? s.role;
 }
 
-/** Only owners and admins may invite/manage staff (matches the backend's owner/admin invite gate). */
 export function canManageStaff(role: string | null): boolean {
     return role === "owner" || role === "admin";
 }
@@ -74,7 +72,6 @@ export interface InviteInput {
     role: StaffRole;
 }
 
-/** Create a staff invite (POST /v1/staff/invites). Owner/admin only (the server enforces the gate). */
 export function inviteStaff(api: ApiLike, input: InviteInput): Promise<Invite> {
     return api.post<Invite>("/v1/staff/invites", {
         email: input.email.trim(),
@@ -97,7 +94,6 @@ export function acceptInvite(api: ApiLike, input: AcceptInviteInput): Promise<Au
     });
 }
 
-/** The shareable accept-invite link for a raw invite token (`base` = each app's public-web origin). */
 export function acceptInviteUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/accept-invite?token=${encodeURIComponent(token)}`;
 }
@@ -115,7 +111,6 @@ export interface InviteForm {
     reset: () => void;
 }
 
-/** Invite-a-teammate view-model: email + role + submit, surfacing the created invite (token/link). */
 export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void): InviteForm {
     const [email, setEmail] = useState("");
     const [role, setRole] = useState<StaffRole>("staff");
@@ -223,7 +218,6 @@ function rateValue(row: StaffPayRow): number | null {
     return stored === null ? null : stored / 100;
 }
 
-/** A one-line summary of how a member is paid, for the Team list. */
 export function staffPaySummary(row: StaffPayRow): string {
     if (row.payee !== 1) return strings.staff.notPaid;
     const rate = rateValue(row) ?? 0;

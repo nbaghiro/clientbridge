@@ -67,7 +67,6 @@ export interface ClientForm {
     submit: () => void;
 }
 
-/** Shared add-client form: field state + validation + submit; the platform owns only the inputs. */
 export function useClientForm(api: ApiLike, onCreated: () => void): ClientForm {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");

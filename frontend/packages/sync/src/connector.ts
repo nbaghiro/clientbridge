@@ -7,9 +7,7 @@ import type {
 } from "@powersync/common";
 
 export interface ConnectorOptions {
-    /** PowerSync service URL, e.g. http://localhost:8704 */
     powersyncUrl: string;
-    /** Authenticated fetch against the FastAPI backend (handles auth header + refresh + sign-out). */
     authFetch: (path: string, init?: RequestInit) => Promise<Response>;
 }
 

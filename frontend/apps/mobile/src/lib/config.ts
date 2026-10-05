@@ -14,7 +14,6 @@ export const publicWebUrl = extra.publicWebUrl ?? "https://app.clientbridge.ca";
 /** Blank until configured; the card forms then show a not-configured note. Never a secret key. */
 export const stripePublishableKey = extra.stripePublishableKey ?? "";
 
-/** Apple Pay merchant id passed to the Stripe SDK. */
 export const stripeMerchantId = extra.stripeMerchantId ?? "merchant.ca.clientbridge.app";
 
 /** Blank until configured; with `terminalSimulated` the SDK uses a test reader. */

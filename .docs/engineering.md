@@ -212,6 +212,7 @@ make dev-api  dev-web  dev-connect  dev-mobile  worker
 make dev-site              # marketing site from source on :8710
 make build-site            # static build in frontend/apps/site/dist (pnpm --filter site preview serves it on :8710)
 make test-site             # build + Playwright pass over every page (links, images, 390px, axe)
+make test-web              # web smoke test: sign in, every page and dialog, no console errors (needs the local stack + seed)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
 ```
 Devices authenticate to the API, exchange a JWT at `/sync/token` for a PowerSync token, and stream their

@@ -8,7 +8,6 @@ const initials = (name: string): string =>
         .map((w) => w.charAt(0))
         .join("");
 
-/** A client's record in the web app: students, plan, upcoming visits and signed forms. */
 export function ClientRecordMock({ record, brand }: { record: ClientRecord; brand: Brand }) {
     const { plan } = record;
     return (

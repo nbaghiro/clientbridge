@@ -31,7 +31,6 @@ const homeJsonLd = (): string =>
         },
     ]).replace(/</g, "\\u003c");
 
-/** The per-page <head> tags the build writes into each HTML file. */
 export function headTags(meta: PageMeta, path: string): string {
     const url = `${config.siteUrl}${path === "/" ? "/" : path}`;
     const title = escape(meta.title);

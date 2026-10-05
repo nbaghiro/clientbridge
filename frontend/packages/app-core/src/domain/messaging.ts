@@ -8,7 +8,6 @@ import type { Intent } from "../ui";
 
 export type Channel = "sms" | "email";
 
-/** The channels a message/broadcast can go out on. */
 export const MESSAGE_CHANNELS: Channel[] = ["sms", "email"];
 
 export interface ThreadRow {

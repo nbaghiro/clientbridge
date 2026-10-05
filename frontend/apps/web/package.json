@@ -8,7 +8,8 @@
         "preview": "vite preview",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit",
-        "test": "vitest run --passWithNoTests"
+        "test": "vitest run --passWithNoTests",
+        "e2e": "playwright test"
     },
     "dependencies": {
         "@clientbridge/api-client": "workspace:*",
@@ -27,7 +28,9 @@
     },
     "devDependencies": {
         "@clientbridge/config": "workspace:*",
+        "@playwright/test": "^1.63.0",
         "@tailwindcss/vite": "^4.3.3",
+        "@types/node": "^24.0.0",
         "@types/react": "~19.2.0",
         "@types/react-dom": "~19.2.0",
         "@vitejs/plugin-react": "^6.1.1",

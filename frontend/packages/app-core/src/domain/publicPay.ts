@@ -68,7 +68,6 @@ export interface PublicPayClient {
     payCard(token: string): Promise<PublicCardIntent>;
 }
 
-/** Build a pay-by-link client bound to the public API origin (web `VITE_API_URL`, mobile config). */
 export function createPublicPayClient(baseUrl: string): PublicPayClient {
     const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
         const res = await fetch(`${baseUrl}${path}`, init);

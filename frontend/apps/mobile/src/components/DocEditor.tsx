@@ -34,7 +34,6 @@ export interface DocEditorProps {
     onClose: () => void;
 }
 
-/** The one invoice/estimate editor: a new document, or a draft opened for editing. */
 export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();

@@ -102,7 +102,6 @@ export interface SetupIntent {
     stripe_account_id: string;
 }
 
-/** Open a Stripe SetupIntent to save a card for a client (confirmed client-side). */
 export function startCardSetup(
     api: ApiLike,
     clientId: string,

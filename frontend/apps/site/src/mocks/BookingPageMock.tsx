@@ -24,7 +24,6 @@ const HOME: BookingPageData = {
     cta: bookingPage.cta,
 };
 
-/** The public booking page (Connect) in a business's own logo and colour. */
 export function BookingPageMock({
     brand = BRANDS["pet-grooming"],
     page = HOME,

@@ -22,15 +22,19 @@ const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "onlineBooking", "se
 
 const files = execFileSync("git", ["ls-files", "apps", "packages"], { cwd: root, encoding: "utf8" })
     .split("\n")
-    .filter((f) => /\/src\/.*\.(ts|tsx|mjs)$/.test(f) || /^apps\/mobile\/App\.tsx$/.test(f))
+    .filter((f) => /\.(ts|tsx|mjs|js|cjs)$/.test(f))
     .filter((f) => !GENERATED.has(f));
+// The embed snippet is pasted into customers' sites, so it keeps a short usage header.
+const HEADER_LINES = new Map([["apps/connect/public/embed.js", 2]]);
 
 const problems = [];
 
 for (const file of files) {
     const lines = readFileSync(join(root, file), "utf8").split("\n");
+    const header = HEADER_LINES.get(file) ?? 0;
     let run = 0;
     lines.forEach((line, i) => {
+        if (i < header) return;
         const t = line.trim();
         if (t.startsWith("//") && !/^\/\/ (eslint-|@ts-|prettier-ignore)/.test(t)) {
             run += 1;

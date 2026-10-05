@@ -11,7 +11,6 @@ import { fieldOnBg, panel, primaryButton, quietButton } from "./styles";
 
 export interface ChargeSheetProps {
     checkout: Checkout;
-    /** The client's saved methods, already labelled. */
     methods: CheckoutMethod[];
     amountLabel: string;
     stripeAccount: string;

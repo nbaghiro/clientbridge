@@ -78,7 +78,6 @@ export interface SendFormForm {
     submit: () => void;
 }
 
-/** Shared "send form" form: pick a form + client, then POST the send command. */
 export function useSendFormForm(api: ApiLike, onSent: () => void): SendFormForm {
     const [formId, setFormId] = useState("");
     const [clientId, setClientId] = useState("");

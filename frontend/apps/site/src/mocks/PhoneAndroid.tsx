@@ -47,7 +47,6 @@ function TabBar({ active }: { active: string }) {
     );
 }
 
-/** The mobile app's Payments › Invoices screen in an Android-style frame. */
 export function PhoneAndroid() {
     return (
         <div className="mock dev android" aria-hidden="true">

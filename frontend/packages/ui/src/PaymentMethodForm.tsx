@@ -3,7 +3,6 @@ import { type AddPaymentMethod, strings } from "@clientbridge/app-core/public";
 import { CardForm } from "./CardForm";
 import { outlineButton } from "./styles";
 
-/** Save a card (or, where `allowBank`, a PAD bank mandate) for a client. */
 export function PaymentMethodForm({
     flow,
     allowBank,

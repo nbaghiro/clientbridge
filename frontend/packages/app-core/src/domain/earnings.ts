@@ -73,7 +73,6 @@ export function earningStaffLabel(row: EarningRow): string {
     return title.length > 0 ? title : (row.staff_role ?? strings.earnings.staffFallback);
 }
 
-/** Where an earning came from: a completed booking, or retail commission on a sale. */
 export function earningSourceLabel(row: EarningRow): string {
     return row.order_id !== null ? strings.earnings.sourceSale : strings.earnings.sourceBooking;
 }

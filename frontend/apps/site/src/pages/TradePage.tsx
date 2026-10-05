@@ -16,7 +16,6 @@ import { CapabilityGrid } from "../sections/CapabilityGrid";
 import { Closing } from "../sections/Closing";
 import { Testimonial } from "../sections/Proof";
 
-/** One trade's page: how the same app runs that kind of business, with an example business. */
 export function TradePage({ trade }: { trade: Trade }) {
     const brand = BRANDS[trade.slug];
     const others = TRADES.filter((o) => o.slug !== trade.slug);

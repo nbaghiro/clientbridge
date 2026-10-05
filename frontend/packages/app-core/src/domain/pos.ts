@@ -104,7 +104,6 @@ export function requestConnectionToken(api: ApiLike): Promise<string> {
     return api.post<{ secret: string }>("/v1/terminal/connection-token", {}).then((r) => r.secret);
 }
 
-/** Returns a stable token provider for the Terminal SDK. */
 export function useConnectionToken(api: ApiLike): () => Promise<string> {
     return useCallback(() => requestConnectionToken(api), [api]);
 }

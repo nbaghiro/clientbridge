@@ -131,7 +131,6 @@ export function docTotals(doc: DocAmounts, byCode: TaxByCode[]): DocTotalRow[] {
     ];
 }
 
-/** Subtotal, each tax and the total for an invoice or estimate's detail view. */
 export function useDocTotals(
     parentType: "invoice" | "estimate",
     doc: (DocAmounts & { id: string }) | null,
@@ -270,7 +269,6 @@ export function docHeading(kind: DocTab, number: number | null): string {
     return `${noun} ${number !== null ? `#${String(number)}` : strings.billing.draftHeading}`;
 }
 
-/** Button copy for each document action — shared so web + mobile can't drift (they had). */
 export const DOC_ACTION_LABEL: Record<DocActionKey, string> = {
     send: strings.billing.actionSend,
     void: strings.billing.actionVoid,
