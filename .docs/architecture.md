@@ -66,7 +66,7 @@ Two toolchains (uv + pnpm), one root Makefile.
 clientbridge/
 ├── Makefile · docker-compose.yml · .env.example        root orchestration + local infra
 ├── backend/            ── Python · uv · FastAPI ──
-│   ├── migrations/versions/    Alembic (squashed initial + linear increments)
+│   ├── migrations/versions/    Alembic (one baseline + linear increments)
 │   ├── scripts/                seed_demo · gen_sync_schema · export_openapi
 │   ├── tests/                  integration suite + contract/ + e2e/
 │   └── src/clientbridge/
@@ -159,7 +159,7 @@ its own business + locale; each is idempotent via a status/timestamp marker and 
 `tokens`). Stripe Connect custodies funds and pays out; a double-entry ledger (`accounts` + `entries`)
 records every money movement and is the only place money balances are stored. The SQLAlchemy models in
 `backend/src/clientbridge/models/` are the exact-DDL source of truth; the migrations in
-`migrations/versions/` are the applied history.
+`migrations/versions/` start from one baseline (squashed before launch) with increments after it.
 
 ### Conventions
 - **PKs:** prefixed-ULID strings, minted in-app (`core/ids.new_id`) — sortable, safe to expose, debuggable.

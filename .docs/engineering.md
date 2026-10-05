@@ -170,7 +170,9 @@ Read local, write via command/sync — the server is the source of truth; client
 - **Comments:** sparing — the default is no comment. Add one only for a non-obvious *why* or an invariant,
   one line. Never narrate *what* the code does, restate types, write multi-clause block/file-header comments,
   or add decorative divider banners.
-- **Migrations** live only in `backend/migrations/versions/` (timestamp-prefixed).
+- **Migrations** live only in `backend/migrations/versions/` (timestamp-prefixed). The history was squashed
+  into one baseline before launch (`20261005_000000_baseline.py`, built from the models plus the
+  hand-written extension, exclusion constraints and ledger triggers); new changes are increments on it.
 - **Regenerate** `api-client` (`make gen-api`) whenever the API contract changes; `gen-sync-schema` after
   model/sync-rule changes; `gen-themes` after editing `app-explorer.html`. `make codegen-check` (in the pre-commit hook, `make check` and CI) fails if any of the three is stale.
 - **No build-phase/iteration numbers** in code comments or docstrings (commit messages / plan docs are fine).
