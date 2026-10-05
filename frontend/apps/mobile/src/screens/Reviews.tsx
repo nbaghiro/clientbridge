@@ -1,6 +1,5 @@
 import {
     type ReviewRow,
-    emptyStars,
     formatAverageRating,
     formatRelativeTime,
     reviewStatusIntent,
@@ -23,6 +22,7 @@ import {
     Loading,
     Notice,
     Panel,
+    Stars,
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
@@ -68,7 +68,7 @@ export function Reviews() {
                                     <Text style={styles.average}>
                                         {formatAverageRating(summary.average)}
                                     </Text>
-                                    <Stars rating={roundedRating(summary.average)} />
+                                    <Stars value={roundedRating(summary.average)} />
                                     <Text style={styles.muted}>
                                         {strings.reviews.publishedCount(summary.count)}
                                     </Text>
@@ -96,15 +96,6 @@ export function Reviews() {
     );
 }
 
-function Stars({ rating }: { rating: number }) {
-    return (
-        <Text style={styles.stars}>
-            {"★".repeat(rating)}
-            <Text style={styles.starsEmpty}>{"★".repeat(emptyStars(rating))}</Text>
-        </Text>
-    );
-}
-
 function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void }) {
     const { busy, error, canPublish, canHide, respond, hide, publish } = useReviewActions(
         api,
@@ -117,7 +108,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
     return (
         <View style={styles.card}>
             <View style={styles.cardTop}>
-                <Stars rating={review.rating} />
+                <Stars value={review.rating} size="sm" />
                 <Text style={styles.client}>
                     {review.client_name ?? strings.reviews.clientFallback}
                 </Text>
@@ -229,8 +220,6 @@ const styles = StyleSheet.create({
     muted: { color: c.muted, fontSize: 14 },
     summary: { flexDirection: "row", alignItems: "center", gap: 10 },
     average: { color: c.ink, fontSize: 30, fontWeight: "800", fontVariant: ["tabular-nums"] },
-    stars: { color: c.accent, fontSize: 16 },
-    starsEmpty: { color: c.border },
     card: { gap: 8 },
     cardTop: { flexDirection: "row", alignItems: "center", gap: 8 },
     client: { color: c.ink, fontSize: 14, fontWeight: "600" },

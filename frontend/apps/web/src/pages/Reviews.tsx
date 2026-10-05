@@ -1,6 +1,5 @@
 import {
     type ReviewRow,
-    emptyStars,
     formatAverageRating,
     formatRelativeTime,
     reviewStatusIntent,
@@ -20,6 +19,7 @@ import {
     Notice,
     Panel,
     Select,
+    Stars,
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
@@ -88,7 +88,7 @@ function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummar
                             <span className="font-display text-4xl font-bold tabular-nums text-ink">
                                 {formatAverageRating(summary.average)}
                             </span>
-                            <Stars rating={roundedRating(summary.average)} />
+                            <Stars value={roundedRating(summary.average)} />
                         </div>
                         <p className="text-sm text-muted">
                             {strings.reviews.publishedCount(summary.count)}
@@ -97,15 +97,6 @@ function SummaryHeader({ summary }: { summary: ReturnType<typeof useReviewSummar
                 )}
             </div>
         </Panel>
-    );
-}
-
-function Stars({ rating }: { rating: number }) {
-    return (
-        <span aria-label={strings.reviews.ratingOutOf(rating)} className="text-lg text-accent">
-            {"★".repeat(rating)}
-            <span className="text-line">{"★".repeat(emptyStars(rating))}</span>
-        </span>
     );
 }
 
@@ -121,7 +112,7 @@ function ReviewItem({ review, onDone }: { review: ReviewRow; onDone: () => void 
     return (
         <div>
             <div className="flex items-center gap-3">
-                <Stars rating={review.rating} />
+                <Stars value={review.rating} size="sm" />
                 <span className="text-sm font-medium text-ink">
                     {review.client_name ?? strings.reviews.clientFallback}
                 </span>

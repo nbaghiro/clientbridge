@@ -36,6 +36,7 @@ import {
     Panel,
     SearchField,
     StatusPill,
+    Stepper,
     TextField,
 } from "@clientbridge/ui";
 import { useMemo, useState } from "react";
@@ -320,42 +321,18 @@ function CartLineRow({
                     {strings.pos.unitEach(formatMoney(line.unitAmountCents))}
                 </p>
             </div>
-            <div className="flex items-center gap-1">
-                <button
-                    type="button"
-                    onClick={() => {
-                        onQuantity(line.quantity - 1);
-                    }}
-                    className="h-6 w-6 rounded-base border border-line text-sm text-ink-soft transition hover:bg-bg"
-                    aria-label={strings.pos.decreaseQty}
-                >
-                    −
-                </button>
-                <span className="w-6 text-center text-sm tabular-nums text-ink">
-                    {line.quantity}
-                </span>
-                <button
-                    type="button"
-                    onClick={() => {
-                        onQuantity(line.quantity + 1);
-                    }}
-                    className="h-6 w-6 rounded-base border border-line text-sm text-ink-soft transition hover:bg-bg"
-                    aria-label={strings.pos.increaseQty}
-                >
-                    +
-                </button>
-            </div>
+            <Stepper
+                value={line.quantity}
+                onChange={onQuantity}
+                min={0}
+                label={strings.pos.quantity}
+            />
             <span className="w-16 text-right text-sm font-medium tabular-nums text-ink">
                 {formatMoney(line.unitAmountCents * line.quantity)}
             </span>
-            <button
-                type="button"
-                onClick={onRemove}
-                className="text-muted transition hover:text-danger"
-                aria-label={strings.pos.removeLine}
-            >
+            <Button variant="quiet" size="sm" label={strings.pos.removeLine} onPress={onRemove}>
                 ×
-            </button>
+            </Button>
         </div>
     );
 }

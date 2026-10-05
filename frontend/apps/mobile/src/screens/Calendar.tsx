@@ -13,7 +13,6 @@ import {
     formatTime,
     formatWeekday,
     groupByDay,
-    type Intent,
     layoutDay,
     minutesSinceMidnight,
     type PositionedEvent,
@@ -30,6 +29,7 @@ import {
     useSavedCards,
     weekColumns,
 } from "@clientbridge/app-core";
+import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/theme";
 import { useRef, useState } from "react";
 import {
@@ -65,15 +65,9 @@ const GUTTER = 52;
 
 type View2 = "agenda" | "day";
 
-const INTENT_COLORS: Record<Intent, { bg: string; fg: string; border: string }> = {
-    accent: { bg: c.accentWeak, fg: c.accentStrong, border: c.accent },
-    success: { bg: c.okBg, fg: c.okFg, border: c.okFg },
-    warning: { bg: c.warnBg, fg: c.warnFg, border: c.warnFg },
-    danger: { bg: c.danBg, fg: c.danFg, border: c.danFg },
-    neutral: { bg: c.surface, fg: c.ink, border: c.border },
-};
 function statusColors(status: string): { bg: string; fg: string; border: string } {
-    return INTENT_COLORS[statusIntent(status)];
+    const tone = INTENT_COLORS[statusIntent(status)];
+    return { bg: c[tone.soft], fg: c[tone.ink], border: c[tone.line] };
 }
 
 export function CalendarScreen() {

@@ -33,9 +33,10 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useEffect, useState } from "react";
-import { Alert, Share, StyleSheet, Text, View } from "react-native";
+import { Share, StyleSheet, Text, View } from "react-native";
 import {
     Button,
+    confirm,
     DetailSection,
     DetailView,
     ListPage,
@@ -296,14 +297,16 @@ function PaymentRowItem({
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
-        Alert.alert(strings.billing.refundTitle, strings.billing.refundConfirm, [
-            { text: strings.common.cancel, style: "cancel" },
-            {
-                text: strings.billing.refund,
-                style: "destructive",
-                onPress: submit,
-            },
-        ]);
+        confirm({
+            title: strings.billing.refundTitle,
+            message: strings.billing.refundConfirm,
+            confirmLabel: strings.billing.refund,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) submit();
+            })
+            .catch(() => undefined);
     };
 
     return (

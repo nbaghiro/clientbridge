@@ -1,7 +1,7 @@
 import { createPublicReviewClient, strings, usePublicReview } from "@clientbridge/app-core/public";
 import { useParams } from "react-router-dom";
 
-import { Button, Notice, TextField } from "@clientbridge/ui";
+import { Button, Notice, Stars, TextField } from "@clientbridge/ui";
 import { PublicFrame } from "../components/PublicFrame";
 import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
@@ -44,7 +44,7 @@ export function PublicReview() {
                 <p className="mb-2 text-sm font-medium text-ink-soft">
                     {strings.publicReview.ratingLabel}
                 </p>
-                <Stars value={form.rating} onSelect={form.setRating} />
+                <Stars value={form.rating} onSelect={form.setRating} size="lg" />
             </div>
             <div className="mt-4 space-y-4">
                 <TextField
@@ -60,27 +60,5 @@ export function PublicReview() {
                 </Button>
             </div>
         </PublicFrame>
-    );
-}
-
-function Stars({ value, onSelect }: { value: number; onSelect: (n: number) => void }) {
-    return (
-        <div className="flex gap-1">
-            {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                    key={n}
-                    type="button"
-                    onClick={() => {
-                        onSelect(n);
-                    }}
-                    aria-label={strings.publicReview.stars(n)}
-                    className={`text-3xl leading-none transition ${
-                        n <= value ? "text-accent" : "text-line hover:text-accent-line"
-                    }`}
-                >
-                    ★
-                </button>
-            ))}
-        </div>
     );
 }

@@ -5,7 +5,7 @@ import {
     strings,
     usePublicShop,
 } from "@clientbridge/app-core/public";
-import { Button, CardForm, Empty, ItemImage, Notice, TextField } from "@clientbridge/ui";
+import { Button, CardForm, Empty, ItemImage, Notice, Stepper, TextField } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
@@ -176,8 +176,6 @@ function ShopCard({
     quantity: number;
     onQuantity: (quantity: number) => void;
 }) {
-    const step =
-        "flex h-8 w-8 items-center justify-center rounded-md border border-line text-ink-soft hover:bg-bg";
     return (
         <li className="flex gap-3 rounded-md border border-line p-3">
             <ItemImage src={item.image_url} name={item.name} size={56} />
@@ -202,29 +200,12 @@ function ShopCard({
                             {strings.publicShop.add}
                         </Button>
                     ) : (
-                        <span className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                aria-label="-"
-                                onClick={() => {
-                                    onQuantity(quantity - 1);
-                                }}
-                                className={step}
-                            >
-                                −
-                            </button>
-                            <span className="w-6 text-center text-sm tabular-nums">{quantity}</span>
-                            <button
-                                type="button"
-                                aria-label="+"
-                                onClick={() => {
-                                    onQuantity(quantity + 1);
-                                }}
-                                className={step}
-                            >
-                                +
-                            </button>
-                        </span>
+                        <Stepper
+                            value={quantity}
+                            onChange={onQuantity}
+                            min={0}
+                            label={strings.publicShop.quantity}
+                        />
                     )}
                 </div>
             </div>

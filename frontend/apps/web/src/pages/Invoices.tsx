@@ -35,6 +35,7 @@ import {
 import {
     Badge,
     Button,
+    confirm,
     DetailSection,
     DetailView,
     ListPage,
@@ -313,8 +314,16 @@ function PaymentRowItem({
     const showRefund = canRefund && isRefundable(payment, payments);
 
     const refund = (): void => {
-        if (!window.confirm(strings.billing.refundConfirm)) return;
-        submit();
+        confirm({
+            title: strings.billing.refundTitle,
+            message: strings.billing.refundConfirm,
+            confirmLabel: strings.billing.refund,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) submit();
+            })
+            .catch(() => undefined);
     };
 
     return (

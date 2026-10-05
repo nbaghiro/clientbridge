@@ -35,11 +35,12 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { type RouteProp, useRoute } from "@react-navigation/native";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
     Badge,
     Button,
+    confirm,
     DetailSection,
     DetailView,
     ListPage,
@@ -202,18 +203,20 @@ function CardRow({ card }: { card: SavedCardRow }) {
     };
 
     const remove = (): void => {
-        Alert.alert(strings.clients.removeMethodTitle, strings.clients.removeMethodConfirm, [
-            { text: strings.common.cancel, style: "cancel" },
-            {
-                text: strings.clients.remove,
-                style: "destructive",
-                onPress: () => {
+        confirm({
+            title: strings.clients.removeMethodTitle,
+            message: strings.clients.removeMethodConfirm,
+            confirmLabel: strings.clients.remove,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) {
                     run(() => detachCard(api, card.id), {
                         errorMessage: strings.clients.removeMethodError,
                     });
-                },
-            },
-        ]);
+                }
+            })
+            .catch(() => undefined);
     };
 
     return (
@@ -286,22 +289,21 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
         sub.current_period_end !== null ? formatDate(parseTimestamp(sub.current_period_end)) : null;
 
     const cancel = (): void => {
-        Alert.alert(
-            strings.clients.cancelSubscriptionTitle,
-            strings.clients.cancelSubscriptionConfirm,
-            [
-                { text: strings.clients.keep, style: "cancel" },
-                {
-                    text: strings.clients.cancelSubscriptionTitle,
-                    style: "destructive",
-                    onPress: () => {
-                        run(() => cancelSubscription(api, sub.id), {
-                            errorMessage: strings.clients.cancelSubscriptionError,
-                        });
-                    },
-                },
-            ],
-        );
+        confirm({
+            title: strings.clients.cancelSubscriptionTitle,
+            message: strings.clients.cancelSubscriptionConfirm,
+            confirmLabel: strings.clients.cancelSubscriptionTitle,
+            cancelLabel: strings.clients.keep,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) {
+                    run(() => cancelSubscription(api, sub.id), {
+                        errorMessage: strings.clients.cancelSubscriptionError,
+                    });
+                }
+            })
+            .catch(() => undefined);
     };
 
     return (

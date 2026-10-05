@@ -8,7 +8,7 @@ import {
     useRecentActivity,
     type ActivityRow,
 } from "@clientbridge/app-core";
-import { ListPage, Money, Stat } from "@clientbridge/ui";
+import { ListPage, Money, PageHeader, Stat } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
@@ -18,12 +18,15 @@ export function Today() {
 
     return (
         <div className="mx-auto max-w-5xl px-8 py-8">
-            <h1 className="font-display text-2xl font-bold text-ink">{strings.today.title}</h1>
-            {canManagePayments(role) ? (
-                <MoneyView />
-            ) : (
-                <p className="mt-0.5 text-sm text-muted">{strings.today.staffSubtitle}</p>
-            )}
+            <PageHeader
+                title={strings.today.title}
+                subtitle={
+                    canManagePayments(role)
+                        ? strings.today.moneySubtitle
+                        : strings.today.staffSubtitle
+                }
+            />
+            {canManagePayments(role) ? <MoneyView /> : null}
         </div>
     );
 }
@@ -34,8 +37,6 @@ function MoneyView() {
 
     return (
         <>
-            <p className="mt-0.5 text-sm text-muted">{strings.today.moneySubtitle}</p>
-
             {summary === "error" ? (
                 <p className="mt-6 text-sm text-muted">{strings.today.numbersError}</p>
             ) : (

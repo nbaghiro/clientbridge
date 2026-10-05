@@ -1,16 +1,9 @@
-import type { BadgeProps, Intent } from "@clientbridge/app-core";
+import type { BadgeProps } from "@clientbridge/app-core";
+import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/theme";
 import { StyleSheet, Text, View } from "react-native";
 
 const c = theme.colors;
-
-const PILL: Record<Intent, { bg: string; fg: string }> = {
-    accent: { bg: c.accentWeak, fg: c.accentStrong },
-    success: { bg: c.okBg, fg: c.okFg },
-    warning: { bg: c.warnBg, fg: c.warnFg },
-    danger: { bg: c.danBg, fg: c.danFg },
-    neutral: { bg: c.bg, fg: c.muted },
-};
 
 export function Badge({ label, intent = "accent", kind = "pill" }: BadgeProps) {
     if (kind === "count") {
@@ -20,7 +13,8 @@ export function Badge({ label, intent = "accent", kind = "pill" }: BadgeProps) {
             </View>
         );
     }
-    const tone = PILL[intent];
+    const p = INTENT_COLORS[intent];
+    const tone = { bg: c[p.soft], fg: c[p.ink] };
     return (
         <View style={[styles.pill, { backgroundColor: tone.bg }]}>
             <Text style={[styles.pillText, { color: tone.fg }]}>{label}</Text>

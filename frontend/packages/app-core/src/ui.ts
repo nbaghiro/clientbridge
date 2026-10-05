@@ -245,6 +245,7 @@ export interface ConfirmOptions {
     title: string;
     message?: string | undefined;
     confirmLabel: string;
+    cancelLabel?: string | undefined;
     destructive?: boolean | undefined;
 }
 

@@ -35,6 +35,7 @@ import {
 import {
     Badge,
     Button,
+    confirm,
     DetailSection,
     DetailView,
     ListPage,
@@ -212,10 +213,20 @@ function CardRow({ card }: { card: SavedCardRow }) {
     };
 
     const remove = (): void => {
-        if (!window.confirm(strings.clients.removeMethodConfirm)) return;
-        run(() => detachCard(api, card.id), {
-            errorMessage: strings.clients.removeMethodError,
-        });
+        confirm({
+            title: strings.clients.removeMethodTitle,
+            message: strings.clients.removeMethodConfirm,
+            confirmLabel: strings.clients.remove,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) {
+                    run(() => detachCard(api, card.id), {
+                        errorMessage: strings.clients.removeMethodError,
+                    });
+                }
+            })
+            .catch(() => undefined);
     };
 
     return (
@@ -291,10 +302,21 @@ function SubscriptionRowItem({ sub }: { sub: SubscriptionRow }) {
         sub.current_period_end !== null ? formatDate(parseTimestamp(sub.current_period_end)) : null;
 
     const cancel = (): void => {
-        if (!window.confirm(strings.clients.cancelSubscriptionConfirm)) return;
-        run(() => cancelSubscription(api, sub.id), {
-            errorMessage: strings.clients.cancelSubscriptionError,
-        });
+        confirm({
+            title: strings.clients.cancelSubscriptionTitle,
+            message: strings.clients.cancelSubscriptionConfirm,
+            confirmLabel: strings.clients.cancelSubscriptionTitle,
+            cancelLabel: strings.clients.keep,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) {
+                    run(() => cancelSubscription(api, sub.id), {
+                        errorMessage: strings.clients.cancelSubscriptionError,
+                    });
+                }
+            })
+            .catch(() => undefined);
     };
 
     return (

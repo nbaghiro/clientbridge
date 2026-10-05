@@ -7,7 +7,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { configureStripe, Loading } from "@clientbridge/ui";
+import { ConfirmHost, configureStripe, Loading } from "@clientbridge/ui";
 
 import { StripeAppProvider } from "./src/components/Stripe";
 import { TabBar } from "./src/components/TabBar";
@@ -57,6 +57,7 @@ export function App() {
     return (
         <SafeAreaProvider>
             <Root />
+            <ConfirmHost />
         </SafeAreaProvider>
     );
 }

@@ -19,7 +19,6 @@ import {
     formatWeekday,
     groupByDay,
     groupByStaff,
-    type Intent,
     layoutDay,
     minutesSinceMidnight,
     monthMatrix,
@@ -55,7 +54,9 @@ import {
     TextField,
     Toggle,
 } from "@clientbridge/ui";
+import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 import {
+    type CSSProperties,
     type SubmitEvent,
     type PointerEvent as ReactPointerEvent,
     type ReactNode,
@@ -86,23 +87,18 @@ interface Lane {
     isToday: boolean;
 }
 
-const INTENT_CLASS: Record<Intent, string> = {
-    accent: "border-accent bg-accent-weak text-accent-strong",
-    success: "border-ok bg-ok-bg text-ok-fg",
-    warning: "border-warn bg-warn-bg text-warn-fg",
-    danger: "border-danger bg-surface text-danger",
-    neutral: "border-line bg-surface text-ink",
-};
-const statusClass = (s: string): string => INTENT_CLASS[statusIntent(s)];
+function statusStyle(s: string): CSSProperties {
+    const tone = INTENT_COLORS[statusIntent(s)];
+    return {
+        backgroundColor: cssVar(tone.soft),
+        color: cssVar(tone.ink),
+        borderColor: cssVar(tone.line),
+    };
+}
 
-const INTENT_DOT: Record<Intent, string> = {
-    accent: "bg-accent",
-    success: "bg-ok",
-    warning: "bg-warn",
-    danger: "bg-danger",
-    neutral: "bg-line",
-};
-const dotClass = (s: string): string => INTENT_DOT[statusIntent(s)];
+const dotStyle = (s: string): CSSProperties => ({
+    backgroundColor: cssVar(INTENT_COLORS[statusIntent(s)].line),
+});
 
 export function Calendar() {
     const [view, setView] = useState<CalendarView>("week");
@@ -412,8 +408,9 @@ function EventBlock({
             onPointerDown={down}
             onPointerMove={move}
             onPointerUp={up}
-            className={`absolute overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs ${snappedDy !== 0 ? "z-20 opacity-90 shadow-md" : ""} ${statusClass(event.status)}`}
+            className={`absolute overflow-hidden rounded-md border-l-4 px-1.5 py-0.5 text-left text-xs ${snappedDy !== 0 ? "z-20 opacity-90 shadow-md" : ""}`}
             style={{
+                ...statusStyle(event.status),
                 top: topPx - offsetPx,
                 height: heightPx,
                 left: `calc(${leftPct}% + 2px)`,
@@ -493,7 +490,8 @@ function MonthView({
                                         onClick={() => {
                                             onEventClick(e);
                                         }}
-                                        className={`block w-full truncate rounded-base border-l-2 px-1 text-left text-[11px] ${statusClass(e.status)}`}
+                                        style={statusStyle(e.status)}
+                                        className="block w-full truncate rounded-base border-l-2 px-1 text-left text-[11px]"
                                     >
                                         {formatTime(e.start)} {eventLabel(e)}
                                     </button>
@@ -548,7 +546,8 @@ function AgendaView({
                                         {formatTime(e.start)}
                                     </div>
                                     <div
-                                        className={`h-2 w-2 shrink-0 rounded-full ${dotClass(e.status)}`}
+                                        style={dotStyle(e.status)}
+                                        className="h-2 w-2 shrink-0 rounded-full"
                                     />
                                     <div className="text-sm font-medium text-ink">
                                         {eventLabel(e)}

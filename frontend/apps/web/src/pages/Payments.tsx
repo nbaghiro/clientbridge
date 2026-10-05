@@ -1,7 +1,7 @@
 import { type PaymentsTabKey, strings, visiblePaymentsTabs } from "@clientbridge/app-core";
 import type { ReactElement } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { Tabs } from "@clientbridge/ui";
+import { PageHeader, Tabs } from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
 import { GiftCards } from "./GiftCards";
@@ -49,19 +49,18 @@ export function Payments() {
 
     return (
         <div className="mx-auto max-w-6xl px-8 py-8">
-            <h1 className="font-display text-2xl font-bold text-ink">
-                {strings.navigation.payments}
-            </h1>
-            <div className="mt-4 border-b border-line">
-                <Tabs
-                    items={tabs}
-                    active={current.key}
-                    onSelect={(key) => {
-                        const navigated = navigate(`/payments/${PAYMENTS_SLUGS[key]}`);
-                        if (navigated) navigated.catch(() => undefined);
-                    }}
-                />
-            </div>
+            <PageHeader title={strings.navigation.payments}>
+                <div className="border-b border-line">
+                    <Tabs
+                        items={tabs}
+                        active={current.key}
+                        onSelect={(key) => {
+                            const navigated = navigate(`/payments/${PAYMENTS_SLUGS[key]}`);
+                            if (navigated) navigated.catch(() => undefined);
+                        }}
+                    />
+                </div>
+            </PageHeader>
             <div className="mt-6">{tabBody(current.key)}</div>
         </div>
     );

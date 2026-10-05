@@ -1,12 +1,5 @@
-import type { BadgeProps, Intent } from "@clientbridge/app-core/public";
-
-const PILL: Record<Intent, string> = {
-    accent: "bg-accent-weak text-accent-strong",
-    success: "bg-ok-bg text-ok-fg",
-    warning: "bg-warn-bg text-warn-fg",
-    danger: "bg-danger-bg text-danger-fg",
-    neutral: "bg-bg text-muted",
-};
+import type { BadgeProps } from "@clientbridge/app-core/public";
+import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 export function Badge({ label, intent = "accent", kind = "pill" }: BadgeProps) {
     if (kind === "count") {
@@ -16,8 +9,12 @@ export function Badge({ label, intent = "accent", kind = "pill" }: BadgeProps) {
             </span>
         );
     }
+    const tone = INTENT_COLORS[intent];
     return (
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PILL[intent]}`}>
+        <span
+            style={{ backgroundColor: cssVar(tone.soft), color: cssVar(tone.ink) }}
+            className="rounded-full px-2 py-0.5 text-xs font-medium"
+        >
             {label}
         </span>
     );

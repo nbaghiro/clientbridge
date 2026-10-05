@@ -17,8 +17,8 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import { Button, Empty, Loading, Notice, Panel, Stat, StatusPill } from "@clientbridge/ui";
+import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Button, Empty, Loading, Notice, Panel, Stat, StatusPill, Stepper } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
@@ -39,23 +39,7 @@ export function Reports() {
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
             <View style={styles.yearRow}>
-                <Pressable
-                    style={styles.step}
-                    onPress={() => {
-                        setYear((y) => y - 1);
-                    }}
-                >
-                    <Text style={styles.stepText}>−</Text>
-                </Pressable>
-                <Text style={styles.year}>{year}</Text>
-                <Pressable
-                    style={styles.step}
-                    onPress={() => {
-                        setYear((y) => y + 1);
-                    }}
-                >
-                    <Text style={styles.stepText}>+</Text>
-                </Pressable>
+                <Stepper value={year} onChange={setYear} label={strings.reports.t4aYear} />
             </View>
 
             {dlError !== null ? <Notice tone="danger">{dlError}</Notice> : null}
@@ -285,18 +269,6 @@ const styles = StyleSheet.create({
     content: { padding: 16, gap: 14 },
     muted: { color: c.muted, fontSize: 14 },
     yearRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20 },
-    step: {
-        width: 40,
-        height: 40,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    stepText: { color: c.ink, fontSize: 22, fontWeight: "600" },
-    year: { color: c.ink, fontSize: 22, fontWeight: "700", minWidth: 72, textAlign: "center" },
     cardBody: { gap: 8 },
     figure: {
         flexDirection: "row",

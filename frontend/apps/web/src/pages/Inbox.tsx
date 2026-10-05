@@ -28,6 +28,7 @@ import {
     Field,
     Modal,
     Notice,
+    PageHeader,
     Select,
     StatusPill,
     Tabs,
@@ -47,16 +48,13 @@ export function Inbox() {
     return (
         <div className="flex h-full flex-col">
             <header className="border-b border-line px-8 pt-6">
-                <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.messaging.title}
-                </h1>
-                {segments.length > 1 ? (
-                    <div className="mt-3">
+                <PageHeader title={strings.messaging.title}>
+                    {segments.length > 1 ? (
                         <Tabs items={segments} active={segment} onSelect={setSegment} />
-                    </div>
-                ) : (
-                    <div className="h-5" />
-                )}
+                    ) : (
+                        <div className="h-1" />
+                    )}
+                </PageHeader>
             </header>
             {segment === "reviews" ? (
                 <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">

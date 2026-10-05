@@ -38,6 +38,7 @@ import {
     Notice,
     SearchField,
     StatusPill,
+    Stepper,
     TextField,
     ui,
 } from "@clientbridge/ui";
@@ -364,28 +365,15 @@ function CartLineRow({
                     {strings.pos.unitEach(formatMoney(line.unitAmountCents))}
                 </Text>
             </View>
-            <View style={styles.stepper}>
-                <Pressable
-                    style={styles.qtyBtn}
-                    onPress={() => {
-                        onQuantity(line.quantity - 1);
-                    }}
-                >
-                    <Text style={styles.qtyText}>−</Text>
-                </Pressable>
-                <Text style={styles.qty}>{line.quantity}</Text>
-                <Pressable
-                    style={styles.qtyBtn}
-                    onPress={() => {
-                        onQuantity(line.quantity + 1);
-                    }}
-                >
-                    <Text style={styles.qtyText}>+</Text>
-                </Pressable>
-            </View>
-            <Pressable onPress={onRemove} hitSlop={8}>
-                <Text style={styles.remove}>×</Text>
-            </Pressable>
+            <Stepper
+                value={line.quantity}
+                onChange={onQuantity}
+                min={0}
+                label={strings.pos.quantity}
+            />
+            <Button variant="quiet" size="sm" label={strings.pos.removeLine} onPress={onRemove}>
+                ×
+            </Button>
         </View>
     );
 }
@@ -580,19 +568,6 @@ const styles = StyleSheet.create({
     lineMain: { flex: 1 },
     lineName: { color: c.ink, fontSize: 14, fontWeight: "600" },
     lineUnit: { color: c.muted, fontSize: 12, marginTop: 1, fontVariant: ["tabular-nums"] },
-    stepper: { flexDirection: "row", alignItems: "center", gap: 8 },
-    qtyBtn: {
-        width: 26,
-        height: 26,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: c.border,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    qtyText: { color: c.inkSoft, fontSize: 16 },
-    qty: { color: c.ink, fontSize: 14, minWidth: 18, textAlign: "center" },
-    remove: { color: c.muted, fontSize: 20, paddingHorizontal: 4 },
     subtotalRow: {
         flexDirection: "row",
         justifyContent: "space-between",

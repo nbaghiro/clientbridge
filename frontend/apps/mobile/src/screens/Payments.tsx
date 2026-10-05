@@ -2,9 +2,9 @@ import { type PaymentsTabKey, strings, visiblePaymentsTabs } from "@clientbridge
 import { theme } from "@clientbridge/tokens/theme";
 import { type RouteProp, useRoute } from "@react-navigation/native";
 import { type ReactElement, useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Tabs } from "@clientbridge/ui";
+import { PageHeader, Tabs } from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
@@ -26,7 +26,9 @@ export function PaymentsScreen() {
 
     return (
         <View style={[styles.screen, { paddingTop: insets.top }]}>
-            <Text style={styles.title}>{strings.navigation.payments}</Text>
+            <View style={styles.title}>
+                <PageHeader title={strings.navigation.payments} />
+            </View>
             {current === undefined ? null : (
                 <>
                     <Tabs items={tabs} active={current.key} onSelect={setTab} />
@@ -56,14 +58,6 @@ function tabBody(key: PaymentsTabKey, createToken: number | undefined): ReactEle
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.colors.bg },
-    title: {
-        color: theme.colors.ink,
-        fontSize: 26,
-        fontWeight: "700",
-        letterSpacing: -0.4,
-        paddingHorizontal: 20,
-        paddingTop: 8,
-        paddingBottom: 6,
-    },
+    title: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 6 },
     body: { flex: 1, paddingTop: 8 },
 });

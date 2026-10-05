@@ -11,7 +11,7 @@ import {
 import type { SubmitEvent } from "react";
 import { useParams } from "react-router-dom";
 
-import { Button, Choice, Field, Notice, Select, TextField, Toggle } from "@clientbridge/ui";
+import { Button, Choice, Field, Notice, Select, Stars, TextField, Toggle } from "@clientbridge/ui";
 import { PublicFrame } from "../components/PublicFrame";
 import { PublicDone, PublicStatus } from "../components/PublicStatus";
 import { useEmbedSuccess } from "../embed";
@@ -155,21 +155,13 @@ function FieldView({
         const current = typeof value === "string" ? Number(value) : 0;
         return (
             <Field label={f.label} hint={help} required={f.required}>
-                <div className="flex gap-1">
-                    {[1, 2, 3, 4, 5].map((n) => (
-                        <button
-                            key={n}
-                            type="button"
-                            aria-label={strings.publicReview.stars(n)}
-                            onClick={() => {
-                                onChange(String(n));
-                            }}
-                            className={`text-2xl ${n <= current ? "text-accent" : "text-line"}`}
-                        >
-                            ★
-                        </button>
-                    ))}
-                </div>
+                <Stars
+                    value={current}
+                    size="lg"
+                    onSelect={(n) => {
+                        onChange(String(n));
+                    }}
+                />
             </Field>
         );
     }

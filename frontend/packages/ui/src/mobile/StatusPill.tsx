@@ -1,16 +1,9 @@
 import type { Intent } from "@clientbridge/app-core";
+import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/theme";
 import { StyleSheet, Text, View } from "react-native";
 
 const c = theme.colors;
-
-const INTENT_COLORS: Record<Intent, { bg: string; fg: string }> = {
-    accent: { bg: c.accentWeak, fg: c.accentStrong },
-    success: { bg: c.okBg, fg: c.okFg },
-    warning: { bg: c.warnBg, fg: c.warnFg },
-    danger: { bg: c.danBg, fg: c.danFg },
-    neutral: { bg: c.bg, fg: c.muted },
-};
 
 /** Raw status values are capitalized; `asWritten` keeps an already-worded label as it is. */
 export function StatusPill({
@@ -22,7 +15,8 @@ export function StatusPill({
     intent: Intent;
     asWritten?: boolean;
 }) {
-    const tone = INTENT_COLORS[intent];
+    const p = INTENT_COLORS[intent];
+    const tone = { bg: c[p.soft], fg: c[p.ink] };
     return (
         <View style={[styles.badge, { backgroundColor: tone.bg }]}>
             <Text style={[styles.text, asWritten ? null : styles.raw, { color: tone.fg }]}>
