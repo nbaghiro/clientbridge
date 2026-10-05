@@ -4,7 +4,7 @@ import { Modal } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 import { connectPowerSync, powersyncUrl } from "../lib/powersync";
-import { useClientState } from "@clientbridge/app-core";
+import { createClient, useClientState } from "@clientbridge/app-core";
 
 // Hidden developer overlay. Open by typing "debug" anywhere, or ⌘/Ctrl+Shift+D. Esc closes.
 export function DebugPanel() {
@@ -96,17 +96,9 @@ function Overlay({ onClose }: { onClose: () => void }) {
     };
 
     const testWrite = async (): Promise<void> => {
-        await db.execute(
-            "INSERT INTO clients (id, business_id, name, status, tags, custom_fields) VALUES (?, ?, ?, ?, ?, ?)",
-            [
-                `cl_test_${Date.now()}`,
-                "bz_birchbark",
-                `Test ${new Date().toLocaleTimeString()}`,
-                "active",
-                "[]",
-                "{}",
-            ],
-        );
+        await createClient(api, {
+            name: `Test ${new Date().toLocaleTimeString()}`,
+        });
         refresh();
         if (selected) exec(`SELECT * FROM "${selected}" LIMIT 200`);
     };
