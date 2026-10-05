@@ -1,5 +1,5 @@
 import { strings, useConnectOnboarding } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";

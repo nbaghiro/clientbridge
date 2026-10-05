@@ -1,6 +1,6 @@
 import type { Intent } from "@clientbridge/app-core";
 import { INTENT_COLORS } from "@clientbridge/tokens";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
 const c = theme.colors;

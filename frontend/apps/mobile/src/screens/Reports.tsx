@@ -15,7 +15,7 @@ import {
     useRemittanceAction,
     useReports,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { Button, Empty, Loading, Notice, Panel, Stat, StatusPill, Stepper } from "@clientbridge/ui";

@@ -1,5 +1,5 @@
 import { type PaymentsTabKey, strings, visiblePaymentsTabs } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { type RouteProp, useRoute } from "@react-navigation/native";
 import { type ReactElement, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";

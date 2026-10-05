@@ -1,5 +1,5 @@
 import { strings, useBusinessId } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { PowerSyncContext, useStatus } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
@@ -17,7 +17,7 @@ import { stripePublishableKey } from "./src/lib/config";
 import { connectPowerSync, db, signOut } from "./src/lib/powersync";
 import { registerForPush } from "./src/lib/push";
 import type { RootStackParamList, TabParamList } from "./src/navigation";
-import { CalendarScreen } from "./src/screens/Calendar";
+import { ScheduleScreen } from "./src/screens/Schedule";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
 import { InboxScreen } from "./src/screens/Inbox";
@@ -46,7 +46,7 @@ function Tabs() {
             screenOptions={{ headerShown: false }}
         >
             <Tab.Screen name="Today" component={TodayScreen} />
-            <Tab.Screen name="Schedule" component={CalendarScreen} />
+            <Tab.Screen name="Schedule" component={ScheduleScreen} />
             <Tab.Screen name="Clients" component={ClientsScreen} />
             <Tab.Screen name="Payments" component={PaymentsScreen} />
         </Tab.Navigator>

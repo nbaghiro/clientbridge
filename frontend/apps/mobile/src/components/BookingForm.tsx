@@ -5,7 +5,7 @@ import {
     strings,
     useBookingForm,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { type ReactNode, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Choice, Modal, Notice } from "@clientbridge/ui";
@@ -28,37 +28,37 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
 
     return (
         <Modal open={visible} onClose={onClose}>
-            <Text style={styles.title}>{strings.calendar.newBooking}</Text>
+            <Text style={styles.title}>{strings.bookings.newBooking}</Text>
             <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-                <Section label={strings.calendar.client}>
+                <Section label={strings.bookings.client}>
                     <Choice
-                        label={strings.calendar.client}
+                        label={strings.bookings.client}
                         options={form.clients.map((cl) => ({ key: cl.id, label: cl.name }))}
                         value={form.clientId}
                         onChange={form.setClientId}
                     />
                 </Section>
-                <Section label={strings.calendar.service}>
+                <Section label={strings.bookings.service}>
                     <Choice
-                        label={strings.calendar.service}
+                        label={strings.bookings.service}
                         options={form.items.map((it) => ({ key: it.id, label: it.name }))}
                         value={form.itemId}
                         onChange={form.setItemId}
                     />
                 </Section>
                 {form.staff.length > 1 ? (
-                    <Section label={strings.calendar.staff}>
+                    <Section label={strings.bookings.staff}>
                         <Choice
-                            label={strings.calendar.staff}
+                            label={strings.bookings.staff}
                             options={form.staff.map((s) => ({ key: s.id, label: staffLabel(s) }))}
                             value={form.effStaff}
                             onChange={form.setStaffId}
                         />
                     </Section>
                 ) : null}
-                <Section label={strings.calendar.date}>
+                <Section label={strings.bookings.date}>
                     <Choice
-                        label={strings.calendar.date}
+                        label={strings.bookings.date}
                         options={days.map((d, i) => ({ key: String(i), label: d.label }))}
                         value={String(dayIdx)}
                         onChange={(i) => {
@@ -66,9 +66,9 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                         }}
                     />
                 </Section>
-                <Section label={strings.calendar.time}>
+                <Section label={strings.bookings.time}>
                     <Choice
-                        label={strings.calendar.time}
+                        label={strings.bookings.time}
                         options={form.timeOptions.map((t, i) => ({
                             key: String(i),
                             label: t.label,
@@ -79,11 +79,11 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                         }}
                     />
                 </Section>
-                <Section label={strings.calendar.repeat}>
+                <Section label={strings.bookings.repeat}>
                     <Choice
-                        label={strings.calendar.repeat}
+                        label={strings.bookings.repeat}
                         options={[
-                            { key: ONCE, label: strings.calendar.oneTime },
+                            { key: ONCE, label: strings.bookings.oneTime },
                             ...RECUR_FREQUENCIES.map((f) => ({ key: f.value, label: f.label })),
                         ]}
                         value={form.repeat ? form.frequency : ONCE}
@@ -96,9 +96,9 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                 </Section>
                 {form.repeat ? (
                     <>
-                        <Section label={strings.calendar.every}>
+                        <Section label={strings.bookings.every}>
                             <Choice
-                                label={strings.calendar.every}
+                                label={strings.bookings.every}
                                 options={[1, 2, 3, 4].map((n) => ({
                                     key: String(n),
                                     label: String(n),
@@ -109,9 +109,9 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                                 }}
                             />
                         </Section>
-                        <Section label={strings.calendar.occurrences}>
+                        <Section label={strings.bookings.occurrences}>
                             <Choice
-                                label={strings.calendar.occurrences}
+                                label={strings.bookings.occurrences}
                                 options={[2, 4, 6, 8, 12].map((n) => ({
                                     key: String(n),
                                     label: String(n),
@@ -133,10 +133,10 @@ export function BookingForm({ visible, onClose }: { visible: boolean; onClose: (
                 </Button>
                 <Button onPress={submit} busy={form.busy}>
                     {form.busy
-                        ? strings.calendar.booking
+                        ? strings.bookings.booking
                         : form.repeat
-                          ? strings.calendar.bookSeries
-                          : strings.calendar.book}
+                          ? strings.bookings.bookSeries
+                          : strings.bookings.book}
                 </Button>
             </View>
         </Modal>

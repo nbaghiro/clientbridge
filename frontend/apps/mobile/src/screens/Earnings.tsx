@@ -9,7 +9,7 @@ import {
     useEarnings,
     type EarningRow,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, ListPage, Money, Notice, StatusPill } from "@clientbridge/ui";
 

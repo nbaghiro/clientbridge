@@ -1,5 +1,5 @@
 import { type UploadTarget, strings, useFileUpload } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { Button, Notice } from "@clientbridge/ui";
 import { StyleSheet, Text, View } from "react-native";
 

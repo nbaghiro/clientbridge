@@ -43,7 +43,7 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await page.waitForTimeout(6000);
 
     await navigate(page, "/schedule");
-    await openAndClose(page, strings.calendar.newBookingButton);
+    await openAndClose(page, strings.bookings.newBookingButton);
 
     await navigate(page, "/clients");
     await openAndClose(page, strings.clients.addClient);

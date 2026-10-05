@@ -1,5 +1,5 @@
 import { type DetailSectionProps, type DetailViewProps, strings } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { StatusPill } from "./StatusPill";

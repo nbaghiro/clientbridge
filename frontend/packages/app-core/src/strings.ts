@@ -208,7 +208,7 @@ export const strings = {
             redeemError: "Couldn't redeem this gift card. Please try again.",
         },
     },
-    calendar: {
+    bookings: {
         eventTooltip: (time: string, title: string, subtitle: string) =>
             [time, title, subtitle].filter(Boolean).join(" · "),
         collectDepositError: "Couldn't collect the deposit. Please try again.",

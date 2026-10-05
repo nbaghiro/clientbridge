@@ -31,7 +31,7 @@ import {
     useLines,
     useSearch,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { useEffect, useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import {

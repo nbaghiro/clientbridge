@@ -19,7 +19,7 @@ import {
     useThreads,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import {
     FlatList,

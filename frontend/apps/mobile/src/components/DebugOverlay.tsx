@@ -1,5 +1,5 @@
 // Hidden debug view (mobile) — opened by the 5-tap wordmark gesture. Shows live PowerSync + local rows.
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useClientState } from "@clientbridge/app-core";

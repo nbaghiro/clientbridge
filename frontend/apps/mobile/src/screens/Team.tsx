@@ -14,7 +14,7 @@ import {
     useStaffPay,
     useStaffPayForm,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { type ReactNode, useState } from "react";
 import { Share, StyleSheet, Text, View } from "react-native";
 import {

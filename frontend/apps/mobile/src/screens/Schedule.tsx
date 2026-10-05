@@ -30,7 +30,7 @@ import {
     weekColumns,
 } from "@clientbridge/app-core";
 import { INTENT_COLORS } from "@clientbridge/tokens";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { useRef, useState } from "react";
 import {
     Animated,
@@ -70,7 +70,7 @@ function statusColors(status: string): { bg: string; fg: string; border: string 
     return { bg: c[tone.soft], fg: c[tone.ink], border: c[tone.line] };
 }
 
-export function CalendarScreen() {
+export function ScheduleScreen() {
     const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
     const [view, setView] = useState<View2>("agenda");
     const [detail, setDetail] = useState<CalendarEvent | null>(null);
@@ -90,8 +90,8 @@ export function CalendarScreen() {
                     pill
                     inset={false}
                     items={[
-                        { key: "agenda", label: strings.calendar.viewAgenda },
-                        { key: "day", label: strings.calendar.viewDay },
+                        { key: "agenda", label: strings.bookings.viewAgenda },
+                        { key: "day", label: strings.bookings.viewDay },
                     ]}
                     active={view}
                     onSelect={setView}
@@ -102,7 +102,7 @@ export function CalendarScreen() {
                 <Button
                     variant="quiet"
                     size="sm"
-                    label={strings.calendar.prev}
+                    label={strings.bookings.prev}
                     onPress={() => {
                         setAnchor((a) => shiftAnchor("week", a, -1));
                     }}
@@ -138,7 +138,7 @@ export function CalendarScreen() {
                 <Button
                     variant="quiet"
                     size="sm"
-                    label={strings.calendar.next}
+                    label={strings.bookings.next}
                     onPress={() => {
                         setAnchor((a) => shiftAnchor("week", a, 1));
                     }}
@@ -172,7 +172,7 @@ function AgendaList({
     onEventPress: (e: CalendarEvent) => void;
 }) {
     if (events.length === 0) {
-        return <Empty message={strings.calendar.noBookings} />;
+        return <Empty message={strings.bookings.noBookings} />;
     }
     return (
         <ScrollView contentContainerStyle={styles.agenda}>
@@ -351,7 +351,7 @@ function EventDetailSheet({ event, onClose }: { event: CalendarEvent; onClose: (
             actions={
                 event.bookingId !== null && event.status !== "canceled" ? (
                     <Button variant="danger" onPress={cancel} busy={busy}>
-                        {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
+                        {busy ? strings.bookings.canceling : strings.bookings.cancelBooking}
                     </Button>
                 ) : undefined
             }
@@ -371,8 +371,8 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
     if (addons.addons.length === 0) return null;
 
     return (
-        <DetailSection title={strings.calendar.addonsTitle}>
-            <Text style={ui.note}>{strings.calendar.addonsNote}</Text>
+        <DetailSection title={strings.bookings.addonsTitle}>
+            <Text style={ui.note}>{strings.bookings.addonsNote}</Text>
             {addons.addons.map((a) => (
                 <View key={a.id} style={styles.addonRow}>
                     <Text style={styles.addonName} numberOfLines={1}>
@@ -390,18 +390,18 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
                                 addons.remove(a.id);
                             }}
                         >
-                            {strings.calendar.addonRemove}
+                            {strings.bookings.addonRemove}
                         </Button>
                     ) : null}
                 </View>
             ))}
             {addons.invoiceId !== null ? (
-                <Text style={ui.note}>{strings.calendar.visitInvoiced}</Text>
+                <Text style={ui.note}>{strings.bookings.visitInvoiced}</Text>
             ) : null}
             {addons.canInvoice ? (
                 <View style={styles.invoice}>
                     <Button variant="outline" disabled={addons.busy} onPress={addons.createInvoice}>
-                        {strings.calendar.invoiceVisit}
+                        {strings.bookings.invoiceVisit}
                     </Button>
                 </View>
             ) : null}
@@ -418,7 +418,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
 
     return (
         <DetailSection
-            title={strings.calendar.deposit}
+            title={strings.bookings.deposit}
             action={
                 <StatusPill
                     status={event.depositStatus}
@@ -432,8 +432,8 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     checkout={deposit.checkout}
                     methods={checkoutMethods(cards)}
                     amountLabel={amountLabel}
-                    submitLabel={strings.calendar.collectAmount(amountLabel)}
-                    busyLabel={strings.calendar.collecting}
+                    submitLabel={strings.bookings.collectAmount(amountLabel)}
+                    busyLabel={strings.bookings.collecting}
                     onSubmit={deposit.submit}
                     onCancel={onClose}
                 />

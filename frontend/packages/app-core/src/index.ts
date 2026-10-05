@@ -12,7 +12,7 @@ export * from "./domain/clients";
 export * from "./domain/catalog";
 export * from "./domain/today";
 export * from "./domain/staff";
-export * from "./domain/calendar";
+export * from "./domain/bookings";
 export * from "./domain/hours";
 export * from "./domain/navigation";
 export * from "./domain/billing";

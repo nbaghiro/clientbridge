@@ -7,7 +7,7 @@ import {
     type ToggleProps,
     strings,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import type { ReactNode } from "react";
 import { StyleSheet, Switch, Text, TextInput, View, type KeyboardTypeOptions } from "react-native";
 

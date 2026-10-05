@@ -1,5 +1,5 @@
 import { BUSINESS_TEXT_FIELDS, LOCALES, strings, useBusinessForm } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button, Loading, Notice, Select, TextField } from "@clientbridge/ui";

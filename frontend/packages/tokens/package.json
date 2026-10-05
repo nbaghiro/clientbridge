@@ -7,7 +7,7 @@
     "exports": {
         ".": "./src/index.ts",
         "./tailwind.css": "./src/tailwind.css",
-        "./theme": "./src/theme.ts",
+        "./native": "./src/native.ts",
         "./themes.css": "./src/themes.css"
     },
     "scripts": {

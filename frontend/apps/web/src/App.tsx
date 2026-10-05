@@ -11,7 +11,7 @@ import { api, onSignedOut } from "./lib/api";
 import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
-import { Calendar } from "./pages/Calendar";
+import { Schedule } from "./pages/Schedule";
 import { Clients } from "./pages/Clients";
 import { Inbox } from "./pages/Inbox";
 import { Onboarding } from "./pages/Onboarding";
@@ -94,7 +94,7 @@ function AppRoutes({
                     <Route element={<AppShell onSignOut={onSignOut} />}>
                         <Route index element={<Navigate to="/today" replace />} />
                         <Route path="today" element={<Today />} />
-                        <Route path="schedule" element={<Calendar />} />
+                        <Route path="schedule" element={<Schedule />} />
                         <Route path="clients" element={<Clients />} />
                         <Route path="payments/:tab?" element={<Payments />} />
                         <Route path="inbox" element={<Inbox />} />

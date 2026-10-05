@@ -1,5 +1,5 @@
 import { type LoadingProps, strings } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 export function Loading({ label, inline = false }: LoadingProps) {

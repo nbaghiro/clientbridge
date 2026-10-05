@@ -1,4 +1,4 @@
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 export function Tabs<K extends string>({

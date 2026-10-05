@@ -1,5 +1,5 @@
 import type { ListPageProps } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { IconPlus } from "./Icons";

@@ -4,7 +4,7 @@ import {
     canSeePaymentsTab,
     strings,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { type ReactElement, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";

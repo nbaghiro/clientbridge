@@ -72,11 +72,11 @@ const HOUR_PX = 48;
 const MIN_HOUR_PX = 44;
 
 const VIEWS: { key: CalendarView; label: string }[] = [
-    { key: "day", label: strings.calendar.viewDay },
-    { key: "week", label: strings.calendar.viewWeek },
-    { key: "month", label: strings.calendar.viewMonth },
-    { key: "staff", label: strings.calendar.viewStaff },
-    { key: "agenda", label: strings.calendar.viewAgenda },
+    { key: "day", label: strings.bookings.viewDay },
+    { key: "week", label: strings.bookings.viewWeek },
+    { key: "month", label: strings.bookings.viewMonth },
+    { key: "staff", label: strings.bookings.viewStaff },
+    { key: "agenda", label: strings.bookings.viewAgenda },
 ];
 
 interface Lane {
@@ -100,7 +100,7 @@ const dotStyle = (s: string): CSSProperties => ({
     backgroundColor: cssVar(INTENT_COLORS[statusIntent(s)].line),
 });
 
-export function Calendar() {
+export function Schedule() {
     const [view, setView] = useState<CalendarView>("week");
     const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
     const [booking, setBooking] = useState(false);
@@ -150,13 +150,13 @@ export function Calendar() {
                                 setAnchor(startOfDay(new Date()));
                             }}
                         >
-                            {strings.calendar.today}
+                            {strings.bookings.today}
                         </Button>
                         <div className="flex items-center">
                             <Button
                                 variant="quiet"
                                 size="sm"
-                                label={strings.calendar.prev}
+                                label={strings.bookings.prev}
                                 onPress={() => {
                                     setAnchor((a) => shiftAnchor(view, a, -1));
                                 }}
@@ -166,7 +166,7 @@ export function Calendar() {
                             <Button
                                 variant="quiet"
                                 size="sm"
-                                label={strings.calendar.next}
+                                label={strings.bookings.next}
                                 onPress={() => {
                                     setAnchor((a) => shiftAnchor(view, a, 1));
                                 }}
@@ -179,7 +179,7 @@ export function Calendar() {
                     <div className="flex items-center gap-2">
                         <Choice
                             layout="segmented"
-                            label={strings.calendar.viewLabel}
+                            label={strings.bookings.viewLabel}
                             options={VIEWS}
                             value={view}
                             onChange={setView}
@@ -190,7 +190,7 @@ export function Calendar() {
                                 setBooking(true);
                             }}
                         >
-                            {strings.calendar.newBookingButton}
+                            {strings.bookings.newBookingButton}
                         </Button>
                     </div>
                 </header>
@@ -419,7 +419,7 @@ function EventBlock({
                 cursor: canDrag ? "grab" : "pointer",
                 touchAction: "none",
             }}
-            title={strings.calendar.eventTooltip(
+            title={strings.bookings.eventTooltip(
                 formatTime(event.start),
                 event.title,
                 event.subtitle,
@@ -498,7 +498,7 @@ function MonthView({
                                 ))}
                                 {dayEvents.length > 3 ? (
                                     <div className="px-1 text-[11px] text-muted">
-                                        {strings.calendar.moreCount(dayEvents.length - 3)}
+                                        {strings.bookings.moreCount(dayEvents.length - 3)}
                                     </div>
                                 ) : null}
                             </div>
@@ -529,7 +529,7 @@ function AgendaView({
                 return (
                     <div key={day.toISOString()} className="border-b border-line py-3">
                         <div className="mb-2 text-sm font-semibold text-ink">
-                            {sameDay(day, now) ? strings.calendar.todayPrefix : ""}
+                            {sameDay(day, now) ? strings.bookings.todayPrefix : ""}
                             {formatFullDate(day)}
                         </div>
                         <div className="space-y-1">
@@ -595,28 +595,28 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
     return (
         <Modal onClose={onClose}>
             <form onSubmit={submit} className="space-y-3">
-                <h2 className="text-lg font-semibold text-ink">{strings.calendar.newBooking}</h2>
+                <h2 className="text-lg font-semibold text-ink">{strings.bookings.newBooking}</h2>
                 <Select
-                    label={strings.calendar.client}
+                    label={strings.bookings.client}
                     value={form.clientId}
                     options={[
-                        { key: "", label: strings.calendar.selectClient },
+                        { key: "", label: strings.bookings.selectClient },
                         ...form.clients.map((cl) => ({ key: cl.id, label: cl.name })),
                     ]}
                     onChange={form.setClientId}
                 />
                 <Select
-                    label={strings.calendar.service}
+                    label={strings.bookings.service}
                     value={form.itemId}
                     options={[
-                        { key: "", label: strings.calendar.selectService },
+                        { key: "", label: strings.bookings.selectService },
                         ...form.items.map((it) => ({ key: it.id, label: it.name })),
                     ]}
                     onChange={form.setItemId}
                 />
                 {form.staff.length > 1 ? (
                     <Select
-                        label={strings.calendar.staff}
+                        label={strings.bookings.staff}
                         value={form.effStaff}
                         options={form.staff.map((s) => ({ key: s.id, label: staffLabel(s) }))}
                         onChange={form.setStaffId}
@@ -624,27 +624,27 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                 ) : null}
                 <div className="grid grid-cols-2 gap-2">
                     <TextField
-                        label={strings.calendar.date}
+                        label={strings.bookings.date}
                         type="date"
                         value={date}
                         onChange={setDate}
                     />
                     <TextField
-                        label={strings.calendar.time}
+                        label={strings.bookings.time}
                         type="time"
                         value={time}
                         onChange={setTime}
                     />
                 </div>
                 <Toggle
-                    label={strings.calendar.repeatBooking}
+                    label={strings.bookings.repeatBooking}
                     value={form.repeat}
                     onChange={form.setRepeat}
                 />
                 {form.repeat ? (
                     <div className="grid grid-cols-[5rem_1fr_6rem] items-end gap-2">
                         <TextField
-                            label={strings.calendar.every}
+                            label={strings.bookings.every}
                             type="number"
                             value={String(form.interval)}
                             onChange={(v) => {
@@ -652,7 +652,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                             }}
                         />
                         <Select
-                            label={strings.calendar.frequency}
+                            label={strings.bookings.frequency}
                             value={form.frequency}
                             options={RECUR_FREQUENCIES.map((f) => ({
                                 key: f.value,
@@ -663,7 +663,7 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                             }}
                         />
                         <TextField
-                            label={strings.calendar.occurrences}
+                            label={strings.bookings.occurrences}
                             type="number"
                             value={String(form.count)}
                             onChange={(v) => {
@@ -680,10 +680,10 @@ function AddBookingModal({ anchor, onClose }: { anchor: Date; onClose: () => voi
                     </Button>
                     <Button submit busy={form.busy}>
                         {form.busy
-                            ? strings.calendar.booking
+                            ? strings.bookings.booking
                             : form.repeat
-                              ? strings.calendar.bookSeries
-                              : strings.calendar.book}
+                              ? strings.bookings.bookSeries
+                              : strings.bookings.book}
                     </Button>
                 </div>
             </form>
@@ -703,7 +703,7 @@ function EventDetail({ event, onClose }: { event: CalendarEvent; onClose: () => 
             actions={
                 event.bookingId !== null && event.status !== "canceled" ? (
                     <Button variant="danger" onPress={cancel} busy={busy}>
-                        {busy ? strings.calendar.canceling : strings.calendar.cancelBooking}
+                        {busy ? strings.bookings.canceling : strings.bookings.cancelBooking}
                     </Button>
                 ) : undefined
             }
@@ -723,8 +723,8 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
     if (addons.addons.length === 0) return null;
 
     return (
-        <DetailSection title={strings.calendar.addonsTitle}>
-            <p className="text-xs text-muted">{strings.calendar.addonsNote}</p>
+        <DetailSection title={strings.bookings.addonsTitle}>
+            <p className="text-xs text-muted">{strings.bookings.addonsNote}</p>
             <ul className="mt-2 divide-y divide-line-soft">
                 {addons.addons.map((a) => (
                     <li key={a.id} className="flex items-center gap-3 py-2 text-sm">
@@ -743,19 +743,19 @@ function AddonsSection({ event }: { event: CalendarEvent }) {
                                     addons.remove(a.id);
                                 }}
                             >
-                                {strings.calendar.addonRemove}
+                                {strings.bookings.addonRemove}
                             </Button>
                         ) : null}
                     </li>
                 ))}
             </ul>
             {addons.invoiceId !== null ? (
-                <p className="mt-2 text-xs text-muted">{strings.calendar.visitInvoiced}</p>
+                <p className="mt-2 text-xs text-muted">{strings.bookings.visitInvoiced}</p>
             ) : null}
             {addons.canInvoice ? (
                 <div className="mt-3">
                     <Button variant="outline" disabled={addons.busy} onPress={addons.createInvoice}>
-                        {strings.calendar.invoiceVisit}
+                        {strings.bookings.invoiceVisit}
                     </Button>
                 </div>
             ) : null}
@@ -772,7 +772,7 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
 
     return (
         <DetailSection
-            title={strings.calendar.deposit}
+            title={strings.bookings.deposit}
             action={
                 <StatusPill
                     status={event.depositStatus}
@@ -786,8 +786,8 @@ function DepositSection({ event, onClose }: { event: CalendarEvent; onClose: () 
                     checkout={deposit.checkout}
                     methods={checkoutMethods(cards)}
                     amountLabel={amountLabel}
-                    submitLabel={strings.calendar.collectAmount(amountLabel)}
-                    busyLabel={strings.calendar.collecting}
+                    submitLabel={strings.bookings.collectAmount(amountLabel)}
+                    busyLabel={strings.bookings.collecting}
                     onSubmit={deposit.submit}
                     onCancel={onClose}
                 />

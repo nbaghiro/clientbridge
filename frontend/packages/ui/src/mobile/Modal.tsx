@@ -1,5 +1,5 @@
 import { type ModalProps, strings } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { Modal as NativeModal, Pressable, StyleSheet, View } from "react-native";
 
 const c = theme.colors;

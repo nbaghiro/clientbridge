@@ -1,4 +1,4 @@
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet } from "react-native";
 
 const c = theme.colors;

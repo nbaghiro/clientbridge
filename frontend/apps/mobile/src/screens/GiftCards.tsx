@@ -5,7 +5,7 @@ import {
     strings,
     useGiftCards,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, ListPage, Money, Notice, Panel, StatusPill, TextField } from "@clientbridge/ui";

@@ -1,5 +1,5 @@
 import type { ChoiceProps } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const c = theme.colors;

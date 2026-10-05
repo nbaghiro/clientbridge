@@ -514,7 +514,7 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
   in `pnpm lint` fails when a concept's names drift apart. Related things share one concept:
   `entitlements` holds packages, memberships and gift cards, and `business` holds the profile and
   onboarding. A page named by its nav label maps to its concept (Invoices → billing, Inbox → messaging,
-  Team → staff, Gift cards → entitlements, Onboarding → business).
+  Team → staff, Schedule → bookings, Gift cards → entitlements, Onboarding → business).
 - **Two entrypoints:** `index.ts` (full) and **`public.ts`** — the PowerSync-free lean subpath the Connect
   app imports.
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`
@@ -613,4 +613,4 @@ source, with a **CI drift gate** that fails if the committed output diverges.
 `api-client`'s `session.ts` owns transparent token refresh (single-flight, retries once on 401, refreshes
 only on a definitive 401/403 so a network blip doesn't wipe the replica) and injects the token-store seam.
 `tokens` feeds both platforms from one source: web via CSS variables + a Tailwind v4 @theme (tailwind.css), mobile via
-materialized JS values.
+materialized JS values (`@clientbridge/tokens/native`).

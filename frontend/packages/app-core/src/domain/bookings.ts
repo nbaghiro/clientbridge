@@ -380,9 +380,9 @@ export type RecurFrequency = "day" | "week" | "month";
 
 /** `label` for a chip ("Weekly"), `unit` for an "Every N" control ("Weeks"). */
 export const RECUR_FREQUENCIES: { value: RecurFrequency; label: string; unit: string }[] = [
-    { value: "day", label: strings.calendar.freqDaily, unit: strings.calendar.unitDays },
-    { value: "week", label: strings.calendar.freqWeekly, unit: strings.calendar.unitWeeks },
-    { value: "month", label: strings.calendar.freqMonthly, unit: strings.calendar.unitMonths },
+    { value: "day", label: strings.bookings.freqDaily, unit: strings.bookings.unitDays },
+    { value: "week", label: strings.bookings.freqWeekly, unit: strings.bookings.unitWeeks },
+    { value: "month", label: strings.bookings.freqMonthly, unit: strings.bookings.unitMonths },
 ];
 
 export interface RecurrenceResult {
@@ -467,7 +467,7 @@ export function useCancelBooking(
         }
         run(() => setBookingStatus(api, bookingId, "canceled"), {
             onSuccess: onDone,
-            errorMessage: strings.calendar.cancelError,
+            errorMessage: strings.bookings.cancelError,
         });
     };
     return { busy, error, cancel };
@@ -535,7 +535,7 @@ export function useCollectDeposit(
                     ...(paymentMethodId !== undefined ? { paymentMethodId } : {}),
                     idempotencyKey,
                 }),
-            strings.calendar.collectDepositError,
+            strings.bookings.collectDepositError,
         );
     };
 
@@ -589,14 +589,14 @@ export function useBookingAddons(
         canInvoice: open && admin,
         remove: (addonId) => {
             run(() => api.delete(`/v1/bookings/${bookingId}/addons/${addonId}`), {
-                errorMessage: strings.calendar.addonRemoveError,
+                errorMessage: strings.bookings.addonRemoveError,
             });
         },
         createInvoice: () => {
             key.current ??= newIdempotencyKey();
             const idempotencyKey = key.current;
             run(() => api.post(`/v1/invoices/from-booking/${bookingId}`, {}, { idempotencyKey }), {
-                errorMessage: strings.calendar.invoiceVisitError,
+                errorMessage: strings.bookings.invoiceVisitError,
             });
         },
         busy,
@@ -682,7 +682,7 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
             startsAt === null ||
             Number.isNaN(startsAt.getTime())
         ) {
-            setError(strings.calendar.incompleteBooking);
+            setError(strings.bookings.incompleteBooking);
             return;
         }
         setNotice(null);
@@ -712,14 +712,14 @@ export function useBookingForm(api: ApiLike, onCreated: () => void): BookingForm
                     setItemId("");
                     // A clean series closes; one that skipped occurrences stays open with a notice.
                     if (repeat && skipped > 0) {
-                        setNotice(strings.calendar.seriesSkippedNotice(created, skipped));
+                        setNotice(strings.bookings.seriesSkippedNotice(created, skipped));
                     } else {
                         onCreated();
                     }
                 },
                 errorMessage: repeat
-                    ? strings.calendar.createSeriesError
-                    : strings.calendar.bookError,
+                    ? strings.bookings.createSeriesError
+                    : strings.bookings.bookError,
             },
         );
     };

@@ -20,6 +20,7 @@ const PAGE_CONCEPT = {
     invoices: "billing",
     inbox: "messaging",
     team: "staff",
+    schedule: "bookings",
     giftCards: "entitlements",
     onboarding: "business",
 };
@@ -102,12 +103,12 @@ const HAND_STYLED_OK = new Set([
     "apps/web/src/components/DebugPanel.tsx",
     "apps/web/src/components/DocEditor.tsx",
     "apps/web/src/components/ItemImageUpload.tsx",
-    "apps/web/src/pages/Calendar.tsx",
+    "apps/web/src/pages/Schedule.tsx",
     "apps/web/src/pages/Inbox.tsx",
     "apps/web/src/pages/POS.tsx",
     "apps/mobile/src/components/DocEditor.tsx",
     "apps/mobile/src/components/TabBar.tsx",
-    "apps/mobile/src/screens/Calendar.tsx",
+    "apps/mobile/src/screens/Schedule.tsx",
     "apps/mobile/src/screens/POS.tsx",
     "apps/mobile/src/screens/Setup.tsx",
 ]);

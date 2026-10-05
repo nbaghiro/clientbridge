@@ -9,7 +9,7 @@ import {
     useClients,
     useDocForm,
 } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button, Choice, ItemImage, Modal, Notice, TextField } from "@clientbridge/ui";

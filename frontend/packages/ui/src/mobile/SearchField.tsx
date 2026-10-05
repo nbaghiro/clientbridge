@@ -1,5 +1,5 @@
 import type { SearchFieldProps } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, TextInput, View } from "react-native";
 
 import { IconSearch } from "./Icons";

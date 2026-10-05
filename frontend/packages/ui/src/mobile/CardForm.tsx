@@ -1,5 +1,5 @@
 import { strings, useAsyncAction } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/theme";
+import { theme } from "@clientbridge/tokens/native";
 import {
     CardField,
     type CardFieldInput,
