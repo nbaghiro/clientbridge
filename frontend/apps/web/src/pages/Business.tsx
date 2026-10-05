@@ -1,9 +1,9 @@
 import {
-    ACCOUNT_TEXT_FIELDS,
+    BUSINESS_TEXT_FIELDS,
     LOCALES,
     logoTarget,
     strings,
-    useAccountForm,
+    useBusinessForm,
     useFileUpload,
 } from "@clientbridge/app-core";
 import { type ChangeEvent, useRef } from "react";
@@ -11,13 +11,13 @@ import { type ChangeEvent, useRef } from "react";
 import { Button, Field, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
 import { api, apiBaseUrl } from "../lib/api";
 
-export function Account() {
-    const form = useAccountForm(api);
+export function Business() {
+    const form = useBusinessForm(api);
     const fields = form.fields;
 
     return (
         <div>
-            <p className="mt-1 text-sm text-muted">{strings.account.subtitle}</p>
+            <p className="mt-1 text-sm text-muted">{strings.business.subtitle}</p>
 
             <div className="mt-6 max-w-lg">
                 <Panel>
@@ -31,7 +31,7 @@ export function Account() {
                                 form.submit();
                             }}
                         >
-                            {ACCOUNT_TEXT_FIELDS.map((f) => (
+                            {BUSINESS_TEXT_FIELDS.map((f) => (
                                 <TextField
                                     key={f.key}
                                     label={f.label}
@@ -45,7 +45,7 @@ export function Account() {
                             ))}
                             {LOCALES.length > 1 ? (
                                 <Select
-                                    label={strings.account.language}
+                                    label={strings.business.language}
                                     value={fields.locale}
                                     options={LOCALES.map((l) => ({ key: l.code, label: l.label }))}
                                     onChange={(v) => {
@@ -56,10 +56,10 @@ export function Account() {
                             ) : null}
                             <div className="border-t border-line pt-4">
                                 <h2 className="font-display text-sm font-semibold text-ink">
-                                    {strings.account.brandTitle}
+                                    {strings.business.brandTitle}
                                 </h2>
                                 <p className="mt-0.5 text-xs text-muted">
-                                    {strings.account.brandSubtitle}
+                                    {strings.business.brandSubtitle}
                                 </p>
                                 <div className="mt-3 space-y-4">
                                     {form.businessId !== null ? (
@@ -71,7 +71,7 @@ export function Account() {
                                             }}
                                         />
                                     ) : null}
-                                    <Field label={strings.account.primaryLabel}>
+                                    <Field label={strings.business.primaryLabel}>
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="color"
@@ -79,27 +79,27 @@ export function Account() {
                                                 onChange={(e) => {
                                                     form.set("primary", e.target.value);
                                                 }}
-                                                aria-label={strings.account.primaryLabel}
+                                                aria-label={strings.business.primaryLabel}
                                                 className="h-10 w-14 shrink-0 rounded-md border border-line bg-bg"
                                             />
                                             <TextField
-                                                name={strings.account.primaryLabel}
+                                                name={strings.business.primaryLabel}
                                                 value={fields.primary}
                                                 onChange={(v) => {
                                                     form.set("primary", v);
                                                 }}
-                                                placeholder={strings.account.primaryPlaceholder}
+                                                placeholder={strings.business.primaryPlaceholder}
                                                 size="lg"
                                             />
                                         </div>
                                     </Field>
                                     <TextField
-                                        label={strings.account.taglineLabel}
+                                        label={strings.business.taglineLabel}
                                         value={fields.tagline}
                                         onChange={(v) => {
                                             form.set("tagline", v);
                                         }}
-                                        placeholder={strings.account.taglinePlaceholder}
+                                        placeholder={strings.business.taglinePlaceholder}
                                         size="lg"
                                     />
                                 </div>

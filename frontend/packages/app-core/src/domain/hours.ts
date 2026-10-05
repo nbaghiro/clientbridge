@@ -2,7 +2,7 @@ import { usePowerSync, useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
-import { useBusinessId } from "./account";
+import { useBusinessId } from "./business";
 import { strings } from "../strings";
 import { newRowId } from "../api";
 

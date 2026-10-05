@@ -1,4 +1,4 @@
-import { ACCOUNT_TEXT_FIELDS, LOCALES, strings, useAccountForm } from "@clientbridge/app-core";
+import { BUSINESS_TEXT_FIELDS, LOCALES, strings, useBusinessForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -8,8 +8,8 @@ import { api } from "../lib/api";
 
 const c = theme.colors;
 
-export function Account({ footer }: { footer?: ReactNode }) {
-    const form = useAccountForm(api);
+export function Business({ footer }: { footer?: ReactNode }) {
+    const form = useBusinessForm(api);
     const fields = form.fields;
 
     if (fields === null) {
@@ -26,9 +26,9 @@ export function Account({ footer }: { footer?: ReactNode }) {
                 contentContainerStyle={styles.content}
                 keyboardShouldPersistTaps="handled"
             >
-                <Text style={styles.note}>{strings.account.subtitle}</Text>
+                <Text style={styles.note}>{strings.business.subtitle}</Text>
 
-                {ACCOUNT_TEXT_FIELDS.map((f) => (
+                {BUSINESS_TEXT_FIELDS.map((f) => (
                     <TextField
                         key={f.key}
                         label={f.label}
@@ -45,7 +45,7 @@ export function Account({ footer }: { footer?: ReactNode }) {
 
                 {LOCALES.length > 1 ? (
                     <Select
-                        label={strings.account.language}
+                        label={strings.business.language}
                         value={fields.locale}
                         options={LOCALES.map((l) => ({ key: l.code, label: l.label }))}
                         onChange={(v) => {

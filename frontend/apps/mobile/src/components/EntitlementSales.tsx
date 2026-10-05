@@ -32,7 +32,7 @@ export function ClientChips({
     onChange: (id: string) => void;
 }) {
     if (clients.length === 0)
-        return <Text style={ui.note}>{strings.giftCards.addClientFirst}</Text>;
+        return <Text style={ui.note}>{strings.entitlements.giftCards.addClientFirst}</Text>;
     return (
         <Choice
             options={clients.map((cl) => ({ key: cl.id, label: cl.name }))}
@@ -52,27 +52,27 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
 
     return (
         <ChargeSheet
-            title={strings.giftCards.sell}
+            title={strings.entitlements.giftCards.sell}
             checkout={form.checkout}
             methods={checkoutMethods(cards)}
             amountLabel={
                 form.faceAmountCents !== null
                     ? formatMoney(form.faceAmountCents)
-                    : strings.giftCards.amountFallback
+                    : strings.entitlements.giftCards.amountFallback
             }
-            submitLabel={strings.giftCards.sellShort}
-            busyLabel={strings.giftCards.selling}
+            submitLabel={strings.entitlements.giftCards.sellShort}
+            busyLabel={strings.entitlements.giftCards.selling}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <Field label={strings.giftCards.purchaser}>
+            <Field label={strings.entitlements.giftCards.purchaser}>
                 <ClientChips
                     clients={clients}
                     value={form.purchaserClientId}
                     onChange={form.setPurchaserClientId}
                 />
             </Field>
-            <Field label={strings.giftCards.type}>
+            <Field label={strings.entitlements.giftCards.type}>
                 <Choice
                     layout="segmented"
                     options={GIFT_SALE_MODES.map((m) => ({
@@ -84,9 +84,9 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
                 />
             </Field>
             {form.mode === "preset" ? (
-                <Field label={strings.giftCards.giftCard}>
+                <Field label={strings.entitlements.giftCards.giftCard}>
                     {items.length === 0 ? (
-                        <Text style={ui.note}>{strings.giftCards.emptyCatalog}</Text>
+                        <Text style={ui.note}>{strings.entitlements.giftCards.emptyCatalog}</Text>
                     ) : (
                         <Choice
                             options={items.map((it) => ({
@@ -103,19 +103,19 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
                 </Field>
             ) : (
                 <TextField
-                    label={strings.giftCards.amountCad}
+                    label={strings.entitlements.giftCards.amountCad}
                     type="number"
                     value={form.amount}
                     onChange={form.setAmount}
-                    placeholder={strings.giftCards.amountPlaceholder}
+                    placeholder={strings.entitlements.giftCards.amountPlaceholder}
                 />
             )}
             <TextField
-                label={strings.giftCards.recipient}
+                label={strings.entitlements.giftCards.recipient}
                 optional
                 value={form.recipient}
                 onChange={form.setRecipient}
-                placeholder={strings.giftCards.recipientPlaceholder}
+                placeholder={strings.entitlements.giftCards.recipientPlaceholder}
             />
         </ChargeSheet>
     );

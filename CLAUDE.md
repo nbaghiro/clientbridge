@@ -85,7 +85,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   fails on a docstring or comment block longer than one line or a divider banner (in `src`, `tests` and
   `scripts`), a `*_service.py`/`*_jobs.py` file name, a folder deeper than `clientbridge/<layer>/<file>.py`,
   and a test file not named after a concept. In the frontend, `packages/config/scripts/check-structure.mjs` (part of `pnpm lint`)
-  fails on a multi-line comment in any tracked JS/TS file, a lowercase component file, and a concept named differently across app-core, strings, web and mobile (pages named by their nav label map to their concept: Invoices → billing, Inbox → messaging, Team → staff).
+  fails on a multi-line comment in any tracked JS/TS file, a lowercase component file, and a concept named differently across app-core, strings, web and mobile (pages named by their nav label map to their concept: Invoices → billing, Inbox → messaging, Team → staff, Gift cards → entitlements, Onboarding → business).
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed): one baseline
   (`20261005_000000_baseline.py`, squashed before launch) plus linear increments after it. Hand-written
   SQL that autogenerate can't see (the `btree_gist` extension, slot exclusion constraints, ledger

@@ -15,7 +15,9 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
             <div className="flex min-h-screen items-center justify-center bg-bg px-6">
                 <div className="text-center">
                     <Logo className="mx-auto h-8 w-auto text-accent" />
-                    <p className="mt-4 text-sm text-muted">{strings.onboarding.settingUp}</p>
+                    <p className="mt-4 text-sm text-muted">
+                        {strings.business.onboarding.settingUp}
+                    </p>
                 </div>
             </div>
         );
@@ -27,9 +29,9 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                 <Lockup className="mb-8 text-lg text-ink" />
 
                 <h1 className="font-display text-2xl font-bold text-ink">
-                    {strings.onboarding.title}
+                    {strings.business.onboarding.title}
                 </h1>
-                <p className="mt-1 text-sm text-muted">{strings.onboarding.subtitleWeb}</p>
+                <p className="mt-1 text-sm text-muted">{strings.business.onboarding.subtitleWeb}</p>
 
                 <form
                     onSubmit={(e) => {
@@ -39,23 +41,23 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                     className="mt-6 flex flex-col gap-4"
                 >
                     <TextField
-                        label={strings.onboarding.businessName}
+                        label={strings.business.onboarding.businessName}
                         value={form.name}
                         onChange={form.setName}
-                        placeholder={strings.onboarding.businessNamePlaceholder}
+                        placeholder={strings.business.onboarding.businessNamePlaceholder}
                         autoFocus
                         size="lg"
                     />
                     <TextField
-                        label={strings.onboarding.webAddress}
-                        prefix={strings.onboarding.slugPrefix}
+                        label={strings.business.onboarding.webAddress}
+                        prefix={strings.business.onboarding.slugPrefix}
                         value={form.slug}
                         onChange={form.setSlug}
-                        placeholder={strings.onboarding.slugPlaceholder}
+                        placeholder={strings.business.onboarding.slugPlaceholder}
                         size="lg"
                     />
                     <Select
-                        label={strings.onboarding.province}
+                        label={strings.business.onboarding.province}
                         value={form.province}
                         options={PROVINCES.map((p) => ({ key: p.code, label: p.name }))}
                         onChange={form.setProvince}
@@ -66,15 +68,15 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
 
                     <Button submit size="lg" full busy={form.busy}>
                         {form.busy
-                            ? strings.onboarding.creating
-                            : strings.onboarding.createBusiness}
+                            ? strings.business.onboarding.creating
+                            : strings.business.onboarding.createBusiness}
                     </Button>
                 </form>
 
                 <p className="mt-6 text-center text-sm text-muted">
-                    {strings.onboarding.notYou}{" "}
+                    {strings.business.onboarding.notYou}{" "}
                     <Button variant="link" onPress={onSignOut}>
-                        {strings.onboarding.signOut}
+                        {strings.business.onboarding.signOut}
                     </Button>
                 </p>
             </div>

@@ -511,7 +511,10 @@ Everything else — SQL, mutations, validation, status→`Intent` decisions, cop
 - **Layout:** one file per concept in `domain/` (`today`, `hours`, `earnings`, `gettingPaid`, `auth`…),
   named the same as its strings group, web page and mobile screen; the shared plumbing sits flat at the
   root (`api`, `hooks`, `format`, `datetime`, `ui`, `debug`). `packages/config/scripts/check-structure.mjs`
-  in `pnpm lint` fails when a concept's names drift apart.
+  in `pnpm lint` fails when a concept's names drift apart. Related things share one concept:
+  `entitlements` holds packages, memberships and gift cards, and `business` holds the profile and
+  onboarding. A page named by its nav label maps to its concept (Invoices → billing, Inbox → messaging,
+  Team → staff, Gift cards → entitlements, Onboarding → business).
 - **Two entrypoints:** `index.ts` (full) and **`public.ts`** — the PowerSync-free lean subpath the Connect
   app imports.
 - **One checkout.** Every sale (deposit, gift card, package, subscription) runs through `useCheckout`

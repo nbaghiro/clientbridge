@@ -21,9 +21,9 @@ export function GiftCards() {
     return (
         <div className="max-w-3xl">
             <ListPage
-                summary={strings.giftCards.issuedCount(cards.length)}
+                summary={strings.entitlements.giftCards.issuedCount(cards.length)}
                 action={{
-                    label: strings.giftCards.sell,
+                    label: strings.entitlements.giftCards.sell,
                     onPress: () => {
                         setMode(mode === "sell" ? null : "sell");
                     },
@@ -35,7 +35,7 @@ export function GiftCards() {
                             setMode(mode === "redeem" ? null : "redeem");
                         }}
                     >
-                        {strings.giftCards.redeem}
+                        {strings.entitlements.giftCards.redeem}
                     </Button>
                 }
                 banner={
@@ -55,15 +55,15 @@ export function GiftCards() {
                 }
                 head={
                     <div className={GRID}>
-                        <span>{strings.giftCards.code}</span>
-                        <span>{strings.giftCards.recipient}</span>
-                        <span>{strings.giftCards.status}</span>
-                        <span className="text-right">{strings.giftCards.balance}</span>
+                        <span>{strings.entitlements.giftCards.code}</span>
+                        <span>{strings.entitlements.giftCards.recipient}</span>
+                        <span>{strings.entitlements.giftCards.status}</span>
+                        <span className="text-right">{strings.entitlements.giftCards.balance}</span>
                     </div>
                 }
                 rows={cards}
                 rowKey={(card) => card.id}
-                empty={strings.giftCards.emptyList}
+                empty={strings.entitlements.giftCards.emptyList}
                 renderRow={(card) => <GiftCardRowItem card={card} />}
             />
         </div>
@@ -83,7 +83,7 @@ function GiftCardRowItem({ card }: { card: GiftCardRow }) {
                 {card.balance_cents !== card.initial_cents ? (
                     <span className="text-xs text-muted">
                         {" "}
-                        {strings.giftCards.ofInitial(formatMoney(card.initial_cents))}
+                        {strings.entitlements.giftCards.ofInitial(formatMoney(card.initial_cents))}
                     </span>
                 ) : null}
             </span>
@@ -95,7 +95,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardRedeemForm(api, onClose);
 
     return (
-        <Panel title={strings.giftCards.redeemTitle}>
+        <Panel title={strings.entitlements.giftCards.redeemTitle}>
             <form
                 onSubmit={(e) => {
                     e.preventDefault();
@@ -104,17 +104,17 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                 className="space-y-3"
             >
                 <TextField
-                    label={strings.giftCards.code}
+                    label={strings.entitlements.giftCards.code}
                     value={form.code}
                     onChange={form.setCode}
-                    placeholder={strings.giftCards.codePlaceholder}
+                    placeholder={strings.entitlements.giftCards.codePlaceholder}
                 />
                 <TextField
-                    label={strings.giftCards.amountCad}
+                    label={strings.entitlements.giftCards.amountCad}
                     type="number"
                     value={form.amount}
                     onChange={form.setAmount}
-                    placeholder={strings.giftCards.redeemAmountPlaceholder}
+                    placeholder={strings.entitlements.giftCards.redeemAmountPlaceholder}
                 />
                 {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
                 <div className="flex justify-end gap-2">
@@ -122,7 +122,9 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                         {strings.common.cancel}
                     </Button>
                     <Button submit busy={form.busy}>
-                        {form.busy ? strings.giftCards.redeeming : strings.giftCards.redeem}
+                        {form.busy
+                            ? strings.entitlements.giftCards.redeeming
+                            : strings.entitlements.giftCards.redeem}
                     </Button>
                 </div>
             </form>

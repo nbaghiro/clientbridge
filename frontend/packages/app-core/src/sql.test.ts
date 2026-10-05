@@ -949,7 +949,7 @@ describe("app-core SQL against the replica schema", () => {
 
     it("reads the business row", () => {
         expect(run("BUSINESS_ID_SQL")).toEqual([{ id: BIZ }]);
-        expect(pick(run("ACCOUNT_SQL"), "id", "name", "billing_email")).toEqual([
+        expect(pick(run("BUSINESS_SQL"), "id", "name", "billing_email")).toEqual([
             { id: BIZ, name: "Birch Studio", billing_email: "billing@birch.test" },
         ]);
         expect(run("STRIPE_ACCOUNT_SQL")).toEqual([{ stripe_account_id: "acct_1" }]);

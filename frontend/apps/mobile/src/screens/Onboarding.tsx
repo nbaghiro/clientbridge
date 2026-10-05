@@ -20,7 +20,7 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
         return (
             <SafeAreaView style={[styles.screen, styles.center]}>
                 <Logo height={32} color={c.accent} />
-                <Text style={styles.settingUp}>{strings.onboarding.settingUp}</Text>
+                <Text style={styles.settingUp}>{strings.business.onboarding.settingUp}</Text>
             </SafeAreaView>
         );
     }
@@ -44,30 +44,32 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                         style={styles.brand}
                     />
 
-                    <Text style={styles.title}>{strings.onboarding.title}</Text>
-                    <Text style={styles.subtitle}>{strings.onboarding.subtitleMobile}</Text>
+                    <Text style={styles.title}>{strings.business.onboarding.title}</Text>
+                    <Text style={styles.subtitle}>
+                        {strings.business.onboarding.subtitleMobile}
+                    </Text>
 
                     <TextField
-                        label={strings.onboarding.businessName}
+                        label={strings.business.onboarding.businessName}
                         value={form.name}
                         onChange={form.setName}
-                        placeholder={strings.onboarding.businessNamePlaceholder}
+                        placeholder={strings.business.onboarding.businessNamePlaceholder}
                         size="lg"
                         surface="surface"
                     />
                     <TextField
-                        label={strings.onboarding.webAddress}
-                        prefix={strings.onboarding.slugPrefix}
+                        label={strings.business.onboarding.webAddress}
+                        prefix={strings.business.onboarding.slugPrefix}
                         type="url"
                         value={form.slug}
                         onChange={form.setSlug}
-                        placeholder={strings.onboarding.slugPlaceholder}
+                        placeholder={strings.business.onboarding.slugPlaceholder}
                         size="lg"
                         surface="surface"
                     />
-                    <Field label={strings.onboarding.province}>
+                    <Field label={strings.business.onboarding.province}>
                         <Choice
-                            label={strings.onboarding.province}
+                            label={strings.business.onboarding.province}
                             options={PROVINCES.map((p) => ({ key: p.code, label: p.code }))}
                             value={form.province}
                             onChange={form.setProvince}
@@ -78,13 +80,13 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
 
                     <View style={styles.submitGap}>
                         <Button size="lg" full onPress={form.submit} busy={form.busy}>
-                            {strings.onboarding.createBusiness}
+                            {strings.business.onboarding.createBusiness}
                         </Button>
                     </View>
 
                     <View style={styles.signOut}>
                         <Button variant="quiet" onPress={onSignOut}>
-                            {strings.onboarding.notYouSignOut}
+                            {strings.business.onboarding.notYouSignOut}
                         </Button>
                     </View>
                 </ScrollView>

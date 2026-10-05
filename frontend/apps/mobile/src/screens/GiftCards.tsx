@@ -22,7 +22,7 @@ export function GiftCards() {
 
     return (
         <ListPage
-            summary={strings.giftCards.issuedCount(cards.length)}
+            summary={strings.entitlements.giftCards.issuedCount(cards.length)}
             accessory={
                 <Button
                     variant="outline"
@@ -30,11 +30,11 @@ export function GiftCards() {
                         setMode(mode === "redeem" ? null : "redeem");
                     }}
                 >
-                    {strings.giftCards.redeem}
+                    {strings.entitlements.giftCards.redeem}
                 </Button>
             }
             action={{
-                label: strings.giftCards.sell,
+                label: strings.entitlements.giftCards.sell,
                 onPress: () => {
                     setMode(mode === "sell" ? null : "sell");
                 },
@@ -56,7 +56,7 @@ export function GiftCards() {
             }
             rows={cards}
             rowKey={(card) => card.id}
-            empty={strings.giftCards.emptyList}
+            empty={strings.entitlements.giftCards.emptyList}
             renderRow={(card) => <GiftCardItem card={card} />}
         />
     );
@@ -83,19 +83,19 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
     const form = useGiftCardRedeemForm(api, onClose);
 
     return (
-        <Panel title={strings.giftCards.redeemTitle}>
+        <Panel title={strings.entitlements.giftCards.redeemTitle}>
             <TextField
-                label={strings.giftCards.code}
+                label={strings.entitlements.giftCards.code}
                 value={form.code}
                 onChange={form.setCode}
-                placeholder={strings.giftCards.codePlaceholder}
+                placeholder={strings.entitlements.giftCards.codePlaceholder}
             />
             <TextField
-                label={strings.giftCards.amountCad}
+                label={strings.entitlements.giftCards.amountCad}
                 type="number"
                 value={form.amount}
                 onChange={form.setAmount}
-                placeholder={strings.giftCards.redeemAmountPlaceholder}
+                placeholder={strings.entitlements.giftCards.redeemAmountPlaceholder}
             />
 
             {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
@@ -104,7 +104,7 @@ function RedeemGiftCard({ onClose }: { onClose: () => void }) {
                     {strings.common.cancel}
                 </Button>
                 <Button busy={form.busy} onPress={form.submit}>
-                    {strings.giftCards.redeem}
+                    {strings.entitlements.giftCards.redeem}
                 </Button>
             </View>
         </Panel>

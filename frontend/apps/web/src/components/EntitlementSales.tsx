@@ -30,21 +30,21 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
 
     return (
         <ChargeSheet
-            title={strings.giftCards.sell}
+            title={strings.entitlements.giftCards.sell}
             checkout={form.checkout}
             methods={checkoutMethods(cards)}
             amountLabel={
                 form.faceAmountCents !== null
                     ? formatMoney(form.faceAmountCents)
-                    : strings.giftCards.amountFallback
+                    : strings.entitlements.giftCards.amountFallback
             }
-            submitLabel={strings.giftCards.sell}
-            busyLabel={strings.giftCards.selling}
+            submitLabel={strings.entitlements.giftCards.sell}
+            busyLabel={strings.entitlements.giftCards.selling}
             onSubmit={form.submit}
             onCancel={onClose}
         >
             <ClientSelect
-                label={strings.giftCards.purchaser}
+                label={strings.entitlements.giftCards.purchaser}
                 clients={clients}
                 value={form.purchaserClientId}
                 onChange={form.setPurchaserClientId}
@@ -57,10 +57,10 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
             />
             {form.mode === "preset" ? (
                 <Select
-                    label={strings.giftCards.giftCard}
+                    label={strings.entitlements.giftCards.giftCard}
                     value={form.itemId}
                     options={[
-                        { key: "", label: strings.giftCards.selectGiftCard },
+                        { key: "", label: strings.entitlements.giftCards.selectGiftCard },
                         ...items.map((it) => ({
                             key: it.id,
                             label:
@@ -73,19 +73,19 @@ export function SellGiftCard({ onClose }: { onClose: () => void }) {
                 />
             ) : (
                 <TextField
-                    label={strings.giftCards.amountCad}
+                    label={strings.entitlements.giftCards.amountCad}
                     type="number"
                     value={form.amount}
                     onChange={form.setAmount}
-                    placeholder={strings.giftCards.amountPlaceholder}
+                    placeholder={strings.entitlements.giftCards.amountPlaceholder}
                 />
             )}
             <TextField
-                label={strings.giftCards.recipient}
+                label={strings.entitlements.giftCards.recipient}
                 optional
                 value={form.recipient}
                 onChange={form.setRecipient}
-                placeholder={strings.giftCards.recipientPlaceholder}
+                placeholder={strings.entitlements.giftCards.recipientPlaceholder}
             />
         </ChargeSheet>
     );
@@ -107,7 +107,7 @@ export function ClientSelect({
             label={label}
             value={value}
             options={[
-                { key: "", label: strings.giftCards.selectClient },
+                { key: "", label: strings.entitlements.giftCards.selectClient },
                 ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
             ]}
             onChange={onChange}

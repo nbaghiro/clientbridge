@@ -7,7 +7,7 @@ import { IconChevron } from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
-import { Account } from "./Account";
+import { Business } from "./Business";
 import { Hours } from "./Hours";
 import { Taxes } from "./Taxes";
 import { Team } from "./Team";
@@ -46,7 +46,7 @@ export function SetupScreen() {
 }
 
 export function BusinessScreen() {
-    return <Account footer={<Taxes />} />;
+    return <Business footer={<Taxes />} />;
 }
 
 export function TeamHoursScreen() {

@@ -14,15 +14,15 @@ const GENERATED = new Set([
 const ENTRY_FILES = new Set(["main.tsx", "entry-server.tsx", "routes.tsx"]);
 
 // Domain files that hold no copy of their own.
-const NO_STRINGS = new Set([
-    "packages",
-    "subscriptions",
-    "ledger",
-    "notifications",
-    "publicResource",
-]);
+const NO_STRINGS = new Set(["ledger", "notifications", "publicResource"]);
 // Pages named by their nav label rather than the concept they render.
-const PAGE_CONCEPT = { invoices: "billing", inbox: "messaging", team: "staff" };
+const PAGE_CONCEPT = {
+    invoices: "billing",
+    inbox: "messaging",
+    team: "staff",
+    giftCards: "entitlements",
+    onboarding: "business",
+};
 // Screens that compose several concepts and so have no domain file or strings group of their own.
 const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "onlineBooking", "setup"]);
 // Shared components drawn on web only so far; every other one has a same-named mobile twin.

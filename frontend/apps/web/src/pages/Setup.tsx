@@ -4,7 +4,7 @@ import { NavLink, Navigate, useParams } from "react-router-dom";
 
 import { useRole } from "../lib/auth";
 
-import { Account } from "./Account";
+import { Business } from "./Business";
 import { OnlineBooking } from "./OnlineBooking";
 import { Catalog } from "./Catalog";
 import { GettingPaid } from "./GettingPaid";
@@ -25,7 +25,7 @@ function sectionBody(key: SetupSectionKey): ReactElement {
         case "business":
             return (
                 <div className="space-y-10">
-                    <Account />
+                    <Business />
                     <Taxes />
                 </div>
             );
