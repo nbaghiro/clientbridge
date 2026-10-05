@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.payments import PaymentGateway, get_payment_gateway
-from clientbridge.models.identity import Business
+from clientbridge.integrations.stripe import PaymentGateway, get_payment_gateway
+from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
 from clientbridge.services import ledger
 

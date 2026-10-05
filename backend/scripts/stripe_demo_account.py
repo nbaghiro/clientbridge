@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal, engine
-from clientbridge.integrations.payments import get_payment_gateway
-from clientbridge.models.identity import Business
+from clientbridge.integrations.stripe import get_payment_gateway
+from clientbridge.models.business import Business
 from clientbridge.services.business import apply_account_status
 
 BIZ = "bz_birchbark"

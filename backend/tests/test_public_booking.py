@@ -9,9 +9,9 @@ from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_booking_rate_limit
 from clientbridge.main import app
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender

@@ -10,7 +10,7 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.notifications import (
+from clientbridge.integrations.messaging import (
     Email,
     EmailSender,
     Push,
@@ -19,10 +19,10 @@ from clientbridge.integrations.notifications import (
     SmsSender,
 )
 from clientbridge.models.billing import Estimate, Invoice, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Subscription
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
-from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
 from clientbridge.models.reviews import Review

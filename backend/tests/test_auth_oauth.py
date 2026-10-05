@@ -4,7 +4,7 @@ import httpx
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.identity import User
+from clientbridge.models.business import User
 from tests.conftest import Factory
 
 

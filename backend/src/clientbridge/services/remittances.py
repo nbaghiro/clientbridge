@@ -8,7 +8,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.scoping import scoped
-from clientbridge.models.identity import Business
+from clientbridge.models.business import Business
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.schemas.payments import RemittanceIn, RemittanceOut
 from clientbridge.services import ledger

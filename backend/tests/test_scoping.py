@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.scoping import scoped_count, scoped_delete, scoped_page, scoped_update
 from clientbridge.models.billing import Line
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from tests.conftest import Factory
 
 

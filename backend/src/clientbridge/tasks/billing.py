@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import SessionLocal
-from clientbridge.integrations.notifications import (
+from clientbridge.integrations.messaging import (
     get_email_sender,
     get_push_sender,
     get_sms_sender,

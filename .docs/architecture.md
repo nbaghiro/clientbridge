@@ -77,7 +77,7 @@ clientbridge/
 │       ├── services/           business logic — one file per concept (28)
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS) · upload.py (WRITE_POLICY)
-│       ├── integrations/       notifications · oauth · payments · s3 (adapter interfaces)
+│       ├── integrations/       stripe · messaging · google · s3 (provider adapters)
 │       └── tasks/              arq worker + cron jobs
 ├── frontend/           ── TypeScript · pnpm + turbo ──
 │   ├── apps/
@@ -101,7 +101,7 @@ clientbridge/
 ## Backend — layer-first, one file per concept
 
 Flow: **`api` (thin router, never queries) → `schemas` (DTOs) → `services` (logic, owns the transaction) →
-`models`.** `models/` is grouped by domain, because tables cluster that way (eleven domains: `identity · crm ·
+`models`.** `models/` is grouped by domain, because tables cluster that way (eleven domains: `business · clients ·
 catalog · scheduling · billing · payments · ledger · messaging · documents · reviews · platform`). Every other
 layer holds one file per concept, with the same plain plural name in each layer and no suffix:
 `api/bookings.py` → `schemas/bookings.py` → `services/bookings.py`, and `tasks/bookings.py` for its jobs. A
@@ -142,8 +142,9 @@ hand-written role tuple check.
 ### External services
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
-Four adapters in `integrations/`: `notifications.py` (Postmark email · Twilio SMS · Expo push), `payments.py`
-(Stripe Connect + Terminal), `oauth.py` (Google), `s3.py` (S3; RustFS locally).
+Four adapters in `integrations/`, named after the provider so they read apart from our own services:
+`stripe.py` (Stripe Connect + Terminal), `messaging.py` (Postmark email · Twilio SMS · Expo push), `google.py`
+(Google sign-in), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)
 `worker.py` registers the arq cron: reminders + due broadcasts every 15m, reap-unpaid every 15m, overdue
@@ -192,13 +193,13 @@ shown after it.
 
 ### Tables by domain
 
-**identity (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
+**business (3)** — `businesses` (all Stripe-Connect/KYC mirror fields + Canadian tax fields + `slug` + brand
 JSONB), `users` (global login, `email` unique, `oauth`), `staff` (user↔business, `role`
 owner/admin/staff/contractor, payout config `payee`/`rate_type` with the rate in `rate_bps` (percent) or
 `rate_cents` (fixed or hourly), one membership per user per business, pending invites via
 `status=invited` + hashed `invite_token`).
 
-**crm (3)** — `clients` *(soft-del)* (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
+**clients (3)** — `clients` *(soft-del)* (`tags[]`, `status`, `custom_fields`, `stripe_customer_id`), `subjects` (pet/vehicle/child/property, `attributes` JSONB), `notes` (polymorphic
 `parent_type`/`parent_id` over client/subject/booking, `created_by`).
 
 **catalog (5)** — `items` (**one table drives the whole catalog** via `kind` service/class/product/package/
@@ -405,7 +406,7 @@ file stays behind auth. The brand stores `logo_file_id`; `public_brand` turns it
 - **No platform-held funds.** Stripe Connect custodies each provider's balance and pays it out to their
   linked bank on Stripe's schedule; the platform never transmits funds (avoids money-transmitter licensing).
   `payments` records each attempt and Stripe object; the ledger records what each one did to the money.
-- The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/payments.py`), and the Connect
+- The Stripe API version is pinned (`STRIPE_API_VERSION` in `integrations/stripe.py`), and the Connect
   webhook endpoint must be created with that same version, because the handlers parse its payload shapes.
   Dashboard refunds arrive as `refund.created`/`refund.updated`, and a recurring invoice's PaymentIntent
   is looked up through its invoice payments.

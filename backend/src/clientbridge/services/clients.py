@@ -8,7 +8,7 @@ from clientbridge.core.deps import Principal
 from clientbridge.core.errors import NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_count, scoped_page
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.schemas.clients import ClientCreate, ClientUpdate
 
 

@@ -8,8 +8,8 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
-from clientbridge.models.identity import Business
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.services import ledger

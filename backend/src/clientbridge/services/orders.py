@@ -7,11 +7,11 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.payments import PaymentGateway
+from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Line, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.schemas.orders import (
     CheckoutOut,

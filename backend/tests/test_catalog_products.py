@@ -9,8 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item, Package, StockMovement
-from clientbridge.models.identity import Business, Staff
 from clientbridge.models.ledger import Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger

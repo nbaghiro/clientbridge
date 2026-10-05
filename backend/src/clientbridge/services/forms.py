@@ -8,7 +8,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.documents import Form, FormResponse
 from clientbridge.schemas.forms import FormResponseOut, FormSend
 from clientbridge.services.notifications import Notifier

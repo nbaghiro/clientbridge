@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.services.messaging import run_due_broadcasts, unread_count
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender

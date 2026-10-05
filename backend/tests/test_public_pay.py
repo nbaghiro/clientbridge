@@ -7,8 +7,8 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_pay_rate_limit
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice, Line
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
+from clientbridge.models.business import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg

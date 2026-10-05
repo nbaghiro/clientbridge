@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.platform import File
 from tests.conftest import Factory, FakeFileStorage
 

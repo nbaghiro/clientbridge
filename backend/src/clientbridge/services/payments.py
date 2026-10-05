@@ -12,7 +12,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
-from clientbridge.integrations.payments import (
+from clientbridge.integrations.stripe import (
     ChargeFees,
     GatewayEvent,
     PaymentGateway,
@@ -20,9 +20,9 @@ from clientbridge.integrations.payments import (
     period_timestamp,
 )
 from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking

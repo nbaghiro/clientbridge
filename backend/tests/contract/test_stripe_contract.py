@@ -2,7 +2,7 @@
 
 import pytest
 
-from clientbridge.integrations.payments import ChargeFees, ConnectAccount, StripeGateway
+from clientbridge.integrations.stripe import ChargeFees, ConnectAccount, StripeGateway
 
 pytestmark = pytest.mark.contract
 

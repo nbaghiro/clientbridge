@@ -11,10 +11,10 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.payments import PaymentGateway
+from clientbridge.integrations.stripe import PaymentGateway
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod
 from clientbridge.schemas.entitlements import (
     GiftCardOut,

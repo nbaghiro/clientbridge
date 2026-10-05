@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from tests.conftest import Factory, FakeEmailSender
 
 BIZ = "bz_birchbark"

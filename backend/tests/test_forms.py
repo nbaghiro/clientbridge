@@ -8,7 +8,7 @@ from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_form_rate_limit
 from clientbridge.main import app
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.documents import Form, FormResponse
 from clientbridge.models.platform import File
 from tests.conftest import Factory, FakeEmailSender

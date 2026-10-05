@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from clientbridge.integrations.payments import StripeGateway, WebhookVerificationError
+from clientbridge.integrations.stripe import StripeGateway, WebhookVerificationError
 
 SECRET = "whsec_test_kQ7rZ8m2vP1nX4tL6yB0cD3eF5gH9jK"
 FIXTURES = Path(__file__).parent / "fixtures" / "stripe"

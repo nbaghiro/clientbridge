@@ -6,8 +6,8 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.integrations.payments import account_status_from
-from clientbridge.models.identity import Business
+from clientbridge.integrations.stripe import account_status_from
+from clientbridge.models.business import Business
 from clientbridge.services.business import derive_kyc_status, kyc_status
 
 BIZ = "bz_birchbark"

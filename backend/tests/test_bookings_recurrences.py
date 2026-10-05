@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.catalog import Item
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.scheduling import Slot
 from clientbridge.services.bookings import expand_occurrences
 

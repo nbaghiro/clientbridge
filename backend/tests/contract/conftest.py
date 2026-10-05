@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 import pytest
 import stripe
 
-from clientbridge.integrations.payments import StripeGateway
+from clientbridge.integrations.stripe import StripeGateway
 
 _MOCK_URL = os.environ.get("STRIPE_MOCK_URL", "http://localhost:8708")
 

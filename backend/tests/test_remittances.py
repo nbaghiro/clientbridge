@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.schemas.payments import RemittanceIn
 from clientbridge.services import ledger

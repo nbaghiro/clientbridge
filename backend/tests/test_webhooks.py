@@ -6,8 +6,8 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
+from clientbridge.models.business import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod

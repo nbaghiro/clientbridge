@@ -12,8 +12,8 @@ from clientbridge.core.errors import AppError, Conflict, NotFound, Unauthorized,
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token, verify_password
-from clientbridge.integrations.notifications import Email, EmailSender
-from clientbridge.models.identity import Staff, User
+from clientbridge.integrations.messaging import Email, EmailSender
+from clientbridge.models.business import Staff, User
 from clientbridge.models.platform import Audit
 from clientbridge.schemas.staff import InviteOut, StaffPayOut, StaffPayUpdate
 from clientbridge.services.auth import build_user

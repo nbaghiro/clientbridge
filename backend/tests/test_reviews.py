@@ -9,7 +9,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_review_rate_limit
 from clientbridge.main import app
 from clientbridge.models.catalog import Item
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.reviews import build_review_request

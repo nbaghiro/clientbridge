@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business
+from clientbridge.models.business import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
 from tests.conftest import Factory, FakePaymentGateway, book_invoice
 

@@ -15,7 +15,7 @@ from clientbridge.core.deps import (
     SmsDep,
     SmsWebhookSecretDep,
 )
-from clientbridge.integrations.payments import WebhookVerificationError
+from clientbridge.integrations.stripe import WebhookVerificationError
 from clientbridge.schemas.payments import InteracWebhookBody
 from clientbridge.services.messaging import process_inbound_sms
 from clientbridge.services.notifications import Notifier

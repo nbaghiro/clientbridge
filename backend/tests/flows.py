@@ -9,8 +9,8 @@ from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Package
-from clientbridge.models.identity import Business
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Thread
 from clientbridge.models.payments import Payment

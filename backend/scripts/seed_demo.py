@@ -16,12 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.security import hash_password
-from clientbridge.integrations.payments import ChargeFees
+from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
-from clientbridge.models.crm import Client, Note, Subject
+from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
-from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod

@@ -12,7 +12,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.catalog import Item
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import (

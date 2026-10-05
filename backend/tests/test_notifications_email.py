@@ -3,7 +3,7 @@
 import pytest
 
 from clientbridge.core.config import get_settings
-from clientbridge.integrations.notifications import (
+from clientbridge.integrations.messaging import (
     ConsoleEmailSender,
     PostmarkEmailSender,
     get_email_sender,

@@ -11,7 +11,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal
 from clientbridge.core.errors import Conflict
 from clientbridge.core.ids import new_id
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.platform import Audit, IdempotencyKey
 from tests.conftest import Factory
 

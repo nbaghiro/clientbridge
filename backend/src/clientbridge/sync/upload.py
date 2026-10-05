@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from clientbridge.core.db import Base
 from clientbridge.core.deps import CurrentUserId, DbSession, is_manager
 from clientbridge.core.errors import Forbidden, Unprocessable
-from clientbridge.models.identity import Staff
+from clientbridge.models.business import Staff
 
 router = APIRouter(prefix="/sync", tags=["sync"])
 

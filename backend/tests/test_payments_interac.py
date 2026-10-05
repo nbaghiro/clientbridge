@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import book_invoice

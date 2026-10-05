@@ -7,8 +7,8 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.payments import ConnectAccount
-from clientbridge.models.identity import Business, Staff
+from clientbridge.integrations.stripe import ConnectAccount
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.platform import File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody
 

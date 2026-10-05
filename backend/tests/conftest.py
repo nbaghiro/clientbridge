@@ -20,7 +20,8 @@ from clientbridge.core.ratelimit import (
     public_review_rate_limit,
 )
 from clientbridge.core.security import hash_password, issue_access_token
-from clientbridge.integrations.notifications import (
+from clientbridge.integrations.google import OAuthProfile, get_oauth_verifier
+from clientbridge.integrations.messaging import (
     Email,
     EmailSender,
     Push,
@@ -29,8 +30,8 @@ from clientbridge.integrations.notifications import (
     get_push_sender,
     get_sms_sender,
 )
-from clientbridge.integrations.oauth import OAuthProfile, get_oauth_verifier
-from clientbridge.integrations.payments import (
+from clientbridge.integrations.s3 import FileStorage, get_file_storage
+from clientbridge.integrations.stripe import (
     ChargeFees,
     ConnectAccount,
     GatewayEvent,
@@ -42,11 +43,10 @@ from clientbridge.integrations.payments import (
     WebhookVerificationError,
     get_payment_gateway,
 )
-from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business, Staff, User
+from clientbridge.models.business import Business, Staff, User
+from clientbridge.models.clients import Client
 from clientbridge.services import ledger
 from clientbridge.services.tax import TaxResult
 

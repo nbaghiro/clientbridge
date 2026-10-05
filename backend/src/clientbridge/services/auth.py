@@ -15,10 +15,10 @@ from clientbridge.core.security import (
     issue_access_token,
     verify_password,
 )
-from clientbridge.integrations.notifications import Email, EmailSender
-from clientbridge.integrations.oauth import OAuthProfile
+from clientbridge.integrations.google import OAuthProfile
+from clientbridge.integrations.messaging import Email, EmailSender
 from clientbridge.models.auth import AuthSession, AuthToken
-from clientbridge.models.identity import User
+from clientbridge.models.business import User
 from clientbridge.schemas.auth import TokenPair
 
 RESET_TTL = timedelta(hours=1)

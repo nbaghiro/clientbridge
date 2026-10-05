@@ -10,8 +10,8 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import NotFound
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Invoice, Line, Order
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import Item
-from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.schemas.payments import RemittanceSummary

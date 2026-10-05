@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import GiftCard, Item, Package
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg

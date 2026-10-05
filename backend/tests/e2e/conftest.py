@@ -6,7 +6,7 @@ from collections.abc import Iterator
 import pytest
 import stripe
 
-from clientbridge.integrations.payments import StripeGateway
+from clientbridge.integrations.stripe import StripeGateway
 
 _KEY = os.environ.get("STRIPE_TEST_SECRET_KEY")
 _WEBHOOK_SECRET = os.environ.get("STRIPE_TEST_WEBHOOK_SECRET", "whsec_e2e_placeholder")

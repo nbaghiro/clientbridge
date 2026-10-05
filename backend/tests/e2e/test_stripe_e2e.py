@@ -4,7 +4,7 @@ import pytest
 import stripe
 
 from clientbridge.core.errors import CardDeclined
-from clientbridge.integrations.payments import StripeGateway
+from clientbridge.integrations.stripe import StripeGateway
 
 pytestmark = pytest.mark.e2e
 

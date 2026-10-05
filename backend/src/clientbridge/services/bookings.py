@@ -18,11 +18,11 @@ from clientbridge.core.errors import (
 )
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.payments import PaymentGateway
+from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Invoice, Line
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
-from clientbridge.models.crm import Client
-from clientbridge.models.identity import Business, Staff
+from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Slot
 from clientbridge.schemas.bookings import (

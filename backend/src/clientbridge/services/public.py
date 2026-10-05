@@ -8,13 +8,13 @@ from clientbridge.core.db import Base
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.payments import PaymentGateway
 from clientbridge.integrations.s3 import FileStorage
+from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
-from clientbridge.models.crm import Client
+from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
-from clientbridge.models.identity import Business, Staff, User
 from clientbridge.models.platform import File, IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
 from clientbridge.models.scheduling import Addon, Booking
