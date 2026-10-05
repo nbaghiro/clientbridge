@@ -3,7 +3,7 @@ import { theme } from "@clientbridge/tokens/theme";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { useClientState } from "@clientbridge/app-core";
-import { Modal } from "../ui/Modal";
+import { Modal } from "@clientbridge/ui";
 
 export function DebugOverlay({ visible, onClose }: { visible: boolean; onClose: () => void }) {
     const { status, tables, totalRows } = useClientState();

@@ -14,11 +14,19 @@ const GENERATED = new Set([
 const ENTRY_FILES = new Set(["main.tsx", "entry-server.tsx", "routes.tsx"]);
 
 // Domain files that hold no copy of their own.
-const NO_STRINGS = new Set(["packages", "subscriptions", "ledger", "notifications", "publicResource"]);
+const NO_STRINGS = new Set([
+    "packages",
+    "subscriptions",
+    "ledger",
+    "notifications",
+    "publicResource",
+]);
 // Pages named by their nav label rather than the concept they render.
 const PAGE_CONCEPT = { invoices: "billing", inbox: "messaging", team: "staff" };
 // Screens that compose several concepts and so have no domain file or strings group of their own.
 const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "onlineBooking", "setup"]);
+// Shared components drawn on web only so far; every other one has a same-named mobile twin.
+const WEB_ONLY_UI = new Set(["Logo", "Panel"]);
 
 const files = execFileSync("git", ["ls-files", "apps", "packages"], { cwd: root, encoding: "utf8" })
     .split("\n")
@@ -85,6 +93,23 @@ for (const [dir, label] of [
         if (!known.has(concept) && !COMPOSITE_SCREENS.has(concept)) {
             problems.push(`${label} "${screen}" matches no app-core domain file or strings group`);
         }
+    }
+}
+
+const webUi = new Set(stems("packages/ui/src/web/", ".tsx"));
+const mobileUi = new Set(stems("packages/ui/src/mobile/", ".tsx"));
+for (const name of webUi) {
+    if (!mobileUi.has(name) && !WEB_ONLY_UI.has(name)) {
+        problems.push(
+            `packages/ui/src/web/${name}.tsx has no packages/ui/src/mobile/${name}.tsx twin`,
+        );
+    }
+}
+for (const name of mobileUi) {
+    if (!webUi.has(name)) {
+        problems.push(
+            `packages/ui/src/mobile/${name}.tsx has no packages/ui/src/web/${name}.tsx twin`,
+        );
     }
 }
 

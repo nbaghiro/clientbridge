@@ -55,7 +55,7 @@ clientbridge/
 | -------------------------- | ----------------------------------------------------------------------- |
 | `@clientbridge/app-core`   | Shared view-models (form/list/status hooks), the only UI-agnostic layer |
 | `@clientbridge/tokens`     | Design system → Tailwind theme + RN theme (**Pewter**)                 |
-| `@clientbridge/ui`         | Shared browser components (logo, checkout, card form) for web, Connect, site |
+| `@clientbridge/ui`         | Shared components: `src/web` (web, Connect, site logo) and `src/mobile` (Expo) |
 | `@clientbridge/sync`       | Generated PowerSync `AppSchema` + the backend connector                 |
 | `@clientbridge/api-client` | Typed REST client generated from the backend OpenAPI                    |
 | `@clientbridge/config`     | Shared ESLint + Prettier config                                         |

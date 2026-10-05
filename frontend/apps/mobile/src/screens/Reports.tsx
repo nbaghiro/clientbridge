@@ -26,8 +26,8 @@ import {
     Text,
     View,
 } from "react-native";
+import { StatusPill } from "@clientbridge/ui";
 
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 
 const c = theme.colors;

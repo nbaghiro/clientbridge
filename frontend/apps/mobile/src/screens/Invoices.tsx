@@ -43,16 +43,12 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { DetailSection, DetailView, ListPage, Money, StatusPill, ui } from "@clientbridge/ui";
 
-import { DetailSection, DetailView } from "../ui/DetailView";
 import { DocEditor } from "../components/DocEditor";
-import { ListPage } from "../ui/ListPage";
-import { Money } from "../ui/Money";
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

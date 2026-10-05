@@ -87,7 +87,7 @@ clientbridge/
 │   │   └── site/       marketing site · static prerender · :8710
 │   └── packages/
 │       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
-│       ├── ui/         shared browser components for web + Connect (PowerSync-free)
+│       ├── ui/         shared components: src/web (DOM, web + Connect) · src/mobile (React Native)
 │       ├── sync/       PowerSync AppSchema + backend connector
 │       ├── api-client/ generated OpenAPI types + session (refresh/sign-out)
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
@@ -527,9 +527,14 @@ and can edit only their own hours. The visibility rules (`visiblePaymentsTabs`, 
 
 ### Shared components
 A screen composes shared components and never re-implements a list, a detail view, a modal, a checkout or
-a card form. The prop contracts are types in `app-core/src/ui.ts`, and each platform implements them once:
-`@clientbridge/ui` for web and Connect (it imports only `app-core/public`), and `apps/mobile/src/ui/` for
-mobile.
+a card form. The prop contracts are types in `app-core/src/ui.ts`, and each platform implements them once,
+side by side in one package: `@clientbridge/ui/src/web/` (DOM and Tailwind, used by web and Connect, imports
+only `app-core/public`) and `@clientbridge/ui/src/mobile/` (React Native), with the same file name for the
+same component. Every app imports `@clientbridge/ui`; the package's `react-native` export condition resolves
+mobile (Metro and the mobile tsconfig's `customConditions`) to the native entry, and everything else to the web
+entry. ESLint keeps React Native out of `src/web` and the DOM out of `src/mobile`, and the structure check
+requires a mobile twin for every web component except the web-only `Logo` and `Panel`. Each platform still
+renders idiomatically, so this is two implementations in one place, not a cross-platform UI framework.
 
 | Component | What it is |
 |---|---|
@@ -538,6 +543,7 @@ mobile.
 | `Modal` | a centred dialog on web, a bottom sheet on mobile; `framed={false}` when the content draws its own card |
 | `Panel` | a titled inline card for a form on a page (web) |
 | `ChargeSheet`, `CardForm`, `PaymentMethodForm` | the checkout and card or bank entry |
+| `Tabs` | the underline tab bar on web, a scrollable segmented row on mobile |
 | `DocEditor` | the one invoice and estimate editor, for new documents and drafts (lives in each app because it reads the replica) |
 | `ItemImage` | a catalog item's image, or its initial on a tint of its colour |
 | `StatusPill`, `Money`, `Empty` | status, amounts and empty states |

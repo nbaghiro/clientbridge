@@ -9,10 +9,17 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { type ReactElement, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    IconCalendar,
+    IconClients,
+    IconInvoices,
+    IconPlus,
+    IconPos,
+    IconToday,
+} from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
 import { BookingForm } from "./BookingForm";
-import { IconCalendar, IconClients, IconInvoices, IconPlus, IconPos, IconToday } from "../ui/Icons";
 
 const TAB_DESTINATION: Record<string, DestinationKey> = {
     Today: "today",

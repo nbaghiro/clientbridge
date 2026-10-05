@@ -93,6 +93,9 @@ importers:
       '@clientbridge/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@clientbridge/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@op-engineering/op-sqlite':
         specifier: ^18.2.5
         version: 18.2.5(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
@@ -394,6 +397,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@clientbridge/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       react:
         specifier: '>=19'
         version: 19.2.3
@@ -407,9 +413,21 @@ importers:
       '@stripe/stripe-js':
         specifier: ^10.0.0
         version: 10.0.0
+      '@stripe/stripe-react-native':
+        specifier: 0.64.0
+        version: 0.64.0(expo@57.0.26(@babel/core@7.29.7)(@expo/dom-webview@57.0.1)(react-dom@19.2.3(react@19.2.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)(typescript@6.0.3))(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
+      '@types/node':
+        specifier: ^26.6.4
+        version: 26.6.4
       '@types/react':
         specifier: ~19.2.0
         version: 19.2.18
+      react-native:
+        specifier: 0.86.3
+        version: 0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3)
+      react-native-svg:
+        specifier: 15.15.4
+        version: 15.15.4(react-native@0.86.3(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.18)(react@19.2.3))(react@19.2.3)
 
 packages:
 

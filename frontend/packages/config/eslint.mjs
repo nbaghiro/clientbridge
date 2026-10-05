@@ -50,8 +50,8 @@ export default tseslint.config(
         },
     },
     {
-        // The shared browser UI is used by Connect too, so it stays on the PowerSync-free surface.
-        files: ["**/packages/ui/src/**/*.{ts,tsx}"],
+        // Web UI is used by Connect too, so it stays on the PowerSync-free surface and off React Native.
+        files: ["**/packages/ui/src/web/**/*.{ts,tsx}"],
         rules: {
             "@typescript-eslint/no-restricted-imports": [
                 "error",
@@ -62,7 +62,39 @@ export default tseslint.config(
                             message: "Import from @clientbridge/app-core/public in shared UI.",
                         },
                     ],
-                    patterns: [{ group: ["@powersync/*", "@clientbridge/sync"] }],
+                    patterns: [
+                        { group: ["@powersync/*", "@clientbridge/sync"] },
+                        {
+                            group: [
+                                "react-native",
+                                "react-native-*",
+                                "@stripe/stripe-react-native",
+                            ],
+                            message: "React Native belongs in packages/ui/src/mobile.",
+                        },
+                    ],
+                },
+            ],
+        },
+    },
+    {
+        files: ["**/packages/ui/src/mobile/**/*.{ts,tsx}"],
+        rules: {
+            "@typescript-eslint/no-restricted-imports": [
+                "error",
+                {
+                    patterns: [
+                        { group: ["@powersync/*", "@clientbridge/sync"] },
+                        {
+                            group: [
+                                "react-dom",
+                                "react-dom/*",
+                                "@stripe/stripe-js",
+                                "@stripe/react-stripe-js",
+                            ],
+                            message: "DOM code belongs in packages/ui/src/web.",
+                        },
+                    ],
                 },
             ],
         },

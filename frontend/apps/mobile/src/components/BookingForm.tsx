@@ -8,9 +8,9 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
-import { Modal } from "../ui/Modal";
 
 const c = theme.colors;
 export function BookingForm({ visible, onClose }: { visible: boolean; onClose: () => void }) {

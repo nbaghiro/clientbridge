@@ -12,9 +12,9 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { ui } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

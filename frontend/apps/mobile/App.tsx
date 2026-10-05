@@ -7,11 +7,13 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { configureStripe } from "@clientbridge/ui";
 
 import { StripeAppProvider } from "./src/components/Stripe";
 import { TabBar } from "./src/components/TabBar";
 import { api, onSignedOut } from "./src/lib/api";
 import { clearTokens, getTokens } from "./src/lib/auth";
+import { stripePublishableKey } from "./src/lib/config";
 import { connectPowerSync, db, signOut } from "./src/lib/powersync";
 import { registerForPush } from "./src/lib/push";
 import type { RootStackParamList, TabParamList } from "./src/navigation";
@@ -25,6 +27,8 @@ import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
 import { BusinessScreen, SetupScreen, TeamHoursScreen } from "./src/screens/Setup";
 import { TodayScreen } from "./src/screens/Today";
+
+configureStripe(stripePublishableKey);
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();

@@ -43,15 +43,18 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+    ChargeSheet,
+    DetailSection,
+    DetailView,
+    Money,
+    StatusPill,
+    Tabs,
+    ui,
+} from "@clientbridge/ui";
 
-import { ChargeSheet } from "../ui/ChargeSheet";
-import { DetailSection, DetailView } from "../ui/DetailView";
-import { Money } from "../ui/Money";
-import { StatusPill } from "../ui/StatusPill";
-import { ui } from "../ui/styles";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
-import { Tabs } from "../components/Tabs";
 
 const c = theme.colors;
 const HOUR_PX = 56;

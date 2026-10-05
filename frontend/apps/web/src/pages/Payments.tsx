@@ -1,8 +1,8 @@
 import { type PaymentsTabKey, strings, visiblePaymentsTabs } from "@clientbridge/app-core";
 import type { ReactElement } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Tabs } from "@clientbridge/ui";
 
-import { Tabs } from "../components/Tabs";
 import { useRole } from "../lib/auth";
 import { GiftCards } from "./GiftCards";
 import { Invoices } from "./Invoices";

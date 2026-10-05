@@ -20,11 +20,9 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { ItemImage, Modal, ui } from "@clientbridge/ui";
 
 import { api, apiBaseUrl } from "../lib/api";
-import { ItemImage } from "../ui/ItemImage";
-import { Modal } from "../ui/Modal";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

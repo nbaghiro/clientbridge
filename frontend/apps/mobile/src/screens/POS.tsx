@@ -39,6 +39,7 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { ChargeSheet, IconSearch, ItemImage, StatusPill, ui } from "@clientbridge/ui";
 
 import {
     ClientChips,
@@ -46,12 +47,7 @@ import {
     SellPackage,
     StartSubscription,
 } from "../components/EntitlementSales";
-import { IconSearch } from "../ui/Icons";
-import { ChargeSheet } from "../ui/ChargeSheet";
 import { useRole } from "../lib/auth";
-import { ItemImage } from "../ui/ItemImage";
-import { StatusPill } from "../ui/StatusPill";
-import { ui } from "../ui/styles";
 import { TerminalProvider, useTerminalCheckout } from "../components/Terminal";
 import { api, apiBaseUrl } from "../lib/api";
 

@@ -3,7 +3,7 @@ import { theme } from "@clientbridge/tokens/theme";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { IconPlus, IconSearch } from "./Icons";
-import { Tabs } from "../components/Tabs";
+import { Tabs } from "./Tabs";
 import { Empty } from "./Empty";
 
 const c = theme.colors;

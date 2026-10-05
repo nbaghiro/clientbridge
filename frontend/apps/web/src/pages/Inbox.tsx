@@ -19,10 +19,16 @@ import {
     useThreads,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
-import { field, Modal, primaryButton, primaryButtonLarge, StatusPill } from "@clientbridge/ui";
 import { useEffect, useRef, useState } from "react";
+import {
+    field,
+    Modal,
+    primaryButton,
+    primaryButtonLarge,
+    StatusPill,
+    Tabs,
+} from "@clientbridge/ui";
 
-import { Tabs } from "../components/Tabs";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { Reviews } from "./Reviews";

@@ -26,11 +26,8 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { DetailSection, DetailView, ListPage, StatusPill, ui } from "@clientbridge/ui";
 
-import { DetailSection, DetailView } from "../ui/DetailView";
-import { ListPage } from "../ui/ListPage";
-import { ui } from "../ui/styles";
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { publicWebUrl } from "../lib/config";

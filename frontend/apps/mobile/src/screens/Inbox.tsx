@@ -32,15 +32,11 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { ListPage, Modal, StatusPill, Tabs, ui } from "@clientbridge/ui";
 
-import { Tabs } from "../components/Tabs";
-import { ListPage } from "../ui/ListPage";
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { Reviews } from "./Reviews";
-import { Modal } from "../ui/Modal";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 export function InboxScreen() {

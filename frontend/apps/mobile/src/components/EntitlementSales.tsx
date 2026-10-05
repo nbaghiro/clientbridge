@@ -20,10 +20,9 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { type ReactNode, useMemo, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import { ChargeSheet, ui } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
-import { ChargeSheet } from "../ui/ChargeSheet";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

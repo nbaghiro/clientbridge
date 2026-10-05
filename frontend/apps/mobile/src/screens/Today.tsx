@@ -17,13 +17,11 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { IconSettings, ListPage, Lockup, Money } from "@clientbridge/ui";
 
 import { DebugOverlay } from "../components/DebugOverlay";
-import { IconSettings, Lockup } from "../ui/Icons";
 import { InboxButton } from "../components/InboxButton";
 import { api } from "../lib/api";
-import { ListPage } from "../ui/ListPage";
-import { Money } from "../ui/Money";
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
 

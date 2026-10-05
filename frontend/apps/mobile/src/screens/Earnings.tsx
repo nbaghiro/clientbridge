@@ -11,11 +11,9 @@ import {
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/theme";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ListPage, Money, StatusPill } from "@clientbridge/ui";
 
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
-import { ListPage } from "../ui/ListPage";
-import { Money } from "../ui/Money";
 
 const c = theme.colors;
 

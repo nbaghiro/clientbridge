@@ -18,9 +18,9 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { ui } from "@clientbridge/ui";
 
 import { useViewer } from "../lib/auth";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

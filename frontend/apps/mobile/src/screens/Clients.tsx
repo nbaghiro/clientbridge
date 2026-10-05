@@ -45,20 +45,23 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+    DetailSection,
+    DetailView,
+    ListPage,
+    Modal,
+    Money,
+    PaymentMethodForm,
+    StatusPill,
+    ui,
+} from "@clientbridge/ui";
 
 import { InboxButton } from "../components/InboxButton";
 import { SellPackage, StartSubscription } from "../components/EntitlementSales";
 
-import { DetailSection, DetailView } from "../ui/DetailView";
-import { ListPage } from "../ui/ListPage";
-import { Money } from "../ui/Money";
-import { PaymentMethodForm } from "../ui/PaymentMethodForm";
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
-import { Modal } from "../ui/Modal";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

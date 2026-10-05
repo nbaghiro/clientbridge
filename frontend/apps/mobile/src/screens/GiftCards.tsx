@@ -8,14 +8,11 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ListPage, Money, StatusPill, ui } from "@clientbridge/ui";
 
 import { SellGiftCard } from "../components/EntitlementSales";
 
-import { ListPage } from "../ui/ListPage";
-import { Money } from "../ui/Money";
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

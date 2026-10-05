@@ -4,8 +4,8 @@ import { type RouteProp, useRoute } from "@react-navigation/native";
 import { type ReactElement, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Tabs } from "@clientbridge/ui";
 
-import { Tabs } from "../components/Tabs";
 import { useRole } from "../lib/auth";
 import type { TabParamList } from "../navigation";
 import { GiftCards } from "./GiftCards";

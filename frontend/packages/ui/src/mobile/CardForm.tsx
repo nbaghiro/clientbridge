@@ -9,7 +9,7 @@ import {
 import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
-import { stripePublishableKey } from "../lib/config";
+import { stripeConfigured } from "./stripe";
 import { ui } from "./styles";
 
 const c = theme.colors;
@@ -36,7 +36,7 @@ const cardStyle: CardFieldInput.Styles = {
 
 /** Native card entry that confirms a server-minted client secret (a charge or a saved card). */
 export function CardForm(props: CardFormProps) {
-    if (stripePublishableKey.length === 0) {
+    if (!stripeConfigured()) {
         return (
             <View style={ui.box}>
                 <Text style={ui.note}>{strings.checkout.notConfiguredSavedCard}</Text>

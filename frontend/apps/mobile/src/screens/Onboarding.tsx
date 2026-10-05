@@ -14,10 +14,9 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Lockup, Logo, ui } from "@clientbridge/ui";
 
-import { Lockup, Logo } from "../ui/Icons";
 import { api } from "../lib/api";
-import { ui } from "../ui/styles";
 
 const c = theme.colors;
 

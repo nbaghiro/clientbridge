@@ -16,10 +16,9 @@ import {
 import { theme } from "@clientbridge/tokens/theme";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ListPage, StatusPill } from "@clientbridge/ui";
 
-import { StatusPill } from "../ui/StatusPill";
 import { api } from "../lib/api";
-import { ListPage } from "../ui/ListPage";
 
 const c = theme.colors;
 

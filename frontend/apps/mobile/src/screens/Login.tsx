@@ -14,11 +14,10 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { GoogleIcon, Lockup, ui } from "@clientbridge/ui";
 
-import { GoogleIcon, Lockup } from "../ui/Icons";
 import { api } from "../lib/api";
 import { setTokens } from "../lib/auth";
-import { ui } from "../ui/styles";
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
     const login = useLogin(api, setTokens, onSuccess, {

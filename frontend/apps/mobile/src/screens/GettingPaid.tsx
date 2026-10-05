@@ -11,9 +11,9 @@ import {
     Text,
     View,
 } from "react-native";
+import { ui } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
-import { ui } from "../ui/styles";
 
 export function GettingPaidScreen() {
     const {

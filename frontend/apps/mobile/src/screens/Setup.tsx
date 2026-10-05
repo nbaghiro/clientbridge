@@ -3,8 +3,8 @@ import { theme } from "@clientbridge/tokens/theme";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { IconChevron } from "@clientbridge/ui";
 
-import { IconChevron } from "../ui/Icons";
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
 import { Account } from "./Account";

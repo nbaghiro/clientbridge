@@ -15,6 +15,7 @@
         "@clientbridge/app-core": "workspace:*",
         "@clientbridge/sync": "workspace:*",
         "@clientbridge/tokens": "workspace:*",
+        "@clientbridge/ui": "workspace:*",
         "@op-engineering/op-sqlite": "^18.2.5",
         "@powersync/react": "^2.0.2",
         "@powersync/react-native": "^2.3.1",
