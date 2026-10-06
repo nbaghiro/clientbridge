@@ -1,5 +1,8 @@
 import type { ReactNode } from "react";
 
+import type { FormAnswer } from "./domain/publicForm";
+import type { IconName } from "./icons";
+
 // Domain-neutral visual tone. Each platform maps it to its own tokens (Tailwind classes / RN colors).
 export type Intent = "accent" | "success" | "warning" | "danger" | "neutral";
 
@@ -69,6 +72,14 @@ export interface MoneyProps {
 
 export interface EmptyProps {
     message: string;
+    body?: string | undefined;
+    icon?: IconName | undefined;
+    // Buttons for the next step; the first is usually primary.
+    actions?: ReactNode | undefined;
+    // "danger" for a failed load with a retry; "neutral" for nothing-here-yet.
+    intent?: "neutral" | "danger" | undefined;
+    // "inline" sits inside a panel; "card" is its own bordered block.
+    size?: "inline" | "card" | undefined;
 }
 
 export interface ModalProps {
@@ -165,11 +176,18 @@ export interface ToggleProps {
     disabled?: boolean | undefined;
 }
 
+export type SearchFieldKey = "up" | "down" | "enter" | "escape";
+
 export interface SearchFieldProps {
     value: string;
     onChange: (value: string) => void;
     placeholder: string;
     autoFocus?: boolean | undefined;
+    // Arrow keys, Enter and Escape, for moving through results.
+    onKey?: ((key: SearchFieldKey) => void) | undefined;
+    // Shown at the end of the box: a shortcut hint or a Cancel action.
+    trailing?: ReactNode | undefined;
+    size?: "md" | "lg" | undefined;
 }
 
 export type NoticeTone = "danger" | "success" | "info";
@@ -185,6 +203,8 @@ export interface ChoiceOption<K extends string> {
     key: K;
     label: string;
     hint?: string | undefined;
+    // A second line under the hint, smaller; tiles only.
+    detail?: string | undefined;
     disabled?: boolean | undefined;
 }
 
@@ -193,8 +213,11 @@ export interface ChoiceProps<K extends string> {
     // An array marks several as chosen; onChange gets the pressed key either way.
     value: K | readonly K[] | null;
     onChange: (key: K) => void;
-    layout?: "chips" | "segmented" | "cards" | undefined;
+    layout?: "chips" | "segmented" | "cards" | "tiles" | undefined;
     label?: string | undefined;
+    // Tiles only: how many to a row, and lg for client-facing screens (tips, a turned screen).
+    columns?: 2 | 3 | 4 | 5 | undefined;
+    size?: "md" | "lg" | undefined;
 }
 
 export interface PanelProps {
@@ -255,4 +278,605 @@ export interface PageHeaderProps {
     actions?: ReactNode | undefined;
     // A tab row or filters under the title.
     children?: ReactNode | undefined;
+}
+
+export interface AvatarProps {
+    name: string;
+    size?: "sm" | "md" | "lg" | "xl" | undefined;
+    // A staff or pet colour; defaults to the accent tint.
+    color?: string | null | undefined;
+}
+
+export interface KeyValueRow {
+    label: string;
+    value: ReactNode;
+    intent?: Intent | undefined;
+}
+
+export interface KeyValueListProps {
+    rows: readonly KeyValueRow[];
+    // "stack" puts the label above the value (narrow panels); "inline" sets them on one line.
+    layout?: "inline" | "stack" | undefined;
+    // Stack layout only: facts per row.
+    columns?: 2 | 3 | 4 | undefined;
+}
+
+export interface IconProps {
+    name: IconName;
+    size?: number | undefined;
+    // Web defaults to currentColor so the surrounding text colour applies.
+    color?: string | undefined;
+    // Set only when the icon carries meaning on its own; otherwise it is hidden from screen readers.
+    label?: string | undefined;
+}
+
+export interface DocTotalLine {
+    key: string;
+    label: string;
+    cents: number;
+    // credit lowers what the client owes (green); deduction is taken off the business's side (neutral).
+    kind: "subtotal" | "tax" | "total" | "credit" | "deduction" | "balance";
+    hint?: string | undefined;
+}
+
+export interface DocTotalsProps {
+    lines: readonly DocTotalLine[];
+    // "compact" tightens spacing for side panels and receipts.
+    density?: "regular" | "compact" | undefined;
+}
+
+export interface TimelineEntry {
+    key: string;
+    label: string;
+    detail?: string | undefined;
+    at: string;
+    intent?: Intent | undefined;
+    icon?: IconName | undefined;
+    // A quoted body under the entry: a note or a message.
+    quote?: string | undefined;
+    // A right-hand figure such as an amount; moves the time under the label.
+    aside?: string | undefined;
+}
+
+export interface ActivityTimelineProps {
+    entries: readonly TimelineEntry[];
+}
+
+// Strokes of points in a 0..1 box, so a signature draws the same at any size and prints as vectors.
+export type SignatureStrokes = readonly (readonly (readonly [number, number])[])[];
+
+export interface SignaturePadProps {
+    strokes: SignatureStrokes;
+    // Without onChange the pad only shows the signature (a signed document, a receipt).
+    onChange?: ((strokes: SignatureStrokes) => void) | undefined;
+    label: string;
+    placeholder?: string | undefined;
+    clearLabel?: string | undefined;
+    height?: number | undefined;
+}
+
+export interface FormQuestionField {
+    input: string;
+    name: string;
+    label: string;
+    help: string | null;
+    required: boolean;
+    options: readonly unknown[];
+}
+
+export interface FormQuestionProps {
+    field: FormQuestionField;
+    value: FormAnswer | undefined;
+    // Without onChange the question is a preview: it looks real but takes no input.
+    onChange?: ((value: FormAnswer) => void) | undefined;
+    // Web passes the picked file; the mobile preview never uploads.
+    onUpload?: ((file: Blob, name: string) => void) | undefined;
+    fileName?: string | null | undefined;
+    chooseFileLabel: string;
+    selectPlaceholder: string;
+    invalid?: boolean | undefined;
+}
+
+export interface ContractSignature {
+    heading: string;
+    name: string;
+    strokes: SignatureStrokes | null;
+    facts: readonly { label: string; value: string }[];
+}
+
+export interface ContractDocumentProps {
+    issuer: string;
+    title: string;
+    meta: string;
+    clauses: readonly { heading: string; text: string }[];
+    signature?: ContractSignature | null | undefined;
+    // Smaller type for a thumbnail-sized preview beside other content.
+    compact?: boolean | undefined;
+}
+
+// "event" is a centred system line (an opt-out, a routing note), not a message.
+export interface MessageBubbleProps {
+    body: string;
+    direction: "in" | "out";
+    meta?: string | undefined;
+    kind?: "message" | "event" | undefined;
+    failed?: boolean | undefined;
+    // Let the bubble use the full width, for previews in a narrow panel.
+    fill?: boolean | undefined;
+}
+
+export interface ConversationRowProps {
+    name: string;
+    preview: string;
+    at: string;
+    unread: number;
+    channel: "sms" | "email" | "chat";
+    channelLabel: string;
+    active?: boolean | undefined;
+    // Something to act on: opted out, a new number.
+    flag?: { label: string; intent: Intent } | undefined;
+    onPress: () => void;
+}
+
+export interface RatingDistributionProps {
+    rows: readonly { stars: number; count: number }[];
+    label: (stars: number, count: number) => string;
+}
+
+export type CalendarEventFlag =
+    "online" | "recurring" | "deposit_due" | "addons" | "note" | "walk_in" | "class";
+
+export interface CalendarEventCardProps {
+    headline: string;
+    detail?: string | undefined;
+    time: string;
+    // The visit's status; the fill and edge come from it.
+    intent: Intent;
+    // The service colour, shown as a small swatch.
+    color?: string | null | undefined;
+    // compact: one line for short visits; regular: headline over time and detail; full: three lines.
+    density?: "compact" | "regular" | "full" | undefined;
+    flags?: readonly CalendarEventFlag[] | undefined;
+    // dragging lifts the card, refused marks a drop the server would reject, faded is done or filtered.
+    state?: "idle" | "selected" | "dragging" | "refused" | "faded" | undefined;
+    label: string;
+    onPress?: (() => void) | undefined;
+}
+
+export interface DateStripDay {
+    key: string;
+    weekday: string;
+    day: string;
+    // 0 to 3 dots under the date.
+    busy?: number | undefined;
+    closed?: boolean | undefined;
+    isToday?: boolean | undefined;
+    disabled?: boolean | undefined;
+}
+
+export interface DateStripProps {
+    days: readonly DateStripDay[];
+    value: string | null;
+    onChange: (key: string) => void;
+    label: string;
+    onPrev?: (() => void) | undefined;
+    onNext?: (() => void) | undefined;
+    prevLabel?: string | undefined;
+    nextLabel?: string | undefined;
+}
+
+export interface TimeSlot {
+    key: string;
+    label: string;
+    hint?: string | undefined;
+    disabled?: boolean | undefined;
+}
+
+export interface TimeSlotPickerProps {
+    groups: readonly { label: string; slots: readonly TimeSlot[] }[];
+    value: string | null;
+    onChange: (key: string) => void;
+    label: string;
+    columns?: 3 | 4 | 5 | undefined;
+}
+
+export interface IconButtonProps {
+    icon: IconName;
+    // Always required: the button has no visible text.
+    label: string;
+    onPress?: (() => void) | undefined;
+    // A number shows a count, true a dot.
+    badge?: number | boolean | undefined;
+    variant?: "quiet" | "outline" | undefined;
+    size?: "sm" | "md" | undefined;
+    pressed?: boolean | undefined;
+}
+
+export interface ListRowProps {
+    title: ReactNode;
+    detail?: ReactNode | undefined;
+    // Right-aligned text inside the press target: a time, an amount, a status.
+    meta?: ReactNode | undefined;
+    icon?: IconName | undefined;
+    // Tints the icon tile.
+    intent?: Intent | undefined;
+    // Replaces the icon tile: an avatar or a colour bar.
+    leading?: ReactNode | undefined;
+    // Actions beside the row, outside its press target.
+    trailing?: ReactNode | undefined;
+    unread?: boolean | undefined;
+    // Keyboard-highlighted or currently selected.
+    active?: boolean | undefined;
+    onPress?: (() => void) | undefined;
+    // Accessible name when the title is not plain text.
+    label?: string | undefined;
+    compact?: boolean | undefined;
+}
+
+export interface ActionMenuItem {
+    key: string;
+    label: string;
+    hint?: string | undefined;
+    icon: IconName;
+    // Web only: the single-key shortcut shown beside the item.
+    shortcut?: string | undefined;
+}
+
+export interface ActionMenuProps {
+    open: boolean;
+    onClose: () => void;
+    title?: string | undefined;
+    items: readonly ActionMenuItem[];
+    onSelect: (key: string) => void;
+    // "grid" draws large tiles (two across on web, three on mobile).
+    layout?: "list" | "grid" | undefined;
+    // Extra content under the items, e.g. recent clients to book again.
+    footer?: ReactNode | undefined;
+    // Web only: where the popover opens relative to its positioned parent; mobile is always a sheet.
+    placement?: "below-start" | "below-end" | "above-start" | undefined;
+}
+
+export interface ChecklistItem {
+    key: string;
+    label: string;
+    hint?: string | undefined;
+    done: boolean;
+    // Not done and blocking something (a Stripe requirement, an overdue task).
+    attention?: boolean | undefined;
+    action?: { label: string; onPress: () => void } | undefined;
+}
+
+export interface ChecklistProps {
+    items: readonly ChecklistItem[];
+    label: string;
+}
+
+export type ProgressStepState = "done" | "current" | "todo" | "blocked";
+
+export interface ProgressStep {
+    key: string;
+    label: string;
+    hint?: string | undefined;
+    state: ProgressStepState;
+}
+
+export interface ProgressStepsProps {
+    steps: readonly ProgressStep[];
+    // "row" is a compact wizard header; "column" is a timeline with hints.
+    layout?: "row" | "column" | undefined;
+    label: string;
+}
+
+export interface CheckboxProps {
+    label: string;
+    value: boolean;
+    onChange: (value: boolean) => void;
+    // Keeps the label for screen readers only (a table row's select box).
+    hideLabel?: boolean | undefined;
+    // Some but not all of a group are checked.
+    mixed?: boolean | undefined;
+    disabled?: boolean | undefined;
+}
+
+// The business's existing tags are offered first so the same tag isn't spelled three ways.
+export interface TagInputProps {
+    label: string;
+    tags: readonly string[];
+    onAdd: (tag: string) => void;
+    onRemove: (tag: string) => void;
+    // Existing tags with how many clients have each; the ones already chosen are skipped.
+    suggestions?: readonly { tag: string; count: number }[] | undefined;
+    placeholder: string;
+    removeLabel: (tag: string) => string;
+    createLabel: (text: string) => string;
+}
+
+export interface BrandMarkProps {
+    // "card" | "bank_eft" | "interac", as on a saved payment method.
+    method: string;
+    brand: string | null;
+    size?: "sm" | "md" | undefined;
+}
+
+export interface BarChartBar {
+    key: string;
+    label: string;
+    value: number;
+    valueLabel: string;
+    // A period still in progress draws lighter.
+    partial?: boolean | undefined;
+    // Outside the period being looked at: drawn as context, not as the answer.
+    dim?: boolean | undefined;
+}
+
+export interface BarChartProps {
+    bars: readonly BarChartBar[];
+    // Names the chart for screen readers.
+    label: string;
+    height?: number | undefined;
+}
+
+// `originalCents` prints struck through beside `cents` when a discount applies.
+export interface LineItemProps {
+    title: string;
+    meta?: string | undefined;
+    leading?: ReactNode | undefined;
+    quantity?: { value: number; onChange: (n: number) => void; label: string } | undefined;
+    // Read-only quantity ("2 ×") when there is no stepper.
+    count?: number | undefined;
+    cents: number;
+    originalCents?: number | null | undefined;
+    tag?: { label: string; intent: Intent } | null | undefined;
+    onPress?: (() => void) | undefined;
+    pressLabel?: string | undefined;
+    onRemove?: (() => void) | undefined;
+    removeLabel?: string | undefined;
+    selected?: boolean | undefined;
+}
+
+export interface DurationSegment {
+    key: string;
+    minutes: number;
+    label: string;
+    kind: "buffer" | "main";
+}
+
+export interface DurationBarProps {
+    segments: readonly DurationSegment[];
+    // The item colour for the main segment.
+    color?: string | null | undefined;
+    caption?: string | undefined;
+}
+
+export interface ImagePickerProps {
+    src: string | null;
+    name: string;
+    color?: string | null | undefined;
+    label: string;
+    hint?: string | undefined;
+    onPick: () => void;
+    // Mobile only: a second source (the library when onPick takes a photo).
+    onPickAlt?: (() => void) | undefined;
+    altLabel?: string | undefined;
+    onRemove?: (() => void) | undefined;
+    removeLabel?: string | undefined;
+    busy?: boolean | undefined;
+    size?: "md" | "lg" | undefined;
+}
+
+export interface ItemTileProps {
+    name: string;
+    imageSrc: string | null;
+    color: string | null;
+    cents: number | null;
+    meta?: string | undefined;
+    tag?: { label: string; intent: Intent } | null | undefined;
+    // How many are already on the ticket; draws a count badge.
+    count?: number | undefined;
+    onPress?: (() => void) | undefined;
+    disabled?: boolean | undefined;
+    // card puts a square photo on top (product grids); tile is the compact register key.
+    layout?: "tile" | "card" | undefined;
+}
+
+export interface SwatchPickerProps {
+    label: string;
+    colours: readonly string[];
+    value: string;
+    onChange: (colour: string) => void;
+}
+
+export interface WeeklyHoursDay {
+    weekday: number;
+    label: string;
+    short: string;
+    open: boolean;
+    start: string;
+    end: string;
+    hours: number;
+    error: string | null;
+}
+
+export interface WeeklyHoursEditorProps {
+    days: readonly WeeklyHoursDay[];
+    timeOptions: readonly { key: string; label: string }[];
+    onOpen: (weekday: number, open: boolean) => void;
+    onTime: (weekday: number, which: "start" | "end", value: string) => void;
+    // Shown on the first open day; copies its hours to the other weekdays.
+    onCopy?: ((weekday: number) => void) | undefined;
+    copyLabel: string;
+    closedLabel: string;
+    toLabel: string;
+    hoursLabel: (hours: number) => string;
+}
+
+export interface PrintedDocLine {
+    id: string;
+    description: string;
+    subject: string | null;
+    quantity: number;
+    unitCents: number;
+    amountCents: number;
+    taxCodes: readonly string[];
+}
+
+export interface PrintedDocTax {
+    code: string;
+    label: string;
+    baseCents: number;
+    cents: number;
+}
+
+export interface PrintedDocLabels {
+    from: string;
+    item: string;
+    qty: string;
+    price: string;
+    tax: string;
+    amount: string;
+    taxSummary: string;
+    taxBase: string;
+    howToPay: string;
+    scanToPay: string;
+    paymentMethod: string;
+    page: string;
+    forPet: (pet: string) => string;
+}
+
+// One model for the PDF, the in-app preview and the Connect pages, so what staff see is what clients get.
+export interface PrintedDoc {
+    kind: "invoice" | "estimate" | "receipt";
+    title: string;
+    number: string;
+    business: {
+        name: string;
+        initials: string;
+        tagline: string;
+        brandColor: string;
+        address: readonly string[];
+        phone: string;
+        email: string;
+        website: string;
+        registration: string;
+    };
+    partyLabel: string;
+    partyName: string;
+    partyLines: readonly string[];
+    meta: readonly { label: string; value: string }[];
+    lines: readonly PrintedDocLine[];
+    taxes: readonly PrintedDocTax[];
+    totals: readonly DocTotalLine[];
+    // The figure the document leads with: balance due, estimate total or amount paid.
+    headline: { label: string; cents: number };
+    payment: { method: string; reference: string; at: string; amountCents: number } | null;
+    stamp: string | null;
+    payUrl: string | null;
+    instructions: readonly string[];
+    message: string | null;
+    footer: string;
+    labels: PrintedDocLabels;
+}
+
+export interface PrintedDocumentProps {
+    doc: PrintedDoc;
+    // "classic" is a letterhead with the lines first; "statement" leads with the amount and how to pay.
+    template?: "classic" | "statement" | undefined;
+}
+
+// A scannable code for a pay or accept link, drawn from the URL.
+export interface PayCodeProps {
+    value: string;
+    size?: number | undefined;
+    label: string;
+}
+
+export interface CopyFieldProps {
+    label: string;
+    value: string;
+    hint?: string | undefined;
+    // Code wraps over several lines in a mono box; a link stays on one line.
+    multiline?: boolean | undefined;
+    copied: boolean;
+    onCopy: () => void;
+    copyLabel: string;
+    copiedLabel: string;
+    // "code" sets a value the reader types elsewhere (an e-Transfer reference) large and spaced.
+    emphasis?: "code" | "plain" | undefined;
+}
+
+export interface OccurrenceRow {
+    key: string;
+    index: number;
+    date: string;
+    time: string;
+    intent: Intent;
+    state: string;
+    note?: string | null | undefined;
+    // A second small marker, e.g. a clock change.
+    flag?: string | null | undefined;
+    past?: boolean | undefined;
+    // Shown under a clash: pick one; the active one is the current choice.
+    actions?: readonly { key: string; label: string; active?: boolean | undefined }[] | undefined;
+}
+
+export interface OccurrenceListProps {
+    rows: readonly OccurrenceRow[];
+    label: string;
+    onAction?: ((rowKey: string, actionKey: string) => void) | undefined;
+}
+
+export interface UsageBarSegment {
+    key: string;
+    // Minutes from the start of the bar.
+    from: number;
+    to: number;
+    color?: string | null | undefined;
+    label: string;
+}
+
+export interface UsageBarProps {
+    segments: readonly UsageBarSegment[];
+    total: number;
+    now?: number | null | undefined;
+    ticks?: readonly { at: number; label: string }[] | undefined;
+    label: string;
+}
+
+export interface SkeletonProps {
+    // "row": avatar and two lines; "stat": a label and a figure; "line": one bar.
+    variant: "row" | "stat" | "line";
+    count?: number | undefined;
+    // Lays the placeholders out side by side, e.g. a row of stats.
+    columns?: 2 | 3 | 4 | undefined;
+    // Announced to screen readers while content loads.
+    label: string;
+}
+
+export interface SyncBannerProps {
+    state: "offline" | "syncing" | "error";
+    title: string;
+    detail?: string | undefined;
+    action?: { label: string; onPress: () => void } | undefined;
+    // "strip" is one slim line at the top of a page; "card" explains what still works.
+    variant?: "strip" | "card" | undefined;
+    children?: ReactNode | undefined;
+}
+
+// How much of something: a balance used, seats booked, stock against its low line.
+export interface MeterProps {
+    // Filled amount, in the same unit as max.
+    value: number;
+    max: number;
+    label: string;
+    // Beside the label when it sits above the bar.
+    detail?: string | undefined;
+    intent?: Intent | undefined;
+    // One block per unit (seats, sessions) instead of a continuous bar.
+    units?: boolean | undefined;
+    // Units past max, drawn dashed after the blocks (a waitlist).
+    overflow?: number | undefined;
+    // A thin line at this value (a low-stock threshold).
+    marker?: number | null | undefined;
+    labelPosition?: "above" | "below" | "beside" | "hidden" | undefined;
+    size?: "sm" | "md" | undefined;
 }

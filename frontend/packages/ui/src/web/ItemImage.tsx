@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { cssVar, tint } from "@clientbridge/tokens";
 
 export interface ItemImageProps {
     src: string | null;
@@ -24,11 +25,11 @@ export function ItemImage({ src, name, color, size = 40 }: ItemImageProps) {
             />
         );
     }
-    const tone = color ?? "#3F5E80";
+    const tone = color ?? cssVar("accent");
     return (
         <span
             aria-hidden
-            style={{ ...box, backgroundColor: `${tone}1f`, color: tone, fontSize: size * 0.42 }}
+            style={{ ...box, backgroundColor: tint(tone, 12), color: tone, fontSize: size * 0.42 }}
             className="flex shrink-0 items-center justify-center rounded-md font-semibold"
         >
             {name.trim().charAt(0).toUpperCase()}

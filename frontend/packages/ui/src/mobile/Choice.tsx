@@ -10,7 +10,21 @@ export function Choice<K extends string>({
     onChange,
     layout = "chips",
     label,
+    columns,
+    size,
 }: ChoiceProps<K>) {
+    if (layout === "tiles") {
+        return (
+            <Tiles
+                options={options}
+                value={value}
+                onChange={onChange}
+                label={label}
+                columns={columns}
+                size={size}
+            />
+        );
+    }
     const chosen = (key: K): boolean =>
         Array.isArray(value) ? (value as readonly K[]).includes(key) : value === key;
     const box =
@@ -100,4 +114,98 @@ const styles = StyleSheet.create({
     cardText: { color: c.ink, fontSize: 15 },
     cardTextOn: { color: c.accentStrong },
     hint: { color: c.muted, fontSize: 12, marginTop: 2 },
+});
+
+function Tiles<K extends string>({
+    options,
+    value,
+    onChange,
+    label,
+    columns = 3,
+    size = "md",
+}: ChoiceProps<K>) {
+    const lg = size === "lg";
+    const chosen = (key: K): boolean =>
+        Array.isArray(value) ? (value as readonly K[]).includes(key) : value === key;
+    const basis = `${String(100 / columns - 2)}%` as `${number}%`;
+    return (
+        <View accessibilityRole="radiogroup" accessibilityLabel={label} style={tileStyles.grid}>
+            {options.map((o) => {
+                const on = chosen(o.key);
+                return (
+                    <Pressable
+                        key={o.key}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: on, disabled: o.disabled === true }}
+                        disabled={o.disabled}
+                        onPress={() => {
+                            onChange(o.key);
+                        }}
+                        style={[
+                            tileStyles.tile,
+                            { flexBasis: basis },
+                            lg && tileStyles.lg,
+                            on && tileStyles.on,
+                            o.disabled === true && tileStyles.off,
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                tileStyles.label,
+                                lg && tileStyles.labelLg,
+                                on && tileStyles.onText,
+                            ]}
+                            numberOfLines={1}
+                        >
+                            {o.label}
+                        </Text>
+                        {o.hint !== undefined ? (
+                            <Text
+                                style={[
+                                    tileStyles.hint,
+                                    lg && tileStyles.hintLg,
+                                    on && tileStyles.onText,
+                                ]}
+                                numberOfLines={1}
+                            >
+                                {o.hint}
+                            </Text>
+                        ) : null}
+                        {o.detail !== undefined ? (
+                            <Text style={tileStyles.detail} numberOfLines={2}>
+                                {o.detail}
+                            </Text>
+                        ) : null}
+                    </Pressable>
+                );
+            })}
+        </View>
+    );
+}
+
+const tileStyles = StyleSheet.create({
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "space-between" },
+    tile: {
+        flexGrow: 1,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+        borderRadius: theme.radius + 2,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+    },
+    lg: { alignItems: "center", paddingVertical: 18 },
+    on: {
+        borderColor: c.accent,
+        backgroundColor: c.accentWeak,
+        borderWidth: 2,
+        paddingHorizontal: 11,
+    },
+    off: { opacity: 0.5 },
+    label: { color: c.ink, fontSize: 15, fontWeight: "700" },
+    labelLg: { fontSize: 24 },
+    hint: { color: c.inkSoft, fontSize: 12.5, marginTop: 2, fontVariant: ["tabular-nums"] },
+    hintLg: { fontSize: 15, marginTop: 4 },
+    onText: { color: c.accentStrong },
+    detail: { color: c.muted, fontSize: 12, marginTop: 4, lineHeight: 16 },
 });

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { tintHex } from "@clientbridge/tokens";
+import { theme } from "@clientbridge/tokens/native";
 
 export interface ItemImageProps {
     src: string | null;
@@ -23,9 +25,9 @@ export function ItemImage({ src, name, color, size = 40 }: ItemImageProps) {
             />
         );
     }
-    const tone = color ?? "#3F5E80";
+    const tone = color ?? theme.colors.accent;
     return (
-        <View style={[styles.box, styles.fallback, box, { backgroundColor: `${tone}1f` }]}>
+        <View style={[styles.box, styles.fallback, box, { backgroundColor: tintHex(tone, 12) }]}>
             <Text style={[styles.initial, { color: tone, fontSize: size * 0.42 }]}>
                 {name.trim().charAt(0).toUpperCase()}
             </Text>

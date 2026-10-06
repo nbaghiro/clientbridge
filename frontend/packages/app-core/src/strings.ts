@@ -29,6 +29,13 @@ export const strings = {
             days: (n: number) => `${n}d`,
         },
     },
+    ui: {
+        clearSearch: "Clear search",
+        done: "(done)",
+        withCount: (label: string, count: string) => `${label}, ${count}`,
+        onTicket: (name: string, count: number) => `${name}, ${count} on ticket`,
+        cardFallback: "CARD",
+    },
     billing: {
         actionSend: "Send",
         actionVoid: "Void",

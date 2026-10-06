@@ -1,31 +1,62 @@
-import type { SearchFieldProps } from "@clientbridge/app-core";
+import { type SearchFieldProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { StyleSheet, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
-import { IconSearch } from "./Icons";
+import { Icon } from "./Icon";
 
 const c = theme.colors;
 
-export function SearchField({ value, onChange, placeholder, autoFocus }: SearchFieldProps) {
+/** The real SearchField plus a clear button, Enter for result lists, a trailing slot and a large size. */
+export function SearchField({
+    value,
+    onChange,
+    placeholder,
+    autoFocus,
+    onKey,
+    trailing,
+    size = "md",
+}: SearchFieldProps) {
+    const large = size === "lg";
     return (
-        <View style={styles.wrap}>
-            <IconSearch size={16} color={c.muted} />
-            <TextInput
-                style={styles.input}
-                value={value}
-                onChangeText={onChange}
-                placeholder={placeholder}
-                accessibilityLabel={placeholder}
-                placeholderTextColor={c.muted}
-                autoCapitalize="none"
-                autoFocus={autoFocus}
-            />
+        <View style={styles.row}>
+            <View style={[styles.box, large && styles.large]}>
+                <Icon name="search" size={large ? 19 : 16} color={c.muted} />
+                <TextInput
+                    value={value}
+                    onChangeText={onChange}
+                    placeholder={placeholder}
+                    placeholderTextColor={c.muted}
+                    accessibilityLabel={placeholder}
+                    autoFocus={autoFocus}
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    returnKeyType="search"
+                    onSubmitEditing={() => onKey?.("enter")}
+                    style={[styles.input, large && styles.inputLarge]}
+                />
+                {value.length > 0 ? (
+                    <Pressable
+                        onPress={() => {
+                            onChange("");
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={strings.ui.clearSearch}
+                        hitSlop={8}
+                        style={styles.clear}
+                    >
+                        <Icon name="x" size={12} color={c.surface} />
+                    </Pressable>
+                ) : null}
+            </View>
+            {trailing}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    wrap: {
+    row: { flexDirection: "row", alignItems: "center", gap: 12 },
+    box: {
+        flex: 1,
         flexDirection: "row",
         alignItems: "center",
         gap: 8,
@@ -35,5 +66,21 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
         backgroundColor: c.surface,
     },
-    input: { flex: 1, paddingVertical: 11, color: c.ink, fontSize: 15 },
+    large: { borderWidth: 0, borderRadius: 10, backgroundColor: c.surface2, minHeight: 44 },
+    input: {
+        flex: 1,
+        minWidth: 0,
+        paddingVertical: 11,
+        color: c.ink,
+        fontSize: 15,
+    },
+    inputLarge: { fontSize: 17 },
+    clear: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: c.muted,
+        alignItems: "center",
+        justifyContent: "center",
+    },
 });

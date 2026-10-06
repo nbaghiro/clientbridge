@@ -26,7 +26,8 @@
         "react": ">=19",
         "@stripe/stripe-react-native": "*",
         "react-native": "*",
-        "react-native-svg": "*"
+        "react-native-svg": "*",
+        "react-native-safe-area-context": "*"
     },
     "peerDependenciesMeta": {
         "@stripe/react-stripe-js": {
@@ -43,6 +44,9 @@
         },
         "react-native-svg": {
             "optional": true
+        },
+        "react-native-safe-area-context": {
+            "optional": true
         }
     },
     "devDependencies": {
@@ -53,6 +57,7 @@
         "@types/node": "^24.0.0",
         "@types/react": "~19.2.0",
         "react-native": "0.86.3",
+        "react-native-safe-area-context": "5.7.0",
         "react-native-svg": "15.15.4"
     }
 }

@@ -16,3 +16,20 @@ export const INTENT_COLORS: Record<IntentTone, { soft: ColorKey; ink: ColorKey; 
 export function cssVar(key: ColorKey): string {
     return `var(--${key.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)})`;
 }
+
+// Text and icons drawn over a data colour (a service, staff or brand colour) and the shadow of raised surfaces.
+export const ON_DATA = "#FFFFFF";
+export const SHADOW = "#14191E";
+
+// A see-through tint of a data or theme colour (web, so CSS variables work too).
+export function tint(color: string, percent: number): string {
+    return `color-mix(in srgb, ${color} ${String(percent)}%, transparent)`;
+}
+
+// The same tint for React Native, which takes a #RRGGBB colour.
+export function tintHex(hex: string, percent: number): string {
+    const alpha = Math.round((percent / 100) * 255)
+        .toString(16)
+        .padStart(2, "0");
+    return `${hex.slice(0, 7)}${alpha}`;
+}

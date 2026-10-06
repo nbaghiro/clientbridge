@@ -30,6 +30,7 @@
     --color-side-ink: var(--side-ink);
     --color-logo: var(--logo);
     --color-scrim: rgba(20, 25, 30, 0.35);
+    --color-on-data: #ffffff;
 
     --font-sans: "Schibsted Grotesk", sans-serif;
     --font-display: "Schibsted Grotesk", sans-serif;
@@ -38,6 +39,8 @@
     --radius-base: var(--radius);
     --radius-avatar: var(--avatar-radius);
     --shadow-card: var(--shadow);
+    --shadow-pop: 0 12px 32px -12px rgba(20, 25, 30, 0.28);
+    --shadow-page: 0 1px 3px rgba(20, 25, 30, 0.08), 0 12px 32px -12px rgba(20, 25, 30, 0.18);
 }
 
 @layer base {

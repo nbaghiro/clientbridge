@@ -3,6 +3,7 @@ export * from "./strings";
 export * from "./api";
 export * from "./datetime";
 export * from "./format";
+export * from "./payCode";
 export type * from "./ui";
 export * from "./hooks";
 export * from "./debug";
