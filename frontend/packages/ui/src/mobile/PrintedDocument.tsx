@@ -177,7 +177,7 @@ export function PrintedDocument({
                 </View>
             ) : null}
             {doc.stamp !== null ? (
-                <View style={styles.stamp} pointerEvents="none">
+                <View style={styles.stamp}>
                     <Text style={styles.stampText}>{doc.stamp.toUpperCase()}</Text>
                 </View>
             ) : null}
@@ -293,6 +293,7 @@ const styles = StyleSheet.create({
     box: { borderWidth: 1, borderColor: c.border, borderRadius: 6, padding: 10, marginTop: 12 },
     payRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     stamp: {
+        pointerEvents: "none",
         position: "absolute",
         right: 22,
         top: 92,

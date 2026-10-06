@@ -1,0 +1,34 @@
+@import "@fontsource/schibsted-grotesk/latin-400.css";
+@import "@fontsource/schibsted-grotesk/latin-500.css";
+@import "@fontsource/schibsted-grotesk/latin-600.css";
+@import "@fontsource/schibsted-grotesk/latin-700.css";
+@import "@fontsource/geist-mono/latin-400.css";
+@import "@fontsource/geist-mono/latin-500.css";
+@import "tailwindcss";
+@import "@clientbridge/tokens/themes.css";
+@import "@clientbridge/tokens/tailwind.css";
+@source "../../../packages/ui/src/web";
+@source "./";
+
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Schibsted Grotesk", sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Inside a phone frame the React Native tree fills the device and scrolls itself. */
+html[data-frame="mobile"] body {
+    overflow: hidden;
+}
+html[data-frame="mobile"] #root {
+    display: flex;
+    flex-direction: column;
+}

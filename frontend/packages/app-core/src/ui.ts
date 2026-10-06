@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 
-import type { Checkout, CheckoutMethod } from "./domain/checkout";
+import type { AddPaymentMethod, Checkout, CheckoutMethod } from "./domain/checkout";
 import type { FormAnswer } from "./domain/publicForm";
 import type { IconName } from "./icons";
 
@@ -137,8 +137,9 @@ export interface TextFieldProps {
     hint?: string | undefined;
     error?: string | null | undefined;
     optional?: boolean | undefined;
-    value: string;
-    onChange: (value: string) => void;
+    value?: string | undefined;
+    defaultValue?: string | undefined;
+    onChange?: ((value: string) => void) | undefined;
     onSubmit?: (() => void) | undefined;
     placeholder?: string | undefined;
     // Fixed text shown inside the box before the value (a URL prefix, a currency sign).
@@ -169,9 +170,11 @@ export interface SelectProps<K extends string> {
     name?: string | undefined;
     hint?: string | undefined;
     error?: string | null | undefined;
-    value: K;
+    value?: K | undefined;
+    // Without value or defaultValue the first option starts chosen.
+    defaultValue?: K | undefined;
     options: readonly SelectOption<K>[];
-    onChange: (key: K) => void;
+    onChange?: ((key: K) => void) | undefined;
     size?: "sm" | "md" | "lg" | undefined;
     disabled?: boolean | undefined;
 }
@@ -179,8 +182,9 @@ export interface SelectProps<K extends string> {
 export interface ToggleProps {
     label: string;
     hint?: string | undefined;
-    value: boolean;
-    onChange: (value: boolean) => void;
+    value?: boolean | undefined;
+    defaultValue?: boolean | undefined;
+    onChange?: ((value: boolean) => void) | undefined;
     disabled?: boolean | undefined;
 }
 
@@ -320,6 +324,19 @@ export interface ChargeSheetProps {
     title?: string | undefined;
     // The sale's own fields (what is being bought), shown above the payment choice.
     children?: ReactNode | undefined;
+}
+
+// Raw status values are capitalized; asWritten keeps an already-worded label as it is.
+export interface StatusPillProps {
+    status: string;
+    intent: Intent;
+    asWritten?: boolean | undefined;
+}
+
+// Bank (PAD) mandates are web only for now, so mobile ignores allowBank.
+export interface PaymentMethodFormProps {
+    flow: AddPaymentMethod;
+    allowBank: boolean;
 }
 
 export interface ItemImageProps {

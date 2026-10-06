@@ -6,6 +6,7 @@ import {
     type TextFieldType,
     type ToggleProps,
     strings,
+    useControllable,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import type { ReactNode } from "react";
@@ -79,7 +80,8 @@ export function TextField({
     hint,
     error,
     optional = false,
-    value,
+    value: valueProp,
+    defaultValue = "",
     onChange,
     onSubmit,
     placeholder,
@@ -97,11 +99,12 @@ export function TextField({
     maxLength,
     style,
 }: NativeProps<TextFieldProps>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const plain = type === "email" || type === "password" || type === "url";
     const input: ReactNode = (
         <TextInput
             value={value}
-            onChangeText={onChange}
+            onChangeText={setValue}
             onSubmitEditing={onSubmit}
             placeholder={placeholder}
             placeholderTextColor={c.muted}
@@ -154,16 +157,25 @@ export function Select<K extends string>({
     label,
     hint,
     error,
-    value,
+    value: valueProp,
+    defaultValue,
     options,
     onChange,
     style,
 }: NativeProps<SelectProps<K>>) {
+    const [value, setValue] = useControllable<K | undefined>(
+        valueProp,
+        defaultValue ?? options[0]?.key,
+    );
+    const pick = (key: K): void => {
+        setValue(key);
+        onChange?.(key);
+    };
     const choices: ChoiceOption<K>[] = options.map((o) => ({ key: o.key, label: o.label }));
     return (
         <View style={style}>
             {label !== undefined ? <Label text={label} optional={false} /> : null}
-            <Choice options={choices} value={value} onChange={onChange} label={label} />
+            <Choice options={choices} value={value} onChange={pick} label={label} />
             <Extras hint={hint} error={error} />
         </View>
     );
@@ -172,11 +184,13 @@ export function Select<K extends string>({
 export function Toggle({
     label,
     hint,
-    value,
+    value: valueProp,
+    defaultValue = false,
     onChange,
     disabled,
     style,
 }: NativeProps<ToggleProps>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     return (
         <View style={[styles.toggle, style]}>
             <View style={styles.toggleText}>
@@ -185,7 +199,7 @@ export function Toggle({
             </View>
             <Switch
                 value={value}
-                onValueChange={onChange}
+                onValueChange={setValue}
                 disabled={disabled}
                 accessibilityLabel={label}
                 trackColor={{ true: c.accent, false: c.border }}

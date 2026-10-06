@@ -1,4 +1,4 @@
-import { type AddPaymentMethod, strings } from "@clientbridge/app-core";
+import { type PaymentMethodFormProps, strings } from "@clientbridge/app-core";
 import { StyleSheet, View } from "react-native";
 
 import { Button } from "./Button";
@@ -6,11 +6,7 @@ import { CardForm } from "./CardForm";
 import { Notice } from "./Notice";
 import type { NativeProps } from "./props";
 
-/** Save a card for a client. Bank (PAD) mandates are web-only for now, so `allowBank` is ignored. */
-export function PaymentMethodForm({
-    flow,
-    style,
-}: NativeProps<{ flow: AddPaymentMethod; allowBank: boolean }>) {
+export function PaymentMethodForm({ flow, style }: NativeProps<PaymentMethodFormProps>) {
     if (flow.intent !== null && flow.kind === "card") {
         return (
             <CardForm

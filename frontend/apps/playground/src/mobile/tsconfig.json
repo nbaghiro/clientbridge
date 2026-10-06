@@ -1,0 +1,9 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "customConditions": ["react-native"],
+        "types": ["vite/client", "node"],
+        "noEmit": true
+    },
+    "include": [".", "../stories", "../story.ts", "../kit.ts", "../Render.tsx"]
+}

@@ -1,5 +1,6 @@
 import { ICON_SPECS, type IconPrimitive, type IconProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
+import { View } from "react-native";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import type { NativeProps } from "./props";
@@ -11,7 +12,7 @@ export function Icon({
     label,
     style,
 }: NativeProps<IconProps>) {
-    return (
+    const glyph = (
         <Svg
             width={size}
             height={size}
@@ -21,8 +22,7 @@ export function Icon({
             strokeWidth={1.9}
             strokeLinecap="round"
             strokeLinejoin="round"
-            style={[{ width: size, height: size }, style]}
-            {...(label !== undefined ? { accessible: true, accessibilityLabel: label } : {})}
+            style={[{ width: size, height: size }, label === undefined && style]}
         >
             {ICON_SPECS[name].map((p: IconPrimitive, i) =>
                 p.kind === "rect" ? (
@@ -43,6 +43,12 @@ export function Icon({
                 ),
             )}
         </Svg>
+    );
+    if (label === undefined) return glyph;
+    return (
+        <View accessible accessibilityRole="image" accessibilityLabel={label} style={style}>
+            {glyph}
+        </View>
     );
 }
 

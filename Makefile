@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-mobile build build-site test-site test-web lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-playground lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -11,11 +11,13 @@ help:
 	@echo "dev-web          run web (Vite) on :8700"
 	@echo "dev-connect      run Connect, the client pages (Vite), on :8709"
 	@echo "dev-site         run the marketing site (Vite) on :8710"
+	@echo "dev-playground   run the component playground (Vite) on :8712"
 	@echo "dev-mobile       run mobile (Expo/Metro) on :8707"
 	@echo "build            build every frontend app and package"
 	@echo "build-site       build the marketing site to static HTML in frontend/apps/site/dist"
 	@echo "test-site        build the site, then the browser pass (links, images, phone width, a11y)"
 	@echo "test-web         web smoke test: every page and dialog (needs the local stack + seed)"
+	@echo "test-playground  build the playground, then open every story on web, iPhone and Android"
 	@echo "lighthouse-site  Lighthouse budget against the site preview on :8710"
 	@echo "migrate          alembic upgrade head"
 	@echo "revision         alembic autogenerate (name=...)"
@@ -77,6 +79,9 @@ dev-connect:
 dev-site:
 	cd frontend && pnpm --filter site dev
 
+dev-playground:
+	cd frontend && pnpm --filter playground dev
+
 build:
 	cd frontend && pnpm build
 
@@ -89,6 +94,10 @@ test-site:
 
 test-web:
 	cd frontend && pnpm --filter web e2e
+
+# Every story page and phone frame on a fresh build, failing on any console error.
+test-playground:
+	cd frontend && pnpm --filter playground build && pnpm --filter playground e2e
 
 # Lighthouse budget (desktop >= 95 per category); needs the built site served on :8710 (make dev-site
 # serves source, so run `cd frontend && pnpm --filter site preview` first).

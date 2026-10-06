@@ -1,19 +1,14 @@
-import type { Intent } from "@clientbridge/app-core/public";
+import type { StatusPillProps } from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 import { type WebProps, cx } from "./props";
 
-/** Raw status values are capitalized; `asWritten` keeps an already-worded label as it is. */
 export function StatusPill({
     status,
     intent,
     asWritten = false,
     className,
-}: WebProps<{
-    status: string;
-    intent: Intent;
-    asWritten?: boolean;
-}>) {
+}: WebProps<StatusPillProps>) {
     const tone = INTENT_COLORS[intent];
     return (
         <span

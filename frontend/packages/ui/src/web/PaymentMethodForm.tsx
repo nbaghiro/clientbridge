@@ -1,4 +1,4 @@
-import { type AddPaymentMethod, strings } from "@clientbridge/app-core/public";
+import { type PaymentMethodFormProps, strings } from "@clientbridge/app-core/public";
 
 import { Button } from "./Button";
 import { CardForm } from "./CardForm";
@@ -9,10 +9,7 @@ export function PaymentMethodForm({
     flow,
     allowBank,
     className,
-}: WebProps<{
-    flow: AddPaymentMethod;
-    allowBank: boolean;
-}>) {
+}: WebProps<PaymentMethodFormProps>) {
     if (flow.intent !== null && flow.kind !== null) {
         const noun =
             flow.kind === "bank" ? strings.clients.bankAccountNoun : strings.clients.cardNoun;

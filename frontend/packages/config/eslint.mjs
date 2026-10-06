@@ -28,6 +28,11 @@ export default tseslint.config(
         rules: { "local/no-inline-ui-string": "off" },
     },
     {
+        // The playground's stories hold fixture data and its chrome is a dev tool, not product copy.
+        files: ["**/apps/playground/**/*.{ts,tsx}"],
+        rules: { "local/no-inline-ui-string": "off" },
+    },
+    {
         // Connect and app-core/public must never pull the PowerSync replica stack into the customer bundle.
         files: [
             "**/apps/connect/src/**/*.{ts,tsx}",

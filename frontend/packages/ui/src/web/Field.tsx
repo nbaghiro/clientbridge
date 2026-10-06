@@ -4,6 +4,7 @@ import {
     type TextFieldProps,
     type ToggleProps,
     strings,
+    useControllable,
 } from "@clientbridge/app-core/public";
 import { type ReactNode, useId } from "react";
 
@@ -91,7 +92,8 @@ export function TextField({
     hint,
     error,
     optional = false,
-    value,
+    value: valueProp,
+    defaultValue = "",
     onChange,
     onSubmit,
     placeholder,
@@ -112,6 +114,7 @@ export function TextField({
     maxLength,
     className,
 }: WebProps<TextFieldProps>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const id = useId();
     const shared = {
         id,
@@ -140,7 +143,7 @@ export function TextField({
                     {...shared}
                     rows={rows}
                     onChange={(e) => {
-                        onChange(e.target.value);
+                        setValue(e.target.value);
                     }}
                     className={`${shared.className} resize-none`}
                 />
@@ -155,7 +158,7 @@ export function TextField({
                         inputMode={type === "number" ? "decimal" : undefined}
                         autoComplete={autoComplete}
                         onChange={(e) => {
-                            onChange(e.target.value);
+                            setValue(e.target.value);
                         }}
                         className={`min-w-0 flex-1 bg-transparent px-1 text-ink outline-hidden placeholder:text-muted ${INPUT_SIZE[size].replace(/px-\S+/, "")}`}
                     />
@@ -170,7 +173,7 @@ export function TextField({
                     max={max}
                     step={step}
                     onChange={(e) => {
-                        onChange(e.target.value);
+                        setValue(e.target.value);
                     }}
                     onKeyDown={
                         onSubmit === undefined
@@ -193,13 +196,22 @@ export function Select<K extends string>({
     name,
     hint,
     error,
-    value,
+    value: valueProp,
+    defaultValue,
     options,
     onChange,
     size = "md",
     disabled,
     className,
 }: WebProps<SelectProps<K>>) {
+    const [value, setValue] = useControllable<K | undefined>(
+        valueProp,
+        defaultValue ?? options[0]?.key,
+    );
+    const pick = (key: K): void => {
+        setValue(key);
+        onChange?.(key);
+    };
     const id = useId();
     return (
         <Labelled
@@ -213,12 +225,12 @@ export function Select<K extends string>({
         >
             <select
                 id={id}
-                value={value}
+                value={value ?? ""}
                 disabled={disabled}
                 aria-label={label === undefined ? name : undefined}
                 onChange={(e) => {
                     const picked = options.find((o) => o.key === e.target.value);
-                    if (picked !== undefined) onChange(picked.key);
+                    if (picked !== undefined) pick(picked.key);
                 }}
                 className={inputClass(size, "bg", size === "sm" ? "auto" : "full")}
             >
@@ -235,11 +247,13 @@ export function Select<K extends string>({
 export function Toggle({
     label,
     hint,
-    value,
+    value: valueProp,
+    defaultValue = false,
     onChange,
     disabled,
     className,
 }: WebProps<ToggleProps>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     return (
         <label className={cx("flex items-start gap-2.5 text-sm text-ink", className)}>
             <input
@@ -247,7 +261,7 @@ export function Toggle({
                 checked={value}
                 disabled={disabled}
                 onChange={(e) => {
-                    onChange(e.target.checked);
+                    setValue(e.target.checked);
                 }}
                 className="mt-0.5 h-4 w-4 accent-accent"
             />
