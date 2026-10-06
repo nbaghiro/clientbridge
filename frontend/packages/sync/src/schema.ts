@@ -28,35 +28,6 @@ const staff = new Table(
     },
 );
 
-const businesses = new Table(
-    {
-        name: column.text,
-        slug: column.text,
-        locale: column.text,
-        timezone: column.text,
-        province: column.text,
-        gst_hst_number: column.text,
-        qst_number: column.text,
-        tax_registered: column.integer,
-        brand: column.text,
-        billing_email: column.text,
-        stripe_account_id: column.text,
-        stripe_terminal_location_id: column.text,
-        stripe_charges_enabled: column.integer,
-        stripe_payouts_enabled: column.integer,
-        stripe_details_submitted: column.integer,
-        stripe_requirements: column.text,
-        status: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            businesses_stripe_account: ["stripe_account_id"],
-        },
-    },
-);
-
 const clients = new Table(
     {
         created_by: column.text,
@@ -78,42 +49,6 @@ const clients = new Table(
             clients_business_email: ["business_id", "email"],
             clients_business_id: ["business_id"],
             clients_business_phone: ["business_id", "phone"],
-        },
-    },
-);
-
-const subjects = new Table(
-    {
-        client_id: column.text,
-        kind: column.text,
-        name: column.text,
-        attributes: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            subjects_business_client: ["business_id", "client_id"],
-            subjects_business_id: ["business_id"],
-        },
-    },
-);
-
-const notes = new Table(
-    {
-        created_by: column.text,
-        parent_type: column.text,
-        parent_id: column.text,
-        body: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            notes_business_id: ["business_id"],
-            notes_parent: ["business_id", "parent_type", "parent_id"],
         },
     },
 );
@@ -226,21 +161,6 @@ const gift_cards = new Table(
     },
 );
 
-const resources = new Table(
-    {
-        name: column.text,
-        category: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            resources_business_id: ["business_id"],
-        },
-    },
-);
-
 const forms = new Table(
     {
         name: column.text,
@@ -281,29 +201,6 @@ const fields = new Table(
     },
 );
 
-const responses = new Table(
-    {
-        form_id: column.text,
-        client_id: column.text,
-        parent_type: column.text,
-        parent_id: column.text,
-        token: column.text,
-        status: column.text,
-        submitted_at: column.text,
-        answers: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            responses_business_id: ["business_id"],
-            responses_form: ["business_id", "form_id"],
-            responses_parent: ["parent_type", "parent_id"],
-        },
-    },
-);
-
 const contracts = new Table(
     {
         name: column.text,
@@ -318,31 +215,6 @@ const contracts = new Table(
     {
         indexes: {
             contracts_business_id: ["business_id"],
-        },
-    },
-);
-
-const signatures = new Table(
-    {
-        contract_id: column.text,
-        client_id: column.text,
-        parent_type: column.text,
-        parent_id: column.text,
-        token: column.text,
-        signed_at: column.text,
-        signature_image_id: column.text,
-        signed_body: column.text,
-        ip: column.text,
-        status: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            signatures_business_id: ["business_id"],
-            signatures_contract: ["business_id", "contract_id"],
-            signatures_parent: ["parent_type", "parent_id"],
         },
     },
 );
@@ -407,23 +279,31 @@ const messages = new Table(
     },
 );
 
-const broadcasts = new Table(
+const businesses = new Table(
     {
-        created_by: column.text,
         name: column.text,
-        channel: column.text,
-        body: column.text,
-        audience: column.text,
+        slug: column.text,
+        locale: column.text,
+        timezone: column.text,
+        province: column.text,
+        gst_hst_number: column.text,
+        qst_number: column.text,
+        tax_registered: column.integer,
+        brand: column.text,
+        billing_email: column.text,
+        stripe_account_id: column.text,
+        stripe_terminal_location_id: column.text,
+        stripe_charges_enabled: column.integer,
+        stripe_payouts_enabled: column.integer,
+        stripe_details_submitted: column.integer,
+        stripe_requirements: column.text,
         status: column.text,
-        scheduled_at: column.text,
-        business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
     },
     {
         indexes: {
-            broadcasts_business_id: ["business_id"],
-            broadcasts_status: ["business_id", "status"],
+            businesses_stripe_account: ["stripe_account_id"],
         },
     },
 );
@@ -523,30 +403,6 @@ const hours = new Table(
         indexes: {
             hours_business_id: ["business_id"],
             hours_staff: ["business_id", "staff_id", "basis"],
-        },
-    },
-);
-
-const recurrences = new Table(
-    {
-        item_id: column.text,
-        staff_id: column.text,
-        client_id: column.text,
-        frequency: column.text,
-        interval: column.integer,
-        byday: column.text,
-        count: column.integer,
-        until: column.text,
-        start_date: column.text,
-        status: column.text,
-        business_id: column.text,
-        created_at: column.text,
-        updated_at: column.text,
-    },
-    {
-        indexes: {
-            recurrences_business_id: ["business_id"],
-            recurrences_status: ["business_id", "status"],
         },
     },
 );
@@ -804,29 +660,22 @@ const reviews = new Table(
 
 export const AppSchema = new Schema({
     staff,
-    businesses,
     clients,
-    subjects,
-    notes,
     items,
     packages,
     subscriptions,
     gift_cards,
-    resources,
     forms,
     fields,
-    responses,
     contracts,
-    signatures,
     files,
     threads,
     messages,
-    broadcasts,
+    businesses,
     slots,
     bookings,
     addons,
     hours,
-    recurrences,
     accounts,
     entries,
     invoices,

@@ -363,7 +363,7 @@ currently same perms as staff).
 | Data | owner / admin | staff |
 |---|---|---|
 | Own calendar (slots/bookings/hours) | ✅ all members | ✅ own only |
-| Shared client book (clients, subjects, docs, catalog) | ✅ | ✅ |
+| Shared client book (clients, catalog, forms, contracts, files) | ✅ | ✅ |
 | Own earnings (their own `payable` account + entries) | ✅ all | ✅ own |
 | Financials (invoices, payments, the ledger, others' pay) | ✅ | ❌ |
 | Inbox: one-to-one messages | ✅ | ✅ |
@@ -373,16 +373,21 @@ currently same perms as staff).
 ### Enforcement — the sync buckets (`infra/powersync/sync-rules.yaml`)
 Four buckets implement the read model (owner-sees-workers'-activity is carried by
 `bookings.staff_id` and the ledger's `owner_type`/`owner_id`; the `audits` trail is server-only):
-- **`business_shared`** (every active member) — reference data + the shared client book + client docs.
-- **`staff_directory`** (staff and contractors): the team directory without pay rates or payee flags.
-  Owner/admin read staff rows with the pay columns from `business_full` instead, so a staff row never
-  reaches one device with two different column sets. No bucket syncs `invite_token`.
-- **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** slots/bookings/hours/
-  recurrences, plus their own staff `accounts` and `entries` (earnings).
+- **`business_shared`** (every active member): the catalog and entitlements, the client book, forms,
+  fields, contracts, files, threads and messages.
+- **`staff_limited`** (staff and contractors): the business row without its tax numbers and billing
+  email, and the team without pay rates or payee flags. Owner/admin read both from `business_full` with
+  more columns, so a row never reaches one device with two different column sets. No bucket syncs
+  `invite_token` or the Stripe verification fields.
+- **`staff_self`** (per staff, sliced by `staff_id`) — a member's **own** slots/bookings/addons/
+  hours, plus their own staff `accounts` and `entries` (earnings).
 - **`business_full`** (owner/admin only) — **all** members' work + all financials (including the whole
-  ledger) + inbox.
+  ledger) + reviews.
 
-Device read scope: staff = `business_shared` + `staff_directory` + `staff_self` · owner/admin =
+Tables no app reads yet (subjects, notes, resources, responses, signatures, broadcasts, recurrences)
+are not synced; each comes back with its story.
+
+Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` · owner/admin =
 `business_shared` + `staff_self` + `business_full`. Writes
 are authorized separately in `/sync/upload` (`WRITE_POLICY`). Postgres RLS is an optional future
 defense-in-depth for the API, not the sync filter.

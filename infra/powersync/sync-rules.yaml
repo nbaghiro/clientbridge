@@ -3,38 +3,33 @@
 # See .docs/architecture.md. Writes are authorized separately in FastAPI /sync/upload.
 
 bucket_definitions:
-  # 1) SHARED — reference data + the client book. Every active team member reads this.
+  # 1) SHARED: the catalog, the client book, forms and contracts, files and the inbox. Every active member.
   business_shared:
     parameters: |
       SELECT business_id FROM staff
       WHERE user_id = request.user_id() AND status = 'active'
     data:
-      - SELECT * FROM businesses      WHERE id = bucket.business_id
       - SELECT * FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
-      - SELECT * FROM subjects        WHERE business_id = bucket.business_id
-      - SELECT * FROM notes           WHERE business_id = bucket.business_id
       - SELECT * FROM items           WHERE business_id = bucket.business_id
       - SELECT * FROM packages        WHERE business_id = bucket.business_id
       - SELECT * FROM subscriptions   WHERE business_id = bucket.business_id
       - SELECT * FROM gift_cards      WHERE business_id = bucket.business_id
-      - SELECT * FROM resources       WHERE business_id = bucket.business_id
       - SELECT * FROM forms           WHERE business_id = bucket.business_id
       - SELECT * FROM fields          WHERE business_id = bucket.business_id
-      - SELECT * FROM responses       WHERE business_id = bucket.business_id
       - SELECT * FROM contracts       WHERE business_id = bucket.business_id
-      - SELECT * FROM signatures      WHERE business_id = bucket.business_id
       - SELECT * FROM files           WHERE business_id = bucket.business_id
       - SELECT * FROM threads         WHERE business_id = bucket.business_id
       - SELECT * FROM messages        WHERE business_id = bucket.business_id
-      - SELECT * FROM broadcasts      WHERE business_id = bucket.business_id
 
-  # The team directory. Staff and contractors get it without pay or invite columns; owner/admin
-  # read full staff rows from business_full, so no row reaches a device with two column sets.
-  staff_directory:
+  # What staff and contractors read with fewer columns: the business without its tax numbers and
+  # billing email, and the team without pay. Owner/admin read the same rows with more columns from
+  # business_full, so no row reaches a device with two column sets.
+  staff_limited:
     parameters:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'staff'
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'contractor'
     data:
+      - SELECT id, name, timezone, locale, brand, stripe_account_id, stripe_terminal_location_id FROM businesses WHERE id = bucket.business_id
       - SELECT id, business_id, user_id, role, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
 
   # 2) STAFF-SELF — a staff member's OWN work + earnings, keyed to their staff row.
@@ -48,7 +43,6 @@ bucket_definitions:
       - SELECT * FROM bookings           WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM addons             WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM hours              WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
-      - SELECT * FROM recurrences        WHERE staff_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM accounts           WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
       - SELECT * FROM entries            WHERE owner_type = 'staff' AND owner_id = bucket.staff_id AND business_id = bucket.business_id
 
@@ -61,12 +55,12 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'owner'
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'admin'
     data:
+      - SELECT id, name, timezone, locale, billing_email, gst_hst_number, qst_number, brand, stripe_account_id, stripe_terminal_location_id FROM businesses WHERE id = bucket.business_id
       - SELECT id, business_id, user_id, role, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
       - SELECT * FROM slots              WHERE business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM addons             WHERE business_id = bucket.business_id
       - SELECT * FROM hours              WHERE business_id = bucket.business_id
-      - SELECT * FROM recurrences        WHERE business_id = bucket.business_id
       - SELECT * FROM invoices           WHERE business_id = bucket.business_id
       - SELECT * FROM estimates          WHERE business_id = bucket.business_id
       - SELECT * FROM orders             WHERE business_id = bucket.business_id
