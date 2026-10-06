@@ -7,8 +7,7 @@
         "build": "tsc -b && vite build",
         "preview": "vite preview",
         "lint": "eslint .",
-        "typecheck": "tsc --noEmit",
-        "test": "vitest run --passWithNoTests"
+        "typecheck": "tsc --noEmit"
     },
     "dependencies": {
         "@clientbridge/app-core": "workspace:*",
@@ -27,7 +26,6 @@
         "@types/react-dom": "~19.2.0",
         "@vitejs/plugin-react": "^6.1.1",
         "tailwindcss": "^4.3.3",
-        "vite": "^8.3.2",
-        "vitest": "^5.0.3"
+        "vite": "^8.3.2"
     }
 }
