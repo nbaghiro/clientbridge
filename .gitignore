@@ -26,6 +26,7 @@ dist/
 frontend/packages/api-client/openapi.json
 
 # Misc
+.scratchpad/
 .DS_Store
 *.local
 *.log
