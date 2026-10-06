@@ -1,6 +1,8 @@
 """Baseline schema: every table, constraint, index and ledger trigger as of the squash.
 
-Revision ID: 0a1b2c3d4e5f
+Keeps the id of the last pre-squash revision so databases created before the squash count as at baseline.
+
+Revision ID: 8f2d5b7a1c94
 Revises:
 Create Date: 2026-10-05 00:00:00
 """
@@ -11,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "0a1b2c3d4e5f"
+revision: str = "8f2d5b7a1c94"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

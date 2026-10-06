@@ -89,7 +89,8 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Migrations live only in `backend/migrations/versions/` (timestamp-prefixed): one baseline
   (`20261005_000000_baseline.py`, squashed before launch) plus linear increments after it. Hand-written
   SQL that autogenerate can't see (the `btree_gist` extension, slot exclusion constraints, ledger
-  triggers) lives in the migration, so add it there when a new one is needed.
+  triggers) lives in the migration, so add it there when a new one is needed. `make migrate` alone brings any
+  local database to head; the baseline keeps the last pre-squash revision id so older databases upgrade too.
 - **Regenerate `api-client` (`make gen-api`) whenever the API contract changes**; `make gen-sync-schema`
   after model/sync-rule changes (`make codegen-check` in the pre-commit hook, `make check` and CI fails on drift).
 - Python import package = `clientbridge` (at `backend/src/clientbridge/`); the DB name + project are also `clientbridge`.
