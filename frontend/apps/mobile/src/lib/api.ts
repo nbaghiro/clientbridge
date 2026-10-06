@@ -1,10 +1,9 @@
 import { type Session, createSession } from "@clientbridge/api-client";
-import Constants from "expo-constants";
 
 import { clearTokens, getTokens, setTokens } from "./auth";
+import { apiUrl } from "./config";
 
-const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string };
-export const apiBaseUrl = extra.apiUrl ?? "http://localhost:8701";
+export const apiBaseUrl = apiUrl;
 
 let signedOutHandler: () => void = () => undefined;
 

@@ -1,9 +1,9 @@
 import { type DevicePlatform, registerDevice } from "@clientbridge/app-core";
-import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
 import { api } from "./api";
+import { easProjectId } from "./config";
 
 Notifications.setNotificationHandler({
     handleNotification: () =>
@@ -26,10 +26,10 @@ export async function registerForPush(): Promise<void> {
     try {
         const { granted } = await Notifications.requestPermissionsAsync();
         if (!granted) return;
-        const extra = (Constants.expoConfig?.extra ?? {}) as { eas?: { projectId?: string } };
-        const projectId = extra.eas?.projectId;
         const token = (
-            await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined)
+            await Notifications.getExpoPushTokenAsync(
+                easProjectId ? { projectId: easProjectId } : undefined,
+            )
         ).data;
         await registerDevice(api, token, devicePlatform());
     } catch {

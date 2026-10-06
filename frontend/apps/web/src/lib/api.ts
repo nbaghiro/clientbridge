@@ -1,8 +1,9 @@
 import { type Session, createSession } from "@clientbridge/api-client";
 
+import { config } from "../config";
 import { clearTokens, getTokens, setTokens } from "./auth";
 
-export const apiBaseUrl = import.meta.env.VITE_API_URL ?? "http://localhost:8701";
+export const apiBaseUrl = config.apiUrl;
 
 let signedOutHandler: () => void = () => undefined;
 

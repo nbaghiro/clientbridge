@@ -1,9 +1,7 @@
 import { AppSchema, createConnector } from "@clientbridge/sync";
 import { PowerSyncDatabase } from "@powersync/react-native";
-import Constants from "expo-constants";
 
-const extra = (Constants.expoConfig?.extra ?? {}) as { powersyncUrl?: string };
-const powersyncUrl = extra.powersyncUrl ?? "http://localhost:8704";
+import { powersyncUrl } from "./config";
 
 export const db = new PowerSyncDatabase({
     schema: AppSchema,

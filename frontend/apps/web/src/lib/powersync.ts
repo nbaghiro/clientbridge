@@ -1,7 +1,9 @@
 import { AppSchema, createConnector } from "@clientbridge/sync";
 import { PowerSyncDatabase } from "@powersync/web";
 
-const powersyncUrl = import.meta.env.VITE_POWERSYNC_URL ?? "http://localhost:8704";
+import { config } from "../config";
+
+const powersyncUrl = config.powersyncUrl;
 
 export const db = new PowerSyncDatabase({
     schema: AppSchema,

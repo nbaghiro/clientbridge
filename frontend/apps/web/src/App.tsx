@@ -5,6 +5,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
+import { config } from "./config";
 import { Login } from "./pages/Login";
 import { ConfirmHost, Logo } from "@clientbridge/ui";
 import { api, onSignedOut } from "./lib/api";
@@ -61,7 +62,7 @@ export function App() {
                 />
             </BrowserRouter>
             <ConfirmHost />
-            {authed && import.meta.env.DEV ? <DebugPanel /> : null}
+            {authed && config.dev ? <DebugPanel /> : null}
         </PowerSyncContext.Provider>
     );
 }
