@@ -1,6 +1,5 @@
 import {
     type CalendarEvent,
-    calendarRange,
     canCollectDeposit,
     checkoutMethods,
     dateKey,
@@ -18,12 +17,11 @@ import {
     type PositionedEvent,
     rescheduleByDrag,
     sameDay,
-    shiftAnchor,
     startOfDay,
     statusIntent,
     strings,
     useBookingAddons,
-    useCalendarEvents,
+    useScheduleView,
     useCancelBooking,
     useCollectDeposit,
     useSavedCards,
@@ -71,13 +69,13 @@ function statusColors(status: string): { bg: string; fg: string; border: string 
 }
 
 export function ScheduleScreen() {
-    const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
-    const [view, setView] = useState<View2>("agenda");
+    const { view, setView, anchor, setAnchor, shift, events } = useScheduleView<View2>(
+        "agenda",
+        "week",
+    );
     const [detail, setDetail] = useState<CalendarEvent | null>(null);
 
     const week = weekColumns(anchor);
-    const { start: rangeStart, end: rangeEnd } = calendarRange("week", anchor);
-    const events = useCalendarEvents(rangeStart, rangeEnd);
     const now = new Date();
 
     const dayEvents = groupByDay(events).get(dateKey(anchor)) ?? [];
@@ -104,7 +102,7 @@ export function ScheduleScreen() {
                     size="sm"
                     label={strings.bookings.prev}
                     onPress={() => {
-                        setAnchor((a) => shiftAnchor("week", a, -1));
+                        shift(-1);
                     }}
                 >
                     <Text style={styles.chev}>‹</Text>
@@ -140,7 +138,7 @@ export function ScheduleScreen() {
                     size="sm"
                     label={strings.bookings.next}
                     onPress={() => {
-                        setAnchor((a) => shiftAnchor("week", a, 1));
+                        shift(1);
                     }}
                 >
                     <Text style={styles.chev}>›</Text>

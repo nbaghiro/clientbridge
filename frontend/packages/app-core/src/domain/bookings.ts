@@ -348,6 +348,43 @@ export function useCalendarEvents(
     return useMemo(() => data.map(toEvent), [data]);
 }
 
+export interface ScheduleView<V extends CalendarView> {
+    view: V;
+    setView: (view: V) => void;
+    anchor: Date;
+    setAnchor: (day: Date) => void;
+    goToday: () => void;
+    shift: (dir: 1 | -1) => void;
+    range: { start: Date; end: Date };
+    events: CalendarEvent[];
+}
+
+/** `span` fixes the range and paging unit when it differs from the view (mobile pages a week strip). */
+export function useScheduleView<V extends CalendarView>(
+    initial: V,
+    span?: CalendarView,
+): ScheduleView<V> {
+    const [view, setView] = useState<V>(initial);
+    const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
+    const unit = span ?? view;
+    const range = calendarRange(unit, anchor);
+    const events = useCalendarEvents(range.start, range.end);
+    return {
+        view,
+        setView,
+        anchor,
+        setAnchor,
+        goToday: () => {
+            setAnchor(startOfDay(new Date()));
+        },
+        shift: (dir) => {
+            setAnchor((a) => shiftAnchor(unit, a, dir));
+        },
+        range,
+        events,
+    };
+}
+
 export interface BookingResult {
     id: string;
     slot_id: string;

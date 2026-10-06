@@ -1,7 +1,6 @@
 import {
     calendarColumns,
     type CalendarEvent,
-    calendarRange,
     type CalendarView,
     canCollectDeposit,
     checkoutMethods,
@@ -26,7 +25,6 @@ import {
     type RecurFrequency,
     rescheduleByDrag,
     sameDay,
-    shiftAnchor,
     staffLabel,
     type StaffRow,
     startOfDay,
@@ -34,7 +32,7 @@ import {
     strings,
     useBookingAddons,
     useBookingForm,
-    useCalendarEvents,
+    useScheduleView,
     useCancelBooking,
     useCollectDeposit,
     useSavedCards,
@@ -101,8 +99,7 @@ const dotStyle = (s: string): CSSProperties => ({
 });
 
 export function Schedule() {
-    const [view, setView] = useState<CalendarView>("week");
-    const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
+    const { view, setView, anchor, goToday, shift, events } = useScheduleView<CalendarView>("week");
     const [booking, setBooking] = useState(false);
     const [detail, setDetail] = useState<CalendarEvent | null>(null);
 
@@ -111,8 +108,6 @@ export function Schedule() {
     const now = new Date();
     const matrix = monthMatrix(anchor);
     const dateCols = calendarColumns(view, anchor);
-    const { start, end } = calendarRange(view, anchor);
-    const events = useCalendarEvents(start, end);
     const staff = useStaff();
 
     const byStaff = groupByStaff(events);
@@ -147,7 +142,7 @@ export function Schedule() {
                             variant="outline"
                             size="sm"
                             onPress={() => {
-                                setAnchor(startOfDay(new Date()));
+                                goToday();
                             }}
                         >
                             {strings.bookings.today}
@@ -158,7 +153,7 @@ export function Schedule() {
                                 size="sm"
                                 label={strings.bookings.prev}
                                 onPress={() => {
-                                    setAnchor((a) => shiftAnchor(view, a, -1));
+                                    shift(-1);
                                 }}
                             >
                                 <Chevron dir="left" />
@@ -168,7 +163,7 @@ export function Schedule() {
                                 size="sm"
                                 label={strings.bookings.next}
                                 onPress={() => {
-                                    setAnchor((a) => shiftAnchor(view, a, 1));
+                                    shift(1);
                                 }}
                             >
                                 <Chevron dir="right" />
