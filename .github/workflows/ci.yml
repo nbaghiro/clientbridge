@@ -101,6 +101,25 @@ jobs:
         working-directory: frontend
       - run: make test-site
 
+  playground:
+    # Every shared component's story page on a fresh playground build, on web and in both phone frames.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter playground exec playwright install --with-deps chromium
+        working-directory: frontend
+      - run: make test-playground
+
   codegen-drift:
     # The generated api-client + PowerSync client schema come from the backend — fail if either is
     # stale. (run `make gen-api` / `make gen-sync-schema` and commit the result.)

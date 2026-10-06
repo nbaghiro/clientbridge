@@ -84,7 +84,8 @@ clientbridge/
 │   │   ├── web/        React + Vite · provider/admin · :8700
 │   │   ├── mobile/     Expo RN · provider/admin · :8707
 │   │   ├── connect/    public customer app · PowerSync-free · :8709
-│   │   └── site/       marketing site · static prerender · :8710
+│   │   ├── site/       marketing site · static prerender · :8710
+│   │   └── playground/ shared component playground · web + phones · :8712 (not deployed)
 │   └── packages/
 │       ├── app-core/   shared view-model hooks + strings + icons + UI prop contracts (ui.ts)
 │       ├── ui/         shared components: src/web (DOM, web + Connect) · src/mobile (React Native)
@@ -548,29 +549,77 @@ only `app-core/public`) and `@clientbridge/ui/src/mobile/` (React Native), with 
 same component. Every app imports `@clientbridge/ui`; the package's `react-native` export condition resolves
 mobile (Metro and the mobile tsconfig's `customConditions`) to the native entry, and everything else to the web
 entry. ESLint keeps React Native out of `src/web` and the DOM out of `src/mobile`, and the structure check
-requires a mobile twin for every web component except the web-only `Logo`. It also fails on a hand-styled
-control in app code (a raw `<button>`, `<input>`, `<select>` or `<textarea>` with a `className`, or a
-`Pressable` or `TextInput` with local styles) outside a short allowlist of layout-specific files. Each platform still
-renders idiomatically, so this is two implementations in one place, not a cross-platform UI framework.
+requires a twin on the other platform and a playground story for every component file. It also fails on a
+hand-styled control in app code (a raw `<button>`, `<input>`, `<select>` or `<textarea>` with a `className`, or a
+`Pressable` or `TextInput` with local styles) outside a short allowlist of layout-specific files. Each platform
+still renders idiomatically, so this is two implementations in one place, not a cross-platform UI framework.
+Component copy lives in `strings.ui`, glyphs in `app-core/icons.ts` (`Icon` draws them on both platforms), and
+colours only in `@clientbridge/tokens` (`INTENT_COLORS`, `tint`/`tintHex` for data colours, `ON_DATA` and
+`SHADOW`).
+
+Props follow one vocabulary, so a caller can guess a prop without opening the file:
+
+| Prop | Meaning |
+|---|---|
+| `variant` | the visual form of one component (`Button` primary or outline, `Empty` inline or card, `ItemTile` tile or card) |
+| `layout` | how a set of items is arranged (`Choice` chips, segmented, cards or tiles; `KeyValueList` inline or stack) |
+| `size`, `density` | physical scale (`sm` to `xl`), and spacing or how much is shown (`compact`, `regular`, `full`) |
+| `intent` | a status colour from `INTENT_COLORS` (`accent`, `success`, `warning`, `danger`, `neutral`) |
+| `tone` | the text colour of a figure or a message (`Money`, `Stat`, `Notice`) |
+| `label` | the accessible name; required when the component shows no text of its own |
+| `value`, `defaultValue`, `onChange` | controlled when `value` is passed, otherwise the component keeps its own state (`useControllable`) |
+| `onPress`, `selected`, `pressed`, `disabled`, `busy` | activation and state, the same words on both platforms |
+| `children`, `leading`, `trailing`, `actions`, `footer`, `icon` | slots for composition, used instead of boolean flags |
+| `className` (web), `style` (mobile) | an escape hatch for spacing and width, merged last |
+| `ref` | on focusable controls (`Button`, `IconButton`, `SearchField`, `Checkbox`, `ListRow`), as a React 19 prop |
 
 | Component | What it is |
 |---|---|
-| `Button` | primary, outline, quiet, danger and link buttons in three sizes, with a busy state |
-| `Field`, `TextField`, `Select`, `Toggle`, `SearchField` | a labelled control with hint and error; text and multi-line inputs, selects (chips on mobile), checkboxes (switches on mobile) and search |
-| `Choice` | chips, a segmented control or option cards, for one or several values |
-| `Notice` | a danger, success or info line, or a filled box |
-| `ListPage` | header, count, primary action, segments, search, rows and an empty state |
-| `DetailView` | a right-side panel on web, a bottom sheet on mobile, with sections and an action row |
-| `Modal`, `confirm()` / `ConfirmHost` | a dialog (bottom sheet on mobile); a yes/no question in that dialog on web and the system alert on mobile |
-| `Panel` | a card with an optional title, subtitle and actions; `flush` for lists and tables |
-| `PageHeader` | a page title, subtitle, actions and a tab row under it |
-| `Loading`, `Empty` | loading and empty states |
-| `Badge`, `StatusPill` | a pill or a count, and a status pill, coloured from the shared `INTENT_COLORS` palette |
-| `Stat` | a labelled figure (money or text), large on Today and smaller in Reports |
-| `Stars`, `Stepper` | a rating to show or pick, and a minus/plus quantity control |
+| `ActionMenu` | a menu of actions with glyphs: a popover with arrow-key focus on web, a bottom sheet on mobile |
+| `ActivityTimeline` | what happened to a record, newest last, with optional glyphs, quotes and amounts |
+| `Avatar` | a person's or pet's initials on the accent tint or their own colour |
+| `Badge`, `StatusPill` | a pill or a count, and a status pill, coloured from `INTENT_COLORS` |
+| `BarChart` | one series of bars over time, with partial and out-of-period bars |
+| `BrandMark` | the small mark beside a saved card or bank account |
+| `Button`, `IconButton` | primary, outline, quiet, danger and link buttons with a glyph and a busy state; an icon-only button with a count or dot |
+| `CalendarEventCard` | a visit on the calendar: status fill, service swatch, flags and drag states |
 | `ChargeSheet`, `CardForm`, `PaymentMethodForm` | the checkout and card or bank entry; the Stripe account comes from `setStripeAccount` |
-| `Tabs` | the underline tab bar on web, a scrollable segmented row on mobile |
-| `ItemImage`, `Money`, `Icons`, `Logo` | a catalog item's image or initial, amounts, icons and the logo |
+| `Checkbox`, `Checklist` | a checkbox with a mixed state; a list of steps with done, attention and an action |
+| `Choice` | chips, a segmented control, option cards or tiles, for one or several values |
+| `ContractDocument`, `SignaturePad` | a contract laid out as the printed page with its signature block; a pad that records strokes |
+| `ConversationRow`, `MessageBubble` | a conversation in the inbox list; one message or a system line in a thread |
+| `CopyField` | a link, snippet or reference to hand out, with a copy action that confirms in place |
+| `DateStrip`, `TimeSlotPicker` | a week of dates with busy dots and closed days; open times grouped by part of the day |
+| `DetailView`, `DetailSection` | a right-side panel on web, a bottom sheet on mobile, with sections and an action row |
+| `DocTotals`, `PrintedDocument`, `PayCode` | a document's money summary; an invoice, estimate or receipt as the client gets it; a scannable code for a pay link |
+| `DurationBar`, `UsageBar` | how a booking blocks time with its buffers; a day of a room or station with its bookings |
+| `Empty`, `Loading`, `Skeleton`, `SyncBanner` | empty and failed states with next steps, loading text, placeholders while data loads, and offline or sync status |
+| `Field`, `TextField`, `Select`, `Toggle`, `SearchField`, `TagInput` | labelled controls with hint and error; search with a clear button and result keys; tags with suggestions |
+| `FormQuestion` | one form question, shared by the builder preview and the client's form |
+| `Icon`, `GoogleIcon`, `Logo`, `Lockup` | glyphs from `app-core/icons.ts`, Google's mark, and the logo with and without the wordmark |
+| `ImagePicker`, `ItemImage`, `ItemTile` | an item's photo with change and remove; its picture or initial; a tile or card to tap in a register or shop |
+| `KeyValueList` | labelled facts, inline or stacked in columns |
+| `LineItem` | one line of a sale with quantity, discount, tag and remove |
+| `ListPage`, `ListRow`, `OccurrenceList` | a list page with segments, search and rows; one row with a glyph or leading slot; the dates of a series with clashes |
+| `Meter`, `ProgressSteps`, `RatingDistribution` | how much of something is used; where a flow is; how ratings spread |
+| `Modal`, `confirm()` / `ConfirmHost` | a dialog (bottom sheet on mobile); a yes/no question, the system alert on mobile |
+| `Money`, `Stat`, `Stars`, `Stepper` | amounts, a labelled figure, a rating to show or pick, and a quantity control |
+| `Notice` | a danger, success or info line, or a filled box |
+| `PageHeader`, `Panel`, `Tabs` | a page title with actions and tabs; a card with a title; an underline or pill tab row |
+| `SwatchPicker`, `WeeklyHoursEditor` | a colour picker; one person's regular week with open days and times |
+
+### The playground
+`apps/playground` (`make dev-playground`, http://localhost:8712) renders every shared component from the real
+package: the web component directly, and the mobile component through react-native-web inside an iPhone and an
+Android frame side by side. There is one page per component file, built from
+`apps/playground/src/stories/<Name>.tsx`; a story is typed against the component's contract and builds slot
+content from a small kit, so web and mobile show the same examples. Each page has a live props panel for the
+main props, a copyable import and example, a theme picker over the real themes (phone frames reload with the
+theme's native tokens), and links of the form `#/<Name>/<example>?platform=web|mobile&device=iphone|android&theme=<key>`.
+`#/frame/<Name>?device=iphone` is what a phone frame loads, useful for debugging one screen. The playground is a
+development tool: it is built by `make build` and tested by `make test-playground` (every page on web and both
+phones, failing on any console error) but never deployed. Native-only behaviour (gestures, haptics, keyboard
+avoidance, Stripe's native card field, the system alert) is not previewed.
 
 `DocEditor` (the invoice and estimate editor) lives in each app because it reads the replica. Connect has
 `PublicFrame`, `PublicStatus` and `PublicDone` in `apps/connect/src/components` for its page chrome.

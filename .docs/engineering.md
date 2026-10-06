@@ -187,7 +187,7 @@ Read local, write via command/sync — the server is the source of truth; client
 ## Local development
 
 ### Ports — the 87xx block
-Clientbridge claims **8700–8710** so it runs simultaneously with sibling projects in `~/Documents/code`.
+Clientbridge claims **8700–8712** so it runs simultaneously with sibling projects in `~/Documents/code`.
 Container-internal ports stay conventional; only host mappings use 87xx.
 
 | Port | Service | Container | Set in |
@@ -202,6 +202,7 @@ Container-internal ports stay conventional; only host mappings use 87xx.
 | **8708** | stripe-mock (contract tests only) | 12111 | docker-compose `profiles:[test]` |
 | **8709** | Connect (Vite) — customer app | — | `apps/connect` vite (strictPort) |
 | **8710** | Marketing site (Vite, static build) | — | `apps/site` vite (strictPort) · `make dev-site` |
+| **8712** | Component playground (Vite) | — | `apps/playground` vite (strictPort) · `make dev-playground` |
 
 ### Bring-up
 ```
@@ -216,6 +217,8 @@ make build-site            # static build in frontend/apps/site/dist (pnpm --fil
 make test-site             # build + Playwright pass over every page (links, images, 390px, axe)
 make test-web              # web smoke test: sign in, every page and dialog, no console errors (needs the local stack + seed)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
+make dev-playground        # every shared component on web, iPhone and Android on :8712 (no backend needed)
+make test-playground       # build + Playwright pass over every story page and phone frame, no console errors
 ```
 Devices authenticate to the API, exchange a JWT at `/sync/token` for a PowerSync token, and stream their
 buckets from powersync (:8704) into on-device SQLite. If a hard Docker shutdown corrupts the PowerSync

@@ -27,7 +27,7 @@ const PAGE_CONCEPT = {
 // Screens that compose several concepts and so have no domain file or strings group of their own.
 const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "onlineBooking", "setup"]);
 // Shared components drawn on web only so far; every other one has a same-named mobile twin.
-const WEB_ONLY_UI = new Set(["Logo"]);
+const WEB_ONLY_UI = new Set([]);
 
 const files = execFileSync("git", ["ls-files", "apps", "packages"], { cwd: root, encoding: "utf8" })
     .split("\n")
@@ -182,6 +182,22 @@ for (const name of mobileUi) {
     if (!webUi.has(name)) {
         problems.push(
             `packages/ui/src/mobile/${name}.tsx has no packages/ui/src/web/${name}.tsx twin`,
+        );
+    }
+}
+
+const stories = new Set(stems("apps/playground/src/stories/", ".tsx"));
+for (const name of new Set([...webUi, ...mobileUi])) {
+    if (!stories.has(name)) {
+        problems.push(
+            `packages/ui component ${name} has no apps/playground/src/stories/${name}.tsx story`,
+        );
+    }
+}
+for (const name of stories) {
+    if (!webUi.has(name) && !mobileUi.has(name)) {
+        problems.push(
+            `apps/playground/src/stories/${name}.tsx matches no packages/ui component file`,
         );
     }
 }
