@@ -1,10 +1,18 @@
 import { type UsageBarProps, type UsageBarSegment } from "@clientbridge/app-core/public";
 
-/** A day of a room or station: bookings as coloured spans, hour ticks under it and a now line. */
-export function UsageBar({ segments, total, now, ticks = [], label }: UsageBarProps) {
+import { type WebProps, cx } from "./props";
+
+export function UsageBar({
+    segments,
+    total,
+    now,
+    ticks = [],
+    label,
+    className,
+}: WebProps<UsageBarProps>) {
     const pct = (m: number): string => `${String((m / total) * 100)}%`;
     return (
-        <div className="min-w-0">
+        <div className={cx("min-w-0", className)}>
             <div
                 role="img"
                 aria-label={label}

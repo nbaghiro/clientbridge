@@ -2,6 +2,9 @@ import type { ButtonProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Icon } from "./Icon";
+import type { NativeProps, WithRef } from "./props";
+
 const c = theme.colors;
 
 export function Button({
@@ -15,10 +18,13 @@ export function Button({
     grow = false,
     icon,
     label,
-}: ButtonProps) {
+    style,
+    ref,
+}: NativeProps<ButtonProps> & WithRef<View>) {
     const off = disabled || busy;
     return (
         <Pressable
+            ref={ref}
             onPress={onPress}
             disabled={off}
             accessibilityRole="button"
@@ -31,6 +37,7 @@ export function Button({
                 full && styles.full,
                 grow && styles.grow,
                 (off || pressed) && styles.dim,
+                style,
             ]}
         >
             {busy ? (
@@ -38,6 +45,8 @@ export function Button({
                     size="small"
                     color={variant === "primary" ? c.accentInk : c.inkSoft}
                 />
+            ) : typeof icon === "string" ? (
+                <Icon name={icon} size={size === "sm" ? 15 : 17} color={TEXT[variant].color} />
             ) : icon !== undefined ? (
                 <View>{icon}</View>
             ) : null}

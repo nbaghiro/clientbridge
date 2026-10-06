@@ -2,12 +2,21 @@ import type { PanelProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function Panel({ title, subtitle, actions, flush = false, children }: PanelProps) {
+export function Panel({
+    title,
+    subtitle,
+    actions,
+    flush = false,
+    children,
+    style,
+}: NativeProps<PanelProps>) {
     const head = title !== undefined || subtitle !== undefined || actions !== undefined;
     return (
-        <View style={[styles.panel, !flush && styles.padded]}>
+        <View style={[styles.panel, !flush && styles.padded, style]}>
             {head ? (
                 <View style={[styles.head, flush && styles.flushHead]}>
                     <View style={styles.headText}>

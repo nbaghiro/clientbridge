@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps, WithRef } from "./props";
 
 const c = theme.colors;
 
@@ -27,11 +28,14 @@ export function ListRow({
     leading,
     trailing,
     unread,
-    active,
+    selected,
     onPress,
     label,
-    compact,
-}: ListRowProps) {
+    density = "regular",
+    style,
+    ref,
+}: NativeProps<ListRowProps> & WithRef<View>) {
+    const compact = density === "compact";
     const tone = INTENT_COLORS[intent];
     const tile = compact ? 32 : 38;
     const body = (
@@ -61,12 +65,14 @@ export function ListRow({
     );
     const pad = compact ? styles.padCompact : styles.pad;
     return (
-        <View style={[styles.row, active && styles.active]}>
+        <View style={[styles.row, selected === true && styles.active, style]}>
             {onPress ? (
                 <Pressable
                     onPress={onPress}
+                    ref={ref}
                     accessibilityRole="button"
                     accessibilityLabel={label}
+                    accessibilityState={{ selected: selected === true }}
                     style={({ pressed }) => [styles.press, pad, pressed && styles.pressed]}
                 >
                     {body}

@@ -1,15 +1,17 @@
 import { type DurationBarProps, type DurationSegment } from "@clientbridge/app-core/public";
 import { cssVar, tint } from "@clientbridge/tokens";
 
-export function DurationBar({ segments, color, caption }: DurationBarProps) {
+import type { WebProps } from "./props";
+
+export function DurationBar({ segments, color, caption, className }: WebProps<DurationBarProps>) {
     const tone = color ?? cssVar("accent");
     const shown = segments.filter((seg) => seg.minutes > 0);
     return (
-        <figure>
+        <figure className={className}>
             <div
                 className="flex h-10 gap-0.5 overflow-hidden rounded-md"
                 role="img"
-                aria-label={caption}
+                aria-label={caption ?? shown.map((seg) => seg.label).join(", ")}
             >
                 {shown.map((seg: DurationSegment) => (
                     <div

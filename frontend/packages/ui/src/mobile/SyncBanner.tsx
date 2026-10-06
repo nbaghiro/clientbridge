@@ -1,9 +1,10 @@
 import type { SyncBannerProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button } from "./Button";
 import { StyleSheet, Text, View } from "react-native";
 
+import { Button } from "./Button";
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 const ICON = { offline: "cloudOff", syncing: "refresh", error: "alert" } as const;
@@ -15,11 +16,15 @@ export function SyncBanner({
     action,
     variant = "strip",
     children,
-}: SyncBannerProps) {
+    style,
+}: NativeProps<SyncBannerProps>) {
     const bg = state === "error" ? c.danBg : state === "offline" ? c.warnBg : c.accentWeak;
     const fg = state === "error" ? c.danFg : state === "offline" ? c.warnFg : c.accentStrong;
     return (
-        <View accessibilityRole="summary" style={variant === "card" ? styles.card : undefined}>
+        <View
+            accessibilityRole="summary"
+            style={[variant === "card" ? styles.card : undefined, style]}
+        >
             <View
                 style={[variant === "strip" ? styles.strip : styles.head, { backgroundColor: bg }]}
             >

@@ -3,7 +3,8 @@ import type { ListPageProps } from "@clientbridge/app-core/public";
 import { Button } from "./Button";
 import { Choice } from "./Choice";
 import { Empty } from "./Empty";
-import { IconPlus } from "./Icons";
+import { Icon } from "./Icon";
+import type { WebProps } from "./props";
 import { SearchField } from "./SearchField";
 
 export function ListPage<T, K extends string = string>({
@@ -21,11 +22,12 @@ export function ListPage<T, K extends string = string>({
     onRowPress,
     empty,
     footer,
-}: ListPageProps<T, K>) {
+    className,
+}: WebProps<ListPageProps<T, K>>) {
     const hasHeader =
         title !== undefined || summary !== undefined || action !== undefined || accessory;
     return (
-        <div>
+        <div className={className}>
             {hasHeader ? (
                 <header className="flex items-center justify-between gap-4">
                     <div>
@@ -39,10 +41,7 @@ export function ListPage<T, K extends string = string>({
                     <div className="flex items-center gap-3">
                         {accessory}
                         {action !== undefined ? (
-                            <Button
-                                onPress={action.onPress}
-                                icon={<IconPlus className="h-4 w-4" />}
-                            >
+                            <Button onPress={action.onPress} icon={<Icon name="plus" size={16} />}>
                                 {action.label}
                             </Button>
                         ) : null}

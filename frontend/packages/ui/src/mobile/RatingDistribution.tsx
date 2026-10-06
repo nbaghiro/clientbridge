@@ -2,12 +2,14 @@ import type { RatingDistributionProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function RatingDistribution({ rows, label }: RatingDistributionProps) {
+export function RatingDistribution({ rows, label, style }: NativeProps<RatingDistributionProps>) {
     const max = Math.max(1, ...rows.map((r) => r.count));
     return (
-        <View style={styles.list}>
+        <View style={[styles.list, style]}>
             {rows.map((r) => (
                 <View
                     key={r.stars}

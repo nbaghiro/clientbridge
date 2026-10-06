@@ -1,30 +1,36 @@
 import type { EmptyProps } from "@clientbridge/app-core/public";
 
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
-/** The real Empty (one muted line) plus an optional icon, body, next-step actions, a danger tone and a card frame. */
 export function Empty({
     message,
     body,
     icon,
     actions,
     intent = "neutral",
-    size = "inline",
-}: EmptyProps) {
+    variant = "inline",
+    className,
+}: WebProps<EmptyProps>) {
     if (
         body === undefined &&
         icon === undefined &&
         actions === undefined &&
         intent === "neutral" &&
-        size === "inline"
+        variant === "inline"
     ) {
-        return <p className="px-4 py-12 text-center text-sm text-muted">{message}</p>;
+        return (
+            <p className={cx("px-4 py-12 text-center text-sm text-muted", className)}>{message}</p>
+        );
     }
     const danger = intent === "danger";
     return (
         <div
             role={danger ? "alert" : undefined}
-            className={`flex flex-col items-center px-6 text-center ${size === "card" ? "rounded-lg border border-dashed border-line bg-surface py-12" : "py-10"}`}
+            className={cx(
+                `flex flex-col items-center px-6 text-center ${variant === "card" ? "rounded-lg border border-dashed border-line bg-surface py-12" : "py-10"}`,
+                className,
+            )}
         >
             {icon !== undefined ? (
                 <span

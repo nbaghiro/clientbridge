@@ -1,6 +1,8 @@
 import type { MeterProps } from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
+import { type WebProps, cx } from "./props";
+
 export function Meter({
     value,
     max,
@@ -12,7 +14,8 @@ export function Meter({
     marker = null,
     labelPosition = "above",
     size = "md",
-}: MeterProps) {
+    className,
+}: WebProps<MeterProps>) {
     const scale = Math.max(1, max);
     const share = Math.max(0, Math.min(1, value / scale));
     const tone = INTENT_COLORS[intent];
@@ -25,7 +28,10 @@ export function Meter({
             aria-valuemin={0}
             aria-valuemax={scale}
             aria-valuenow={value}
-            className={labelPosition === "beside" ? "min-w-12 flex-1" : undefined}
+            className={cx(
+                labelPosition === "beside" && "min-w-12 flex-1",
+                labelPosition === "hidden" && className,
+            )}
         >
             {units ? (
                 <div className="flex items-center gap-0.5">
@@ -74,7 +80,7 @@ export function Meter({
     if (labelPosition === "hidden") return bar;
     if (labelPosition === "beside") {
         return (
-            <div className="flex min-w-0 items-center gap-2.5">
+            <div className={cx("flex min-w-0 items-center gap-2.5", className)}>
                 {bar}
                 <span className="shrink-0 text-xs font-medium" style={{ color: cssVar(tone.ink) }}>
                     {label}
@@ -84,14 +90,14 @@ export function Meter({
     }
     if (labelPosition === "below") {
         return (
-            <div className="min-w-0">
+            <div className={cx("min-w-0", className)}>
                 {bar}
                 <p className="mt-1 text-xs text-muted">{label}</p>
             </div>
         );
     }
     return (
-        <div>
+        <div className={className}>
             <div className="mb-2 flex items-baseline justify-between gap-3">
                 <span className="text-sm font-semibold text-ink">{label}</span>
                 {detail !== undefined ? <span className="text-xs text-muted">{detail}</span> : null}

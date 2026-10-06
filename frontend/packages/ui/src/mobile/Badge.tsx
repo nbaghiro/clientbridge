@@ -3,12 +3,19 @@ import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function Badge({ label, intent = "accent", kind = "pill" }: BadgeProps) {
-    if (kind === "count") {
+export function Badge({
+    label,
+    intent = "accent",
+    variant = "pill",
+    style,
+}: NativeProps<BadgeProps>) {
+    if (variant === "count") {
         return (
-            <View style={styles.count}>
+            <View style={[styles.count, style]} accessibilityRole="text">
                 <Text style={styles.countText}>{label}</Text>
             </View>
         );
@@ -16,7 +23,7 @@ export function Badge({ label, intent = "accent", kind = "pill" }: BadgeProps) {
     const p = INTENT_COLORS[intent];
     const tone = { bg: c[p.soft], fg: c[p.ink] };
     return (
-        <View style={[styles.pill, { backgroundColor: tone.bg }]}>
+        <View style={[styles.pill, { backgroundColor: tone.bg }, style]}>
             <Text style={[styles.pillText, { color: tone.fg }]}>{label}</Text>
         </View>
     );

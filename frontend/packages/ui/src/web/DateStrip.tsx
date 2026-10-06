@@ -1,20 +1,29 @@
-import { type DateStripProps, type DateStripDay } from "@clientbridge/app-core/public";
+import {
+    type DateStripDay,
+    type DateStripProps,
+    strings,
+    useControllable,
+} from "@clientbridge/app-core/public";
 
 import { Icon } from "./Icon";
+import { moveFocus } from "./keys";
+import { type WebProps, cx } from "./props";
 
-/** A week of dates with how busy each one is; closed days can't be picked. */
 export function DateStrip({
     days,
-    value,
+    value: valueProp,
+    defaultValue = null,
     onChange,
     label,
     onPrev,
     onNext,
-    prevLabel,
-    nextLabel,
-}: DateStripProps) {
+    prevLabel = strings.ui.previous,
+    nextLabel = strings.ui.next,
+    className,
+}: WebProps<DateStripProps>) {
+    const [value, setValue] = useControllable<string | null>(valueProp, defaultValue);
     return (
-        <div className="flex items-stretch gap-1" role="group" aria-label={label}>
+        <div className={cx("flex items-stretch gap-1", className)} role="group" aria-label={label}>
             {onPrev !== undefined ? (
                 <button
                     type="button"
@@ -26,6 +35,9 @@ export function DateStrip({
                 </button>
             ) : null}
             <div
+                onKeyDown={(e) => {
+                    moveFocus(e, "button", "horizontal");
+                }}
                 className="grid min-w-0 flex-1 gap-1"
                 style={{ gridTemplateColumns: `repeat(${String(days.length)}, minmax(0, 1fr))` }}
             >
@@ -39,7 +51,8 @@ export function DateStrip({
                             aria-pressed={on}
                             disabled={off}
                             onClick={() => {
-                                onChange(d.key);
+                                setValue(d.key);
+                                onChange?.(d.key);
                             }}
                             className={`flex flex-col items-center rounded-md border px-1 py-1.5 transition ${
                                 on

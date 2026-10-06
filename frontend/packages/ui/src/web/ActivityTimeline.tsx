@@ -2,10 +2,11 @@ import { type ActivityTimelineProps, type TimelineEntry } from "@clientbridge/ap
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
-export function ActivityTimeline({ entries }: ActivityTimelineProps) {
+export function ActivityTimeline({ entries, className }: WebProps<ActivityTimelineProps>) {
     return (
-        <ol className="relative">
+        <ol className={cx("relative", className)}>
             {entries.map((e: TimelineEntry, i) => {
                 const tone = INTENT_COLORS[e.intent ?? "neutral"];
                 const big = e.icon !== undefined;

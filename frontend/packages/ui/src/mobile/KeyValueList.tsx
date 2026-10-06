@@ -3,13 +3,20 @@ import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 const WIDTH = { 2: "50%", 3: "33.333%", 4: "25%" } as const;
 
-export function KeyValueList({ rows, layout = "inline", columns = 2 }: KeyValueListProps) {
+export function KeyValueList({
+    rows,
+    layout = "inline",
+    columns = 2,
+    style,
+}: NativeProps<KeyValueListProps>) {
     const cell: ViewStyle = { width: WIDTH[columns] };
     return (
-        <View style={layout === "stack" ? styles.grid : undefined}>
+        <View style={[layout === "stack" ? styles.grid : undefined, style]}>
             {rows.map((row, i) => {
                 const tint = row.intent ? { color: c[INTENT_COLORS[row.intent].ink] } : undefined;
                 return layout === "stack" ? (

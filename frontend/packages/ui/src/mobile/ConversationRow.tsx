@@ -1,10 +1,11 @@
 import type { ConversationRowProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Badge } from "./Badge";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "./Avatar";
+import { Badge } from "./Badge";
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 const GLYPH = { sms: "phoneDevice", email: "mail", chat: "inbox" } as const;
@@ -16,17 +17,19 @@ export function ConversationRow({
     unread,
     channel,
     channelLabel,
-    active = false,
-    flag,
+    selected = false,
+    tag,
     onPress,
-}: ConversationRowProps) {
+    style,
+}: NativeProps<ConversationRowProps>) {
     const bold = unread > 0;
     return (
         <Pressable
             onPress={onPress}
             accessibilityRole="button"
+            accessibilityState={{ selected }}
             accessibilityLabel={`${name}, ${channelLabel}, ${preview}`}
-            style={({ pressed }) => [styles.row, (active || pressed) && styles.active]}
+            style={({ pressed }) => [styles.row, (selected || pressed) && styles.active, style]}
         >
             <Avatar name={name} size="lg" />
             <View style={styles.main}>
@@ -41,11 +44,11 @@ export function ConversationRow({
                     <Text style={[styles.preview, bold && styles.previewUnread]} numberOfLines={2}>
                         {preview}
                     </Text>
-                    {unread > 0 ? <Badge kind="count" label={unread} /> : null}
+                    {unread > 0 ? <Badge variant="count" label={unread} /> : null}
                 </View>
-                {flag !== undefined ? (
+                {tag !== undefined ? (
                     <View style={styles.flag}>
-                        <Badge label={flag.label} intent={flag.intent} />
+                        <Badge label={tag.label} intent={tag.intent} />
                     </View>
                 ) : null}
             </View>

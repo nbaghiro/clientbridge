@@ -1,10 +1,11 @@
 import { type LineItemProps, formatMoney } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Badge } from "./Badge";
-import { Stepper } from "./Stepper";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Badge } from "./Badge";
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
+import { Stepper } from "./Stepper";
 
 const c = theme.colors;
 
@@ -22,7 +23,8 @@ export function LineItem({
     onRemove,
     removeLabel,
     selected = false,
-}: LineItemProps) {
+    style,
+}: NativeProps<LineItemProps>) {
     const body = (
         <>
             <Text style={styles.title} numberOfLines={2}>
@@ -41,7 +43,7 @@ export function LineItem({
         </>
     );
     return (
-        <View style={[styles.row, selected && styles.selected]}>
+        <View style={[styles.row, selected && styles.selected, style]}>
             {leading}
             <View style={styles.main}>
                 {onPress !== undefined ? (

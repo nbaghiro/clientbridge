@@ -4,6 +4,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -15,10 +16,17 @@ export function ActionMenu({
     onSelect,
     layout = "list",
     footer,
-}: ActionMenuProps) {
+    style,
+}: NativeProps<ActionMenuProps>) {
     const insets = useSafeAreaInsets();
     return (
-        <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+        <Modal
+            style={style}
+            visible={open}
+            transparent
+            animationType="fade"
+            onRequestClose={onClose}
+        >
             <View style={styles.root}>
                 <Pressable
                     style={styles.backdrop}

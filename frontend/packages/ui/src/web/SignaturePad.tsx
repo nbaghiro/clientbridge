@@ -1,22 +1,32 @@
-import type { SignaturePadProps, SignatureStrokes } from "@clientbridge/app-core/public";
-import { useRef, useState } from "react";
+import {
+    type SignaturePadProps,
+    type SignatureStrokes,
+    strings,
+    useControllable,
+} from "@clientbridge/app-core/public";
+import { type PointerEvent, useRef, useState } from "react";
+
+import { type WebProps, cx } from "./props";
 
 const path = (stroke: readonly (readonly [number, number])[]): string =>
     stroke.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(4)} ${y.toFixed(4)}`).join(" ");
 
 export function SignaturePad({
-    strokes,
+    strokes: strokesProp,
+    defaultStrokes = [],
     onChange,
+    editable = onChange !== undefined,
     label,
     placeholder,
-    clearLabel,
+    clearLabel = strings.ui.clear,
     height = 140,
-}: SignaturePadProps) {
+    className,
+}: WebProps<SignaturePadProps>) {
     const box = useRef<SVGSVGElement>(null);
+    const [strokes, setStrokes] = useControllable(strokesProp, defaultStrokes, onChange);
     const [live, setLive] = useState<[number, number][] | null>(null);
-    const editable = onChange !== undefined;
 
-    const point = (e: React.PointerEvent): [number, number] => {
+    const point = (e: PointerEvent): [number, number] => {
         const r = box.current?.getBoundingClientRect();
         if (!r) return [0, 0];
         return [
@@ -26,15 +36,19 @@ export function SignaturePad({
     };
 
     const finish = (): void => {
-        if (live !== null && live.length > 1 && onChange)
-            onChange([...strokes, live] as SignatureStrokes);
+        if (live !== null && live.length > 1) setStrokes([...strokes, live] as SignatureStrokes);
         setLive(null);
     };
 
     const shown = live === null ? strokes : [...strokes, live];
 
     return (
-        <div className={editable ? "relative rounded-md border border-line bg-bg" : "relative"}>
+        <div
+            className={cx(
+                editable ? "relative rounded-md border border-line bg-bg" : "relative",
+                className,
+            )}
+        >
             <svg
                 ref={box}
                 role="img"
@@ -87,11 +101,11 @@ export function SignaturePad({
                             {placeholder}
                         </span>
                     ) : null}
-                    {strokes.length > 0 && clearLabel !== undefined ? (
+                    {strokes.length > 0 ? (
                         <button
                             type="button"
                             onClick={() => {
-                                onChange([]);
+                                setStrokes([]);
                             }}
                             className="absolute right-2 top-2 rounded px-2 py-1 text-xs font-medium text-accent hover:bg-surface"
                         >

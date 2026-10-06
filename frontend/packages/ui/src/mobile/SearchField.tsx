@@ -1,29 +1,34 @@
-import { type SearchFieldProps, strings } from "@clientbridge/app-core";
+import { type SearchFieldProps, strings, useControllable } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps, WithRef } from "./props";
 
 const c = theme.colors;
 
-/** The real SearchField plus a clear button, Enter for result lists, a trailing slot and a large size. */
 export function SearchField({
-    value,
+    value: valueProp,
+    defaultValue = "",
     onChange,
     placeholder,
     autoFocus,
     onKey,
     trailing,
     size = "md",
-}: SearchFieldProps) {
+    style,
+    ref,
+}: NativeProps<SearchFieldProps> & WithRef<TextInput>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const large = size === "lg";
     return (
-        <View style={styles.row}>
+        <View style={[styles.row, style]}>
             <View style={[styles.box, large && styles.large]}>
                 <Icon name="search" size={large ? 19 : 16} color={c.muted} />
                 <TextInput
+                    ref={ref}
                     value={value}
-                    onChangeText={onChange}
+                    onChangeText={setValue}
                     placeholder={placeholder}
                     placeholderTextColor={c.muted}
                     accessibilityLabel={placeholder}
@@ -37,7 +42,7 @@ export function SearchField({
                 {value.length > 0 ? (
                     <Pressable
                         onPress={() => {
-                            onChange("");
+                            setValue("");
                         }}
                         accessibilityRole="button"
                         accessibilityLabel={strings.ui.clearSearch}

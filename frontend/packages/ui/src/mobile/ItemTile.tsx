@@ -1,9 +1,11 @@
-import { type ItemTileProps, formatMoney } from "@clientbridge/app-core";
+import { type ItemTileProps, formatMoney, strings } from "@clientbridge/app-core";
+import { tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+
 import { Badge } from "./Badge";
 import { ItemImage } from "./ItemImage";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-import { tintHex } from "@clientbridge/tokens";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -17,18 +19,19 @@ export function ItemTile({
     count = 0,
     onPress,
     disabled = false,
-    layout = "tile",
-}: ItemTileProps) {
+    variant = "tile",
+    style,
+}: NativeProps<ItemTileProps>) {
     const tone = color ?? c.accent;
-    const a11y = count > 0 ? `${name}, ${String(count)} on ticket` : name;
-    if (layout === "card") {
+    const a11y = count > 0 ? strings.ui.onTicket(name, count) : name;
+    if (variant === "card") {
         return (
             <Pressable
                 onPress={onPress}
                 disabled={disabled}
                 accessibilityRole="button"
                 accessibilityLabel={a11y}
-                style={[styles.card, disabled && styles.dim]}
+                style={[styles.card, disabled && styles.dim, style]}
             >
                 <View style={styles.photo}>
                     {imageSrc !== null ? (
@@ -80,6 +83,7 @@ export function ItemTile({
                 styles.tile,
                 count > 0 && styles.tileOn,
                 (pressed || disabled) && styles.dim,
+                style,
             ]}
         >
             <View style={styles.top}>

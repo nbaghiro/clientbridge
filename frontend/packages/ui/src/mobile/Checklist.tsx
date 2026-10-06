@@ -3,12 +3,13 @@ import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-export function Checklist({ items, label }: ChecklistProps) {
+export function Checklist({ items, label, style }: NativeProps<ChecklistProps>) {
     return (
-        <View accessibilityLabel={label}>
+        <View style={style} accessibilityLabel={label}>
             {items.map((item, i) => {
                 const body = (
                     <>

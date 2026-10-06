@@ -16,7 +16,7 @@ import { StatusBar } from "expo-status-bar";
 import { type ReactNode, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { IconSettings, ListPage, Lockup, Money, Stat } from "@clientbridge/ui";
+import { Icon, ListPage, Lockup, Money, Stat } from "@clientbridge/ui";
 
 import { DebugOverlay } from "../components/DebugOverlay";
 import { InboxButton } from "../components/InboxButton";
@@ -62,7 +62,7 @@ export function TodayScreen() {
                             nav.navigate("Setup");
                         }}
                     >
-                        <IconSettings size={22} color={theme.colors.inkSoft} />
+                        <Icon name="settings" size={22} color={theme.colors.inkSoft} />
                     </Pressable>
                 </View>
             </View>

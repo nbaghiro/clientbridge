@@ -1,32 +1,51 @@
-import type { ChoiceProps } from "@clientbridge/app-core";
+import { type ChoiceProps, useControllable } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
 export function Choice<K extends string>({
     options,
-    value,
+    value: valueProp,
+    defaultValue = null,
     onChange,
     layout = "chips",
     label,
     columns,
     size,
-}: ChoiceProps<K>) {
+    style,
+}: NativeProps<ChoiceProps<K>>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue);
+    const chosen = (key: K): boolean =>
+        Array.isArray(value) ? (value as readonly K[]).includes(key) : value === key;
+    const press = (key: K): void => {
+        if (valueProp === undefined) {
+            const list = value as readonly K[];
+            setValue(
+                Array.isArray(value)
+                    ? chosen(key)
+                        ? list.filter((k) => k !== key)
+                        : [...list, key]
+                    : key,
+            );
+        }
+        onChange?.(key);
+    };
     if (layout === "tiles") {
         return (
             <Tiles
                 options={options}
                 value={value}
-                onChange={onChange}
+                onChange={press}
                 label={label}
                 columns={columns}
                 size={size}
+                style={style}
             />
         );
     }
-    const chosen = (key: K): boolean =>
-        Array.isArray(value) ? (value as readonly K[]).includes(key) : value === key;
     const box =
         layout === "cards" ? styles.card : layout === "segmented" ? styles.segment : styles.chip;
     return (
@@ -36,6 +55,7 @@ export function Choice<K extends string>({
             style={[
                 layout === "cards" ? styles.cards : styles.wrap,
                 layout === "segmented" && styles.bar,
+                style,
             ]}
         >
             {options.map((o) => {
@@ -48,7 +68,7 @@ export function Choice<K extends string>({
                         accessibilityState={{ checked: on, disabled: o.disabled === true }}
                         accessibilityLabel={o.label}
                         onPress={() => {
-                            onChange(o.key);
+                            press(o.key);
                         }}
                         style={[
                             box,
@@ -123,13 +143,18 @@ function Tiles<K extends string>({
     label,
     columns = 3,
     size = "md",
-}: ChoiceProps<K>) {
+    style,
+}: NativeProps<ChoiceProps<K>>) {
     const lg = size === "lg";
     const chosen = (key: K): boolean =>
         Array.isArray(value) ? (value as readonly K[]).includes(key) : value === key;
     const basis = `${String(100 / columns - 2)}%` as `${number}%`;
     return (
-        <View accessibilityRole="radiogroup" accessibilityLabel={label} style={tileStyles.grid}>
+        <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={label}
+            style={[tileStyles.grid, style]}
+        >
             {options.map((o) => {
                 const on = chosen(o.key);
                 return (
@@ -139,7 +164,7 @@ function Tiles<K extends string>({
                         accessibilityState={{ checked: on, disabled: o.disabled === true }}
                         disabled={o.disabled}
                         onPress={() => {
-                            onChange(o.key);
+                            onChange?.(o.key);
                         }}
                         style={[
                             tileStyles.tile,

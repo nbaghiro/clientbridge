@@ -1,25 +1,33 @@
 import type { MessageBubbleProps } from "@clientbridge/app-core/public";
 
+import { type WebProps, cx } from "./props";
+
 export function MessageBubble({
     body,
     direction,
     meta,
-    kind = "message",
+    variant = "message",
     failed = false,
-    fill = false,
-}: MessageBubbleProps) {
-    if (kind === "event") {
+    width = "auto",
+    className,
+}: WebProps<MessageBubbleProps>) {
+    if (variant === "event") {
         return (
-            <p className="mx-auto max-w-md rounded-full bg-surface2 px-3 py-1 text-center text-xs text-muted">
+            <p
+                className={cx(
+                    "mx-auto max-w-md rounded-full bg-surface2 px-3 py-1 text-center text-xs text-muted",
+                    className,
+                )}
+            >
                 {body}
             </p>
         );
     }
     const out = direction === "out";
     return (
-        <div className={`flex ${out ? "justify-end" : "justify-start"}`}>
+        <div className={cx(`flex ${out ? "justify-end" : "justify-start"}`, className)}>
             <div
-                className={`flex ${fill ? "max-w-full" : "max-w-[75%]"} flex-col ${out ? "items-end" : "items-start"}`}
+                className={`flex ${width === "full" ? "max-w-full" : "max-w-[75%]"} flex-col ${out ? "items-end" : "items-start"}`}
             >
                 <div
                     className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${

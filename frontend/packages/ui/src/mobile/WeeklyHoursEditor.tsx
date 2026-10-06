@@ -1,15 +1,15 @@
-import type { WeeklyHoursEditorProps } from "@clientbridge/app-core";
+import { type WeeklyHoursEditorProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Button } from "./Button";
-import { Modal } from "./Modal";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 
+import { Button } from "./Button";
+import { Modal } from "./Modal";
+import type { NativeProps } from "./props";
 import { TimeSlotPicker } from "./TimeSlotPicker";
 
 const c = theme.colors;
 
-/** A row per weekday: a switch, then start and end pills that open a time grid; closed days collapse. */
 export function WeeklyHoursEditor({
     days,
     timeOptions,
@@ -20,7 +20,8 @@ export function WeeklyHoursEditor({
     closedLabel,
     toLabel,
     hoursLabel,
-}: WeeklyHoursEditorProps) {
+    style,
+}: NativeProps<WeeklyHoursEditorProps>) {
     const [picking, setPicking] = useState<{ weekday: number; which: "start" | "end" } | null>(
         null,
     );
@@ -28,7 +29,7 @@ export function WeeklyHoursEditor({
     const label = (key: string): string => timeOptions.find((o) => o.key === key)?.label ?? key;
     const day = days.find((d) => d.weekday === picking?.weekday);
     return (
-        <View>
+        <View style={style}>
             {days.map((d, i) => (
                 <View key={d.weekday} style={[styles.row, i > 0 && styles.divider]}>
                     <View style={styles.head}>
@@ -53,7 +54,7 @@ export function WeeklyHoursEditor({
                                     {k === 1 ? <Text style={styles.to}>{toLabel}</Text> : null}
                                     <Pressable
                                         accessibilityRole="button"
-                                        accessibilityLabel={`${d.label} ${which}: ${label(d[which])}`}
+                                        accessibilityLabel={`${which === "start" ? strings.ui.startOf(d.label) : strings.ui.endOf(d.label)}: ${label(d[which])}`}
                                         onPress={() => {
                                             setPicking({ weekday: d.weekday, which });
                                         }}

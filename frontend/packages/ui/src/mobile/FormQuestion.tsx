@@ -5,11 +5,12 @@ import {
     optionPair,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Choice } from "./Choice";
-import { Field, TextField, Toggle } from "./Field";
 import { StyleSheet, Text, View } from "react-native";
 
+import { Choice } from "./Choice";
+import { Field, TextField, Toggle } from "./Field";
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -29,7 +30,8 @@ export function FormQuestion({
     fileName,
     chooseFileLabel,
     invalid = false,
-}: FormQuestionProps) {
+    style,
+}: NativeProps<FormQuestionProps>) {
     const preview = onChange === undefined;
     const set = (v: FormAnswer): void => {
         onChange?.(v);
@@ -107,7 +109,7 @@ export function FormQuestion({
         );
     })();
 
-    return <View style={{ pointerEvents: preview ? "none" : "auto" }}>{body}</View>;
+    return <View style={[{ pointerEvents: preview ? "none" : "auto" }, style]}>{body}</View>;
 }
 
 const styles = StyleSheet.create({

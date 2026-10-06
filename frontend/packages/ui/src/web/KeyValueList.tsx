@@ -1,16 +1,24 @@
 import { type KeyValueListProps, type KeyValueRow } from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
+import { type WebProps, cx } from "./props";
+
 const COLS = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-2 sm:grid-cols-4" } as const;
 
-export function KeyValueList({ rows, layout = "inline", columns = 2 }: KeyValueListProps) {
+export function KeyValueList({
+    rows,
+    layout = "inline",
+    columns = 2,
+    className,
+}: WebProps<KeyValueListProps>) {
     return (
         <dl
-            className={
+            className={cx(
                 layout === "inline"
                     ? "divide-y divide-line-soft"
-                    : `grid ${COLS[columns]} gap-x-6 gap-y-4`
-            }
+                    : `grid ${COLS[columns]} gap-x-6 gap-y-4`,
+                className,
+            )}
         >
             {rows.map((row: KeyValueRow) => (
                 <div

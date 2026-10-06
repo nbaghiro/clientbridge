@@ -1,8 +1,9 @@
-import { type LineItemProps, formatMoney } from "@clientbridge/app-core/public";
-import { Badge } from "./Badge";
-import { Stepper } from "./Stepper";
+import { type LineItemProps, type Tag, formatMoney } from "@clientbridge/app-core/public";
 
+import { Badge } from "./Badge";
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
+import { Stepper } from "./Stepper";
 
 export function LineItem({
     title,
@@ -18,22 +19,12 @@ export function LineItem({
     onRemove,
     removeLabel,
     selected = false,
-}: LineItemProps) {
+    className,
+}: WebProps<LineItemProps>) {
     const body = (
         <>
             <span className="block truncate text-sm font-medium text-ink">{title}</span>
-            {tag || (meta !== undefined && meta !== "") ? (
-                <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                    {tag ? (
-                        <span className="shrink-0 whitespace-nowrap">
-                            <Badge label={tag.label} intent={tag.intent} />
-                        </span>
-                    ) : null}
-                    {meta !== undefined && meta !== "" ? (
-                        <span className="truncate text-xs text-muted">{meta}</span>
-                    ) : null}
-                </span>
-            ) : null}
+            <MetaLine tag={tag ?? null} meta={meta} />
         </>
     );
     const stepper =
@@ -49,7 +40,10 @@ export function LineItem({
         ) : null;
     return (
         <div
-            className={`flex items-center gap-3 py-2.5 ${selected ? "-mx-2 rounded-md bg-accent-weak/60 px-2" : ""}`}
+            className={cx(
+                `flex items-center gap-3 py-2.5 ${selected ? "-mx-2 rounded-md bg-accent-weak/60 px-2" : ""}`,
+                className,
+            )}
         >
             {leading}
             {onPress !== undefined ? (
@@ -96,5 +90,20 @@ export function LineItem({
                 </button>
             ) : null}
         </div>
+    );
+}
+
+function MetaLine({ tag, meta }: { tag: Tag | null; meta: string | undefined }) {
+    const hasMeta = meta !== undefined && meta !== "";
+    if (tag === null && !hasMeta) return null;
+    return (
+        <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
+            {tag !== null ? (
+                <span className="shrink-0 whitespace-nowrap">
+                    <Badge label={tag.label} intent={tag.intent} />
+                </span>
+            ) : null}
+            {hasMeta ? <span className="truncate text-xs text-muted">{meta}</span> : null}
+        </span>
     );
 }

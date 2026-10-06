@@ -1,42 +1,51 @@
-import type { CopyFieldProps } from "@clientbridge/app-core";
+import { type CopyFieldProps, strings, useFlash } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
+const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
 
-/** A link or snippet to hand out, with a copy button that confirms in place. */
+// React Native has no clipboard of its own, so onCopy does the copying.
 export function CopyField({
     label,
     value,
     hint,
-    multiline = false,
-    emphasis = "plain",
-    copied,
+    variant = "line",
+    copied: copiedProp,
     onCopy,
-    copyLabel,
-    copiedLabel,
-}: CopyFieldProps) {
+    copyLabel = strings.ui.copy,
+    copiedLabel = strings.ui.copied,
+    style,
+}: NativeProps<CopyFieldProps>) {
+    const [flashed, flash] = useFlash();
+    const copied = copiedProp ?? flashed;
+    const snippet = variant === "snippet";
     return (
-        <View>
+        <View style={style}>
             <Text style={styles.label}>{label}</Text>
-            <View style={[styles.box, multiline && styles.boxMulti]}>
+            <View style={[styles.box, snippet && styles.boxMulti]}>
                 <Text
+                    selectable
                     style={[
                         styles.value,
-                        multiline && styles.code,
-                        emphasis === "code" && styles.emphasis,
+                        snippet && styles.code,
+                        variant === "code" && styles.emphasis,
                     ]}
-                    numberOfLines={multiline ? 6 : 1}
+                    numberOfLines={snippet ? 6 : 1}
                 >
                     {value}
                 </Text>
                 <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${copyLabel} ${label}`}
-                    onPress={onCopy}
-                    style={[styles.btn, multiline && styles.btnMulti]}
+                    accessibilityLabel={`${copied ? copiedLabel : copyLabel}, ${label}`}
+                    onPress={() => {
+                        if (copiedProp === undefined) flash();
+                        onCopy?.();
+                    }}
+                    style={[styles.btn, snippet && styles.btnMulti]}
                 >
                     <Icon
                         name={copied ? "check" : "copy"}
@@ -74,7 +83,7 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingRight: 12,
     },
-    value: { flex: 1, fontSize: 14, color: c.ink, fontFamily: "Menlo" },
+    value: { flex: 1, fontSize: 14, color: c.ink, fontFamily: MONO },
     code: { fontSize: 11.5, lineHeight: 17, color: c.inkSoft },
     btn: {
         flexDirection: "row",

@@ -1,10 +1,11 @@
 import type { ImagePickerProps } from "@clientbridge/app-core";
-import { theme } from "@clientbridge/tokens/native";
-import { Button } from "./Button";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { tintHex } from "@clientbridge/tokens";
+import { theme } from "@clientbridge/tokens/native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Button } from "./Button";
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -21,11 +22,12 @@ export function ImagePicker({
     removeLabel,
     busy = false,
     size = "md",
-}: ImagePickerProps) {
+    style,
+}: NativeProps<ImagePickerProps>) {
     const px = size === "lg" ? 120 : 80;
     const tone = color ?? c.accent;
     return (
-        <View style={styles.row}>
+        <View style={[styles.row, style]}>
             <Pressable
                 onPress={onPick}
                 accessibilityRole="button"

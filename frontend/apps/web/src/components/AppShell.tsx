@@ -1,32 +1,20 @@
 import {
     DESTINATIONS,
     type DestinationKey,
+    type IconName,
     strings,
     useStripeAccountId,
 } from "@clientbridge/app-core";
-import { type ComponentType, useEffect } from "react";
+import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import {
-    IconCalendar,
-    IconClients,
-    IconInbox,
-    IconInvoices,
-    IconLogout,
-    IconSettings,
-    IconToday,
-    Lockup,
-    setStripeAccount,
-} from "@clientbridge/ui";
+import { Icon, Lockup, setStripeAccount } from "@clientbridge/ui";
 
-const DESTINATION_WEB: Record<
-    DestinationKey,
-    { to: string; Icon: ComponentType<{ className?: string }> }
-> = {
-    today: { to: "/today", Icon: IconToday },
-    schedule: { to: "/schedule", Icon: IconCalendar },
-    clients: { to: "/clients", Icon: IconClients },
-    payments: { to: "/payments", Icon: IconInvoices },
-    inbox: { to: "/inbox", Icon: IconInbox },
+const DESTINATION_WEB: Record<DestinationKey, { to: string; icon: IconName }> = {
+    today: { to: "/today", icon: "today" },
+    schedule: { to: "/schedule", icon: "calendar" },
+    clients: { to: "/clients", icon: "clients" },
+    payments: { to: "/payments", icon: "invoices" },
+    inbox: { to: "/inbox", icon: "inbox" },
 };
 
 const linkClass = ({ isActive }: { isActive: boolean }): string =>
@@ -51,10 +39,10 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
 
                 <nav className="flex-1 space-y-1 px-3 py-4">
                     {DESTINATIONS.map(({ key, label }) => {
-                        const { to, Icon } = DESTINATION_WEB[key];
+                        const { to, icon } = DESTINATION_WEB[key];
                         return (
                             <NavLink key={key} to={to} className={linkClass}>
-                                <Icon className="h-[18px] w-[18px]" />
+                                <Icon name={icon} />
                                 {label}
                             </NavLink>
                         );
@@ -63,7 +51,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
 
                 <div className="space-y-1 border-t border-line p-3">
                     <NavLink to="/setup" className={linkClass}>
-                        <IconSettings className="h-[18px] w-[18px]" />
+                        <Icon name="settings" />
                         {strings.navigation.setup}
                     </NavLink>
                     <button
@@ -71,7 +59,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
                         onClick={onSignOut}
                         className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted transition hover:bg-bg hover:text-ink-soft"
                     >
-                        <IconLogout className="h-[18px] w-[18px]" />
+                        <Icon name="logout" />
                         {strings.navigation.signOut}
                     </button>
                 </div>

@@ -1,5 +1,6 @@
 import type { ContractDocumentProps, ContractSignature } from "@clientbridge/app-core/public";
 
+import { type WebProps, cx } from "./props";
 import { SignaturePad } from "./SignaturePad";
 
 export function ContractDocument({
@@ -8,11 +9,16 @@ export function ContractDocument({
     meta,
     clauses,
     signature,
-    compact = false,
-}: ContractDocumentProps) {
+    density = "regular",
+    className,
+}: WebProps<ContractDocumentProps>) {
+    const compact = density === "compact";
     return (
         <article
-            className={`rounded-md border border-line bg-surface text-ink shadow-card ${compact ? "px-6 py-6 text-[12px] leading-[1.55]" : "px-10 py-10 text-sm leading-relaxed max-sm:px-5 max-sm:py-6"}`}
+            className={cx(
+                `rounded-md border border-line bg-surface text-ink shadow-card ${compact ? "px-6 py-6 text-[12px] leading-[1.55]" : "px-10 py-10 text-sm leading-relaxed max-sm:px-5 max-sm:py-6"}`,
+                className,
+            )}
         >
             <header className="border-b border-line pb-4">
                 <p

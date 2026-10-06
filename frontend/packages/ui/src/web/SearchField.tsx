@@ -1,7 +1,13 @@
-import { type SearchFieldProps, strings, type SearchFieldKey } from "@clientbridge/app-core/public";
+import {
+    type SearchFieldKey,
+    type SearchFieldProps,
+    strings,
+    useControllable,
+} from "@clientbridge/app-core/public";
 import type { KeyboardEvent } from "react";
 
 import { Icon } from "./Icon";
+import { type WebProps, type WithRef, cx } from "./props";
 
 const KEYS: Partial<Record<string, SearchFieldKey>> = {
     ArrowUp: "up",
@@ -10,16 +16,19 @@ const KEYS: Partial<Record<string, SearchFieldKey>> = {
     Escape: "escape",
 };
 
-/** The real SearchField plus a clear button, key handling for result lists, a trailing slot and a large size. */
 export function SearchField({
-    value,
+    value: valueProp,
+    defaultValue = "",
     onChange,
     placeholder,
     autoFocus,
     onKey,
     trailing,
     size = "md",
-}: SearchFieldProps) {
+    className,
+    ref,
+}: WebProps<SearchFieldProps> & WithRef<HTMLInputElement>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const large = size === "lg";
     const handle = (e: KeyboardEvent<HTMLInputElement>): void => {
         const key = KEYS[e.key];
@@ -30,15 +39,19 @@ export function SearchField({
     };
     return (
         <div
-            className={`flex items-center gap-2.5 ${large ? "px-5 py-4" : "rounded-md border border-line bg-surface px-3 py-2.5 focus-within:border-accent"}`}
+            className={cx(
+                `flex items-center gap-2.5 ${large ? "px-5 py-4" : "rounded-md border border-line bg-surface px-3 py-2.5 focus-within:border-accent"}`,
+                className,
+            )}
         >
             <span className="text-muted">
                 <Icon name="search" size={large ? 20 : 16} />
             </span>
             <input
+                ref={ref}
                 value={value}
                 onChange={(e) => {
-                    onChange(e.target.value);
+                    setValue(e.target.value);
                 }}
                 onKeyDown={handle}
                 placeholder={placeholder}
@@ -53,7 +66,7 @@ export function SearchField({
                 <button
                     type="button"
                     onClick={() => {
-                        onChange("");
+                        setValue("");
                     }}
                     aria-label={strings.ui.clearSearch}
                     className="flex h-5 w-5 items-center justify-center rounded-full bg-surface2 text-muted hover:text-ink"

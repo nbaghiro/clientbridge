@@ -1,11 +1,20 @@
 import type { ModalProps } from "@clientbridge/app-core/public";
 import { useEffect, useId, useRef } from "react";
 
+import { type WebProps, cx } from "./props";
+
 const WIDTH = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-lg", xl: "max-w-6xl" } as const;
 const FOCUSABLE =
     'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function Modal({ open = true, onClose, size = "md", framed = true, children }: ModalProps) {
+export function Modal({
+    open = true,
+    onClose,
+    size = "md",
+    framed = true,
+    children,
+    className,
+}: WebProps<ModalProps>) {
     const dialogRef = useRef<HTMLDivElement>(null);
     const titleId = useId();
     const onCloseRef = useRef(onClose);
@@ -58,7 +67,10 @@ export function Modal({ open = true, onClose, size = "md", framed = true, childr
     if (!open) return null;
     return (
         <div
-            className="fixed inset-0 z-40 flex items-center justify-center bg-scrim p-4"
+            className={cx(
+                "fixed inset-0 z-40 flex items-center justify-center bg-scrim p-4",
+                className,
+            )}
             onClick={onClose}
         >
             <div

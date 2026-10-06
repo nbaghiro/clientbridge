@@ -1,32 +1,41 @@
-import type { TagInputProps } from "@clientbridge/app-core/public";
+import { type TagInputProps, strings, useControllable } from "@clientbridge/app-core/public";
 import { useId, useState } from "react";
 
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
 export function TagInput({
     label,
-    tags,
+    tags: tagsProp,
+    defaultTags = [],
     onAdd,
     onRemove,
     suggestions = [],
     placeholder,
-    removeLabel,
-    createLabel,
-}: TagInputProps) {
+    removeLabel = strings.ui.removeTag,
+    createLabel = strings.ui.createTag,
+    className,
+}: WebProps<TagInputProps>) {
     const id = useId();
+    const [tags, setTags] = useControllable(tagsProp, defaultTags);
     const [q, setQ] = useState("");
+    const remove = (tag: string): void => {
+        setTags(tags.filter((t) => t !== tag));
+        onRemove?.(tag);
+    };
     const text = q.trim().toLowerCase();
     const open = suggestions.filter((s) => !tags.includes(s.tag));
     const matches =
         text === "" ? open.slice(0, 6) : open.filter((s) => s.tag.includes(text)).slice(0, 6);
     const exact = open.some((s) => s.tag === text) || tags.includes(text);
     const add = (tag: string): void => {
-        onAdd(tag);
+        setTags([...tags, tag]);
+        onAdd?.(tag);
         setQ("");
     };
 
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className={cx("flex flex-col gap-1.5", className)}>
             <label htmlFor={id} className="text-sm font-medium text-ink-soft">
                 {label}
             </label>
@@ -41,7 +50,7 @@ export function TagInput({
                             type="button"
                             aria-label={removeLabel(t)}
                             onClick={() => {
-                                onRemove(t);
+                                remove(t);
                             }}
                             className="rounded-full p-0.5 hover:bg-accent-line"
                         >
@@ -61,7 +70,7 @@ export function TagInput({
                             add(text);
                         }
                         if (e.key === "Backspace" && q === "" && tags.length > 0)
-                            onRemove(tags[tags.length - 1] ?? "");
+                            remove(tags[tags.length - 1] ?? "");
                     }}
                     placeholder={tags.length === 0 ? placeholder : ""}
                     className="min-w-24 flex-1 bg-transparent px-1 py-0.5 text-sm text-ink outline-hidden placeholder:text-muted"

@@ -85,7 +85,7 @@ export function ScheduleScreen() {
             <View style={styles.header}>
                 <Text style={styles.month}>{formatMonthYear(anchor)}</Text>
                 <Tabs
-                    pill
+                    variant="pill"
                     inset={false}
                     items={[
                         { key: "agenda", label: strings.bookings.viewAgenda },

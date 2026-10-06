@@ -5,6 +5,7 @@ import {
 } from "@clientbridge/app-core/public";
 
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
 const DOT: Record<ProgressStepState, string> = {
     done: "bg-accent text-accent-ink",
@@ -29,10 +30,18 @@ function Dot({ state, n }: { state: ProgressStepState; n: number }) {
     );
 }
 
-export function ProgressSteps({ steps, layout = "row", label }: ProgressStepsProps) {
+export function ProgressSteps({
+    steps,
+    layout = "row",
+    label,
+    className,
+}: WebProps<ProgressStepsProps>) {
     if (layout === "row") {
         return (
-            <ol aria-label={label} className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <ol
+                aria-label={label}
+                className={cx("flex min-w-0 items-center gap-2 sm:gap-3", className)}
+            >
                 {steps.map((s: ProgressStep, i) => (
                     <li
                         key={s.key}
@@ -57,7 +66,7 @@ export function ProgressSteps({ steps, layout = "row", label }: ProgressStepsPro
         );
     }
     return (
-        <ol aria-label={label}>
+        <ol className={className} aria-label={label}>
             {steps.map((s, i) => (
                 <li
                     key={s.key}

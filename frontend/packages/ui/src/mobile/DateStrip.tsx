@@ -1,24 +1,27 @@
-import type { DateStripProps } from "@clientbridge/app-core";
+import { type DateStripProps, strings, useControllable } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-/** A week of dates with how busy each one is; closed days can't be picked. */
 export function DateStrip({
     days,
-    value,
+    value: valueProp,
+    defaultValue = null,
     onChange,
     label,
     onPrev,
     onNext,
-    prevLabel,
-    nextLabel,
-}: DateStripProps) {
+    prevLabel = strings.ui.previous,
+    nextLabel = strings.ui.next,
+    style,
+}: NativeProps<DateStripProps>) {
+    const [value, setValue] = useControllable<string | null>(valueProp, defaultValue);
     return (
-        <View style={styles.wrap} accessibilityLabel={label}>
+        <View style={[styles.wrap, style]} accessibilityLabel={label}>
             {onPrev !== undefined ? (
                 <Pressable
                     accessibilityRole="button"
@@ -41,7 +44,8 @@ export function DateStrip({
                         accessibilityLabel={`${d.weekday} ${d.day}`}
                         disabled={off}
                         onPress={() => {
-                            onChange(d.key);
+                            setValue(d.key);
+                            onChange?.(d.key);
                         }}
                         style={[styles.day, on && styles.dayOn]}
                     >

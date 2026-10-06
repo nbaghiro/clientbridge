@@ -3,6 +3,7 @@ import type { ConversationRowProps } from "@clientbridge/app-core/public";
 import { Avatar } from "./Avatar";
 import { Badge } from "./Badge";
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
 const GLYPH = { sms: "phoneDevice", email: "mail", chat: "inbox" } as const;
 
@@ -13,19 +14,23 @@ export function ConversationRow({
     unread,
     channel,
     channelLabel,
-    active = false,
-    flag,
+    selected = false,
+    tag,
     onPress,
-}: ConversationRowProps) {
+    className,
+}: WebProps<ConversationRowProps>) {
     const bold = unread > 0;
     return (
         <button
             type="button"
             onClick={onPress}
-            aria-current={active ? true : undefined}
-            className={`flex w-full items-start gap-3 border-b border-line-soft px-4 py-3 text-left transition ${
-                active ? "bg-accent-weak" : "hover:bg-bg"
-            }`}
+            aria-current={selected ? true : undefined}
+            className={cx(
+                `flex w-full items-start gap-3 border-b border-line-soft px-4 py-3 text-left transition ${
+                    selected ? "bg-accent-weak" : "hover:bg-bg"
+                }`,
+                className,
+            )}
         >
             <Avatar name={name} />
             <span className="min-w-0 flex-1">
@@ -48,11 +53,11 @@ export function ConversationRow({
                     <span className={`flex-1 truncate text-xs ${bold ? "text-ink" : "text-muted"}`}>
                         {preview}
                     </span>
-                    {unread > 0 ? <Badge kind="count" label={unread} /> : null}
+                    {unread > 0 ? <Badge variant="count" label={unread} /> : null}
                 </span>
-                {flag !== undefined ? (
+                {tag !== undefined ? (
                     <span className="mt-1.5 inline-block">
-                        <Badge label={flag.label} intent={flag.intent} />
+                        <Badge label={tag.label} intent={tag.intent} />
                     </span>
                 ) : null}
             </span>

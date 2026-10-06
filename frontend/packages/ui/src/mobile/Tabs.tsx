@@ -1,31 +1,33 @@
+import type { TabsProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
+
+import type { NativeProps } from "./props";
 
 export function Tabs<K extends string>({
     items,
     active,
     onSelect,
-    pill = false,
+    label,
+    variant = "underline",
     inset = true,
-}: {
-    items: { key: K; label: string }[];
-    active: K;
-    onSelect: (key: K) => void;
-    pill?: boolean;
-    inset?: boolean;
-}) {
+    style,
+}: NativeProps<TabsProps<K>>) {
+    const pill = variant === "pill";
     return (
         <ScrollView
             horizontal
             accessibilityRole="tablist"
+            accessibilityLabel={label}
             showsHorizontalScrollIndicator={false}
-            style={pill ? styles.pillBar : styles.bar}
+            style={[pill ? styles.pillBar : styles.bar, style]}
             contentContainerStyle={[pill ? styles.pillRow : styles.row, !inset && styles.flush]}
         >
             {items.map((item) => (
                 <Pressable
                     key={item.key}
                     accessibilityRole="tab"
+                    accessibilityLabel={item.label}
                     accessibilityState={{ selected: item.key === active }}
                     style={
                         pill

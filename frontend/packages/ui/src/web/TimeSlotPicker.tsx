@@ -1,4 +1,11 @@
-import { type TimeSlotPickerProps, type TimeSlot } from "@clientbridge/app-core/public";
+import {
+    type TimeSlot,
+    type TimeSlotPickerProps,
+    useControllable,
+} from "@clientbridge/app-core/public";
+
+import { moveFocus } from "./keys";
+import { type WebProps, cx } from "./props";
 
 const COLS = {
     3: "grid-cols-3",
@@ -6,16 +13,25 @@ const COLS = {
     5: "grid-cols-3 sm:grid-cols-5",
 } as const;
 
-/** Open times grouped by part of the day; a taken time stays visible but can't be picked. */
 export function TimeSlotPicker({
     groups,
-    value,
+    value: valueProp,
+    defaultValue = null,
     onChange,
     label,
     columns = 4,
-}: TimeSlotPickerProps) {
+    className,
+}: WebProps<TimeSlotPickerProps>) {
+    const [value, setValue] = useControllable<string | null>(valueProp, defaultValue);
     return (
-        <div role="radiogroup" aria-label={label} className="space-y-4">
+        <div
+            role="radiogroup"
+            aria-label={label}
+            onKeyDown={(e) => {
+                moveFocus(e, '[role="radio"]', "both");
+            }}
+            className={cx("space-y-4", className)}
+        >
             {groups.map((g) => (
                 <div key={g.label}>
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -32,7 +48,8 @@ export function TimeSlotPicker({
                                     aria-checked={on}
                                     disabled={slot.disabled}
                                     onClick={() => {
-                                        onChange(slot.key);
+                                        setValue(slot.key);
+                                        onChange?.(slot.key);
                                     }}
                                     className={`rounded-md border px-2 py-2 text-center text-sm font-medium tabular-nums transition ${
                                         on

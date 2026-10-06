@@ -1,30 +1,36 @@
-import type { CheckboxProps } from "@clientbridge/app-core";
+import { type CheckboxProps, useControllable } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps, WithRef } from "./props";
 
 const c = theme.colors;
 
 export function Checkbox({
     label,
-    value,
+    value: valueProp,
+    defaultValue = false,
     onChange,
     hideLabel = false,
     mixed = false,
     disabled = false,
-}: CheckboxProps) {
+    style,
+    ref,
+}: NativeProps<CheckboxProps> & WithRef<View>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     return (
         <Pressable
+            ref={ref}
             onPress={() => {
-                onChange(!value);
+                setValue(!value);
             }}
             disabled={disabled}
             hitSlop={8}
             accessibilityRole="checkbox"
             accessibilityLabel={label}
             accessibilityState={{ checked: mixed && !value ? "mixed" : value, disabled }}
-            style={[styles.row, disabled && styles.off]}
+            style={[styles.row, disabled && styles.off, style]}
         >
             <View style={[styles.box, (value || mixed) && styles.on]}>
                 {value ? (

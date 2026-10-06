@@ -1,4 +1,4 @@
-import { strings, useAsyncAction } from "@clientbridge/app-core";
+import { strings, useAsyncAction, type CardFormProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
     CardField,
@@ -11,21 +11,11 @@ import { Text, View } from "react-native";
 
 import { Button } from "./Button";
 import { Notice } from "./Notice";
+import type { NativeProps } from "./props";
 import { stripeConfigured } from "./stripe";
 import { ui } from "./styles";
 
 const c = theme.colors;
-
-export interface CardFormProps {
-    clientSecret: string;
-    /** The connected account; on mobile the StripeProvider already targets it. */
-    stripeAccount: string;
-    mode?: "payment" | "setup";
-    submitLabel: string;
-    busyLabel: string;
-    onDone: () => void;
-    onCancel?: () => void;
-}
 
 const cardStyle: CardFieldInput.Styles = {
     backgroundColor: c.surface,
@@ -37,10 +27,10 @@ const cardStyle: CardFieldInput.Styles = {
 };
 
 /** Native card entry that confirms a server-minted client secret (a charge or a saved card). */
-export function CardForm(props: CardFormProps) {
+export function CardForm(props: NativeProps<CardFormProps>) {
     if (!stripeConfigured()) {
         return (
-            <View style={ui.box}>
+            <View style={[ui.box, props.style]}>
                 <Text style={ui.note}>{strings.checkout.notConfiguredSavedCard}</Text>
                 {props.onCancel !== undefined ? (
                     <View style={ui.actions}>
@@ -61,7 +51,8 @@ function ConfirmForm({
     submitLabel,
     onDone,
     onCancel,
-}: CardFormProps) {
+    style,
+}: NativeProps<CardFormProps>) {
     const { confirmPayment } = useConfirmPayment();
     const { confirmSetupIntent } = useConfirmSetupIntent();
     const { busy, error, run } = useAsyncAction();
@@ -87,7 +78,7 @@ function ConfirmForm({
     };
 
     return (
-        <View style={ui.box}>
+        <View style={[ui.box, style]}>
             <CardField
                 postalCodeEnabled
                 cardStyle={cardStyle}

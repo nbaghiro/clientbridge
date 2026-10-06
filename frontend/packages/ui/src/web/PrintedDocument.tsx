@@ -9,6 +9,7 @@ import {
 
 import { DocTotals } from "./DocTotals";
 import { PayCode } from "./PayCode";
+import { type WebProps, cx } from "./props";
 
 type Doc = PrintedDoc;
 
@@ -336,9 +337,13 @@ function Statement({ doc }: { doc: Doc }) {
     );
 }
 
-export function PrintedDocument({ doc, template = "classic" }: PrintedDocumentProps) {
+export function PrintedDocument({
+    doc,
+    template = "classic",
+    className,
+}: WebProps<PrintedDocumentProps>) {
     return (
-        <div className="@container mx-auto w-full max-w-[680px]">
+        <div className={cx("@container mx-auto w-full max-w-[680px]", className)}>
             <article
                 aria-label={`${doc.title} ${doc.number}`}
                 className="relative flex min-h-[129.4cqw] w-full flex-col overflow-hidden rounded-sm bg-surface p-6 text-ink @xl:p-12 shadow-page"

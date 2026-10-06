@@ -2,26 +2,36 @@ import type { MessageBubbleProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
 export function MessageBubble({
     body,
     direction,
     meta,
-    kind = "message",
+    variant = "message",
     failed = false,
-    fill = false,
-}: MessageBubbleProps) {
-    if (kind === "event") {
+    width = "auto",
+    style,
+}: NativeProps<MessageBubbleProps>) {
+    if (variant === "event") {
         return (
-            <View style={styles.eventWrap}>
+            <View style={[styles.eventWrap, style]}>
                 <Text style={styles.event}>{body}</Text>
             </View>
         );
     }
     const out = direction === "out";
     return (
-        <View style={[styles.row, out ? styles.right : styles.left, fill && styles.fill]}>
+        <View
+            style={[
+                styles.row,
+                out ? styles.right : styles.left,
+                width === "full" && styles.fill,
+                style,
+            ]}
+        >
             <View style={[styles.bubble, out ? (failed ? styles.failed : styles.out) : styles.in]}>
                 <Text
                     style={[

@@ -4,6 +4,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -17,7 +18,6 @@ const FLAG_ICON: Record<CalendarEventFlag, IconName> = {
     class: "users",
 };
 
-/** A visit block: status fill and edge, the service swatch, flags; fills whatever box the grid gives it. */
 export function CalendarEventCard({
     headline,
     detail,
@@ -29,7 +29,8 @@ export function CalendarEventCard({
     state = "idle",
     label,
     onPress,
-}: CalendarEventCardProps) {
+    style,
+}: NativeProps<CalendarEventCardProps>) {
     const tone = INTENT_COLORS[intent];
     const fg = c[tone.ink];
     return (
@@ -46,6 +47,7 @@ export function CalendarEventCard({
                 state === "dragging" && styles.dragging,
                 state === "refused" && styles.refused,
                 state === "faded" && styles.faded,
+                style,
             ]}
         >
             {density === "compact" ? (

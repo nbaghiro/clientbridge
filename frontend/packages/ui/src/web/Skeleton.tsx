@@ -1,5 +1,7 @@
 import type { SkeletonProps } from "@clientbridge/app-core/public";
 
+import { type WebProps, cx } from "./props";
+
 const bar = "animate-pulse rounded bg-surface2";
 
 const COLS = {
@@ -8,13 +10,19 @@ const COLS = {
     4: "grid grid-cols-2 lg:grid-cols-4",
 } as const;
 
-export function Skeleton({ variant, count = 1, columns, label }: SkeletonProps) {
+export function Skeleton({
+    variant,
+    count = 1,
+    columns,
+    label,
+    className,
+}: WebProps<SkeletonProps>) {
     return (
         <div
             role="status"
             aria-label={label}
             aria-busy="true"
-            className={columns ? COLS[columns] : undefined}
+            className={cx(columns ? COLS[columns] : undefined, className)}
         >
             {Array.from({ length: count }, (_, i) =>
                 variant === "row" ? (

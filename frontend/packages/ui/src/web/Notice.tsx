@@ -1,5 +1,7 @@
 import type { NoticeProps, NoticeTone } from "@clientbridge/app-core/public";
 
+import { type WebProps, cx } from "./props";
+
 const LINE: Record<NoticeTone, string> = {
     danger: "text-danger",
     success: "text-ok-fg",
@@ -12,14 +14,14 @@ const BOX: Record<NoticeTone, string> = {
     info: "bg-accent-weak text-accent-strong",
 };
 
-export function Notice({ tone, banner = false, children }: NoticeProps) {
+export function Notice({ tone, banner = false, children, className }: WebProps<NoticeProps>) {
     const role = tone === "danger" ? "alert" : "status";
     return banner ? (
-        <div role={role} className={`rounded-md px-3 py-2.5 text-sm ${BOX[tone]}`}>
+        <div role={role} className={cx(`rounded-md px-3 py-2.5 text-sm ${BOX[tone]}`, className)}>
             {children}
         </div>
     ) : (
-        <p role={role} className={`text-sm ${LINE[tone]}`}>
+        <p role={role} className={cx(`text-sm ${LINE[tone]}`, className)}>
             {children}
         </p>
     );

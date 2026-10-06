@@ -3,7 +3,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { IconChevron } from "@clientbridge/ui";
+import { Icon } from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
 import type { RootStackParamList } from "../navigation";
@@ -37,7 +37,7 @@ export function SetupScreen() {
                         }}
                     >
                         <Text style={styles.rowLabel}>{s.label}</Text>
-                        <IconChevron size={18} color={theme.colors.muted} />
+                        <Icon name="chevron" size={18} color={theme.colors.muted} />
                     </Pressable>
                 ))}
             </View>

@@ -2,8 +2,9 @@ import { type DetailSectionProps, type DetailViewProps, strings } from "@clientb
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { StatusPill } from "./StatusPill";
 import { Modal } from "./Modal";
+import type { NativeProps } from "./props";
+import { StatusPill } from "./StatusPill";
 
 const c = theme.colors;
 
@@ -16,9 +17,10 @@ export function DetailView({
     onClose,
     actions,
     children,
-}: DetailViewProps) {
+    style,
+}: NativeProps<DetailViewProps>) {
     return (
-        <Modal open={open} onClose={onClose}>
+        <Modal style={style} open={open} onClose={onClose}>
             <View style={styles.head}>
                 <View style={styles.headMain}>
                     {leading}
@@ -54,9 +56,9 @@ export function DetailView({
     );
 }
 
-export function DetailSection({ title, action, children }: DetailSectionProps) {
+export function DetailSection({ title, action, children, style }: NativeProps<DetailSectionProps>) {
     return (
-        <View style={styles.section}>
+        <View style={[styles.section, style]}>
             {title !== undefined || action !== undefined ? (
                 <View style={styles.sectionHead}>
                     {title !== undefined ? (

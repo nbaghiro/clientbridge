@@ -3,9 +3,11 @@ import {
     type DetailViewProps,
     strings,
 } from "@clientbridge/app-core/public";
-import { Button } from "./Button";
-import { StatusPill } from "./StatusPill";
 import { useEffect } from "react";
+
+import { Button } from "./Button";
+import { type WebProps, cx } from "./props";
+import { StatusPill } from "./StatusPill";
 
 export function DetailView({
     open,
@@ -16,7 +18,8 @@ export function DetailView({
     onClose,
     actions,
     children,
-}: DetailViewProps) {
+    className,
+}: WebProps<DetailViewProps>) {
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e: KeyboardEvent): void => {
@@ -30,7 +33,10 @@ export function DetailView({
 
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-20 flex justify-end bg-scrim" onClick={onClose}>
+        <div
+            className={cx("fixed inset-0 z-20 flex justify-end bg-scrim", className)}
+            onClick={onClose}
+        >
             <aside
                 role="dialog"
                 aria-label={title}
@@ -67,9 +73,14 @@ export function DetailView({
     );
 }
 
-export function DetailSection({ title, action, children }: DetailSectionProps) {
+export function DetailSection({
+    title,
+    action,
+    children,
+    className,
+}: WebProps<DetailSectionProps>) {
     return (
-        <section>
+        <section className={className}>
             {title !== undefined || action !== undefined ? (
                 <div className="flex items-center justify-between">
                     {title !== undefined ? (

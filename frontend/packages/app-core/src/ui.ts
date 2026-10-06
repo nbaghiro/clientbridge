@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
+import type { Checkout, CheckoutMethod } from "./domain/checkout";
 import type { FormAnswer } from "./domain/publicForm";
 import type { IconName } from "./icons";
 
@@ -7,6 +8,17 @@ import type { IconName } from "./icons";
 export type Intent = "accent" | "success" | "warning" | "danger" | "neutral";
 
 // Prop contracts for the per-platform building blocks; web and mobile implement the same shapes.
+
+// A short status label on a row or tile: a discount, "Low stock", "Opted out".
+export interface Tag {
+    label: string;
+    intent: Intent;
+}
+
+export interface UiAction {
+    label: string;
+    onPress: () => void;
+}
 
 interface ListSegments<K extends string> {
     items: readonly { key: K; label: string }[];
@@ -20,15 +32,10 @@ interface ListSearch {
     placeholder: string;
 }
 
-interface ListAction {
-    label: string;
-    onPress: () => void;
-}
-
 export interface ListPageProps<T, K extends string = string> {
     title?: string | undefined;
     summary?: string | undefined;
-    action?: ListAction | undefined;
+    action?: UiAction | undefined;
     accessory?: ReactNode | undefined;
     segments?: ListSegments<K> | undefined;
     search?: ListSearch | undefined;
@@ -79,7 +86,7 @@ export interface EmptyProps {
     // "danger" for a failed load with a retry; "neutral" for nothing-here-yet.
     intent?: "neutral" | "danger" | undefined;
     // "inline" sits inside a panel; "card" is its own bordered block.
-    size?: "inline" | "card" | undefined;
+    variant?: "inline" | "card" | undefined;
 }
 
 export interface ModalProps {
@@ -106,7 +113,8 @@ export interface ButtonProps {
     busy?: boolean | undefined;
     full?: boolean | undefined;
     grow?: boolean | undefined;
-    icon?: ReactNode | undefined;
+    // A glyph name, or an element for anything else (a brand mark, a spinner).
+    icon?: IconName | ReactElement | undefined;
     label?: string | undefined;
 }
 
@@ -179,8 +187,9 @@ export interface ToggleProps {
 export type SearchFieldKey = "up" | "down" | "enter" | "escape";
 
 export interface SearchFieldProps {
-    value: string;
-    onChange: (value: string) => void;
+    value?: string | undefined;
+    defaultValue?: string | undefined;
+    onChange?: ((value: string) => void) | undefined;
     placeholder: string;
     autoFocus?: boolean | undefined;
     // Arrow keys, Enter and Escape, for moving through results.
@@ -211,8 +220,9 @@ export interface ChoiceOption<K extends string> {
 export interface ChoiceProps<K extends string> {
     options: readonly ChoiceOption<K>[];
     // An array marks several as chosen; onChange gets the pressed key either way.
-    value: K | readonly K[] | null;
-    onChange: (key: K) => void;
+    value?: K | readonly K[] | null | undefined;
+    defaultValue?: K | readonly K[] | null | undefined;
+    onChange?: ((key: K) => void) | undefined;
     layout?: "chips" | "segmented" | "cards" | "tiles" | undefined;
     label?: string | undefined;
     // Tiles only: how many to a row, and lg for client-facing screens (tips, a turned screen).
@@ -237,7 +247,7 @@ export interface LoadingProps {
 export interface BadgeProps {
     label: string | number;
     intent?: Intent | undefined;
-    kind?: "pill" | "count" | undefined;
+    variant?: "pill" | "count" | undefined;
 }
 
 export interface StatProps {
@@ -270,6 +280,53 @@ export interface ConfirmOptions {
     confirmLabel: string;
     cancelLabel?: string | undefined;
     destructive?: boolean | undefined;
+}
+
+export interface TabsProps<K extends string> {
+    items: readonly { key: K; label: string }[];
+    active: K;
+    onSelect: (key: K) => void;
+    // Names the tab list for screen readers.
+    label?: string | undefined;
+    // "underline" is the page tab bar; "pill" is a row of filled segments (a view switch).
+    variant?: "underline" | "pill" | undefined;
+    // Mobile only: false drops the side padding when the parent already has it.
+    inset?: boolean | undefined;
+}
+
+export interface CardFormProps {
+    clientSecret: string;
+    // The connected account; on mobile the StripeProvider already targets it.
+    stripeAccount: string;
+    // "payment" confirms a charge; "setup" saves the method for later.
+    mode?: "payment" | "setup" | undefined;
+    submitLabel: string;
+    busyLabel: string;
+    onDone: () => void;
+    // With onCancel the form sits in a frame with a cancel action; without, it is the bare public form.
+    onCancel?: (() => void) | undefined;
+}
+
+export interface ChargeSheetProps {
+    checkout: Checkout;
+    methods: readonly CheckoutMethod[];
+    amountLabel: string;
+    // Defaults to the account the app set with setStripeAccount.
+    stripeAccount?: string | undefined;
+    submitLabel: string;
+    busyLabel: string;
+    onSubmit: () => void;
+    onCancel: () => void;
+    title?: string | undefined;
+    // The sale's own fields (what is being bought), shown above the payment choice.
+    children?: ReactNode | undefined;
+}
+
+export interface ItemImageProps {
+    src: string | null;
+    name: string;
+    color?: string | null | undefined;
+    size?: number | undefined;
 }
 
 export interface PageHeaderProps {
@@ -346,9 +403,11 @@ export interface ActivityTimelineProps {
 export type SignatureStrokes = readonly (readonly (readonly [number, number])[])[];
 
 export interface SignaturePadProps {
-    strokes: SignatureStrokes;
-    // Without onChange the pad only shows the signature (a signed document, a receipt).
+    strokes?: SignatureStrokes | undefined;
+    defaultStrokes?: SignatureStrokes | undefined;
     onChange?: ((strokes: SignatureStrokes) => void) | undefined;
+    // Defaults to true when onChange is set; false only shows the signature (a signed document).
+    editable?: boolean | undefined;
     label: string;
     placeholder?: string | undefined;
     clearLabel?: string | undefined;
@@ -390,8 +449,8 @@ export interface ContractDocumentProps {
     meta: string;
     clauses: readonly { heading: string; text: string }[];
     signature?: ContractSignature | null | undefined;
-    // Smaller type for a thumbnail-sized preview beside other content.
-    compact?: boolean | undefined;
+    // "compact" sets smaller type for a thumbnail-sized preview beside other content.
+    density?: "regular" | "compact" | undefined;
 }
 
 // "event" is a centred system line (an opt-out, a routing note), not a message.
@@ -399,10 +458,10 @@ export interface MessageBubbleProps {
     body: string;
     direction: "in" | "out";
     meta?: string | undefined;
-    kind?: "message" | "event" | undefined;
+    variant?: "message" | "event" | undefined;
     failed?: boolean | undefined;
-    // Let the bubble use the full width, for previews in a narrow panel.
-    fill?: boolean | undefined;
+    // "full" lets the bubble use the whole width, for previews in a narrow panel.
+    width?: "auto" | "full" | undefined;
 }
 
 export interface ConversationRowProps {
@@ -412,10 +471,10 @@ export interface ConversationRowProps {
     unread: number;
     channel: "sms" | "email" | "chat";
     channelLabel: string;
-    active?: boolean | undefined;
+    selected?: boolean | undefined;
     // Something to act on: opted out, a new number.
-    flag?: { label: string; intent: Intent } | undefined;
-    onPress: () => void;
+    tag?: Tag | undefined;
+    onPress?: (() => void) | undefined;
 }
 
 export interface RatingDistributionProps {
@@ -456,8 +515,9 @@ export interface DateStripDay {
 
 export interface DateStripProps {
     days: readonly DateStripDay[];
-    value: string | null;
-    onChange: (key: string) => void;
+    value?: string | null | undefined;
+    defaultValue?: string | null | undefined;
+    onChange?: ((key: string) => void) | undefined;
     label: string;
     onPrev?: (() => void) | undefined;
     onNext?: (() => void) | undefined;
@@ -474,8 +534,9 @@ export interface TimeSlot {
 
 export interface TimeSlotPickerProps {
     groups: readonly { label: string; slots: readonly TimeSlot[] }[];
-    value: string | null;
-    onChange: (key: string) => void;
+    value?: string | null | undefined;
+    defaultValue?: string | null | undefined;
+    onChange?: ((key: string) => void) | undefined;
     label: string;
     columns?: 3 | 4 | 5 | undefined;
 }
@@ -489,7 +550,9 @@ export interface IconButtonProps {
     badge?: number | boolean | undefined;
     variant?: "quiet" | "outline" | undefined;
     size?: "sm" | "md" | undefined;
+    // A toggle's state (a filter on, a panel open); omit for a plain action.
     pressed?: boolean | undefined;
+    disabled?: boolean | undefined;
 }
 
 export interface ListRowProps {
@@ -505,12 +568,12 @@ export interface ListRowProps {
     // Actions beside the row, outside its press target.
     trailing?: ReactNode | undefined;
     unread?: boolean | undefined;
-    // Keyboard-highlighted or currently selected.
-    active?: boolean | undefined;
+    // Keyboard-highlighted or currently open.
+    selected?: boolean | undefined;
     onPress?: (() => void) | undefined;
     // Accessible name when the title is not plain text.
     label?: string | undefined;
-    compact?: boolean | undefined;
+    density?: "regular" | "compact" | undefined;
 }
 
 export interface ActionMenuItem {
@@ -543,7 +606,7 @@ export interface ChecklistItem {
     done: boolean;
     // Not done and blocking something (a Stripe requirement, an overdue task).
     attention?: boolean | undefined;
-    action?: { label: string; onPress: () => void } | undefined;
+    action?: UiAction | undefined;
 }
 
 export interface ChecklistProps {
@@ -569,8 +632,9 @@ export interface ProgressStepsProps {
 
 export interface CheckboxProps {
     label: string;
-    value: boolean;
-    onChange: (value: boolean) => void;
+    value?: boolean | undefined;
+    defaultValue?: boolean | undefined;
+    onChange?: ((value: boolean) => void) | undefined;
     // Keeps the label for screen readers only (a table row's select box).
     hideLabel?: boolean | undefined;
     // Some but not all of a group are checked.
@@ -581,14 +645,15 @@ export interface CheckboxProps {
 // The business's existing tags are offered first so the same tag isn't spelled three ways.
 export interface TagInputProps {
     label: string;
-    tags: readonly string[];
-    onAdd: (tag: string) => void;
-    onRemove: (tag: string) => void;
+    tags?: readonly string[] | undefined;
+    defaultTags?: readonly string[] | undefined;
+    onAdd?: ((tag: string) => void) | undefined;
+    onRemove?: ((tag: string) => void) | undefined;
     // Existing tags with how many clients have each; the ones already chosen are skipped.
     suggestions?: readonly { tag: string; count: number }[] | undefined;
     placeholder: string;
-    removeLabel: (tag: string) => string;
-    createLabel: (text: string) => string;
+    removeLabel?: ((tag: string) => string) | undefined;
+    createLabel?: ((text: string) => string) | undefined;
 }
 
 export interface BrandMarkProps {
@@ -626,7 +691,7 @@ export interface LineItemProps {
     count?: number | undefined;
     cents: number;
     originalCents?: number | null | undefined;
-    tag?: { label: string; intent: Intent } | null | undefined;
+    tag?: Tag | null | undefined;
     onPress?: (() => void) | undefined;
     pressLabel?: string | undefined;
     onRemove?: (() => void) | undefined;
@@ -670,20 +735,21 @@ export interface ItemTileProps {
     color: string | null;
     cents: number | null;
     meta?: string | undefined;
-    tag?: { label: string; intent: Intent } | null | undefined;
+    tag?: Tag | null | undefined;
     // How many are already on the ticket; draws a count badge.
     count?: number | undefined;
     onPress?: (() => void) | undefined;
     disabled?: boolean | undefined;
     // card puts a square photo on top (product grids); tile is the compact register key.
-    layout?: "tile" | "card" | undefined;
+    variant?: "tile" | "card" | undefined;
 }
 
 export interface SwatchPickerProps {
     label: string;
     colours: readonly string[];
-    value: string;
-    onChange: (colour: string) => void;
+    value?: string | undefined;
+    defaultValue?: string | undefined;
+    onChange?: ((colour: string) => void) | undefined;
 }
 
 export interface WeeklyHoursDay {
@@ -794,14 +860,13 @@ export interface CopyFieldProps {
     label: string;
     value: string;
     hint?: string | undefined;
-    // Code wraps over several lines in a mono box; a link stays on one line.
-    multiline?: boolean | undefined;
-    copied: boolean;
-    onCopy: () => void;
-    copyLabel: string;
-    copiedLabel: string;
-    // "code" sets a value the reader types elsewhere (an e-Transfer reference) large and spaced.
-    emphasis?: "code" | "plain" | undefined;
+    // line: a link on one line; snippet: code wrapped in a mono box; code: a reference typed elsewhere, large.
+    variant?: "line" | "snippet" | "code" | undefined;
+    // Omit to show "Copied" for a moment after each copy; web copies the value, mobile leaves it to onCopy.
+    copied?: boolean | undefined;
+    onCopy?: (() => void) | undefined;
+    copyLabel?: string | undefined;
+    copiedLabel?: string | undefined;
 }
 
 export interface OccurrenceRow {
@@ -815,8 +880,8 @@ export interface OccurrenceRow {
     // A second small marker, e.g. a clock change.
     flag?: string | null | undefined;
     past?: boolean | undefined;
-    // Shown under a clash: pick one; the active one is the current choice.
-    actions?: readonly { key: string; label: string; active?: boolean | undefined }[] | undefined;
+    // Shown under a clash: pick one; the selected one is the current choice.
+    actions?: readonly { key: string; label: string; selected?: boolean | undefined }[] | undefined;
 }
 
 export interface OccurrenceListProps {
@@ -856,7 +921,7 @@ export interface SyncBannerProps {
     state: "offline" | "syncing" | "error";
     title: string;
     detail?: string | undefined;
-    action?: { label: string; onPress: () => void } | undefined;
+    action?: UiAction | undefined;
     // "strip" is one slim line at the top of a page; "card" explains what still works.
     variant?: "strip" | "card" | undefined;
     children?: ReactNode | undefined;

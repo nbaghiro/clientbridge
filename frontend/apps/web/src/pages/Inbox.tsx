@@ -173,7 +173,7 @@ function ThreadListItem({
                     </span>
                 ) : null}
                 {thread.unread_count > 0 ? (
-                    <Badge kind="count" label={thread.unread_count} />
+                    <Badge variant="count" label={thread.unread_count} />
                 ) : null}
             </div>
             <span className="truncate text-xs text-muted">

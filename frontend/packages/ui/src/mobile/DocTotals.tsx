@@ -2,11 +2,13 @@ import { type DocTotalsProps, formatMoney } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function DocTotals({ lines, density = "regular" }: DocTotalsProps) {
+export function DocTotals({ lines, density = "regular", style }: NativeProps<DocTotalsProps>) {
     return (
-        <View>
+        <View style={style}>
             {lines.map((line) => {
                 const ruled = line.kind === "total" || line.kind === "balance";
                 const amount =

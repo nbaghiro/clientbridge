@@ -1,9 +1,11 @@
 import { type DocTotalsProps, formatMoney, type DocTotalLine } from "@clientbridge/app-core/public";
 
-export function DocTotals({ lines, density = "regular" }: DocTotalsProps) {
+import { type WebProps, cx } from "./props";
+
+export function DocTotals({ lines, density = "regular", className }: WebProps<DocTotalsProps>) {
     const pad = density === "compact" ? "py-1" : "py-1.5";
     return (
-        <dl className="text-sm">
+        <dl className={cx("text-sm", className)}>
             {lines.map((line: DocTotalLine) => {
                 const ruled = line.kind === "total" || line.kind === "balance";
                 const amount =

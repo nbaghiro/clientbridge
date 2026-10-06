@@ -1,11 +1,13 @@
 import { type StepperProps, strings } from "@clientbridge/app-core/public";
 
+import { type WebProps, cx } from "./props";
+
 const STEP =
     "flex h-7 w-7 items-center justify-center rounded-md border border-line text-sm text-ink-soft transition hover:bg-bg disabled:opacity-40";
 
-export function Stepper({ value, onChange, min, max, label }: StepperProps) {
+export function Stepper({ value, onChange, min, max, label, className }: WebProps<StepperProps>) {
     return (
-        <span className="inline-flex items-center gap-1.5">
+        <span className={cx("inline-flex items-center gap-1.5", className)}>
             <button
                 type="button"
                 aria-label={strings.common.decrease(label)}

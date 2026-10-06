@@ -1,5 +1,4 @@
-import { type Checkout, type CheckoutMethod, NEW_CARD, strings } from "@clientbridge/app-core";
-import type { ReactNode } from "react";
+import { NEW_CARD, strings, type ChargeSheetProps } from "@clientbridge/app-core";
 import { Text, View } from "react-native";
 
 import { Button } from "./Button";
@@ -8,21 +7,9 @@ import { Choice } from "./Choice";
 import { Field } from "./Field";
 import { Notice } from "./Notice";
 import { Panel } from "./Panel";
+import type { NativeProps } from "./props";
 import { stripeAccount as currentStripeAccount } from "./stripe";
 import { ui } from "./styles";
-
-export interface ChargeSheetProps {
-    checkout: Checkout;
-    methods: CheckoutMethod[];
-    amountLabel: string;
-    stripeAccount?: string;
-    submitLabel: string;
-    busyLabel: string;
-    onSubmit: () => void;
-    onCancel: () => void;
-    title?: string;
-    children?: ReactNode;
-}
 
 export function ChargeSheet({
     checkout,
@@ -35,10 +22,12 @@ export function ChargeSheet({
     onCancel,
     title,
     children,
-}: ChargeSheetProps) {
+    style,
+}: NativeProps<ChargeSheetProps>) {
     if (checkout.clientSecret !== null) {
         return (
             <CardForm
+                style={style}
                 clientSecret={checkout.clientSecret}
                 stripeAccount={stripeAccount ?? currentStripeAccount()}
                 submitLabel={strings.checkout.charge(amountLabel)}
@@ -48,11 +37,11 @@ export function ChargeSheet({
             />
         );
     }
-    const options: CheckoutMethod[] = checkout.allowNewCard
+    const options: readonly { id: string; label: string }[] = checkout.allowNewCard
         ? [{ id: NEW_CARD, label: strings.checkout.newCard }, ...methods]
         : methods;
     return (
-        <Panel title={title}>
+        <Panel style={style} title={title}>
             {children}
             <Field label={strings.checkout.payment}>
                 {options.length === 0 ? (

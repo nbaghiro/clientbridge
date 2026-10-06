@@ -2,13 +2,21 @@ import type { UsageBarProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-/** A day of a room or station: bookings as coloured spans, hour ticks under it and a now line. */
-export function UsageBar({ segments, total, now, ticks = [], label }: UsageBarProps) {
+export function UsageBar({
+    segments,
+    total,
+    now,
+    ticks = [],
+    label,
+    style,
+}: NativeProps<UsageBarProps>) {
     const pct = (m: number): `${number}%` => `${(m / total) * 100}%`;
     return (
-        <View accessibilityLabel={label}>
+        <View style={style} accessibilityLabel={label}>
             <View style={styles.track}>
                 {ticks.map((t) => (
                     <View key={t.at} style={[styles.tick, { left: pct(t.at) }]} />

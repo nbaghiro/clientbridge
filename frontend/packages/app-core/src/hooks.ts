@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { strings } from "./strings";
 
@@ -47,4 +47,42 @@ export function useSearch<T>(
     const [q, setQ] = useState("");
     const filtered = useMemo(() => filter(rows, q), [rows, filter, q]);
     return { q, setQ, filtered };
+}
+
+// A value a component owns until its parent passes `value`, like a native input.
+export function useControllable<T>(
+    value: T | undefined,
+    defaultValue: T,
+    onChange?: (next: T) => void,
+): [T, (next: T) => void] {
+    const [own, setOwn] = useState(defaultValue);
+    const controlled = value !== undefined;
+    const set = useCallback(
+        (next: T) => {
+            if (!controlled) setOwn(next);
+            onChange?.(next);
+        },
+        [controlled, onChange],
+    );
+    return [controlled ? value : own, set];
+}
+
+// True for a moment after `flash()`, e.g. a "Copied" confirmation.
+export function useFlash(ms = 2000): [boolean, () => void] {
+    const [on, setOn] = useState(false);
+    const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(
+        () => () => {
+            if (timer.current !== null) clearTimeout(timer.current);
+        },
+        [],
+    );
+    const flash = useCallback(() => {
+        if (timer.current !== null) clearTimeout(timer.current);
+        setOn(true);
+        timer.current = setTimeout(() => {
+            setOn(false);
+        }, ms);
+    }, [ms]);
+    return [on, flash];
 }

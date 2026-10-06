@@ -1,12 +1,14 @@
 import { type AvatarProps, initials } from "@clientbridge/app-core";
+import { tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
-import { tintHex } from "@clientbridge/tokens";
+
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 const SIZE = { sm: 28, md: 36, lg: 44, xl: 64 } as const;
 
-export function Avatar({ name, size = "md", color }: AvatarProps) {
+export function Avatar({ name, size = "md", color, style }: NativeProps<AvatarProps>) {
     const px = SIZE[size];
     return (
         <View
@@ -18,6 +20,7 @@ export function Avatar({ name, size = "md", color }: AvatarProps) {
                     height: px,
                     backgroundColor: color ? tintHex(color, 12) : c.accentWeak,
                 },
+                style,
             ]}
         >
             <Text

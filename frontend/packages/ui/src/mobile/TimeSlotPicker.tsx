@@ -1,20 +1,28 @@
-import type { TimeSlotPickerProps } from "@clientbridge/app-core";
+import { type TimeSlotPickerProps, useControllable } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-/** Open times grouped by part of the day; a taken time stays visible but can't be picked. */
 export function TimeSlotPicker({
     groups,
-    value,
+    value: valueProp,
+    defaultValue = null,
     onChange,
     label,
     columns = 4,
-}: TimeSlotPickerProps) {
+    style,
+}: NativeProps<TimeSlotPickerProps>) {
+    const [value, setValue] = useControllable<string | null>(valueProp, defaultValue);
     const basis: `${number}%` = `${Math.floor(100 / Math.min(columns, 4)) - 3}%`;
     return (
-        <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.wrap}>
+        <View
+            accessibilityRole="radiogroup"
+            accessibilityLabel={label}
+            style={[styles.wrap, style]}
+        >
             {groups.map((g) => (
                 <View key={g.label}>
                     <Text style={styles.group}>{g.label}</Text>
@@ -31,7 +39,8 @@ export function TimeSlotPicker({
                                     }}
                                     disabled={slot.disabled}
                                     onPress={() => {
-                                        onChange(slot.key);
+                                        setValue(slot.key);
+                                        onChange?.(slot.key);
                                     }}
                                     style={[
                                         styles.slot,

@@ -2,13 +2,15 @@ import { type StepperProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function Stepper({ value, onChange, min, max, label }: StepperProps) {
+export function Stepper({ value, onChange, min, max, label, style }: NativeProps<StepperProps>) {
     const atMin = min !== undefined && value <= min;
     const atMax = max !== undefined && value >= max;
     return (
-        <View style={styles.row}>
+        <View style={[styles.row, style]}>
             <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={strings.common.decrease(label)}

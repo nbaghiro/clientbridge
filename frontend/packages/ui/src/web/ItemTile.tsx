@@ -1,7 +1,9 @@
-import { type ItemTileProps, formatMoney } from "@clientbridge/app-core/public";
+import { type ItemTileProps, formatMoney, strings } from "@clientbridge/app-core/public";
 import { cssVar, tint } from "@clientbridge/tokens";
+
 import { Badge } from "./Badge";
 import { ItemImage } from "./ItemImage";
+import { type WebProps, cx } from "./props";
 
 export function ItemTile({
     name,
@@ -13,16 +15,20 @@ export function ItemTile({
     count = 0,
     onPress,
     disabled = false,
-    layout = "tile",
-}: ItemTileProps) {
+    variant = "tile",
+    className,
+}: WebProps<ItemTileProps>) {
     const tone = color ?? cssVar("accent");
-    if (layout === "card") {
+    if (variant === "card") {
         return (
             <button
                 type="button"
                 onClick={onPress}
                 disabled={disabled}
-                className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface text-left shadow-card transition hover:border-accent-line disabled:opacity-60"
+                className={cx(
+                    "group flex min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface text-left shadow-card transition hover:border-accent-line disabled:opacity-60",
+                    className,
+                )}
             >
                 <span className="relative block aspect-[4/3] w-full overflow-hidden bg-bg">
                     {imageSrc !== null ? (
@@ -64,12 +70,15 @@ export function ItemTile({
             type="button"
             onClick={onPress}
             disabled={disabled}
-            aria-label={count > 0 ? `${name}, ${String(count)} on ticket` : name}
-            className={`relative flex min-h-[112px] min-w-0 flex-col rounded-lg border bg-surface p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${
-                count > 0
-                    ? "border-accent shadow-[inset_0_0_0_1px_var(--accent)]"
-                    : "border-line hover:border-accent-line hover:bg-bg"
-            }`}
+            aria-label={count > 0 ? strings.ui.onTicket(name, count) : name}
+            className={cx(
+                `relative flex min-h-[112px] min-w-0 flex-col rounded-lg border bg-surface p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${
+                    count > 0
+                        ? "border-accent shadow-[inset_0_0_0_1px_var(--accent)]"
+                        : "border-line hover:border-accent-line hover:bg-bg"
+                }`,
+                className,
+            )}
         >
             <span className="flex items-start justify-between gap-2">
                 <ItemImage src={imageSrc} name={name} color={color} size={36} />

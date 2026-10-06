@@ -3,9 +3,17 @@ import { theme } from "@clientbridge/tokens/native";
 import { useEffect, useRef } from "react";
 import { Animated, type DimensionValue, StyleSheet, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function Skeleton({ variant, count = 1, columns, label }: SkeletonProps) {
+export function Skeleton({
+    variant,
+    count = 1,
+    columns,
+    label,
+    style,
+}: NativeProps<SkeletonProps>) {
     const pulse = useRef(new Animated.Value(0.5)).current;
     useEffect(() => {
         const loop = Animated.loop(
@@ -29,7 +37,7 @@ export function Skeleton({ variant, count = 1, columns, label }: SkeletonProps) 
             accessibilityRole="progressbar"
             accessibilityLabel={label}
             accessibilityState={{ busy: true }}
-            style={columns ? styles.grid : undefined}
+            style={[columns ? styles.grid : undefined, style]}
         >
             {Array.from({ length: count }, (_, i) =>
                 variant === "row" ? (

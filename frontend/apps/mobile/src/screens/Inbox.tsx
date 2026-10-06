@@ -139,7 +139,7 @@ function ThreadRowView({ thread }: { thread: ThreadRow }) {
                     <Text style={styles.time}>{formatRelativeTime(thread.last_message_at)}</Text>
                 ) : null}
                 {thread.unread_count > 0 ? (
-                    <Badge kind="count" label={thread.unread_count} />
+                    <Badge variant="count" label={thread.unread_count} />
                 ) : null}
             </View>
         </View>

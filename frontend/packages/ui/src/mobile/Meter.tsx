@@ -3,6 +3,8 @@ import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
 export function Meter({
@@ -16,7 +18,8 @@ export function Meter({
     marker = null,
     labelPosition = "above",
     size = "md",
-}: MeterProps) {
+    style,
+}: NativeProps<MeterProps>) {
     const scale = Math.max(1, max);
     const share = Math.max(0, Math.min(1, value / scale));
     const tone = INTENT_COLORS[intent];
@@ -27,7 +30,7 @@ export function Meter({
             accessibilityRole="progressbar"
             accessibilityLabel={label}
             accessibilityValue={{ min: 0, max: scale, now: value }}
-            style={labelPosition === "beside" ? styles.grow : undefined}
+            style={[labelPosition === "beside" && styles.grow, labelPosition === "hidden" && style]}
         >
             {units ? (
                 <View style={styles.units}>
@@ -78,7 +81,7 @@ export function Meter({
     if (labelPosition === "hidden") return bar;
     if (labelPosition === "beside") {
         return (
-            <View style={styles.beside}>
+            <View style={[styles.beside, style]}>
                 {bar}
                 <Text style={[styles.besideLabel, { color: c[tone.ink] }]}>{label}</Text>
             </View>
@@ -86,14 +89,14 @@ export function Meter({
     }
     if (labelPosition === "below") {
         return (
-            <View>
+            <View style={style}>
                 {bar}
                 <Text style={styles.below}>{label}</Text>
             </View>
         );
     }
     return (
-        <View>
+        <View style={style}>
             <View style={styles.head}>
                 <Text style={styles.label}>{label}</Text>
                 {detail !== undefined ? <Text style={styles.detail}>{detail}</Text> : null}

@@ -1,28 +1,18 @@
-import { strings, useAsyncAction } from "@clientbridge/app-core/public";
+import { strings, useAsyncAction, type CardFormProps } from "@clientbridge/app-core/public";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import type { SubmitEvent } from "react";
 
 import { Button } from "./Button";
 import { Notice } from "./Notice";
+import { type WebProps, cx } from "./props";
 import { stripeFor } from "./stripe";
 
-export interface CardFormProps {
-    clientSecret: string;
-    stripeAccount: string;
-    /** "payment" confirms a charge; "setup" saves the method for later. */
-    mode?: "payment" | "setup";
-    submitLabel: string;
-    busyLabel: string;
-    onDone: () => void;
-    onCancel?: () => void;
-}
-
 /** With `onCancel` it renders framed with a cancel action; without, it is the bare public form. */
-export function CardForm(props: CardFormProps) {
+export function CardForm(props: WebProps<CardFormProps>) {
     const stripePromise = stripeFor(props.stripeAccount);
     if (stripePromise === null) {
         return props.onCancel !== undefined ? (
-            <div className="mt-3 rounded-md border border-line bg-bg p-4">
+            <div className={cx("mt-3 rounded-md border border-line bg-bg p-4", props.className)}>
                 <Notice tone="danger">{strings.checkout.notConfiguredSavedCard}</Notice>
                 <div className="mt-3 flex justify-end">
                     <Button variant="quiet" onPress={props.onCancel}>
@@ -31,16 +21,23 @@ export function CardForm(props: CardFormProps) {
                 </div>
             </div>
         ) : (
-            <Notice tone="danger">{strings.checkout.notConfiguredContact}</Notice>
+            <Notice tone="danger" className={props.className}>
+                {strings.checkout.notConfiguredContact}
+            </Notice>
         );
     }
     const form = (
         <Elements stripe={stripePromise} options={{ clientSecret: props.clientSecret }}>
-            <ConfirmForm {...props} />
+            <ConfirmForm
+                {...props}
+                className={props.onCancel !== undefined ? undefined : props.className}
+            />
         </Elements>
     );
     return props.onCancel !== undefined ? (
-        <div className="mt-3 rounded-md border border-line bg-bg p-4">{form}</div>
+        <div className={cx("mt-3 rounded-md border border-line bg-bg p-4", props.className)}>
+            {form}
+        </div>
     ) : (
         form
     );
@@ -52,7 +49,8 @@ function ConfirmForm({
     busyLabel,
     onDone,
     onCancel,
-}: CardFormProps) {
+    className,
+}: WebProps<CardFormProps>) {
     const stripe = useStripe();
     const elements = useElements();
     const { busy, error, setError, run } = useAsyncAction();
@@ -78,7 +76,7 @@ function ConfirmForm({
     };
 
     return (
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} className={cx("space-y-3", className)}>
             <PaymentElement />
             {error !== null ? <Notice tone="danger">{error}</Notice> : null}
             {onCancel !== undefined ? (

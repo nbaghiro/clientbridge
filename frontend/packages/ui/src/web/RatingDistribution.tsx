@@ -1,15 +1,14 @@
 import type { RatingDistributionProps } from "@clientbridge/app-core/public";
 
-export function RatingDistribution({ rows, label }: RatingDistributionProps) {
+import { type WebProps, cx } from "./props";
+
+export function RatingDistribution({ rows, label, className }: WebProps<RatingDistributionProps>) {
     const max = Math.max(1, ...rows.map((r) => r.count));
     return (
-        <ul className="space-y-1.5">
+        <ul className={cx("space-y-1.5", className)}>
             {rows.map((r) => (
-                <li
-                    key={r.stars}
-                    aria-label={label(r.stars, r.count)}
-                    className="flex items-center gap-2.5 text-xs"
-                >
+                <li key={r.stars} className="flex items-center gap-2.5 text-xs">
+                    <span className="sr-only">{label(r.stars, r.count)}</span>
                     <span aria-hidden className="w-6 shrink-0 tabular-nums text-muted">
                         {r.stars}★
                     </span>

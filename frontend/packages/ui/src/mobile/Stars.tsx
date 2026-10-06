@@ -2,15 +2,21 @@ import { type StarsProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 const SIZE = { sm: 14, md: 16, lg: 30 } as const;
 const SCALE = [1, 2, 3, 4, 5] as const;
 
-export function Stars({ value, onSelect, size = "md" }: StarsProps) {
+export function Stars({ value, onSelect, size = "md", style }: NativeProps<StarsProps>) {
     const fontSize = SIZE[size];
     if (onSelect === undefined) {
         return (
-            <Text accessibilityLabel={strings.common.ratingOf(value)} style={{ fontSize }}>
+            <Text
+                accessibilityRole="image"
+                accessibilityLabel={strings.common.ratingOf(value)}
+                style={[{ fontSize }, style]}
+            >
                 {SCALE.map((n) => (
                     <Text key={n} style={n <= value ? styles.on : styles.off}>
                         ★
@@ -20,7 +26,7 @@ export function Stars({ value, onSelect, size = "md" }: StarsProps) {
         );
     }
     return (
-        <View accessibilityRole="radiogroup" style={styles.row}>
+        <View accessibilityRole="radiogroup" style={[styles.row, style]}>
             {SCALE.map((n) => (
                 <Pressable
                     key={n}

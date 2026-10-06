@@ -13,6 +13,7 @@ import { StyleSheet, Switch, Text, TextInput, View, type KeyboardTypeOptions } f
 
 import { Choice } from "./Choice";
 import { Notice } from "./Notice";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -61,9 +62,10 @@ export function Field({
     optional = false,
     required = false,
     children,
-}: FieldProps) {
+    style,
+}: NativeProps<FieldProps>) {
     return (
-        <View>
+        <View style={style}>
             <Label text={label} optional={optional} required={required} />
             {children}
             <Extras hint={hint} error={error} />
@@ -93,7 +95,8 @@ export function TextField({
     autoComplete,
     required,
     maxLength,
-}: TextFieldProps) {
+    style,
+}: NativeProps<TextFieldProps>) {
     const plain = type === "email" || type === "password" || type === "url";
     const input: ReactNode = (
         <TextInput
@@ -137,7 +140,7 @@ export function TextField({
         );
     if (label === undefined && hint === undefined && (error ?? null) === null) return box;
     return (
-        <View>
+        <View style={style}>
             {label !== undefined ? (
                 <Label text={label} optional={optional} required={required === true} />
             ) : null}
@@ -154,10 +157,11 @@ export function Select<K extends string>({
     value,
     options,
     onChange,
-}: SelectProps<K>) {
+    style,
+}: NativeProps<SelectProps<K>>) {
     const choices: ChoiceOption<K>[] = options.map((o) => ({ key: o.key, label: o.label }));
     return (
-        <View>
+        <View style={style}>
             {label !== undefined ? <Label text={label} optional={false} /> : null}
             <Choice options={choices} value={value} onChange={onChange} label={label} />
             <Extras hint={hint} error={error} />
@@ -165,9 +169,16 @@ export function Select<K extends string>({
     );
 }
 
-export function Toggle({ label, hint, value, onChange, disabled }: ToggleProps) {
+export function Toggle({
+    label,
+    hint,
+    value,
+    onChange,
+    disabled,
+    style,
+}: NativeProps<ToggleProps>) {
     return (
-        <View style={styles.toggle}>
+        <View style={[styles.toggle, style]}>
             <View style={styles.toggleText}>
                 <Text style={styles.toggleLabel}>{label}</Text>
                 {hint !== undefined ? <Text style={styles.hint}>{hint}</Text> : null}

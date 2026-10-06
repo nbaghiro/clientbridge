@@ -9,14 +9,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { type ReactElement, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-    IconCalendar,
-    IconClients,
-    IconInvoices,
-    IconPlus,
-    IconPos,
-    IconToday,
-} from "@clientbridge/ui";
+import { Icon } from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
 import { BookingForm } from "./BookingForm";
@@ -33,10 +26,10 @@ function tabLabel(name: string): string {
 }
 
 function tabIcon(name: string, color: string): ReactElement {
-    if (name === "Schedule") return <IconCalendar size={23} color={color} />;
-    if (name === "Clients") return <IconClients size={23} color={color} />;
-    if (name === "Payments") return <IconInvoices size={23} color={color} />;
-    return <IconToday size={23} color={color} />;
+    if (name === "Schedule") return <Icon name="calendar" size={23} color={color} />;
+    if (name === "Clients") return <Icon name="clients" size={23} color={color} />;
+    if (name === "Payments") return <Icon name="invoices" size={23} color={color} />;
+    return <Icon name="today" size={23} color={color} />;
 }
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
@@ -77,7 +70,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                                 setMenu(true);
                             }}
                         >
-                            <IconPlus size={26} color="#fff" />
+                            <Icon name="plus" size={26} color="#fff" />
                         </Pressable>,
                     ];
                 }
@@ -106,7 +99,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                                 go("Clients", { create: Date.now() });
                             }}
                         >
-                            <IconClients size={20} color={theme.colors.accent} />
+                            <Icon name="clients" size={20} color={theme.colors.accent} />
                             <Text style={styles.menuText}>{strings.navigation.newClient}</Text>
                         </Pressable>
                         <Pressable
@@ -116,7 +109,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                                 setBooking(true);
                             }}
                         >
-                            <IconCalendar size={20} color={theme.colors.accent} />
+                            <Icon name="calendar" size={20} color={theme.colors.accent} />
                             <Text style={styles.menuText}>{strings.navigation.newBooking}</Text>
                         </Pressable>
                         {canInvoice ? (
@@ -126,7 +119,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                                     go("Payments", { tab: "invoices", create: Date.now() });
                                 }}
                             >
-                                <IconInvoices size={20} color={theme.colors.accent} />
+                                <Icon name="invoices" size={20} color={theme.colors.accent} />
                                 <Text style={styles.menuText}>{strings.navigation.newInvoice}</Text>
                             </Pressable>
                         ) : null}
@@ -136,7 +129,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                                 go("Payments", { tab: "sales" });
                             }}
                         >
-                            <IconPos size={20} color={theme.colors.accent} />
+                            <Icon name="pos" size={20} color={theme.colors.accent} />
                             <Text style={styles.menuText}>{strings.navigation.newSale}</Text>
                         </Pressable>
                     </View>

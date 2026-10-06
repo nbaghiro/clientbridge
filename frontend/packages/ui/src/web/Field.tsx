@@ -8,6 +8,7 @@ import {
 import { type ReactNode, useId } from "react";
 
 import { Notice } from "./Notice";
+import { type WebProps, cx } from "./props";
 
 const INPUT_SIZE = { sm: "px-2 py-1 text-xs", md: "px-3 py-2 text-sm", lg: "px-3 py-2.5" } as const;
 const INPUT_WIDTH = { full: "w-full", narrow: "w-32", auto: "" } as const;
@@ -34,7 +35,8 @@ function Labelled({
     optional,
     required,
     children,
-}: {
+    className,
+}: WebProps<{
     id: string;
     label: string | undefined;
     hint: string | undefined;
@@ -42,10 +44,12 @@ function Labelled({
     optional: boolean;
     required: boolean;
     children: ReactNode;
-}) {
-    if (label === undefined && hint === undefined && (error ?? null) === null) return children;
+}>) {
+    if (label === undefined && hint === undefined && (error ?? null) === null) {
+        return className === undefined ? children : <div className={className}>{children}</div>;
+    }
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className={cx("flex flex-col gap-1.5", className)}>
             {label !== undefined ? (
                 <label htmlFor={id} className="text-sm font-medium text-ink-soft">
                     {label}
@@ -66,9 +70,10 @@ export function Field({
     optional = false,
     required = false,
     children,
-}: FieldProps) {
+    className,
+}: WebProps<FieldProps>) {
     return (
-        <div className="flex flex-col gap-1.5">
+        <div className={cx("flex flex-col gap-1.5", className)}>
             <span className="text-sm font-medium text-ink-soft">
                 {label}
                 <Mark optional={optional} required={required} />
@@ -105,7 +110,8 @@ export function TextField({
     max,
     step,
     maxLength,
-}: TextFieldProps) {
+    className,
+}: WebProps<TextFieldProps>) {
     const id = useId();
     const shared = {
         id,
@@ -121,6 +127,7 @@ export function TextField({
     };
     return (
         <Labelled
+            className={className}
             id={id}
             label={label}
             hint={hint}
@@ -191,10 +198,19 @@ export function Select<K extends string>({
     onChange,
     size = "md",
     disabled,
-}: SelectProps<K>) {
+    className,
+}: WebProps<SelectProps<K>>) {
     const id = useId();
     return (
-        <Labelled id={id} label={label} hint={hint} error={error} optional={false} required={false}>
+        <Labelled
+            className={className}
+            id={id}
+            label={label}
+            hint={hint}
+            error={error}
+            optional={false}
+            required={false}
+        >
             <select
                 id={id}
                 value={value}
@@ -216,9 +232,16 @@ export function Select<K extends string>({
     );
 }
 
-export function Toggle({ label, hint, value, onChange, disabled }: ToggleProps) {
+export function Toggle({
+    label,
+    hint,
+    value,
+    onChange,
+    disabled,
+    className,
+}: WebProps<ToggleProps>) {
     return (
-        <label className="flex items-start gap-2.5 text-sm text-ink">
+        <label className={cx("flex items-start gap-2.5 text-sm text-ink", className)}>
             <input
                 type="checkbox"
                 checked={value}

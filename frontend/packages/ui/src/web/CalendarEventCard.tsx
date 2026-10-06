@@ -6,6 +6,7 @@ import type {
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
 const FLAG_ICON: Record<CalendarEventFlag, IconName> = {
     online: "globe",
@@ -25,7 +26,6 @@ const STATE = {
     faded: "opacity-55",
 } as const;
 
-/** A visit block: status fill and edge, the service swatch, flags; fills whatever box the grid gives it. */
 export function CalendarEventCard({
     headline,
     detail,
@@ -37,7 +37,8 @@ export function CalendarEventCard({
     state = "idle",
     label,
     onPress,
-}: CalendarEventCardProps) {
+    className,
+}: WebProps<CalendarEventCardProps>) {
     const tone = INTENT_COLORS[intent];
     const pending = intent === "warning";
     return (
@@ -50,9 +51,12 @@ export function CalendarEventCard({
                 color: cssVar(tone.ink),
                 borderColor: cssVar(tone.line),
             }}
-            className={`group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-md border-l-[3px] text-left text-xs leading-tight transition ${
-                pending ? "outline-1 -outline-offset-1 outline-dashed outline-warn/60" : ""
-            } ${density === "compact" ? "justify-center px-1.5 py-0.5" : "px-2 py-1"} ${STATE[state]}`}
+            className={cx(
+                `group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-md border-l-[3px] text-left text-xs leading-tight transition ${
+                    pending ? "outline-1 -outline-offset-1 outline-dashed outline-warn/60" : ""
+                } ${density === "compact" ? "justify-center px-1.5 py-0.5" : "px-2 py-1"} ${STATE[state]}`,
+                className,
+            )}
         >
             {density === "compact" ? (
                 <span className="flex min-w-0 items-center gap-1">

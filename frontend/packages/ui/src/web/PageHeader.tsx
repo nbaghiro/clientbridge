@@ -1,8 +1,16 @@
 import type { PageHeaderProps } from "@clientbridge/app-core/public";
 
-export function PageHeader({ title, subtitle, actions, children }: PageHeaderProps) {
+import type { WebProps } from "./props";
+
+export function PageHeader({
+    title,
+    subtitle,
+    actions,
+    children,
+    className,
+}: WebProps<PageHeaderProps>) {
     return (
-        <header>
+        <header className={className}>
             <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                     <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>

@@ -1,35 +1,44 @@
-import type { TagInputProps } from "@clientbridge/app-core";
+import { type TagInputProps, strings, useControllable } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
 export function TagInput({
     label,
-    tags,
+    tags: tagsProp,
+    defaultTags = [],
     onAdd,
     onRemove,
     suggestions = [],
     placeholder,
-    removeLabel,
-    createLabel,
-}: TagInputProps) {
+    removeLabel = strings.ui.removeTag,
+    createLabel = strings.ui.createTag,
+    style,
+}: NativeProps<TagInputProps>) {
+    const [tags, setTags] = useControllable(tagsProp, defaultTags);
     const [q, setQ] = useState("");
+    const remove = (tag: string): void => {
+        setTags(tags.filter((t) => t !== tag));
+        onRemove?.(tag);
+    };
     const text = q.trim().toLowerCase();
     const open = suggestions.filter((s) => !tags.includes(s.tag));
     const matches =
         text === "" ? open.slice(0, 6) : open.filter((s) => s.tag.includes(text)).slice(0, 6);
     const exact = open.some((s) => s.tag === text) || tags.includes(text);
     const add = (tag: string): void => {
-        onAdd(tag);
+        setTags([...tags, tag]);
+        onAdd?.(tag);
         setQ("");
     };
 
     return (
-        <View>
+        <View style={style}>
             <Text style={styles.label}>{label}</Text>
             <View style={styles.box}>
                 {tags.map((t) => (
@@ -40,7 +49,7 @@ export function TagInput({
                             accessibilityLabel={removeLabel(t)}
                             hitSlop={8}
                             onPress={() => {
-                                onRemove(t);
+                                remove(t);
                             }}
                         >
                             <Icon name="x" size={13} color={c.accentStrong} />

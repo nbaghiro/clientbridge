@@ -1,16 +1,23 @@
 import type { DurationBarProps } from "@clientbridge/app-core";
+import { tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
-import { tintHex } from "@clientbridge/tokens";
+
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-export function DurationBar({ segments, color, caption }: DurationBarProps) {
+export function DurationBar({ segments, color, caption, style }: NativeProps<DurationBarProps>) {
     const tone = color ?? c.accent;
     const shown = segments.filter((seg) => seg.minutes > 0);
     return (
-        <View>
-            <View style={styles.bar} accessible accessibilityLabel={caption}>
+        <View style={style}>
+            <View
+                style={styles.bar}
+                accessible
+                accessibilityRole="image"
+                accessibilityLabel={caption ?? shown.map((seg) => seg.label).join(", ")}
+            >
                 {shown.map((seg) => (
                     <View
                         key={seg.key}

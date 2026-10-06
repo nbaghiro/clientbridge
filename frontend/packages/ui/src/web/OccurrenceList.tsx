@@ -1,13 +1,18 @@
 import { type OccurrenceListProps, type OccurrenceRow } from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
+
 import { Badge } from "./Badge";
-
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
-/** A series' dates in order; a clash shows why and its choices inline. */
-export function OccurrenceList({ rows, label, onAction }: OccurrenceListProps) {
+export function OccurrenceList({
+    rows,
+    label,
+    onAction,
+    className,
+}: WebProps<OccurrenceListProps>) {
     return (
-        <ol aria-label={label} className="divide-y divide-line-soft">
+        <ol aria-label={label} className={cx("divide-y divide-line-soft", className)}>
             {rows.map((r: OccurrenceRow) => (
                 <li
                     key={r.key}
@@ -56,12 +61,12 @@ export function OccurrenceList({ rows, label, onAction }: OccurrenceListProps) {
                                     <button
                                         key={a.key}
                                         type="button"
-                                        aria-pressed={a.active === true}
+                                        aria-pressed={a.selected === true}
                                         onClick={() => {
                                             onAction?.(r.key, a.key);
                                         }}
                                         className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                                            a.active === true
+                                            a.selected === true
                                                 ? "border-accent bg-accent-weak text-accent-strong"
                                                 : "border-line bg-surface text-ink-soft hover:bg-bg"
                                         }`}

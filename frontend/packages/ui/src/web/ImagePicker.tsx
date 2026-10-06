@@ -1,8 +1,9 @@
 import type { ImagePickerProps } from "@clientbridge/app-core/public";
-import { useState } from "react";
 import { cssVar, tint } from "@clientbridge/tokens";
+import { useState } from "react";
 
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
 export function ImagePicker({
     src,
@@ -15,15 +16,17 @@ export function ImagePicker({
     removeLabel,
     busy = false,
     size = "md",
-}: ImagePickerProps) {
+    className,
+}: WebProps<ImagePickerProps>) {
     const [over, setOver] = useState(false);
     const box = size === "lg" ? "h-48 w-48" : "h-24 w-24";
     const tone = color ?? cssVar("accent");
     return (
         <div
-            className={
-                size === "lg" ? "flex flex-col items-start gap-2" : "flex items-center gap-4"
-            }
+            className={cx(
+                size === "lg" ? "flex flex-col items-start gap-2" : "flex items-center gap-4",
+                className,
+            )}
         >
             <button
                 type="button"

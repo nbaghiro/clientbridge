@@ -4,12 +4,13 @@ import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-export function ActivityTimeline({ entries }: ActivityTimelineProps) {
+export function ActivityTimeline({ entries, style }: NativeProps<ActivityTimelineProps>) {
     return (
-        <View>
+        <View style={style}>
             {entries.map((e, i) => {
                 const tone = INTENT_COLORS[e.intent ?? "neutral"];
                 const big = e.icon !== undefined;

@@ -4,6 +4,8 @@ import {
     formatMoneyWithCurrency,
 } from "@clientbridge/app-core/public";
 
+import { type WebProps, cx } from "./props";
+
 const TONE = {
     ink: "text-ink",
     muted: "text-muted",
@@ -11,18 +13,27 @@ const TONE = {
     danger: "text-danger",
 } as const;
 
-export function Stat({ label, cents, value, tone = "ink", hint, size = "md" }: StatProps) {
+export function Stat({
+    label,
+    cents,
+    value,
+    tone = "ink",
+    hint,
+    size = "md",
+    className,
+}: WebProps<StatProps>) {
     const large = size === "lg";
     const money = (c: number): string =>
         large ? formatMoneyWithCurrency(c, "CAD") : formatMoney(c);
     const shown = value ?? (cents === null || cents === undefined ? null : money(cents));
     return (
         <div
-            className={
+            className={cx(
                 large
                     ? "rounded-lg border border-line bg-surface p-5 shadow-card"
-                    : "rounded-md border border-line bg-bg p-4"
-            }
+                    : "rounded-md border border-line bg-bg p-4",
+                className,
+            )}
         >
             <p className="text-sm text-muted">{label}</p>
             {shown === null ? (

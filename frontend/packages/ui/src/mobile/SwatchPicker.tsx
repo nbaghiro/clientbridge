@@ -1,13 +1,22 @@
-import type { SwatchPickerProps } from "@clientbridge/app-core";
+import { type SwatchPickerProps, useControllable } from "@clientbridge/app-core";
+import { ON_DATA } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, View } from "react-native";
-import { ON_DATA } from "@clientbridge/tokens";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
-export function SwatchPicker({ label, colours, value, onChange }: SwatchPickerProps) {
+export function SwatchPicker({
+    label,
+    colours,
+    value: valueProp,
+    defaultValue = "",
+    onChange,
+    style,
+}: NativeProps<SwatchPickerProps>) {
+    const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     return (
-        <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.row}>
+        <View accessibilityRole="radiogroup" accessibilityLabel={label} style={[styles.row, style]}>
             {colours.map((colour) => {
                 const on = colour.toLowerCase() === value.toLowerCase();
                 return (
@@ -17,7 +26,7 @@ export function SwatchPicker({ label, colours, value, onChange }: SwatchPickerPr
                         accessibilityLabel={colour}
                         accessibilityState={{ checked: on }}
                         onPress={() => {
-                            onChange(colour);
+                            setValue(colour);
                         }}
                         style={[styles.ring, on && styles.ringOn]}
                     >

@@ -1,11 +1,18 @@
-import { type ChecklistProps, strings, type ChecklistItem } from "@clientbridge/app-core/public";
+import {
+    type ButtonVariant,
+    type ChecklistItem,
+    type ChecklistProps,
+    type UiAction,
+    strings,
+} from "@clientbridge/app-core/public";
 
 import { Button } from "./Button";
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
-export function Checklist({ items, label }: ChecklistProps) {
+export function Checklist({ items, label, className }: WebProps<ChecklistProps>) {
     return (
-        <ul aria-label={label} className="divide-y divide-line-soft">
+        <ul aria-label={label} className={cx("divide-y divide-line-soft", className)}>
             {items.map((item: ChecklistItem) => (
                 <li key={item.key} className="flex items-center gap-3 py-3">
                     <span
@@ -39,16 +46,21 @@ export function Checklist({ items, label }: ChecklistProps) {
                         ) : null}
                     </div>
                     {item.action !== undefined ? (
-                        <Button
-                            size="sm"
+                        <ActionButton
+                            action={item.action}
                             variant={item.done ? "quiet" : item.attention ? "primary" : "outline"}
-                            onPress={item.action.onPress}
-                        >
-                            {item.action.label}
-                        </Button>
+                        />
                     ) : null}
                 </li>
             ))}
         </ul>
+    );
+}
+
+function ActionButton({ action, variant }: { action: UiAction; variant: ButtonVariant }) {
+    return (
+        <Button size="sm" variant={variant} onPress={action.onPress}>
+            {action.label}
+        </Button>
     );
 }

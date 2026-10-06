@@ -1,6 +1,8 @@
 import { type PayCodeProps, payCodeMatrix } from "@clientbridge/app-core/public";
 
-export function PayCode({ value, size = 96, label }: PayCodeProps) {
+import { type WebProps, cx } from "./props";
+
+export function PayCode({ value, size = 96, label, className }: WebProps<PayCodeProps>) {
     const m = payCodeMatrix(value);
     const n = m.length;
     const d = m
@@ -14,7 +16,7 @@ export function PayCode({ value, size = 96, label }: PayCodeProps) {
             role="img"
             aria-label={label}
             shapeRendering="crispEdges"
-            className="shrink-0 rounded-sm bg-surface text-ink"
+            className={cx("shrink-0 rounded-sm bg-surface text-ink", className)}
         >
             <path d={d} fill="currentColor" />
         </svg>

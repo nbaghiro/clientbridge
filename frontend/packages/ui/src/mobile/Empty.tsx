@@ -3,31 +3,32 @@ import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-/** The real Empty (one muted line) plus an optional icon, body, next-step actions, a danger tone and a card frame. */
 export function Empty({
     message,
     body,
     icon,
     actions,
     intent = "neutral",
-    size = "inline",
-}: EmptyProps) {
+    variant = "inline",
+    style,
+}: NativeProps<EmptyProps>) {
     if (
         body === undefined &&
         icon === undefined &&
         actions === undefined &&
         intent === "neutral" &&
-        size === "inline"
+        variant === "inline"
     ) {
-        return <Text style={styles.plain}>{message}</Text>;
+        return <Text style={[styles.plain, style]}>{message}</Text>;
     }
     const danger = intent === "danger";
     return (
         <View
-            style={[styles.wrap, size === "card" && styles.card]}
+            style={[styles.wrap, variant === "card" && styles.card, style]}
             accessibilityRole={danger ? "alert" : undefined}
         >
             {icon !== undefined ? (

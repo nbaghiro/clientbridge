@@ -2,10 +2,11 @@ import type { ListPageProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { IconPlus } from "./Icons";
+import { Empty } from "./Empty";
+import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 import { SearchField } from "./SearchField";
 import { Tabs } from "./Tabs";
-import { Empty } from "./Empty";
 
 const c = theme.colors;
 
@@ -24,11 +25,12 @@ export function ListPage<T, K extends string = string>({
     onRowPress,
     empty,
     footer,
-}: ListPageProps<T, K>) {
+    style,
+}: NativeProps<ListPageProps<T, K>>) {
     const hasHeader =
         title !== undefined || summary !== undefined || action !== undefined || accessory;
     return (
-        <View style={styles.page}>
+        <View style={[styles.page, style]}>
             {hasHeader ? (
                 <View style={styles.header}>
                     <View style={styles.headerText}>
@@ -46,7 +48,7 @@ export function ListPage<T, K extends string = string>({
                                 accessibilityRole="button"
                                 accessibilityLabel={action.label}
                             >
-                                <IconPlus size={16} color={c.accentInk} />
+                                <Icon name="plus" size={16} color={c.accentInk} />
                                 <Text style={styles.actionText}>{action.label}</Text>
                             </Pressable>
                         ) : null}
@@ -55,7 +57,7 @@ export function ListPage<T, K extends string = string>({
             ) : null}
             {segments !== undefined ? (
                 <Tabs
-                    pill
+                    variant="pill"
                     items={[...segments.items]}
                     active={segments.active}
                     onSelect={segments.onSelect}

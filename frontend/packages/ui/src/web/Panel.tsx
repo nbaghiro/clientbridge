@@ -1,10 +1,22 @@
 import type { PanelProps } from "@clientbridge/app-core/public";
 
-export function Panel({ title, subtitle, actions, flush = false, children }: PanelProps) {
+import { type WebProps, cx } from "./props";
+
+export function Panel({
+    title,
+    subtitle,
+    actions,
+    flush = false,
+    children,
+    className,
+}: WebProps<PanelProps>) {
     const head = title !== undefined || subtitle !== undefined || actions !== undefined;
     return (
         <section
-            className={`overflow-hidden rounded-lg border border-line bg-surface shadow-card ${flush ? "" : "p-5"}`}
+            className={cx(
+                `overflow-hidden rounded-lg border border-line bg-surface shadow-card ${flush ? "" : "p-5"}`,
+                className,
+            )}
         >
             {head ? (
                 <div

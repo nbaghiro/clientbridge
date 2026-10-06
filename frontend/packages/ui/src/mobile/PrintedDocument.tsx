@@ -1,10 +1,11 @@
 import { type PrintedDocumentProps, formatMoney } from "@clientbridge/app-core";
+import { ON_DATA, SHADOW, tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
-import { ON_DATA, SHADOW, tintHex } from "@clientbridge/tokens";
 
 import { DocTotals } from "./DocTotals";
 import { PayCode } from "./PayCode";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 type Doc = PrintedDocumentProps["doc"];
@@ -98,10 +99,14 @@ function Lines({ doc }: { doc: Doc }) {
     );
 }
 
-export function PrintedDocument({ doc, template = "classic" }: PrintedDocumentProps) {
+export function PrintedDocument({
+    doc,
+    template = "classic",
+    style,
+}: NativeProps<PrintedDocumentProps>) {
     const statement = template === "statement";
     return (
-        <View style={styles.paper} accessibilityLabel={`${doc.title} ${doc.number}`}>
+        <View style={[styles.paper, style]} accessibilityLabel={`${doc.title} ${doc.number}`}>
             {statement ? (
                 <View style={[styles.band, { backgroundColor: doc.business.brandColor }]}>
                     <Brand doc={doc} inverse />

@@ -1,8 +1,13 @@
-import { type WeeklyHoursEditorProps, type WeeklyHoursDay } from "@clientbridge/app-core/public";
+import {
+    type WeeklyHoursDay,
+    type WeeklyHoursEditorProps,
+    strings,
+} from "@clientbridge/app-core/public";
+
 import { Button } from "./Button";
 import { Select, Toggle } from "./Field";
+import type { WebProps } from "./props";
 
-/** A row per weekday: a switch, start and end selects, the day's length; closed days collapse. */
 export function WeeklyHoursEditor({
     days,
     timeOptions,
@@ -13,10 +18,11 @@ export function WeeklyHoursEditor({
     closedLabel,
     toLabel,
     hoursLabel,
-}: WeeklyHoursEditorProps) {
+    className,
+}: WebProps<WeeklyHoursEditorProps>) {
     const firstOpen = days.find((d) => d.open)?.weekday;
     return (
-        <div>
+        <div className={className}>
             {onCopy !== undefined && firstOpen !== undefined ? (
                 <div className="-mt-1 flex justify-end">
                     <Button
@@ -49,7 +55,7 @@ export function WeeklyHoursEditor({
                             <div className="flex flex-1 items-center gap-2">
                                 <div>
                                     <Select
-                                        name={`${d.label} start`}
+                                        name={strings.ui.startOf(d.label)}
                                         size="sm"
                                         value={d.start}
                                         options={timeOptions}
@@ -61,7 +67,7 @@ export function WeeklyHoursEditor({
                                 <span className="text-sm text-muted">{toLabel}</span>
                                 <div>
                                     <Select
-                                        name={`${d.label} end`}
+                                        name={strings.ui.endOf(d.label)}
                                         size="sm"
                                         value={d.end}
                                         options={timeOptions}

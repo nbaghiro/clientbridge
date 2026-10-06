@@ -2,6 +2,7 @@ import type { SyncBannerProps } from "@clientbridge/app-core/public";
 
 import { Button } from "./Button";
 import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
 
 const ICON = { offline: "cloudOff", syncing: "refresh", error: "alert" } as const;
 
@@ -12,7 +13,8 @@ export function SyncBanner({
     action,
     variant = "strip",
     children,
-}: SyncBannerProps) {
+    className,
+}: WebProps<SyncBannerProps>) {
     const tone =
         state === "error"
             ? "bg-danger-bg text-danger-fg"
@@ -21,7 +23,10 @@ export function SyncBanner({
               : "bg-accent-weak text-accent-strong";
     if (variant === "strip") {
         return (
-            <div role="status" className={`flex items-center gap-2.5 px-5 py-2 text-sm ${tone}`}>
+            <div
+                role="status"
+                className={cx(`flex items-center gap-2.5 px-5 py-2 text-sm ${tone}`, className)}
+            >
                 <Icon name={ICON[state]} size={16} />
                 <span className="font-semibold">{title}</span>
                 {detail !== undefined ? (
@@ -40,7 +45,10 @@ export function SyncBanner({
     return (
         <div
             role="status"
-            className="overflow-hidden rounded-lg border border-line bg-surface shadow-card"
+            className={cx(
+                "overflow-hidden rounded-lg border border-line bg-surface shadow-card",
+                className,
+            )}
         >
             <div className={`flex items-start gap-3 px-5 py-4 ${tone}`}>
                 <span className="mt-0.5">

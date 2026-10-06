@@ -1,8 +1,15 @@
-import type { SignaturePadProps, SignatureStrokes } from "@clientbridge/app-core";
+import {
+    type SignaturePadProps,
+    type SignatureStrokes,
+    strings,
+    useControllable,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useRef, useState } from "react";
 import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
+
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -12,18 +19,27 @@ const path = (stroke: readonly (readonly [number, number])[], w: number, h: numb
         .join(" ");
 
 export function SignaturePad({
-    strokes,
+    strokes: strokesProp,
+    defaultStrokes = [],
     onChange,
+    editable = onChange !== undefined,
     label,
     placeholder,
-    clearLabel,
+    clearLabel = strings.ui.clear,
     height = 140,
-}: SignaturePadProps) {
+    style,
+}: NativeProps<SignaturePadProps>) {
+    const [strokes, setStrokes] = useControllable(strokesProp, defaultStrokes, onChange);
     const [width, setWidth] = useState(0);
     const [live, setLive] = useState<[number, number][] | null>(null);
-    const state = useRef({ width: 0, strokes, live: null as [number, number][] | null, onChange });
-    state.current = { width, strokes, live, onChange };
-    const editable = onChange !== undefined;
+    const state = useRef({
+        width: 0,
+        strokes,
+        live: null as [number, number][] | null,
+        setStrokes,
+        editable,
+    });
+    state.current = { width, strokes, live, setStrokes, editable };
 
     const at = (x: number, y: number): [number, number] => {
         const w = state.current.width || 1;
@@ -32,8 +48,8 @@ export function SignaturePad({
 
     const responder = useRef(
         PanResponder.create({
-            onStartShouldSetPanResponder: () => state.current.onChange !== undefined,
-            onMoveShouldSetPanResponder: () => state.current.onChange !== undefined,
+            onStartShouldSetPanResponder: () => state.current.editable,
+            onMoveShouldSetPanResponder: () => state.current.editable,
             onPanResponderGrant: (e) => {
                 const next: [number, number][] = [
                     at(e.nativeEvent.locationX, e.nativeEvent.locationY),
@@ -52,7 +68,7 @@ export function SignaturePad({
             onPanResponderRelease: () => {
                 const done = state.current.live;
                 if (done !== null && done.length > 1)
-                    state.current.onChange?.([...state.current.strokes, done] as SignatureStrokes);
+                    state.current.setStrokes([...state.current.strokes, done] as SignatureStrokes);
                 state.current.live = null;
                 setLive(null);
             },
@@ -63,11 +79,12 @@ export function SignaturePad({
 
     return (
         <View
-            style={[editable && styles.pad, { height }]}
+            style={[editable && styles.pad, { height }, style]}
             onLayout={(e) => {
                 setWidth(e.nativeEvent.layout.width);
             }}
-            accessible
+            accessible={!editable}
+            accessibilityRole="image"
             accessibilityLabel={label}
             {...responder.panHandlers}
         >
@@ -96,11 +113,11 @@ export function SignaturePad({
                     <Text style={styles.placeholderText}>{placeholder}</Text>
                 </View>
             ) : null}
-            {editable && strokes.length > 0 && clearLabel !== undefined ? (
+            {editable && strokes.length > 0 ? (
                 <Pressable
                     accessibilityRole="button"
                     onPress={() => {
-                        onChange([]);
+                        setStrokes([]);
                     }}
                     style={styles.clear}
                     hitSlop={8}

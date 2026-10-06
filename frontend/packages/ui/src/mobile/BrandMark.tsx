@@ -3,6 +3,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 const WORD: Record<string, string> = {
@@ -13,10 +14,10 @@ const WORD: Record<string, string> = {
     interac: "INTERAC",
 };
 
-export function BrandMark({ method, brand, size = "md" }: BrandMarkProps) {
+export function BrandMark({ method, brand, size = "md", style }: NativeProps<BrandMarkProps>) {
     const sm = size === "sm";
     return (
-        <View accessible={false} style={[styles.box, sm ? styles.sm : styles.md]}>
+        <View accessible={false} style={[styles.box, sm ? styles.sm : styles.md, style]}>
             {method === "bank_eft" ? (
                 <Icon name="bank" size={sm ? 14 : 17} color={c.inkSoft} />
             ) : (

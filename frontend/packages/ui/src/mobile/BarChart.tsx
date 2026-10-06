@@ -3,16 +3,18 @@ import { theme } from "@clientbridge/tokens/native";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 const percent = (fraction: number): `${number}%` => `${fraction * 100}%`;
 
-export function BarChart({ bars, label, height = 140 }: BarChartProps) {
+export function BarChart({ bars, label, height = 140, style }: NativeProps<BarChartProps>) {
     const max = Math.max(1, ...bars.map((b) => b.value));
     const last = bars.filter((b) => !b.partial && !b.dim).at(-1)?.key ?? bars.at(-1)?.key ?? null;
     const [picked, setPicked] = useState<string | null>(last);
     const shown = bars.find((b) => b.key === picked);
     return (
-        <View accessible accessibilityLabel={label}>
+        <View style={style} accessibilityRole="list" accessibilityLabel={label}>
             <Text style={styles.readout}>
                 {shown ? `${shown.label}  ${shown.valueLabel}` : " "}
             </Text>

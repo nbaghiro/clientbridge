@@ -4,12 +4,17 @@ import { StyleSheet, View } from "react-native";
 import { Button } from "./Button";
 import { CardForm } from "./CardForm";
 import { Notice } from "./Notice";
+import type { NativeProps } from "./props";
 
 /** Save a card for a client. Bank (PAD) mandates are web-only for now, so `allowBank` is ignored. */
-export function PaymentMethodForm({ flow }: { flow: AddPaymentMethod; allowBank: boolean }) {
+export function PaymentMethodForm({
+    flow,
+    style,
+}: NativeProps<{ flow: AddPaymentMethod; allowBank: boolean }>) {
     if (flow.intent !== null && flow.kind === "card") {
         return (
             <CardForm
+                style={style}
                 clientSecret={flow.intent.client_secret}
                 stripeAccount={flow.intent.stripe_account_id}
                 mode="setup"
@@ -21,7 +26,7 @@ export function PaymentMethodForm({ flow }: { flow: AddPaymentMethod; allowBank:
         );
     }
     return (
-        <>
+        <View style={style}>
             <View style={styles.start}>
                 <Button
                     variant="outline"
@@ -34,7 +39,7 @@ export function PaymentMethodForm({ flow }: { flow: AddPaymentMethod; allowBank:
                 </Button>
             </View>
             {flow.error !== null ? <Notice tone="danger">{flow.error}</Notice> : null}
-        </>
+        </View>
     );
 }
 

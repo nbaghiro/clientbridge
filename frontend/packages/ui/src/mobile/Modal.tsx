@@ -2,11 +2,26 @@ import { type ModalProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Modal as NativeModal, Pressable, StyleSheet, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function Modal({ open = true, onClose, size = "md", framed = true, children }: ModalProps) {
+export function Modal({
+    open = true,
+    onClose,
+    size = "md",
+    framed = true,
+    children,
+    style,
+}: NativeProps<ModalProps>) {
     return (
-        <NativeModal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+        <NativeModal
+            style={style}
+            visible={open}
+            transparent
+            animationType="slide"
+            onRequestClose={onClose}
+        >
             <Pressable
                 style={styles.backdrop}
                 onPress={onClose}

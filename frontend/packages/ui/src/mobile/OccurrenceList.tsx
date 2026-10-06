@@ -1,17 +1,17 @@
 import type { OccurrenceListProps } from "@clientbridge/app-core";
 import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
-import { Badge } from "./Badge";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Badge } from "./Badge";
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-/** A series' dates in order; a clash shows why and its choices inline. */
-export function OccurrenceList({ rows, label, onAction }: OccurrenceListProps) {
+export function OccurrenceList({ rows, label, onAction, style }: NativeProps<OccurrenceListProps>) {
     return (
-        <View accessibilityLabel={label}>
+        <View style={style} accessibilityLabel={label}>
             {rows.map((r, i) => (
                 <View
                     key={r.key}
@@ -59,16 +59,16 @@ export function OccurrenceList({ rows, label, onAction }: OccurrenceListProps) {
                                     <Pressable
                                         key={a.key}
                                         accessibilityRole="button"
-                                        accessibilityState={{ selected: a.active === true }}
+                                        accessibilityState={{ selected: a.selected === true }}
                                         onPress={() => {
                                             onAction?.(r.key, a.key);
                                         }}
-                                        style={[styles.chip, a.active === true && styles.chipOn]}
+                                        style={[styles.chip, a.selected === true && styles.chipOn]}
                                     >
                                         <Text
                                             style={[
                                                 styles.chipText,
-                                                a.active === true && styles.chipTextOn,
+                                                a.selected === true && styles.chipTextOn,
                                             ]}
                                         >
                                             {a.label}

@@ -1,9 +1,11 @@
 import { type BarChartProps, type BarChartBar } from "@clientbridge/app-core/public";
 
-export function BarChart({ bars, label, height = 160 }: BarChartProps) {
+import { type WebProps, cx } from "./props";
+
+export function BarChart({ bars, label, height = 160, className }: WebProps<BarChartProps>) {
     const max = Math.max(1, ...bars.map((b) => b.value));
     return (
-        <figure aria-label={label} role="img" className="w-full">
+        <figure aria-label={label} role="img" className={cx("w-full", className)}>
             <div className="relative" style={{ height }}>
                 {[0.5, 1].map((f) => (
                     <span

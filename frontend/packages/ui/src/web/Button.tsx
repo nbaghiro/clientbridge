@@ -1,5 +1,8 @@
 import type { ButtonProps, ButtonVariant, ControlSize } from "@clientbridge/app-core/public";
 
+import { Icon } from "./Icon";
+import { type WebProps, type WithRef, cx } from "./props";
+
 const VARIANT: Record<ButtonVariant, string> = {
     primary: "rounded-md bg-accent font-semibold text-accent-ink hover:opacity-90",
     outline: "rounded-md border border-line font-medium text-ink-soft hover:bg-bg",
@@ -28,18 +31,24 @@ export function Button({
     grow = false,
     icon,
     label,
-}: ButtonProps) {
+    className,
+    ref,
+}: WebProps<ButtonProps> & WithRef<HTMLButtonElement>) {
     const sizing = variant === "link" ? LINK_SIZE[size] : SIZE[size];
     return (
         <button
+            ref={ref}
             type={submit ? "submit" : "button"}
             onClick={onPress}
             disabled={disabled || busy}
             aria-busy={busy || undefined}
             aria-label={label}
-            className={`inline-flex shrink-0 items-center justify-center gap-1.5 transition disabled:opacity-60 ${VARIANT[variant]} ${sizing} ${full ? "w-full" : ""} ${grow ? "flex-1" : ""}`}
+            className={cx(
+                `inline-flex shrink-0 items-center justify-center gap-1.5 transition disabled:opacity-60 ${VARIANT[variant]} ${sizing} ${full ? "w-full" : ""} ${grow ? "flex-1" : ""}`,
+                className,
+            )}
         >
-            {icon}
+            {typeof icon === "string" ? <Icon name={icon} size={size === "sm" ? 14 : 16} /> : icon}
             {children}
         </button>
     );

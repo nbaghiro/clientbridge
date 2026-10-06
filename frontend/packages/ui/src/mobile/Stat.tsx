@@ -2,17 +2,27 @@ import { type StatProps, formatMoney, formatMoneyWithCurrency } from "@clientbri
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
 const TONE = { ink: c.ink, muted: c.muted, success: c.success, danger: c.danFg } as const;
 
-export function Stat({ label, cents, value, tone = "ink", hint, size = "md" }: StatProps) {
+export function Stat({
+    label,
+    cents,
+    value,
+    tone = "ink",
+    hint,
+    size = "md",
+    style,
+}: NativeProps<StatProps>) {
     const large = size === "lg";
     const money = (n: number): string =>
         large ? formatMoneyWithCurrency(n, "CAD") : formatMoney(n);
     const shown = value ?? (cents === null || cents === undefined ? null : money(cents));
     return (
-        <View style={large ? styles.card : styles.row}>
+        <View style={[large ? styles.card : styles.row, style]}>
             <Text style={styles.label}>{label}</Text>
             {shown === null ? (
                 <View style={[styles.skeleton, large && styles.skeletonLarge]} />

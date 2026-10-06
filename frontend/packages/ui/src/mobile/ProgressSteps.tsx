@@ -3,6 +3,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Icon } from "./Icon";
+import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
@@ -22,7 +23,12 @@ function Dot({ state, n }: { state: ProgressStepState; n: number }) {
     );
 }
 
-export function ProgressSteps({ steps, layout = "row", label }: ProgressStepsProps) {
+export function ProgressSteps({
+    steps,
+    layout = "row",
+    label,
+    style,
+}: NativeProps<ProgressStepsProps>) {
     if (layout === "row") {
         const current = steps.findIndex((s) => s.state === "current");
         return (
@@ -35,7 +41,7 @@ export function ProgressSteps({ steps, layout = "row", label }: ProgressStepsPro
                     now: current + 1,
                     text: steps[current]?.label ?? "",
                 }}
-                style={styles.row}
+                style={[styles.row, style]}
             >
                 {steps.map((s, i) => (
                     <View
@@ -53,7 +59,7 @@ export function ProgressSteps({ steps, layout = "row", label }: ProgressStepsPro
         );
     }
     return (
-        <View accessibilityLabel={label}>
+        <View style={style} accessibilityLabel={label}>
             {steps.map((s, i) => (
                 <View
                     key={s.key}

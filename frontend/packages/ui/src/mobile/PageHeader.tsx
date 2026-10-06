@@ -2,11 +2,19 @@ import type { PageHeaderProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
+
 const c = theme.colors;
 
-export function PageHeader({ title, subtitle, actions, children }: PageHeaderProps) {
+export function PageHeader({
+    title,
+    subtitle,
+    actions,
+    children,
+    style,
+}: NativeProps<PageHeaderProps>) {
     return (
-        <View>
+        <View style={style}>
             <View style={styles.row}>
                 <View style={styles.text}>
                     <Text accessibilityRole="header" style={styles.title}>

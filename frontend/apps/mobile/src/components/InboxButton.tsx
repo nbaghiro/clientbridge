@@ -2,7 +2,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable } from "react-native";
-import { IconInbox } from "@clientbridge/ui";
+import { Icon } from "@clientbridge/ui";
 
 import type { RootStackParamList } from "../navigation";
 
@@ -15,7 +15,7 @@ export function InboxButton() {
                 nav.navigate("Inbox");
             }}
         >
-            <IconInbox size={22} color={theme.colors.inkSoft} />
+            <Icon name="inbox" size={22} color={theme.colors.inkSoft} />
         </Pressable>
     );
 }

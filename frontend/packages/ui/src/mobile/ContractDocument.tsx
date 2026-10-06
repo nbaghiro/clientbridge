@@ -2,6 +2,7 @@ import type { ContractDocumentProps } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Platform, StyleSheet, Text, View } from "react-native";
 
+import type { NativeProps } from "./props";
 import { SignaturePad } from "./SignaturePad";
 
 const c = theme.colors;
@@ -13,11 +14,13 @@ export function ContractDocument({
     meta,
     clauses,
     signature,
-    compact = false,
-}: ContractDocumentProps) {
+    density = "regular",
+    style,
+}: NativeProps<ContractDocumentProps>) {
+    const compact = density === "compact";
     const body = compact ? styles.bodySmall : styles.body;
     return (
-        <View style={[styles.page, compact && styles.pageSmall]}>
+        <View style={[styles.page, compact && styles.pageSmall, style]}>
             <View style={styles.head}>
                 <Text style={styles.issuer}>{issuer.toUpperCase()}</Text>
                 <Text

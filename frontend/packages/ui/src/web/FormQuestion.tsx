@@ -5,10 +5,11 @@ import {
     type TextFieldType,
     optionPair,
 } from "@clientbridge/app-core/public";
+
 import { Choice } from "./Choice";
 import { Field, Select, TextField, Toggle } from "./Field";
-
 import { Icon } from "./Icon";
+import type { WebProps } from "./props";
 
 const TEXT_TYPE: Partial<Record<string, TextFieldType>> = {
     date: "date",
@@ -31,7 +32,8 @@ export function FormQuestion({
     chooseFileLabel,
     selectPlaceholder,
     invalid = false,
-}: FormQuestionProps) {
+    className,
+}: WebProps<FormQuestionProps>) {
     const preview = onChange === undefined;
     const set = (v: FormAnswer): void => {
         onChange?.(v);
@@ -131,7 +133,7 @@ export function FormQuestion({
     })();
 
     return (
-        <div inert={preview || undefined} aria-invalid={invalid || undefined}>
+        <div className={className} inert={preview || undefined} aria-invalid={invalid || undefined}>
             {body}
         </div>
     );

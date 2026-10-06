@@ -2,6 +2,8 @@ import { type ActionMenuProps, type ActionMenuItem } from "@clientbridge/app-cor
 import { useEffect, useRef } from "react";
 
 import { Icon } from "./Icon";
+import { moveFocus } from "./keys";
+import { type WebProps, cx } from "./props";
 
 const PLACE = {
     "below-start": "left-0 top-full mt-2",
@@ -18,7 +20,8 @@ export function ActionMenu({
     layout = "list",
     footer,
     placement = "below-start",
-}: ActionMenuProps) {
+    className,
+}: WebProps<ActionMenuProps>) {
     const ref = useRef<HTMLDivElement>(null);
     const close = useRef(onClose);
     useEffect(() => {
@@ -33,12 +36,14 @@ export function ActionMenu({
             if (ref.current && !ref.current.parentElement?.contains(e.target as Node))
                 close.current();
         };
+        const opener = document.activeElement;
         window.addEventListener("keydown", onKey);
         window.addEventListener("mousedown", onDown);
         ref.current?.querySelector("button")?.focus();
         return () => {
             window.removeEventListener("keydown", onKey);
             window.removeEventListener("mousedown", onDown);
+            if (opener instanceof HTMLElement) opener.focus();
         };
     }, [open]);
     if (!open) return null;
@@ -47,9 +52,15 @@ export function ActionMenu({
             ref={ref}
             role="menu"
             aria-label={title}
-            className={`absolute z-30 overflow-hidden rounded-lg border border-line bg-surface shadow-pop ${PLACE[placement]} ${
-                layout === "grid" ? "w-[420px]" : "w-80"
-            }`}
+            onKeyDown={(e) => {
+                moveFocus(e, '[role="menuitem"]', layout === "grid" ? "both" : "vertical");
+            }}
+            className={cx(
+                `absolute z-30 overflow-hidden rounded-lg border border-line bg-surface shadow-pop ${PLACE[placement]} ${
+                    layout === "grid" ? "w-[420px]" : "w-80"
+                }`,
+                className,
+            )}
         >
             {title !== undefined ? (
                 <p className="px-4 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted">

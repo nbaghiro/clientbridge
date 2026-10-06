@@ -2,6 +2,7 @@ import type { ListRowProps } from "@clientbridge/app-core/public";
 import { INTENT_COLORS, cssVar } from "@clientbridge/tokens";
 
 import { Icon } from "./Icon";
+import { type WebProps, type WithRef, cx } from "./props";
 
 export function ListRow({
     title,
@@ -12,11 +13,14 @@ export function ListRow({
     leading,
     trailing,
     unread,
-    active,
+    selected,
     onPress,
     label,
-    compact,
-}: ListRowProps) {
+    density = "regular",
+    className,
+    ref,
+}: WebProps<ListRowProps> & WithRef<HTMLButtonElement>) {
+    const compact = density === "compact";
     const tone = INTENT_COLORS[intent];
     const body = (
         <>
@@ -52,14 +56,20 @@ export function ListRow({
     );
     const pad = compact ? "px-3 py-2" : "px-4 py-3";
     return (
-        <div className={`flex items-center gap-2 ${active ? "bg-accent-weak" : ""}`}>
+        <div
+            className={cx(
+                `flex items-center gap-2 ${selected === true ? "bg-accent-weak" : ""}`,
+                className,
+            )}
+        >
             {onPress ? (
                 <button
+                    ref={ref}
                     type="button"
                     onClick={onPress}
                     aria-label={label}
-                    aria-current={active === true ? true : undefined}
-                    className={`flex min-w-0 flex-1 items-center gap-3 text-left transition hover:bg-bg ${active ? "hover:bg-accent-weak" : ""} ${pad}`}
+                    aria-current={selected === true ? true : undefined}
+                    className={`flex min-w-0 flex-1 items-center gap-3 text-left transition hover:bg-bg ${selected === true ? "hover:bg-accent-weak" : ""} ${pad}`}
                 >
                     {body}
                 </button>
