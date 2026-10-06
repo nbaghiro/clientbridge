@@ -1039,3 +1039,40 @@ QA:
 4. Money: Today, reports, staff pay and Stripe agree to the cent.
 5. Sync: changes made at once and offline end up the same everywhere.
 Done when: Every P0 story is done, this pass is clean, no P0 bug is open, and both founders sign off.
+
+---
+
+## After launch
+
+Not tracked in Jira yet. These are pulled in by demand once the launch stories are done.
+
+- **Growth and commerce:** multiple locations per business (needs a location model), loyalty and rewards,
+  waitlists with auto-promote, online gift card purchase and balance check.
+- **Platform and scale:** a public developer API with keys and outbound webhooks (`webhooks` is inbound
+  only), a platform admin role and support console, custom permissions (`contractor` has staff permissions
+  today), suspending or offboarding a business through `businesses.status`.
+- **Feature depth:** membership pause, trial and plan change, package sessions used automatically on
+  booking, a cancellation policy with a late-cancel fee, configurable reminders, Google and iCal calendar
+  sync, per-staff and travel buffers, conditional form fields, countersigning and a drawn signature.
+- **Tax and reporting depth:** place of supply by client province, tax-inclusive pricing, compound tax,
+  expenses and input tax credits for net profit, real T4A slips and e-filing, client statements, dunning
+  and subscription retry.
+- **Platform hygiene:** access-token revocation (removed staff keep access for up to 15 minutes), retention
+  and PII purge, metrics and tracing, a query and sync-rule performance audit, blue-green deploys and
+  rollback, more than one currency (CAD is fixed on create), a decision on `custom_fields`, offline
+  conflict handling in the apps.
+
+### Connect, the client experience
+
+Connect is the client-facing layer: booking, pay, shop, forms, contracts, reviews and a per-business
+landing page, as a lean PowerSync-free app that can be embedded through `embed.js`. Still to come:
+
+- **A signed-in client portal across businesses.** A new customer identity (magic link or one-time code)
+  linked to each business's `clients` row through a claim flow, with reads across a customer's businesses
+  (appointments, invoices, saved cards, balances, messages) and client actions (rebook, pay, reply). The
+  booking and payment logic is already shared. The risk is a wrongly linked account showing one customer's
+  data to another business, so we would start with a single business and add cross-business linking after.
+- **Richer pages and white-label:** a real slot calendar, a multi-item cart, installable PWA, custom
+  domains with host-based business lookup.
+- **Public edge hardening:** bot protection on booking and pay requests, Redis-backed rate limiting, token
+  expiry, a trustworthy client IP, a per-business `frame-ancestors` policy for embeds.

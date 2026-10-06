@@ -1,7 +1,7 @@
 # Clientbridge — Engineering
 
 **How we build it**: the quality gate, testing, the shipping method, and the day-to-day conventions. For
-*how it works* see [architecture.md](architecture.md); for *what's left* see [roadmap.md](roadmap.md).
+*how it works* see [architecture.md](architecture.md); for *what's left* see [launch-readiness.md](launch-readiness.md).
 
 ---
 

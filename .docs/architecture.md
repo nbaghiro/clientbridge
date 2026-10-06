@@ -2,7 +2,7 @@
 
 The canonical description of **how the system is built**: stack, structure, the data model, sync, and
 authorization. For *how we build it* (the gate, testing, conventions) see [engineering.md](engineering.md);
-for *what's left* see [roadmap.md](roadmap.md) and the launch stories in
+for *what's left* see the launch stories and the after-launch list in
 [launch-readiness.md](launch-readiness.md); for design/IA see [design/](design/).
 
 Clientbridge is a **local-first, all-in-one business OS** for solo and small service providers —
@@ -93,7 +93,7 @@ clientbridge/
 │       ├── tokens/     Pewter design system → Tailwind theme + RN theme
 │       └── config/     shared eslint/prettier + the no-inline-ui-string rule
 ├── infra/powersync/    powersync.yaml (service config) · sync-rules.yaml (read authz)
-└── .docs/              architecture · engineering · roadmap · launch-readiness · design/
+└── .docs/              architecture · engineering · launch-readiness · design/
 ```
 
 ---

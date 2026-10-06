@@ -99,7 +99,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 `make up · migrate · seed · dev-api · dev-web · dev-mobile · gen-api · gen-sync-schema · test · lint · check`
 
 ## Docs (`.docs/`)
-Three consolidated docs: **architecture** (system · data model · sync · authorization · frontend) ·
-**engineering** (the gate · testing · shipping method · ports · demo · conventions) · **roadmap** (backlog ·
-execution order · Connect), plus **launch-readiness** (the launch epics and stories tracked in Jira). Design system +
+Three docs: **architecture** (system · data model · sync · authorization · frontend) · **engineering** (the
+gate · testing · shipping method · ports · demo · conventions) · **launch-readiness** (the launch epics and
+stories tracked in Jira, plus the after-launch list and Connect plans). Design system +
 IA in `.docs/design/app-explorer.html` (screens · tokens · theme source).
