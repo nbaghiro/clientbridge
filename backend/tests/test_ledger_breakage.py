@@ -10,8 +10,8 @@ from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.services import ledger
+from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.ledger import Leg
-from clientbridge.tasks.maintenance import run_expiry_sweeps
 from tests.conftest import BIZ, Factory
 
 NOW = datetime(2020, 1, 1, tzinfo=UTC)  # past, so the global sweep only sees rows planted here

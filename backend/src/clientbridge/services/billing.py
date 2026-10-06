@@ -26,6 +26,7 @@ from clientbridge.schemas.billing import (
 )
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, unapply_deposit
+from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
     LineParent,
     apply_totals,
@@ -33,6 +34,7 @@ from clientbridge.services.lines import (
     line_out,
     replace_lines,
 )
+from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import sync_invoice
 from clientbridge.services.tax import tax_for_lines
 
@@ -518,3 +520,25 @@ def _estimate_out(estimate: Estimate, lines: list[Line]) -> EstimateOut:
         notes=estimate.notes,
         lines=[line_out(ln) for ln in lines],
     )
+
+
+async def run_overdue_sweep(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
+    """Notify the client once for each sent, unpaid invoice past due."""
+    invoices = (
+        (
+            await db.execute(
+                select(Invoice).where(
+                    Invoice.due_at < now,
+                    Invoice.overdue_notified_at.is_(None),
+                    invoice_status_expr() == "sent",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for invoice in invoices:
+        invoice.overdue_notified_at = now
+        await notifier.on_invoice_overdue(db, invoice.id)
+    await db.commit()
+    return len(invoices)

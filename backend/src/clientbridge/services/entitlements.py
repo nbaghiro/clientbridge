@@ -576,3 +576,58 @@ def _subscription_out(sub: Subscription) -> SubscriptionOut:
         current_period_start=sub.current_period_start,
         current_period_end=sub.current_period_end,
     )
+
+
+async def run_expiry_sweeps(db: AsyncSession, now: datetime) -> int:
+    """Expire gift cards and packages past their date, booking the unspent balance as revenue."""
+    swept = 0
+    gift_cards = (
+        (
+            await db.execute(
+                select(GiftCard)
+                .where(
+                    GiftCard.status == "active",
+                    GiftCard.expires_at.is_not(None),
+                    GiftCard.expires_at < now,
+                )
+                .with_for_update()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for gift_card in gift_cards:
+        if await ledger.gift_card_balance(db, gift_card) == 0:
+            continue
+        gift_card.status = "expired"
+        await ledger.post_breakage(
+            db,
+            gift_card.business_id,
+            owner_type="gift_card",
+            owner_id=gift_card.id,
+            category="gift_card",
+        )
+        swept += 1
+    packages = (
+        (
+            await db.execute(
+                select(Package)
+                .where(
+                    Package.status == "active",
+                    Package.expires_at.is_not(None),
+                    Package.expires_at < now,
+                )
+                .with_for_update()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for package in packages:
+        package.status = "expired"
+        await ledger.post_breakage(
+            db, package.business_id, owner_type="package", owner_id=package.id, category="deferred"
+        )
+        swept += 1
+    await db.commit()
+    return swept

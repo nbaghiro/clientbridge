@@ -1,5 +1,5 @@
 import secrets
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -203,3 +203,37 @@ def _review_out(review: Review) -> ReviewOut:
         requested_at=review.requested_at,
         submitted_at=review.submitted_at,
     )
+
+
+_REQUEST_WINDOW = timedelta(days=7)
+
+
+async def run_review_requests(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
+    """Send one review request per booking completed in the last 7 days."""
+    requested = select(Review.booking_id).where(Review.booking_id.is_not(None))
+    bookings = (
+        (
+            await db.execute(
+                select(Booking).where(
+                    Booking.deleted_at.is_(None),
+                    Booking.status == "completed",
+                    Booking.completed_at.is_not(None),
+                    Booking.completed_at >= now - _REQUEST_WINDOW,
+                    Booking.completed_at <= now,
+                    Booking.id.not_in(requested),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    requests = []
+    for booking in bookings:
+        request = build_review_request(booking.business_id, booking.client_id, booking.id, now)
+        db.add(request)
+        requests.append(request)
+    await db.flush()
+    for request in requests:
+        await notifier.on_review_requested(db, request.id)
+    await db.commit()
+    return len(requests)

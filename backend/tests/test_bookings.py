@@ -12,9 +12,8 @@ from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from clientbridge.services import ledger
-from clientbridge.services.bookings import booked_count
+from clientbridge.services.bookings import booked_count, run_reap_unpaid_bookings, run_reminders
 from clientbridge.services.notifications import Notifier
-from clientbridge.tasks.bookings import run_reap_unpaid_bookings, run_reminders
 from tests.conftest import (
     BIZ,
     Factory,

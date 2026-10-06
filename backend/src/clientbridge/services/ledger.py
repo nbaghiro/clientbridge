@@ -9,11 +9,13 @@ from sqlalchemy.orm import InstrumentedAttribute
 
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.stripe import ChargeFees
+from clientbridge.integrations.stripe import ChargeFees, PaymentGateway
 from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.tax import TaxResult, tax_for_amount, tax_for_lines
@@ -846,3 +848,33 @@ async def reverse_forfeit(db: AsyncSession, booking: Booking) -> None:
     journal = await journal_for(db, booking.business_id, f"forfeit:{booking.id}")
     if journal is not None:
         await reverse(db, booking.business_id, journal, ref=f"forfeit:{booking.id}:refund")
+
+
+async def run_reconcile_ledger(db: AsyncSession, gateway: PaymentGateway) -> int:
+    """Compare every connected account's Stripe balance with the ledger's; audit each drift."""
+    businesses = (
+        (await db.execute(select(Business).where(Business.stripe_account_id.is_not(None))))
+        .scalars()
+        .all()
+    )
+    drifted = 0
+    for business in businesses:
+        assert business.stripe_account_id is not None
+        ours = await balance(
+            db, business.id, owner_type="business", owner_id=business.id, category="stripe"
+        )
+        theirs = await gateway.get_balance_cents(business.stripe_account_id, currency="CAD")
+        if ours != theirs:
+            drifted += 1
+            db.add(
+                Audit(
+                    id=new_id("audit"),
+                    business_id=business.id,
+                    action="ledger.drift",
+                    entity_type="business",
+                    entity_id=business.id,
+                    changes={"ledger_cents": ours, "stripe_cents": theirs},
+                )
+            )
+    await db.commit()
+    return drifted

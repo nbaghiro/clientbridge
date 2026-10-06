@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Awaitable
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -574,3 +575,19 @@ class DeviceService:
             await self.db.commit()
         except IntegrityError:
             await self.db.rollback()  # a concurrent register of the same token won — already done
+
+
+_DEVICE_TTL = timedelta(days=60)
+
+
+async def run_prune_devices(db: AsyncSession, now: datetime) -> int:
+    """Drop push tokens not seen in 60 days."""
+    devices = (
+        (await db.execute(select(Device).where(Device.updated_at < now - _DEVICE_TTL)))
+        .scalars()
+        .all()
+    )
+    for device in devices:
+        await db.delete(device)
+    await db.commit()
+    return len(devices)

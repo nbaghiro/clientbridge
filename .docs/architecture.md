@@ -78,7 +78,7 @@ clientbridge/
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS) · upload.py (WRITE_POLICY)
 │       ├── integrations/       stripe · messaging · google · s3 (provider adapters)
-│       └── tasks/              arq worker + cron jobs
+│       └── tasks/              worker.py: the arq cron schedule
 ├── frontend/           ── TypeScript · pnpm + turbo ──
 │   ├── apps/
 │   │   ├── web/        React + Vite · provider/admin · :8700
@@ -104,7 +104,7 @@ Flow: **`api` (thin router, never queries) → `schemas` (DTOs) → `services` (
 `models`.** `models/` is grouped by domain, because tables cluster that way (eleven domains: `business · clients ·
 catalog · scheduling · billing · payments · ledger · messaging · documents · reviews · platform`). Every other
 layer holds one file per concept, with the same plain plural name in each layer and no suffix:
-`api/bookings.py` → `schemas/bookings.py` → `services/bookings.py`, and `tasks/bookings.py` for its jobs. A
+`api/bookings.py` → `schemas/bookings.py` → `services/bookings.py`, including its job bodies (`run_reminders`). A
 concept with no API or DTOs simply has no file in that layer (`services/lines.py`). Closely related
 concepts share one umbrella file: `entitlements` holds packages, subscriptions and gift cards (prepaid
 things sold through their own checkout and held as a liability), and `bookings` holds working hours,
@@ -147,9 +147,11 @@ Four adapters in `integrations/`, named after the provider so they read apart fr
 (Google sign-in), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)
-`worker.py` registers the arq cron: reminders + due broadcasts every 15m, reap-unpaid every 15m, overdue
-sweep 07:00, review requests 08:00, daily maintenance 03:30, ledger reconciliation 04:00. Jobs aren't tenant-scoped — each row resolves
-its own business + locale; each is idempotent via a status/timestamp marker and opens its own session.
+`tasks/worker.py` is the schedule only: one-line arq cron wrappers that open a session and call a `run_*`
+function in the concept's service. Reminders and due broadcasts every 15m, reap-unpaid every 15m,
+entitlement expiry and device pruning 03:30, ledger reconciliation 04:00, overdue sweep 07:00, review
+requests 08:00. Jobs aren't tenant-scoped: each row resolves its own business and locale, and each is
+idempotent via a status or timestamp marker.
 
 ---
 
@@ -439,7 +441,7 @@ What posts, and where:
 | Stripe payout paid / failed | `payout.paid` / `payout.failed` | bank + / Stripe − ; failed reverses |
 | Gift card redeemed | `entitlements.redeem_gift_card` | gift card liability + / revenue − |
 | Package session used | `entitlements.consume_session` | deferred + / revenue − (the last session takes the remainder) |
-| Gift card or package expired | `tasks/maintenance.py` expiry sweep (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
+| Gift card or package expired | `entitlements.run_expiry_sweeps` (`ledger.post_breakage`) | gift card liability or deferred + / revenue − (breakage on the unused balance) |
 | Tax return filed | `POST /v1/payments/remittances` (`remittances`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
 | Deposit forfeited | no-show in `bookings` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
 | Deposit applied | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`) | deposit + / client receivable − ; a void or a refund of the deposit reverses it |
@@ -450,7 +452,7 @@ balances, package deferred revenue, client lifetime value, staff earnings and th
 payouts. A booking's `deposit_status` (none/pending/collected/applied/forfeited/refunded) is a lifecycle column set
 as the ledger books the deposit, because staff replicas do not sync the business ledger; the amount stays
 in the ledger. Reports (income, GST/HST/PST/QST, T4A) and the dashboard read entries and account balances.
-`tasks/ledger.py` reconciles each connected account's ledger Stripe balance against Stripe's nightly
+`ledger.run_reconcile_ledger` reconciles each connected account's ledger Stripe balance against Stripe's nightly
 and records any drift in `audits`.
 
 ### Tax

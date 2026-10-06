@@ -2,7 +2,7 @@ import calendar
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import ColumnElement, func, or_, select, text
+from sqlalchemy import ColumnElement, Exists, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,6 +38,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
+from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import (
     default_method_ref,
     open_booking_deposit,
@@ -811,3 +812,70 @@ async def is_within_hours(
     if end_local.date() != start_local.date():
         return False
     return any(ws <= start_local.time() and end_local.time() <= we for ws, we in windows)
+
+
+_UNPAID_TTL = timedelta(minutes=30)
+_REMINDER_WINDOW = timedelta(hours=24)
+
+
+async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
+    """Cancel online bookings still holding a slot past the deposit window without paying."""
+
+    def deposits(status: str) -> Exists:
+        return (
+            select(Payment.id)
+            .where(
+                Payment.booking_id == Booking.id,
+                Payment.kind == "deposit",
+                Payment.status == status,
+            )
+            .exists()
+        )
+
+    bookings = (
+        await db.execute(
+            select(Booking, Slot)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(
+                Booking.deleted_at.is_(None),
+                Booking.source == "online",
+                Booking.deposit_amount_cents > 0,
+                Booking.status.not_in(("completed", "canceled", "no_show")),
+                Booking.created_at < now - _UNPAID_TTL,
+                deposits("pending"),
+                ~deposits("succeeded"),
+            )
+        )
+    ).all()
+    for booking, slot in bookings:
+        booking.status = "canceled"
+        booking.canceled_at = now
+        await release_slot(db, slot)
+    await db.commit()
+    return len(bookings)
+
+
+async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
+    """Remind each active booking starting in the next 24 hours, once."""
+    bookings = (
+        (
+            await db.execute(
+                select(Booking)
+                .join(Slot, Slot.id == Booking.slot_id)
+                .where(
+                    Booking.deleted_at.is_(None),
+                    Booking.reminded_at.is_(None),
+                    Booking.status.not_in(("completed", "canceled", "no_show")),
+                    Slot.starts_at > now,
+                    Slot.starts_at <= now + _REMINDER_WINDOW,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for booking in bookings:
+        await notifier.on_booking_reminder(db, booking.id)
+        booking.reminded_at = now
+    await db.commit()
+    return len(bookings)

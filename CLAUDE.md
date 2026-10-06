@@ -10,9 +10,10 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - Commit or push **only when asked**.
 
 ## Backend — layer-first, one file per concept
-- **File naming:** `models/` is grouped by domain; every other layer (`api`, `schemas`, `services`, `tasks`,
-  `tests`) holds one file per concept with the same plain plural name and no suffix (`api/bookings.py` →
-  `schemas/bookings.py` → `services/bookings.py` → `tasks/bookings.py` → `tests/test_bookings.py`). A file
+- **File naming:** `models/` is grouped by domain; every other layer (`api`, `schemas`, `services`, `tests`)
+  holds one file per concept with the same plain plural name and no suffix (`api/bookings.py` →
+  `schemas/bookings.py` → `services/bookings.py` → `tests/test_bookings.py`). Job bodies (`run_*`) live in
+  their concept's service; `tasks/worker.py` holds only the cron schedule. A file
   may be long if it is one concept; split by concept, never by size. Folders stay one level deep. Test
   files are `test_<concept>[_<aspect>].py` (`test_payments_refunds.py`); only cross-cutting suites
   (`test_flows_*`, `test_sync_*`, `test_derived`, `test_integrity`…) are exempt.

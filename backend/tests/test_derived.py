@@ -10,8 +10,8 @@ from clientbridge.models.billing import Estimate
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status
+from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.ledger import Leg
-from clientbridge.tasks.maintenance import run_expiry_sweeps
 from tests.conftest import BIZ
 
 

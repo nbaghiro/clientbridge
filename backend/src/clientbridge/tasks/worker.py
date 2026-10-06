@@ -1,17 +1,68 @@
-"""The arq worker (`uv run arq clientbridge.tasks.worker.WorkerSettings`)."""
+"""The arq worker (`uv run arq clientbridge.tasks.worker.WorkerSettings`): the job schedule only."""
 
+from datetime import UTC, datetime
 from typing import ClassVar
 
 from arq import cron
 from arq.connections import RedisSettings
 
 from clientbridge.core.config import get_settings
-from clientbridge.tasks.billing import sweep_overdue_invoices
-from clientbridge.tasks.bookings import reap_unpaid_bookings, send_booking_reminders
-from clientbridge.tasks.ledger import reconcile_ledger
-from clientbridge.tasks.maintenance import run_daily_maintenance
-from clientbridge.tasks.messaging import send_due_broadcasts
-from clientbridge.tasks.reviews import send_review_requests
+from clientbridge.core.db import SessionLocal
+from clientbridge.integrations.messaging import get_email_sender, get_push_sender, get_sms_sender
+from clientbridge.integrations.stripe import get_payment_gateway
+from clientbridge.services.billing import run_overdue_sweep
+from clientbridge.services.bookings import run_reap_unpaid_bookings, run_reminders
+from clientbridge.services.entitlements import run_expiry_sweeps
+from clientbridge.services.ledger import run_reconcile_ledger
+from clientbridge.services.messaging import run_due_broadcasts
+from clientbridge.services.notifications import Notifier, run_prune_devices
+from clientbridge.services.reviews import run_review_requests
+
+Context = dict[str, object]
+
+
+def _notifier() -> Notifier:
+    return Notifier(get_email_sender(), get_sms_sender(), get_push_sender())
+
+
+async def send_booking_reminders(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_reminders(db, _notifier(), datetime.now(UTC))
+
+
+async def reap_unpaid_bookings(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_reap_unpaid_bookings(db, datetime.now(UTC))
+
+
+async def send_due_broadcasts(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_due_broadcasts(db, get_sms_sender(), get_email_sender(), datetime.now(UTC))
+
+
+async def sweep_overdue_invoices(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_overdue_sweep(db, _notifier(), datetime.now(UTC))
+
+
+async def expire_entitlements(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_expiry_sweeps(db, datetime.now(UTC))
+
+
+async def prune_devices(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_prune_devices(db, datetime.now(UTC))
+
+
+async def reconcile_ledger(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_reconcile_ledger(db, get_payment_gateway())
+
+
+async def send_review_requests(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_review_requests(db, _notifier(), datetime.now(UTC))
 
 
 class WorkerSettings:
@@ -22,7 +73,8 @@ class WorkerSettings:
         cron(reap_unpaid_bookings, minute={5, 20, 35, 50}),
         cron(send_due_broadcasts, minute={0, 15, 30, 45}),
         cron(sweep_overdue_invoices, hour=7, minute=0),
-        cron(run_daily_maintenance, hour=3, minute=30),
+        cron(expire_entitlements, hour=3, minute=30),
+        cron(prune_devices, hour=3, minute=30),
         cron(reconcile_ledger, hour=4, minute=0),
         cron(send_review_requests, hour=8, minute=0),
     ]

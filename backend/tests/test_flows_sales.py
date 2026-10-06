@@ -4,7 +4,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.catalog import GiftCard, Package
-from clientbridge.tasks.maintenance import run_expiry_sweeps
+from clientbridge.services.entitlements import run_expiry_sweeps
 from tests.conftest import FakeEmailSender
 from tests.flows import (
     business_balance,
