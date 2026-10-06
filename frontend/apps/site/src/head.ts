@@ -4,7 +4,7 @@ import type { PageMeta } from "./routes";
 const escape = (s: string): string =>
     s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-export const OG_SIZE = { width: 1200, height: 630 };
+const OG_SIZE = { width: 1200, height: 630 };
 
 /** The share image the build draws for a page: "/" → og/home.png, "/solutions/x" → og/solutions-x.png. */
 export const ogImageFor = (path: string): string =>

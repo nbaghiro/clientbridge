@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import type { ApiLike } from "../api";
 
-export interface TaxRate {
+interface TaxRate {
     id: string;
     jurisdiction: string;
     province: string;

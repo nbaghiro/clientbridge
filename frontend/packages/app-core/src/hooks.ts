@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 
 import { strings } from "./strings";
 
-export interface AsyncAction {
+interface AsyncAction {
     busy: boolean;
     error: string | null;
     setError: (message: string | null) => void;

@@ -201,7 +201,7 @@ export const bookingPage = {
     cta: "Book and pay $20 deposit",
 };
 
-export interface StockRow {
+interface StockRow {
     image: string;
     name: string;
     sku: string;

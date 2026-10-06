@@ -6,7 +6,7 @@ import type {
     PowerSyncCredentials,
 } from "@powersync/common";
 
-export interface ConnectorOptions {
+interface ConnectorOptions {
     powersyncUrl: string;
     authFetch: (path: string, init?: RequestInit) => Promise<Response>;
 }

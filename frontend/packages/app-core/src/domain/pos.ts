@@ -10,14 +10,14 @@ import { type Checkout, useCheckout } from "./checkout";
 import { collectedSql, orderStatusSql } from "./ledger";
 import { canManagePayments } from "./payments";
 
-export interface OrderLineInput {
+interface OrderLineInput {
     item_id: string;
     description: string;
     quantity: number;
     unit_amount_cents: number;
 }
 
-export interface OrderLine {
+interface OrderLine {
     id: string;
     description: string;
     quantity: number;
@@ -43,7 +43,7 @@ export interface Order {
     lines: OrderLine[];
 }
 
-export interface CheckoutResult {
+interface CheckoutResult {
     order_id: string;
     client_secret: string;
     payment_id: string;
@@ -61,7 +61,7 @@ function detailsBody(d: SaleDetails): Record<string, unknown> {
     return { client_id: d.clientId, receipt_email: d.receiptEmail, receipt_phone: d.receiptPhone };
 }
 
-export function createOrder(
+function createOrder(
     api: ApiLike,
     lines: OrderLineInput[],
     details: SaleDetails = NO_DETAILS,
@@ -69,7 +69,7 @@ export function createOrder(
     return api.post<Order>("/v1/orders", { ...detailsBody(details), lines });
 }
 
-export function updateOrder(
+function updateOrder(
     api: ApiLike,
     orderId: string,
     lines: OrderLineInput[],
@@ -79,7 +79,7 @@ export function updateOrder(
 }
 
 /** The webhook settles the payment. */
-export function payOrder(
+function payOrder(
     api: ApiLike,
     orderId: string,
     paymentMethodId: string | undefined,
@@ -92,7 +92,7 @@ export function payOrder(
     );
 }
 
-export function voidOrder(api: ApiLike, orderId: string): Promise<Order> {
+function voidOrder(api: ApiLike, orderId: string): Promise<Order> {
     return api.post<Order>(`/v1/orders/${orderId}/void`, {});
 }
 
@@ -100,7 +100,7 @@ export function checkout(api: ApiLike, orderId: string): Promise<CheckoutResult>
     return api.post<CheckoutResult>(`/v1/orders/${orderId}/checkout`, {});
 }
 
-export function requestConnectionToken(api: ApiLike): Promise<string> {
+function requestConnectionToken(api: ApiLike): Promise<string> {
     return api.post<{ secret: string }>("/v1/terminal/connection-token", {}).then((r) => r.secret);
 }
 
@@ -142,9 +142,9 @@ export function orderStatusIntent(status: string): Intent {
     }
 }
 
-export type PickupStatus = "unfulfilled" | "ready" | "picked_up";
+type PickupStatus = "unfulfilled" | "ready" | "picked_up";
 
-export interface OnlineOrderRow {
+interface OnlineOrderRow {
     id: string;
     client_name: string | null;
     total_cents: number;
@@ -185,11 +185,11 @@ export function pickupActions(status: PickupStatus): { status: PickupStatus; lab
     return status === "ready" ? [pickedUp] : [];
 }
 
-export function setPickup(api: ApiLike, orderId: string, status: PickupStatus): Promise<Order> {
+function setPickup(api: ApiLike, orderId: string, status: PickupStatus): Promise<Order> {
     return api.post<Order>(`/v1/orders/${orderId}/pickup`, { status });
 }
 
-export interface PickupAction {
+interface PickupAction {
     advance: (orderId: string, status: PickupStatus) => void;
     busy: boolean;
     error: string | null;
@@ -214,7 +214,7 @@ export interface CartLine {
     quantity: number;
 }
 
-export function cartLineInputs(lines: CartLine[]): OrderLineInput[] {
+function cartLineInputs(lines: CartLine[]): OrderLineInput[] {
     return lines.map((l) => ({
         item_id: l.itemId,
         description: l.description,
@@ -223,11 +223,11 @@ export function cartLineInputs(lines: CartLine[]): OrderLineInput[] {
     }));
 }
 
-export function cartSubtotalCents(lines: CartLine[]): number {
+function cartSubtotalCents(lines: CartLine[]): number {
     return lines.reduce((sum, l) => sum + l.quantity * l.unitAmountCents, 0);
 }
 
-export type RegisterPhase = "cart" | "review" | "awaiting_reader" | "paid";
+type RegisterPhase = "cart" | "review" | "awaiting_reader" | "paid";
 
 export interface Cart {
     lines: CartLine[];
@@ -421,7 +421,7 @@ export function canVoidSale(role: string | null): boolean {
     return canManagePayments(role);
 }
 
-export interface SaleCheckout {
+interface SaleCheckout {
     checkout: Checkout;
     submit: () => void;
 }

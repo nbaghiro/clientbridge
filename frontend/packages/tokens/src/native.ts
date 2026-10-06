@@ -1,7 +1,7 @@
 // The default theme's tokens as plain values, since React Native has no CSS variables.
 import { type ThemeKey, themes } from "./index";
 
-export const DEFAULT_THEME: ThemeKey = "pewter";
+const DEFAULT_THEME: ThemeKey = "pewter";
 const t = themes[DEFAULT_THEME];
 
 export const theme = {
@@ -11,5 +11,3 @@ export const theme = {
     avatarRadius: t.radius.avatar,
     borderWidth: t.borderWidth,
 } as const;
-
-export type Theme = typeof theme;

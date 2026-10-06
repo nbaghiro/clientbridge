@@ -5,7 +5,7 @@ import { strings } from "../strings";
 import type { ApiLike } from "../api";
 import { isRefundRow } from "./payments";
 
-export interface TodaySummary {
+interface TodaySummary {
     today_revenue_cents: number;
     awaiting_payment_cents: number;
     gst_hst_set_aside_cents: number;

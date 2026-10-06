@@ -18,9 +18,9 @@ export function TerminalProvider({
     );
 }
 
-export type TerminalPhase = "connecting" | "ready" | "collecting" | "done" | "error";
+type TerminalPhase = "connecting" | "ready" | "collecting" | "done" | "error";
 
-export interface TerminalCheckout {
+interface TerminalCheckout {
     phase: TerminalPhase;
     error: string | null;
     ready: boolean;

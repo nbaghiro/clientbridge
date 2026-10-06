@@ -12,7 +12,7 @@ import { Hours } from "./Hours";
 import { Taxes } from "./Taxes";
 import { Team } from "./Team";
 
-export const SETUP_SLUGS: Record<SetupSectionKey, string> = {
+const SETUP_SLUGS: Record<SetupSectionKey, string> = {
     business: "business",
     services: "services",
     team: "team",

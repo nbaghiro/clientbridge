@@ -17,7 +17,7 @@ interface BusinessRow {
     brand: string | null; // JSON text in the replica: {logo_file_id?, logo_url?, primary?, tagline?}
 }
 
-export interface BusinessFields {
+interface BusinessFields {
     name: string;
     timezone: string;
     locale: string;
@@ -86,7 +86,7 @@ export const BUSINESS_TEXT_FIELDS: {
 
 export const LOCALES: { code: string; label: string }[] = [{ code: "en", label: "English" }];
 
-export interface BusinessForm {
+interface BusinessForm {
     fields: BusinessFields | null; // null until the synced business row loads
     businessId: string | null;
     /** The logo to preview: the uploaded file's media link, else a logo set by URL before uploads. */
@@ -180,7 +180,7 @@ export function useBusinessId(): string | null {
 }
 
 // The 13 Canadian provinces/territories the backend seeds tax rates for; an unknown code is a 422.
-export type ProvinceCode =
+type ProvinceCode =
     "AB" | "BC" | "MB" | "NB" | "NL" | "NS" | "NT" | "NU" | "ON" | "PE" | "QC" | "SK" | "YT";
 
 export interface Province {
@@ -204,7 +204,7 @@ export const PROVINCES: Province[] = [
     { code: "YT", name: strings.business.onboarding.provinceYT },
 ];
 
-export interface OnboardInput {
+interface OnboardInput {
     name: string;
     slug: string;
     province: ProvinceCode;
@@ -243,7 +243,7 @@ export function slugify(name: string): string {
         .replace(/^-+|-+$/g, "");
 }
 
-export interface OnboardingForm {
+interface OnboardingForm {
     name: string;
     setName: (v: string) => void;
     slug: string;

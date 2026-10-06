@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "turbo run dev",
         "build": "turbo run build",
-        "lint": "eslint . && node packages/config/scripts/check-structure.mjs",
+        "lint": "eslint . && node packages/config/scripts/check-structure.mjs && knip",
         "typecheck": "turbo run typecheck",
         "format": "prettier --write \"**/*.{ts,tsx,css,md,json}\"",
         "format:check": "prettier --check \"**/*.{ts,tsx,css,md,json}\"",
@@ -15,6 +15,7 @@
     "devDependencies": {
         "@clientbridge/config": "workspace:*",
         "eslint": "^10.12.0",
+        "knip": "^6.39.0",
         "prettier": "^3.9.9",
         "turbo": "^2.11.7",
         "typescript": "^6.0.3"

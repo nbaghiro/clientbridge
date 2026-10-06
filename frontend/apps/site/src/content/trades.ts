@@ -3,18 +3,18 @@ import type { GlyphName } from "../art/TradeGlyph";
 import type { BrandKey } from "./brands";
 import type { PhotoName } from "./photos";
 
-export interface Pill {
+interface Pill {
     tone: "ok" | "accent";
     text: string;
 }
 
-export interface PhotoRef {
+interface PhotoRef {
     name: PhotoName;
     alt: string;
     position: string;
 }
 
-export interface ScheduleEvent {
+interface ScheduleEvent {
     column: number;
     /** Hours after the schedule's first hour. */
     start: number;
@@ -31,7 +31,7 @@ export interface Schedule {
     events: readonly ScheduleEvent[];
 }
 
-export interface BookingPage {
+interface BookingPage {
     tag: string;
     items: readonly { name: string; detail: string; cents: number }[];
     date: string;

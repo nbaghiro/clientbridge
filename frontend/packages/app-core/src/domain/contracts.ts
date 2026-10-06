@@ -28,7 +28,7 @@ export function activeContracts(rows: ContractRow[]): ContractRow[] {
     return rows.filter((c) => c.active === 1);
 }
 
-export interface SignatureResult {
+interface SignatureResult {
     id: string;
     business_id: string;
     contract_id: string;
@@ -38,7 +38,7 @@ export interface SignatureResult {
     signed_at: string | null;
 }
 
-export function sendContract(
+function sendContract(
     api: ApiLike,
     input: { contract_id: string; client_id: string },
 ): Promise<SignatureResult> {
@@ -49,7 +49,7 @@ export function sendContract(
     );
 }
 
-export interface SendContractForm {
+interface SendContractForm {
     contractId: string;
     setContractId: (v: string) => void;
     clientId: string;
@@ -86,7 +86,7 @@ export function useSendContractForm(api: ApiLike, onSent: () => void): SendContr
     return { contractId, setContractId, clientId, setClientId, busy, error, submit };
 }
 
-export interface ContractDraftForm {
+interface ContractDraftForm {
     name: string;
     setName: (v: string) => void;
     body: string;

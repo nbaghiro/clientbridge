@@ -5,10 +5,10 @@ import { strings } from "../strings";
 import type { Intent } from "../ui";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
-export type PayMethod = "interac" | "card";
+type PayMethod = "interac" | "card";
 
 /** Ranked pay methods for the public page: Interac first (no fee), card only when enabled. */
-export function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
+function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
     return invoice.accepts_card ? ["interac", "card"] : ["interac"];
 }
 
@@ -28,7 +28,7 @@ export function invoiceStatusIntent(status: string): Intent {
     }
 }
 
-export interface PublicInvoice {
+interface PublicInvoice {
     number: number | null;
     business_name: string;
     brand: PublicBrand;
@@ -47,12 +47,12 @@ export interface InteracRequest {
     amount_cents: number;
 }
 
-export interface PublicCardIntent {
+interface PublicCardIntent {
     client_secret: string;
     stripe_account_id: string;
 }
 
-export class PublicPayError extends Error {
+class PublicPayError extends Error {
     constructor(
         readonly status: number,
         message: string,
@@ -62,7 +62,7 @@ export class PublicPayError extends Error {
     }
 }
 
-export interface PublicPayClient {
+interface PublicPayClient {
     getPublicInvoice: (token: string) => Promise<PublicInvoice>;
     payInterac(token: string): Promise<InteracRequest>;
     payCard(token: string): Promise<PublicCardIntent>;
@@ -89,9 +89,9 @@ export function createPublicPayClient(baseUrl: string): PublicPayClient {
     };
 }
 
-export type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid";
+type PublicPayStatus = "loading" | "not-found" | "error" | "ready" | "paid";
 
-export interface PublicPayForm {
+interface PublicPayForm {
     status: PublicPayStatus;
     invoice: PublicInvoice | null;
     methods: PayMethod[];

@@ -50,7 +50,7 @@ export function editableStaff(staff: StaffRow[], viewer: Viewer | null): StaffRo
     return canManageStaff(viewer.role) ? staff : staff.filter((s) => s.id === viewer.staffId);
 }
 
-export type StaffRole = "admin" | "staff" | "contractor";
+type StaffRole = "admin" | "staff" | "contractor";
 
 export const INVITABLE_ROLES: { value: StaffRole; label: string }[] = [
     { value: "staff", label: strings.staff.roleStaff },
@@ -67,19 +67,19 @@ export interface Invite {
     invite_token: string;
 }
 
-export interface InviteInput {
+interface InviteInput {
     email: string;
     role: StaffRole;
 }
 
-export function inviteStaff(api: ApiLike, input: InviteInput): Promise<Invite> {
+function inviteStaff(api: ApiLike, input: InviteInput): Promise<Invite> {
     return api.post<Invite>("/v1/staff/invites", {
         email: input.email.trim(),
         role: input.role,
     });
 }
 
-export interface AcceptInviteInput {
+interface AcceptInviteInput {
     token: string;
     name?: string;
     password: string;
@@ -141,7 +141,7 @@ export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void
     return { email, setEmail, role, setRole, busy, error, invite, submit, reset };
 }
 
-export interface AcceptInviteForm {
+interface AcceptInviteForm {
     name: string;
     setName: (v: string) => void;
     password: string;
@@ -231,7 +231,7 @@ export function staffPaySummary(row: StaffPayRow): string {
     return retail > 0 ? strings.staff.payWithRetail(service, retail / 100) : service;
 }
 
-export interface StaffPayForm {
+interface StaffPayForm {
     isPayee: boolean;
     setIsPayee: (v: boolean) => void;
     rateType: string;

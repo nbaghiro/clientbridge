@@ -2,7 +2,7 @@ import { type TableCount, countsQuery } from "@clientbridge/sync";
 import { usePowerSync, useStatus } from "@powersync/react";
 import { useCallback, useEffect, useState } from "react";
 
-export interface ClientState {
+interface ClientState {
     status: ReturnType<typeof useStatus>;
     tables: TableCount[];
     totalRows: number;

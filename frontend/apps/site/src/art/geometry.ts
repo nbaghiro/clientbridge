@@ -43,15 +43,15 @@ function openCurve(pts: readonly Point[]): string {
 }
 
 /** One peak: centre, ring count, ring step, base radius, x and y stretch. */
-export type Peak = readonly [number, number, number, number, number, number?, number?];
+type Peak = readonly [number, number, number, number, number, number?, number?];
 
-export interface Contour {
+interface Contour {
     d: string;
     index: boolean;
 }
 
 /** Contour rings around a few peaks, like a topographic map. Every fifth ring is an index line. */
-export function contours(peaks: readonly Peak[], seed: number): Contour[] {
+function contours(peaks: readonly Peak[], seed: number): Contour[] {
     const r = rng(seed);
     const out: Contour[] = [];
     for (const [cx, cy, rings, step, base, sx = 1, sy = 0.72] of peaks) {

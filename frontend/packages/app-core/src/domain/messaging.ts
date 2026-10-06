@@ -87,7 +87,7 @@ export function messageStatusIntent(status: string): Intent {
     }
 }
 
-export interface MessageResult {
+interface MessageResult {
     id: string;
     thread_id: string;
     direction: string;
@@ -107,13 +107,13 @@ export function sendMessage(
     );
 }
 
-export interface ThreadResult {
+interface ThreadResult {
     id: string;
     unread_count: number;
     status: string;
 }
 
-export function markThreadRead(api: ApiLike, threadId: string): Promise<ThreadResult> {
+function markThreadRead(api: ApiLike, threadId: string): Promise<ThreadResult> {
     return api.post<ThreadResult>(`/v1/threads/${threadId}/read`, {});
 }
 
@@ -135,7 +135,7 @@ export interface BroadcastResult {
     recipient_count: number;
 }
 
-export interface BroadcastInput {
+interface BroadcastInput {
     name: string;
     channel: Channel;
     body: string;
@@ -157,7 +157,7 @@ export function sendBroadcast(api: ApiLike, input: BroadcastInput): Promise<Broa
     );
 }
 
-export interface ComposeMessage {
+interface ComposeMessage {
     clientId: string;
     setClientId: (v: string) => void;
     channel: Channel;
@@ -202,7 +202,7 @@ export function useComposeMessage(
     return { clientId, setClientId, channel, setChannel, body, setBody, busy, error, submit };
 }
 
-export interface BroadcastForm {
+interface BroadcastForm {
     name: string;
     setName: (v: string) => void;
     channel: Channel;

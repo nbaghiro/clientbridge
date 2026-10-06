@@ -22,7 +22,7 @@ export interface PublicShop {
     stripe_account_id: string | null;
 }
 
-export interface PublicShopOrderResult {
+interface PublicShopOrderResult {
     order_id: string;
     total_cents: number;
     currency: string;
@@ -30,7 +30,7 @@ export interface PublicShopOrderResult {
     stripe_account_id: string;
 }
 
-export class PublicShopError extends Error {
+class PublicShopError extends Error {
     constructor(
         readonly status: number,
         message: string,
@@ -40,7 +40,7 @@ export class PublicShopError extends Error {
     }
 }
 
-export interface PublicShopClient {
+interface PublicShopClient {
     getShop: (slug: string) => Promise<PublicShop>;
     placeOrder(
         slug: string,
@@ -83,9 +83,9 @@ export function cartSubtotal(
     return items.reduce((sum, item) => sum + item.price_cents * (cart[item.id] ?? 0), 0);
 }
 
-export type PublicShopStatus = "loading" | "not-found" | "error" | "ready" | "paying" | "paid";
+type PublicShopStatus = "loading" | "not-found" | "error" | "ready" | "paying" | "paid";
 
-export interface PublicShopForm {
+interface PublicShopForm {
     status: PublicShopStatus;
     shop: PublicShop | null;
     cart: Record<string, number>;

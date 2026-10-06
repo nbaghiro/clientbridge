@@ -4,7 +4,7 @@ import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
-export interface ConnectStatus {
+interface ConnectStatus {
     connected: boolean;
     charges_enabled: boolean;
     payouts_enabled: boolean;
@@ -17,7 +17,7 @@ export interface ConnectStatus {
 }
 
 /** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
-export function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
+function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
     const [status, setStatus] = useState<ConnectStatus | "error" | null>(null);
     useEffect(() => {
         api.get<ConnectStatus>("/v1/connect/status")
@@ -29,12 +29,12 @@ export function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "
     return status;
 }
 
-export interface OnboardingLink {
+interface OnboardingLink {
     url: string;
     charges_enabled: boolean;
 }
 
-export function startOnboarding(api: ApiLike): Promise<OnboardingLink> {
+function startOnboarding(api: ApiLike): Promise<OnboardingLink> {
     return api.post<OnboardingLink>("/v1/connect/onboard", {});
 }
 
@@ -51,7 +51,7 @@ const REQUIREMENT_LABELS: Record<string, string> = {
     "tos_acceptance.date": strings.gettingPaid.reqTosAcceptance,
 };
 
-export function formatRequirement(key: string): string {
+function formatRequirement(key: string): string {
     const known = REQUIREMENT_LABELS[key];
     if (known !== undefined) return known;
     if (key.startsWith("individual.dob") || key.startsWith("person.dob"))
@@ -61,7 +61,7 @@ export function formatRequirement(key: string): string {
     return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-export type ConnectPhase =
+type ConnectPhase =
     | "loading"
     | "error"
     | "not_connected"
@@ -71,7 +71,7 @@ export type ConnectPhase =
     | "enabled"
     | "disabled";
 
-export interface ConnectOnboarding {
+interface ConnectOnboarding {
     phase: ConnectPhase;
     busy: boolean;
     error: string | null;

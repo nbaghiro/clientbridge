@@ -41,7 +41,7 @@ export function clientStatusIntent(status: string): Intent {
     return status === "active" ? "success" : "warning";
 }
 
-export interface ClientInput {
+interface ClientInput {
     name: string;
     email?: string | null;
     phone?: string | null;
@@ -55,7 +55,7 @@ export function createClient(api: ApiLike, input: ClientInput): Promise<{ id: st
     });
 }
 
-export interface ClientForm {
+interface ClientForm {
     name: string;
     setName: (v: string) => void;
     email: string;

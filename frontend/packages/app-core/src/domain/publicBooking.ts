@@ -38,7 +38,7 @@ export interface PublicStaff {
     title: string | null;
 }
 
-export interface PublicAddon {
+interface PublicAddon {
     id: string;
     name: string;
     price_cents: number;
@@ -60,11 +60,11 @@ export interface PublicSlot {
     ends_at: string;
 }
 
-export interface PublicSlots {
+interface PublicSlots {
     slots: PublicSlot[];
 }
 
-export interface BookingClientInput {
+interface BookingClientInput {
     name: string;
     email?: string | null;
     phone?: string | null;
@@ -76,7 +76,7 @@ export interface PublicBookingResult {
     stripe_account_id: string | null; // connected account for the deposit charge
 }
 
-export class PublicBookingError extends Error {
+class PublicBookingError extends Error {
     constructor(
         readonly status: number,
         message: string,
@@ -86,7 +86,7 @@ export class PublicBookingError extends Error {
     }
 }
 
-export interface PublicBookingClient {
+interface PublicBookingClient {
     getServices: (slug: string) => Promise<PublicBookingPage>;
     getSlots(
         slug: string,
@@ -140,9 +140,9 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
     };
 }
 
-export type PublicBookingStatus = "loading" | "not-found" | "error" | "booked" | "ready";
+type PublicBookingStatus = "loading" | "not-found" | "error" | "booked" | "ready";
 
-export interface PublicBookingForm {
+interface PublicBookingForm {
     status: PublicBookingStatus;
     page: PublicBookingPage | null;
     result: PublicBookingResult | null;
@@ -173,9 +173,9 @@ export interface PublicBookingForm {
     setError: (message: string | null) => void;
 }
 
-export type PublicBusinessStatus = "loading" | "not-found" | "error" | "ready";
+type PublicBusinessStatus = "loading" | "not-found" | "error" | "ready";
 
-export interface PublicBusiness {
+interface PublicBusiness {
     status: PublicBusinessStatus;
     page: PublicBookingPage | null;
 }

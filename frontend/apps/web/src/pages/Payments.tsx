@@ -10,7 +10,7 @@ import { Earnings } from "./Earnings";
 import { POS } from "./POS";
 import { Reports } from "./Reports";
 
-export const PAYMENTS_SLUGS: Record<PaymentsTabKey, string> = {
+const PAYMENTS_SLUGS: Record<PaymentsTabKey, string> = {
     invoices: "invoices",
     sales: "sales",
     giftCards: "gift-cards",

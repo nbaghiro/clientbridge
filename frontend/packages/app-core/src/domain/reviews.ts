@@ -40,12 +40,10 @@ export function useAwaitingReviews(): number {
     return useQuery<{ n: number }>(AWAITING_REVIEWS_SQL).data[0]?.n ?? 0;
 }
 
-export interface ReviewSummary {
+interface ReviewSummary {
     average: number | null; // mean rating over published reviews; null when there are none
     count: number;
 }
-
-export const MAX_STARS = 5;
 
 /** One-decimal average for display (a null/absent average shows as "0.0"). */
 export function formatAverageRating(average: number | null): string {
@@ -54,10 +52,6 @@ export function formatAverageRating(average: number | null): string {
 
 export function roundedRating(average: number | null): number {
     return Math.round(average ?? 0);
-}
-
-export function emptyStars(filled: number): number {
-    return Math.max(0, MAX_STARS - filled);
 }
 
 /** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
@@ -73,7 +67,7 @@ export function useReviewSummary(api: ApiLike, reloadKey = 0): ReviewSummary | "
     return summary;
 }
 
-export interface ReviewRequestResult {
+interface ReviewRequestResult {
     id: string;
     business_id: string;
     client_id: string;
@@ -95,7 +89,7 @@ export function requestReview(
     );
 }
 
-export interface ReviewResult {
+interface ReviewResult {
     id: string;
     business_id: string;
     client_id: string;
@@ -110,15 +104,15 @@ export interface ReviewResult {
     submitted_at: string | null;
 }
 
-export function respondToReview(api: ApiLike, id: string, response: string): Promise<ReviewResult> {
+function respondToReview(api: ApiLike, id: string, response: string): Promise<ReviewResult> {
     return api.post<ReviewResult>(`/v1/reviews/${id}/respond`, { response });
 }
 
-export function hideReview(api: ApiLike, id: string): Promise<ReviewResult> {
+function hideReview(api: ApiLike, id: string): Promise<ReviewResult> {
     return api.post<ReviewResult>(`/v1/reviews/${id}/hide`, {});
 }
 
-export function publishReview(api: ApiLike, id: string): Promise<ReviewResult> {
+function publishReview(api: ApiLike, id: string): Promise<ReviewResult> {
     return api.post<ReviewResult>(`/v1/reviews/${id}/publish`, {});
 }
 
@@ -133,7 +127,7 @@ export function reviewStatusIntent(status: string): Intent {
     }
 }
 
-export interface ReviewActions {
+interface ReviewActions {
     busy: boolean;
     error: string | null;
     canPublish: boolean;
@@ -183,7 +177,7 @@ export function useReviewActions(
     };
 }
 
-export interface RequestReviewForm {
+interface RequestReviewForm {
     clientId: string;
     setClientId: (v: string) => void;
     busy: boolean;

@@ -17,7 +17,7 @@ interface FileUploadResponse {
 }
 
 /** Mint a file row + a short-lived presigned PUT url (`POST /v1/files`). The s3 key is server-side. */
-export function requestUpload(
+function requestUpload(
     api: ApiLike,
     target: UploadTarget,
     contentType: string,
@@ -35,7 +35,7 @@ export function requestUpload(
 }
 
 /** Bypasses ApiLike: the presigned url is external and unauthenticated. */
-export async function putToPresignedUrl(
+async function putToPresignedUrl(
     uploadUrl: string,
     body: Blob,
     contentType: string,
@@ -63,11 +63,7 @@ export function logoTarget(businessId: string): UploadTarget {
     return { parentType: "business", parentId: businessId, purpose: "logo" };
 }
 
-export function fileDownloadUrl(api: ApiLike, fileId: string): Promise<string> {
-    return api.get<{ url: string }>(`/v1/files/${fileId}/url`).then((r) => r.url);
-}
-
-export interface FileUpload {
+interface FileUpload {
     busy: boolean;
     error: string | null;
     fileId: string | null;

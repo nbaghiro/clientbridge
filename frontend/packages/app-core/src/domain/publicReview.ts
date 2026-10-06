@@ -4,19 +4,19 @@ import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
-export interface PublicReviewContext {
+interface PublicReviewContext {
     business_name: string;
     brand: PublicBrand;
     completed: boolean;
     rating: number | null;
 }
 
-export interface PublicReviewSubmit {
+interface PublicReviewSubmit {
     rating: number;
     body?: string | null;
 }
 
-export class PublicReviewError extends Error {
+class PublicReviewError extends Error {
     constructor(
         readonly status: number,
         message: string,
@@ -26,7 +26,7 @@ export class PublicReviewError extends Error {
     }
 }
 
-export interface PublicReviewClient {
+interface PublicReviewClient {
     getContext: (token: string) => Promise<PublicReviewContext>;
     submit(token: string, input: PublicReviewSubmit): Promise<PublicReviewContext>;
 }
@@ -52,9 +52,9 @@ export function createPublicReviewClient(baseUrl: string): PublicReviewClient {
     };
 }
 
-export type PublicReviewStatus = "loading" | "not-found" | "error" | "done" | "ready";
+type PublicReviewStatus = "loading" | "not-found" | "error" | "done" | "ready";
 
-export interface PublicReviewForm {
+interface PublicReviewForm {
     status: PublicReviewStatus;
     context: PublicReviewContext | null;
     rating: number; // 0 = none selected yet

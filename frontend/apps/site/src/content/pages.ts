@@ -114,7 +114,7 @@ export const featuresMeta = {
         "Everything Clientbridge does: online booking and the calendar, client records, invoices and estimates, card, Tap to Pay and Interac payments, sales tax, staff pay, messaging, reviews and the apps.",
 };
 
-export interface FeatureGroup {
+interface FeatureGroup {
     id: string;
     icon: LineIconName;
     title: string;

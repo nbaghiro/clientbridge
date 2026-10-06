@@ -56,10 +56,10 @@ export const ITEM_KINDS = [
     "gift",
 ] as const;
 
-export const BOOKABLE_KINDS = ["service", "class"];
+const BOOKABLE_KINDS = ["service", "class"];
 /** Packages, subscriptions and gift cards sell through their own checkout so the liability is created. */
-export const LINE_KINDS = ["service", "class", "product"];
-export const ENTITLEMENT_KINDS = ["gift", "package", "subscription"] as const;
+const LINE_KINDS = ["service", "class", "product"];
+const ENTITLEMENT_KINDS = ["gift", "package", "subscription"] as const;
 export type EntitlementKind = (typeof ENTITLEMENT_KINDS)[number];
 
 export const TAX_CLASSES: { value: string; label: string }[] = [
@@ -144,7 +144,7 @@ export function giftItems(items: ItemRow[]): ItemRow[] {
     return items.filter((i) => isActive(i) && i.kind === "gift");
 }
 
-export type StockState = "untracked" | "in" | "low" | "out";
+type StockState = "untracked" | "in" | "low" | "out";
 
 export function stockState(item: ItemRow): StockState {
     if (item.track_stock !== 1) return "untracked";
@@ -239,7 +239,7 @@ const KIND_FIELDS: Record<string, ItemField[]> = {
     gift: [],
 };
 
-export function itemFieldShown(kind: string, field: ItemField): boolean {
+function itemFieldShown(kind: string, field: ItemField): boolean {
     return (KIND_FIELDS[kind] ?? []).includes(field);
 }
 
@@ -349,11 +349,11 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
     return body;
 }
 
-export function createItem(api: ApiLike, body: Record<string, unknown>): Promise<{ id: string }> {
+function createItem(api: ApiLike, body: Record<string, unknown>): Promise<{ id: string }> {
     return api.post<{ id: string }>("/v1/items", body);
 }
 
-export function updateItem(
+function updateItem(
     api: ApiLike,
     id: string,
     body: Record<string, unknown>,
@@ -361,11 +361,11 @@ export function updateItem(
     return api.patch<{ id: string }>(`/v1/items/${id}`, body);
 }
 
-export function setItemActive(api: ApiLike, id: string, active: boolean): Promise<{ id: string }> {
+function setItemActive(api: ApiLike, id: string, active: boolean): Promise<{ id: string }> {
     return api.patch<{ id: string }>(`/v1/items/${id}`, { active });
 }
 
-export function restockItem(
+function restockItem(
     api: ApiLike,
     id: string,
     quantity: number,
@@ -461,7 +461,7 @@ export function useItemForm(api: ApiLike, item: ItemRow | null, onDone: () => vo
     };
 }
 
-export interface RestockForm {
+interface RestockForm {
     quantity: string;
     setQuantity: (v: string) => void;
     note: string;

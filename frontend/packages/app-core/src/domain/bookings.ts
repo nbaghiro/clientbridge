@@ -87,7 +87,7 @@ export function depositStatusIntent(status: string): Intent {
     }
 }
 
-export function dayColumns(anchor: Date, count: number): Date[] {
+function dayColumns(anchor: Date, count: number): Date[] {
     const start = startOfDay(anchor);
     return Array.from({ length: count }, (_, i) => addDays(start, i));
 }
@@ -111,13 +111,13 @@ export function calendarColumns(view: CalendarView, anchor: Date): Date[] {
     return dayColumns(anchor, 14);
 }
 
-export function calendarRange(view: CalendarView, anchor: Date): { start: Date; end: Date } {
+function calendarRange(view: CalendarView, anchor: Date): { start: Date; end: Date } {
     const columns = view === "staff" ? [startOfDay(anchor)] : calendarColumns(view, anchor);
     const start = columns.at(0) ?? startOfDay(anchor);
     return { start, end: addDays(columns.at(-1) ?? start, 1) };
 }
 
-export function shiftAnchor(view: CalendarView, anchor: Date, dir: 1 | -1): Date {
+function shiftAnchor(view: CalendarView, anchor: Date, dir: 1 | -1): Date {
     if (view === "day" || view === "staff") return addDays(anchor, dir);
     if (view === "month") return startOfMonth(addDays(startOfMonth(anchor), dir * 32));
     if (view === "agenda") return addDays(anchor, dir * 14);
@@ -138,7 +138,7 @@ export function formatRangeLabel(cols: Date[], locale = "en-CA"): string {
     return `${a} – ${b}, ${first.getFullYear()}`;
 }
 
-export interface LayoutOptions {
+interface LayoutOptions {
     dayStart: Date;
     pxPerMin: number;
     minHeightPx?: number;
@@ -146,7 +146,7 @@ export interface LayoutOptions {
 }
 
 /** Chronological order for a day's events: earliest start first, longer events first on ties. */
-export function compareEventStart(a: CalendarEvent, b: CalendarEvent): number {
+function compareEventStart(a: CalendarEvent, b: CalendarEvent): number {
     return a.start.getTime() - b.start.getTime() || b.end.getTime() - a.end.getTime();
 }
 
@@ -257,16 +257,11 @@ export function dayBounds(
     };
 }
 
-export function snapMinutes(min: number, step = 5): number {
+function snapMinutes(min: number, step = 5): number {
     return Math.round(min / step) * step;
 }
 
-export function dragToStart(
-    originalStart: Date,
-    deltaPx: number,
-    pxPerMin: number,
-    step = 5,
-): Date {
+function dragToStart(originalStart: Date, deltaPx: number, pxPerMin: number, step = 5): Date {
     const deltaMin = snapMinutes(deltaPx / pxPerMin, step);
     return new Date(originalStart.getTime() + deltaMin * 60_000);
 }
@@ -334,7 +329,7 @@ function toEvent(r: Row): CalendarEvent {
     };
 }
 
-export function useCalendarEvents(
+function useCalendarEvents(
     rangeStart: Date,
     rangeEnd: Date,
     opts: { staffId?: string } = {},
@@ -348,7 +343,7 @@ export function useCalendarEvents(
     return useMemo(() => data.map(toEvent), [data]);
 }
 
-export interface ScheduleView<V extends CalendarView> {
+interface ScheduleView<V extends CalendarView> {
     view: V;
     setView: (view: V) => void;
     anchor: Date;
@@ -385,7 +380,7 @@ export function useScheduleView<V extends CalendarView>(
     };
 }
 
-export interface BookingResult {
+interface BookingResult {
     id: string;
     slot_id: string;
     status: string;
@@ -393,7 +388,7 @@ export interface BookingResult {
     ends_at: string;
 }
 
-export interface NewBooking {
+interface NewBooking {
     clientId: string;
     itemId: string;
     staffId: string;
@@ -401,9 +396,9 @@ export interface NewBooking {
     resourceId?: string | null;
 }
 
-export type BookingStatus = "confirmed" | "completed" | "canceled" | "no_show";
+type BookingStatus = "confirmed" | "completed" | "canceled" | "no_show";
 
-export function createBooking(api: ApiLike, input: NewBooking): Promise<BookingResult> {
+function createBooking(api: ApiLike, input: NewBooking): Promise<BookingResult> {
     return api.post<BookingResult>("/v1/bookings", {
         client_id: input.clientId,
         item_id: input.itemId,
@@ -422,13 +417,13 @@ export const RECUR_FREQUENCIES: { value: RecurFrequency; label: string; unit: st
     { value: "month", label: strings.bookings.freqMonthly, unit: strings.bookings.unitMonths },
 ];
 
-export interface RecurrenceResult {
+interface RecurrenceResult {
     id: string;
     created: number; // occurrences that became bookings
     skipped: number; // occurrences skipped (overlap / outside hours)
 }
 
-export interface NewRecurrence {
+interface NewRecurrence {
     clientId: string;
     itemId: string;
     staffId: string;
@@ -439,7 +434,7 @@ export interface NewRecurrence {
     resourceId?: string | null;
 }
 
-export function createRecurrence(api: ApiLike, input: NewRecurrence): Promise<RecurrenceResult> {
+function createRecurrence(api: ApiLike, input: NewRecurrence): Promise<RecurrenceResult> {
     return api.post<RecurrenceResult>("/v1/recurrences", {
         client_id: input.clientId,
         item_id: input.itemId,
@@ -452,7 +447,7 @@ export function createRecurrence(api: ApiLike, input: NewRecurrence): Promise<Re
     });
 }
 
-export function rescheduleBooking(
+function rescheduleBooking(
     api: ApiLike,
     bookingId: string,
     startsAt: Date,
@@ -462,7 +457,7 @@ export function rescheduleBooking(
     });
 }
 
-export function setBookingStatus(
+function setBookingStatus(
     api: ApiLike,
     bookingId: string,
     status: BookingStatus,
@@ -483,7 +478,7 @@ export function rescheduleByDrag(
     rescheduleBooking(api, event.bookingId, newStart).catch(() => undefined);
 }
 
-export interface CancelBooking {
+interface CancelBooking {
     busy: boolean;
     error: string | null;
     cancel: () => void;
@@ -510,19 +505,19 @@ export function useCancelBooking(
     return { busy, error, cancel };
 }
 
-export interface DepositResult {
+interface DepositResult {
     booking_id: string;
     payment_id: string;
     client_secret: string;
 }
 
-export interface CollectDepositOptions {
+interface CollectDepositOptions {
     paymentMethodId?: string;
     idempotencyKey?: string;
 }
 
 /** A saved method charges now; otherwise the platform card form confirms the returned client secret. */
-export function collectDeposit(
+function collectDeposit(
     api: ApiLike,
     bookingId: string,
     opts: CollectDepositOptions = {},
@@ -550,7 +545,7 @@ export function canCollectDeposit(event: CalendarEvent, viewer: Viewer | null): 
     );
 }
 
-export interface CollectDeposit {
+interface CollectDeposit {
     checkout: Checkout;
     submit: () => void;
 }
@@ -579,7 +574,7 @@ export function useCollectDeposit(
     return { checkout, submit };
 }
 
-export interface BookingAddonRow {
+interface BookingAddonRow {
     id: string;
     description: string;
     quantity: number;
@@ -592,7 +587,7 @@ WHERE booking_id = ? ORDER BY created_at`;
 
 export const BOOKING_INVOICE_SQL = "SELECT invoice_id FROM bookings WHERE id = ?";
 
-export interface BookingAddons {
+interface BookingAddons {
     addons: BookingAddonRow[];
     invoiceId: string | null;
     canEdit: boolean;
@@ -641,7 +636,7 @@ export function useBookingAddons(
     };
 }
 
-export interface BookingFormState {
+interface BookingFormState {
     clients: ClientRow[];
     items: ItemRow[];
     staff: StaffRow[];

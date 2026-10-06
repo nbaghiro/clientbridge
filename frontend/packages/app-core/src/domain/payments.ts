@@ -8,7 +8,7 @@ import { type ApiLike, newIdempotencyKey } from "../api";
 import type { CheckoutMethod } from "./checkout";
 import type { Intent } from "../ui";
 
-export function refundPayment(
+function refundPayment(
     api: ApiLike,
     paymentId: string,
     amountCents: number,
@@ -21,7 +21,7 @@ export function refundPayment(
     );
 }
 
-export interface RefundForm {
+interface RefundForm {
     amount: string;
     setAmount: (amount: string) => void;
     remainingCents: number;
@@ -89,7 +89,7 @@ export function isRefundRow(payment: { kind: string }): boolean {
     return payment.kind === "refund";
 }
 
-export function refundableCents(payment: PaymentRow, allPayments: PaymentRow[]): number {
+function refundableCents(payment: PaymentRow, allPayments: PaymentRow[]): number {
     const refunded = allPayments
         .filter((p) => p.parent_payment_id === payment.id && p.status === "succeeded")
         .reduce((sum, p) => sum + p.amount_cents, 0);
@@ -182,7 +182,7 @@ export function savedCardLabel(card: SavedCardRow): string {
 }
 
 /** A card, or a bank account with an active mandate; an Interac contact can't be charged. */
-export function isChargeable(card: SavedCardRow): boolean {
+function isChargeable(card: SavedCardRow): boolean {
     return card.method === "card" || (isMandate(card) && card.mandate_status === "active");
 }
 

@@ -186,6 +186,23 @@ for (const name of mobileUi) {
     }
 }
 
+// knip treats everything behind app-core's `export *` index as public API, so this catches what it can't.
+const sources = new Map(files.map((f) => [f, readFileSync(join(root, f), "utf8")]));
+const PACKAGE_ENTRIES = new Set(["index.ts", "public.ts"]);
+const exported = /^export (?:async )?(?:function|const|let|class|interface|type|enum) ([\w$]+)/gm;
+for (const [file, src] of sources) {
+    if (!/^packages\/[^/]+\/src\//.test(file) || PACKAGE_ENTRIES.has(basename(file))) continue;
+    if (file.includes(".test.")) continue;
+    for (const [, name] of src.matchAll(exported)) {
+        const word = new RegExp(`(?<![\\w$])${name.replace(/\$/g, "\\$")}(?![\\w$])`);
+        const usedElsewhere = [...sources].some(
+            ([other, text]) => other !== file && word.test(text),
+        );
+        if (!usedElsewhere)
+            problems.push(`${file}: ${name} is exported but only used in its own file`);
+    }
+}
+
 if (problems.length > 0) {
     console.error(problems.join("\n"));
     console.error(`\ncheck-structure: ${String(problems.length)} problem(s)`);

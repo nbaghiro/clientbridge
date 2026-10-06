@@ -21,7 +21,7 @@ const DEFAULT_START = "09:00";
 const DEFAULT_END = "17:00";
 const HHMM = /^\d{2}:\d{2}$/;
 
-export interface DayHours {
+interface DayHours {
     weekday: number;
     open: boolean;
     start: string; // "HH:MM"
@@ -35,7 +35,7 @@ interface RecurringRow {
     available: number;
 }
 
-export interface HoursEditor {
+interface HoursEditor {
     days: DayHours[] | null; // null until the staff's rows have loaded
     setOpen: (weekday: number, open: boolean) => void;
     setTime: (weekday: number, which: "start" | "end", value: string) => void;

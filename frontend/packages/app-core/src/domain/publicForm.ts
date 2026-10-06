@@ -27,7 +27,7 @@ export interface PublicForm {
 /** A form answer value: a string (most fields), a string list (multiselect), or a boolean (checkbox). */
 export type FormAnswer = string | string[] | boolean;
 
-export class PublicFormError extends Error {
+class PublicFormError extends Error {
     constructor(
         readonly status: number,
         message: string,
@@ -37,7 +37,7 @@ export class PublicFormError extends Error {
     }
 }
 
-export interface PublicFormClient {
+interface PublicFormClient {
     getForm: (token: string) => Promise<PublicForm>;
     submit(token: string, answers: Record<string, FormAnswer>): Promise<PublicForm>;
     upload(token: string, file: Blob): Promise<string>; // returns a file_id to store as the answer
@@ -86,7 +86,7 @@ export function isFileField(input: string): boolean {
 }
 
 /** Mirrors the server's required-answer check. */
-export function isAnswerMissing(value: FormAnswer | undefined): boolean {
+function isAnswerMissing(value: FormAnswer | undefined): boolean {
     if (value === undefined) return true;
     if (typeof value === "string") return value.trim().length === 0;
     if (Array.isArray(value)) return value.length === 0;
@@ -109,9 +109,9 @@ export function optionPair(option: unknown): { value: string; label: string } {
     return { value: "", label: "" };
 }
 
-export type PublicFormStatus = "loading" | "not-found" | "error" | "done" | "ready";
+type PublicFormStatus = "loading" | "not-found" | "error" | "done" | "ready";
 
-export interface PublicFormFill {
+interface PublicFormFill {
     status: PublicFormStatus;
     form: PublicForm | null;
     answers: Record<string, FormAnswer>;

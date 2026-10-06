@@ -1,7 +1,7 @@
 import { type Brand, BRANDS, brandStyle } from "../content/brands";
 import { bookingPage, demoBusiness } from "../content/demo";
 
-export interface BookingPageData {
+interface BookingPageData {
     tag: string;
     items: readonly { name: string; detail: string; price: string; image?: string }[];
     date: string;

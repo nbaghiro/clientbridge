@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 const VARIANTS = ["whisper", "aurora", "grid", "pulse"] as const;
-export type BackdropVariant = (typeof VARIANTS)[number];
+type BackdropVariant = (typeof VARIANTS)[number];
 
 export function resolveVariant(raw: string | null): BackdropVariant {
     return (VARIANTS as readonly string[]).includes(raw ?? "")

@@ -5,19 +5,19 @@ export type Intent = "accent" | "success" | "warning" | "danger" | "neutral";
 
 // Prop contracts for the per-platform building blocks; web and mobile implement the same shapes.
 
-export interface ListSegments<K extends string> {
+interface ListSegments<K extends string> {
     items: readonly { key: K; label: string }[];
     active: K;
     onSelect: (key: K) => void;
 }
 
-export interface ListSearch {
+interface ListSearch {
     value: string;
     onChange: (q: string) => void;
     placeholder: string;
 }
 
-export interface ListAction {
+interface ListAction {
     label: string;
     onPress: () => void;
 }
@@ -39,7 +39,7 @@ export interface ListPageProps<T, K extends string = string> {
     footer?: ReactNode | undefined;
 }
 
-export interface DetailStatus {
+interface DetailStatus {
     status: string;
     intent: Intent;
 }
@@ -140,7 +140,7 @@ export interface TextFieldProps {
     maxLength?: number | undefined;
 }
 
-export interface SelectOption<K extends string> {
+interface SelectOption<K extends string> {
     key: K;
     label: string;
 }

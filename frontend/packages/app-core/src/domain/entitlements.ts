@@ -52,19 +52,19 @@ export function canConsume(pkg: PackageRow): boolean {
     return pkg.status === "active" && pkg.sessions_used < pkg.sessions_total;
 }
 
-export interface PackagePurchaseInput {
+interface PackagePurchaseInput {
     client_id: string;
     item_id: string;
     payment_method_id?: string | undefined;
 }
 
-export interface PackagePurchaseResult {
+interface PackagePurchaseResult {
     package_id: string;
     payment_id: string;
     client_secret: string;
 }
 
-export function purchasePackage(
+function purchasePackage(
     api: ApiLike,
     input: PackagePurchaseInput,
     idempotencyKey: string,
@@ -76,7 +76,7 @@ export function consumeSession(api: ApiLike, packageId: string): Promise<Package
     return api.post<PackageRow>(`/v1/packages/${packageId}/consume`, {});
 }
 
-export interface PackageSaleForm {
+interface PackageSaleForm {
     itemId: string;
     setItemId: (v: string) => void;
     checkout: Checkout;
@@ -157,13 +157,13 @@ export function isCancelable(status: string): boolean {
     return status !== "canceled";
 }
 
-export interface SubscriptionInput {
+interface SubscriptionInput {
     client_id: string;
     item_id: string;
     payment_method_id: string;
 }
 
-export function createSubscription(
+function createSubscription(
     api: ApiLike,
     input: SubscriptionInput,
     idempotencyKey: string,
@@ -178,7 +178,7 @@ export function cancelSubscription(
     return api.post<{ id: string; status: string }>(`/v1/subscriptions/${id}/cancel`, {});
 }
 
-export interface SubscriptionForm {
+interface SubscriptionForm {
     itemId: string;
     setItemId: (v: string) => void;
     checkout: Checkout;
@@ -257,7 +257,7 @@ export function giftCardStatusIntent(status: string): Intent {
     }
 }
 
-export interface GiftCardPurchaseInput {
+interface GiftCardPurchaseInput {
     purchaser_client_id: string;
     item_id?: string | undefined;
     amount_cents?: number | undefined;
@@ -265,14 +265,14 @@ export interface GiftCardPurchaseInput {
     payment_method_id?: string | undefined;
 }
 
-export interface GiftCardPurchaseResult {
+interface GiftCardPurchaseResult {
     gift_card_id: string;
     code: string;
     payment_id: string;
     client_secret: string;
 }
 
-export function purchaseGiftCard(
+function purchaseGiftCard(
     api: ApiLike,
     input: GiftCardPurchaseInput,
     idempotencyKey: string,
@@ -280,7 +280,7 @@ export function purchaseGiftCard(
     return api.post<GiftCardPurchaseResult>("/v1/gift-cards", input, { idempotencyKey });
 }
 
-export interface GiftCardRedeemResult {
+interface GiftCardRedeemResult {
     id: string;
     code: string;
     initial_cents: number;
@@ -288,7 +288,7 @@ export interface GiftCardRedeemResult {
     status: string;
 }
 
-export function redeemGiftCard(
+function redeemGiftCard(
     api: ApiLike,
     input: { code: string; amount_cents: number },
     idempotencyKey: string,
@@ -296,7 +296,7 @@ export function redeemGiftCard(
     return api.post<GiftCardRedeemResult>("/v1/gift-cards/redeem", input, { idempotencyKey });
 }
 
-export type GiftSaleMode = "preset" | "custom";
+type GiftSaleMode = "preset" | "custom";
 
 export const GIFT_SALE_MODES: GiftSaleMode[] = ["preset", "custom"];
 export const GIFT_SALE_MODE_LABEL: Record<GiftSaleMode, string> = {
@@ -304,7 +304,7 @@ export const GIFT_SALE_MODE_LABEL: Record<GiftSaleMode, string> = {
     custom: strings.entitlements.giftCards.modeCustom,
 };
 
-export interface GiftCardSaleForm {
+interface GiftCardSaleForm {
     purchaserClientId: string;
     setPurchaserClientId: (v: string) => void;
     mode: GiftSaleMode; // "preset" sends item_id; "custom" sends amount_cents
@@ -396,7 +396,7 @@ export function useGiftCardSaleForm(api: ApiLike, onDone: () => void): GiftCardS
     };
 }
 
-export interface GiftCardRedeemForm {
+interface GiftCardRedeemForm {
     code: string;
     setCode: (v: string) => void;
     amount: string;

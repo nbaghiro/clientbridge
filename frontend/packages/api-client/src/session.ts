@@ -4,13 +4,13 @@ export interface TokenPair {
     token_type?: string;
 }
 
-export interface SessionStore {
+interface SessionStore {
     get(): Promise<TokenPair | null>;
     set(tokens: TokenPair): Promise<void>;
     clear(): Promise<void>;
 }
 
-export interface SessionOptions {
+interface SessionOptions {
     baseUrl: string;
     store: SessionStore;
     /** Called once the session is unrecoverable (refresh failed) — the app should show login. */

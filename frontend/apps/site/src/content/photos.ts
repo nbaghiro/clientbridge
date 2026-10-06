@@ -1,7 +1,7 @@
 /** Stock photos. Sources are in assets/photos/; scripts/images.ts writes the sizes below to /photos/. */
 export const PHOTO_WIDTHS = [480, 960, 1600] as const;
 
-export interface PhotoInfo {
+interface PhotoInfo {
     width: number;
     height: number;
     subject: string;

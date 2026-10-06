@@ -12,7 +12,7 @@ export interface CheckoutMethod {
     label: string;
 }
 
-export interface CheckoutCharge {
+interface CheckoutCharge {
     paymentMethodId?: string;
     idempotencyKey: string;
 }
@@ -97,12 +97,12 @@ export function useCheckout(
     };
 }
 
-export interface SetupIntent {
+interface SetupIntent {
     client_secret: string;
     stripe_account_id: string;
 }
 
-export function startCardSetup(
+function startCardSetup(
     api: ApiLike,
     clientId: string,
     idempotencyKey: string,
@@ -111,7 +111,7 @@ export function startCardSetup(
 }
 
 /** Open a SetupIntent for an ACSS/PAD (pre-authorized debit) bank mandate. */
-export function startPadSetup(
+function startPadSetup(
     api: ApiLike,
     clientId: string,
     idempotencyKey: string,
@@ -123,7 +123,7 @@ export function startPadSetup(
     );
 }
 
-export type SetupKind = "card" | "bank";
+type SetupKind = "card" | "bank";
 
 export interface AddPaymentMethod {
     kind: SetupKind | null;

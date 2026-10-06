@@ -5,7 +5,7 @@ import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
-export type LoginMode = "signin" | "signup";
+type LoginMode = "signin" | "signup";
 
 /** Matches api-client's TokenPair; kept local so app-core needn't depend on api-client for one type. */
 export interface AuthTokens {
@@ -14,7 +14,7 @@ export interface AuthTokens {
     token_type?: string;
 }
 
-export interface LoginForm {
+interface LoginForm {
     mode: LoginMode;
     name: string;
     setName: (v: string) => void;
@@ -105,7 +105,7 @@ function base64UrlDecode(input: string): string {
 }
 
 /** Unverified: the value only scopes a local read; the server authorizes every write. */
-export function decodeJwtSub(token: string | null): string | null {
+function decodeJwtSub(token: string | null): string | null {
     if (token === null) return null;
     const payload = token.split(".")[1];
     if (payload === undefined) return null;

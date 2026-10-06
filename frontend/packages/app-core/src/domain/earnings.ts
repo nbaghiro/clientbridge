@@ -48,11 +48,11 @@ export function useEarnings(): EarningRow[] {
     return useQuery<EarningRow>(ALL_EARNINGS_SQL).data;
 }
 
-export type EarningFilter = "pending" | "approved" | "paid" | "all";
+type EarningFilter = "pending" | "approved" | "paid" | "all";
 
-export const EARNING_FILTERS: EarningFilter[] = ["pending", "approved", "paid", "all"];
+const EARNING_FILTERS: EarningFilter[] = ["pending", "approved", "paid", "all"];
 
-export interface EarningFilterView {
+interface EarningFilterView {
     filter: EarningFilter;
     setFilter: (f: EarningFilter) => void;
     filters: EarningFilter[];
@@ -90,7 +90,7 @@ export function earningStatusIntent(status: string): Intent {
     }
 }
 
-export interface EarningResult {
+interface EarningResult {
     id: string;
     staff_id: string;
     booking_id: string | null;
@@ -98,15 +98,15 @@ export interface EarningResult {
     status: string;
 }
 
-export function approveEarning(api: ApiLike, id: string): Promise<EarningResult> {
+function approveEarning(api: ApiLike, id: string): Promise<EarningResult> {
     return api.post<EarningResult>(`/v1/earnings/${id}/approve`, {});
 }
 
-export function payEarning(api: ApiLike, id: string): Promise<EarningResult> {
+function payEarning(api: ApiLike, id: string): Promise<EarningResult> {
     return api.post<EarningResult>(`/v1/earnings/${id}/pay`, {});
 }
 
-export interface EarningActions {
+interface EarningActions {
     busy: boolean;
     error: string | null;
     canApprove: boolean;

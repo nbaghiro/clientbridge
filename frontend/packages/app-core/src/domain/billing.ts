@@ -40,7 +40,7 @@ export interface EstimateRow {
     created_at: string;
 }
 
-export interface LineRow {
+interface LineRow {
     id: string;
     item_id: string | null;
     description: string;
@@ -89,7 +89,7 @@ export function useLines(parentId: string): LineRow[] {
     return useQuery<LineRow>(LINES_SQL, [parentId]).data;
 }
 
-export interface DocTotalRow {
+interface DocTotalRow {
     key: string;
     label: string;
     cents: number;
@@ -175,14 +175,14 @@ export function estimateStatusIntent(status: string): Intent {
     }
 }
 
-export interface LineInput {
+interface LineInput {
     description: string;
     quantity: number;
     unit_amount_cents: number;
     item_id?: string | null;
 }
 
-export interface DocResult {
+interface DocResult {
     id: string;
     status: string;
     number: number | null;
@@ -201,7 +201,7 @@ export function createInvoice(
     });
 }
 
-export function updateInvoice(
+function updateInvoice(
     api: ApiLike,
     id: string,
     patch: { lines?: LineInput[]; notes?: string | null },
@@ -209,15 +209,15 @@ export function updateInvoice(
     return api.patch<DocResult>(`/v1/invoices/${id}`, patch);
 }
 
-export function sendInvoice(api: ApiLike, id: string): Promise<DocResult> {
+function sendInvoice(api: ApiLike, id: string): Promise<DocResult> {
     return api.post<DocResult>(`/v1/invoices/${id}/send`, {});
 }
 
-export function voidInvoice(api: ApiLike, id: string): Promise<DocResult> {
+function voidInvoice(api: ApiLike, id: string): Promise<DocResult> {
     return api.post<DocResult>(`/v1/invoices/${id}/void`, {});
 }
 
-export function createEstimate(
+function createEstimate(
     api: ApiLike,
     clientId: string,
     lines: LineInput[],
@@ -230,7 +230,7 @@ export function createEstimate(
     });
 }
 
-export function updateEstimate(
+function updateEstimate(
     api: ApiLike,
     id: string,
     patch: { lines?: LineInput[]; notes?: string | null },
@@ -238,23 +238,23 @@ export function updateEstimate(
     return api.patch<DocResult>(`/v1/estimates/${id}`, patch);
 }
 
-export function sendEstimate(api: ApiLike, id: string): Promise<DocResult> {
+function sendEstimate(api: ApiLike, id: string): Promise<DocResult> {
     return api.post<DocResult>(`/v1/estimates/${id}/send`, {});
 }
 
-export function acceptEstimate(api: ApiLike, id: string): Promise<DocResult> {
+function acceptEstimate(api: ApiLike, id: string): Promise<DocResult> {
     return api.post<DocResult>(`/v1/estimates/${id}/accept`, {});
 }
 
-export function declineEstimate(api: ApiLike, id: string): Promise<DocResult> {
+function declineEstimate(api: ApiLike, id: string): Promise<DocResult> {
     return api.post<DocResult>(`/v1/estimates/${id}/decline`, {});
 }
 
-export function convertEstimate(api: ApiLike, id: string): Promise<DocResult> {
+function convertEstimate(api: ApiLike, id: string): Promise<DocResult> {
     return api.post<DocResult>(`/v1/estimates/${id}/convert`, {});
 }
 
-export type DocActionKey = "send" | "void" | "accept" | "decline" | "convert";
+type DocActionKey = "send" | "void" | "accept" | "decline" | "convert";
 
 export type DocTab = "invoices" | "estimates";
 
@@ -277,7 +277,7 @@ export const DOC_ACTION_LABEL: Record<DocActionKey, string> = {
     convert: strings.billing.actionConvert,
 };
 
-export interface DocAction {
+interface DocAction {
     key: DocActionKey;
     run: () => Promise<DocResult>;
 }
@@ -303,14 +303,14 @@ export function estimateActions(api: ApiLike, row: EstimateRow): DocAction[] {
     return out;
 }
 
-export interface DraftLine {
+interface DraftLine {
     description: string;
     quantity: string;
     unit: string;
     itemId: string | null;
 }
 
-export function toLineInputs(drafts: DraftLine[]): LineInput[] {
+function toLineInputs(drafts: DraftLine[]): LineInput[] {
     return drafts
         .filter((l) => l.description.trim().length > 0)
         .map((l) => ({
@@ -343,7 +343,7 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: LineRow[]): DocDr
     };
 }
 
-export function lineSubtotalCents(lines: LineInput[]): number {
+function lineSubtotalCents(lines: LineInput[]): number {
     return lines.reduce((s, l) => s + Math.round(l.quantity * l.unit_amount_cents), 0);
 }
 
@@ -351,7 +351,7 @@ export function docEditorTitle(kind: "invoice" | "estimate", editing: boolean): 
     return editing ? strings.billing.editTitle(kind) : strings.billing.newButton(kind);
 }
 
-export interface KeyedLine extends DraftLine {
+interface KeyedLine extends DraftLine {
     key: string;
 }
 
@@ -360,7 +360,7 @@ const keyed = (line: DraftLine): KeyedLine => ({ ...line, key: `l${(lineSeq += 1
 const blankLine = (): KeyedLine =>
     keyed({ description: "", quantity: "1", unit: "", itemId: null });
 
-export interface DocForm {
+interface DocForm {
     clientId: string;
     setClientId: (v: string) => void;
     lines: KeyedLine[];

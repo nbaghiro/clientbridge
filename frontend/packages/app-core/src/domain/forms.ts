@@ -24,7 +24,7 @@ export function activeForms(rows: FormRow[]): FormRow[] {
     return rows.filter((f) => f.active === 1);
 }
 
-export interface FormFieldRow {
+interface FormFieldRow {
     id: string;
     form_id: string;
     input: string;
@@ -47,7 +47,7 @@ export function useFormFields(formId: string): FormFieldRow[] {
     return useQuery<FormFieldRow>(FORM_FIELDS_SQL, [formId]).data;
 }
 
-export interface FormResponseResult {
+interface FormResponseResult {
     id: string;
     business_id: string;
     form_id: string;
@@ -68,7 +68,7 @@ export function sendForm(
     );
 }
 
-export interface SendFormForm {
+interface SendFormForm {
     formId: string;
     setFormId: (v: string) => void;
     clientId: string;
@@ -168,7 +168,7 @@ function splitOptions(raw: string): string[] {
         .filter((o) => o.length > 0);
 }
 
-export interface FormBuilder {
+interface FormBuilder {
     name: string;
     setName: (v: string) => void;
     requireSignature: boolean;

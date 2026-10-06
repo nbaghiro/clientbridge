@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-export type PublicLoadStatus = "loading" | "not-found" | "error" | "ready";
+type PublicLoadStatus = "loading" | "not-found" | "error" | "ready";
 
-export interface PublicResource<T> {
+interface PublicResource<T> {
     status: PublicLoadStatus;
     data: T | null;
     setData: (value: T) => void;

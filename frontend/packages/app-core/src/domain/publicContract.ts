@@ -27,12 +27,12 @@ export interface PublicContract {
     status: string;
 }
 
-export interface SignInput {
+interface SignInput {
     typed_name?: string | null;
     signature_image_id?: string | null;
 }
 
-export class PublicContractError extends Error {
+class PublicContractError extends Error {
     constructor(
         readonly status: number,
         message: string,
@@ -42,7 +42,7 @@ export class PublicContractError extends Error {
     }
 }
 
-export interface PublicContractClient {
+interface PublicContractClient {
     getContract: (token: string) => Promise<PublicContract>;
     sign(token: string, input: SignInput): Promise<PublicContract>;
     decline(token: string): Promise<PublicContract>;
@@ -96,9 +96,9 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
     };
 }
 
-export type PublicContractStatus = "loading" | "not-found" | "error" | "resolved" | "pending";
+type PublicContractStatus = "loading" | "not-found" | "error" | "resolved" | "pending";
 
-export interface PublicContractSign {
+interface PublicContractSign {
     status: PublicContractStatus;
     contract: PublicContract | null;
     typedName: string;

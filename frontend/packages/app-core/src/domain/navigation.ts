@@ -32,7 +32,7 @@ export function canSeePaymentsTab(role: string | null, key: PaymentsTabKey): boo
 
 export type InboxSegmentKey = "messages" | "reviews";
 
-export const INBOX_SEGMENTS: { key: InboxSegmentKey; label: string; managersOnly: boolean }[] = [
+const INBOX_SEGMENTS: { key: InboxSegmentKey; label: string; managersOnly: boolean }[] = [
     { key: "messages", label: strings.navigation.inboxSegments.messages, managersOnly: false },
     { key: "reviews", label: strings.navigation.inboxSegments.reviews, managersOnly: true },
 ];

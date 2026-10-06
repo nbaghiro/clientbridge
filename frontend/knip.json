@@ -1,0 +1,28 @@
+{
+    "$schema": "https://unpkg.com/knip@6/schema.json",
+    "workspaces": {
+        "apps/web": {
+            "ignoreDependencies": ["@journeyapps/wa-sqlite"]
+        },
+        "apps/connect": {
+            "entry": ["src/embed.ts", "public/embed.js"]
+        },
+        "apps/site": {
+            "entry": ["src/entry-server.tsx", "scripts/*.ts"]
+        },
+        "apps/mobile": {
+            "entry": ["App.tsx"],
+            "ignoreDependencies": ["@babel/core", "expo-updates"]
+        },
+        "packages/app-core": {
+            "ignoreDependencies": ["@powersync/react"]
+        },
+        "packages/tokens": {
+            "entry": ["scripts/*.cjs"]
+        },
+        "packages/config": {
+            "entry": ["scripts/*.mjs"]
+        }
+    },
+    "ignore": ["packages/api-client/src/generated.ts"]
+}

@@ -27,7 +27,7 @@ export interface T4ARow {
     total_cents: number;
 }
 
-export interface SalesByItemRow {
+interface SalesByItemRow {
     item_id: string;
     name: string;
     kind: string;
@@ -45,7 +45,7 @@ export interface ReportRange {
 
 export type ReportCsvKind = "income" | "gst-hst" | "t4a" | "sales-by-item";
 
-export interface ReportsView {
+interface ReportsView {
     income: IncomeReport | null;
     gstHst: GstHstReport | null;
     t4a: T4ARow[] | null;
@@ -110,24 +110,20 @@ export function useReports(api: ApiLike, range: ReportRange): ReportsView {
     return { income, gstHst, t4a, salesByItem, loading, error };
 }
 
-export function reportCsvPath(kind: ReportCsvKind, range: ReportRange): string {
+function reportCsvPath(kind: ReportCsvKind, range: ReportRange): string {
     if (kind === "t4a") return `/v1/reports/t4a.csv?year=${range.year}`;
     return `/v1/reports/${kind}.csv?start=${range.start}&end=${range.end}`;
 }
 
-export function reportCsvFilename(kind: ReportCsvKind): string {
+function reportCsvFilename(kind: ReportCsvKind): string {
     return `${kind}.csv`;
 }
 
-export function downloadReportCsv(
-    api: ApiLike,
-    kind: ReportCsvKind,
-    range: ReportRange,
-): Promise<string> {
+function downloadReportCsv(api: ApiLike, kind: ReportCsvKind, range: ReportRange): Promise<string> {
     return api.getText(reportCsvPath(kind, range));
 }
 
-export interface ReportDownload {
+interface ReportDownload {
     error: string | null;
     isDownloading: (kind: ReportCsvKind) => boolean;
     download: (kind: ReportCsvKind) => void;
@@ -156,7 +152,7 @@ export function useReportDownload(
     return { error, isDownloading: (kind) => busy && downloading === kind, download };
 }
 
-export interface RemittanceRow {
+interface RemittanceRow {
     id: string;
     period_start: string;
     period_end: string;
@@ -171,11 +167,11 @@ FROM entries e JOIN accounts a ON a.id = e.account_id
 WHERE e.event = 'remittance' AND a.category = 'bank'
 ORDER BY period_end DESC`;
 
-export function useRemittances(): RemittanceRow[] {
+function useRemittances(): RemittanceRow[] {
     return useQuery<RemittanceRow>(REMITTANCES_SQL).data;
 }
 
-export interface RemittancePeriod {
+interface RemittancePeriod {
     start: string;
     end: string;
 }
@@ -193,7 +189,7 @@ export function nextRemittancePeriod(
     return { start, end: dateKey(addDays(now, -1)) };
 }
 
-export function recordRemittance(api: ApiLike, period: RemittancePeriod): Promise<unknown> {
+function recordRemittance(api: ApiLike, period: RemittancePeriod): Promise<unknown> {
     return api.post(
         "/v1/payments/remittances",
         { period_start: period.start, period_end: period.end },
@@ -201,7 +197,7 @@ export function recordRemittance(api: ApiLike, period: RemittancePeriod): Promis
     );
 }
 
-export interface RemittanceAction {
+interface RemittanceAction {
     filed: RemittanceRow[];
     period: RemittancePeriod;
     canRecord: boolean;
@@ -222,7 +218,7 @@ export function useRemittanceAction(api: ApiLike): RemittanceAction {
     return { filed, period, canRecord: period.start <= period.end, busy, error, record };
 }
 
-export interface BankDepositRow {
+interface BankDepositRow {
     id: string;
     amount_cents: number;
     status: string;
