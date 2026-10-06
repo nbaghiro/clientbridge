@@ -71,7 +71,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 ## Tooling — run the gate before "done"
 - Backend: **ruff** (4-space · double quotes · line 100 · ANN bans `Any`) + **mypy strict** (no `Any`).
   Frontend: eslint strictTypeChecked + tsc strict + prettier (4-space · double · 100).
-- Gate: `ruff check . && ruff format --check . && mypy src scripts tests && python -m scripts.check_structure && pytest --cov…`.
+- Gate: `make check` (lint + codegen-check + test). CI's jobs call the same make targets
+  (`lint-backend`, `test-backend`, `lint-frontend`, `test-frontend`, `build`, `test-site`, `codegen-check`), so
+  the two can't drift.
 - **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
   router → service; routers never query; every tenant query goes through

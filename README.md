@@ -68,7 +68,7 @@ clientbridge/
 ```sh
 # one-time
 make hooks                    # install the pre-commit hook
-make install web-install      # backend (uv sync) + frontend (pnpm install) deps
+make install                  # backend (uv sync) + frontend (pnpm install) deps
 make up                       # local infra: postgres · powersync · redis · s3 (RustFS) (87xx ports)
 make migrate seed             # apply schema + load the "Birchbark" demo business
 
@@ -97,11 +97,11 @@ make build-site     # marketing site → static HTML in frontend/apps/site/dist
 make test-site      # site browser pass: every page, links, images, phone width, accessibility
 ```
 
-The **pre-commit hook** (`make hooks`) runs format-check + lint on every commit. **CI**
+The **pre-commit hook** (`make hooks`) runs format-check, lint and codegen-check on every commit. **CI**
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` + PR, in five
-jobs: **backend** (lint · type · migrate · seed · pytest 90% branch), **contract** (stripe-mock),
-**frontend** (lint · type · prettier · tests), **site** (copy lint · content tests · browser and
-accessibility pass), and **codegen-drift** (fails if the generated
+jobs (all but contract call the same make targets as the local gate): **backend** (lint · type · migrate · seed ·
+pytest 90% branch), **contract** (stripe-mock), **frontend** (lint · type · prettier · copy rules · tests ·
+build), **site** (browser and accessibility pass), and **codegen-drift** (fails if the generated
 api-client / PowerSync schema / themes are stale). Conventions, the gate, and testing live in
 [`.docs/engineering.md`](.docs/engineering.md).
 
