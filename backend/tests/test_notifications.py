@@ -6,25 +6,16 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
-from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender, book_invoice
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.helpers import enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
-
-
-async def _enable(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
 
 
 async def _client_with_contact(db: AsyncSession, *, email: str | None, phone: str | None) -> str:
@@ -37,24 +28,6 @@ async def _client_with_contact(db: AsyncSession, *, email: str | None, phone: st
     await db.execute(update(Client).where(Client.id == cid).values(email=email, phone=phone))
     await db.flush()
     return cid
-
-
-async def _sent_invoice(db: AsyncSession, cid: str, *, total: int = 5000) -> str:
-    inv = Invoice(
-        id=new_id("invoice"),
-        business_id=BIZ,
-        client_id=cid,
-        number=9600,
-        status="sent",
-        currency="CAD",
-        subtotal_cents=total,
-        tax_total_cents=0,
-        total_cents=total,
-    )
-    db.add(inv)
-    await db.flush()
-    await book_invoice(db, inv)
-    return inv.id
 
 
 async def _pay_and_settle(
@@ -77,7 +50,7 @@ async def test_card_success_sends_receipt_and_push(
     sms: FakeSmsSender,
     push: FakePushSender,
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     db.add(
         Device(
@@ -89,7 +62,7 @@ async def test_card_success_sends_receipt_and_push(
         )
     )
     await db.flush()
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
     await _pay_and_settle(as_owner, db, inv_id, "evt_n1")
 
     assert len(email.sent) == 1 and email.sent[0].to == "pat@example.ca"
@@ -104,9 +77,9 @@ async def test_no_contact_skips_client_channels(
     sms: FakeSmsSender,
     push: FakePushSender,
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _client_with_contact(db, email=None, phone=None)
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
     await _pay_and_settle(as_owner, db, inv_id, "evt_n2")
     assert email.sent == []  # nothing to send to
     assert sms.sent == []
@@ -139,7 +112,7 @@ async def test_push_target_is_business_scoped(
     push: FakePushSender,
     factory: Factory,
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     db.add(
         Device(
@@ -163,7 +136,7 @@ async def test_push_target_is_business_scoped(
         )
     )
     await db.flush()
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
     await _pay_and_settle(as_owner, db, inv_id, "evt_scope")
 
     assert len(push.sent) == 1
@@ -182,11 +155,11 @@ async def test_receipt_is_english_regardless_of_locale(
     sms: FakeSmsSender,
 ) -> None:
     # copy is English-only now — a non-English locale no longer changes the notification language
-    await _enable(db)
+    await enable_payments(db)
     await db.execute(update(Business).where(Business.id == BIZ).values(locale="fr"))
     await db.flush()
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
     await _pay_and_settle(as_owner, db, inv_id, "evt_loc")
 
     assert email.sent[0].subject == "Receipt from Birchbark Pet Studio"
@@ -220,7 +193,7 @@ async def test_interac_request_reaches_client(
     sms: FakeSmsSender,
 ) -> None:
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
     res = await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")
     assert res.status_code == 200, res.text
     ref = res.json()["reference_code"]
@@ -235,9 +208,9 @@ async def test_refund_notifies_client(
     email: FakeEmailSender,
     sms: FakeSmsSender,
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
@@ -334,9 +307,9 @@ async def test_payment_failed_notifies_client(
     email: FakeEmailSender,
     sms: FakeSmsSender,
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
@@ -425,7 +398,7 @@ async def test_failing_channel_does_not_500(
     push: FakePushSender,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     db.add(
         Device(
@@ -437,7 +410,7 @@ async def test_failing_channel_does_not_500(
         )
     )
     await db.flush()
-    inv_id = await _sent_invoice(db, cid)
+    inv_id = await sent_invoice(db, client=cid, number=9600)
 
     async def boom(_: object) -> None:
         raise RuntimeError("twilio down")

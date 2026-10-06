@@ -1,27 +1,14 @@
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
 from tests.conftest import Factory, FakeEmailSender
+from tests.helpers import client_id
 
 BIZ = "bz_birchbark"
-
-
-async def _client_id(db: AsyncSession, *, with_email: bool = False) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    if with_email:
-        await db.execute(update(Client).where(Client.id == cid).values(email="pay@example.ca"))
-        await db.flush()
-    return cid
 
 
 def _line(desc: str = "Consultation", qty: float = 1.0, unit: int = 10000) -> dict[str, object]:
@@ -29,7 +16,7 @@ def _line(desc: str = "Consultation", qty: float = 1.0, unit: int = 10000) -> di
 
 
 async def test_create_invoice_computes_tax(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     res = await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})
     assert res.status_code == 201, res.text
     body = res.json()
@@ -46,7 +33,7 @@ async def test_create_invoice_computes_tax(as_owner: httpx.AsyncClient, db: Asyn
 async def test_send_assigns_number_and_emails(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await _client_id(db, with_email=True)
+    cid = await client_id(db, email="client@example.ca")
     inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
     sent = await as_owner.post(f"/v1/invoices/{inv['id']}/send")
     assert sent.status_code == 200
@@ -63,14 +50,14 @@ async def test_not_registered_collects_no_tax(
 ) -> None:
     await db.execute(update(Business).where(Business.id == BIZ).values(tax_registered=False))
     await db.flush()
-    cid = await _client_id(db)
+    cid = await client_id(db)
     body = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
     assert body["tax_total_cents"] == 0
     assert body["total_cents"] == 10000
 
 
 async def test_only_draft_is_editable(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db, with_email=True)
+    cid = await client_id(db, email="client@example.ca")
     inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/invoices/{inv['id']}/send")
     patched = await as_owner.patch(f"/v1/invoices/{inv['id']}", json={"notes": "late edit"})
@@ -78,7 +65,7 @@ async def test_only_draft_is_editable(as_owner: httpx.AsyncClient, db: AsyncSess
 
 
 async def test_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
     voided = await as_owner.post(f"/v1/invoices/{inv['id']}/void")
     assert voided.status_code == 200
@@ -91,13 +78,13 @@ async def test_unknown_client_404(as_owner: httpx.AsyncClient) -> None:
 
 
 async def test_staff_cannot_create_invoice(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     res = await as_staff.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})
     assert res.status_code == 403
 
 
 async def test_unauth_cannot_create(unauth: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     res = await unauth.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})
     assert res.status_code == 401
 
@@ -118,7 +105,7 @@ async def test_unknown_invoice_404(as_owner: httpx.AsyncClient) -> None:
 
 
 async def test_idempotent_create_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     body = {"client_id": cid, "lines": [_line()]}
     headers = {"Idempotency-Key": "inv-test-1"}
     first = await as_owner.post("/v1/invoices", json=body, headers=headers)
@@ -129,7 +116,7 @@ async def test_idempotent_create_replays(as_owner: httpx.AsyncClient, db: AsyncS
 
 
 async def test_negative_amount_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     bad = {"description": "Refund", "quantity": 1, "unit_amount_cents": -500}
     res = await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [bad]})
     assert res.status_code == 422
@@ -142,7 +129,7 @@ async def test_staff_cannot_send_invoice(as_staff: httpx.AsyncClient) -> None:
 
 
 async def test_cannot_send_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     inv = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [_line()]})).json()
     await as_owner.post(f"/v1/invoices/{inv['id']}/void")
     res = await as_owner.post(f"/v1/invoices/{inv['id']}/send")

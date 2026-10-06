@@ -2,19 +2,19 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_booking_rate_limit
 from clientbridge.main import app
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking, Hours, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.helpers import enable_payments
 
 SLUG = "birchbark"
 TZ = ZoneInfo("America/Vancouver")  # the seed business's timezone; hours are local wall-clock
@@ -72,22 +72,13 @@ async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: date
     await db.flush()
 
 
-async def _enable_payments(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
 async def test_services_expose_connected_account_when_onboarded(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     # the public booking page needs the connected account to mount the deposit Elements
     before = (await api.get(f"/book/{SLUG}/services")).json()
     assert before["stripe_account_id"] is None
-    await _enable_payments(db)
+    await enable_payments(db)
     after = (await api.get(f"/book/{SLUG}/services")).json()
     assert after["stripe_account_id"] == "acct_test"
 
@@ -268,7 +259,7 @@ async def test_book_requires_contact(api: httpx.AsyncClient) -> None:
 async def test_book_deposit_required_returns_secret(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     res = await api.post(f"/book/{SLUG}", json=_body("2027-03-02T17:00:00Z", item=GROOM_LG))
     assert res.status_code == 200, res.text
     body = res.json()

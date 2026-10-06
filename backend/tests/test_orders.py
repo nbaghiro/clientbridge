@@ -1,40 +1,20 @@
 import json
 
 import httpx
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Order
-from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import Factory
+from tests.helpers import client_id, enable_payments
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
 LATTE = {"description": "Latte", "quantity": 2, "unit_amount_cents": 500}
 MUFFIN = {"description": "Muffin", "quantity": 1, "unit_amount_cents": 350}
-
-
-async def _enable(db: AsyncSession, *, account: str | None = "acct_test") -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id=account, stripe_charges_enabled=account is not None)
-    )
-    await db.flush()
-
-
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
 
 
 async def _order_status(db: AsyncSession, order_id: str) -> str:
@@ -56,7 +36,7 @@ async def test_create_order_computes_totals(as_owner: httpx.AsyncClient) -> None
 
 
 async def test_create_order_with_client(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     res = await as_owner.post("/v1/orders", json={"client_id": cid, "lines": [LATTE]})
     assert res.status_code == 201, res.text
     assert res.json()["client_id"] == cid
@@ -91,7 +71,7 @@ async def test_update_order_reapplies_totals(as_owner: httpx.AsyncClient) -> Non
 
 
 async def test_staff_can_ring_and_checkout(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     order = (await as_staff.post("/v1/orders", json={"lines": [LATTE]})).json()
     res = await as_staff.post(f"/v1/orders/{order['id']}/checkout")
     assert res.status_code == 200, res.text  # POS is staff-operated front-desk work
@@ -101,7 +81,7 @@ async def test_staff_can_ring_and_checkout(as_staff: httpx.AsyncClient, db: Asyn
 async def test_checkout_and_webhook_settles_order(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
     checkout = await as_owner.post(f"/v1/orders/{order['id']}/checkout")
     assert checkout.status_code == 200, checkout.text
@@ -124,7 +104,7 @@ async def test_checkout_and_webhook_settles_order(
 
 
 async def test_checkout_empty_order_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     order = (await as_owner.post("/v1/orders", json={"lines": []})).json()
     assert (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).status_code == 409
 
@@ -132,7 +112,7 @@ async def test_checkout_empty_order_409(as_owner: httpx.AsyncClient, db: AsyncSe
 async def test_checkout_without_onboarding_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db, account=None)
+    await enable_payments(db, account=None)
     order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
     assert (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).status_code == 409
 
@@ -184,7 +164,7 @@ async def test_unknown_order_404(as_owner: httpx.AsyncClient) -> None:
 async def test_refund_order_payment_reverts_order(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
     pay_id = (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).json()["payment_id"]
     pi = (await db.execute(select(Payment.provider_ref).where(Payment.id == pay_id))).scalar_one()
@@ -215,7 +195,7 @@ async def test_refund_order_payment_reverts_order(
 async def test_second_checkout_with_pending_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
     first = await as_owner.post(
         f"/v1/orders/{order['id']}/checkout", headers={"Idempotency-Key": "ck1"}
@@ -234,7 +214,7 @@ async def test_second_checkout_with_pending_409(
 
 
 async def test_update_after_checkout_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
     assert (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).status_code == 200
     # editing the total after checkout started must not be allowed (it could double-charge)
@@ -245,7 +225,7 @@ async def test_update_after_checkout_409(as_owner: httpx.AsyncClient, db: AsyncS
 async def test_checkout_same_key_mints_one_intent(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     order = (await as_owner.post("/v1/orders", json={"lines": [LATTE]})).json()
     headers = {"Idempotency-Key": "co-replay"}
     first = await as_owner.post(f"/v1/orders/{order['id']}/checkout", headers=headers)

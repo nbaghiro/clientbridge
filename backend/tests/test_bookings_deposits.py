@@ -4,19 +4,16 @@ import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
-from tests.conftest import book_invoice
+from tests.helpers import enable_payments, sent_invoice
 from tests.test_bookings import (
     CL_AMELIE,
     _deposit_booking,
-    _enable_payments,
     _pi_succeeded,
     _provider_ref,
 )
@@ -81,44 +78,11 @@ async def test_booking_no_deposit_when_item_has_none(
     assert bk.deposit_amount_cents == 0
 
 
-async def _enable(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
-async def _invoice(db: AsyncSession, *, total: int = 10000) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    inv = Invoice(
-        id=new_id("invoice"),
-        business_id=BIZ,
-        client_id=cid,
-        number=9800,
-        status="sent",
-        currency="CAD",
-        subtotal_cents=total,
-        tax_total_cents=0,
-        total_cents=total,
-    )
-    db.add(inv)
-    await db.flush()
-    await book_invoice(db, inv)
-    return inv.id
-
-
 async def test_card_deposit_is_marked_kind_deposit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9800, total=10000)
     res = await as_owner.post(f"/v1/payments/invoice/{inv_id}?amount_cents=2000&deposit=true")
     assert res.status_code == 200, res.text
     pay = (
@@ -130,7 +94,7 @@ async def test_card_deposit_is_marked_kind_deposit(
 async def test_interac_deposit_is_marked_kind_deposit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    inv_id = await _invoice(db, total=8000)
+    inv_id = await sent_invoice(db, number=9800, total=8000)
     res = await as_owner.post(
         f"/v1/payments/invoice/{inv_id}/interac?amount_cents=3000&deposit=true"
     )
@@ -159,8 +123,8 @@ async def test_deposit_amount_computed_from_item(
 async def test_deposit_settles_invoice_to_partial(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    inv_id = await _invoice(db, total=10000)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9800, total=10000)
     pay = (
         await as_owner.post(f"/v1/payments/invoice/{inv_id}?amount_cents=2500&deposit=true")
     ).json()
@@ -181,7 +145,7 @@ GOOD = {"Stripe-Signature": "good"}
 
 
 async def _collected(api: httpx.AsyncClient, db: AsyncSession, starts: str) -> tuple[str, str]:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(api, db, starts=starts)
     pay = (await api.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
     pi = await _provider_ref(db, pay["payment_id"])
@@ -234,7 +198,7 @@ async def test_sending_the_invoice_applies_the_deposit(
 async def test_deposit_settled_after_the_invoice_is_applied(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-07-02T10:00:00Z")
     inv_id = await _api_invoice(as_owner, bid)
     pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
@@ -273,7 +237,7 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
 async def test_void_with_a_payment_in_progress_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-07-05T10:00:00Z")
     inv_id = await _api_invoice(as_owner, bid)
     assert (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).status_code in (200, 201)

@@ -11,11 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
-from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
 from clientbridge.services.tax import TaxResult, rates_for_province
+from tests.helpers import client_id
 
 BIZ = "bz_birchbark"
 WIDE = "start=2000-01-01&end=2100-01-01"
@@ -23,16 +23,6 @@ IN_RANGE = datetime(2026, 6, 15, 12, tzinfo=UTC)
 OUT_RANGE = datetime(1990, 1, 1, 12, tzinfo=UTC)  # before WIDE start → excluded
 IN_2025 = datetime(2025, 6, 15, 12, tzinfo=UTC)
 IN_2024 = datetime(2024, 6, 15, 12, tzinfo=UTC)
-
-
-async def _client_id(db: AsyncSession, biz: str = BIZ) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == biz).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
 
 
 async def _add_payment(
@@ -75,7 +65,7 @@ async def _add_invoice(
     invoice = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         number=number,
         status="sent",
         currency="CAD",

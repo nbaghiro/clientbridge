@@ -6,7 +6,7 @@ from itertools import pairwise
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.flows import (
+from tests.helpers import (
     SLUG,
     booking,
     business_balance,

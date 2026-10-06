@@ -8,43 +8,17 @@ from clientbridge.core.ratelimit import RateLimiter, public_pay_rate_limit
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
-from tests.conftest import book_invoice
+from tests.helpers import client_id, sent_invoice
 
 BIZ = "bz_birchbark"
 
 
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
-
-
 async def _sent_invoice(db: AsyncSession, *, total: int = 8000) -> tuple[str, str]:
     token = f"pt_{new_id('invoice')[3:19]}"
-    inv = Invoice(
-        id=new_id("invoice"),
-        business_id=BIZ,
-        client_id=await _client_id(db),
-        number=9400,
-        status="sent",
-        currency="CAD",
-        subtotal_cents=total,
-        tax_total_cents=0,
-        total_cents=total,
-        pay_token=token,
-    )
-    db.add(inv)
-    await db.flush()
-    await book_invoice(db, inv)
-    return inv.id, token
+    return await sent_invoice(db, total=total, number=9400, pay_token=token), token
 
 
 async def test_send_sets_pay_token_then_public_fetch(
@@ -53,7 +27,7 @@ async def test_send_sets_pay_token_then_public_fetch(
     inv = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         status="draft",
         currency="CAD",
         subtotal_cents=8000,

@@ -1,16 +1,16 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import Factory, book_invoice
+from tests.helpers import client_id
 
 BIZ = "bz_birchbark"
 
@@ -21,7 +21,7 @@ async def _add_payment(
     payment = Payment(
         id=new_id("payment"),
         business_id=BIZ,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         kind="refund" if refunds else "payment",
         parent_payment_id=refunds.id if refunds else None,
         amount_cents=amount,
@@ -39,16 +39,6 @@ async def _add_payment(
     else:
         await ledger.post_payment(db, payment)
     return payment
-
-
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
 
 
 async def test_summary_returns_three_money_figures(
@@ -105,7 +95,7 @@ async def test_awaiting_payment_counts_outstanding_balance(
     inv = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         number=9500,
         status="sent",
         currency="CAD",

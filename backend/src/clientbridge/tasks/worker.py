@@ -8,8 +8,10 @@ from arq.connections import RedisSettings
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import SessionLocal
-from clientbridge.integrations.messaging import get_email_sender, get_push_sender, get_sms_sender
+from clientbridge.integrations.expo import get_push_sender
+from clientbridge.integrations.postmark import get_email_sender
 from clientbridge.integrations.stripe import get_payment_gateway
+from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.services.billing import run_overdue_sweep
 from clientbridge.services.bookings import run_reap_unpaid_bookings, run_reminders
 from clientbridge.services.entitlements import run_expiry_sweeps

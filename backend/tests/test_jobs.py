@@ -1,12 +1,11 @@
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Item, Package
-from clientbridge.models.clients import Client
 from clientbridge.models.platform import Device
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
@@ -16,7 +15,8 @@ from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.ledger import Leg
 from clientbridge.services.notifications import Notifier, run_prune_devices
 from clientbridge.services.reviews import build_review_request, run_review_requests
-from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender, book_invoice
+from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
+from tests.helpers import client_id, sent_invoice
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
@@ -28,19 +28,6 @@ def _notifier(email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender) 
     return Notifier(email, sms, push)
 
 
-async def _a_client(db: AsyncSession, *, email: str | None = None) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    if email is not None:
-        await db.execute(update(Client).where(Client.id == cid).values(email=email))
-    await db.flush()
-    return cid
-
-
 async def _an_item(db: AsyncSession) -> str:
     iid = (
         (await db.execute(select(Item.id).where(Item.business_id == BIZ).limit(1)))
@@ -49,25 +36,6 @@ async def _an_item(db: AsyncSession) -> str:
     )
     assert iid
     return iid
-
-
-async def _invoice(
-    db: AsyncSession, cid: str, *, due_at: datetime, total: int = 5000, business_id: str = BIZ
-) -> str:
-    inv = Invoice(
-        id=new_id("invoice"),
-        business_id=business_id,
-        client_id=cid,
-        status="sent",
-        currency="CAD",
-        subtotal_cents=total,
-        total_cents=total,
-        due_at=due_at,
-    )
-    db.add(inv)
-    await db.flush()
-    await book_invoice(db, inv)
-    return inv.id
 
 
 async def _status(db: AsyncSession, model: type[Invoice] | type[Estimate], row_id: str) -> str:
@@ -81,9 +49,9 @@ async def _status(db: AsyncSession, model: type[Invoice] | type[Estimate], row_i
 async def test_overdue_sweep_flags_and_notifies(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await _a_client(db, email="od@example.ca")
-    overdue_id = await _invoice(db, cid, due_at=NOW - timedelta(days=5))
-    current_id = await _invoice(db, cid, due_at=NOW + timedelta(days=5))
+    cid = await client_id(db, email="od@example.ca")
+    overdue_id = await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
+    current_id = await sent_invoice(db, client=cid, due_at=NOW + timedelta(days=5))
 
     swept = await run_overdue_sweep(db, _notifier(email, sms, push), NOW)
 
@@ -96,8 +64,8 @@ async def test_overdue_sweep_flags_and_notifies(
 async def test_overdue_sweep_is_idempotent(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await _a_client(db, email="od@example.ca")
-    await _invoice(db, cid, due_at=NOW - timedelta(days=5))
+    cid = await client_id(db, email="od@example.ca")
+    await sent_invoice(db, client=cid, due_at=NOW - timedelta(days=5))
     notifier = _notifier(email, sms, push)
     assert await run_overdue_sweep(db, notifier, NOW) == 1
     assert await run_overdue_sweep(db, notifier, NOW) == 0  # the transition is the dedup marker
@@ -111,14 +79,16 @@ async def test_overdue_sweep_is_multi_tenant(
     factory: Factory,
 ) -> None:
     # Two businesses each have an overdue invoice; the one global scan must sweep both
-    cid_a = await _a_client(db, email="tenant-a@example.ca")
-    inv_a = await _invoice(db, cid_a, due_at=NOW - timedelta(days=5))
+    cid_a = await client_id(db, email="tenant-a@example.ca")
+    inv_a = await sent_invoice(db, client=cid_a, due_at=NOW - timedelta(days=5))
 
     other = await factory.business(name="Second Tenant")
     client_b = await factory.client(business=other, name="B Client")
     client_b.email = "tenant-b@example.ca"
     await db.flush()
-    inv_b = await _invoice(db, client_b.id, due_at=NOW - timedelta(days=5), business_id=other.id)
+    inv_b = await sent_invoice(
+        db, client=client_b.id, due_at=NOW - timedelta(days=5), business_id=other.id
+    )
 
     swept = await run_overdue_sweep(db, _notifier(email, sms, push), NOW)
 
@@ -196,7 +166,7 @@ async def _completed_booking(
 async def test_review_requests_for_recently_completed(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await _a_client(db, email="rev-job@example.ca")
+    cid = await client_id(db, email="rev-job@example.ca")
     bid = await _completed_booking(db, cid, completed_at=NOW)
     notifier = _notifier(email, sms, push)
 
@@ -210,7 +180,7 @@ async def test_review_requests_for_recently_completed(
 async def test_review_requests_skips_already_requested(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await _a_client(db)
+    cid = await client_id(db)
     bid = await _completed_booking(db, cid, completed_at=NOW)
     db.add(build_review_request(BIZ, cid, bid, NOW))
     await db.flush()
@@ -220,14 +190,14 @@ async def test_review_requests_skips_already_requested(
 async def test_review_requests_skips_non_completed_and_stale(
     db: AsyncSession, email: FakeEmailSender, sms: FakeSmsSender, push: FakePushSender
 ) -> None:
-    cid = await _a_client(db)
+    cid = await client_id(db)
     await _completed_booking(db, cid, completed_at=NOW, status="confirmed")  # not completed
     await _completed_booking(db, cid, completed_at=NOW - timedelta(days=30))  # outside 7d window
     assert await run_review_requests(db, _notifier(email, sms, push), NOW) == 0
 
 
 async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:
-    cid = await _a_client(db)
+    cid = await client_id(db)
     item_id = await _an_item(db)
     expired_est = Estimate(
         id=new_id("estimate"),

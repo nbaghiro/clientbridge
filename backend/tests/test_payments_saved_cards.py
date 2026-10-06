@@ -10,35 +10,17 @@ from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
 from tests.conftest import Factory, FakePaymentGateway, book_invoice
+from tests.helpers import client_id, enable_payments, new_client
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
 
 
-async def _enable(db: AsyncSession, *, account: str = "acct_test") -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id=account, stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
-
-
 async def test_setup_intent_returns_client_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     res = await as_owner.post(f"/v1/payments/setup-intent/{cid}")
     assert res.status_code == 200, res.text
     body = res.json()
@@ -53,20 +35,20 @@ async def test_setup_intent_returns_client_secret(
 async def test_setup_requires_onboarding(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id=None))
     await db.flush()
-    cid = await _client_id(db)
+    cid = await client_id(db)
     assert (await as_owner.post(f"/v1/payments/setup-intent/{cid}")).status_code == 409
 
 
 async def test_staff_cannot_setup(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     assert (await as_staff.post(f"/v1/payments/setup-intent/{cid}")).status_code == 403
 
 
 async def test_payment_method_attached_records_card(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db, account="acct_pm")
-    cid = await _client_id(db)
+    await enable_payments(db, account="acct_pm")
+    cid = await client_id(db)
     await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_pm"))
     await db.flush()
     event = json.dumps(
@@ -93,8 +75,8 @@ async def test_payment_method_attached_records_card(
 
 
 async def test_pay_with_saved_card(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_saved"))
     pm = PaymentMethod(
         id=new_id("payment_method"),
@@ -133,8 +115,8 @@ async def test_pay_with_saved_card(as_owner: httpx.AsyncClient, db: AsyncSession
 async def test_pay_with_unknown_saved_card_404(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     inv = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
@@ -156,7 +138,7 @@ async def test_pay_with_unknown_saved_card_404(
 async def test_cannot_use_another_clients_saved_card(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     two = (
         (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(2)))
         .scalars()
@@ -204,8 +186,8 @@ def _pm_attached(event_id: str, account: str, customer: str, pm_id: str) -> str:
 
 
 async def test_payment_method_attached_is_deduped(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db, account="acct_dedup")
-    cid = await _client_id(db)
+    await enable_payments(db, account="acct_dedup")
+    cid = await client_id(db)
     await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_dd"))
     await db.flush()
     for evt in ("evt_a", "evt_b"):  # same pm delivered twice
@@ -240,7 +222,7 @@ async def test_payment_method_attached_unknown_account_noop(
 
 
 async def test_first_attached_card_is_default(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db, account="acct_def")
+    await enable_payments(db, account="acct_def")
     fresh = Client(
         id=new_id("client"),
         business_id=BIZ,
@@ -285,8 +267,8 @@ def _saved_card(cid: str, *, ref: str, default: bool = False) -> PaymentMethod:
 async def test_detach_removes_row_and_calls_gateway(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     pm = _saved_card(cid, ref="pm_detach")
     db.add(pm)
     await db.flush()
@@ -301,14 +283,14 @@ async def test_detach_removes_row_and_calls_gateway(
 
 
 async def test_detach_unknown_card_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     assert (await as_owner.delete("/v1/payments/methods/pm_nope")).status_code == 404
 
 
 async def test_foreign_client_and_method_404_by_scoping(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     other_biz = await factory.business()
     other_client = await factory.client(business=other_biz)
     pm = PaymentMethod(
@@ -334,7 +316,7 @@ async def test_foreign_client_and_method_404_by_scoping(
 async def test_set_default_flips_and_clears_siblings(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     a = _saved_card(cid, ref="pm_a", default=True)
     b = _saved_card(cid, ref="pm_b", default=False)
     db.add_all([a, b])
@@ -353,7 +335,7 @@ async def test_set_default_flips_and_clears_siblings(
 
 
 async def test_staff_cannot_manage_cards(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     pm = _saved_card(cid, ref="pm_staff")
     db.add(pm)
     await db.flush()
@@ -376,8 +358,8 @@ def _invoice_row(cid: str, *, number: int) -> Invoice:
 
 
 async def test_off_session_card_declined_402(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_dec"))
     pm = _saved_card(cid, ref="pm_card_declined")
     inv = _invoice_row(cid, number=9800)
@@ -395,8 +377,8 @@ async def test_off_session_card_declined_402(as_owner: httpx.AsyncClient, db: As
 async def test_off_session_requires_action_402(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_act"))
     pm = _saved_card(cid, ref="pm_requires_action")
     inv = _invoice_row(cid, number=9801)
@@ -408,26 +390,11 @@ async def test_off_session_requires_action_402(
     assert res.json()["error"] == "payment_action_required"
 
 
-async def _fresh_client(db: AsyncSession, *, customer: str) -> str:
-    """A client with no seeded saved cards, so default resolution is fully controlled."""
-    client = Client(
-        id=new_id("client"),
-        business_id=BIZ,
-        name="Default Tester",
-        tags=[],
-        custom_fields={},
-        stripe_customer_id=customer,
-    )
-    db.add(client)
-    await db.flush()
-    return client.id
-
-
 async def test_pay_with_default_card(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _fresh_client(db, customer="cus_dflt")
+    await enable_payments(db)
+    cid = await new_client(db, email=None, customer="cus_dflt")
     default = _saved_card(cid, ref="pm_default", default=True)
     other = _saved_card(cid, ref="pm_other_card", default=False)
     inv = _invoice_row(cid, number=9802)
@@ -442,8 +409,8 @@ async def test_pay_with_default_card(
 async def test_pay_with_default_no_default_404(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _fresh_client(db, customer="cus_nodflt")
+    await enable_payments(db)
+    cid = await new_client(db, email=None, customer="cus_nodflt")
     pm = _saved_card(cid, ref="pm_nondefault", default=False)
     inv = _invoice_row(cid, number=9803)
     db.add_all([pm, inv])

@@ -77,7 +77,7 @@ clientbridge/
 │       ├── services/           business logic — one file per concept (28)
 │       ├── api/                router.py (mounts /v1) · one router file per concept · public.py · webhooks.py
 │       ├── sync/               auth.py (token/JWKS) · upload.py (WRITE_POLICY)
-│       ├── integrations/       stripe · messaging · google · s3 (provider adapters)
+│       ├── integrations/       stripe · postmark · twilio · expo · google · s3 (provider adapters)
 │       └── tasks/              worker.py: the arq cron schedule
 ├── frontend/           ── TypeScript · pnpm + turbo ──
 │   ├── apps/
@@ -142,8 +142,8 @@ hand-written role tuple check.
 ### External services
 Every external dependency is an **adapter interface (`typing.Protocol`) + a prod implementation + a `get_*()`
 dependency** that tests override with a recording fake — so the boundary is covered without the network.
-Four adapters in `integrations/`, named after the provider so they read apart from our own services:
-`stripe.py` (Stripe Connect + Terminal), `messaging.py` (Postmark email · Twilio SMS · Expo push), `google.py`
+Six adapters in `integrations/`, one per provider so they read apart from our own services:
+`stripe.py` (Stripe Connect + Terminal), `postmark.py` (email), `twilio.py` (SMS), `expo.py` (push), `google.py`
 (Google sign-in), `s3.py` (S3; RustFS locally).
 
 ### Jobs (`tasks/`)

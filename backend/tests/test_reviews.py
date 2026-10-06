@@ -14,34 +14,11 @@ from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.reviews import build_review_request
 from tests.conftest import Factory, FakeEmailSender
+from tests.helpers import client_id, new_client
 
 BIZ = "bz_birchbark"
 ST_OWNER = "st_owner"
 NOW = datetime(2030, 1, 1, tzinfo=UTC)
-
-
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
-
-
-async def _fresh_client(db: AsyncSession, *, email: str = "rev@example.ca") -> str:
-    client = Client(
-        id=new_id("client"),
-        business_id=BIZ,
-        name="Review Client",
-        email=email,
-        tags=[],
-        custom_fields={},
-    )
-    db.add(client)
-    await db.flush()
-    return client.id
 
 
 async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
@@ -68,7 +45,7 @@ async def _booking(db: AsyncSession, *, status: str = "completed") -> str:
         business_id=BIZ,
         slot_id=sess.id,
         staff_id=ST_OWNER,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         status=status,
         source="manual",
         price_cents=5000,
@@ -101,7 +78,7 @@ async def _a_review(
 
 
 async def _a_request(db: AsyncSession, *, booking_id: str | None = None) -> str:
-    request = build_review_request(BIZ, await _client_id(db), booking_id, NOW)
+    request = build_review_request(BIZ, await client_id(db), booking_id, NOW)
     db.add(request)
     await db.flush()
     assert request.token
@@ -111,7 +88,7 @@ async def _a_request(db: AsyncSession, *, booking_id: str | None = None) -> str:
 async def test_request_creates_request_and_notifies(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await _fresh_client(db)
+    cid = await new_client(db)
     res = await as_owner.post("/v1/reviews/request", json={"client_id": cid})
     assert res.status_code == 201, res.text
     body = res.json()
@@ -124,7 +101,7 @@ async def test_request_creates_request_and_notifies(
 async def test_request_rejects_duplicate_open_for_booking(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     bid = await _booking(db)
     first = await as_owner.post("/v1/reviews/request", json={"client_id": cid, "booking_id": bid})
     assert first.status_code == 201, first.text
@@ -138,7 +115,7 @@ async def test_request_unknown_client_404(as_owner: httpx.AsyncClient) -> None:
 
 
 async def test_request_requires_admin(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     assert (await as_staff.post("/v1/reviews/request", json={"client_id": cid})).status_code == 403
 
 

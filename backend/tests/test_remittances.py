@@ -21,7 +21,7 @@ Q1 = {"period_start": "2021-01-01", "period_end": "2021-03-31"}
 IN_Q1 = datetime(2021, 2, 15, 18, tzinfo=UTC)
 
 
-async def _invoice(
+async def _taxed_invoice(
     db: AsyncSession, *, business_id: str, client_id: str, number: int, tax: dict[str, int]
 ) -> None:
     total_tax = sum(tax.values())
@@ -49,8 +49,8 @@ async def _q1_tax(db: AsyncSession) -> None:
         .first()
     )
     assert client_id
-    await _invoice(db, business_id=BIZ, client_id=client_id, number=9801, tax={"GST": 500})
-    await _invoice(db, business_id=BIZ, client_id=client_id, number=9802, tax={"PST": 700})
+    await _taxed_invoice(db, business_id=BIZ, client_id=client_id, number=9801, tax={"GST": 500})
+    await _taxed_invoice(db, business_id=BIZ, client_id=client_id, number=9802, tax={"PST": 700})
     await db.commit()  # a rejected filing rolls the request back; keep the setup
 
 
@@ -140,7 +140,9 @@ async def test_other_business_tax_is_not_filed(
 ) -> None:
     other = await factory.business()
     stranger = await factory.client(business=other)
-    await _invoice(db, business_id=other.id, client_id=stranger.id, number=1, tax={"GST": 9999})
+    await _taxed_invoice(
+        db, business_id=other.id, client_id=stranger.id, number=1, tax={"GST": 9999}
+    )
     await _q1_tax(db)
     res = await as_owner.post("/v1/payments/remittances", json=Q1)
     assert res.json()["by_code"] == {"GST": 500, "PST": 700}
@@ -164,7 +166,7 @@ async def test_two_businesses_can_file_the_same_period(
     user = await factory.user()
     staff = await factory.staff(business=other, user=user, role="owner")
     client = await factory.client(business=other)
-    await _invoice(db, business_id=other.id, client_id=client.id, number=1, tax={"GST": 300})
+    await _taxed_invoice(db, business_id=other.id, client_id=client.id, number=1, tax={"GST": 300})
     principal = Principal(user_id=user.id, business_id=other.id, staff_id=staff.id, role="owner")
     filed = await RemittanceService(db, principal).record(RemittanceIn.model_validate(Q1), None)
     assert filed.total_cents == 300

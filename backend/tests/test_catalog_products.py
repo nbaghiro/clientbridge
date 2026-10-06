@@ -1,7 +1,5 @@
 """Selling products: kinds, tax classes, stock, retail commission, receipts, sales by item."""
 
-import json
-
 import httpx
 import pytest
 from sqlalchemy import select, update
@@ -9,26 +7,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.billing import Invoice, Line, Order
-from clientbridge.models.business import Business, Staff
+from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item, Package, StockMovement
 from clientbridge.models.ledger import Entry
-from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
+from tests.helpers import enable_payments, settle
 
 GOOD = {"Stripe-Signature": "good"}
 SHAMPOO = "it_shampoo"  # seeded product, $24.00
 BATH = "it_bath"  # seeded service, $45.00
-
-
-async def _enable(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
 
 
 async def _line(item_id: str, cents: int, quantity: int = 1, **extra: str) -> dict[str, object]:
@@ -41,16 +30,6 @@ async def _line(item_id: str, cents: int, quantity: int = 1, **extra: str) -> di
     }
 
 
-async def _settle(api: httpx.AsyncClient, db: AsyncSession, payment_id: str, event: str) -> None:
-    pi = (
-        await db.execute(select(Payment.provider_ref).where(Payment.id == payment_id))
-    ).scalar_one()
-    body = json.dumps(
-        {"id": event, "type": "payment_intent.succeeded", "data": {"object": {"id": pi}}}
-    )
-    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
-
-
 async def _paid_sale(
     api: httpx.AsyncClient,
     db: AsyncSession,
@@ -58,13 +37,13 @@ async def _paid_sale(
     event: str,
     **order: str,
 ) -> dict[str, object]:
-    await _enable(db)
+    await enable_payments(db)
     created = await api.post("/v1/orders", json={"lines": lines, **order})
     assert created.status_code == 201, created.text
     sale: dict[str, object] = created.json()
     pay = await api.post(f"/v1/orders/{sale['id']}/pay", json={})
     assert pay.status_code == 200, pay.text
-    await _settle(api, db, pay.json()["payment_id"], event)
+    await settle(api, db, pay.json()["payment_id"], event)
     sale["payment_id"] = pay.json()["payment_id"]
     return sale
 
@@ -233,7 +212,7 @@ async def test_paid_sale_moves_stock_once_and_full_refund_restores(
     await _track(db, SHAMPOO, 5)
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400, quantity=2)], "evt_stk1")
     assert await _stock(db, SHAMPOO) == 3
-    await _settle(as_owner, db, str(sale["payment_id"]), "evt_stk1_again")
+    await settle(as_owner, db, str(sale["payment_id"]), "evt_stk1_again")
     assert await _stock(db, SHAMPOO) == 3
 
     refund = await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund")
@@ -446,7 +425,7 @@ async def test_walk_in_pays_with_a_new_card(
 async def test_client_sale_charges_a_saved_card(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     sale = (
         await as_owner.post(
             "/v1/orders", json={"client_id": "cl_amelie", "lines": [await _line(SHAMPOO, 2400)]}
@@ -462,7 +441,7 @@ async def test_pay_errors(as_owner: httpx.AsyncClient, db: AsyncSession) -> None
     await db.commit()
     not_connected = await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})
     assert not_connected.status_code == 409
-    await _enable(db)
+    await enable_payments(db)
     await db.commit()
     walk_in_saved = await as_owner.post(
         f"/v1/orders/{sale['id']}/pay", json={"payment_method_id": "default"}
@@ -473,7 +452,7 @@ async def test_pay_errors(as_owner: httpx.AsyncClient, db: AsyncSession) -> None
 
 
 async def test_pay_is_idempotent(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     sale = (await as_owner.post("/v1/orders", json={"lines": [await _line(SHAMPOO, 2400)]})).json()
     key = {"Idempotency-Key": "till-1"}
     first = await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={}, headers=key)
@@ -482,7 +461,7 @@ async def test_pay_is_idempotent(as_owner: httpx.AsyncClient, db: AsyncSession) 
 
 
 async def test_paid_invoice_moves_stock(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     await _track(db, SHAMPOO, 4)
     invoice = await as_owner.post(
         "/v1/invoices",
@@ -493,7 +472,7 @@ async def test_paid_invoice_moves_stock(as_owner: httpx.AsyncClient, db: AsyncSe
     assert (await as_owner.post(f"/v1/invoices/{inv_id}/send")).status_code == 200
     pay = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
     assert pay.status_code in (200, 201), pay.text
-    await _settle(as_owner, db, pay.json()["payment_id"], "evt_inv_stk")
+    await settle(as_owner, db, pay.json()["payment_id"], "evt_inv_stk")
     assert await _stock(db, SHAMPOO) == 2
 
 
@@ -546,7 +525,7 @@ async def test_item_fields_must_fit_the_kind_422(
 async def test_package_sale_expires_after_its_validity(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     pack = await as_owner.post(
         "/v1/items",
         json={

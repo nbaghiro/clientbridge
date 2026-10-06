@@ -8,47 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import Factory, book_invoice
+from tests.helpers import enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
-
-
-async def _enable_payments(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
-async def _invoice(db: AsyncSession, *, total: int = 11200, status: str = "sent") -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    inv = Invoice(
-        id=new_id("invoice"),
-        business_id=BIZ,
-        client_id=cid,
-        number=9001,
-        status=status,
-        currency="CAD",
-        subtotal_cents=total,
-        tax_total_cents=0,
-        total_cents=total,
-    )
-    db.add(inv)
-    await db.flush()
-    if status not in ("draft", "void"):
-        await book_invoice(db, inv)
-    return inv.id
 
 
 def _pi_event(
@@ -71,8 +37,8 @@ async def _provider_ref(db: AsyncSession, payment_id: str) -> str:
 
 
 async def test_pay_invoice_creates_intent(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     res = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
     assert res.status_code == 200, res.text
     body = res.json()
@@ -86,8 +52,8 @@ async def test_pay_invoice_creates_intent(as_owner: httpx.AsyncClient, db: Async
 async def test_succeeded_webhook_marks_invoice_paid(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     res = await as_owner.post(
@@ -104,8 +70,8 @@ async def test_settlement_books_stripe_and_platform_fees(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     # Stripe's processing fee and our application fee both come off the provider's balance
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     res = await as_owner.post(
@@ -134,8 +100,8 @@ async def test_settlement_books_stripe_and_platform_fees(
 async def test_partial_payment_marks_invoice_partial(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db, total=10000)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=10000)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}?amount_cents=4000")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
@@ -148,8 +114,8 @@ async def test_partial_payment_marks_invoice_partial(
 
 
 async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
@@ -170,8 +136,8 @@ async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: Async
 
 
 async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
@@ -186,8 +152,8 @@ async def test_refund_same_idempotency_key_replays(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     # a retried refund (same Idempotency-Key) replays the original 200, not a 409, and mints one row
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
@@ -211,8 +177,8 @@ async def test_refund_same_idempotency_key_replays(
 async def test_pending_payment_blocks_overpay(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     assert (
         await as_owner.post(f"/v1/payments/invoice/{inv_id}")
     ).status_code == 200  # full balance
@@ -223,8 +189,8 @@ async def test_pending_payment_blocks_overpay(
 async def test_failed_webhook_marks_payment_failed(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
@@ -239,8 +205,8 @@ async def test_failed_webhook_marks_payment_failed(
 
 
 async def test_canceled_intent_frees_room(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
@@ -259,33 +225,33 @@ async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: As
         update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)
     )
     await db.flush()
-    inv_id = await _invoice(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     res = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
     assert res.status_code == 409
 
 
 async def test_cannot_pay_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db, status="void")
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200, status="void")
     res = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
     assert res.status_code == 409
 
 
 async def test_unknown_invoice_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     res = await as_owner.post("/v1/payments/invoice/inv_nope")
     assert res.status_code == 404
 
 
 async def test_staff_cannot_pay(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    inv_id = await _invoice(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     res = await as_staff.post(f"/v1/payments/invoice/{inv_id}")
     assert res.status_code == 403
 
 
 async def test_pay_idempotent_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=11200)
     headers = {"Idempotency-Key": "pay-1"}
     first = await as_owner.post(f"/v1/payments/invoice/{inv_id}", headers=headers)
     second = await as_owner.post(f"/v1/payments/invoice/{inv_id}", headers=headers)
@@ -296,8 +262,8 @@ async def test_pay_idempotent_replays(as_owner: httpx.AsyncClient, db: AsyncSess
 async def test_distinct_partials_same_amount_not_deduped(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db, total=10000)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=10000)
     url = f"/v1/payments/invoice/{inv_id}?amount_cents=4000"
     r1 = await as_owner.post(url, headers={"Idempotency-Key": "k1"})
     r2 = await as_owner.post(url, headers={"Idempotency-Key": "k2"})
@@ -309,8 +275,8 @@ async def test_distinct_partials_same_amount_not_deduped(
 
 
 async def test_same_key_partial_is_deduped(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable_payments(db)
-    inv_id = await _invoice(db, total=10000)
+    await enable_payments(db)
+    inv_id = await sent_invoice(db, number=9001, total=10000)
     url = f"/v1/payments/invoice/{inv_id}?amount_cents=4000"
     headers = {"Idempotency-Key": "same"}
     r1 = await as_owner.post(url, headers=headers)
@@ -342,7 +308,7 @@ async def test_pay_foreign_invoice_404_by_scoping(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     # BIZ is onboarded, so the 404 comes from the business-scoped lookup, not a missing id
-    await _enable_payments(db)
+    await enable_payments(db)
     foreign_inv = await _foreign_invoice(db, factory)
     res = await as_owner.post(f"/v1/payments/invoice/{foreign_inv}")
     assert res.status_code == 404
@@ -358,7 +324,7 @@ async def test_pay_foreign_invoice_404_by_scoping(
 async def test_refund_foreign_payment_404_by_scoping(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     other = await factory.business()
     client = await factory.client(business=other)
     foreign_pay = Payment(

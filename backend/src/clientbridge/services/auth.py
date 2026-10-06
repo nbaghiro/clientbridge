@@ -16,7 +16,7 @@ from clientbridge.core.security import (
     verify_password,
 )
 from clientbridge.integrations.google import OAuthProfile
-from clientbridge.integrations.messaging import Email, EmailSender
+from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.models.auth import AuthSession, AuthToken
 from clientbridge.models.business import User
 from clientbridge.schemas.auth import TokenPair

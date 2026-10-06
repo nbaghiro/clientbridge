@@ -20,16 +20,9 @@ from clientbridge.core.ratelimit import (
     public_review_rate_limit,
 )
 from clientbridge.core.security import hash_password, issue_access_token
+from clientbridge.integrations.expo import Push, get_push_sender
 from clientbridge.integrations.google import OAuthProfile, get_oauth_verifier
-from clientbridge.integrations.messaging import (
-    Email,
-    EmailSender,
-    Push,
-    Sms,
-    get_email_sender,
-    get_push_sender,
-    get_sms_sender,
-)
+from clientbridge.integrations.postmark import Email, EmailSender, get_email_sender
 from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
     ChargeFees,
@@ -43,6 +36,7 @@ from clientbridge.integrations.stripe import (
     WebhookVerificationError,
     get_payment_gateway,
 )
+from clientbridge.integrations.twilio import Sms, get_sms_sender
 from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business, Staff, User

@@ -16,28 +16,10 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Webhook
 from clientbridge.services import ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
+from tests.helpers import client_id, enable_payments
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
-
-
-async def _enable(db: AsyncSession, *, account: str = "acct_test") -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id=account, stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
 
 
 async def _sub_item(
@@ -102,8 +84,8 @@ def _body(cid: str, item_id: str, pm_id: str) -> dict[str, str]:
 async def test_create_subscription_happy(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
     res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
@@ -125,7 +107,7 @@ async def test_create_subscription_happy(
 async def test_second_subscription_reuses_cached_price(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     item = await _sub_item(db)
     c1 = await _new_client(db, name="Client One")
     c2 = await _new_client(db, name="Client Two")
@@ -141,8 +123,8 @@ async def test_second_subscription_reuses_cached_price(
 async def test_subscription_price_is_tax_inclusive(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db, price=5000)
     pm = await _saved_method(db, cid)
     res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
@@ -154,8 +136,8 @@ async def test_subscription_price_is_tax_inclusive(
 async def test_same_idempotency_key_creates_one_subscription(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
     body = _body(cid, item.id, pm.id)
@@ -182,8 +164,8 @@ async def test_same_idempotency_key_creates_one_subscription(
 async def test_duplicate_active_subscription_conflicts(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db)
     pm = await _saved_method(db, cid)
     r1 = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
@@ -196,8 +178,8 @@ async def test_duplicate_active_subscription_conflicts(
 async def test_cancel_subscription(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db)
     sub = Subscription(
         id=new_id("subscription"),
@@ -222,8 +204,8 @@ async def test_cancel_subscription(
 async def test_cancel_already_canceled_conflicts(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db)
     sub = Subscription(
         id=new_id("subscription"),
@@ -245,8 +227,8 @@ async def test_cancel_already_canceled_conflicts(
 async def test_create_with_non_subscription_item_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db, kind="service")
     pm = await _saved_method(db, cid)
     res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
@@ -254,8 +236,8 @@ async def test_create_with_non_subscription_item_409(
 
 
 async def test_create_missing_interval_422(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db, interval=None, frequency=None)
     pm = await _saved_method(db, cid)
     res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
@@ -265,8 +247,8 @@ async def test_create_missing_interval_422(as_owner: httpx.AsyncClient, db: Asyn
 async def test_create_unknown_payment_method_404(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item = await _sub_item(db)
     res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, "pm_nope"))
     assert res.status_code == 404
@@ -275,7 +257,7 @@ async def test_create_unknown_payment_method_404(
 async def test_staff_cannot_create_subscription(
     as_staff: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     res = await as_staff.post("/v1/subscriptions", json=_body(cid, "it_x", "pm_x"))
     assert res.status_code == 403
 
@@ -303,8 +285,8 @@ async def test_cancel_cross_tenant_404(
 async def test_pad_setup_intent_returns_client_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     res = await as_owner.post(f"/v1/payments/pad-setup-intent/{cid}")
     assert res.status_code == 200, res.text
     body = res.json()
@@ -316,20 +298,20 @@ async def test_pad_setup_intent_returns_client_secret(
 async def test_pad_setup_requires_onboarding(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id=None))
     await db.flush()
-    cid = await _client_id(db)
+    cid = await client_id(db)
     assert (await as_owner.post(f"/v1/payments/pad-setup-intent/{cid}")).status_code == 409
 
 
 async def test_staff_cannot_pad_setup(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     assert (await as_staff.post(f"/v1/payments/pad-setup-intent/{cid}")).status_code == 403
 
 
 async def test_acss_debit_records_bank_eft_mandate(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db, account="acct_pad")
-    cid = await _client_id(db)
+    await enable_payments(db, account="acct_pad")
+    cid = await client_id(db)
     await db.execute(update(Client).where(Client.id == cid).values(stripe_customer_id="cus_pad"))
     await db.flush()
     event = json.dumps(
@@ -364,7 +346,7 @@ def _sub_event(event_id: str, event_type: str, obj: dict[str, object]) -> str:
 
 
 async def _seed_sub(db: AsyncSession, *, ref: str, status: str = "active") -> Subscription:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     item = await _sub_item(db)
     sub = Subscription(
         id=new_id("subscription"),
@@ -380,7 +362,7 @@ async def _seed_sub(db: AsyncSession, *, ref: str, status: str = "active") -> Su
 
 
 async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     sub = await _seed_sub(db, ref="sub_wh1")
     event = _sub_event(
         "evt_su1",
@@ -405,7 +387,7 @@ async def test_subscription_updated_flips_status(api: httpx.AsyncClient, db: Asy
 async def test_invoice_payment_succeeded_records_payment(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     gateway.invoice_intents["in_1"] = "pi_sub1"
     sub = await _seed_sub(db, ref="sub_inv1")
     obj: dict[str, object] = {
@@ -441,7 +423,7 @@ async def test_invoice_payment_succeeded_records_payment(
 async def test_recurring_charge_taxed_and_in_gst_report(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     gateway.invoice_intents["in_g1"] = "pi_gst1"
     cid = await _new_client(db, name="GST Client")
     item = await _sub_item(db)
@@ -510,7 +492,7 @@ async def test_recurring_charge_taxed_and_in_gst_report(
 async def test_invoice_payment_failed_sets_past_due_and_notifies(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _new_client(db, name="Past Due Client")
     await db.execute(update(Client).where(Client.id == cid).values(email="pastdue@test.ca"))
     item = await _sub_item(db)
@@ -541,7 +523,7 @@ async def test_invoice_payment_failed_sets_past_due_and_notifies(
 async def test_subscription_deleted_notifies_client(
     api: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     cid = await _new_client(db, name="Canceled Client")
     await db.execute(update(Client).where(Client.id == cid).values(email="canceled@test.ca"))
     item = await _sub_item(db)
@@ -566,7 +548,7 @@ async def test_subscription_deleted_notifies_client(
 
 
 async def test_unknown_status_maps_to_past_due(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     sub = await _seed_sub(db, ref="sub_odd")
     event = _sub_event(
         "evt_odd",
@@ -592,7 +574,7 @@ def test_map_subscription_status_unknown_is_past_due() -> None:
 async def test_paid_invoice_without_a_visible_intent_is_retried(
     api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     await _seed_sub(db, ref="sub_late")
     await db.commit()
     obj: dict[str, object] = {
@@ -626,7 +608,7 @@ async def test_paid_invoice_without_a_visible_intent_is_retried(
 async def test_zero_amount_invoice_records_nothing(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     await _seed_sub(db, ref="sub_free")
     obj: dict[str, object] = {
         "id": "in_free",

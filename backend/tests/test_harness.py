@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import Settings
 from clientbridge.core.ids import new_id
-from clientbridge.integrations.messaging import Email
+from clientbridge.integrations.postmark import Email
 from clientbridge.main import app
 from clientbridge.models.clients import Client
 from tests.conftest import Factory, FakeEmailSender

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.services.business import business_tz
 from tests.conftest import BIZ, FakePaymentGateway
-from tests.flows import (
+from tests.helpers import (
     INTERAC,
     business_balance,
     enable_payments,

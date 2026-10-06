@@ -11,14 +11,9 @@ from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.integrations.messaging import (
-    Email,
-    EmailSender,
-    Push,
-    PushSender,
-    Sms,
-    SmsSender,
-)
+from clientbridge.integrations.expo import Push, PushSender
+from clientbridge.integrations.postmark import Email, EmailSender
+from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Subscription

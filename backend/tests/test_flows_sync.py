@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.sync.upload import WRITE_POLICY
 from tests.conftest import BIZ
-from tests.flows import column, ok, removed
+from tests.helpers import column, ok, removed
 
 
 def _writes() -> list[tuple[str, dict[str, object], dict[str, object]]]:

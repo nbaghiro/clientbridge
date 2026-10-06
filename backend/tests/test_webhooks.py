@@ -16,19 +16,10 @@ from clientbridge.services import ledger
 from clientbridge.services.business import kyc_status
 from clientbridge.services.messaging import unread_count
 from tests.conftest import FakePushSender
+from tests.helpers import client_id
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
-
-
-async def _a_client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
 
 
 async def _client_with_phone(db: AsyncSession, phone: str) -> str:
@@ -123,7 +114,7 @@ async def test_payment_method_auto_updated_refreshes_card(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await db.execute(update(Business).where(Business.id == BIZ).values(stripe_account_id="acct_pm"))
-    cid = await _a_client_id(db)
+    cid = await client_id(db)
     db.add(
         PaymentMethod(
             id="pm_row",
@@ -159,7 +150,7 @@ async def test_payment_method_auto_updated_refreshes_card(
 async def test_refund_created_records_a_dashboard_refund(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    cid = await _a_client_id(db)
+    cid = await client_id(db)
     db.add(
         Payment(
             id="pay_dash",
@@ -205,7 +196,7 @@ async def test_refund_created_records_a_dashboard_refund(
 async def test_charge_dispute_alerts_staff(
     api: httpx.AsyncClient, db: AsyncSession, push: FakePushSender
 ) -> None:
-    cid = await _a_client_id(db)
+    cid = await client_id(db)
     db.add(
         Payment(
             id="pay_disp",
@@ -316,7 +307,7 @@ def _intent_event(event_id: str, event_type: str, pi: str, **extra: object) -> s
 
 
 async def _pending_payment(db: AsyncSession, pi: str) -> str:
-    cid = await _a_client_id(db)
+    cid = await client_id(db)
     db.add(
         Payment(
             id=f"pay_{pi}",
@@ -396,7 +387,7 @@ async def test_foreign_intent_is_acknowledged(api: httpx.AsyncClient) -> None:
 
 
 async def _succeeded_payment(db: AsyncSession, pi: str) -> Payment:
-    cid = await _a_client_id(db)
+    cid = await client_id(db)
     payment = Payment(
         id=f"pay_{pi}",
         business_id=BIZ,

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.catalog import GiftCard, Package
 from clientbridge.services.entitlements import run_expiry_sweeps
 from tests.conftest import FakeEmailSender
-from tests.flows import (
+from tests.helpers import (
     business_balance,
     earning_status,
     earnings,

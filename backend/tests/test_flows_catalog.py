@@ -3,7 +3,7 @@
 import httpx
 import pytest
 
-from tests.flows import ok
+from tests.helpers import ok
 
 KINDS: dict[str, dict[str, object]] = {
     "service": {"duration_min": 45, "deposit_type": "fixed", "deposit_value": 1500},

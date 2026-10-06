@@ -1,4 +1,4 @@
-"""Steps shared by the flow tests; every direct database access they need lives here."""
+"""Helpers shared by the test files: setup steps, Stripe events and direct database reads."""
 
 import json
 import uuid
@@ -8,9 +8,11 @@ import httpx
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Package
+from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Entry
 from clientbridge.models.messaging import Thread
 from clientbridge.models.payments import Payment
@@ -25,7 +27,7 @@ from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import unread_count
 from clientbridge.services.orders import _out as _order_out
-from tests.conftest import BIZ
+from tests.conftest import BIZ, book_invoice
 
 SLUG = "birchbark"
 STRIPE = {"Stripe-Signature": "good"}
@@ -43,13 +45,80 @@ def ok(res: httpx.Response, status: int = 200) -> httpx.Response:
     return res
 
 
-async def enable_payments(db: AsyncSession, account: str = "acct_test") -> None:
+async def enable_payments(db: AsyncSession, account: str | None = "acct_test") -> None:
     await db.execute(
         update(Business)
         .where(Business.id == BIZ)
-        .values(stripe_account_id=account, stripe_charges_enabled=True)
+        .values(stripe_account_id=account, stripe_charges_enabled=account is not None)
     )
     await db.flush()
+
+
+async def client_id(db: AsyncSession, *, business_id: str = BIZ, email: str | None = None) -> str:
+    """A seeded client of the business, optionally given an email."""
+    cid = (
+        (await db.execute(select(Client.id).where(Client.business_id == business_id).limit(1)))
+        .scalars()
+        .first()
+    )
+    assert cid
+    if email is not None:
+        await db.execute(update(Client).where(Client.id == cid).values(email=email))
+        await db.flush()
+    return cid
+
+
+async def new_client(
+    db: AsyncSession,
+    *,
+    name: str = "Test Client",
+    email: str | None = "client@example.ca",
+    customer: str | None = None,
+) -> str:
+    client = Client(
+        id=new_id("client"),
+        business_id=BIZ,
+        name=name,
+        email=email,
+        tags=[],
+        custom_fields={},
+        stripe_customer_id=customer,
+    )
+    db.add(client)
+    await db.flush()
+    return client.id
+
+
+async def sent_invoice(
+    db: AsyncSession,
+    *,
+    client: str | None = None,
+    total: int = 5000,
+    number: int | None = None,
+    status: str = "sent",
+    business_id: str = BIZ,
+    due_at: datetime | None = None,
+    pay_token: str | None = None,
+) -> str:
+    """An invoice written straight to the database, booked to the ledger unless draft or void."""
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=business_id,
+        client_id=client or await client_id(db, business_id=business_id),
+        number=number,
+        status=status,
+        currency="CAD",
+        subtotal_cents=total,
+        tax_total_cents=0,
+        total_cents=total,
+        due_at=due_at,
+        pay_token=pay_token,
+    )
+    db.add(inv)
+    await db.flush()
+    if status not in ("draft", "void"):
+        await book_invoice(db, inv)
+    return inv.id
 
 
 async def provider_ref(db: AsyncSession, payment_id: str) -> str:
@@ -60,11 +129,13 @@ async def provider_ref(db: AsyncSession, payment_id: str) -> str:
     return str(ref)
 
 
-async def settle(api: httpx.AsyncClient, db: AsyncSession, payment_id: str) -> None:
+async def settle(
+    api: httpx.AsyncClient, db: AsyncSession, payment_id: str, event_id: str | None = None
+) -> None:
     ref = await provider_ref(db, payment_id)
     event = json.dumps(
         {
-            "id": f"evt_{uuid.uuid4().hex}",
+            "id": event_id or f"evt_{uuid.uuid4().hex}",
             "type": "payment_intent.succeeded",
             "data": {"object": {"id": ref}},
         }

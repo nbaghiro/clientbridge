@@ -8,37 +8,13 @@ from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_contract_rate_limit
 from clientbridge.main import app
-from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Signature
 from clientbridge.models.platform import File
 from tests.conftest import Factory, FakeEmailSender
+from tests.helpers import client_id, new_client
 
 BIZ = "bz_birchbark"
 WAIVER = "con_waiver"  # seeded contract
-
-
-async def _a_client(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
-
-
-async def _fresh_client(db: AsyncSession, *, email: str = "sign@example.ca") -> str:
-    client = Client(
-        id=new_id("client"),
-        business_id=BIZ,
-        name="Sign Client",
-        email=email,
-        tags=[],
-        custom_fields={},
-    )
-    db.add(client)
-    await db.flush()
-    return client.id
 
 
 async def _a_signature(db: AsyncSession, *, contract_id: str = WAIVER) -> str:
@@ -46,7 +22,7 @@ async def _a_signature(db: AsyncSession, *, contract_id: str = WAIVER) -> str:
         id=new_id("signature"),
         business_id=BIZ,
         contract_id=contract_id,
-        client_id=await _a_client(db),
+        client_id=await client_id(db),
         status="pending",
         token=secrets.token_urlsafe(16),
     )
@@ -72,7 +48,7 @@ async def _a_file(db: AsyncSession, *, business_id: str = BIZ) -> str:
 async def test_send_creates_pending_and_notifies(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    cid = await _fresh_client(db)
+    cid = await new_client(db)
     res = await as_owner.post("/v1/contracts/send", json={"contract_id": WAIVER, "client_id": cid})
     assert res.status_code == 201, res.text
     body = res.json()
@@ -83,7 +59,7 @@ async def test_send_creates_pending_and_notifies(
 
 
 async def test_send_unknown_contract_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _a_client(db)
+    cid = await client_id(db)
     res = await as_owner.post(
         "/v1/contracts/send", json={"contract_id": "con_nope", "client_id": cid}
     )
@@ -98,7 +74,7 @@ async def test_send_unknown_client_404(as_owner: httpx.AsyncClient) -> None:
 
 
 async def test_send_requires_admin(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _a_client(db)
+    cid = await client_id(db)
     res = await as_staff.post("/v1/contracts/send", json={"contract_id": WAIVER, "client_id": cid})
     assert res.status_code == 403
 
@@ -110,7 +86,7 @@ async def test_send_is_tenant_isolated(
     contract = Contract(id=new_id("contract"), business_id=other.id, name="Theirs", body="x")
     db.add(contract)
     await db.flush()
-    cid = await _a_client(db)
+    cid = await client_id(db)
     res = await as_owner.post(
         "/v1/contracts/send", json={"contract_id": contract.id, "client_id": cid}
     )

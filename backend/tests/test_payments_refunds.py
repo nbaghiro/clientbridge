@@ -9,35 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice, Order
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Package
-from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
+from tests.helpers import client_id, enable_payments
 
 GOOD = {"Stripe-Signature": "good"}
-
-
-async def _enable(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
 
 
 def _settled(event_id: str, pi: str) -> str:
@@ -48,11 +28,11 @@ def _settled(event_id: str, pi: str) -> str:
 
 async def _paid_invoice(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, str]:
     """A sent $100 + $12 tax invoice, paid in full by card and settled."""
-    await _enable(db)
+    await enable_payments(db)
     inv = Invoice(
         id=new_id("invoice"),
         business_id=BIZ,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         number=9700,
         status="sent",
         currency="CAD",
@@ -171,7 +151,7 @@ async def test_refund_replay_does_not_refund_twice(
 
 
 async def test_staff_cannot_refund_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     payment = await _entitlement_payment(db, 5000)
     res = await as_staff.post(f"/v1/payments/{payment.id}/refund?amount_cents=100")
     assert res.status_code == 403
@@ -181,7 +161,7 @@ async def test_staff_cannot_refund_403(as_staff: httpx.AsyncClient, db: AsyncSes
 async def test_other_business_payment_404(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     other = await factory.business()
     client = await factory.client(business=other)
     foreign = Payment(
@@ -205,7 +185,7 @@ async def test_other_business_payment_404(
 async def test_order_stays_paid_until_fully_refunded(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     line = {"description": "Latte", "quantity": 2, "unit_amount_cents": 500}
     order = (await as_owner.post("/v1/orders", json={"lines": [line]})).json()
     checkout = (await as_owner.post(f"/v1/orders/{order['id']}/checkout")).json()
@@ -236,7 +216,7 @@ async def _entitlement_payment(db: AsyncSession, amount: int) -> Payment:
     payment = Payment(
         id=new_id("payment"),
         business_id=BIZ,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         kind="payment",
         amount_cents=amount,
         currency="CAD",
@@ -254,7 +234,7 @@ async def _entitlement_payment(db: AsyncSession, amount: int) -> Payment:
 async def test_gift_card_purchase_refunds_in_full_only(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     payment = await _entitlement_payment(db, 5000)
     card = GiftCard(
         id=new_id("gift_card"),
@@ -284,7 +264,7 @@ async def test_gift_card_purchase_refunds_in_full_only(
 async def test_package_purchase_refunds_in_full_only(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     payment = await _entitlement_payment(db, 5600)
     package = Package(
         id=new_id("package"),
@@ -314,7 +294,7 @@ async def test_package_purchase_refunds_in_full_only(
 async def test_forfeited_deposit_refunds_in_full_only(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     booking_id = (
         (await db.execute(select(Booking.id).where(Booking.business_id == BIZ).limit(1)))
         .scalars()
@@ -327,7 +307,7 @@ async def test_forfeited_deposit_refunds_in_full_only(
     deposit = Payment(
         id=new_id("payment"),
         business_id=BIZ,
-        client_id=await _client_id(db),
+        client_id=await client_id(db),
         kind="deposit",
         booking_id=booking_id,
         amount_cents=2000,
@@ -428,7 +408,7 @@ async def test_stripe_side_refund_skips_one_we_already_recorded(
 async def test_used_package_cannot_be_refunded(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     payment = await _entitlement_payment(db, 5600)
     package = Package(
         id=new_id("package"),

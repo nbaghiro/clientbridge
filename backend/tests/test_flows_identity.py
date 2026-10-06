@@ -2,7 +2,7 @@
 
 import httpx
 
-from tests.flows import ok
+from tests.helpers import ok
 
 
 async def test_sign_up_onboard_invite_and_accept(unauth: httpx.AsyncClient) -> None:

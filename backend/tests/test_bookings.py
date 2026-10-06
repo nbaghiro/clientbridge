@@ -6,7 +6,6 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
@@ -22,6 +21,7 @@ from tests.conftest import (
     FakePushSender,
     FakeSmsSender,
 )
+from tests.helpers import enable_payments
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured
@@ -464,15 +464,6 @@ CL_AMELIE = "cl_amelie"  # seeded client with email + phone
 SEEDED_CARD = "pm_demo_4242"  # cl_amelie's seeded default-card provider ref
 
 
-async def _enable_payments(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
 async def _deposit_booking(
     api: httpx.AsyncClient,
     db: AsyncSession,
@@ -524,7 +515,7 @@ async def test_collect_deposit_default_card_settles_and_receipts(
     gateway: FakePaymentGateway,
     email: FakeEmailSender,
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-01T10:00:00Z")
     res = await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")
     assert res.status_code == 200, res.text
@@ -552,7 +543,7 @@ async def test_collect_deposit_default_card_settles_and_receipts(
 async def test_collect_deposit_interactive_returns_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-02T10:00:00Z")
     res = await as_owner.post(f"/v1/bookings/{bid}/deposit")
     assert res.status_code == 200, res.text
@@ -565,7 +556,7 @@ async def test_collect_deposit_interactive_returns_secret(
 async def test_collect_deposit_no_deposit_due_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-03T10:00:00Z", deposit=False)
     res = await as_owner.post(f"/v1/bookings/{bid}/deposit")
     assert res.status_code == 409
@@ -574,7 +565,7 @@ async def test_collect_deposit_no_deposit_due_409(
 async def test_collect_deposit_double_collect_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-04T10:00:00Z")
     first = await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")
     assert first.status_code == 200
@@ -585,7 +576,7 @@ async def test_collect_deposit_double_collect_409(
 async def test_collect_deposit_idempotent_replays(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-05T10:00:00Z")
     headers = {"Idempotency-Key": "dep-1"}
     first = await as_owner.post(
@@ -665,7 +656,7 @@ async def test_foreign_booking_404_by_scoping(
 async def test_no_show_forfeits_collected_deposit(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-08T10:00:00Z")
     pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
@@ -687,7 +678,7 @@ async def test_no_show_forfeits_collected_deposit(
 async def test_no_show_charges_default_card(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-09T10:00:00Z")  # deposit uncollected
     res = await as_owner.patch(f"/v1/bookings/{bid}", json={"status": "no_show"})
     assert res.status_code == 200
@@ -715,7 +706,7 @@ async def test_no_show_charges_default_card(
 async def test_no_show_stands_when_the_default_card_declines(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     await db.execute(
         update(PaymentMethod)
         .where(PaymentMethod.provider_ref == SEEDED_CARD)
@@ -742,7 +733,7 @@ async def test_no_show_required_deposit_no_default_card_does_not_forfeit(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     # No card on file, so a no-show can't capture the deposit: nothing forfeits, nothing is charged
-    await _enable_payments(db)
+    await enable_payments(db)
     nocard = Client(
         id=new_id("client"), business_id=BIZ, name="No Card Nora", tags=[], custom_fields={}
     )
@@ -760,7 +751,7 @@ async def test_no_show_with_pending_interactive_deposit_does_not_charge(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
     # An open interactive deposit means the no-show returns early instead of charging off-session
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-13T10:00:00Z")
     opened = await as_owner.post(f"/v1/bookings/{bid}/deposit")  # interactive — no payment_method
     assert opened.status_code == 200
@@ -786,7 +777,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
     email: FakeEmailSender,
 ) -> None:
     # A new event id for the same intent gets past webhook dedup and must hit the settled guard
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-14T10:00:00Z")
     pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
@@ -814,7 +805,7 @@ async def test_deposit_settle_redelivery_collects_once_no_second_receipt(
 async def test_refund_reverses_collected_deposit(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-06-11T10:00:00Z")
     pay = (await as_owner.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
@@ -847,7 +838,7 @@ async def _deposit_status(db: AsyncSession, bid: str) -> str:
 async def _collected_deposit(
     api: httpx.AsyncClient, db: AsyncSession, *, starts: str
 ) -> tuple[str, str]:
-    await _enable_payments(db)
+    await enable_payments(db)
     bid = await _deposit_booking(api, db, starts=starts)
     pay = (await api.post(f"/v1/bookings/{bid}/deposit?payment_method_id=default")).json()
     pi_id = await _provider_ref(db, pay["payment_id"])

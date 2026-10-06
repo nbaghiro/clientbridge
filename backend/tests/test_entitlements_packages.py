@@ -1,41 +1,19 @@
 """Package purchase (charge now, grant on settlement) + session consumption, vs the seeded DB."""
 
-import json
-
 import httpx
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Package
-from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
+from tests.helpers import client_id, enable_payments, settle
 
 PKG_ITEM = "it_pkg5"  # seeded package item: price $200, session_count = 5, GST+PST taxable
 PKG_TAXED = 22400  # $200 + 12% (BC GST 5% + PST 7%)
 CARD_CLIENT = "cl_marcus"  # seeded client with a default saved card (pm_demo_5454)
-
-
-async def _enable(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
-
-
-async def _client_id(db: AsyncSession) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
-    return cid
 
 
 async def _package_item(db: AsyncSession, *, business_id: str = BIZ, sessions: int | None) -> str:
@@ -68,21 +46,10 @@ async def _active_package(db: AsyncSession, *, total: int = 5, used: int = 0) ->
     return pkg
 
 
-async def _settle(api: httpx.AsyncClient, db: AsyncSession, payment_id: str, event_id: str) -> None:
-    ref = (
-        await db.execute(select(Payment.provider_ref).where(Payment.id == payment_id))
-    ).scalar_one()
-    event = json.dumps(
-        {"id": event_id, "type": "payment_intent.succeeded", "data": {"object": {"id": ref}}}
-    )
-    res = await api.post("/webhooks/stripe", content=event, headers={"Stripe-Signature": "good"})
-    assert res.status_code == 200, res.text
-
-
 async def test_purchase_off_session_creates_pending_package_and_payment(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     res = await as_owner.post(
         "/v1/packages",
         json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"},
@@ -104,14 +71,14 @@ async def test_purchase_off_session_creates_pending_package_and_payment(
 
 
 async def test_purchase_settles_to_active(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/packages",
             json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"},
         )
     ).json()
-    await _settle(as_owner, db, body["payment_id"], "evt_pkg_settle")
+    await settle(as_owner, db, body["payment_id"], "evt_pkg_settle")
 
     pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
     pay = (await db.execute(select(Payment).where(Payment.id == body["payment_id"]))).scalar_one()
@@ -120,7 +87,7 @@ async def test_purchase_settles_to_active(as_owner: httpx.AsyncClient, db: Async
 
 
 async def test_consume_before_activation_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/packages",
@@ -134,14 +101,14 @@ async def test_consume_before_activation_409(as_owner: httpx.AsyncClient, db: As
 async def test_purchase_then_settle_then_consume(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/packages",
             json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"},
         )
     ).json()
-    await _settle(as_owner, db, body["payment_id"], "evt_pkg_consume")
+    await settle(as_owner, db, body["payment_id"], "evt_pkg_consume")
     used = await as_owner.post(f"/v1/packages/{body['package_id']}/consume")
     assert used.status_code == 200, used.text
     assert used.json()["sessions_used"] == 1
@@ -151,8 +118,8 @@ async def test_purchase_then_settle_then_consume(
 async def test_purchase_interactive_returns_client_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     res = await as_owner.post("/v1/packages", json={"client_id": cid, "item_id": PKG_ITEM})
     assert res.status_code == 201, res.text
     assert res.json()["client_secret"]
@@ -164,27 +131,27 @@ async def test_purchase_interactive_returns_client_secret(
 
 
 async def test_purchase_not_onboarded_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    cid = await _client_id(db)
+    cid = await client_id(db)
     res = await as_owner.post("/v1/packages", json={"client_id": cid, "item_id": PKG_ITEM})
     assert res.status_code == 409
 
 
 async def test_purchase_unknown_item_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     res = await as_owner.post("/v1/packages", json={"client_id": cid, "item_id": "it_nope"})
     assert res.status_code == 404
 
 
 async def test_purchase_unknown_client_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     res = await as_owner.post("/v1/packages", json={"client_id": "cl_nope", "item_id": PKG_ITEM})
     assert res.status_code == 404
 
 
 async def test_purchase_non_package_item_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item_id = (
         (await db.execute(select(Item.id).where(Item.business_id == BIZ, Item.kind == "product")))
         .scalars()
@@ -198,8 +165,8 @@ async def test_purchase_non_package_item_409(as_owner: httpx.AsyncClient, db: As
 async def test_purchase_package_without_sessions_422(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
-    cid = await _client_id(db)
+    await enable_payments(db)
+    cid = await client_id(db)
     item_id = await _package_item(db, sessions=None)
     res = await as_owner.post("/v1/packages", json={"client_id": cid, "item_id": item_id})
     assert res.status_code == 422
@@ -259,7 +226,7 @@ async def test_other_business_package_404(
 async def test_idempotent_purchase_replays(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     headers = {"Idempotency-Key": "pkg-buy-1"}
     body = {"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"}
     first = await as_owner.post("/v1/packages", json=body, headers=headers)
@@ -280,7 +247,7 @@ async def test_idempotent_purchase_replays(
 async def test_distinct_keys_purchase_twice(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = {"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"}
     first = await as_owner.post("/v1/packages", json=body, headers={"Idempotency-Key": "k1"})
     second = await as_owner.post("/v1/packages", json=body, headers={"Idempotency-Key": "k2"})
@@ -293,14 +260,14 @@ async def test_distinct_keys_purchase_twice(
 async def test_refund_cancels_settled_package(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/packages",
             json={"client_id": CARD_CLIENT, "item_id": PKG_ITEM, "payment_method_id": "default"},
         )
     ).json()
-    await _settle(as_owner, db, body["payment_id"], "evt_pkg_refund")
+    await settle(as_owner, db, body["payment_id"], "evt_pkg_refund")
     pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
     assert pkg.status == "active"
     refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund")

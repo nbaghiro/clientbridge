@@ -1,30 +1,19 @@
 """Gift-card purchase (charge now, grant on settlement) + redeem, against the seeded DB."""
 
-import json
-
 import httpx
 import pytest
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
+from tests.helpers import enable_payments, settle
 
 PURCHASER = "cl_marcus"  # seeded client with a default saved card (pm_demo_5454)
-
-
-async def _enable(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True)
-    )
-    await db.flush()
 
 
 async def _active_card(db: AsyncSession, *, code: str, balance: int = 5000) -> GiftCard:
@@ -58,21 +47,10 @@ async def _gift_item(db: AsyncSession, *, price: int) -> str:
     return item.id
 
 
-async def _settle(api: httpx.AsyncClient, db: AsyncSession, payment_id: str, event_id: str) -> None:
-    ref = (
-        await db.execute(select(Payment.provider_ref).where(Payment.id == payment_id))
-    ).scalar_one()
-    event = json.dumps(
-        {"id": event_id, "type": "payment_intent.succeeded", "data": {"object": {"id": ref}}}
-    )
-    res = await api.post("/webhooks/stripe", content=event, headers={"Stripe-Signature": "good"})
-    assert res.status_code == 200, res.text
-
-
 async def test_purchase_off_session_creates_pending_card_and_payment(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     res = await as_owner.post(
         "/v1/gift-cards",
         json={
@@ -102,7 +80,7 @@ async def test_purchase_off_session_creates_pending_card_and_payment(
 async def test_purchase_settles_active_and_notifies_recipient(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/gift-cards",
@@ -114,7 +92,7 @@ async def test_purchase_settles_active_and_notifies_recipient(
             },
         )
     ).json()
-    await _settle(as_owner, db, body["payment_id"], "evt_gc_settle")
+    await settle(as_owner, db, body["payment_id"], "evt_gc_settle")
 
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
@@ -129,7 +107,7 @@ async def test_settle_redelivery_activates_once_and_notifies_once(
     as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
 ) -> None:
     # A new event id for the same intent gets past webhook dedup and must hit the settled guard
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/gift-cards",
@@ -141,14 +119,14 @@ async def test_settle_redelivery_activates_once_and_notifies_once(
             },
         )
     ).json()
-    await _settle(as_owner, db, body["payment_id"], "evt_gc_first")
+    await settle(as_owner, db, body["payment_id"], "evt_gc_first")
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
     assert len([m for m in email.sent if m.to == "gran@example.com"]) == 1
 
-    await _settle(as_owner, db, body["payment_id"], "evt_gc_redelivery")  # second event id
+    await settle(as_owner, db, body["payment_id"], "evt_gc_redelivery")  # second event id
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
@@ -157,7 +135,7 @@ async def test_settle_redelivery_activates_once_and_notifies_once(
 
 
 async def test_redeem_before_activation_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/gift-cards",
@@ -177,7 +155,7 @@ async def test_redeem_before_activation_409(as_owner: httpx.AsyncClient, db: Asy
 async def test_purchase_interactive_returns_client_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     res = await as_owner.post(
         "/v1/gift-cards", json={"amount_cents": 5000, "purchaser_client_id": PURCHASER}
     )
@@ -189,7 +167,7 @@ async def test_purchase_interactive_returns_client_secret(
 async def test_purchase_by_item_uses_item_price(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     item_id = await _gift_item(db, price=7500)
     res = await as_owner.post(
         "/v1/gift-cards", json={"item_id": item_id, "purchaser_client_id": PURCHASER}
@@ -212,7 +190,7 @@ async def test_purchase_not_onboarded_409(as_owner: httpx.AsyncClient) -> None:
 async def test_purchase_requires_purchaser_422(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     res = await as_owner.post("/v1/gift-cards", json={"amount_cents": 5000})
     assert res.status_code == 422
 
@@ -220,7 +198,7 @@ async def test_purchase_requires_purchaser_422(
 async def test_purchase_requires_amount_or_item_422(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     res = await as_owner.post("/v1/gift-cards", json={"purchaser_client_id": PURCHASER})
     assert res.status_code == 422
 
@@ -235,7 +213,7 @@ async def test_purchase_negative_amount_422(as_owner: httpx.AsyncClient) -> None
 async def test_purchase_unknown_purchaser_404(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     res = await as_owner.post(
         "/v1/gift-cards", json={"amount_cents": 5000, "purchaser_client_id": "cl_nope"}
     )
@@ -245,7 +223,7 @@ async def test_purchase_unknown_purchaser_404(
 async def test_purchase_zero_price_gift_item_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)  # the seeded "it_gift" item has price 0 — no amount to charge
+    await enable_payments(db)  # the seeded "it_gift" item has price 0 — no amount to charge
     res = await as_owner.post(
         "/v1/gift-cards", json={"item_id": "it_gift", "purchaser_client_id": PURCHASER}
     )
@@ -253,7 +231,7 @@ async def test_purchase_zero_price_gift_item_409(
 
 
 async def test_purchase_non_gift_item_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _enable(db)
+    await enable_payments(db)
     item_id = (
         (await db.execute(select(Item.id).where(Item.business_id == BIZ, Item.kind == "product")))
         .scalars()
@@ -348,7 +326,7 @@ async def test_other_business_code_404(
 async def test_code_collision_409(
     as_owner: httpx.AsyncClient, db: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     monkeypatch.setattr("clientbridge.services.entitlements._gift_code", lambda: "FIXEDCODE123")
     body = {"amount_cents": 1000, "purchaser_client_id": PURCHASER, "payment_method_id": "default"}
     first = await as_owner.post("/v1/gift-cards", json=body)
@@ -360,7 +338,7 @@ async def test_code_collision_409(
 async def test_idempotent_purchase_replays(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     headers = {"Idempotency-Key": "gc-buy-1"}
     body = {"amount_cents": 4000, "purchaser_client_id": PURCHASER, "payment_method_id": "default"}
     first = await as_owner.post("/v1/gift-cards", json=body, headers=headers)
@@ -382,7 +360,7 @@ async def test_idempotent_purchase_replays(
 async def test_distinct_keys_purchase_twice(
     as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = {"amount_cents": 4000, "purchaser_client_id": PURCHASER, "payment_method_id": "default"}
     first = await as_owner.post("/v1/gift-cards", json=body, headers={"Idempotency-Key": "k1"})
     second = await as_owner.post("/v1/gift-cards", json=body, headers={"Idempotency-Key": "k2"})
@@ -395,7 +373,7 @@ async def test_distinct_keys_purchase_twice(
 async def test_refund_voids_settled_gift_card(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/gift-cards",
@@ -406,7 +384,7 @@ async def test_refund_voids_settled_gift_card(
             },
         )
     ).json()
-    await _settle(as_owner, db, body["payment_id"], "evt_gc_refund")
+    await settle(as_owner, db, body["payment_id"], "evt_gc_refund")
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
@@ -422,7 +400,7 @@ async def test_refund_voids_settled_gift_card(
 async def test_refund_partially_redeemed_gift_card_blocked(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _enable(db)
+    await enable_payments(db)
     body = (
         await as_owner.post(
             "/v1/gift-cards",
@@ -433,7 +411,7 @@ async def test_refund_partially_redeemed_gift_card_blocked(
             },
         )
     ).json()
-    await _settle(as_owner, db, body["payment_id"], "evt_gc_partial_refund")
+    await settle(as_owner, db, body["payment_id"], "evt_gc_partial_refund")
     redeemed = await as_owner.post(
         "/v1/gift-cards/redeem", json={"code": body["code"], "amount_cents": 2000}
     )

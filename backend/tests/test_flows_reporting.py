@@ -5,7 +5,7 @@ from datetime import date
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.flows import WIDE, earnings, enable_payments, key, ok, settle
+from tests.helpers import WIDE, earnings, enable_payments, key, ok, settle
 
 OWNER_BOOKING = "bk_016"  # seeded upcoming visit for st_owner (a payee)
 

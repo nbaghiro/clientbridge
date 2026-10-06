@@ -1,6 +1,5 @@
 """The online shop (pay online, collect in person), booking add-ons, and invoicing a visit."""
 
-import json
 import uuid
 
 import httpx
@@ -14,6 +13,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakeEmailSender
+from tests.helpers import enable_payments, settle
 
 SLUG = "birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -36,22 +36,16 @@ def _order(*lines: tuple[str, int], email: str = "shopper@example.com") -> dict[
 
 
 async def _enable(db: AsyncSession) -> None:
-    await db.execute(
-        update(Business)
-        .where(Business.id == BIZ)
-        .values(stripe_account_id="acct_test", stripe_charges_enabled=True, billing_email=None)
-    )
+    await enable_payments(db)
+    await db.execute(update(Business).where(Business.id == BIZ).values(billing_email=None))
     await db.flush()
 
 
 async def _settle(api: httpx.AsyncClient, db: AsyncSession, order_id: str, event: str) -> None:
-    pi = (
-        await db.execute(select(Payment.provider_ref).where(Payment.order_id == order_id))
+    payment_id = (
+        await db.execute(select(Payment.id).where(Payment.order_id == order_id))
     ).scalar_one()
-    body = json.dumps(
-        {"id": event, "type": "payment_intent.succeeded", "data": {"object": {"id": pi}}}
-    )
-    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    await settle(api, db, payment_id, event)
 
 
 async def test_shop_lists_online_products_without_cost_or_sku(
