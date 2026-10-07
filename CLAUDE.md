@@ -20,8 +20,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - `models` = tables, `schemas` = API shapes; a column reaches the API only through a schema.
 - Flow: `api` (thin router + DTO, **never queries**) → `services` (logic, owns the
   transaction/commit) → `models`. Services own their queries and **always scope tenancy through
-  `core/scoping.scoped(Model, business_id, soft_delete=…)`** (with `scoped_page`/`scoped_count` for
-  list endpoints) — the one place the `business_id` (+ soft-delete) filter lives; never hand-write a
+  `core/scoping.scoped(Model, business_id, soft_delete=…)`** — the one place the `business_id` (+ soft-delete) filter lives; never hand-write a
   `business_id` filter. Money / uniqueness / cross-tenant mutations additionally go through
   `run_command` (atomic + audited + idempotency-replay).
 - **5 surfaces** — every capability is exactly one (see `.docs/architecture.md`): sync-read (PowerSync
@@ -78,7 +77,7 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
 - **Milestone audit (do this at every slice/phase boundary, before starting the next).** Review the
   changeset against these principles and fix High/Medium findings *then*, not later: layering (thin
   router → service; routers never query; every tenant query goes through
-  `scoped()`/`scoped_page`/`scoped_count` — never a hand-written `business_id` filter); the **5
+  `scoped()` — never a hand-written `business_id` filter); the **5
   surfaces** (sync-write vs
   command) chosen correctly; **role gates** match `WRITE_POLICY` + the **4-part test matrix** is cleared
   (happy · each 4xx · security/tenant-isolation · idempotency); **web↔mobile duplication** (share the
