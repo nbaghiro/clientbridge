@@ -12,7 +12,9 @@ import { GiftCards } from "./GiftCards";
 import { Invoices } from "./Invoices";
 import { Earnings } from "./Earnings";
 import { POS } from "./POS";
+import { Payouts } from "./Payouts";
 import { Refunds } from "./Refunds";
+import { Remittances } from "./Remittances";
 import { Reports } from "./Reports";
 
 export function PaymentsScreen() {
@@ -62,6 +64,10 @@ function tabBody(
             return <Refunds openId={openId} />;
         case "staffPay":
             return <Earnings />;
+        case "taxReturns":
+            return <Remittances />;
+        case "payouts":
+            return <Payouts />;
         case "reports":
             return <Reports />;
     }

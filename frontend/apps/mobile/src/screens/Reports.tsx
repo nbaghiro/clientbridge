@@ -1,300 +1,374 @@
 import {
-    type GstHstReport,
-    type IncomeReport,
-    type T4ARow,
-    defaultReportRange,
+    EXPORT_KINDS,
+    type ExportKind,
+    type IconName,
+    REPORT_PERIODS,
+    type ReportKey,
+    type ReportPeriodKey,
+    type ReportsView,
     formatMoney,
-    formatMoneyWithCurrency,
-    formatMonthDay,
-    parseTimestamp,
-    paymentStatusIntent,
-    reportRangeForYear,
+    spanLabel,
     strings,
-    useBankDeposits,
-    useReportDownload,
-    useRemittanceAction,
-    useReports,
+    useMoneyReports,
+    useReportFile,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
+import {
+    BarChart,
+    Button,
+    DetailSection,
+    DetailView,
+    DocTotals,
+    Empty,
+    KeyValueList,
+    ListRow,
+    LoadFailed,
+    Meter,
+    Modal,
+    Notice,
+    Panel,
+    Skeleton,
+    Tabs,
+    ui,
+} from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
-import { Button, Empty, Loading, Notice, Panel, Stat, StatusPill, Stepper } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
+const s = strings.reports;
 const c = theme.colors;
+const REPORTS: ReportKey[] = ["income", "salesByItem", "gstHst", "pst", "t4a"];
+const ICONS: Record<ReportKey, IconName> = {
+    income: "dollar",
+    salesByItem: "tag",
+    gstHst: "building",
+    pst: "percent",
+    t4a: "user",
+};
+
+async function shareCsv(csv: string, filename: string): Promise<void> {
+    await Share.share({ title: filename, message: csv });
+}
+
+function figure(key: ReportKey, v: ReportsView): string {
+    switch (key) {
+        case "income":
+            return formatMoney(v.netCents);
+        case "salesByItem":
+            return s.sold(v.unitsSold);
+        case "gstHst":
+            return formatMoney(v.gst.collectedCents);
+        case "pst":
+            return v.provincial === null ? "" : formatMoney(v.provincial.collectedCents);
+        case "t4a":
+            return formatMoney(v.t4aTotalCents);
+    }
+}
 
 export function Reports() {
-    const [year, setYear] = useState(defaultReportRange().year);
-    const range = reportRangeForYear(year);
-    const { income, gstHst, t4a, salesByItem, error } = useReports(api, range);
-    const {
-        error: dlError,
-        isDownloading,
-        download,
-    } = useReportDownload(api, range, async (csv) => {
-        await Share.share({ message: csv });
-    });
+    const r = useMoneyReports(api);
+    const file = useReportFile(api, r.span, shareCsv);
+    const [open, setOpen] = useState<ReportKey | null>(null);
+    const [packing, setPacking] = useState(false);
+    const v = r.view;
+    const name = (key: ExportKind): string =>
+        key === "pst" && v?.provincial ? v.provincial.label : (s.library[key] ?? key);
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-            <View style={styles.yearRow}>
-                <Stepper value={year} onChange={setYear} label={strings.reports.t4aYear} />
-            </View>
-
-            {dlError !== null ? <Notice tone="danger">{dlError}</Notice> : null}
-
-            {error ? (
-                <Text style={styles.muted}>{strings.reports.loadError}</Text>
-            ) : (
-                <>
-                    <ReportPanel
-                        title={strings.reports.incomeTitle}
-                        subtitle={strings.reports.incomeSubtitle}
-                        onDownload={() => {
-                            download("income");
-                        }}
-                        downloading={isDownloading("income")}
-                    >
-                        {income === null ? <Loading inline /> : <IncomeBody income={income} />}
-                    </ReportPanel>
-
-                    <ReportPanel
-                        title={strings.reports.gstTitle}
-                        subtitle={strings.reports.gstSubtitleMobile}
-                        onDownload={() => {
-                            download("gst-hst");
-                        }}
-                        downloading={isDownloading("gst-hst")}
-                    >
-                        {gstHst === null ? <Loading inline /> : <GstBody report={gstHst} />}
-                    </ReportPanel>
-
-                    <ReportPanel
-                        title={strings.reports.t4aTitle(year)}
-                        subtitle={strings.reports.t4aSubtitleMobile}
-                        onDownload={() => {
-                            download("t4a");
-                        }}
-                        downloading={isDownloading("t4a")}
-                    >
-                        {t4a === null ? (
-                            <Loading inline />
-                        ) : t4a.length === 0 ? (
-                            <Text style={styles.muted}>{strings.reports.noPayeeAmounts(year)}</Text>
-                        ) : (
-                            t4a.map((row: T4ARow) => (
-                                <View key={row.staff_id} style={styles.line}>
-                                    <Text style={styles.lineLabel}>{row.name}</Text>
-                                    <Text style={styles.lineValue}>
-                                        {formatMoney(row.total_cents)}
-                                    </Text>
-                                </View>
-                            ))
-                        )}
-                    </ReportPanel>
-
-                    <ReportPanel
-                        title={strings.reports.salesByItemTitle}
-                        subtitle={strings.reports.salesByItemSubtitle}
-                        onDownload={() => {
-                            download("sales-by-item");
-                        }}
-                        downloading={isDownloading("sales-by-item")}
-                    >
-                        {salesByItem === null ? (
-                            <Loading inline />
-                        ) : salesByItem.length === 0 ? (
-                            <Text style={styles.muted}>{strings.reports.noItemSales}</Text>
-                        ) : (
-                            salesByItem.map((row) => (
-                                <View key={row.item_id} style={styles.line}>
-                                    <View style={styles.itemMain}>
-                                        <Text style={styles.itemName} numberOfLines={1}>
-                                            {row.name}
-                                        </Text>
-                                        <Text style={styles.itemSub}>
-                                            {strings.reports.colQty}{" "}
-                                            {strings.reports.qty(row.quantity)} ·{" "}
-                                            {strings.reports.colTax} {formatMoney(row.tax_cents)}
-                                            {row.refunded_cents > 0
-                                                ? ` · ${strings.reports.colRefunded} ${formatMoney(row.refunded_cents)}`
-                                                : ""}
-                                        </Text>
-                                    </View>
-                                    <Text style={styles.lineValue}>
-                                        {formatMoney(row.sales_cents)}
-                                    </Text>
-                                </View>
-                            ))
-                        )}
-                    </ReportPanel>
-                </>
-            )}
-            <BankDeposits />
-        </ScrollView>
-    );
-}
-
-function BankDeposits() {
-    const payouts = useBankDeposits();
-    return (
-        <Panel title={strings.reports.bankDeposits} subtitle={strings.reports.bankDepositsSubtitle}>
-            <View style={styles.cardBody}>
-                {payouts.length === 0 ? (
-                    <Empty message={strings.reports.noBankDeposits} />
-                ) : (
-                    payouts.map((row) => (
-                        <View key={row.id} style={styles.deposit}>
-                            <Text style={styles.lineValue}>
-                                {formatMoneyWithCurrency(row.amount_cents, "CAD")}
-                            </Text>
-                            <StatusPill
-                                status={row.status}
-                                intent={paymentStatusIntent(row.status)}
-                            />
-                            {row.arrival_at !== null ? (
-                                <Text style={styles.arrival}>
-                                    {formatMonthDay(parseTimestamp(row.arrival_at))}
-                                </Text>
-                            ) : null}
-                        </View>
-                    ))
-                )}
-            </View>
-        </Panel>
-    );
-}
-
-function IncomeBody({ income }: { income: IncomeReport }) {
-    return (
-        <>
-            <Stat label={strings.reports.gross} cents={income.gross_cents} />
-            <Stat label={strings.reports.refunds} cents={income.refunds_cents} tone="danger" />
-            <Stat label={strings.reports.net} cents={income.net_cents} tone="success" />
-            {Object.entries(income.by_method).map(([method, cents]) => (
-                <View key={method} style={styles.line}>
-                    <Text style={styles.lineLabel}>{method}</Text>
-                    <Text style={styles.lineValue}>{formatMoney(cents)}</Text>
-                </View>
-            ))}
-        </>
-    );
-}
-
-function GstBody({ report }: { report: GstHstReport }) {
-    return (
-        <>
-            <Stat
-                label={strings.reports.taxCollected}
-                cents={report.tax_collected_cents}
-                tone="success"
+        <View style={styles.screen}>
+            <Tabs
+                variant="pill"
+                label={s.periodLabel}
+                items={REPORT_PERIODS.map((key) => ({ key, label: s.period[key] ?? key }))}
+                active={r.period}
+                onSelect={(k: ReportPeriodKey) => {
+                    r.setPeriod(k);
+                }}
             />
-            {report.pst_cents > 0 ? (
-                <Stat label={strings.reports.pstCollected} cents={report.pst_cents} />
-            ) : null}
-            {report.qst_cents > 0 ? (
-                <Stat label={strings.reports.qstCollected} cents={report.qst_cents} />
-            ) : null}
-            <Stat label={strings.reports.taxableSales} cents={report.taxable_sales_cents} />
-            <View style={styles.line}>
-                <Text style={styles.lineLabel}>{strings.reports.gstNumberLabel}</Text>
-                <Text style={styles.lineValue}>
-                    {report.gst_hst_number ?? strings.reports.notRegistered}
-                </Text>
-            </View>
-            <Remittances />
-        </>
-    );
-}
+            <ScrollView contentContainerStyle={styles.page}>
+                <Text style={ui.note}>{s.subtitle}</Text>
+                {r.load.state === "loading" ? (
+                    <Skeleton variant="row" count={5} label={s.loading} />
+                ) : r.load.state === "error" ? (
+                    <LoadFailed
+                        variant="card"
+                        message={s.loadError}
+                        onRetry={r.load.retry}
+                        retrying={r.load.retrying}
+                    />
+                ) : r.load.state === "empty" || v === null ? (
+                    <Empty variant="card" icon="dollar" message={s.noSales} body={s.noSalesBody} />
+                ) : (
+                    <>
+                        <Text style={styles.caption}>{spanLabel(r.span)}</Text>
+                        <Panel flush>
+                            {REPORTS.map((key) => (
+                                <ListRow
+                                    key={key}
+                                    icon={ICONS[key]}
+                                    title={name(key)}
+                                    detail={s.libraryHint[key]}
+                                    meta={figure(key, v)}
+                                    onPress={() => {
+                                        setOpen(key);
+                                    }}
+                                />
+                            ))}
+                        </Panel>
+                        <Button
+                            full
+                            variant="outline"
+                            icon="mail"
+                            onPress={() => {
+                                setPacking(true);
+                            }}
+                        >
+                            {s.bookkeeperPack}
+                        </Button>
+                    </>
+                )}
+            </ScrollView>
 
-function Remittances() {
-    const { filed, period, canRecord, busy, error, record } = useRemittanceAction(api);
-    return (
-        <View style={styles.remit}>
-            <Text style={styles.remitTitle}>{strings.reports.remitTitle}</Text>
-            {filed.length === 0 ? (
-                <Text style={styles.muted}>{strings.reports.remitNone}</Text>
-            ) : (
-                filed.map((row) => (
-                    <View key={row.id} style={styles.figure}>
-                        <Text style={styles.figureLabel}>
-                            {strings.reports.remitRow(row.period_start, row.period_end)}
-                        </Text>
-                        <Text style={styles.lineValue}>{formatMoney(row.total_cents)}</Text>
+            {open !== null && v !== null ? (
+                <DetailView
+                    open
+                    title={
+                        open === "pst" && v.provincial ? s.pstTitle(v.provincial.label) : name(open)
+                    }
+                    subtitle={open === "t4a" ? s.t4aYear(v.t4aYear) : spanLabel(r.span)}
+                    onClose={() => {
+                        setOpen(null);
+                    }}
+                    actions={
+                        <Button
+                            grow
+                            variant="outline"
+                            busy={file.busyKind === open}
+                            onPress={() => {
+                                file.download(open);
+                            }}
+                        >
+                            {s.csv}
+                        </Button>
+                    }
+                >
+                    {file.error !== null ? <Notice tone="danger">{file.error}</Notice> : null}
+                    <DetailSection>
+                        <ReportBody report={open} v={v} />
+                    </DetailSection>
+                    {open === "income" ? (
+                        <DetailSection title={s.monthlyNet}>
+                            <BarChart
+                                label={s.monthlyNet}
+                                bars={v.bars.map((b) => ({
+                                    key: b.key,
+                                    label: b.label,
+                                    value: Math.max(0, b.netCents),
+                                    valueLabel: formatMoney(b.netCents),
+                                    partial: b.partial,
+                                    dim: !b.inSpan,
+                                }))}
+                            />
+                        </DetailSection>
+                    ) : null}
+                </DetailView>
+            ) : null}
+
+            <Modal
+                open={packing}
+                size="xl"
+                onClose={() => {
+                    setPacking(false);
+                }}
+            >
+                <ScrollView>
+                    <Text style={styles.sheetTitle}>{s.packTitle}</Text>
+                    <Text style={ui.note}>{`${spanLabel(r.span)} · ${s.packMobile}`}</Text>
+                    {file.error !== null ? <Notice tone="danger">{file.error}</Notice> : null}
+                    <View style={styles.pack}>
+                        {EXPORT_KINDS.map((kind) => (
+                            <ListRow
+                                key={kind}
+                                title={name(kind)}
+                                detail={s.packRows(v?.rows[kind] ?? 0)}
+                                trailing={
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        busy={file.busyKind === kind}
+                                        onPress={() => {
+                                            file.download(kind);
+                                        }}
+                                    >
+                                        {s.shareCsv}
+                                    </Button>
+                                }
+                            />
+                        ))}
                     </View>
-                ))
-            )}
-            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
-            <Button full onPress={record} busy={busy} disabled={!canRecord}>
-                {busy
-                    ? strings.reports.remitting
-                    : strings.reports.remitAction(period.start, period.end)}
-            </Button>
+                </ScrollView>
+            </Modal>
         </View>
     );
 }
 
-function ReportPanel({
-    title,
-    subtitle,
-    onDownload,
-    downloading,
-    children,
-}: {
-    title: string;
-    subtitle: string;
-    onDownload: () => void;
-    downloading: boolean;
-    children: React.ReactNode;
-}) {
-    return (
-        <Panel
-            title={title}
-            subtitle={subtitle}
-            actions={
-                <Button variant="outline" size="sm" onPress={onDownload} busy={downloading}>
-                    {strings.reports.csv}
-                </Button>
-            }
-        >
-            <View style={styles.cardBody}>{children}</View>
-        </Panel>
-    );
+function ReportBody({ report, v }: { report: ReportKey; v: ReportsView }) {
+    switch (report) {
+        case "income":
+            return (
+                <View style={styles.stack}>
+                    <DocTotals
+                        lines={[
+                            { key: "sales", label: s.sales, cents: v.salesCents, kind: "subtotal" },
+                            {
+                                key: "refunds",
+                                label: s.refunds,
+                                cents: v.refundsCents,
+                                kind: "deduction",
+                            },
+                            { key: "net", label: s.netSales, cents: v.netCents, kind: "total" },
+                            ...v.taxLines.map((t) => ({
+                                key: t.code,
+                                label: t.label,
+                                cents: t.cents,
+                                kind: "tax" as const,
+                                hint: t.rate,
+                            })),
+                            {
+                                key: "withTax",
+                                label: s.salesWithTax,
+                                cents: v.salesWithTaxCents,
+                                kind: "balance",
+                            },
+                            ...(v.tipsCents !== 0
+                                ? [
+                                      {
+                                          key: "tips",
+                                          label: s.tips,
+                                          cents: v.tipsCents,
+                                          kind: "subtotal" as const,
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                    />
+                    <Text style={styles.caption}>
+                        {`${s.byMethod} · ${s.received(formatMoney(v.receivedCents))}`}
+                    </Text>
+                    {v.methods.length === 0 ? <Text style={ui.note}>{s.noPayments}</Text> : null}
+                    {v.methods.map((m) => (
+                        <Meter
+                            key={m.method}
+                            value={Math.max(0, m.cents)}
+                            max={Math.max(1, v.receivedCents)}
+                            label={m.label}
+                            detail={`${s.share(m.share)} · ${formatMoney(m.cents)}`}
+                            labelPosition="above"
+                            size="sm"
+                        />
+                    ))}
+                </View>
+            );
+        case "salesByItem":
+            return v.items.length === 0 ? (
+                <Empty message={s.noItems} />
+            ) : (
+                <View>
+                    {v.items.map((row) => (
+                        <ListRow
+                            key={row.id}
+                            density="compact"
+                            title={row.name}
+                            detail={`${row.kind} · ${s.colQty} ${row.quantity}${
+                                row.refundedCents > 0
+                                    ? ` · ${s.colRefunded} ${formatMoney(row.refundedCents)}`
+                                    : ""
+                            }`}
+                            meta={formatMoney(row.netCents)}
+                        />
+                    ))}
+                </View>
+            );
+        case "gstHst":
+            return (
+                <View style={styles.stack}>
+                    <DocTotals
+                        lines={[
+                            {
+                                key: "101",
+                                label: s.taxableSales,
+                                cents: v.gst.taxableCents,
+                                kind: "subtotal",
+                            },
+                            {
+                                key: "105",
+                                label: s.gstLine105(v.gst.label),
+                                cents: v.gst.collectedCents,
+                                kind: "balance",
+                            },
+                        ]}
+                    />
+                    <Text style={ui.note}>{s.gstNumber(v.gst.number)}</Text>
+                </View>
+            );
+        case "pst":
+            return v.provincial === null ? (
+                <Empty message={s.noProvincial} />
+            ) : (
+                <View style={styles.stack}>
+                    <DocTotals
+                        lines={[
+                            {
+                                key: "sales",
+                                label: s.provincialSales,
+                                cents: v.provincial.taxableCents,
+                                kind: "subtotal",
+                            },
+                            {
+                                key: "tax",
+                                label: s.taxCollected(v.provincial.label),
+                                cents: v.provincial.collectedCents,
+                                kind: "balance",
+                                hint: v.provincial.rate,
+                            },
+                        ]}
+                    />
+                    <Text style={ui.note}>
+                        {s.provincialNumber(v.provincial.label, v.provincial.number)}
+                    </Text>
+                </View>
+            );
+        case "t4a":
+            return (
+                <View style={styles.stack}>
+                    {v.t4a.length === 0 ? (
+                        <Empty message={s.noT4a} />
+                    ) : (
+                        <KeyValueList
+                            rows={v.t4a.map((row) => ({
+                                label: `${row.name} · ${s.colPayments} ${String(row.payments)}`,
+                                value: formatMoney(row.totalCents),
+                            }))}
+                        />
+                    )}
+                    <Text style={ui.note}>{s.t4aNote}</Text>
+                </View>
+            );
+    }
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
-    center: { alignItems: "center", justifyContent: "center" },
-    content: { padding: 16, gap: 14 },
-    muted: { color: c.muted, fontSize: 14 },
-    yearRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20 },
-    cardBody: { gap: 8 },
-    figure: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
+    screen: { flex: 1, gap: 8 },
+    page: { gap: 10, padding: 16, paddingBottom: 32 },
+    stack: { gap: 10 },
+    pack: { marginTop: 12 },
+    caption: {
+        color: c.muted,
+        fontSize: 12,
+        fontWeight: "600",
+        textTransform: "uppercase",
+        letterSpacing: 0.5,
     },
-    figureLabel: { color: c.muted, fontSize: 14 },
-    line: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingTop: 8,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: c.borderSoft,
-    },
-    lineLabel: { color: c.inkSoft, fontSize: 14, textTransform: "capitalize" },
-    lineValue: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
-    itemMain: { flex: 1, marginRight: 12 },
-    itemName: { color: c.inkSoft, fontSize: 14 },
-    itemSub: { color: c.muted, fontSize: 12, marginTop: 2 },
-    remit: {
-        gap: 8,
-        paddingTop: 8,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: c.borderSoft,
-    },
-    remitTitle: { color: c.ink, fontSize: 14, fontWeight: "700" },
-    deposit: { flexDirection: "row", alignItems: "center", gap: 10 },
-    arrival: { color: c.muted, fontSize: 12, marginLeft: "auto" },
+    sheetTitle: { fontSize: 18, fontWeight: "700", color: c.ink },
 });

@@ -64,6 +64,12 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                 case "staffPay":
                     nav.navigate("Tabs", { screen: "Payments", params: { tab: "staffPay" } });
                     return;
+                case "taxReturns":
+                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "taxReturns" } });
+                    return;
+                case "payouts":
+                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "payouts" } });
+                    return;
                 case "inbox":
                     nav.navigate("Inbox", undefined);
                     return;

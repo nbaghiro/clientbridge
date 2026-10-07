@@ -385,7 +385,7 @@ function ownerAttention(input: {
             detail: a.filingDetail(formatMoney(input.filingCents), formatMonthDay(input.filingDue)),
             action: a.filingAction,
             act: "open",
-            target: "reports",
+            target: "taxReturns",
             refId: null,
         });
     }

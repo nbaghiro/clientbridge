@@ -43,20 +43,6 @@ export function canManagePayments(role: string | null): boolean {
     return role === "owner" || role === "admin";
 }
 
-export function paymentStatusIntent(status: string): Intent {
-    switch (status) {
-        case "succeeded":
-            return "success";
-        case "pending":
-            return "accent";
-        case "failed":
-        case "canceled":
-            return "danger";
-        default:
-            return "neutral"; // refunded
-    }
-}
-
 /** `base` is the one pay host (pay.clientbridge.ca in production) each app is configured with. */
 export function payLinkUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/i/${token}`;

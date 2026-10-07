@@ -602,6 +602,7 @@ function seed(): void {
         account("a_bank", "business", BIZ, "bank"),
         account("a_deposit", "business", BIZ, "deposit"),
         account("a_cost", "business", BIZ, "staff_cost"),
+        account("a_fee", "business", BIZ, "processing_fee"),
         account("a_pay_owner", "staff", "st_owner", "payable", "pending"),
         account("a_pay_amy", "staff", "st_amy", "payable", "pending"),
         { ...account("a_gc1", "gift_card", "gc_1", "gift_card"), balance_cents: -3000 },
@@ -634,6 +635,16 @@ function seed(): void {
             ["a_recv", -5000],
         ],
         on("invoice", "inv_1", "pay_1"),
+    );
+    journal(
+        "j_fee1",
+        "fee",
+        "fee:pay_1",
+        [
+            ["a_fee", 175],
+            ["a_stripe", -175],
+        ],
+        { source_type: "payment", source_id: "pay_1" },
     );
     journal(
         "j_ref1",
@@ -723,6 +734,16 @@ function seed(): void {
         );
     };
     earning("j_e_pending", "a_pay_amy", 900, on("order", "ord_web"));
+    journal(
+        "j_tip",
+        "tip",
+        "tip:pay_web:st_amy",
+        [
+            ["a_cost", 300],
+            ["a_pay_amy", -300],
+        ],
+        { ...on("order", "ord_web", "pay_web"), meta: JSON.stringify({ basis: "tip" }) },
+    );
     earning("j_e_approved", "a_pay_owner", 4000, on("booking", "bk_1"));
     earning("j_e_paid", "a_pay_owner", 1500, on("booking", "bk_4"));
     earning("j_e_reversed", "a_pay_amy", 700, on("booking", "bk_4"));
@@ -885,15 +906,20 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([{ invoice_id: "inv_1" }]);
     });
 
-    it("derives each earning's status from its journals", () => {
-        expect(
-            pick(run("ALL_EARNINGS_SQL"), "id", "status", "amount_cents", "staff_title"),
-        ).toEqual([
-            { id: "j_e_pending", status: "pending", amount_cents: 900, staff_title: "Groomer" },
-            { id: "j_e_approved", status: "approved", amount_cents: 4000, staff_title: "Owner" },
-            { id: "j_e_paid", status: "paid", amount_cents: 1500, staff_title: "Owner" },
-            { id: "j_e_reversed", status: "reversed", amount_cents: 700, staff_title: "Groomer" },
+    it("derives each earning's status from its journals, tips included", () => {
+        expect(pick(run("ALL_EARNINGS_SQL"), "id", "status", "amount_cents", "kind")).toEqual([
+            { id: "j_e_pending", status: "pending", amount_cents: 900, kind: "earning" },
+            { id: "j_tip", status: "pending", amount_cents: 300, kind: "tip" },
+            { id: "j_e_approved", status: "approved", amount_cents: 4000, kind: "earning" },
+            { id: "j_e_paid", status: "paid", amount_cents: 1500, kind: "earning" },
+            { id: "j_e_reversed", status: "reversed", amount_cents: 700, kind: "earning" },
         ]);
+        expect(pick(run("ALL_EARNINGS_SQL"), "id", "client_name", "paid_at")[1]).toEqual({
+            id: "j_tip",
+            client_name: "ben",
+            paid_at: null,
+        });
+        expect(run("PAYEES_SQL").map((r) => r.id)).toEqual(["st_amy", "st_owner"]);
     });
 
     it("feeds today's payments and the payouts", () => {
@@ -901,10 +927,24 @@ describe("app-core SQL against the replica schema", () => {
             { id: "pay_1", kind: "payment" },
             { id: "pay_r1", kind: "refund" },
         ]);
-        expect(pick(run("BANK_DEPOSITS_SQL"), "id", "amount_cents", "status")).toEqual([
+        expect(pick(run("PAYOUTS_SQL"), "id", "amount_cents", "status")).toEqual([
             { id: "j_po2", amount_cents: 9000, status: "failed" },
             { id: "j_po1", amount_cents: 40000, status: "paid" },
         ]);
+        expect(run("FEES_SINCE_SQL", ["2026-06-01T00:00:00.000Z"])).toEqual([{ cents: 175 }]);
+        expect(run("FEES_SINCE_SQL", ["2026-07-01T00:00:00.000Z"])).toEqual([{ cents: 0 }]);
+        expect(run("STRIPE_BALANCE_SQL")).toEqual([{ cents: 0 }]);
+        const charges = run("CARD_CHARGES_SQL", ["2026-06-20T00:00:00.000Z"]);
+        expect(
+            pick(charges, "id", "fee_cents", "refunded_cents", "invoice_number", "client_name")[0],
+        ).toEqual({
+            id: "pay_1",
+            fee_cents: 175,
+            refunded_cents: 1000,
+            invoice_number: 7,
+            client_name: "Ann",
+        });
+        expect(charges.map((c) => c.id)).not.toContain("pay_3");
     });
 
     it("lists threads with unread counts and their messages", () => {
@@ -1029,15 +1069,7 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
-    it("lists filed remittances and reviews", () => {
-        expect(run("REMITTANCES_SQL")).toEqual([
-            {
-                id: "j_remit",
-                period_start: "2026-01-01",
-                period_end: "2026-03-31",
-                total_cents: 1200,
-            },
-        ]);
+    it("lists reviews", () => {
         expect(pick(run("REVIEWS_SQL"), "id", "rating", "client_name")).toEqual([
             { id: "rv_1", rating: 5, client_name: "Ann" },
         ]);

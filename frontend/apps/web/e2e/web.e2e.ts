@@ -1,7 +1,16 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page, test } from "@playwright/test";
 
-const PAYMENTS_TABS = ["invoices", "sales", "gift-cards", "refunds", "staff-pay", "reports"];
+const PAYMENTS_TABS = [
+    "invoices",
+    "sales",
+    "gift-cards",
+    "refunds",
+    "staff-pay",
+    "tax",
+    "payouts",
+    "reports",
+];
 const SETUP_SECTIONS = ["business", "services", "team", "getting-paid", "online-booking"];
 
 async function navigate(page: Page, path: string): Promise<void> {
@@ -141,6 +150,19 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await expect(page.getByRole("dialog")).toContainText(s.payments);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toBeHidden();
+
+    const money = page.locator("main");
+    await navigate(page, "/payments/reports");
+    await expect(money.getByText(strings.reports.monthlyNet).first()).toBeVisible();
+    await money.getByRole("button", { name: new RegExp(strings.reports.gstHst) }).click();
+    await expect(money.getByText(strings.reports.taxableSales)).toBeVisible();
+    await openAndClose(page, strings.reports.bookkeeperPack);
+    await navigate(page, "/payments/tax");
+    await openAndClose(page, strings.remittances.recordFiled);
+    await navigate(page, "/payments/payouts");
+    await expect(money.getByText(strings.payouts.chargesTitle, { exact: true })).toBeVisible();
+    await navigate(page, "/payments/staff-pay");
+    await expect(money.getByText(strings.earnings.selectAll)).toBeVisible();
 
     await navigate(page, "/inbox");
     await openAndClose(page, new RegExp(`^${strings.messaging.newMessage}$`));

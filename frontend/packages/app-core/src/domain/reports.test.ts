@@ -1,30 +1,35 @@
 import { describe, expect, it } from "vitest";
 
-import { nextRemittancePeriod } from "./reports";
+import { periodSpan, spanLabel } from "./reports";
 
-const now = new Date(2026, 9, 3, 12);
+const now = new Date(2026, 9, 6, 12);
 
-describe("nextRemittancePeriod", () => {
-    it("starts on Jan 1 when nothing has been filed", () => {
-        expect(nextRemittancePeriod([], now)).toEqual({ start: "2026-01-01", end: "2026-10-02" });
+describe("periodSpan", () => {
+    it("covers this month up to today", () => {
+        expect(periodSpan("thisMonth", now)).toEqual({ start: "2026-10-01", end: "2026-10-06" });
     });
 
-    it("starts the day after the latest filed period", () => {
-        const filed = [
-            { id: "j2", period_start: "2026-07-01", period_end: "2026-09-30", total_cents: 500 },
-            { id: "j1", period_start: "2026-01-01", period_end: "2026-06-30", total_cents: 900 },
-        ];
-        expect(nextRemittancePeriod(filed, now)).toEqual({
-            start: "2026-10-01",
-            end: "2026-10-02",
+    it("covers the whole of last month", () => {
+        expect(periodSpan("lastMonth", now)).toEqual({ start: "2026-09-01", end: "2026-09-30" });
+        expect(periodSpan("lastMonth", new Date(2026, 0, 15))).toEqual({
+            start: "2025-12-01",
+            end: "2025-12-31",
         });
     });
 
-    it("is empty when the latest return already covers yesterday", () => {
-        const filed = [
-            { id: "j1", period_start: "2026-07-01", period_end: "2026-10-02", total_cents: 500 },
-        ];
-        const period = nextRemittancePeriod(filed, now);
-        expect(period.start > period.end).toBe(true);
+    it("covers the last full quarter, across a year end", () => {
+        expect(periodSpan("lastQuarter", now)).toEqual({ start: "2026-07-01", end: "2026-09-30" });
+        expect(periodSpan("lastQuarter", new Date(2026, 1, 2))).toEqual({
+            start: "2025-10-01",
+            end: "2025-12-31",
+        });
+    });
+
+    it("covers the year so far", () => {
+        expect(periodSpan("ytd", now)).toEqual({ start: "2026-01-01", end: "2026-10-06" });
+    });
+
+    it("names a span in words", () => {
+        expect(spanLabel({ start: "2026-07-01", end: "2026-09-30" })).toBe("Jul 1 to Sep 30, 2026");
     });
 });

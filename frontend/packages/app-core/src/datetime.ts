@@ -83,6 +83,10 @@ export function formatMonthDay(d: Date, locale = "en-CA"): string {
     return d.toLocaleDateString(locale, { month: "long", day: "numeric" });
 }
 
+export function formatShortDay(d: Date, locale = "en-CA"): string {
+    return d.toLocaleDateString(locale, { month: "short", day: "numeric" });
+}
+
 export function formatFullDate(d: Date, locale = "en-CA"): string {
     return d.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
 }

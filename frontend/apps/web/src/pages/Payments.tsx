@@ -8,7 +8,9 @@ import { GiftCards } from "./GiftCards";
 import { Invoices } from "./Invoices";
 import { Earnings } from "./Earnings";
 import { POS } from "./POS";
+import { Payouts } from "./Payouts";
 import { Refunds } from "./Refunds";
+import { Remittances } from "./Remittances";
 import { Reports } from "./Reports";
 
 const PAYMENTS_SLUGS: Record<PaymentsTabKey, string> = {
@@ -17,6 +19,8 @@ const PAYMENTS_SLUGS: Record<PaymentsTabKey, string> = {
     giftCards: "gift-cards",
     refunds: "refunds",
     staffPay: "staff-pay",
+    taxReturns: "tax",
+    payouts: "payouts",
     reports: "reports",
 };
 
@@ -32,6 +36,10 @@ function tabBody(key: PaymentsTabKey): ReactElement {
             return <Refunds />;
         case "staffPay":
             return <Earnings />;
+        case "taxReturns":
+            return <Remittances />;
+        case "payouts":
+            return <Payouts />;
         case "reports":
             return <Reports />;
     }

@@ -21,7 +21,14 @@ export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
 ];
 
 export type PaymentsTabKey =
-    "invoices" | "sales" | "giftCards" | "refunds" | "staffPay" | "reports";
+    | "invoices"
+    | "sales"
+    | "giftCards"
+    | "refunds"
+    | "staffPay"
+    | "taxReturns"
+    | "payouts"
+    | "reports";
 
 export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
     { key: "invoices", label: strings.navigation.paymentsTabs.invoices, managersOnly: true },
@@ -29,6 +36,8 @@ export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: 
     { key: "giftCards", label: strings.navigation.paymentsTabs.giftCards, managersOnly: true },
     { key: "refunds", label: strings.navigation.paymentsTabs.refunds, managersOnly: true },
     { key: "staffPay", label: strings.navigation.paymentsTabs.staffPay, managersOnly: true },
+    { key: "taxReturns", label: strings.navigation.paymentsTabs.taxReturns, managersOnly: true },
+    { key: "payouts", label: strings.navigation.paymentsTabs.payouts, managersOnly: true },
     { key: "reports", label: strings.navigation.paymentsTabs.reports, managersOnly: true },
 ];
 
@@ -120,6 +129,8 @@ export type ShellTarget =
     | "catalog"
     | "reports"
     | "staffPay"
+    | "taxReturns"
+    | "payouts"
     | "business"
     | "team"
     | "gettingPaid"

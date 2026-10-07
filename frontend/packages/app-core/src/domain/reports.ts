@@ -1,30 +1,18 @@
-import { useQuery } from "@powersync/react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { useAsyncAction } from "../hooks";
+import { type Load, useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, newIdempotencyKey } from "../api";
-import { addDays, dateKey } from "../datetime";
+import type { ApiLike } from "../api";
+import { addDays, dateKey, startOfMonth } from "../datetime";
 
-export interface IncomeReport {
-    gross_cents: number;
+interface IncomeSummary {
+    sales_cents: number;
     refunds_cents: number;
     net_cents: number;
+    tax_by_code: Record<string, number>;
+    tips_cents: number;
+    received_cents: number;
     by_method: Record<string, number>;
-}
-
-export interface GstHstReport {
-    tax_collected_cents: number; // federal GST/HST only
-    pst_cents: number; // provincial PST (BC/SK/MB), filed separately
-    qst_cents: number; // QST, filed with Revenu Québec
-    taxable_sales_cents: number;
-    gst_hst_number: string | null;
-}
-
-export interface T4ARow {
-    staff_id: string;
-    name: string;
-    total_cents: number;
 }
 
 interface SalesByItemRow {
@@ -37,204 +25,378 @@ interface SalesByItemRow {
     refunded_cents: number;
 }
 
-export interface ReportRange {
-    start: string; // income/GST window start (YYYY-MM-DD)
-    end: string; // income/GST window end (YYYY-MM-DD)
-    year: number; // T4A calendar year
-}
-
-export type ReportCsvKind = "income" | "gst-hst" | "t4a" | "sales-by-item";
-
-interface ReportsView {
-    income: IncomeReport | null;
-    gstHst: GstHstReport | null;
-    t4a: T4ARow[] | null;
-    salesByItem: SalesByItemRow[] | null;
-    loading: boolean;
-    error: boolean;
-}
-
-/** The current year ends today so partial-year totals match the dashboard. */
-export function reportRangeForYear(year: number, now: Date = new Date()): ReportRange {
-    const pad = (n: number): string => `${n}`.padStart(2, "0");
-    const end =
-        year === now.getFullYear()
-            ? `${year}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-            : `${year}-12-31`;
-    return { start: `${year}-01-01`, end, year };
-}
-
-export function defaultReportRange(now: Date = new Date()): ReportRange {
-    return reportRangeForYear(now.getFullYear(), now);
-}
-
-/** Owner/admin money reports (REST). They load together; `error` covers a 403 for staff. */
-export function useReports(api: ApiLike, range: ReportRange): ReportsView {
-    const [income, setIncome] = useState<IncomeReport | null>(null);
-    const [gstHst, setGstHst] = useState<GstHstReport | null>(null);
-    const [t4a, setT4a] = useState<T4ARow[] | null>(null);
-    const [salesByItem, setSalesByItem] = useState<SalesByItemRow[] | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-
-    const { start, end, year } = range;
-    useEffect(() => {
-        let active = true;
-        setLoading(true);
-        setError(false);
-        const window = `start=${start}&end=${end}`;
-        Promise.all([
-            api.get<IncomeReport>(`/v1/reports/income?${window}`),
-            api.get<GstHstReport>(`/v1/reports/gst-hst?${window}`),
-            api.get<T4ARow[]>(`/v1/reports/t4a?year=${year}`),
-            api.get<SalesByItemRow[]>(`/v1/reports/sales-by-item?${window}`),
-        ])
-            .then(([inc, gst, rows, items]) => {
-                if (!active) return;
-                setIncome(inc);
-                setGstHst(gst);
-                setT4a(rows);
-                setSalesByItem(items);
-            })
-            .catch(() => {
-                if (active) setError(true);
-            })
-            .finally(() => {
-                if (active) setLoading(false);
-            });
-        return () => {
-            active = false;
-        };
-    }, [api, start, end, year]);
-
-    return { income, gstHst, t4a, salesByItem, loading, error };
-}
-
-function reportCsvPath(kind: ReportCsvKind, range: ReportRange): string {
-    if (kind === "t4a") return `/v1/reports/t4a.csv?year=${range.year}`;
-    return `/v1/reports/${kind}.csv?start=${range.start}&end=${range.end}`;
-}
-
-function reportCsvFilename(kind: ReportCsvKind): string {
-    return `${kind}.csv`;
-}
-
-function downloadReportCsv(api: ApiLike, kind: ReportCsvKind, range: ReportRange): Promise<string> {
-    return api.getText(reportCsvPath(kind, range));
-}
-
-interface ReportDownload {
-    error: string | null;
-    isDownloading: (kind: ReportCsvKind) => boolean;
-    download: (kind: ReportCsvKind) => void;
-}
-
-/** The platform `save` seam is the only difference: a Blob download on web, Share on mobile. */
-export function useReportDownload(
-    api: ApiLike,
-    range: ReportRange,
-    save: (csv: string, filename: string) => void | Promise<void>,
-): ReportDownload {
-    const { busy, error, run } = useAsyncAction();
-    const [downloading, setDownloading] = useState<ReportCsvKind | null>(null);
-
-    const download = (kind: ReportCsvKind): void => {
-        setDownloading(kind);
-        run(
-            async () => {
-                const csv = await downloadReportCsv(api, kind, range);
-                await save(csv, reportCsvFilename(kind));
-            },
-            { errorMessage: strings.reports.exportError },
-        );
+interface ReportSummary {
+    start: string;
+    end: string;
+    income: IncomeSummary;
+    sales_by_item: SalesByItemRow[];
+    gst_hst: {
+        tax_collected_cents: number;
+        taxable_sales_cents: number;
+        gst_hst_number: string | null;
     };
-
-    return { error, isDownloading: (kind) => busy && downloading === kind, download };
+    provincial: {
+        code: string | null;
+        rate_bps: number | null;
+        taxable_cents: number;
+        collected_cents: number;
+        number: string | null;
+    };
+    t4a_year: number;
+    t4a: { staff_id: string; name: string; payments: number; total_cents: number }[];
+    months: { month: string; net_cents: number }[];
+    payouts: { id: string }[];
+    rates: { code: string; name: string; rate_bps: number }[];
 }
 
-interface RemittanceRow {
-    id: string;
-    period_start: string;
-    period_end: string;
-    total_cents: number;
-}
+export type ReportPeriodKey = "thisMonth" | "lastMonth" | "lastQuarter" | "ytd";
 
-// A filed return is its remittance journal; its bank leg is what was paid and its meta the period.
-export const REMITTANCES_SQL = `
-SELECT e.journal_id AS id, json_extract(e.meta, '$.start') AS period_start,
-       json_extract(e.meta, '$.end') AS period_end, -e.amount_cents AS total_cents
-FROM entries e JOIN accounts a ON a.id = e.account_id
-WHERE e.event = 'remittance' AND a.category = 'bank'
-ORDER BY period_end DESC`;
+export const REPORT_PERIODS: readonly ReportPeriodKey[] = [
+    "thisMonth",
+    "lastMonth",
+    "lastQuarter",
+    "ytd",
+];
 
-function useRemittances(): RemittanceRow[] {
-    return useQuery<RemittanceRow>(REMITTANCES_SQL).data;
-}
-
-interface RemittancePeriod {
+interface ReportSpan {
     start: string;
     end: string;
 }
 
-/** The next unfiled period: the day after the last return (or Jan 1) through yesterday. */
-export function nextRemittancePeriod(
-    filed: RemittanceRow[],
-    now: Date = new Date(),
-): RemittancePeriod {
-    const last = filed[0];
-    const start =
-        last === undefined
-            ? `${String(now.getFullYear())}-01-01`
-            : dateKey(addDays(new Date(`${last.period_end}T00:00:00`), 1));
-    return { start, end: dateKey(addDays(now, -1)) };
+/** The days a period covers, both ends included, up to today. */
+export function periodSpan(key: ReportPeriodKey, now: Date = new Date()): ReportSpan {
+    const month = startOfMonth(now);
+    const monthEnd = (d: Date): Date => addDays(new Date(d.getFullYear(), d.getMonth() + 1, 1), -1);
+    switch (key) {
+        case "thisMonth":
+            return { start: dateKey(month), end: dateKey(now) };
+        case "lastMonth": {
+            const last = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            return { start: dateKey(last), end: dateKey(monthEnd(last)) };
+        }
+        case "lastQuarter": {
+            const quarter = Math.floor(now.getMonth() / 3);
+            const first = new Date(now.getFullYear(), quarter * 3 - 3, 1);
+            return {
+                start: dateKey(first),
+                end: dateKey(monthEnd(new Date(first.getFullYear(), first.getMonth() + 2, 1))),
+            };
+        }
+        case "ytd":
+            return { start: `${String(now.getFullYear())}-01-01`, end: dateKey(now) };
+    }
 }
 
-function recordRemittance(api: ApiLike, period: RemittancePeriod): Promise<unknown> {
-    return api.post(
-        "/v1/payments/remittances",
-        { period_start: period.start, period_end: period.end },
-        { idempotencyKey: newIdempotencyKey() },
+export function spanLabel(span: ReportSpan): string {
+    const day = (key: string): Date => new Date(`${key}T12:00:00`);
+    const short = (d: Date): string =>
+        d.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+    const end = day(span.end);
+    return strings.reports.range(
+        short(day(span.start)),
+        `${short(end)}, ${String(end.getFullYear())}`,
     );
 }
 
-interface RemittanceAction {
-    filed: RemittanceRow[];
-    period: RemittancePeriod;
-    canRecord: boolean;
+export type ReportKey = "income" | "salesByItem" | "gstHst" | "pst" | "t4a";
+export type ExportKind = ReportKey | "payouts";
+
+export const EXPORT_KINDS: readonly ExportKind[] = [
+    "income",
+    "salesByItem",
+    "gstHst",
+    "pst",
+    "t4a",
+    "payouts",
+];
+
+const SERVER_KIND: Record<ExportKind, string> = {
+    income: "income",
+    salesByItem: "sales-by-item",
+    gstHst: "gst-hst",
+    pst: "pst",
+    t4a: "t4a",
+    payouts: "payouts",
+};
+
+interface TaxLine {
+    code: string;
+    label: string;
+    rate: string;
+    cents: number;
+}
+
+interface MethodShare {
+    method: string;
+    label: string;
+    cents: number;
+    share: number;
+}
+
+interface ItemSales {
+    id: string;
+    name: string;
+    kind: string;
+    quantity: string;
+    salesCents: number;
+    refundedCents: number;
+    netCents: number;
+}
+
+interface MonthBar {
+    key: string;
+    label: string;
+    netCents: number;
+    partial: boolean;
+    inSpan: boolean;
+}
+
+export interface ReportsView {
+    salesCents: number;
+    refundsCents: number;
+    netCents: number;
+    taxLines: TaxLine[];
+    salesWithTaxCents: number;
+    tipsCents: number;
+    receivedCents: number;
+    methods: MethodShare[];
+    items: ItemSales[];
+    unitsSold: number;
+    gst: { taxableCents: number; collectedCents: number; number: string | null; label: string };
+    provincial: {
+        label: string;
+        rate: string;
+        taxableCents: number;
+        collectedCents: number;
+        number: string | null;
+    } | null;
+    t4aYear: number;
+    t4a: { staffId: string; name: string; payments: number; totalCents: number }[];
+    t4aTotalCents: number;
+    bars: MonthBar[];
+    rows: Record<ExportKind, number>;
+}
+
+const rateText = (bps: number | null | undefined): string =>
+    bps === null || bps === undefined ? "" : `${String(bps / 100)}%`;
+
+function buildView(r: ReportSummary, span: ReportSpan, now: Date): ReportsView {
+    const rate = new Map(r.rates.map((x) => [x.code, x.rate_bps]));
+    const taxLines = Object.entries(r.income.tax_by_code)
+        .sort(([a], [b]) => (a === "PST" || a === "QST" ? 1 : b === "PST" || b === "QST" ? -1 : 0))
+        .map(([code, cents]) => ({
+            code,
+            label: strings.reports.taxCollected(code),
+            rate: rateText(rate.get(code)),
+            cents,
+        }));
+    const received = Object.values(r.income.by_method).reduce((n, c) => n + c, 0);
+    const methods = Object.entries(r.income.by_method)
+        .filter(([, cents]) => cents !== 0)
+        .sort(([, a], [, b]) => b - a)
+        .map(([method, cents]) => ({
+            method,
+            label: strings.reports.method[method] ?? method,
+            cents,
+            share: received > 0 ? cents / received : 0,
+        }));
+    const thisMonth = dateKey(now).slice(0, 7);
+    const federal = r.rates.find((x) => x.code === "GST" || x.code === "HST");
+    const provincialCode = r.provincial.code;
+    return {
+        salesCents: r.income.sales_cents,
+        refundsCents: r.income.refunds_cents,
+        netCents: r.income.net_cents,
+        taxLines,
+        salesWithTaxCents: r.income.net_cents + taxLines.reduce((n, t) => n + t.cents, 0),
+        tipsCents: r.income.tips_cents,
+        receivedCents: r.income.received_cents,
+        methods,
+        items: r.sales_by_item.map((i) => ({
+            id: i.item_id,
+            name: i.name,
+            kind: strings.reports.kind[i.kind] ?? i.kind,
+            quantity: strings.reports.qty(i.quantity),
+            salesCents: i.sales_cents,
+            refundedCents: i.refunded_cents,
+            netCents: i.sales_cents - i.refunded_cents,
+        })),
+        unitsSold: r.sales_by_item.reduce((n, i) => n + i.quantity, 0),
+        gst: {
+            taxableCents: r.gst_hst.taxable_sales_cents,
+            collectedCents: r.gst_hst.tax_collected_cents,
+            number: r.gst_hst.gst_hst_number,
+            label: federal?.code ?? strings.reports.gstHst,
+        },
+        provincial:
+            provincialCode === null
+                ? null
+                : {
+                      label: provincialCode,
+                      rate: rateText(r.provincial.rate_bps),
+                      taxableCents: r.provincial.taxable_cents,
+                      collectedCents: r.provincial.collected_cents,
+                      number: r.provincial.number,
+                  },
+        t4aYear: r.t4a_year,
+        t4a: r.t4a.map((t) => ({
+            staffId: t.staff_id,
+            name: t.name,
+            payments: t.payments,
+            totalCents: t.total_cents,
+        })),
+        t4aTotalCents: r.t4a.reduce((n, t) => n + t.total_cents, 0),
+        bars: r.months.map((m) => ({
+            key: m.month,
+            label: strings.reports.months[Number(m.month.slice(5)) - 1] ?? m.month,
+            netCents: m.net_cents,
+            partial: m.month === thisMonth,
+            inSpan: m.month >= span.start.slice(0, 7) && m.month <= span.end.slice(0, 7),
+        })),
+        rows: {
+            income: 3 + Object.keys(r.income.by_method).length,
+            salesByItem: r.sales_by_item.length,
+            gstHst: 1,
+            pst: provincialCode === null ? 0 : 1,
+            t4a: r.t4a.length,
+            payouts: r.payouts.length,
+        },
+    };
+}
+
+interface MoneyReports {
+    period: ReportPeriodKey;
+    setPeriod: (key: ReportPeriodKey) => void;
+    span: ReportSpan;
+    load: Load;
+    view: ReportsView | null;
+}
+
+/** Every report for one period from one server read, so the figures always share the dates. */
+export function useMoneyReports(
+    api: ApiLike,
+    initial: ReportPeriodKey = "lastQuarter",
+): MoneyReports {
+    const [period, setPeriod] = useState<ReportPeriodKey>(initial);
+    const [now] = useState(() => new Date());
+    const span = useMemo(() => periodSpan(period, now), [period, now]);
+    const remote = useRemote(
+        () => api.get<ReportSummary>(`/v1/reports/summary?start=${span.start}&end=${span.end}`),
+        `${span.start}:${span.end}`,
+    );
+    const view = useMemo(
+        () => (remote.data === null ? null : buildView(remote.data, span, now)),
+        [remote.data, span, now],
+    );
+    const empty =
+        view !== null &&
+        view.salesCents === 0 &&
+        view.receivedCents === 0 &&
+        view.items.length === 0 &&
+        view.t4a.length === 0;
+    const load = useLoad([remote], empty);
+    return { period, setPeriod, span, load, view };
+}
+
+function fileName(kind: ExportKind, span: ReportSpan): string {
+    return `${SERVER_KIND[kind]}-${span.start}-to-${span.end}.csv`;
+}
+
+function csvPath(kind: ExportKind, span: ReportSpan): string {
+    if (kind === "t4a") return `/v1/reports/t4a.csv?year=${span.end.slice(0, 4)}`;
+    return `/v1/reports/${SERVER_KIND[kind]}.csv?start=${span.start}&end=${span.end}`;
+}
+
+interface ReportFile {
+    busyKind: ExportKind | null;
+    done: string | null;
+    error: string | null;
+    download: (kind: ExportKind) => void;
+}
+
+/** One report as a CSV; the platform `save` seam is a Blob download on web and Share on mobile. */
+export function useReportFile(
+    api: ApiLike,
+    span: ReportSpan,
+    save: (csv: string, filename: string) => void | Promise<void>,
+): ReportFile {
+    const { busy, error, run } = useAsyncAction();
+    const [busyKind, setBusyKind] = useState<ExportKind | null>(null);
+    const [done, setDone] = useState<string | null>(null);
+    return {
+        busyKind: busy ? busyKind : null,
+        done,
+        error,
+        download: (kind) => {
+            setBusyKind(kind);
+            setDone(null);
+            const name = fileName(kind, span);
+            run(
+                async () => {
+                    await save(await api.getText(csvPath(kind, span)), name);
+                },
+                {
+                    onSuccess: () => {
+                        setDone(strings.reports.downloaded(name));
+                    },
+                    errorMessage: strings.reports.downloadFailed,
+                },
+            );
+        },
+    };
+}
+
+export interface PackRequest {
+    kinds: string[];
+    start: string;
+    end: string;
+}
+
+interface BookkeeperPack {
+    chosen: readonly ExportKind[];
+    toggle: (kind: ExportKind) => void;
     busy: boolean;
     error: string | null;
-    record: () => void;
+    done: boolean;
+    download: () => void;
 }
 
-export function useRemittanceAction(api: ApiLike): RemittanceAction {
-    const filed = useRemittances();
-    const period = nextRemittancePeriod(filed);
-    const { busy, error, run } = useAsyncAction();
-    const record = (): void => {
-        run(() => recordRemittance(api, period), {
-            errorMessage: strings.reports.remitError,
-        });
+/** The bookkeeper's ZIP of CSVs; `downloadZip` posts the request and saves the file (web only). */
+export function useBookkeeperPack(
+    span: ReportSpan,
+    downloadZip: (request: PackRequest, filename: string) => Promise<void>,
+): BookkeeperPack {
+    const [chosen, setChosen] = useState<ExportKind[]>(["income", "salesByItem", "gstHst", "pst"]);
+    const [done, setDone] = useState(false);
+    const { busy, error, setError, run } = useAsyncAction();
+    return {
+        chosen,
+        toggle: (kind) => {
+            setDone(false);
+            setChosen((c) => (c.includes(kind) ? c.filter((k) => k !== kind) : [...c, kind]));
+        },
+        busy,
+        error,
+        done,
+        download: () => {
+            if (chosen.length === 0) {
+                setError(strings.reports.pickReport);
+                return;
+            }
+            const kinds = EXPORT_KINDS.filter((k) => chosen.includes(k)).map((k) => SERVER_KIND[k]);
+            run(
+                () =>
+                    downloadZip(
+                        { kinds, start: span.start, end: span.end },
+                        `bookkeeper-${span.start}-to-${span.end}.zip`,
+                    ),
+                {
+                    onSuccess: () => {
+                        setDone(true);
+                    },
+                    errorMessage: strings.reports.packFailed,
+                },
+            );
+        },
     };
-    return { filed, period, canRecord: period.start <= period.end, busy, error, record };
-}
-
-interface BankDepositRow {
-    id: string;
-    amount_cents: number;
-    status: string;
-    arrival_at: string | null;
-    created_at: string;
-}
-
-// A Stripe payout is its ledger journal (bank in, Stripe balance out); a failed one was reversed.
-export const BANK_DEPOSITS_SQL = `
-SELECT e.journal_id AS id, e.amount_cents, e.available_at AS arrival_at, e.occurred_at AS created_at,
-       CASE WHEN EXISTS (SELECT 1 FROM entries x WHERE x.ref = e.ref || ':failed')
-            THEN 'failed' ELSE 'paid' END AS status
-FROM entries e JOIN accounts a ON a.id = e.account_id
-WHERE e.event = 'payout' AND a.category = 'bank'
-ORDER BY e.occurred_at DESC LIMIT 5`;
-
-export function useBankDeposits(): BankDepositRow[] {
-    return useQuery<BankDepositRow>(BANK_DEPOSITS_SQL).data;
 }

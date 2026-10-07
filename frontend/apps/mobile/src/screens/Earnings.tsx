@@ -1,82 +1,179 @@
 import {
-    earningSourceLabel,
-    earningStaffLabel,
-    earningStatusIntent,
-    formatRelativeTime,
+    earningStageIntent,
+    formatMoney,
+    formatShortDay,
     strings,
-    useEarningActions,
-    useEarningFilter,
-    useEarnings,
-    type EarningRow,
+    useEarningApprovals,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { StyleSheet, Text, View } from "react-native";
-import { Button, ListPage, Money, Notice, StatusPill } from "@clientbridge/ui";
+import {
+    Avatar,
+    Button,
+    Checkbox,
+    DetailView,
+    Empty,
+    ListRow,
+    LoadFailed,
+    Notice,
+    Panel,
+    Skeleton,
+    Stat,
+    StatusPill,
+    ui,
+} from "@clientbridge/ui";
+import { useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { api } from "../lib/api";
+import { useOpenLink } from "../lib/links";
 
+const s = strings.earnings;
 const c = theme.colors;
 
 export function Earnings() {
-    const rows = useEarnings();
-    const { filter, setFilter, filters, shown, countOf } = useEarningFilter(rows);
+    const e = useEarningApprovals(api);
+    const openLink = useOpenLink();
+    const [open, setOpen] = useState(false);
+    const sel = e.selected;
+    const pendingIds = e.lines.filter((l) => l.status === "pending").map((l) => l.id);
+    const allPicked = pendingIds.length > 0 && pendingIds.every((id) => e.picked.includes(id));
 
     return (
-        <ListPage
-            summary={strings.earnings.subtitle}
-            segments={{
-                items: filters.map((f) => ({
-                    key: f,
-                    label: strings.earnings.filterTab(f, countOf(f)),
-                })),
-                active: filter,
-                onSelect: setFilter,
-            }}
-            rows={shown}
-            rowKey={(row) => row.id}
-            empty={strings.earnings.empty(filter)}
-            renderRow={(row) => <EarningItem row={row} />}
-        />
-    );
-}
-
-function EarningItem({ row }: { row: EarningRow }) {
-    const { busy, error, canApprove, canPay, approve, pay } = useEarningActions(api, row);
-
-    return (
-        <View>
-            <View style={styles.rowTop}>
-                <View style={styles.rowMain}>
-                    <Text style={styles.staff}>{earningStaffLabel(row)}</Text>
-                    <Text style={styles.meta} numberOfLines={1}>
-                        {earningSourceLabel(row)} · {formatRelativeTime(row.created_at)}
-                    </Text>
-                </View>
-                <Money cents={row.amount_cents} strong />
-                <StatusPill status={row.status} intent={earningStatusIntent(row.status)} />
-            </View>
-            {canApprove || canPay ? (
-                <View style={styles.action}>
-                    <Button size="sm" onPress={canApprove ? approve : pay} busy={busy}>
-                        {busy
-                            ? canApprove
-                                ? strings.earnings.approving
-                                : strings.common.saving
-                            : canApprove
-                              ? strings.earnings.approve
-                              : strings.earnings.markPaid}
-                    </Button>
-                </View>
+        <View style={styles.screen}>
+            <ScrollView contentContainerStyle={styles.page}>
+                {e.load.state === "loading" ? (
+                    <Skeleton variant="row" count={4} label={s.loading} />
+                ) : e.load.state === "error" ? (
+                    <LoadFailed variant="card" onRetry={e.load.retry} retrying={e.load.retrying} />
+                ) : e.load.state === "empty" ? (
+                    <Empty
+                        variant="card"
+                        icon="user"
+                        message={s.noStaff}
+                        body={s.noStaffBody}
+                        actions={
+                            <Button
+                                variant="outline"
+                                onPress={() => {
+                                    openLink("team");
+                                }}
+                            >
+                                {s.openTeam}
+                            </Button>
+                        }
+                    />
+                ) : (
+                    <>
+                        <Text style={ui.note}>{s.subtitle}</Text>
+                        <Panel>
+                            <View style={styles.stats}>
+                                <Stat label={s.toApprove} cents={e.totals.pendingCents} />
+                                <Stat label={s.toPay} cents={e.totals.approvedCents} />
+                                <Stat
+                                    label={s.paidYtd}
+                                    cents={e.totals.paidYtdCents}
+                                    tone="success"
+                                />
+                            </View>
+                        </Panel>
+                        <Panel flush>
+                            {e.payees.map((p) => (
+                                <ListRow
+                                    key={p.staffId}
+                                    leading={<Avatar name={p.name} color={p.color} />}
+                                    title={p.name}
+                                    detail={s.count(p.pendingCount)}
+                                    meta={formatMoney(p.pendingCents)}
+                                    onPress={() => {
+                                        e.select(p.staffId);
+                                        setOpen(true);
+                                    }}
+                                />
+                            ))}
+                        </Panel>
+                    </>
+                )}
+            </ScrollView>
+            {open && sel !== null ? (
+                <DetailView
+                    open
+                    title={sel.name}
+                    subtitle={sel.rates === "" ? s.noRate : sel.rates}
+                    onClose={() => {
+                        setOpen(false);
+                    }}
+                    actions={
+                        <View style={styles.actions}>
+                            <Button
+                                grow
+                                busy={e.busy}
+                                disabled={e.picked.length === 0}
+                                onPress={e.approvePicked}
+                            >
+                                {e.busy ? s.working : s.approveSelected(e.picked.length)}
+                            </Button>
+                            <Button
+                                grow
+                                variant="outline"
+                                disabled={sel.approvedCents === 0 || e.busy}
+                                onPress={e.payApproved}
+                            >
+                                {s.payApproved(formatMoney(sel.approvedCents))}
+                            </Button>
+                        </View>
+                    }
+                >
+                    {e.error !== null ? <Notice tone="danger">{e.error}</Notice> : null}
+                    <Checkbox
+                        label={s.selectAll}
+                        value={allPicked}
+                        mixed={e.picked.length > 0 && !allPicked}
+                        disabled={pendingIds.length === 0}
+                        onChange={e.pickAllPending}
+                    />
+                    {e.lines.length === 0 ? <Empty message={s.noEarnings} /> : null}
+                    {e.lines.map((l) => (
+                        <ListRow
+                            key={l.id}
+                            density="compact"
+                            leading={
+                                l.status === "pending" ? (
+                                    <Checkbox
+                                        label={`${l.title}, ${l.detail}`}
+                                        hideLabel
+                                        value={e.picked.includes(l.id)}
+                                        onChange={() => {
+                                            e.togglePick(l.id);
+                                        }}
+                                    />
+                                ) : undefined
+                            }
+                            title={l.title}
+                            detail={`${formatShortDay(l.at)} · ${l.detail}`}
+                            meta={
+                                <View style={styles.meta}>
+                                    <Text style={styles.amount}>{formatMoney(l.amountCents)}</Text>
+                                    <StatusPill
+                                        status={s.stage[l.status] ?? l.status}
+                                        intent={earningStageIntent(l.status)}
+                                        asWritten
+                                    />
+                                </View>
+                            }
+                        />
+                    ))}
+                    <Text style={ui.note}>{s.paidVia}</Text>
+                </DetailView>
             ) : null}
-            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    rowTop: { flexDirection: "row", alignItems: "center", gap: 10 },
-    rowMain: { flex: 1 },
-    staff: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    meta: { color: c.muted, fontSize: 12, marginTop: 1 },
-    action: { marginTop: 10 },
+    screen: { flex: 1 },
+    page: { gap: 12, padding: 16, paddingBottom: 32 },
+    stats: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+    actions: { flexDirection: "row", gap: 8 },
+    meta: { alignItems: "flex-end", gap: 4 },
+    amount: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
 });

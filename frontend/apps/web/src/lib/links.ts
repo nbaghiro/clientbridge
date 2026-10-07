@@ -26,6 +26,8 @@ const PATHS: Record<ShellTarget, string> = {
     catalog: "/setup/services",
     reports: "/payments/reports",
     staffPay: "/payments/staff-pay",
+    taxReturns: "/payments/tax",
+    payouts: "/payments/payouts",
     business: "/setup/business",
     team: "/setup/team",
     gettingPaid: "/setup/getting-paid",

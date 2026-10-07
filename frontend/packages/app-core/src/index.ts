@@ -26,6 +26,8 @@ export * from "./domain/earnings";
 export * from "./domain/entitlements";
 export * from "./domain/pos";
 export * from "./domain/reports";
+export * from "./domain/remittances";
+export * from "./domain/payouts";
 export * from "./domain/reviews";
 export * from "./domain/messaging";
 export * from "./domain/contracts";
