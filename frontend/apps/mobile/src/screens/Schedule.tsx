@@ -29,7 +29,8 @@ import {
 } from "@clientbridge/app-core";
 import { INTENT_COLORS } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { type RouteProp, useRoute } from "@react-navigation/native";
 import {
     Animated,
     PanResponder,
@@ -55,6 +56,8 @@ import {
 
 import { api } from "../lib/api";
 import { useViewer } from "../lib/auth";
+import { BookingForm } from "../components/BookingForm";
+import type { TabParamList } from "../navigation";
 
 const c = theme.colors;
 const HOUR_PX = 56;
@@ -74,6 +77,15 @@ export function ScheduleScreen() {
         "week",
     );
     const [detail, setDetail] = useState<CalendarEvent | null>(null);
+    const params = useRoute<RouteProp<TabParamList, "Schedule">>().params;
+    const [booking, setBooking] = useState(false);
+    useEffect(() => {
+        if (params?.create !== undefined) setBooking(true);
+    }, [params?.create]);
+    const linked = events.find((e) => e.bookingId !== null && e.bookingId === params?.open);
+    useEffect(() => {
+        if (linked !== undefined) setDetail(linked);
+    }, [linked]);
 
     const week = weekColumns(anchor);
     const now = new Date();
@@ -158,6 +170,12 @@ export function ScheduleScreen() {
                     }}
                 />
             ) : null}
+            <BookingForm
+                visible={booking}
+                onClose={() => {
+                    setBooking(false);
+                }}
+            />
         </SafeAreaView>
     );
 }

@@ -16,11 +16,14 @@ import { clearTokens, getTokens } from "./src/lib/auth";
 import { stripePublishableKey } from "./src/lib/config";
 import { connectPowerSync, db, signOut } from "./src/lib/powersync";
 import { registerForPush } from "./src/lib/push";
+import { SignOutContext } from "./src/lib/session";
 import type { RootStackParamList, TabParamList } from "./src/navigation";
 import { ScheduleScreen } from "./src/screens/Schedule";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
 import { InboxScreen } from "./src/screens/Inbox";
+import { NotificationsScreen } from "./src/screens/Notifications";
+import { SearchScreen } from "./src/screens/Search";
 import { LoginScreen } from "./src/screens/Login";
 import { OnboardingScreen } from "./src/screens/Onboarding";
 import { PaymentsScreen } from "./src/screens/Payments";
@@ -136,53 +139,57 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
     }
 
     return (
-        <StripeAppProvider>
-            <NavigationContainer theme={navTheme}>
-                <RootStack.Navigator screenOptions={{ headerShown: false }}>
-                    <RootStack.Screen name="Tabs" component={Tabs} />
-                    <RootStack.Group
-                        screenOptions={{
-                            headerShown: true,
-                            headerStyle: { backgroundColor: theme.colors.surface },
-                            headerTintColor: theme.colors.ink,
-                            headerShadowVisible: false,
-                            headerBackTitle: "Back",
-                        }}
-                    >
-                        <RootStack.Screen
-                            name="Inbox"
-                            component={InboxScreen}
-                            options={{ title: strings.navigation.inbox }}
-                        />
-                        <RootStack.Screen
-                            name="Setup"
-                            component={SetupScreen}
-                            options={{ title: strings.navigation.setup }}
-                        />
-                        <RootStack.Screen
-                            name="Business"
-                            component={BusinessScreen}
-                            options={{ title: strings.navigation.setupSections.business }}
-                        />
-                        <RootStack.Screen
-                            name="Services"
-                            component={CatalogScreen}
-                            options={{ title: strings.navigation.setupSections.services }}
-                        />
-                        <RootStack.Screen
-                            name="Team"
-                            component={TeamHoursScreen}
-                            options={{ title: strings.navigation.setupSections.team }}
-                        />
-                        <RootStack.Screen
-                            name="GettingPaid"
-                            component={GettingPaidScreen}
-                            options={{ title: strings.navigation.setupSections.gettingPaid }}
-                        />
-                    </RootStack.Group>
-                </RootStack.Navigator>
-            </NavigationContainer>
-        </StripeAppProvider>
+        <SignOutContext.Provider value={onSignOut}>
+            <StripeAppProvider>
+                <NavigationContainer theme={navTheme}>
+                    <RootStack.Navigator screenOptions={{ headerShown: false }}>
+                        <RootStack.Screen name="Tabs" component={Tabs} />
+                        <RootStack.Screen name="Search" component={SearchScreen} />
+                        <RootStack.Screen name="Notifications" component={NotificationsScreen} />
+                        <RootStack.Group
+                            screenOptions={{
+                                headerShown: true,
+                                headerStyle: { backgroundColor: theme.colors.surface },
+                                headerTintColor: theme.colors.ink,
+                                headerShadowVisible: false,
+                                headerBackTitle: "Back",
+                            }}
+                        >
+                            <RootStack.Screen
+                                name="Inbox"
+                                component={InboxScreen}
+                                options={{ title: strings.navigation.inbox }}
+                            />
+                            <RootStack.Screen
+                                name="Setup"
+                                component={SetupScreen}
+                                options={{ title: strings.navigation.setup }}
+                            />
+                            <RootStack.Screen
+                                name="Business"
+                                component={BusinessScreen}
+                                options={{ title: strings.navigation.setupSections.business }}
+                            />
+                            <RootStack.Screen
+                                name="Services"
+                                component={CatalogScreen}
+                                options={{ title: strings.navigation.setupSections.services }}
+                            />
+                            <RootStack.Screen
+                                name="Team"
+                                component={TeamHoursScreen}
+                                options={{ title: strings.navigation.setupSections.team }}
+                            />
+                            <RootStack.Screen
+                                name="GettingPaid"
+                                component={GettingPaidScreen}
+                                options={{ title: strings.navigation.setupSections.gettingPaid }}
+                            />
+                        </RootStack.Group>
+                    </RootStack.Navigator>
+                </NavigationContainer>
+            </StripeAppProvider>
+        </SignOutContext.Provider>
     );
 }
 

@@ -20,7 +20,8 @@ import {
     visibleInboxSegments,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { type RouteProp, useRoute } from "@react-navigation/native";
 import {
     FlatList,
     KeyboardAvoidingView,
@@ -45,13 +46,15 @@ import {
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import type { RootStackParamList } from "../navigation";
 import { useRole } from "../lib/auth";
 import { Reviews } from "./Reviews";
 
 const c = theme.colors;
 export function InboxScreen() {
     const segments = visibleInboxSegments(useRole());
-    const [segment, setSegment] = useState<InboxSegmentKey>("messages");
+    const params = useRoute<RouteProp<RootStackParamList, "Inbox">>().params;
+    const [segment, setSegment] = useState<InboxSegmentKey>(params?.segment ?? "messages");
 
     return (
         <View style={styles.screen}>
@@ -69,6 +72,14 @@ function Messages() {
     const [composing, setComposing] = useState(false);
     const [broadcasting, setBroadcasting] = useState(false);
     const open = threads.find((t) => t.id === openId) ?? null;
+    const params = useRoute<RouteProp<RootStackParamList, "Inbox">>().params;
+    useEffect(() => {
+        if (params?.create !== undefined) setComposing(true);
+    }, [params?.create]);
+    const linked = threads.find((t) => t.client_id === params?.open);
+    useEffect(() => {
+        if (linked !== undefined) setOpenId(linked.id);
+    }, [linked]);
 
     return (
         <View style={styles.screen}>
