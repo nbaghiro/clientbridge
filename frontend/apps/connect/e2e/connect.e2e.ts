@@ -149,7 +149,7 @@ test("a client opens their message preferences and an unknown link", async ({ pa
     const prefs = strings.publicPreferences;
     await page.goto(`/prefs/${links.prefs}`);
     await expect(page.getByRole("heading", { name: prefs.title })).toBeVisible();
-    await page.getByRole("checkbox").first().click();
+    await page.getByRole("switch").first().click();
     await expect(page.getByRole("button", { name: prefs.save })).toBeEnabled();
     await page.goto("/nowhere");
     await expect(
