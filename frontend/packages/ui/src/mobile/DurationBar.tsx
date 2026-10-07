@@ -36,7 +36,7 @@ export function DurationBar({ segments, color, caption, style }: NativeProps<Dur
                         <Text
                             style={[
                                 styles.label,
-                                seg.kind === "main" ? { color: tone } : styles.bufferText,
+                                seg.kind === "main" ? styles.mainText : styles.bufferText,
                             ]}
                             numberOfLines={1}
                         >
@@ -66,6 +66,7 @@ const styles = StyleSheet.create({
         borderColor: c.border,
     },
     label: { fontSize: 12, fontWeight: "700" },
+    mainText: { color: c.ink },
     bufferText: { color: c.muted, fontWeight: "600" },
     caption: { color: c.muted, fontSize: 12.5, marginTop: 8, lineHeight: 17 },
 });

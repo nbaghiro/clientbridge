@@ -14,7 +14,7 @@ import { StyleSheet, Switch, Text, TextInput, View, type KeyboardTypeOptions } f
 
 import { Choice } from "./Choice";
 import { Notice } from "./Notice";
-import type { NativeProps } from "./props";
+import type { NativeProps, WithRef } from "./props";
 
 const c = theme.colors;
 
@@ -98,11 +98,13 @@ export function TextField({
     required,
     maxLength,
     style,
-}: NativeProps<TextFieldProps>) {
+    ref,
+}: NativeProps<TextFieldProps> & WithRef<TextInput>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const plain = type === "email" || type === "password" || type === "url";
     const input: ReactNode = (
         <TextInput
+            ref={ref}
             value={value}
             onChangeText={setValue}
             onSubmitEditing={onSubmit}
@@ -161,6 +163,7 @@ export function Select<K extends string>({
     defaultValue,
     options,
     onChange,
+    disabled = false,
     style,
 }: NativeProps<SelectProps<K>>) {
     const [value, setValue] = useControllable<K | undefined>(
@@ -171,7 +174,11 @@ export function Select<K extends string>({
         setValue(key);
         onChange?.(key);
     };
-    const choices: ChoiceOption<K>[] = options.map((o) => ({ key: o.key, label: o.label }));
+    const choices: ChoiceOption<K>[] = options.map((o) => ({
+        key: o.key,
+        label: o.label,
+        disabled,
+    }));
     return (
         <View style={style}>
             {label !== undefined ? <Label text={label} optional={false} /> : null}
@@ -203,6 +210,8 @@ export function Toggle({
                 disabled={disabled}
                 accessibilityLabel={label}
                 trackColor={{ true: c.accent, false: c.border }}
+                thumbColor={c.surface}
+                ios_backgroundColor={c.border}
             />
         </View>
     );

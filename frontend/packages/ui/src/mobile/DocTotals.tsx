@@ -9,8 +9,9 @@ const c = theme.colors;
 export function DocTotals({ lines, density = "regular", style }: NativeProps<DocTotalsProps>) {
     return (
         <View style={style}>
-            {lines.map((line) => {
-                const ruled = line.kind === "total" || line.kind === "balance";
+            {lines.map((line, i) => {
+                const ruled = i > 0 && (line.kind === "total" || line.kind === "balance");
+                const strong = line.kind === "total" || line.kind === "balance";
                 const amount =
                     (line.kind === "credit" || line.kind === "deduction") && line.cents !== 0
                         ? `−${formatMoney(line.cents)}`
@@ -24,7 +25,7 @@ export function DocTotals({ lines, density = "regular", style }: NativeProps<Doc
                             ruled && styles.ruled,
                         ]}
                     >
-                        <Text style={[styles.label, ruled && styles.labelStrong]}>
+                        <Text style={[styles.label, strong && styles.labelStrong]}>
                             {line.label}
                             {line.hint !== undefined ? (
                                 <Text style={styles.hint}>{`  ${line.hint}`}</Text>

@@ -67,7 +67,11 @@ export function ChargeSheet({
                 <Button variant="quiet" onPress={onCancel}>
                     {strings.common.cancel}
                 </Button>
-                <Button submit busy={checkout.busy}>
+                <Button
+                    submit
+                    busy={checkout.busy}
+                    disabled={!checkout.allowNewCard && checkout.method === NEW_CARD}
+                >
                     {checkout.busy ? busyLabel : submitLabel}
                 </Button>
             </div>

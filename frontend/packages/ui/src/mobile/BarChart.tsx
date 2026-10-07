@@ -43,8 +43,8 @@ export function BarChart({ bars, label, height = 140, style }: NativeProps<BarCh
             </View>
             <View style={styles.axis}>
                 {bars.map((b) => (
-                    <Text key={b.key} style={styles.tick}>
-                        {b.label.slice(0, 1)}
+                    <Text key={b.key} numberOfLines={1} style={styles.tick}>
+                        {bars.length > 8 ? b.label.slice(0, 1) : b.label}
                     </Text>
                 ))}
             </View>

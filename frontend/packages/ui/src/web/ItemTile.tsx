@@ -25,6 +25,7 @@ export function ItemTile({
                 type="button"
                 onClick={onPress}
                 disabled={disabled}
+                aria-label={count > 0 ? strings.ui.onTicket(name, count) : name}
                 className={cx(
                     "group flex min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-surface text-left shadow-card transition hover:border-accent-line disabled:opacity-60",
                     className,
@@ -50,6 +51,11 @@ export function ItemTile({
                             <Badge label={tag.label} intent={tag.intent} />
                         </span>
                     ) : null}
+                    {count > 0 ? (
+                        <span className="absolute right-2 top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-ink">
+                            {count}
+                        </span>
+                    ) : null}
                 </span>
                 <span className="flex flex-1 flex-col px-3 pb-3 pt-2.5">
                     <span className="line-clamp-2 text-sm font-medium leading-snug text-ink">
@@ -57,8 +63,8 @@ export function ItemTile({
                     </span>
                     <span className="mt-auto flex items-baseline justify-between gap-2 pt-2">
                         <span className="truncate text-xs text-muted">{meta}</span>
-                        <span className="text-sm font-semibold tabular-nums text-ink">
-                            {formatMoney(cents)}
+                        <span className="text-sm font-semibold text-ink">
+                            {cents === null ? null : formatMoney(cents)}
                         </span>
                     </span>
                 </span>
@@ -95,8 +101,8 @@ export function ItemTile({
             </span>
             <span className="mt-auto flex items-baseline justify-between gap-2 pt-1.5">
                 <span className="truncate text-xs text-muted">{meta}</span>
-                <span className="text-sm font-semibold tabular-nums text-ink">
-                    {formatMoney(cents)}
+                <span className="text-sm font-semibold text-ink">
+                    {cents === null ? null : formatMoney(cents)}
                 </span>
             </span>
         </button>

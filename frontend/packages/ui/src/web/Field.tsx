@@ -6,10 +6,10 @@ import {
     strings,
     useControllable,
 } from "@clientbridge/app-core/public";
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useId, useMemo } from "react";
 
 import { Notice } from "./Notice";
-import { type WebProps, cx } from "./props";
+import { type WebProps, type WithRef, cx, mergeRefs } from "./props";
 
 const INPUT_SIZE = { sm: "px-2 py-1 text-xs", md: "px-3 py-2 text-sm", lg: "px-3 py-2.5" } as const;
 const INPUT_WIDTH = { full: "w-full", narrow: "w-32", auto: "" } as const;
@@ -113,11 +113,14 @@ export function TextField({
     step,
     maxLength,
     className,
-}: WebProps<TextFieldProps>) {
+    ref,
+}: WebProps<TextFieldProps> & WithRef<HTMLInputElement | HTMLTextAreaElement>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     const id = useId();
+    const inputRef = useMemo(() => mergeRefs(ref), [ref]);
     const shared = {
         id,
+        ref: inputRef,
         value,
         placeholder,
         disabled,

@@ -1,4 +1,4 @@
-import type { ListPageProps } from "@clientbridge/app-core/public";
+import { type ListPageProps, strings } from "@clientbridge/app-core/public";
 
 import { Button } from "./Button";
 import { Choice } from "./Choice";
@@ -6,6 +6,7 @@ import { Empty } from "./Empty";
 import { Icon } from "./Icon";
 import type { WebProps } from "./props";
 import { SearchField } from "./SearchField";
+import { Skeleton } from "./Skeleton";
 
 export function ListPage<T, K extends string = string>({
     title,
@@ -21,6 +22,8 @@ export function ListPage<T, K extends string = string>({
     renderRow,
     onRowPress,
     empty,
+    state,
+    onRetry,
     footer,
     className,
 }: WebProps<ListPageProps<T, K>>) {
@@ -30,15 +33,17 @@ export function ListPage<T, K extends string = string>({
         <div className={className}>
             {hasHeader ? (
                 <header className="flex items-center justify-between gap-4">
-                    <div>
+                    <div className="min-w-0">
                         {title !== undefined ? (
-                            <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
+                            <h1 className="break-words font-display text-2xl font-bold text-ink">
+                                {title}
+                            </h1>
                         ) : null}
                         {summary !== undefined ? (
                             <p className="mt-0.5 text-sm text-muted">{summary}</p>
                         ) : null}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3">
                         {accessory}
                         {action !== undefined ? (
                             <Button onPress={action.onPress} icon={<Icon name="plus" size={16} />}>
@@ -78,8 +83,28 @@ export function ListPage<T, K extends string = string>({
                         {head}
                     </div>
                 ) : null}
-                {rows.length === 0 ? (
-                    <Empty message={empty} />
+                {state === "loading" ? (
+                    <Skeleton variant="row" count={4} label={strings.common.loading} />
+                ) : state === "error" ? (
+                    <Empty
+                        intent="danger"
+                        icon="alert"
+                        message={strings.ui.listError}
+                        body={strings.ui.listErrorBody}
+                        actions={
+                            onRetry !== undefined ? (
+                                <Button variant="outline" onPress={onRetry}>
+                                    {strings.ui.retry}
+                                </Button>
+                            ) : undefined
+                        }
+                    />
+                ) : rows.length === 0 ? (
+                    typeof empty === "string" ? (
+                        <Empty message={empty} />
+                    ) : (
+                        <Empty {...empty} />
+                    )
                 ) : (
                     rows.map((row) =>
                         onRowPress !== undefined ? (

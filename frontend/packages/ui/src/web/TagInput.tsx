@@ -43,16 +43,18 @@ export function TagInput({
                 {tags.map((t) => (
                     <span
                         key={t}
-                        className="inline-flex items-center gap-1 rounded-full bg-accent-weak py-0.5 pl-2.5 pr-1 text-xs font-medium text-accent-strong"
+                        className="inline-flex max-w-full items-center gap-1 rounded-full bg-accent-weak py-0.5 pl-2.5 pr-1 text-xs font-medium text-accent-strong"
                     >
-                        {t}
+                        <span className="truncate" title={t}>
+                            {t}
+                        </span>
                         <button
                             type="button"
                             aria-label={removeLabel(t)}
                             onClick={() => {
                                 remove(t);
                             }}
-                            className="rounded-full p-0.5 hover:bg-accent-line"
+                            className="shrink-0 rounded-full p-0.5 hover:bg-accent-line"
                         >
                             <Icon name="x" size={12} />
                         </button>

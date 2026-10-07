@@ -13,20 +13,23 @@ export function OccurrenceList({ rows, label, onAction, style }: NativeProps<Occ
     return (
         <View style={style} accessibilityLabel={label}>
             {rows.map((r, i) => (
-                <View
-                    key={r.key}
-                    style={[styles.row, i > 0 && styles.divider, r.past === true && styles.past]}
-                >
+                <View key={r.key} style={[styles.row, i > 0 && styles.divider]}>
                     <Text style={styles.index}>{r.index}</Text>
                     <View
-                        style={[styles.dot, { backgroundColor: c[INTENT_COLORS[r.intent].line] }]}
+                        style={[
+                            styles.dot,
+                            { backgroundColor: c[INTENT_COLORS[r.intent].line] },
+                            r.past === true && styles.pastDot,
+                        ]}
                     />
                     <View style={styles.main}>
                         <View style={styles.line}>
                             <Text
                                 style={[
                                     styles.date,
-                                    r.intent === "neutral" && r.past !== true && styles.struck,
+                                    r.past === true
+                                        ? styles.pastDate
+                                        : r.intent === "neutral" && styles.struck,
                                 ]}
                             >
                                 {r.date}
@@ -87,7 +90,8 @@ export function OccurrenceList({ rows, label, onAction, style }: NativeProps<Occ
 const styles = StyleSheet.create({
     row: { flexDirection: "row", gap: 10, paddingVertical: 11 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    past: { opacity: 0.6 },
+    pastDot: { opacity: 0.5 },
+    pastDate: { color: c.muted },
     index: {
         width: 20,
         textAlign: "right",
@@ -98,7 +102,7 @@ const styles = StyleSheet.create({
     },
     dot: { width: 8, height: 8, borderRadius: 4, marginTop: 6 },
     main: { flex: 1, minWidth: 0 },
-    line: { flexDirection: "row", alignItems: "center", gap: 8 },
+    line: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", columnGap: 8, rowGap: 4 },
     date: { fontSize: 15, fontWeight: "600", color: c.ink },
     struck: { color: c.muted, textDecorationLine: "line-through" },
     time: { fontSize: 14, color: c.muted },

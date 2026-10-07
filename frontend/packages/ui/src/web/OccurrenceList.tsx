@@ -14,22 +14,19 @@ export function OccurrenceList({
     return (
         <ol aria-label={label} className={cx("divide-y divide-line-soft", className)}>
             {rows.map((r: OccurrenceRow) => (
-                <li
-                    key={r.key}
-                    className={`flex gap-3 py-2.5 ${r.past === true ? "opacity-60" : ""}`}
-                >
+                <li key={r.key} className="flex gap-3 py-2.5">
                     <span className="w-7 shrink-0 pt-0.5 text-right text-xs tabular-nums text-muted">
                         {r.index}
                     </span>
                     <span
                         aria-hidden
-                        className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
+                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${r.past === true ? "opacity-50" : ""}`}
                         style={{ backgroundColor: cssVar(INTENT_COLORS[r.intent].line) }}
                     />
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <span
-                                className={`text-sm font-medium ${r.intent === "neutral" && r.past !== true ? "text-muted line-through" : "text-ink"}`}
+                                className={`text-sm font-medium ${r.past === true ? "text-muted" : r.intent === "neutral" ? "text-muted line-through" : "text-ink"}`}
                             >
                                 {r.date}
                             </span>

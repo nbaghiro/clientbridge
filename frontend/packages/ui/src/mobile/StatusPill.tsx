@@ -25,7 +25,7 @@ export function StatusPill({
 }
 
 const styles = StyleSheet.create({
-    badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+    badge: { alignSelf: "flex-start", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
     text: { fontSize: 11, fontWeight: "600" },
     raw: { textTransform: "capitalize" },
 });

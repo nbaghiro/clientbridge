@@ -1,5 +1,5 @@
 import { type AvatarProps, initials } from "@clientbridge/app-core";
-import { tintHex } from "@clientbridge/tokens";
+import { shadeHex, tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -24,7 +24,13 @@ export function Avatar({ name, size = "md", color, style }: NativeProps<AvatarPr
             ]}
         >
             <Text
-                style={[styles.text, { fontSize: Math.round(px * 0.34), color: color ?? c.accent }]}
+                style={[
+                    styles.text,
+                    {
+                        fontSize: Math.round(px * 0.34),
+                        color: color ? shadeHex(color, 25) : c.accent,
+                    },
+                ]}
             >
                 {/^\p{L}/u.test(name) ? initials(name) : "#"}
             </Text>

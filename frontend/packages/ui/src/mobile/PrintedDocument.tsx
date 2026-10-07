@@ -150,6 +150,11 @@ export function PrintedDocument({
             <Lines doc={doc} />
             <View style={styles.totals}>
                 <DocTotals lines={doc.totals} density="compact" />
+                {doc.stamp !== null ? (
+                    <View style={styles.stamp}>
+                        <Text style={styles.stampText}>{doc.stamp.toUpperCase()}</Text>
+                    </View>
+                ) : null}
             </View>
             {doc.payment !== null ? (
                 <View style={styles.box}>
@@ -174,11 +179,6 @@ export function PrintedDocument({
                     {doc.payUrl !== null ? (
                         <PayCode value={doc.payUrl} size={52} label={doc.labels.scanToPay} />
                     ) : null}
-                </View>
-            ) : null}
-            {doc.stamp !== null ? (
-                <View style={styles.stamp}>
-                    <Text style={styles.stampText}>{doc.stamp.toUpperCase()}</Text>
                 </View>
             ) : null}
             <View style={styles.footer}>
@@ -294,16 +294,14 @@ const styles = StyleSheet.create({
     payRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     stamp: {
         pointerEvents: "none",
-        position: "absolute",
-        right: 22,
-        top: 92,
+        alignSelf: "center",
+        marginTop: 12,
         borderWidth: 2.5,
         borderColor: c.success,
         borderRadius: 6,
         paddingHorizontal: 10,
         paddingVertical: 2,
-        transform: [{ rotate: "-14deg" }],
-        opacity: 0.7,
+        transform: [{ rotate: "-10deg" }],
     },
     stampText: { color: c.success, fontSize: 20, fontWeight: "800", letterSpacing: 3 },
     footer: { marginTop: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: c.border },

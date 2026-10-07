@@ -50,13 +50,14 @@ export function DateStrip({
                         style={[styles.day, on && styles.dayOn]}
                     >
                         <Text
+                            numberOfLines={1}
                             style={[
                                 styles.dow,
                                 d.isToday === true && styles.today,
                                 on && styles.textOn,
                             ]}
                         >
-                            {d.weekday.slice(0, 3)}
+                            {d.weekday}
                         </Text>
                         <Text style={[styles.num, off && styles.off, on && styles.textOn]}>
                             {d.day}

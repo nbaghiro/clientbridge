@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     labelDone: { color: c.muted, fontWeight: "500" },
     hint: { color: c.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
     hintWarn: { color: c.warnFg },
-    action: { flexDirection: "row", alignItems: "center", gap: 2 },
-    actionText: { color: c.accent, fontSize: 14, fontWeight: "600" },
+    action: { flexDirection: "row", alignItems: "center", gap: 2, maxWidth: "40%" },
+    actionText: { color: c.accent, fontSize: 14, fontWeight: "600", flexShrink: 1 },
     actionQuiet: { color: c.muted, fontWeight: "500" },
 });

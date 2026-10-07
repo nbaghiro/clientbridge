@@ -31,6 +31,7 @@ export function ProgressSteps({
 }: NativeProps<ProgressStepsProps>) {
     if (layout === "row") {
         const current = steps.findIndex((s) => s.state === "current");
+        const reached = current >= 0 ? current + 1 : steps.filter((s) => s.state === "done").length;
         return (
             <View
                 accessibilityRole="progressbar"
@@ -38,7 +39,7 @@ export function ProgressSteps({
                 accessibilityValue={{
                     min: 1,
                     max: steps.length,
-                    now: current + 1,
+                    now: reached,
                     text: steps[current]?.label ?? "",
                 }}
                 style={[styles.row, style]}
@@ -50,7 +51,11 @@ export function ProgressSteps({
                             styles.bar,
                             {
                                 backgroundColor:
-                                    s.state === "done" || i === current ? c.accent : c.border,
+                                    s.state === "blocked"
+                                        ? c.warnFg
+                                        : s.state === "done" || i === current
+                                          ? c.accent
+                                          : c.border,
                             },
                         ]}
                     />

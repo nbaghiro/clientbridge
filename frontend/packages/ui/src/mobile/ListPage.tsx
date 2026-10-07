@@ -1,11 +1,13 @@
-import type { ListPageProps } from "@clientbridge/app-core";
+import { type ListPageProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { Button } from "./Button";
 import { Empty } from "./Empty";
 import { Icon } from "./Icon";
 import type { NativeProps } from "./props";
 import { SearchField } from "./SearchField";
+import { Skeleton } from "./Skeleton";
 import { Tabs } from "./Tabs";
 
 const c = theme.colors;
@@ -24,6 +26,8 @@ export function ListPage<T, K extends string = string>({
     renderRow,
     onRowPress,
     empty,
+    state,
+    onRetry,
     footer,
     style,
 }: NativeProps<ListPageProps<T, K>>) {
@@ -73,7 +77,7 @@ export function ListPage<T, K extends string = string>({
                 </View>
             ) : null}
             <FlatList
-                data={rows}
+                data={state === undefined ? rows : []}
                 keyExtractor={rowKey}
                 contentContainerStyle={styles.list}
                 ListHeaderComponent={
@@ -82,12 +86,42 @@ export function ListPage<T, K extends string = string>({
                             {banner !== undefined ? (
                                 <View style={styles.banner}>{banner}</View>
                             ) : null}
-                            {head !== undefined ? <View style={styles.head}>{head}</View> : null}
+                            {head !== undefined ? (
+                                <View style={styles.head}>
+                                    {typeof head === "string" ? (
+                                        <Text style={styles.headText}>{head}</Text>
+                                    ) : (
+                                        head
+                                    )}
+                                </View>
+                            ) : null}
                         </>
                     ) : null
                 }
                 ListFooterComponent={footer !== undefined ? <>{footer}</> : null}
-                ListEmptyComponent={<Empty message={empty} />}
+                ListEmptyComponent={
+                    state === "loading" ? (
+                        <Skeleton variant="row" count={4} label={strings.common.loading} />
+                    ) : state === "error" ? (
+                        <Empty
+                            intent="danger"
+                            icon="alert"
+                            message={strings.ui.listError}
+                            body={strings.ui.listErrorBody}
+                            actions={
+                                onRetry !== undefined ? (
+                                    <Button variant="outline" onPress={onRetry}>
+                                        {strings.ui.retry}
+                                    </Button>
+                                ) : undefined
+                            }
+                        />
+                    ) : typeof empty === "string" ? (
+                        <Empty message={empty} />
+                    ) : (
+                        <Empty {...empty} />
+                    )
+                }
                 renderItem={({ item }) =>
                     onRowPress !== undefined ? (
                         <Pressable
@@ -135,6 +169,14 @@ const styles = StyleSheet.create({
     searchWrap: { marginHorizontal: 20, marginTop: 10, marginBottom: 8 },
     list: { paddingHorizontal: 20, paddingBottom: 24 },
     head: { paddingTop: 8 },
+    headText: {
+        color: c.muted,
+        fontSize: 11,
+        fontWeight: "700",
+        letterSpacing: 0.5,
+        textTransform: "uppercase",
+        paddingBottom: 4,
+    },
     banner: { paddingTop: 4, paddingBottom: 8 },
     row: {
         paddingVertical: 11,

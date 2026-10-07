@@ -43,7 +43,9 @@ export function TagInput({
             <View style={styles.box}>
                 {tags.map((t) => (
                     <View key={t} style={styles.chip}>
-                        <Text style={styles.chipText}>{t}</Text>
+                        <Text style={styles.chipText} numberOfLines={1}>
+                            {t}
+                        </Text>
                         <Pressable
                             accessibilityRole="button"
                             accessibilityLabel={removeLabel(t)}
@@ -123,13 +125,14 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         alignItems: "center",
         gap: 4,
+        maxWidth: "100%",
         backgroundColor: c.accentWeak,
         borderRadius: 999,
         paddingLeft: 10,
         paddingRight: 6,
         paddingVertical: 4,
     },
-    chipText: { color: c.accentStrong, fontSize: 13, fontWeight: "600" },
+    chipText: { flexShrink: 1, color: c.accentStrong, fontSize: 13, fontWeight: "600" },
     input: {
         flexGrow: 1,
         flexBasis: 80,

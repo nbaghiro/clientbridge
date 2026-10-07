@@ -51,7 +51,7 @@ export function TimeSlotPicker({
                                         setValue(slot.key);
                                         onChange?.(slot.key);
                                     }}
-                                    className={`rounded-md border px-2 py-2 text-center text-sm font-medium tabular-nums transition ${
+                                    className={`min-w-0 rounded-md border px-2 py-2 text-center text-sm font-medium tabular-nums transition ${
                                         on
                                             ? "border-accent bg-accent text-accent-ink"
                                             : slot.disabled === true
@@ -62,7 +62,7 @@ export function TimeSlotPicker({
                                     {slot.label}
                                     {slot.hint !== undefined ? (
                                         <span
-                                            className={`block text-[11px] font-normal ${on ? "opacity-85" : "text-muted"}`}
+                                            className={`block truncate text-[11px] font-normal ${on ? "opacity-85" : "text-muted"}`}
                                         >
                                             {slot.hint}
                                         </span>

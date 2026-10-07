@@ -23,7 +23,7 @@ const STATE = {
     selected: "ring-2 ring-accent ring-offset-1 ring-offset-surface",
     dragging: "z-30 scale-[1.02] shadow-lg ring-2 ring-accent",
     refused: "z-30 shadow-lg ring-2 ring-danger",
-    faded: "opacity-55",
+    faded: "",
 } as const;
 
 export function CalendarEventCard({
@@ -41,18 +41,19 @@ export function CalendarEventCard({
 }: WebProps<CalendarEventCardProps>) {
     const tone = INTENT_COLORS[intent];
     const pending = intent === "warning";
+    const faded = state === "faded";
     return (
         <button
             type="button"
             aria-label={label}
             onClick={onPress}
             style={{
-                backgroundColor: cssVar(tone.soft),
-                color: cssVar(tone.ink),
+                backgroundColor: cssVar(faded ? "surface2" : tone.soft),
+                color: cssVar(faded ? "muted" : tone.ink),
                 borderColor: cssVar(tone.line),
             }}
             className={cx(
-                `group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-md border-l-[3px] text-left text-xs leading-tight transition ${
+                `group flex h-full w-full min-w-0 flex-col overflow-hidden rounded-md border-l-[3px] text-left text-xs leading-tight transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-solid focus-visible:outline-accent ${
                     pending ? "outline-1 -outline-offset-1 outline-dashed outline-warn/60" : ""
                 } ${density === "compact" ? "justify-center px-1.5 py-0.5" : "px-2 py-1"} ${STATE[state]}`,
                 className,
@@ -76,7 +77,7 @@ export function CalendarEventCard({
                         ) : null}
                     </span>
                     {density === "regular" ? (
-                        <span className="mt-0.5 flex min-w-0 items-center gap-1 opacity-90">
+                        <span className="mt-0.5 flex min-w-0 items-center gap-1">
                             {color ? (
                                 <span
                                     aria-hidden
@@ -91,7 +92,7 @@ export function CalendarEventCard({
                     ) : (
                         <>
                             {detail !== undefined ? (
-                                <span className="mt-0.5 flex min-w-0 items-center gap-1 opacity-90">
+                                <span className="mt-0.5 flex min-w-0 items-center gap-1">
                                     {color ? (
                                         <span
                                             aria-hidden
@@ -102,7 +103,7 @@ export function CalendarEventCard({
                                     <span className="truncate">{detail}</span>
                                 </span>
                             ) : null}
-                            <span className="mt-0.5 truncate opacity-75">{time}</span>
+                            <span className="mt-0.5 truncate">{time}</span>
                         </>
                     )}
                 </>

@@ -81,7 +81,7 @@ export function Modal({
                 onClick={(e) => {
                     e.stopPropagation();
                 }}
-                className={`w-full outline-hidden ${WIDTH[size]} ${
+                className={`max-h-full w-full overflow-y-auto outline-hidden ${WIDTH[size]} ${
                     framed ? "rounded-xl border border-line bg-surface p-6 shadow-card" : ""
                 }`}
             >

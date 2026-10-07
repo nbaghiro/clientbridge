@@ -82,11 +82,15 @@ export function Choice<K extends string>({
                                 layout === "cards" && styles.cardText,
                                 on && (layout === "cards" ? styles.cardTextOn : styles.textOn),
                             ]}
+                            numberOfLines={layout === "cards" ? undefined : 1}
                         >
                             {o.label}
                         </Text>
                         {o.hint !== undefined ? (
-                            <Text style={[styles.hint, on && layout !== "cards" && styles.textOn]}>
+                            <Text
+                                style={[styles.hint, on && layout !== "cards" && styles.textOn]}
+                                numberOfLines={layout === "cards" ? undefined : 1}
+                            >
                                 {o.hint}
                             </Text>
                         ) : null}
@@ -117,6 +121,7 @@ const styles = StyleSheet.create({
         backgroundColor: c.surface,
         borderWidth: 1,
         borderColor: c.border,
+        maxWidth: "100%",
     },
     segment: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: theme.radius - 2 },
     on: { backgroundColor: c.accent, borderColor: c.accent },
@@ -149,6 +154,7 @@ function Tiles<K extends string>({
     const chosen = (key: K): boolean =>
         Array.isArray(value) ? (value as readonly K[]).includes(key) : value === key;
     const basis = `${String(100 / columns - 2)}%` as `${number}%`;
+    const tight = columns >= 4;
     return (
         <View
             accessibilityRole="radiogroup"
@@ -170,7 +176,9 @@ function Tiles<K extends string>({
                             tileStyles.tile,
                             { flexBasis: basis },
                             lg && tileStyles.lg,
+                            tight && tileStyles.tight,
                             on && tileStyles.on,
+                            on && tight && tileStyles.onTight,
                             o.disabled === true && tileStyles.off,
                         ]}
                     >
@@ -178,6 +186,7 @@ function Tiles<K extends string>({
                             style={[
                                 tileStyles.label,
                                 lg && tileStyles.labelLg,
+                                tight && (lg ? tileStyles.labelLgTight : tileStyles.labelTight),
                                 on && tileStyles.onText,
                             ]}
                             numberOfLines={1}
@@ -220,15 +229,19 @@ const tileStyles = StyleSheet.create({
         paddingVertical: 12,
     },
     lg: { alignItems: "center", paddingVertical: 18 },
+    tight: { paddingHorizontal: 6 },
     on: {
         borderColor: c.accent,
         backgroundColor: c.accentWeak,
         borderWidth: 2,
         paddingHorizontal: 11,
     },
+    onTight: { paddingHorizontal: 5 },
     off: { opacity: 0.5 },
     label: { color: c.ink, fontSize: 15, fontWeight: "700" },
     labelLg: { fontSize: 24 },
+    labelTight: { fontSize: 13 },
+    labelLgTight: { fontSize: 20 },
     hint: { color: c.inkSoft, fontSize: 12.5, marginTop: 2, fontVariant: ["tabular-nums"] },
     hintLg: { fontSize: 15, marginTop: 4 },
     onText: { color: c.accentStrong },

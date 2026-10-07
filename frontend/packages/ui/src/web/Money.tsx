@@ -17,7 +17,18 @@ export function Money({ cents, tone = "ink", strong = false, className }: WebPro
                 className,
             )}
         >
-            {formatMoney(cents)}
+            {formatMoney(cents)
+                .split(/([.,])/)
+                .map((part, i) =>
+                    part === "." || part === "," ? (
+                        // Tabular figures give the separator a figure-wide gap in the UI font.
+                        <span key={i} className="[font-variant-numeric:normal]">
+                            {part}
+                        </span>
+                    ) : (
+                        part
+                    ),
+                )}
         </span>
     );
 }

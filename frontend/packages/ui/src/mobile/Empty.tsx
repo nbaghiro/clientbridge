@@ -63,5 +63,5 @@ const styles = StyleSheet.create({
     },
     title: { color: c.ink, fontSize: 16, fontWeight: "700", textAlign: "center" },
     body: { color: c.muted, fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 4 },
-    actions: { alignSelf: "stretch", gap: 8, marginTop: 16 },
+    actions: { alignSelf: "stretch", alignItems: "center", gap: 8, marginTop: 16 },
 });

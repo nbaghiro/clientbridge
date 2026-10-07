@@ -32,7 +32,8 @@ export function CalendarEventCard({
     style,
 }: NativeProps<CalendarEventCardProps>) {
     const tone = INTENT_COLORS[intent];
-    const fg = c[tone.ink];
+    const faded = state === "faded";
+    const fg = faded ? c.muted : c[tone.ink];
     return (
         <Pressable
             accessibilityRole="button"
@@ -40,13 +41,15 @@ export function CalendarEventCard({
             onPress={onPress}
             style={[
                 styles.card,
-                { backgroundColor: c[tone.soft], borderLeftColor: c[tone.line] },
+                {
+                    backgroundColor: faded ? c.surface2 : c[tone.soft],
+                    borderLeftColor: c[tone.line],
+                },
                 intent === "warning" && styles.pending,
                 density === "compact" && styles.compact,
                 state === "selected" && styles.selected,
                 state === "dragging" && styles.dragging,
                 state === "refused" && styles.refused,
-                state === "faded" && styles.faded,
                 style,
             ]}
         >
@@ -118,11 +121,10 @@ const styles = StyleSheet.create({
         borderColor: c.accent,
     },
     refused: { borderWidth: 2, borderColor: c.danFg },
-    faded: { opacity: 0.55 },
     row: { flexDirection: "row", alignItems: "center", gap: 3, minWidth: 0 },
     head: { flex: 1, fontSize: 12, fontWeight: "700" },
     line: { flexShrink: 1, fontSize: 11 },
     strong: { fontWeight: "700" },
     swatch: { width: 6, height: 6, borderRadius: 3 },
-    time: { fontSize: 11, opacity: 0.8, marginTop: 1, fontVariant: ["tabular-nums"] },
+    time: { fontSize: 11, marginTop: 1, fontVariant: ["tabular-nums"] },
 });

@@ -28,8 +28,14 @@ export function IconButton({
             title={label}
             className={cx(
                 `relative inline-flex shrink-0 items-center justify-center rounded-md text-ink-soft transition hover:bg-bg hover:text-ink disabled:opacity-50 ${
-                    variant === "outline" ? "border border-line bg-surface" : ""
-                } ${pressed === true ? "bg-accent-weak text-accent" : ""} ${size === "sm" ? "h-8 w-8" : "h-9 w-9"}`,
+                    variant === "outline" ? "border" : ""
+                } ${
+                    pressed === true
+                        ? "border-accent-line bg-accent-weak text-accent"
+                        : variant === "outline"
+                          ? "border-line bg-surface"
+                          : ""
+                } ${size === "sm" ? "h-8 w-8" : "h-9 w-9"}`,
                 className,
             )}
         >

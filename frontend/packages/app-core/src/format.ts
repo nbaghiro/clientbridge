@@ -1,5 +1,8 @@
-export const formatMoney = (cents: number | null): string =>
-    `$${((cents ?? 0) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 })}`;
+export const formatMoney = (cents: number | null): string => {
+    const c = cents ?? 0;
+    const abs = (Math.abs(c) / 100).toLocaleString("en-CA", { minimumFractionDigits: 2 });
+    return c < 0 ? `-$${abs}` : `$${abs}`;
+};
 
 export const formatMoneyWithCurrency = (cents: number, currency: string): string =>
     `${formatMoney(cents)} ${currency.toUpperCase()}`;

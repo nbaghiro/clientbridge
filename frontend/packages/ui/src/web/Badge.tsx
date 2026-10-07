@@ -13,7 +13,7 @@ export function Badge({
         return (
             <span
                 className={cx(
-                    "flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-ink",
+                    "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-semibold text-accent-ink",
                     className,
                 )}
             >
@@ -25,7 +25,10 @@ export function Badge({
     return (
         <span
             style={{ backgroundColor: cssVar(tone.soft), color: cssVar(tone.ink) }}
-            className={cx("rounded-full px-2 py-0.5 text-xs font-medium", className)}
+            className={cx(
+                "inline-block max-w-full truncate whitespace-nowrap rounded-full px-2 py-0.5 align-middle text-xs font-medium",
+                className,
+            )}
         >
             {label}
         </span>

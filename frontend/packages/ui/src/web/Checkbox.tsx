@@ -24,7 +24,7 @@ export function Checkbox({
         <label
             htmlFor={id}
             className={cx(
-                `inline-flex items-center gap-2 text-sm text-ink ${disabled ? "opacity-60" : "cursor-pointer"}`,
+                `relative inline-flex items-center gap-2 text-sm text-ink ${disabled ? "opacity-60" : "cursor-pointer"}`,
                 className,
             )}
         >

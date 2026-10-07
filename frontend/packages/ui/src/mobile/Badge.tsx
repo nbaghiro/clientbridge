@@ -24,13 +24,22 @@ export function Badge({
     const tone = { bg: c[p.soft], fg: c[p.ink] };
     return (
         <View style={[styles.pill, { backgroundColor: tone.bg }, style]}>
-            <Text style={[styles.pillText, { color: tone.fg }]}>{label}</Text>
+            <Text numberOfLines={1} style={[styles.pillText, { color: tone.fg }]}>
+                {label}
+            </Text>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    pill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, alignSelf: "flex-start" },
+    pill: {
+        borderRadius: 999,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        alignSelf: "flex-start",
+        flexShrink: 1,
+        maxWidth: "100%",
+    },
     pillText: { fontSize: 11, fontWeight: "600" },
     count: {
         minWidth: 20,
@@ -40,6 +49,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         paddingHorizontal: 5,
+        alignSelf: "flex-start",
     },
     countText: { color: c.accentInk, fontSize: 11, fontWeight: "700" },
 });

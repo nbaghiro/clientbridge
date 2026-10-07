@@ -47,6 +47,7 @@ export function Skeleton({
                             {bar(pct(55 - ((i * 13) % 24)), 12)}
                             {bar(pct(35 - ((i * 7) % 14)), 10)}
                         </View>
+                        {bar(44, 12)}
                     </View>
                 ) : variant === "stat" ? (
                     <View
@@ -58,8 +59,9 @@ export function Skeleton({
                                 : null,
                         ]}
                     >
-                        {bar(70, 10)}
-                        {bar(110, 22)}
+                        {bar(pct(55), 10)}
+                        {bar(pct(85), 22)}
+                        {bar(pct(70), 8)}
                     </View>
                 ) : (
                     <View key={i} style={styles.line}>

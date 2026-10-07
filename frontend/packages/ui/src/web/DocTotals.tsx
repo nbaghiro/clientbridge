@@ -6,8 +6,9 @@ export function DocTotals({ lines, density = "regular", className }: WebProps<Do
     const pad = density === "compact" ? "py-1" : "py-1.5";
     return (
         <dl className={cx("text-sm", className)}>
-            {lines.map((line: DocTotalLine) => {
-                const ruled = line.kind === "total" || line.kind === "balance";
+            {lines.map((line: DocTotalLine, i) => {
+                const ruled = i > 0 && (line.kind === "total" || line.kind === "balance");
+                const strong = line.kind === "total" || line.kind === "balance";
                 const amount =
                     (line.kind === "credit" || line.kind === "deduction") && line.cents !== 0
                         ? `−${formatMoney(line.cents)}`
@@ -17,7 +18,7 @@ export function DocTotals({ lines, density = "regular", className }: WebProps<Do
                         key={line.key}
                         className={`flex items-baseline justify-between gap-4 ${pad} ${ruled ? "mt-1 border-t border-line pt-2.5" : ""}`}
                     >
-                        <dt className={ruled ? "font-semibold text-ink" : "text-muted"}>
+                        <dt className={strong ? "font-semibold text-ink" : "text-muted"}>
                             {line.label}
                             {line.hint !== undefined ? (
                                 <span className="ml-1.5 text-xs font-normal text-muted">

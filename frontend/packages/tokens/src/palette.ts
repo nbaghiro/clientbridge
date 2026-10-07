@@ -10,7 +10,7 @@ export const INTENT_COLORS: Record<IntentTone, { soft: ColorKey; ink: ColorKey; 
         success: { soft: "okBg", ink: "okFg", line: "success" },
         warning: { soft: "warnBg", ink: "warnFg", line: "warnFg" },
         danger: { soft: "danBg", ink: "danFg", line: "danFg" },
-        neutral: { soft: "bg", ink: "muted", line: "border" },
+        neutral: { soft: "surface2", ink: "muted", line: "border" },
     };
 
 export function cssVar(key: ColorKey): string {
@@ -24,6 +24,20 @@ export const SHADOW = "#14191E";
 // A see-through tint of a data or theme colour (web, so CSS variables work too).
 export function tint(color: string, percent: number): string {
     return `color-mix(in srgb, ${color} ${String(percent)}%, transparent)`;
+}
+
+// A data colour darkened toward black, so text in it stays readable on its own tint.
+export function shade(color: string, percent: number): string {
+    return `color-mix(in srgb, ${color} ${String(100 - percent)}%, black)`;
+}
+
+export function shadeHex(hex: string, percent: number): string {
+    const keep = 1 - percent / 100;
+    const channel = (i: number): string =>
+        Math.round(parseInt(hex.slice(i, i + 2), 16) * keep)
+            .toString(16)
+            .padStart(2, "0");
+    return `#${channel(1)}${channel(3)}${channel(5)}`;
 }
 
 // The same tint for React Native, which takes a #RRGGBB colour.

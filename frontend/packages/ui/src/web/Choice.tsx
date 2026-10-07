@@ -77,7 +77,7 @@ function OptionBody<K extends string>({
                 </span>
                 {o.hint !== undefined ? (
                     <span
-                        className={`tabular-nums ${on ? "text-accent-strong" : "text-ink-soft"} ${lg ? "mt-1 text-base" : "mt-0.5 text-xs"}`}
+                        className={`${on ? "text-accent-strong" : "text-ink-soft"} ${lg ? "mt-1 text-base" : "mt-0.5 text-xs"}`}
                     >
                         {o.hint}
                     </span>

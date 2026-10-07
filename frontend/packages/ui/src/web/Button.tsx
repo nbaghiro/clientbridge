@@ -48,7 +48,16 @@ export function Button({
                 className,
             )}
         >
-            {typeof icon === "string" ? <Icon name={icon} size={size === "sm" ? 14 : 16} /> : icon}
+            {busy ? (
+                <span
+                    aria-hidden
+                    className={`animate-spin rounded-full border-2 border-current border-t-transparent ${size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5"}`}
+                />
+            ) : typeof icon === "string" ? (
+                <Icon name={icon} size={size === "sm" ? 14 : 16} />
+            ) : (
+                icon
+            )}
             {children}
         </button>
     );

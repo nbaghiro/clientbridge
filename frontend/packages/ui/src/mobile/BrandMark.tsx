@@ -16,14 +16,22 @@ const WORD: Record<string, string> = {
 
 export function BrandMark({ method, brand, size = "md", style }: NativeProps<BrandMarkProps>) {
     const sm = size === "sm";
+    const word = WORD[method === "interac" ? "interac" : (brand ?? "")] ?? strings.ui.cardFallback;
+    const long = word.length > 4;
     return (
         <View accessible={false} style={[styles.box, sm ? styles.sm : styles.md, style]}>
             {method === "bank_eft" ? (
                 <Icon name="bank" size={sm ? 14 : 17} color={c.inkSoft} />
             ) : (
-                <Text style={[styles.word, { fontSize: sm ? 9 : 10 }]}>
-                    {WORD[method === "interac" ? "interac" : (brand ?? "")] ??
-                        strings.ui.cardFallback}
+                <Text
+                    numberOfLines={1}
+                    style={[
+                        styles.word,
+                        { fontSize: (sm ? 9 : 10) - (long ? 2 : 0) },
+                        long ? styles.tight : null,
+                    ]}
+                >
+                    {word}
                 </Text>
             )}
         </View>
@@ -38,8 +46,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: c.border,
         backgroundColor: c.surface2,
+        overflow: "hidden",
     },
     sm: { width: 36, height: 24 },
     md: { width: 48, height: 32 },
     word: { color: c.inkSoft, fontWeight: "800", letterSpacing: 0.5 },
+    tight: { letterSpacing: 0 },
 });

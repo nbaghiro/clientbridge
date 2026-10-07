@@ -51,11 +51,23 @@ export function ImagePicker({
             <View style={styles.side}>
                 {hint !== undefined ? <Text style={styles.hint}>{hint}</Text> : null}
                 <View style={styles.actions}>
-                    <Button size="sm" variant="outline" onPress={onPick} disabled={busy}>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onPress={onPick}
+                        disabled={busy}
+                        style={styles.action}
+                    >
                         {label}
                     </Button>
                     {onPickAlt !== undefined && altLabel !== undefined ? (
-                        <Button size="sm" variant="outline" onPress={onPickAlt} disabled={busy}>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={onPickAlt}
+                            disabled={busy}
+                            style={styles.action}
+                        >
                             {altLabel}
                         </Button>
                     ) : null}
@@ -88,7 +100,8 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
     },
-    side: { flex: 1, gap: 8 },
+    side: { flex: 1, minWidth: 0, gap: 8 },
     hint: { color: c.muted, fontSize: 12.5, lineHeight: 17 },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    action: { maxWidth: "100%" },
 });

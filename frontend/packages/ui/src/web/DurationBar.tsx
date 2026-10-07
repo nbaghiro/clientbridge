@@ -31,10 +31,7 @@ export function DurationBar({ segments, color, caption, className }: WebProps<Du
                         }
                         className={`flex min-w-[52px] items-center px-2 ${seg.kind === "main" ? "" : "bg-bg"}`}
                     >
-                        <span
-                            className="truncate text-xs font-semibold"
-                            style={seg.kind === "main" ? { color: tone } : undefined}
-                        >
+                        <span className="truncate text-xs font-semibold text-ink">
                             {seg.kind === "main" ? (
                                 seg.label
                             ) : (

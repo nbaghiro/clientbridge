@@ -205,7 +205,7 @@ function Stamp({ text }: { text: string }) {
     return (
         <span
             aria-hidden
-            className="pointer-events-none absolute right-12 top-40 rotate-[-14deg] rounded-md border-[3px] border-success px-4 py-1 font-display text-3xl font-bold uppercase tracking-widest text-success opacity-70"
+            className="pointer-events-none mx-auto mt-5 block w-fit rotate-[-10deg] rounded-md border-[3px] border-success px-4 py-1 font-display text-3xl font-bold uppercase tracking-widest text-success"
         >
             {text}
         </span>
@@ -262,7 +262,10 @@ function Classic({ doc }: { doc: Doc }) {
                     <TaxSummary doc={doc} />
                     <PaymentBox doc={doc} />
                 </div>
-                <DocTotals lines={doc.totals} density="compact" />
+                <div>
+                    <DocTotals lines={doc.totals} density="compact" />
+                    {doc.stamp !== null ? <Stamp text={doc.stamp} /> : null}
+                </div>
             </div>
             <div className="mt-6">
                 <HowToPay doc={doc} />
@@ -331,7 +334,10 @@ function Statement({ doc }: { doc: Doc }) {
                     <PaymentBox doc={doc} />
                     <TaxSummary doc={doc} />
                 </div>
-                <DocTotals lines={doc.totals} density="compact" />
+                <div>
+                    <DocTotals lines={doc.totals} density="compact" />
+                    {doc.stamp !== null ? <Stamp text={doc.stamp} /> : null}
+                </div>
             </div>
         </>
     );
@@ -349,7 +355,6 @@ export function PrintedDocument({
                 className="relative flex min-h-[129.4cqw] w-full flex-col overflow-hidden rounded-sm bg-surface p-6 text-ink @xl:p-12 shadow-page"
             >
                 {template === "classic" ? <Classic doc={doc} /> : <Statement doc={doc} />}
-                {doc.stamp !== null ? <Stamp text={doc.stamp} /> : null}
                 <div className="mt-8 flex flex-1 flex-col">
                     <Footer doc={doc} />
                 </div>

@@ -82,6 +82,6 @@ const styles = StyleSheet.create({
     text: { flex: 1, minWidth: 0 },
     title: { fontSize: 13.5, fontWeight: "700" },
     titleLarge: { fontSize: 16 },
-    detail: { fontSize: 13, opacity: 0.9, marginTop: 1, lineHeight: 18 },
+    detail: { fontSize: 13, marginTop: 1, lineHeight: 18 },
     body: { padding: 14 },
 });

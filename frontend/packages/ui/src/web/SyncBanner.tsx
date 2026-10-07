@@ -29,9 +29,7 @@ export function SyncBanner({
             >
                 <Icon name={ICON[state]} size={16} />
                 <span className="font-semibold">{title}</span>
-                {detail !== undefined ? (
-                    <span className="truncate opacity-80">{detail}</span>
-                ) : null}
+                {detail !== undefined ? <span className="truncate">{detail}</span> : null}
                 {action !== undefined ? (
                     <span className="ml-auto shrink-0">
                         <Button size="sm" variant="link" onPress={action.onPress}>
@@ -56,9 +54,7 @@ export function SyncBanner({
                 </span>
                 <div className="min-w-0 flex-1">
                     <p className="font-display text-base font-bold">{title}</p>
-                    {detail !== undefined ? (
-                        <p className="mt-0.5 text-sm opacity-90">{detail}</p>
-                    ) : null}
+                    {detail !== undefined ? <p className="mt-0.5 text-sm">{detail}</p> : null}
                 </div>
                 {action !== undefined ? (
                     <Button size="sm" variant="outline" onPress={action.onPress}>

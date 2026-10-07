@@ -66,9 +66,13 @@ export function ImagePicker({
                         >
                             <Icon name={busy ? "refresh" : "image"} size={20} />
                         </span>
-                        <span className="text-xs font-semibold text-ink">{label}</span>
+                        <span className="line-clamp-2 text-xs font-semibold break-words text-ink">
+                            {label}
+                        </span>
                         {size === "lg" && hint !== undefined ? (
-                            <span className="text-[11px] leading-snug text-muted">{hint}</span>
+                            <span className="line-clamp-3 text-[11px] leading-snug text-muted">
+                                {hint}
+                            </span>
                         ) : null}
                     </span>
                 )}
@@ -76,7 +80,17 @@ export function ImagePicker({
             </button>
             {size === "md" || src !== null ? (
                 <div className="min-w-0 text-sm">
-                    {size === "md" ? <p className="font-medium text-ink">{label}</p> : null}
+                    {size === "md" ? (
+                        <p className="font-medium break-words text-ink">{label}</p>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={onPick}
+                            className="text-xs font-medium text-accent hover:underline"
+                        >
+                            {label}
+                        </button>
+                    )}
                     {size === "md" && hint !== undefined ? (
                         <p className="mt-0.5 text-xs text-muted">{hint}</p>
                     ) : null}
@@ -84,7 +98,7 @@ export function ImagePicker({
                         <button
                             type="button"
                             onClick={onRemove}
-                            className="mt-1 text-xs font-medium text-danger hover:underline"
+                            className={`text-xs font-medium text-danger hover:underline ${size === "md" ? "mt-1" : "ml-3"}`}
                         >
                             {removeLabel}
                         </button>

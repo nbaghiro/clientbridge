@@ -13,14 +13,11 @@ export function MessageBubble({
 }: WebProps<MessageBubbleProps>) {
     if (variant === "event") {
         return (
-            <p
-                className={cx(
-                    "mx-auto max-w-md rounded-full bg-surface2 px-3 py-1 text-center text-xs text-muted",
-                    className,
-                )}
-            >
-                {body}
-            </p>
+            <div className={cx("flex justify-center", className)}>
+                <p className="max-w-md rounded-full bg-surface2 px-3 py-1 text-center text-xs text-muted">
+                    {body}
+                </p>
+            </div>
         );
     }
     const out = direction === "out";
@@ -30,7 +27,7 @@ export function MessageBubble({
                 className={`flex ${width === "full" ? "max-w-full" : "max-w-[75%]"} flex-col ${out ? "items-end" : "items-start"}`}
             >
                 <div
-                    className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                    className={`whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed [overflow-wrap:anywhere] ${
                         out
                             ? `${failed ? "bg-danger-bg text-danger-fg" : "bg-accent text-accent-ink"} rounded-br-md`
                             : "rounded-bl-md border border-line bg-surface text-ink"

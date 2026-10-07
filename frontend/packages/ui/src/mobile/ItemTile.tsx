@@ -58,6 +58,11 @@ export function ItemTile({
                             <Badge label={tag.label} intent={tag.intent} />
                         </View>
                     ) : null}
+                    {count > 0 ? (
+                        <View style={[styles.count, styles.photoCount]}>
+                            <Text style={styles.countText}>{count}</Text>
+                        </View>
+                    ) : null}
                 </View>
                 <View style={styles.cardBody}>
                     <Text style={styles.name} numberOfLines={2}>
@@ -67,7 +72,9 @@ export function ItemTile({
                         <Text style={styles.meta} numberOfLines={1}>
                             {meta}
                         </Text>
-                        <Text style={styles.price}>{formatMoney(cents)}</Text>
+                        {cents === null ? null : (
+                            <Text style={styles.price}>{formatMoney(cents)}</Text>
+                        )}
                     </View>
                 </View>
             </Pressable>
@@ -103,7 +110,7 @@ export function ItemTile({
                 <Text style={styles.meta} numberOfLines={1}>
                     {meta}
                 </Text>
-                <Text style={styles.price}>{formatMoney(cents)}</Text>
+                {cents === null ? null : <Text style={styles.price}>{formatMoney(cents)}</Text>}
             </View>
         </Pressable>
     );
@@ -156,5 +163,6 @@ const styles = StyleSheet.create({
     initial: { alignItems: "center", justifyContent: "center" },
     initialText: { fontSize: 30, fontWeight: "700" },
     photoTag: { position: "absolute", left: 8, top: 8 },
+    photoCount: { position: "absolute", right: 8, top: 8 },
     cardBody: { padding: 10, paddingTop: 8, flex: 1 },
 });

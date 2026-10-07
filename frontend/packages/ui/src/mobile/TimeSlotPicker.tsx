@@ -1,4 +1,4 @@
-import { type TimeSlotPickerProps, useControllable } from "@clientbridge/app-core";
+import { type TimeSlot, type TimeSlotPickerProps, useControllable } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -16,7 +16,11 @@ export function TimeSlotPicker({
     style,
 }: NativeProps<TimeSlotPickerProps>) {
     const [value, setValue] = useControllable<string | null>(valueProp, defaultValue);
-    const basis: `${number}%` = `${Math.floor(100 / Math.min(columns, 4)) - 3}%`;
+    const across = Math.min(columns, 4);
+    const rows = (slots: readonly TimeSlot[]): (TimeSlot | null)[][] =>
+        Array.from({ length: Math.ceil(slots.length / across) }, (_, r) =>
+            Array.from({ length: across }, (_, i) => slots[r * across + i] ?? null),
+        );
     return (
         <View
             accessibilityRole="radiogroup"
@@ -27,45 +31,54 @@ export function TimeSlotPicker({
                 <View key={g.label}>
                     <Text style={styles.group}>{g.label}</Text>
                     <View style={styles.grid}>
-                        {g.slots.map((slot) => {
-                            const on = slot.key === value;
-                            return (
-                                <Pressable
-                                    key={slot.key}
-                                    accessibilityRole="radio"
-                                    accessibilityState={{
-                                        checked: on,
-                                        disabled: slot.disabled === true,
-                                    }}
-                                    disabled={slot.disabled}
-                                    onPress={() => {
-                                        setValue(slot.key);
-                                        onChange?.(slot.key);
-                                    }}
-                                    style={[
-                                        styles.slot,
-                                        { flexBasis: basis },
-                                        on && styles.on,
-                                        slot.disabled === true && styles.taken,
-                                    ]}
-                                >
-                                    <Text
-                                        style={[
-                                            styles.label,
-                                            on && styles.textOn,
-                                            slot.disabled === true && styles.takenText,
-                                        ]}
-                                    >
-                                        {slot.label}
-                                    </Text>
-                                    {slot.hint !== undefined ? (
-                                        <Text style={[styles.hint, on && styles.textOn]}>
-                                            {slot.hint}
-                                        </Text>
-                                    ) : null}
-                                </Pressable>
-                            );
-                        })}
+                        {rows(g.slots).map((row, r) => (
+                            <View key={r} style={styles.row}>
+                                {row.map((slot, i) => {
+                                    if (slot === null) return <View key={i} style={styles.cell} />;
+                                    const on = slot.key === value;
+                                    return (
+                                        <Pressable
+                                            key={slot.key}
+                                            accessibilityRole="radio"
+                                            accessibilityState={{
+                                                checked: on,
+                                                disabled: slot.disabled === true,
+                                            }}
+                                            disabled={slot.disabled}
+                                            onPress={() => {
+                                                setValue(slot.key);
+                                                onChange?.(slot.key);
+                                            }}
+                                            style={[
+                                                styles.cell,
+                                                styles.slot,
+                                                on && styles.on,
+                                                slot.disabled === true && styles.taken,
+                                            ]}
+                                        >
+                                            <Text
+                                                numberOfLines={1}
+                                                style={[
+                                                    styles.label,
+                                                    on && styles.textOn,
+                                                    slot.disabled === true && styles.takenText,
+                                                ]}
+                                            >
+                                                {slot.label}
+                                            </Text>
+                                            {slot.hint !== undefined ? (
+                                                <Text
+                                                    numberOfLines={1}
+                                                    style={[styles.hint, on && styles.textOn]}
+                                                >
+                                                    {slot.hint}
+                                                </Text>
+                                            ) : null}
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                        ))}
                     </View>
                 </View>
             ))}
@@ -83,10 +96,13 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
         marginBottom: 8,
     },
-    grid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    grid: { gap: 8 },
+    row: { flexDirection: "row", gap: 8 },
+    cell: { flex: 1, minWidth: 0 },
     slot: {
         alignItems: "center",
         paddingVertical: 10,
+        paddingHorizontal: 4,
         borderRadius: theme.radius,
         borderWidth: 1,
         borderColor: c.border,

@@ -45,7 +45,11 @@ export interface ListPageProps<T, K extends string = string> {
     rowKey: (row: T) => string;
     renderRow: (row: T) => ReactNode;
     onRowPress?: ((row: T) => void) | undefined;
-    empty: string;
+    // A string is the plain empty line; EmptyProps adds an icon, body and next-step actions.
+    empty: string | EmptyProps;
+    // "loading" draws placeholder rows, "error" a failed load with onRetry; rows are ignored for both.
+    state?: "loading" | "error" | undefined;
+    onRetry?: (() => void) | undefined;
     footer?: ReactNode | undefined;
 }
 
@@ -258,7 +262,7 @@ export interface StatProps {
     label: string;
     cents?: number | null | undefined;
     value?: string | undefined;
-    tone?: "ink" | "muted" | "success" | "danger" | undefined;
+    tone?: "ink" | "muted" | "success" | "warning" | "danger" | undefined;
     hint?: string | undefined;
     // lg is a headline figure (Today); md sits several to a card (Reports).
     size?: "md" | "lg" | undefined;

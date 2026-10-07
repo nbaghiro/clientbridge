@@ -45,6 +45,9 @@ export const strings = {
         startOf: (day: string) => `${day} start`,
         endOf: (day: string) => `${day} end`,
         cardFallback: "CARD",
+        listError: "This list didn't load.",
+        listErrorBody: "Check your connection, then try again.",
+        retry: "Try again",
     },
     billing: {
         actionSend: "Send",

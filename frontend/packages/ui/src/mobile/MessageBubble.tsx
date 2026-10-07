@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     fill: { maxWidth: "100%" },
     left: { alignSelf: "flex-start", alignItems: "flex-start" },
     right: { alignSelf: "flex-end", alignItems: "flex-end" },
-    bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
+    bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9, maxWidth: "100%" },
     in: {
         backgroundColor: c.surface,
         borderWidth: 1,

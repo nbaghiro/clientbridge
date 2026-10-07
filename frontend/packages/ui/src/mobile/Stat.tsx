@@ -6,7 +6,13 @@ import type { NativeProps } from "./props";
 
 const c = theme.colors;
 
-const TONE = { ink: c.ink, muted: c.muted, success: c.success, danger: c.danFg } as const;
+const TONE = {
+    ink: c.ink,
+    muted: c.muted,
+    success: c.success,
+    warning: c.warnFg,
+    danger: c.danFg,
+} as const;
 
 export function Stat({
     label,
@@ -23,7 +29,12 @@ export function Stat({
     const shown = value ?? (cents === null || cents === undefined ? null : money(cents));
     return (
         <View style={[large ? styles.card : styles.row, style]}>
-            <Text style={styles.label}>{label}</Text>
+            <View style={large ? null : styles.words}>
+                <Text style={styles.label} numberOfLines={large ? undefined : 2}>
+                    {label}
+                </Text>
+                {hint !== undefined && !large ? <Text style={styles.hint}>{hint}</Text> : null}
+            </View>
             {shown === null ? (
                 <View style={[styles.skeleton, large && styles.skeletonLarge]} />
             ) : (
@@ -31,7 +42,7 @@ export function Stat({
                     {shown}
                 </Text>
             )}
-            {hint !== undefined ? <Text style={styles.hint}>{hint}</Text> : null}
+            {hint !== undefined && large ? <Text style={styles.hint}>{hint}</Text> : null}
         </View>
     );
 }
@@ -44,11 +55,12 @@ const styles = StyleSheet.create({
         borderRadius: theme.radius,
         padding: 16,
     },
-    row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+    words: { flex: 1, minWidth: 0 },
     label: { color: c.muted, fontSize: 14 },
     value: { fontSize: 18, fontWeight: "700", fontVariant: ["tabular-nums"] },
     valueLarge: { fontSize: 26, fontWeight: "700", marginTop: 4, fontVariant: ["tabular-nums"] },
-    skeleton: { height: 20, width: 80, borderRadius: 6, backgroundColor: c.bg },
+    skeleton: { height: 20, width: 80, borderRadius: 6, backgroundColor: c.surface2 },
     skeletonLarge: { height: 30, width: 130, marginTop: 6 },
     hint: { color: c.muted, fontSize: 12, marginTop: 4 },
 });

@@ -10,6 +10,7 @@ const TONE = {
     ink: "text-ink",
     muted: "text-muted",
     success: "text-success",
+    warning: "text-warn-fg",
     danger: "text-danger",
 } as const;
 
@@ -38,7 +39,7 @@ export function Stat({
             <p className="text-sm text-muted">{label}</p>
             {shown === null ? (
                 <div
-                    className={`mt-2 animate-pulse rounded-base bg-bg ${large ? "h-8 w-32" : "h-7 w-24"}`}
+                    className={`mt-2 animate-pulse rounded-base bg-surface2 ${large ? "h-8 w-32" : "h-7 w-24"}`}
                 />
             ) : (
                 <p

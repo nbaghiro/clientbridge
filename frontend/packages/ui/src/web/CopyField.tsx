@@ -39,7 +39,7 @@ export function CopyField({
                 {variant === "snippet" ? button : null}
             </div>
             {variant === "snippet" ? (
-                <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-line bg-bg px-3 py-2.5 font-mono text-[12px] leading-relaxed text-ink-soft">
+                <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md [overflow-wrap:anywhere] border border-line bg-bg px-3 py-2.5 font-mono text-[12px] leading-relaxed text-ink-soft">
                     {value}
                 </pre>
             ) : (

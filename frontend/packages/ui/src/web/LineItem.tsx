@@ -67,7 +67,7 @@ export function LineItem({
             {count !== undefined && count > 1 ? (
                 <span className="text-sm tabular-nums text-muted">{count} ×</span>
             ) : null}
-            <span className="w-20 shrink-0 text-right">
+            <span className="min-w-20 shrink-0 text-right">
                 {originalCents !== undefined &&
                 originalCents !== null &&
                 originalCents !== cents ? (

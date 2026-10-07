@@ -1,5 +1,5 @@
 import { type AvatarProps, initials } from "@clientbridge/app-core/public";
-import { tint } from "@clientbridge/tokens";
+import { shade, tint } from "@clientbridge/tokens";
 
 import { type WebProps, cx } from "./props";
 
@@ -11,7 +11,9 @@ const SIZE = {
 } as const;
 
 export function Avatar({ name, size = "md", color, className }: WebProps<AvatarProps>) {
-    const tinted = color ? { backgroundColor: tint(color, 12), color } : undefined;
+    const tinted = color
+        ? { backgroundColor: tint(color, 12), color: shade(color, 25) }
+        : undefined;
     return (
         <span
             aria-hidden
