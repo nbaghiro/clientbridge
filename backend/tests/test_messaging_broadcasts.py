@@ -115,6 +115,19 @@ async def test_broadcast_row_keeps_its_counts(
     assert (row.recipient_count, row.excluded_count, row.status) == (2, 2, "sent")
 
 
+async def test_blank_broadcast_name_or_body_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
+) -> None:
+    await _audience(db)
+    base = {"name": "Promo", "channel": "sms", "body": "Hi", "audience": {"tags": ["promo"]}}
+    for blank in ({"name": "  "}, {"body": " \n "}):
+        res = await as_owner.post("/v1/broadcasts", json={**base, **blank})
+        assert res.status_code == 422
+    assert sms.sent == []
+    out = ok(await as_owner.post("/v1/broadcasts", json={**base, "name": "  Promo  "})).json()
+    assert out["name"] == "Promo"
+
+
 async def _scheduled(db: AsyncSession, *, business_id: str = BIZ) -> str:
     broadcast = Broadcast(
         id=new_id("broadcast"),

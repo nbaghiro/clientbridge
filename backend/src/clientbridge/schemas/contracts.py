@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from clientbridge.schemas.public import PublicBrand
 
@@ -48,12 +49,12 @@ class PublicContractSign(BaseModel):
 
 
 class ContractCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
-    body: str = Field(min_length=1, max_length=40000)
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40000)]
 
 
 class ContractVersionCreate(BaseModel):
-    body: str = Field(min_length=1, max_length=40000)
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40000)]
 
 
 class ContractOut(BaseModel):

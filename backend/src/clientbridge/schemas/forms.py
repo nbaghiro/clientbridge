@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from clientbridge.schemas.public import PublicBrand
 
@@ -75,7 +75,7 @@ class FormFieldIn(BaseModel):
 
 
 class FormSave(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
     require_signature: bool = False
     send_on: Literal["booking", "manual"] = "manual"
     active: bool = True

@@ -1,7 +1,7 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 Channel = Literal["sms", "email"]
 
@@ -22,9 +22,9 @@ class MessageOut(BaseModel):
 
 
 class BroadcastSend(BaseModel):
-    name: str
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
     channel: Channel
-    body: str
+    body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=5000)]
     audience: dict[str, object] = Field(
         default_factory=dict, description='{}, {"all": true} or {"tags": [...]}'
     )

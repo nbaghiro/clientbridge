@@ -217,6 +217,16 @@ async def test_a_blank_question_label_is_refused(as_owner: httpx.AsyncClient) ->
     assert (await as_owner.post("/v1/forms", json=body)).status_code == 422
 
 
+async def test_a_blank_form_name_is_refused_and_a_padded_one_trimmed(
+    as_owner: httpx.AsyncClient,
+) -> None:
+    assert (await as_owner.post("/v1/forms", json={**INTAKE, "name": "   "})).status_code == 422
+    out = ok(await as_owner.post("/v1/forms", json={**INTAKE, "name": "  Intake  "}), 201).json()
+    assert out["name"] == "Intake"
+    blank = await as_owner.patch(f"/v1/forms/{out['id']}", json={**INTAKE, "name": " \t "})
+    assert blank.status_code == 422
+
+
 async def test_edit_unknown_form_404(as_owner: httpx.AsyncClient) -> None:
     assert (await as_owner.patch("/v1/forms/frm_nope", json=INTAKE)).status_code == 404
 

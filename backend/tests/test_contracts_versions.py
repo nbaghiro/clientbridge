@@ -30,6 +30,15 @@ async def test_create_a_contract(as_owner: httpx.AsyncClient, db: AsyncSession) 
     assert (await as_owner.post("/v1/contracts", json={"name": "x", "body": ""})).status_code == 422
 
 
+async def test_blank_contract_name_or_text_is_refused(as_owner: httpx.AsyncClient) -> None:
+    for body in ({"name": "   ", "body": "Terms"}, {"name": "Waiver", "body": " \n "}):
+        assert (await as_owner.post("/v1/contracts", json=body)).status_code == 422
+    blank = await as_owner.post(f"/v1/contracts/{WAIVER}/versions", json={"body": "  "})
+    assert blank.status_code == 422
+    out = ok(await as_owner.post("/v1/contracts", json={"name": " Waiver ", "body": "T"}), 201)
+    assert out.json()["name"] == "Waiver"
+
+
 async def test_new_text_is_a_new_version_and_signed_copies_keep_theirs(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
