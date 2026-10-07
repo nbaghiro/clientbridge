@@ -8,6 +8,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     UniqueConstraint,
 )
@@ -25,6 +26,7 @@ class Business(PKMixin, TimestampMixin, Base):
         Index("ix_businesses_stripe_account", "stripe_account_id", unique=True),
         enum_check("businesses", "status", "active", "closed"),
         enum_check("businesses", "filing_frequency", "monthly", "quarterly", "annual"),
+        CheckConstraint("review_hold_at BETWEEN 0 AND 5", name="ck_businesses_review_hold_at"),
     )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -38,6 +40,11 @@ class Business(PKMixin, TimestampMixin, Base):
     pst_number: Mapped[str | None] = mapped_column(String)
     filing_frequency: Mapped[str | None] = mapped_column(String)
     setup_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # reviews rated at or below this wait for the owner before they show; 0 publishes everything
+    review_hold_at: Mapped[int] = mapped_column(
+        SmallInteger, default=3, server_default="3", nullable=False
+    )
+    google_review_url: Mapped[str | None] = mapped_column(String)
     brand: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     billing_email: Mapped[str | None] = mapped_column(String)
     stripe_account_id: Mapped[str | None] = mapped_column(String)

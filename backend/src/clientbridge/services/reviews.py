@@ -10,6 +10,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
+from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
 from clientbridge.models.reviews import REVIEW_OPEN, REVIEW_SUBMITTED, Review
 from clientbridge.models.scheduling import Booking
@@ -17,6 +18,7 @@ from clientbridge.schemas.reviews import (
     ReviewLinkOut,
     ReviewOut,
     ReviewRequestCreate,
+    ReviewShareOut,
     ReviewSummary,
 )
 from clientbridge.services.notifications import Notifier
@@ -117,6 +119,26 @@ class ReviewService:
 
         return await run_command(
             self.db, self.principal, action="review.google", run=run, response_model=ReviewOut
+        )
+
+    async def share(self, review_id: str) -> ReviewShareOut:
+        self._assert_admin()
+        review = await self._review(review_id)
+        business = await self.db.get(Business, self.biz)
+        link = business.google_review_url if business is not None else None
+        if link is None:
+            raise Conflict("add your Google review link before sharing reviews")
+        if review.status != "published":
+            raise Conflict("only a published review can be shared")
+
+        async def run(cmd: Command) -> ReviewShareOut:
+            review.sent_to_google = True
+            await self.db.flush()
+            cmd.record("review.share", entity_type="review", entity_id=review.id)
+            return ReviewShareOut(review=_review_out(review), google_review_url=link)
+
+        return await run_command(
+            self.db, self.principal, action="review.share", run=run, response_model=ReviewShareOut
         )
 
     async def _set_status(self, review_id: str, status: str, action: str) -> ReviewOut:

@@ -13,12 +13,13 @@ from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Invoice, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
-from clientbridge.models.clients import Client
+from clientbridge.models.clients import Client, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.platform import File, IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
-from clientbridge.models.scheduling import Addon, Booking
+from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import LineInput
+from clientbridge.schemas.consents import PublicPreferences, PublicPreferencesUpdate
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormField, PublicFormSubmit
@@ -46,6 +47,12 @@ from clientbridge.services import ledger
 from clientbridge.services.bookings import create_booking_core, open_slots
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.clients import find_or_create_by_contact
+from clientbridge.services.consents import (
+    allows_marketing,
+    client_id_for_prefs,
+    latest_consents,
+    set_channel_consent,
+)
 from clientbridge.services.files import item_images, media_url, mint_upload
 from clientbridge.services.lines import apply_totals, replace_lines
 from clientbridge.services.payments import (
@@ -298,25 +305,28 @@ class PublicContractService:
 
     async def context(self, token: str) -> PublicContractContext:
         signature, contract, business = await self._resolve(token)
-        client = await self.db.get(Client, signature.client_id)
-        return PublicContractContext(
-            contract_name=contract.name,
-            business_name=business.name,
-            brand=public_brand(business),
-            body=signature.signed_body or contract.body,
-            signer_name=client.name if client is not None else None,
-            status=signature.status,
-        )
+        if signature.status == "pending" and signature.opened_at is None:
+            signature.opened_at = datetime.now(UTC)
+            await self.db.commit()
+        return await self._context(signature, contract, business)
 
     async def sign(self, token: str, data: PublicContractSign, ip: str) -> PublicContractContext:
         signature, contract, business = await self._resolve(token)
         if signature.status != "pending":
             raise Conflict("this contract is no longer awaiting a signature")
+        if not data.agreed:
+            raise Unprocessable("agree to sign electronically first")
+        if data.strokes is not None and not _valid_strokes(data.strokes):
+            raise Unprocessable("the drawn signature is empty or too detailed")
         if data.signature_image_id is not None:
             await self._assert_image(data.signature_image_id, signature.business_id)
         signature.status = "signed"
         signature.signed_at = datetime.now(UTC)
-        signature.signed_body = _snapshot(contract.body, data.typed_name)
+        signature.signed_body = _snapshot(contract.body, data.typed_name.strip())
+        signature.contract_version = contract.version
+        signature.signer_name = data.typed_name.strip()
+        signature.method = "drawn" if data.strokes else "typed"
+        signature.strokes = [[list(p) for p in stroke] for stroke in data.strokes or []] or None
         signature.signature_image_id = data.signature_image_id
         signature.ip = ip
         await self.db.commit()
@@ -351,6 +361,7 @@ class PublicContractService:
         self, signature: Signature, contract: Contract, business: Business
     ) -> PublicContractContext:
         client = await self.db.get(Client, signature.client_id)
+        signed = signature.status == "signed"
         return PublicContractContext(
             contract_name=contract.name,
             business_name=business.name,
@@ -358,6 +369,12 @@ class PublicContractService:
             body=signature.signed_body or contract.body,
             signer_name=client.name if client is not None else None,
             status=signature.status,
+            version=(signature.contract_version if signed else None) or contract.version,
+            signed_at=signature.signed_at,
+            signer_ip=signature.ip if signed else None,
+            method=signature.method,
+            typed_name=signature.signer_name,
+            strokes=_strokes_out(signature.strokes),
         )
 
     async def _assert_image(self, file_id: str, business_id: str) -> None:
@@ -366,8 +383,33 @@ class PublicContractService:
             raise NotFound("signature image not found")
 
 
+_MAX_POINTS = 4000
+
+
+def _valid_strokes(strokes: list[list[tuple[float, float]]]) -> bool:
+    points = [p for stroke in strokes for p in stroke]
+    in_box = all(-0.05 <= x <= 1.05 and -0.05 <= y <= 1.05 for x, y in points)
+    return 0 < len(points) <= _MAX_POINTS and in_box
+
+
+def _strokes_out(raw: list[object] | None) -> list[list[tuple[float, float]]] | None:
+    if not raw:
+        return None
+    out: list[list[tuple[float, float]]] = []
+    for stroke in raw:
+        if isinstance(stroke, list):
+            out.append(
+                [(float(p[0]), float(p[1])) for p in stroke if isinstance(p, list) and len(p) == 2]
+            )
+    return out
+
+
 def _snapshot(body: str, typed_name: str | None) -> str:
     return f"{body}\n\n— Signed by {typed_name}" if typed_name else body
+
+
+FORM_UPLOAD_TYPES = frozenset({"application/pdf", "image/jpeg", "image/png", "image/heic"})
+FORM_UPLOAD_MAX_BYTES = 10 * 1024 * 1024
 
 
 class PublicFormService:
@@ -401,6 +443,9 @@ class PublicFormService:
 
     async def context(self, token: str) -> PublicFormContext:
         response, form, business = await self._resolve(token)
+        if response.status == "draft" and response.opened_at is None:
+            response.opened_at = datetime.now(UTC)
+            await self.db.commit()
         fields = await self._fields(form.id)
         return PublicFormContext(
             form_name=form.name,
@@ -414,6 +459,10 @@ class PublicFormService:
         self, token: str, data: PublicFileCreate, storage: FileStorage
     ) -> PublicFileUpload:
         response, _, _ = await self._resolve(token)
+        if data.content_type not in FORM_UPLOAD_TYPES:
+            raise Unprocessable("attach a PDF, JPG, PNG or HEIC file")
+        if data.size is None or data.size > FORM_UPLOAD_MAX_BYTES:
+            raise Unprocessable("attach a file up to 10 MB")
         result = await mint_upload(
             self.db,
             storage,
@@ -550,7 +599,7 @@ class PublicReviewService:
         if review.status == "requested":
             review.status = "opened"
             await self.db.commit()
-        return self._context(review, business)
+        return await self._context(review, business)
 
     async def submit(self, token: str, data: PublicReviewSubmit) -> PublicReviewContext:
         review, business = await self._resolve(token)
@@ -564,20 +613,96 @@ class PublicReviewService:
         review.rating = data.rating
         review.body = data.body
         review.submitted_at = now
-        review.status = "published"
+        review.status = "submitted" if data.rating <= business.review_hold_at else "published"
         if review.requested_at is None:
             review.requested_at = now
         await self.db.commit()
-        return self._context(review, business)
+        return await self._context(review, business)
 
-    @staticmethod
-    def _context(review: Review, business: Business) -> PublicReviewContext:
+    async def _context(self, review: Review, business: Business) -> PublicReviewContext:
+        client = await self.db.get(Client, review.client_id)
+        booking = await self.db.get(Booking, review.booking_id) if review.booking_id else None
+        published = review.status == "published"
         return PublicReviewContext(
             business_name=business.name,
             brand=public_brand(business),
             completed=review.status not in REVIEW_OPEN,
             rating=review.rating,
+            first_name=client.name.split(" ")[0] if client is not None else None,
+            google_review_url=business.google_review_url if published else None,
+            published=published,
+            **(await self._visit(booking) if booking is not None else {}),
         )
+
+    async def _visit(self, booking: Booking) -> dict[str, str | None]:
+        slot = await self.db.get(Slot, booking.slot_id)
+        item = await self.db.get(Item, slot.item_id) if slot is not None else None
+        staff = await self.db.get(Staff, booking.staff_id) if booking.staff_id else None
+        pet = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
+        return {
+            "service": item.name if item is not None else None,
+            "staff": staff.name.split(" ")[0] if staff is not None and staff.name else None,
+            "pet": pet.name if pet is not None else None,
+        }
+
+
+class PublicPreferencesService:
+    """A client's own message preferences; the signed link is the only credential."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def _resolve(self, token: str) -> tuple[Client, Business]:
+        client_id = client_id_for_prefs(token)
+        client = await self.db.get(Client, client_id) if client_id is not None else None
+        if client is None or client.deleted_at is not None:
+            raise NotFound("preferences link not found")
+        return client, await business_or_404(
+            self.db, client.business_id, "preferences link not found"
+        )
+
+    async def context(self, token: str) -> PublicPreferences:
+        client, business = await self._resolve(token)
+        return await self._out(client, business)
+
+    async def save(self, token: str, data: PublicPreferencesUpdate) -> PublicPreferences:
+        client, business = await self._resolve(token)
+        await set_channel_consent(self.db, client, "email", agreed=data.email, source="preferences")
+        await set_channel_consent(self.db, client, "sms", agreed=data.sms, source="preferences")
+        await self.db.commit()
+        return await self._out(client, business)
+
+    async def unsubscribe(self, token: str, channel: str | None) -> PublicPreferences:
+        client, business = await self._resolve(token)
+        for each in [channel] if channel is not None else ["email", "sms"]:
+            await set_channel_consent(self.db, client, each, agreed=False, source="unsubscribe")
+        await self.db.commit()
+        return await self._out(client, business)
+
+    async def _out(self, client: Client, business: Business) -> PublicPreferences:
+        email = (await latest_consents(self.db, business.id, [client.id], "email")).get(client.id)
+        sms = (await latest_consents(self.db, business.id, [client.id], "sms")).get(client.id)
+        return PublicPreferences(
+            business_name=business.name,
+            brand=public_brand(business),
+            first_name=client.name.split(" ")[0],
+            email_hint=_email_hint(client.email),
+            phone_hint=_phone_hint(client.phone),
+            email=allows_marketing(email),
+            sms=allows_marketing(sms),
+        )
+
+
+def _email_hint(email: str | None) -> str | None:
+    if not email or "@" not in email:
+        return None
+    local, _, domain = email.partition("@")
+    return f"{local[:1]}•••@{domain}"
+
+
+def _phone_hint(phone: str | None) -> str | None:
+    digits = "".join(ch for ch in phone or "" if ch.isdigit())
+    return f"•••{digits[-4:]}" if len(digits) >= 4 else None
 
 
 _SCOPE = "shop.order"

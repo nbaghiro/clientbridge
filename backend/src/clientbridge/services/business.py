@@ -121,7 +121,14 @@ class BusinessService:
             raise NotFound("business not found")
         fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
         for key, value in fields.items():
-            cleared = value == "" and key in ("gst_hst_number", "qst_number", "pst_number")
+            if value is None and key == "review_hold_at":
+                continue
+            cleared = value == "" and key in (
+                "gst_hst_number",
+                "qst_number",
+                "pst_number",
+                "google_review_url",
+            )
             setattr(business, key, None if cleared else value)
         if data.setup_dismissed is not None:
             business.setup_dismissed_at = datetime.now(UTC) if data.setup_dismissed else None

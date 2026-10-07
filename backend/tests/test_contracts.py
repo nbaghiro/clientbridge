@@ -16,6 +16,8 @@ from tests.helpers import client_id, new_client
 BIZ = "bz_birchbark"
 WAIVER = "con_waiver"  # seeded contract
 
+SIGN = {"typed_name": "Jane Doe", "agreed": True}
+
 
 async def _a_signature(db: AsyncSession, *, contract_id: str = WAIVER) -> str:
     signature = Signature(
@@ -105,7 +107,7 @@ async def test_public_sign_records_snapshot_and_ip(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     token = await _a_signature(db)
-    res = await api.post(f"/contract/{token}/sign", json={"typed_name": "Jane Doe"})
+    res = await api.post(f"/contract/{token}/sign", json=SIGN)
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "signed"
     row = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
@@ -118,7 +120,7 @@ async def test_public_sign_records_snapshot_and_ip(
 async def test_public_sign_with_image(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_signature(db)
     image_id = await _a_file(db)
-    res = await api.post(f"/contract/{token}/sign", json={"signature_image_id": image_id})
+    res = await api.post(f"/contract/{token}/sign", json={**SIGN, "signature_image_id": image_id})
     assert res.status_code == 200, res.text
     row = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
     assert row.signature_image_id == image_id
@@ -130,21 +132,21 @@ async def test_public_sign_cross_tenant_image_404(
     token = await _a_signature(db)
     other = await factory.business(name="Rival Images")
     foreign = await _a_file(db, business_id=other.id)
-    res = await api.post(f"/contract/{token}/sign", json={"signature_image_id": foreign})
+    res = await api.post(f"/contract/{token}/sign", json={**SIGN, "signature_image_id": foreign})
     assert res.status_code == 404
 
 
 async def test_public_second_sign_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_signature(db)
-    assert (await api.post(f"/contract/{token}/sign", json={})).status_code == 200
-    assert (await api.post(f"/contract/{token}/sign", json={})).status_code == 409
+    assert (await api.post(f"/contract/{token}/sign", json=SIGN)).status_code == 200
+    assert (await api.post(f"/contract/{token}/sign", json=SIGN)).status_code == 409
 
 
 async def test_public_decline_then_sign_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_signature(db)
     declined = await api.post(f"/contract/{token}/decline")
     assert declined.status_code == 200 and declined.json()["status"] == "declined"
-    assert (await api.post(f"/contract/{token}/sign", json={})).status_code == 409
+    assert (await api.post(f"/contract/{token}/sign", json=SIGN)).status_code == 409
 
 
 async def test_public_upload_then_sign_with_image(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -155,7 +157,7 @@ async def test_public_upload_then_sign_with_image(api: httpx.AsyncClient, db: As
     assert up.json()["upload_url"]  # presigned PUT target
     row = (await db.execute(select(File).where(File.id == fid))).scalar_one()
     assert row.business_id == BIZ  # the public upload is scoped to the token's business
-    signed = await api.post(f"/contract/{token}/sign", json={"signature_image_id": fid})
+    signed = await api.post(f"/contract/{token}/sign", json={**SIGN, "signature_image_id": fid})
     assert signed.status_code == 200, signed.text
     sig = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
     assert sig.signature_image_id == fid
@@ -167,7 +169,7 @@ async def test_public_upload_unknown_token_404(api: httpx.AsyncClient) -> None:
 
 async def test_public_unknown_token_404(api: httpx.AsyncClient) -> None:
     assert (await api.get("/contract/nope")).status_code == 404
-    assert (await api.post("/contract/nope/sign", json={})).status_code == 404
+    assert (await api.post("/contract/nope/sign", json=SIGN)).status_code == 404
     assert (await api.post("/contract/nope/decline")).status_code == 404
 
 

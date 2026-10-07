@@ -30,11 +30,15 @@ FORM_FIELD_TYPES = (
 
 class Form(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "forms"
+    __table_args__ = (enum_check("forms", "send_on", "booking", "manual"),)
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     attach_to: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
     require_signature: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    send_on: Mapped[str] = mapped_column(
+        String, default="manual", server_default="manual", nullable=False
+    )
 
 
 class FormField(PKMixin, BusinessScoped, TimestampMixin, Base):
@@ -72,6 +76,7 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     token: Mapped[str | None] = mapped_column(String)  # public submit-link key (server-minted)
     status: Mapped[str] = mapped_column(String, default="submitted", nullable=False)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     answers: Mapped[dict[str, object]] = mapped_column(
         JSONB, default=dict, nullable=False
     )  # keyed by field name
@@ -92,6 +97,7 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("signatures", "status", "pending", "signed", "declined", "expired"),
         enum_check("signatures", "parent_type", *DOCUMENT_PARENTS),
+        enum_check("signatures", "method", "typed", "drawn"),
         UniqueConstraint("token", name="uq_signatures_token"),
         Index("ix_signatures_contract", "business_id", "contract_id"),
         Index("ix_signatures_parent", "parent_type", "parent_id"),
@@ -107,3 +113,8 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     signed_body: Mapped[str | None] = mapped_column(String)  # snapshot at signing
     ip: Mapped[str | None] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
+    contract_version: Mapped[int | None] = mapped_column(Integer)
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    method: Mapped[str | None] = mapped_column(String)
+    signer_name: Mapped[str | None] = mapped_column(String)
+    strokes: Mapped[list[object] | None] = mapped_column(JSONB)

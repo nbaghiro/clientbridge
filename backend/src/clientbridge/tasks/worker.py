@@ -15,6 +15,7 @@ from clientbridge.integrations.twilio import get_sms_sender
 from clientbridge.services.billing import run_overdue_sweep
 from clientbridge.services.bookings import run_reap_unpaid_bookings, run_reminders
 from clientbridge.services.entitlements import run_expiry_sweeps
+from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.ledger import run_reconcile_ledger
 from clientbridge.services.messaging import run_due_broadcasts
 from clientbridge.services.notifications import Notifier, run_prune_devices
@@ -67,6 +68,11 @@ async def send_review_requests(ctx: Context) -> int:
         return await run_review_requests(db, _notifier(), datetime.now(UTC))
 
 
+async def send_intake_forms(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_intake_forms(db, _notifier(), datetime.now(UTC))
+
+
 class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     functions: ClassVar[list[object]] = []
@@ -79,4 +85,5 @@ class WorkerSettings:
         cron(prune_devices, hour=3, minute=30),
         cron(reconcile_ledger, hour=4, minute=0),
         cron(send_review_requests, hour=8, minute=0),
+        cron(send_intake_forms, minute={10, 25, 40, 55}),
     ]

@@ -65,7 +65,15 @@ class Note(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 
 CONSENT_STATUSES = ("granted", "implied", "withdrawn")
-CONSENT_SOURCES = ("in_person", "form", "online_booking", "reply", "unsubscribe", "import")
+CONSENT_SOURCES = (
+    "in_person",
+    "form",
+    "online_booking",
+    "reply",
+    "unsubscribe",
+    "import",
+    "preferences",
+)
 
 
 class Consent(PKMixin, BusinessScoped, TimestampMixin, Base):

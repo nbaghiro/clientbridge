@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.clients import Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
+from clientbridge.services.consents import record_consent
 from clientbridge.services.messaging import run_due_broadcasts, unread_count
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
 
@@ -24,6 +25,22 @@ def _active_client(*, name: str, phone: str, tags: list[str]) -> Client:
         tags=tags,
         custom_fields={},
     )
+
+
+async def _agree_to_texts(db: AsyncSession) -> None:
+    """Record a yes to texts for every client added in the test (the seed clients have none)."""
+    await db.flush()
+    rows = (await db.execute(select(Client).where(Client.business_id == BIZ))).scalars().all()
+    for client in rows:
+        await record_consent(
+            db,
+            BIZ,
+            client.id,
+            channel="sms",
+            status="granted",
+            source="in_person",
+            recorded_by=None,
+        )
 
 
 async def _client_with_contact(
@@ -169,7 +186,7 @@ async def test_broadcast_fans_out(
                 custom_fields={},
             )
         )
-    await db.flush()
+    await _agree_to_texts(db)
     res = await as_owner.post(
         "/v1/broadcasts", json={"name": "Spring promo", "channel": "sms", "body": "Sale!"}
     )
@@ -291,7 +308,7 @@ async def test_broadcast_excludes_other_business(
     other = await factory.business(name="Rival Co")
     foreign = await factory.client(business=other)
     foreign.phone = "+15145559999"  # fully contactable, but a different business
-    await db.flush()
+    await _agree_to_texts(db)
     res = await as_owner.post(
         "/v1/broadcasts", json={"name": "Ours only", "channel": "sms", "body": "Sale!"}
     )
@@ -310,7 +327,7 @@ async def test_broadcast_audience_tag_filter(
             _active_client(name="Regular", phone="+15145559002", tags=["regular"]),
         ]
     )
-    await db.flush()
+    await _agree_to_texts(db)
     res = await as_owner.post(
         "/v1/broadcasts",
         json={"name": "VIP sale", "channel": "sms", "body": "Hi", "audience": {"tags": ["vip"]}},
@@ -343,7 +360,7 @@ async def test_run_due_broadcasts_sends_when_due(
 ) -> None:
     await db.execute(update(Client).where(Client.business_id == BIZ).values(phone=None))
     db.add(_active_client(name="Due", phone="+15145559004", tags=[]))
-    await db.flush()
+    await _agree_to_texts(db)
     # a past `now` so the seeded future-scheduled broadcast (bro_winback) can't also fire
     now = datetime(2020, 1, 2, tzinfo=UTC)
     broadcast = Broadcast(

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from clientbridge.schemas.public import PublicBrand
 
@@ -18,6 +18,7 @@ class SignatureOut(BaseModel):
     status: str
     token: str
     signed_at: datetime | None
+    contract_version: int | None
 
 
 class PublicContractContext(BaseModel):
@@ -27,8 +28,38 @@ class PublicContractContext(BaseModel):
     body: str
     signer_name: str | None
     status: str
+    version: int
+    signed_at: datetime | None = None
+    signer_ip: str | None = None
+    method: str | None = None
+    typed_name: str | None = None
+    strokes: list[list[tuple[float, float]]] | None = None
+
+
+Stroke = list[tuple[float, float]]
 
 
 class PublicContractSign(BaseModel):
+    typed_name: str = Field(min_length=1, max_length=120, description="The printed name")
+    strokes: list[Stroke] | None = Field(
+        default=None, max_length=60, description="A drawn signature as points from 0 to 1"
+    )
+    agreed: bool = Field(description="The client agreed to sign electronically")
     signature_image_id: str | None = None
-    typed_name: str | None = None
+
+
+class ContractCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    body: str = Field(min_length=1, max_length=40000)
+
+
+class ContractVersionCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=40000)
+
+
+class ContractOut(BaseModel):
+    id: str
+    name: str
+    body: str
+    version: int
+    active: bool

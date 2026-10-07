@@ -41,6 +41,8 @@ class BusinessOut(BaseModel):
     tax_registered: bool
     filing_frequency: str | None
     setup_dismissed_at: datetime | None
+    review_hold_at: int
+    google_review_url: str | None
     brand: dict[str, object]
 
 
@@ -95,7 +97,23 @@ class BusinessSettingsUpdate(BaseModel):
     setup_dismissed: bool | None = Field(
         default=None, description="Hide (true) or show (false) the Get set up list"
     )
+    review_hold_at: int | None = Field(
+        default=None, ge=0, le=5, description="Hold reviews rated at or below this; 0 holds none"
+    )
+    google_review_url: str | None = Field(
+        default=None, description="The Google review link shared after a good review; empty clears"
+    )
     brand: BrandInput | None = None
+
+    @field_validator("google_review_url")
+    @classmethod
+    def _check_google(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if v != "" and not v.startswith("https://"):
+            raise ValueError("the review link must start with https://")
+        return v
 
     @staticmethod
     def _tax_number(v: str | None, pattern: re.Pattern[str], example: str) -> str | None:

@@ -39,6 +39,7 @@ class BroadcastOut(BaseModel):
     channel: str
     status: str
     recipient_count: int
+    excluded_count: int = Field(description="Audience members left out: no consent or no contact")
 
 
 class ThreadOut(BaseModel):

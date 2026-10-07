@@ -63,6 +63,7 @@ _public_review_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_form_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_contract_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_booking_limiter = RateLimiter(limit=30, window_s=60.0)
+_public_prefs_limiter = RateLimiter(limit=30, window_s=60.0)
 
 
 def _client_ip(request: Request) -> str:
@@ -100,4 +101,10 @@ def public_contract_rate_limit(request: Request) -> None:
 def public_booking_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated booking endpoints."""
     if not _public_booking_limiter.check(_client_ip(request), time.monotonic()):
+        raise TooManyRequests("too many requests — please wait a moment")
+
+
+def public_prefs_rate_limit(request: Request) -> None:
+    """Cap how fast one IP hits the unauthenticated message preference endpoints."""
+    if not _public_prefs_limiter.check(_client_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")
