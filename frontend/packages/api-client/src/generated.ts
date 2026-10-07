@@ -2648,6 +2648,26 @@ export interface components {
             /** Frequency */
             frequency?: ("day" | "week" | "month" | "year") | null;
             /**
+             * Covers Item Id
+             * @description Packages only: the service or class each visit covers
+             */
+            covers_item_id?: string | null;
+            /**
+             * Visits Per Period
+             * @description Memberships only: visits included each period
+             */
+            visits_per_period?: number | null;
+            /**
+             * Member Discount Bps
+             * @description Memberships only: members' retail discount
+             */
+            member_discount_bps?: number | null;
+            /**
+             * Gift Amounts
+             * @description Gift cards only: suggested amounts in cents
+             */
+            gift_amounts?: number[] | null;
+            /**
              * Online Bookable
              * @description Defaults by kind: services and classes only
              */
@@ -2740,6 +2760,26 @@ export interface components {
             interval?: number | null;
             /** Frequency */
             frequency?: ("day" | "week" | "month" | "year") | null;
+            /**
+             * Covers Item Id
+             * @description Packages only: the service or class each visit covers
+             */
+            covers_item_id?: string | null;
+            /**
+             * Visits Per Period
+             * @description Memberships only: visits included each period
+             */
+            visits_per_period?: number | null;
+            /**
+             * Member Discount Bps
+             * @description Memberships only: members' retail discount
+             */
+            member_discount_bps?: number | null;
+            /**
+             * Gift Amounts
+             * @description Gift cards only: suggested amounts in cents
+             */
+            gift_amounts?: number[] | null;
             /** Id */
             id: string;
             /** Online Bookable */
@@ -2811,6 +2851,14 @@ export interface components {
             interval?: number | null;
             /** Frequency */
             frequency?: ("day" | "week" | "month" | "year") | null;
+            /** Covers Item Id */
+            covers_item_id?: string | null;
+            /** Visits Per Period */
+            visits_per_period?: number | null;
+            /** Member Discount Bps */
+            member_discount_bps?: number | null;
+            /** Gift Amounts */
+            gift_amounts?: number[] | null;
         };
         /** LineInput */
         LineInput: {
@@ -3577,6 +3625,11 @@ export interface components {
             quantity: number;
             /** Note */
             note?: string | null;
+            /**
+             * Unit Cost Cents
+             * @description What each unit cost; updates the product's cost
+             */
+            unit_cost_cents?: number | null;
         };
         /** ReviewLinkOut */
         ReviewLinkOut: {

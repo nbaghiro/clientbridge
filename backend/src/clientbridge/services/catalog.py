@@ -64,8 +64,13 @@ class CatalogService:
             validity_days=data.validity_days,
             interval=data.interval,
             frequency=data.frequency,
+            covers_item_id=data.covers_item_id,
+            visits_per_period=data.visits_per_period,
+            member_discount_bps=data.member_discount_bps,
+            gift_amounts=_amounts(data.gift_amounts),
         )
         _assert_shape(item)
+        await self._assert_covers(item)
         self.db.add(item)
         await self._save(item)
         return item
@@ -75,14 +80,28 @@ class CatalogService:
         item = await self.get(item_id)
         changes = data.model_dump(exclude_unset=True)
         for key, value in changes.items():
-            setattr(item, key, value)
+            setattr(item, key, _amounts(value) if key == "gift_amounts" else value)
         if "online_bookable" not in changes and item.kind not in BOOKABLE_KINDS:
             item.online_bookable = False
         if item.track_stock and item.stock_on_hand is None:
             item.stock_on_hand = 0
         _assert_shape(item)
+        await self._assert_covers(item)
         await self._save(item)
         return item
+
+    async def _assert_covers(self, item: Item) -> None:
+        if item.covers_item_id is None:
+            return
+        covered = (
+            await self.db.execute(
+                scoped(Item, self.principal.business_id).where(Item.id == item.covers_item_id)
+            )
+        ).scalar_one_or_none()
+        if covered is None:
+            raise NotFound("the covered service was not found")
+        if covered.kind not in BOOKABLE_KINDS or covered.id == item.id:
+            raise Unprocessable("a package visit covers a service or a class")
 
     async def _save(self, item: Item) -> None:
         try:
@@ -133,6 +152,20 @@ def _assert_shape(item: Item) -> None:
         raise Unprocessable("only packages have a session count")
     if (item.interval is not None or item.frequency is not None) and item.kind != "subscription":
         raise Unprocessable("only subscriptions repeat")
+    if item.covers_item_id is not None and item.kind != "package":
+        raise Unprocessable("only a package covers a service")
+    if (
+        item.visits_per_period is not None or item.member_discount_bps is not None
+    ) and item.kind != "subscription":
+        raise Unprocessable("only memberships include visits or a member discount")
+    if item.gift_amounts is not None and item.kind != "gift":
+        raise Unprocessable("only gift cards have suggested amounts")
+
+
+def _amounts(value: object) -> list[int] | None:
+    if not isinstance(value, list):
+        return None
+    return sorted({int(v) for v in value}) or None
 
 
 def deposit_cents(item: Item) -> int:

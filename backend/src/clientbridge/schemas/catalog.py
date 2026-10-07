@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -7,6 +7,7 @@ from clientbridge.schemas.billing import TaxClass
 
 ItemKind = Literal["service", "class", "product", "package", "subscription", "gift"]
 DepositType = Literal["none", "fixed", "percent"]
+GiftAmount = Annotated[int, Field(gt=0)]
 Frequency = Literal["day", "week", "month", "year"]
 
 
@@ -39,6 +40,18 @@ class ItemBase(BaseModel):
     validity_days: int | None = Field(default=None, ge=1)
     interval: int | None = Field(default=None, ge=1)
     frequency: Frequency | None = None
+    covers_item_id: str | None = Field(
+        default=None, description="Packages only: the service or class each visit covers"
+    )
+    visits_per_period: int | None = Field(
+        default=None, ge=1, description="Memberships only: visits included each period"
+    )
+    member_discount_bps: int | None = Field(
+        default=None, ge=0, le=10000, description="Memberships only: members' retail discount"
+    )
+    gift_amounts: list[GiftAmount] | None = Field(
+        default=None, max_length=12, description="Gift cards only: suggested amounts in cents"
+    )
 
 
 class ItemCreate(ItemBase):
@@ -73,6 +86,10 @@ class ItemUpdate(BaseModel):
     validity_days: int | None = Field(default=None, ge=1)
     interval: int | None = Field(default=None, ge=1)
     frequency: Frequency | None = None
+    covers_item_id: str | None = None
+    visits_per_period: int | None = Field(default=None, ge=1)
+    member_discount_bps: int | None = Field(default=None, ge=0, le=10000)
+    gift_amounts: list[GiftAmount] | None = Field(default=None, max_length=12)
 
 
 class ItemOut(ItemBase):
@@ -89,6 +106,9 @@ class ItemOut(ItemBase):
 class RestockIn(BaseModel):
     quantity: int = Field(description="Negative for a count correction; never zero")
     note: str | None = None
+    unit_cost_cents: int | None = Field(
+        default=None, ge=0, description="What each unit cost; updates the product's cost"
+    )
 
     @field_validator("quantity")
     @classmethod

@@ -13,7 +13,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -24,7 +24,7 @@ ENTITLEMENT_KINDS = ("gift", "package", "subscription")
 FREQUENCIES = ("day", "week", "month", "year")
 # standard: every provincial component; federal_only: GST/HST only (no PST/QST); exempt: none.
 TAX_CLASSES = ("standard", "federal_only", "exempt")
-STOCK_REASONS = ("sale", "refund", "restock")
+STOCK_REASONS = ("sale", "refund", "restock", "correction")
 
 
 class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
@@ -74,6 +74,10 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     frequency: Mapped[str | None] = mapped_column(String)
     session_count: Mapped[int | None] = mapped_column(Integer)
     validity_days: Mapped[int | None] = mapped_column(Integer)
+    covers_item_id: Mapped[str | None] = mapped_column(ForeignKey("items.id"))  # package visits
+    visits_per_period: Mapped[int | None] = mapped_column(Integer)  # membership visits included
+    member_discount_bps: Mapped[int | None] = mapped_column(Integer)  # members' retail discount
+    gift_amounts: Mapped[list[int] | None] = mapped_column(ARRAY(BigInteger))  # suggested cents
     stripe_price_id: Mapped[str | None] = mapped_column(String)  # cached recurring Price
     tax_class: Mapped[str] = mapped_column(String, default="standard", nullable=False)
     sku: Mapped[str | None] = mapped_column(String)
@@ -162,5 +166,6 @@ class StockMovement(PKMixin, BusinessScoped, TimestampMixin, Base):
     line_id: Mapped[str | None] = mapped_column(ForeignKey("lines.id"))
     reason: Mapped[str] = mapped_column(String, nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_cost_cents: Mapped[int | None] = mapped_column(BigInteger)
     note: Mapped[str | None] = mapped_column(String)
     created_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))

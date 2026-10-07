@@ -76,6 +76,10 @@ const items = new Table(
         frequency: column.text,
         session_count: column.integer,
         validity_days: column.integer,
+        covers_item_id: column.text,
+        visits_per_period: column.integer,
+        member_discount_bps: column.integer,
+        gift_amounts: column.text,
         stripe_price_id: column.text,
         tax_class: column.text,
         sku: column.text,
@@ -578,6 +582,28 @@ const lines = new Table(
     },
 );
 
+const inventory = new Table(
+    {
+        item_id: column.text,
+        line_id: column.text,
+        reason: column.text,
+        quantity: column.integer,
+        unit_cost_cents: column.integer,
+        note: column.text,
+        created_by: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            inventory_business_id: ["business_id"],
+            inventory_item: ["business_id", "item_id"],
+            ux_inventory_line_reason: ["line_id", "reason"],
+        },
+    },
+);
+
 const payments = new Table(
     {
         client_id: column.text,
@@ -694,6 +720,7 @@ export const AppSchema = new Schema({
     estimates,
     orders,
     lines,
+    inventory,
     payments,
     payment_methods,
     reviews,

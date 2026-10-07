@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Line
@@ -34,13 +34,19 @@ class StockService:
                 raise NotFound("item not found")
             if not item.track_stock:
                 raise Conflict("turn on stock tracking for this product first")
+            correction = data.quantity < 0
+            if correction and data.unit_cost_cents is not None:
+                raise Unprocessable("a count correction has no unit cost")
+            if data.unit_cost_cents is not None:
+                item.cost_cents = data.unit_cost_cents
             await _move(
                 self.db,
                 item,
                 data.quantity,
-                "restock",
+                "correction" if correction else "restock",
                 note=data.note,
                 created_by=self.principal.user_id,
+                unit_cost_cents=data.unit_cost_cents,
             )
             cmd.record("item.restock", entity_type="item", entity_id=item.id)
             await self.db.refresh(item)
@@ -116,6 +122,7 @@ async def _move(
     *,
     note: str | None = None,
     created_by: str | None = None,
+    unit_cost_cents: int | None = None,
 ) -> None:
     db.add(
         StockMovement(
@@ -126,6 +133,7 @@ async def _move(
             quantity=quantity,
             note=note,
             created_by=created_by,
+            unit_cost_cents=unit_cost_cents,
         )
     )
     item.stock_on_hand = (item.stock_on_hand or 0) + quantity

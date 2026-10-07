@@ -190,6 +190,41 @@ async def test_restock_adds_once_per_key(as_owner: httpx.AsyncClient, db: AsyncS
     assert await _stock(db, SHAMPOO) == 8
 
 
+async def test_restock_records_unit_cost_and_updates_the_cost(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _track(db, SHAMPOO, 2)
+    res = await as_owner.post(
+        f"/v1/items/{SHAMPOO}/restock",
+        json={"quantity": 6, "unit_cost_cents": 1150, "note": "Coastal · INV-1"},
+    )
+    assert res.status_code == 200, res.text
+    assert (res.json()["stock_on_hand"], res.json()["cost_cents"]) == (8, 1150)
+    move = (
+        await db.execute(select(StockMovement).where(StockMovement.item_id == SHAMPOO))
+    ).scalar_one()
+    assert (move.reason, move.unit_cost_cents, move.created_by) == ("restock", 1150, "us_dev")
+
+
+async def test_negative_restock_is_a_correction(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _track(db, SHAMPOO, 5)
+    res = await as_owner.post(
+        f"/v1/items/{SHAMPOO}/restock", json={"quantity": -1, "note": "Damaged bottle"}
+    )
+    assert res.status_code == 200, res.text
+    reason = (
+        await db.execute(select(StockMovement.reason).where(StockMovement.item_id == SHAMPOO))
+    ).scalar_one()
+    assert reason == "correction"
+    costed = await as_owner.post(
+        f"/v1/items/{SHAMPOO}/restock", json={"quantity": -1, "unit_cost_cents": 100}
+    )
+    assert costed.status_code == 422
+    assert await _stock(db, SHAMPOO) == 4
+
+
 async def test_restock_errors(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     untracked = await as_owner.post(f"/v1/items/{SHAMPOO}/restock", json={"quantity": 2})
     assert untracked.status_code == 409
