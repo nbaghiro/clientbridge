@@ -530,7 +530,7 @@ async def post_fees(db: AsyncSession, payment: Payment, fees: ChargeFees) -> Non
 async def _unwind(
     db: AsyncSession,
     original: Payment,
-    refund: Payment,
+    refund_id: str,
     credits: list[tuple[Entry, Account]],
     base: int,
     returned: int,
@@ -538,7 +538,7 @@ async def _unwind(
     """Each credit leg's share still to unwind, so the final refund clears every leg exactly."""
     refunds = scoped(Payment, original.business_id).where(
         Payment.kind == "refund",
-        Payment.id != refund.id,
+        Payment.id != refund_id,
         Payment.invoice_id == original.invoice_id
         if original.invoice_id
         else Payment.parent_payment_id == original.id,
@@ -569,6 +569,33 @@ async def _unwind(
     return legs
 
 
+async def refund_legs(
+    db: AsyncSession, original: Payment, returned: int, *, refund_id: str = ""
+) -> list[Leg]:
+    """What returning `returned` of a payment unwinds, part by part (the credit note's split)."""
+    biz = original.business_id
+    basis = f"invoice:{original.invoice_id}" if original.invoice_id else f"payment:{original.id}"
+    credits = [
+        (entry, account)
+        for entry, account in await _rows(db, biz, Entry.ref == basis)
+        if account.category in _UNWOUND
+    ]
+    base = -sum(entry.amount_cents for entry, _ in credits)
+    if base <= 0:
+        return [Leg("business", biz, "revenue", returned)]
+    return await _unwind(db, original, refund_id, credits, base, returned)
+
+
+async def payment_fee(db: AsyncSession, payment: Payment) -> int:
+    """The Stripe and platform fee booked for a charge (kept when it is refunded)."""
+    rows = await _rows(db, payment.business_id, Entry.ref == f"fee:{payment.id}")
+    return sum(
+        entry.amount_cents
+        for entry, account in rows
+        if account.category in ("processing_fee", "platform_fee")
+    )
+
+
 async def post_refund(
     db: AsyncSession,
     refund: Payment,
@@ -580,17 +607,7 @@ async def post_refund(
     """Return the money and unwind what it paid for, pro rata."""
     biz = original.business_id
     returned = refund.amount_cents if amount is None else amount
-    basis = f"invoice:{original.invoice_id}" if original.invoice_id else f"payment:{original.id}"
-    credits = [
-        (entry, account)
-        for entry, account in await _rows(db, biz, Entry.ref == basis)
-        if account.category in _UNWOUND
-    ]
-    base = -sum(entry.amount_cents for entry, _ in credits)
-    if base <= 0:
-        legs = [Leg("business", biz, "revenue", returned)]
-    else:
-        legs = await _unwind(db, original, refund, credits, base, returned)
+    legs = await refund_legs(db, original, returned, refund_id=refund.id)
     subject, _ = await _settlement(db, original)
     await post(
         db,

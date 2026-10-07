@@ -942,6 +942,7 @@ def seed_online_shop() -> None:
         Order(
             id="ord_web",
             business_id=BIZ,
+            number=5,
             client_id="cl_grace",
             staff_id="st_owner",
             status="open",
@@ -1001,6 +1002,7 @@ def seed_open_sale() -> None:
         Order(
             id="ord_open",
             business_id=BIZ,
+            number=4,
             client_id="cl_amelie",
             staff_id="st_priya",
             status="open",
@@ -1644,6 +1646,7 @@ def seed_coverage() -> None:
         Order(
             id="ord_1",
             business_id=BIZ,
+            number=1,
             client_id="cl_grace",
             staff_id="st_priya",
             status="open",
@@ -1701,6 +1704,7 @@ def seed_coverage() -> None:
         Order(
             id="ord_2",
             business_id=BIZ,
+            number=2,
             client_id="cl_noah",
             staff_id="st_owner",
             status="open",
@@ -1743,6 +1747,7 @@ def seed_coverage() -> None:
         Order(
             id="ord_3",
             business_id=BIZ,
+            number=3,
             client_id=None,
             staff_id="st_priya",
             status="void",

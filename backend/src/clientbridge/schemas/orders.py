@@ -37,6 +37,7 @@ class OrderOut(BaseModel):
     business_id: str
     client_id: str | None
     staff_id: str
+    number: int | None = None
     status: str
     currency: str
     subtotal_cents: int

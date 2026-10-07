@@ -80,10 +80,12 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
             name="ck_orders_pickup_status",
         ),
         Index("ix_orders_status", "business_id", "status"),
+        UniqueConstraint("business_id", "number", name="uq_orders_business_number"),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))  # null = walk-in
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
+    number: Mapped[int | None] = mapped_column(BigInteger)  # shown as S-<number>
     status: Mapped[str] = mapped_column(String, default="open", nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)

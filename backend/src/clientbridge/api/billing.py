@@ -19,7 +19,12 @@ from clientbridge.schemas.billing import (
     InvoiceOut,
     InvoiceUpdate,
 )
-from clientbridge.schemas.payments import InvoicePaymentIn, InvoicePaymentOut
+from clientbridge.schemas.payments import (
+    InteracRequest,
+    InteracRequestIn,
+    InvoicePaymentIn,
+    InvoicePaymentOut,
+)
 from clientbridge.services.billing import BillingService
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import PaymentService
@@ -178,4 +183,27 @@ async def record_invoice_payment(
     )
     if body.send_receipt and result.status == "succeeded":
         await Notifier(email, sms, push).on_payment_succeeded(db, result.payment_id)
+    return result
+
+
+@invoices_router.post("/{invoice_id}/interac-request", response_model=InteracRequest)
+async def request_invoice_interac(
+    invoice_id: str,
+    body: InteracRequestIn,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> InteracRequest:
+    result = await PaymentService(db, principal, gateway).request_interac(
+        invoice_id,
+        body.amount_cents,
+        idempotency_key,
+        channel=body.channel,
+        expires_in_days=body.expires_in_days,
+    )
+    await Notifier(email, sms, push).on_interac_requested(db, result.payment_id)
     return result

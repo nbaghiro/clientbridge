@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -27,6 +36,21 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("ix_payments_reference_code", "reference_code", unique=True),
         Index("ix_payments_provider_ref", "provider_ref", unique=True),  # one row per Stripe object
         Index("ix_payments_refund_parent", "parent_payment_id"),
+        CheckConstraint(
+            "channel IS NULL OR channel IN ('email', 'sms')", name="ck_payments_channel"
+        ),
+        CheckConstraint(
+            "dispute_status IS NULL OR dispute_status IN "
+            "('needs_response', 'under_review', 'won', 'lost')",
+            name="ck_payments_dispute_status",
+        ),
+        Index(
+            "ux_payments_credit_note",
+            "business_id",
+            "credit_note",
+            unique=True,
+            postgresql_where=text("credit_note IS NOT NULL"),
+        ),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
@@ -49,6 +73,13 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     tendered_cents: Mapped[int | None] = mapped_column(BigInteger)  # cash handed over
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str | None] = mapped_column(String)  # why a refund was given
+    credit_note: Mapped[str | None] = mapped_column(String)  # a refund's CN-<document>-<n>
+    channel: Mapped[str | None] = mapped_column(String)  # how an Interac request went out
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dispute_status: Mapped[str | None] = mapped_column(String)
+    dispute_reason: Mapped[str | None] = mapped_column(String)
+    dispute_respond_by: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):

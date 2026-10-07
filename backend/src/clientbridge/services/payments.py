@@ -1,6 +1,6 @@
 import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime, time
+from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
@@ -38,7 +38,10 @@ from clientbridge.schemas.payments import (
     PayIntentOut,
     PaymentMethodOut,
     PublicCredit,
+    PublicInterac,
     RefundOut,
+    RefundPart,
+    RefundPreview,
     SetupIntentOut,
 )
 from clientbridge.services import ledger
@@ -52,6 +55,8 @@ from clientbridge.services.earnings import (
 from clientbridge.services.inventory import sync_parent_stock
 from clientbridge.services.lines import apply_totals
 from clientbridge.services.tax import tax_for_amount, tax_for_lines
+
+_INTERAC_DAYS = 14
 
 
 @dataclass(frozen=True)
@@ -412,9 +417,13 @@ class PaymentService:
         )
 
     async def refund_payment(
-        self, payment_id: str, amount_cents: int | None = None, idempotency_key: str | None = None
+        self,
+        payment_id: str,
+        amount_cents: int | None = None,
+        idempotency_key: str | None = None,
+        reason: str | None = None,
     ) -> RefundOut:
-        """Refund all or part of what's left on a payment."""
+        """Refund all or part of what's left on a payment, as a numbered credit note."""
         self._assert_admin()
         business = await self._business()
         payment = await self._payment(payment_id)
@@ -422,7 +431,8 @@ class PaymentService:
             raise Conflict("a refund can't be refunded")
         if payment.status != "succeeded":
             raise Conflict("only a succeeded payment can be refunded")
-        if business.stripe_account_id is None or payment.provider_ref is None:
+        by_hand = refunded_by_hand(payment)
+        if not by_hand and (business.stripe_account_id is None or payment.provider_ref is None):
             raise Conflict("payment has no connected charge to refund")
         account_id = business.stripe_account_id
         provider_ref = payment.provider_ref
@@ -441,12 +451,16 @@ class PaymentService:
                 raise Conflict("invalid refund amount")
             if whole_only and (refunded > 0 or amount != payment.amount_cents):
                 raise Conflict(whole_only)
-            result = await self.gateway.refund(
-                account_id,
-                payment_intent_id=provider_ref,
-                amount_cents=amount,
-                idempotency_key=f"refund_{payment.id}_{refunded}",
-            )
+            status, provider, ref = "succeeded", "manual", None
+            if not by_hand:
+                assert account_id is not None and provider_ref is not None
+                result = await self.gateway.refund(
+                    account_id,
+                    payment_intent_id=provider_ref,
+                    amount_cents=amount,
+                    idempotency_key=f"refund_{payment.id}_{refunded}",
+                )
+                status, provider, ref = result.status, "stripe", result.id
             refund = Payment(
                 id=new_id("payment"),
                 business_id=self.biz,
@@ -459,16 +473,21 @@ class PaymentService:
                 amount_cents=amount,
                 currency=payment.currency,
                 method=payment.method,
-                provider="stripe",
-                provider_ref=result.id,
+                provider=provider,
+                provider_ref=ref,
                 status="succeeded",
                 paid_at=datetime.now(UTC),
+                reason=reason,
+                credit_note=await next_credit_note(self.db, payment),
             )
             self.db.add(refund)
-            await self.db.flush()
+            try:
+                await self.db.flush()
+            except IntegrityError as exc:
+                raise Conflict("another refund on this document is saving, please retry") from exc
             await _apply_refund(self.db, refund, payment)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
-            return RefundOut(refund_id=refund.id, status=result.status)
+            return RefundOut(refund_id=refund.id, status=status, credit_note=refund.credit_note)
 
         return await run_command(
             self.db,
@@ -477,6 +496,53 @@ class PaymentService:
             run=run,
             response_model=RefundOut,
             idempotency_key=idempotency_key,
+        )
+
+    async def refund_preview(self, payment_id: str, amount_cents: int | None) -> RefundPreview:
+        """What a refund would reverse, before it is issued, from the same ledger maths."""
+        self._assert_admin()
+        payment = await self._payment(payment_id)
+        if payment.kind == "refund":
+            raise Conflict("a refund can't be refunded")
+        refunded = await _refunded_cents(self.db, payment)
+        left = max(0, payment.amount_cents - refunded)
+        whole_only: str | None = None
+        blocked: str | None = None
+        if payment.status != "succeeded":
+            blocked = "only a succeeded payment can be refunded"
+        elif left <= 0:
+            blocked = "this payment was already refunded"
+        else:
+            try:
+                whole_only = await self._whole_refund_only(payment)
+            except Conflict as exc:
+                blocked = exc.message
+            if whole_only is not None and refunded > 0:
+                blocked = whole_only
+        amount = left if amount_cents is None or whole_only is not None else amount_cents
+        if blocked is None and (amount <= 0 or amount > left):
+            raise Conflict("invalid refund amount")
+        parts: dict[tuple[str, str], int] = {}
+        if blocked is None:
+            for leg in await ledger.refund_legs(self.db, payment, amount):
+                key = (leg.category, leg.code)
+                parts[key] = parts.get(key, 0) + leg.amount_cents
+        return RefundPreview(
+            payment_id=payment.id,
+            amount_cents=payment.amount_cents,
+            refunded_cents=refunded,
+            left_cents=left,
+            fee_cents=await ledger.payment_fee(self.db, payment),
+            refund_cents=amount if blocked is None else 0,
+            whole_only=whole_only,
+            blocked=blocked,
+            by_hand=refunded_by_hand(payment),
+            next_credit_note=await next_credit_note(self.db, payment),
+            parts=[
+                RefundPart(category=category, code=code, cents=cents)
+                for (category, code), cents in sorted(parts.items())
+                if cents != 0
+            ],
         )
 
     async def _whole_refund_only(self, payment: Payment) -> str | None:
@@ -519,7 +585,11 @@ class PaymentService:
         amount_cents: int | None,
         idempotency_key: str | None,
         deposit: bool = False,
+        *,
+        channel: str | None = None,
+        expires_in_days: int | None = None,
     ) -> InteracRequest:
+        """Ask for an e-Transfer; with a channel, a new request replaces the one still waiting."""
         self._assert_admin()
         business = await self._business()
         invoice = await self._invoice(invoice_id)
@@ -528,6 +598,11 @@ class PaymentService:
         if amount <= 0 or amount > balance:
             raise Conflict("invalid payment amount")
         await self._client(invoice.client_id)
+        expires_at = (
+            datetime.now(UTC) + timedelta(days=expires_in_days)
+            if expires_in_days is not None
+            else None
+        )
 
         async def run(cmd: Command) -> InteracRequest:
             payment = await open_interac_payment(
@@ -536,14 +611,12 @@ class PaymentService:
                 invoice=invoice,
                 amount=amount,
                 kind="deposit" if deposit else "payment",
+                replace=channel is not None,
+                channel=channel,
+                expires_at=expires_at,
             )
             cmd.record("payment.interac_request", entity_type="payment", entity_id=payment.id)
-            return InteracRequest(
-                payment_id=payment.id,
-                reference_code=payment.reference_code or "",
-                send_to=business.billing_email,
-                amount_cents=amount,
-            )
+            return interac_out(payment, business)
 
         return await run_command(
             self.db,
@@ -1033,9 +1106,17 @@ async def open_terminal_payment(
 
 
 async def open_interac_payment(
-    db: AsyncSession, *, business_id: str, invoice: Invoice, amount: int, kind: str = "payment"
+    db: AsyncSession,
+    *,
+    business_id: str,
+    invoice: Invoice,
+    amount: int,
+    kind: str = "payment",
+    replace: bool = False,
+    channel: str | None = None,
+    expires_at: datetime | None = None,
 ) -> Payment:
-    """A pending Interac Payment with a unique reference code, reused for a repeat request."""
+    """A pending Interac Payment with a unique reference code; a repeat reuses the waiting one."""
     existing = (
         (
             await db.execute(
@@ -1047,13 +1128,18 @@ async def open_interac_payment(
                 )
                 .order_by(Payment.created_at)
                 .limit(1)
+                .with_for_update()
             )
         )
         .scalars()
         .first()
     )
     if existing is not None:
-        return existing
+        lapsed = existing.expires_at is not None and existing.expires_at <= datetime.now(UTC)
+        if not replace and not lapsed:
+            return existing
+        existing.status = "canceled"  # its old code stops matching; a late transfer is reviewed
+        await db.flush()
     await _assert_room(db, invoice, amount)
     payment = Payment(
         id=new_id("payment"),
@@ -1067,6 +1153,8 @@ async def open_interac_payment(
         provider="interac",
         reference_code=secrets.token_hex(4).upper(),
         status="pending",
+        channel=channel,
+        expires_at=expires_at or datetime.now(UTC) + timedelta(days=_INTERAC_DAYS),
     )
     db.add(payment)
     try:
@@ -1074,6 +1162,89 @@ async def open_interac_payment(
     except IntegrityError as exc:
         raise Conflict("reference code collision — please retry") from exc
     return payment
+
+
+def interac_out(payment: Payment, business: Business) -> InteracRequest:
+    return InteracRequest(
+        payment_id=payment.id,
+        reference_code=payment.reference_code or "",
+        send_to=business.billing_email,
+        amount_cents=payment.amount_cents,
+        channel=payment.channel,
+        expires_at=payment.expires_at,
+    )
+
+
+async def waiting_interac(
+    db: AsyncSession, invoice: Invoice, business: Business
+) -> PublicInterac | None:
+    """The open e-Transfer request on an invoice, for the client's pay page."""
+    payment = (
+        (
+            await db.execute(
+                select(Payment)
+                .where(
+                    Payment.invoice_id == invoice.id,
+                    Payment.provider == "interac",
+                    Payment.status == "pending",
+                )
+                .order_by(Payment.created_at.desc())
+                .limit(1)
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if payment is None:
+        return None
+    if payment.expires_at is not None and payment.expires_at <= datetime.now(UTC):
+        return None
+    return PublicInterac(
+        reference_code=payment.reference_code or "",
+        amount_cents=payment.amount_cents,
+        send_to=business.billing_email,
+        expires_at=payment.expires_at,
+    )
+
+
+def refunded_by_hand(payment: Payment) -> bool:
+    """Cash, cheques and e-Transfers go back outside Stripe; the refund only records it."""
+    return payment.provider != "stripe"
+
+
+def credit_note_number(document: str, n: int) -> str:
+    """Credit notes count from 1 per invoice or sale: CN-1143-1, CN-S-1044-2."""
+    return f"CN-{document}-{n}"
+
+
+async def _credit_document(db: AsyncSession, payment: Payment) -> str:
+    if payment.invoice_id is not None:
+        invoice = await db.get(Invoice, payment.invoice_id)
+        if invoice is not None and invoice.number is not None:
+            return str(invoice.number)
+    if payment.order_id is not None:
+        order = await db.get(Order, payment.order_id)
+        if order is not None and order.number is not None:
+            return f"S-{order.number}"
+    return f"P-{payment.id[-6:].upper()}"
+
+
+async def next_credit_note(db: AsyncSession, payment: Payment) -> str:
+    """The number the next refund against this payment's invoice or sale gets."""
+    if payment.invoice_id is not None:
+        same = Payment.invoice_id == payment.invoice_id
+    elif payment.order_id is not None:
+        same = Payment.order_id == payment.order_id
+    else:
+        same = Payment.parent_payment_id == payment.id
+    issued = (
+        await db.execute(
+            scoped(Payment, payment.business_id)
+            .with_only_columns(func.count())
+            .where(same, Payment.kind == "refund", Payment.credit_note.is_not(None))
+        )
+    ).scalar_one()
+    return credit_note_number(await _credit_document(db, payment), int(issued) + 1)
 
 
 async def process_stripe_event(
@@ -1161,6 +1332,7 @@ async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | 
         provider_ref=refund_id,
         status="succeeded",
         paid_at=datetime.now(UTC),
+        credit_note=await next_credit_note(db, payment),
     )
     db.add(refund)
     await db.flush()
@@ -1190,12 +1362,40 @@ async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | No
         amount=amount if isinstance(amount, int) else payment.amount_cents,
         fee=fee,
     )
+    _track_dispute(payment, data)
+    reason = data.get("reason")
+    payment.dispute_reason = reason if isinstance(reason, str) else None
+    evidence = data.get("evidence_details")
+    due = evidence.get("due_by") if isinstance(evidence, dict) else None
+    payment.dispute_respond_by = datetime.fromtimestamp(due, UTC) if isinstance(due, int) else None
+    await db.flush()
     return payment.id
+
+
+def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
+    """Mirror Stripe's dispute status on the charge so the app can show the case."""
+    status = data.get("status")
+    if status in ("won", "lost", "under_review"):
+        payment.dispute_status = str(status)
+    elif status == "needs_response" or payment.dispute_status is None:
+        payment.dispute_status = "needs_response"
+
+
+async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> None:
+    payment = await _disputed_payment(db, data)
+    if payment is not None and payment.dispute_status is not None:
+        _track_dispute(payment, data)
+        await db.flush()
 
 
 async def _close_dispute(db: AsyncSession, data: dict[str, object]) -> None:
     payment = await _disputed_payment(db, data)
-    if payment is not None and data.get("status") == "won":
+    if payment is None:
+        return
+    if payment.dispute_status is not None:
+        _track_dispute(payment, data)
+        await db.flush()
+    if data.get("status") == "won":
         await ledger.close_dispute(db, payment.business_id, str(data.get("id")))
 
 
@@ -1248,6 +1448,8 @@ async def _dispatch(
     elif event.type == "charge.dispute.created":
         disputed = await _record_dispute(db, event.data)
         return WebhookOutcome("payment_disputed", disputed) if disputed is not None else None
+    elif event.type == "charge.dispute.updated":
+        await _update_dispute(db, event.data)
     elif event.type == "charge.dispute.closed":
         await _close_dispute(db, event.data)
     elif event.type == "customer.subscription.updated":

@@ -125,10 +125,14 @@ def _estimate_declined(number: int | None, reason: str | None = None) -> tuple[s
     return (f"Estimate #{number} declined", body)
 
 
-def _interac_requested(amount: str, send_to: str, reference: str) -> tuple[str, str]:
+def _interac_requested(
+    business_name: str, amount: str, send_to: str, reference: str, link: str | None
+) -> tuple[str, str]:
+    details = f" Details: {link}" if link else ""
     return (
         "Interac e-Transfer requested",
-        f"Send an Interac e-Transfer of {amount} to {send_to} — use reference {reference}",
+        f"{business_name}: please send {amount} by Interac e-Transfer to {send_to} with "
+        f"{reference} in the message.{details}",
     )
 
 
@@ -139,10 +143,11 @@ def _payment_failed(amount: str, business_name: str) -> tuple[str, str]:
     )
 
 
-def _refund(amount: str, business_name: str) -> tuple[str, str]:
+def _refund(amount: str, business_name: str, credit_note: str | None) -> tuple[str, str]:
+    note = f" Credit note {credit_note}." if credit_note else ""
     return (
         f"Refund from {business_name}",
-        f"A refund of {amount} from {business_name} was issued.",
+        f"A refund of {amount} from {business_name} was issued.{note}",
     )
 
 
@@ -343,10 +348,12 @@ class Notifier:
         if business is None:
             return
         amount = _money(payment.amount_cents, payment.currency)
+        invoice = await db.get(Invoice, payment.invoice_id) if payment.invoice_id else None
+        link = pay_link(invoice.pay_token) if invoice is not None and invoice.pay_token else None
         subject, body = _interac_requested(
-            amount, business.billing_email or "", payment.reference_code or ""
+            business.name, amount, business.billing_email or "", payment.reference_code or "", link
         )
-        await self._to_client(db, payment.client_id, subject, body)
+        await self._to_client(db, payment.client_id, subject, body, channel=payment.channel)
 
     async def on_refund(self, db: AsyncSession, refund_payment_id: str) -> None:
         payment = await db.get(Payment, refund_payment_id)
@@ -356,7 +363,7 @@ class Notifier:
         if business is None:
             return
         amount = _money(payment.amount_cents, payment.currency)
-        subject, body = _refund(amount, business.name)
+        subject, body = _refund(amount, business.name, payment.credit_note)
         await self._to_client(db, payment.client_id, subject, body)
 
     async def on_payment_failed(self, db: AsyncSession, payment_id: str) -> None:
@@ -531,17 +538,23 @@ class Notifier:
             await self._safe(self.sms.send(Sms(to=phone, body=body)))
 
     async def _to_client(
-        self, db: AsyncSession, client_id: str | None, subject: str, body: str
+        self,
+        db: AsyncSession,
+        client_id: str | None,
+        subject: str,
+        body: str,
+        *,
+        channel: str | None = None,
     ) -> None:
-        """Email + SMS to a client, each isolated from the other."""
+        """Email + SMS to a client (or only the channel asked for), each isolated from the other."""
         if client_id is None:
             return
         client = await db.get(Client, client_id)
         if client is None:
             return
-        if client.email:
+        if client.email and channel != "sms":
             await self._safe(self.email.send(Email(to=client.email, subject=subject, body=body)))
-        if client.phone:
+        if client.phone and channel != "email":
             await self._safe(self.sms.send(Sms(to=client.phone, body=body)))
 
     async def _alert_staff(

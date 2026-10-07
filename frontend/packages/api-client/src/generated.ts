@@ -919,6 +919,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/invoices/{invoice_id}/interac-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Invoice Interac */
+        post: operations["request_invoice_interac_v1_invoices__invoice_id__interac_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/earnings/{earning_id}/approve": {
         parameters: {
             query?: never;
@@ -1185,6 +1202,23 @@ export interface paths {
         put?: never;
         /** Refund Payment */
         post: operations["refund_payment_v1_payments__payment_id__refund_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/{payment_id}/refund-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Refund Preview */
+        get: operations["refund_preview_v1_payments__payment_id__refund_preview_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2466,6 +2500,12 @@ export interface components {
             purchaser_client_id?: string | null;
             /** Payment Method Id */
             payment_method_id?: string | null;
+            /**
+             * Cash
+             * @description Paid in cash at the desk; recorded, not charged
+             * @default false
+             */
+            cash: boolean;
         };
         /** GiftCardPurchaseOut */
         GiftCardPurchaseOut: {
@@ -2475,8 +2515,11 @@ export interface components {
             code: string;
             /** Payment Id */
             payment_id: string;
-            /** Client Secret */
-            client_secret: string;
+            /**
+             * Client Secret
+             * @description Null when paid in cash
+             */
+            client_secret: string | null;
         };
         /** GiftCardRedeem */
         GiftCardRedeem: {
@@ -2550,6 +2593,29 @@ export interface components {
             send_to: string | null;
             /** Amount Cents */
             amount_cents: number;
+            /** Channel */
+            channel?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
+        };
+        /** InteracRequestIn */
+        InteracRequestIn: {
+            /**
+             * Amount Cents
+             * @description Null requests the balance
+             */
+            amount_cents?: number | null;
+            /**
+             * Channel
+             * @default email
+             * @enum {string}
+             */
+            channel: "email" | "sms";
+            /**
+             * Expires In Days
+             * @default 14
+             */
+            expires_in_days: number;
         };
         /** InteracWebhookBody */
         InteracWebhookBody: {
@@ -3154,6 +3220,8 @@ export interface components {
             client_id: string | null;
             /** Staff Id */
             staff_id: string;
+            /** Number */
+            number?: number | null;
             /** Status */
             status: string;
             /** Currency */
@@ -3241,6 +3309,12 @@ export interface components {
             item_id: string;
             /** Payment Method Id */
             payment_method_id?: string | null;
+            /**
+             * Cash
+             * @description Paid in cash at the desk; recorded, not charged
+             * @default false
+             */
+            cash: boolean;
         };
         /** PackagePurchaseOut */
         PackagePurchaseOut: {
@@ -3248,8 +3322,11 @@ export interface components {
             package_id: string;
             /** Payment Id */
             payment_id: string;
-            /** Client Secret */
-            client_secret: string;
+            /**
+             * Client Secret
+             * @description Null when paid in cash
+             */
+            client_secret: string | null;
         };
         /** Page[ClientOut] */
         Page_ClientOut_: {
@@ -3586,6 +3663,17 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** PublicInterac */
+        PublicInterac: {
+            /** Reference Code */
+            reference_code: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Send To */
+            send_to: string | null;
+            /** Expires At */
+            expires_at: string | null;
+        };
         /** PublicInvoice */
         PublicInvoice: {
             /** Number */
@@ -3633,6 +3721,8 @@ export interface components {
             taxes?: components["schemas"]["PublicDocTax"][];
             /** Credits */
             credits?: components["schemas"]["PublicCredit"][];
+            /** @description The e-Transfer request still waiting, if any */
+            interac?: components["schemas"]["PublicInterac"] | null;
         };
         /** PublicReviewContext */
         PublicReviewContext: {
@@ -3853,12 +3943,82 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** RefundIn */
+        RefundIn: {
+            /**
+             * Amount Cents
+             * @description Null refunds what is left
+             */
+            amount_cents?: number | null;
+            /** Reason */
+            reason?: ("service" | "skipped" | "duplicate" | "canceled" | "other") | null;
+            /**
+             * Notify
+             * @description Send the client the credit note
+             * @default true
+             */
+            notify: boolean;
+        };
         /** RefundOut */
         RefundOut: {
             /** Refund Id */
             refund_id: string;
             /** Status */
             status: string;
+            /** Credit Note */
+            credit_note?: string | null;
+        };
+        /** RefundPart */
+        RefundPart: {
+            /**
+             * Category
+             * @description revenue, tax, deposit, deferred or gift_card
+             */
+            category: string;
+            /**
+             * Code
+             * @description The tax code for a tax part, else empty
+             */
+            code: string;
+            /** Cents */
+            cents: number;
+        };
+        /** RefundPreview */
+        RefundPreview: {
+            /** Payment Id */
+            payment_id: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Refunded Cents */
+            refunded_cents: number;
+            /** Left Cents */
+            left_cents: number;
+            /** Fee Cents */
+            fee_cents: number;
+            /**
+             * Refund Cents
+             * @description What this preview refunds
+             */
+            refund_cents: number;
+            /**
+             * Whole Only
+             * @description Why only a full refund is allowed
+             */
+            whole_only?: string | null;
+            /**
+             * Blocked
+             * @description Why nothing can be refunded
+             */
+            blocked?: string | null;
+            /**
+             * By Hand
+             * @description Money goes back outside Stripe (cash, cheque, e-Transfer)
+             */
+            by_hand: boolean;
+            /** Next Credit Note */
+            next_credit_note: string;
+            /** Parts */
+            parts: components["schemas"]["RefundPart"][];
         };
         /** RegisterBody */
         RegisterBody: {
@@ -6275,6 +6435,45 @@ export interface operations {
             };
         };
     };
+    request_invoice_interac_v1_invoices__invoice_id__interac_request_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InteracRequestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InteracRequest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_earning_v1_earnings__earning_id__approve_post: {
         parameters: {
             query?: never;
@@ -6818,7 +7017,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RefundIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -6827,6 +7030,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refund_preview_v1_payments__payment_id__refund_preview_get: {
+        parameters: {
+            query?: {
+                amount_cents?: number | null;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundPreview"];
                 };
             };
             /** @description Validation Error */

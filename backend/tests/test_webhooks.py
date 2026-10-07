@@ -438,3 +438,42 @@ async def test_dispute_withdraws_funds(api: httpx.AsyncClient, db: AsyncSession)
     assert (await api.post("/webhooks/stripe", content=opened, headers=GOOD)).status_code == 200
     after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="stripe")
     assert before - after == 8000
+
+
+async def test_dispute_state_follows_the_case(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    payment = await _succeeded_payment(db, "pi_case")
+    due = int(datetime(2026, 10, 20, tzinfo=UTC).timestamp())
+    opened = {
+        "id": "dp_case",
+        "payment_intent": "pi_case",
+        "amount": 8000,
+        "status": "needs_response",
+        "reason": "product_not_received",
+        "evidence_details": {"due_by": due},
+    }
+    for event_id, event_type, status in (
+        ("evt_case_1", "charge.dispute.created", "needs_response"),
+        ("evt_case_2", "charge.dispute.updated", "under_review"),
+    ):
+        body = json.dumps(
+            {"id": event_id, "type": event_type, "data": {"object": {**opened, "status": status}}}
+        )
+        assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    await db.refresh(payment)
+    assert payment.dispute_status == "under_review"
+    assert payment.dispute_reason == "product_not_received"
+    assert payment.dispute_respond_by == datetime(2026, 10, 20, tzinfo=UTC)
+    closed = _dispute_event("evt_case_3", "charge.dispute.closed", "pi_case", "won")
+    assert (await api.post("/webhooks/stripe", content=closed, headers=GOOD)).status_code == 200
+    await db.refresh(payment)
+    assert payment.dispute_status == "won"
+
+
+async def test_update_for_an_unknown_dispute_changes_nothing(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    payment = await _succeeded_payment(db, "pi_quiet")
+    body = _dispute_event("evt_quiet", "charge.dispute.updated", "pi_quiet", "under_review")
+    assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
+    await db.refresh(payment)
+    assert payment.dispute_status is None

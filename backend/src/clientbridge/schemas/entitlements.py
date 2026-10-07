@@ -9,13 +9,14 @@ class GiftCardPurchase(BaseModel):
     recipient: str | None = None
     purchaser_client_id: str | None = None
     payment_method_id: str | None = None
+    cash: bool = Field(default=False, description="Paid in cash at the desk; recorded, not charged")
 
 
 class GiftCardPurchaseOut(BaseModel):
     gift_card_id: str
     code: str
     payment_id: str
-    client_secret: str
+    client_secret: str | None = Field(description="Null when paid in cash")
 
 
 class GiftCardRedeem(BaseModel):
@@ -35,12 +36,13 @@ class PackagePurchase(BaseModel):
     client_id: str = Field(min_length=1)
     item_id: str = Field(min_length=1)
     payment_method_id: str | None = None
+    cash: bool = Field(default=False, description="Paid in cash at the desk; recorded, not charged")
 
 
 class PackagePurchaseOut(BaseModel):
     package_id: str
     payment_id: str
-    client_secret: str
+    client_secret: str | None = Field(description="Null when paid in cash")
 
 
 class PackageOut(BaseModel):

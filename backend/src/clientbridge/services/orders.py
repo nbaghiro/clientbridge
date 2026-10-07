@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
@@ -59,6 +59,7 @@ class OrderService:
                 business_id=self.biz,
                 client_id=data.client_id,
                 staff_id=self.principal.staff_id,
+                number=await next_order_number(self.db, self.biz),
                 status="open",
                 receipt_email=data.receipt_email,
                 receipt_phone=data.receipt_phone,
@@ -316,6 +317,14 @@ class OrderService:
         return row
 
 
+async def next_order_number(db: AsyncSession, business_id: str) -> int:
+    """The next sale number; the business row lock serializes two desks ringing up at once."""
+    await db.execute(select(Business.id).where(Business.id == business_id).with_for_update())
+    sub = scoped(Order, business_id).subquery()
+    current = (await db.execute(select(func.max(sub.c.number)))).scalar_one_or_none()
+    return (current or 0) + 1
+
+
 async def _status(db: AsyncSession, order: Order) -> str:
     status, _ = await ledger.order_state(db, order)
     return status
@@ -329,6 +338,7 @@ async def _out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderOut:
         business_id=order.business_id,
         client_id=order.client_id,
         staff_id=order.staff_id,
+        number=order.number,
         status=status,
         currency=order.currency,
         subtotal_cents=order.subtotal_cents,

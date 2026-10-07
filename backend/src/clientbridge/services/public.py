@@ -67,13 +67,16 @@ from clientbridge.services.lines import (
     included_totals,
     replace_lines,
 )
+from clientbridge.services.orders import next_order_number
 from clientbridge.services.payments import (
     assert_payable,
+    interac_out,
     invoice_credits,
     open_booking_deposit,
     open_card_payment,
     open_interac_payment,
     open_order_card_payment,
+    waiting_interac,
 )
 from clientbridge.services.tax import LineTax, rates_for_business, tax_breakdown, tax_for_lines
 
@@ -527,6 +530,7 @@ class PublicPayService:
             lines=[line for line, _ in doc_lines],
             taxes=taxes,
             credits=await invoice_credits(self.db, invoice),
+            interac=await waiting_interac(self.db, invoice, business),
         )
 
     async def pay_card(self, token: str) -> PublicCardIntent:
@@ -559,12 +563,7 @@ class PublicPayService:
             self.db, business_id=invoice.business_id, invoice=invoice, amount=amount
         )
         await self.db.commit()
-        return InteracRequest(
-            payment_id=payment.id,
-            reference_code=payment.reference_code or "",
-            send_to=business.billing_email,
-            amount_cents=amount,
-        )
+        return interac_out(payment, business)
 
 
 async def public_doc_lines(
@@ -842,6 +841,7 @@ class PublicShopService:
             business_id=business.id,
             client_id=client.id,
             staff_id=await self._owner_staff(business.id),
+            number=await next_order_number(self.db, business.id),
             status="open",
             currency=wanted[0][0].currency,
             source="online",

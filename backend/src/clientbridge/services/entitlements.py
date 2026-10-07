@@ -8,14 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import AppError, Conflict, NotFound
+from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.clients import Client
-from clientbridge.models.payments import PaymentMethod
+from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.schemas.entitlements import (
     GiftCardOut,
     GiftCardPurchase,
@@ -44,6 +44,45 @@ def _gift_code() -> str:
     return "".join(secrets.choice(_CODE_ALPHABET) for _ in range(12))
 
 
+def _charge_account(business: Business, data: GiftCardPurchase | PackagePurchase) -> str | None:
+    """The Stripe account to charge, or None for cash taken at the desk."""
+    if data.cash:
+        if data.payment_method_id is not None:
+            raise Unprocessable("a sale is paid in cash or by card, not both")
+        return None
+    if not business.stripe_charges_enabled or business.stripe_account_id is None:
+        raise Conflict("connect your Stripe account before taking payments")
+    return business.stripe_account_id
+
+
+async def _record_cash(
+    db: AsyncSession, business_id: str, client_id: str, amount: int, currency: str
+) -> Payment:
+    """Cash taken at the desk for a package or gift card: settled now, nothing to charge."""
+    payment = Payment(
+        id=new_id("payment"),
+        business_id=business_id,
+        client_id=client_id,
+        kind="payment",
+        amount_cents=amount,
+        currency=currency,
+        method="cash",
+        provider="manual",
+        status="succeeded",
+        paid_at=datetime.now(UTC),
+    )
+    db.add(payment)
+    await db.flush()
+    return payment
+
+
+async def _settle_cash(db: AsyncSession, payment: Payment) -> None:
+    """Book the cash and activate what it bought, once the entitlement row points at it."""
+    await ledger.post_payment(db, payment)
+    await activate_purchased_package(db, payment.id)
+    await activate_purchased_gift_card(db, payment.id)
+
+
 class GiftCardService:
     def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
         self.db = db
@@ -63,10 +102,7 @@ class GiftCardService:
                 code="purchaser_required",
             )
         client = await self._client(data.purchaser_client_id)
-        business = await self._business()
-        if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before taking payments")
-        account_id = business.stripe_account_id
+        account_id = _charge_account(await self._business(), data)
         fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
             self.db, self.biz, data.payment_method_id, data.purchaser_client_id
@@ -74,20 +110,24 @@ class GiftCardService:
 
         async def run(cmd: Command) -> GiftCardPurchaseOut:
             card_id = new_id("gift_card")
-            payment, client_secret = await open_entitlement_payment(
-                self.db,
-                self.gateway,
-                account_id=account_id,
-                business_id=self.biz,
-                client=client,
-                amount=face,  # a gift certificate is not taxed at sale (taxed on redemption)
-                currency="CAD",
-                fee_bps=fee_bps,
-                entitlement_kind="gift_card",
-                entitlement_id=card_id,
-                payment_method=pm_ref,
-                idempotency_key=idempotency_key,
-            )
+            client_secret: str | None = None
+            if account_id is None:
+                payment = await _record_cash(self.db, self.biz, client.id, face, "CAD")
+            else:
+                payment, client_secret = await open_entitlement_payment(
+                    self.db,
+                    self.gateway,
+                    account_id=account_id,
+                    business_id=self.biz,
+                    client=client,
+                    amount=face,  # a gift certificate is not taxed at sale (taxed on redemption)
+                    currency="CAD",
+                    fee_bps=fee_bps,
+                    entitlement_kind="gift_card",
+                    entitlement_id=card_id,
+                    payment_method=pm_ref,
+                    idempotency_key=idempotency_key,
+                )
             card = GiftCard(
                 id=card_id,
                 business_id=self.biz,
@@ -104,6 +144,8 @@ class GiftCardService:
                 await self.db.flush()  # (business_id, code) is unique — a collision is a rare retry
             except IntegrityError as exc:
                 raise Conflict("gift card code collision — please retry") from exc
+            if account_id is None:
+                await _settle_cash(self.db, payment)
             cmd.record("gift_card.purchase", entity_type="gift_card", entity_id=card.id)
             return GiftCardPurchaseOut(
                 gift_card_id=card.id,
@@ -254,10 +296,7 @@ class PackageService:
                 "package item has no session count", status_code=422, code="invalid_package"
             )
         sessions_total = item.session_count
-        business = await self._business()
-        if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before taking payments")
-        account_id = business.stripe_account_id
+        account_id = _charge_account(await self._business(), data)
         amount = (await tax_for_amount(self.db, self.biz, item.price_cents)).total_cents
         fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
@@ -266,20 +305,24 @@ class PackageService:
 
         async def run(cmd: Command) -> PackagePurchaseOut:
             package_id = new_id("package")
-            payment, client_secret = await open_entitlement_payment(
-                self.db,
-                self.gateway,
-                account_id=account_id,
-                business_id=self.biz,
-                client=client,
-                amount=amount,
-                currency=item.currency,
-                fee_bps=fee_bps,
-                entitlement_kind="package",
-                entitlement_id=package_id,
-                payment_method=pm_ref,
-                idempotency_key=idempotency_key,
-            )
+            client_secret: str | None = None
+            if account_id is None:
+                payment = await _record_cash(self.db, self.biz, client.id, amount, item.currency)
+            else:
+                payment, client_secret = await open_entitlement_payment(
+                    self.db,
+                    self.gateway,
+                    account_id=account_id,
+                    business_id=self.biz,
+                    client=client,
+                    amount=amount,
+                    currency=item.currency,
+                    fee_bps=fee_bps,
+                    entitlement_kind="package",
+                    entitlement_id=package_id,
+                    payment_method=pm_ref,
+                    idempotency_key=idempotency_key,
+                )
             package = Package(
                 id=package_id,
                 business_id=self.biz,
@@ -296,6 +339,8 @@ class PackageService:
             )
             self.db.add(package)
             await self.db.flush()
+            if account_id is None:
+                await _settle_cash(self.db, payment)
             cmd.record("package.purchase", entity_type="package", entity_id=package.id)
             return PackagePurchaseOut(
                 package_id=package.id, payment_id=payment.id, client_secret=client_secret

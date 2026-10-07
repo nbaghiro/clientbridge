@@ -41,9 +41,45 @@ class SetupIntentOut(BaseModel):
     stripe_account_id: str
 
 
+RefundReason = Literal["service", "skipped", "duplicate", "canceled", "other"]
+
+
+class RefundIn(BaseModel):
+    amount_cents: int | None = Field(default=None, description="Null refunds what is left")
+    reason: RefundReason | None = None
+    notify: bool = Field(default=True, description="Send the client the credit note")
+
+
 class RefundOut(BaseModel):
     refund_id: str
     status: str
+    credit_note: str | None = None
+
+
+class RefundPart(BaseModel):
+    category: str = Field(description="revenue, tax, deposit, deferred or gift_card")
+    code: str = Field(description="The tax code for a tax part, else empty")
+    cents: int
+
+
+class RefundPreview(BaseModel):
+    payment_id: str
+    amount_cents: int
+    refunded_cents: int
+    left_cents: int
+    fee_cents: int
+    refund_cents: int = Field(description="What this preview refunds")
+    whole_only: str | None = Field(default=None, description="Why only a full refund is allowed")
+    blocked: str | None = Field(default=None, description="Why nothing can be refunded")
+    by_hand: bool = Field(description="Money goes back outside Stripe (cash, cheque, e-Transfer)")
+    next_credit_note: str
+    parts: list[RefundPart]
+
+
+class InteracRequestIn(BaseModel):
+    amount_cents: int | None = Field(default=None, gt=0, description="Null requests the balance")
+    channel: Literal["email", "sms"] = "email"
+    expires_in_days: int = Field(default=14, ge=1, le=60)
 
 
 class InteracRequest(BaseModel):
@@ -51,6 +87,8 @@ class InteracRequest(BaseModel):
     reference_code: str
     send_to: str | None
     amount_cents: int
+    channel: str | None = None
+    expires_at: datetime | None = None
 
 
 class PaymentMethodOut(BaseModel):
@@ -109,6 +147,13 @@ class PublicCredit(BaseModel):
     at: datetime | None
 
 
+class PublicInterac(BaseModel):
+    reference_code: str
+    amount_cents: int
+    send_to: str | None
+    expires_at: datetime | None
+
+
 class PublicInvoice(BaseModel):
     number: int | None
     business_name: str
@@ -130,6 +175,9 @@ class PublicInvoice(BaseModel):
     lines: list[PublicDocLine] = Field(default_factory=list)
     taxes: list[PublicDocTax] = Field(default_factory=list)
     credits: list[PublicCredit] = Field(default_factory=list)
+    interac: PublicInterac | None = Field(
+        default=None, description="The e-Transfer request still waiting, if any"
+    )
 
 
 class PublicCardIntent(BaseModel):
