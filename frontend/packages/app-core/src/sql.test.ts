@@ -999,9 +999,33 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
-    it("lists open orders", () => {
-        expect(pick(run("OPEN_ORDERS_SQL"), "id", "client_name", "balance_cents")).toEqual([
-            { id: "ord_open", client_name: "Ann", balance_cents: 3000 },
+    it("reads the front desk: today's visits, sales and one sale's record", () => {
+        expect(run("DISCOUNT_LIMIT_SQL")).toEqual([{ staff_discount_limit_bps: null }]);
+        expect(
+            run("SALE_STAFF_SQL")
+                .map((r) => r.id)
+                .sort(),
+        ).toEqual(["st_amy", "st_owner"]);
+        expect(run("SALE_CLIENT_SQL", ["cl_ann"])).toEqual([
+            { id: "cl_ann", name: "Ann", email: "ann@x.test", phone: "+16045550001" },
+        ]);
+        expect(run("SALE_CARDS_SQL", ["cl_ben"])).toEqual([]);
+        expect(run("SALE_CLIENT_NAMES_SQL").length).toBe(2);
+        const day = ["2026-06-26T00:00:00.000Z", "2026-06-27T00:00:00.000Z"];
+        expect(
+            pick(run("CHECKOUT_QUEUE_SQL", day), "booking_id", "item_name", "deposit_status"),
+        ).toEqual([{ booking_id: "bk_1", item_name: "Cut", deposit_status: "collected" }]);
+        const sales = pick(run("SALES_SQL"), "id", "status", "method", "summary");
+        expect(sales.find((r) => r.id === "ord_web")).toMatchObject({
+            status: "paid",
+            method: "card",
+        });
+        expect(pick(run("SALE_RECORD_SQL", ["ord_open"]), "id", "status", "client_name")).toEqual([
+            { id: "ord_open", status: "open", client_name: "Ann" },
+        ]);
+        expect(pick(run("SALE_LINES_SQL", ["ord_web"]), "id")).toEqual([{ id: "ln_3" }]);
+        expect(pick(run("SALE_PAYMENTS_SQL", ["ord_web"]), "id", "kind")).toEqual([
+            { id: "pay_web", kind: "payment" },
         ]);
     });
 

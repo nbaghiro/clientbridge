@@ -48,11 +48,16 @@ export function invoiceStatusSql(alias: string): string {
 /** An order stores open/void; whether it is paid or refunded is read off the ledger. */
 export function orderStatusSql(alias: string): string {
     const paid = collectedSql("order", `${alias}.id`);
+    // a visit deposit the sale's payment applied counts toward it; its legs belong to the booking
+    const covered = `(${paid} + COALESCE((SELECT SUM(le.amount_cents) FROM entries le
+        JOIN accounts la ON la.id = le.account_id JOIN payments lp ON lp.id = le.source_id
+        WHERE la.category = 'deposit' AND le.event = 'payment' AND le.source_type = 'payment'
+          AND lp.order_id = ${alias}.id), 0))`;
     const refunded = refundedSql("order", `${alias}.id`);
     return `CASE
         WHEN ${alias}.status = 'void' THEN 'void'
         WHEN ${paid} <= 0 AND ${refunded} THEN 'refunded'
-        WHEN ${paid} > 0 AND (${paid} >= ${alias}.total_cents OR ${refunded}) THEN 'paid'
+        WHEN ${covered} > 0 AND (${covered} >= ${alias}.total_cents OR ${refunded}) THEN 'paid'
         ELSE 'open' END`;
 }
 

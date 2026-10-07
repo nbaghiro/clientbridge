@@ -64,7 +64,7 @@ const BOOKABLE_KINDS = ["service", "class"];
 // Packages, subscriptions and gift cards sell through their own checkout so the liability is created.
 const LINE_KINDS = ["service", "class", "product"];
 const ENTITLEMENT_KINDS = ["gift", "package", "subscription"] as const;
-export type EntitlementKind = (typeof ENTITLEMENT_KINDS)[number];
+type EntitlementKind = (typeof ENTITLEMENT_KINDS)[number];
 
 export const DEPOSIT_TYPES: { value: string; label: string }[] = [
     { value: "none", label: s.depositNone },
@@ -117,7 +117,7 @@ export function useCatalogItems(): ItemRow[] {
     return useQuery<ItemRow>(ITEMS_SQL).data;
 }
 
-export function filterItems(rows: readonly ItemRow[], q: string): ItemRow[] {
+function filterItems(rows: readonly ItemRow[], q: string): ItemRow[] {
     const t = q.trim().toLowerCase();
     if (!t) return [...rows];
     return rows.filter(

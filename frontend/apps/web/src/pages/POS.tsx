@@ -1,449 +1,316 @@
 import {
-    type EntitlementKind,
-    canVoidSale,
-    type CartLine,
-    checkoutMethods,
-    entitlementKindsOnSale,
-    useClients,
-    useSaleCheckout,
-    useSavedCards,
-    type OpenOrderRow,
-    type Order,
-    filterItems,
+    type CheckoutVisit,
+    type OrderOut,
+    type SaleTicket,
+    type SalesView,
+    VISIT_STATE,
+    type WalletKind,
     formatMoney,
+    formatTime,
     mediaUrl,
-    orderStatusIntent,
-    sellableItems,
+    saleTileMeta,
+    saleTileOut,
+    salesViewsFor,
     strings,
-    useCart,
     useCatalogItems,
-    useOpenOrders,
-    usePickupOrders,
-    pickupActions,
-    useSearch,
+    useCheckoutQueue,
+    useRegisterCatalog,
+    useSale,
 } from "@clientbridge/app-core";
 import {
+    Avatar,
     Button,
-    ChargeSheet,
     Choice,
     Empty,
-    ItemImage,
-    Notice,
+    Icon,
+    ItemTile,
+    LoadFailed,
+    Modal,
     Panel,
     SearchField,
+    Skeleton,
     StatusPill,
-    Stepper,
-    TextField,
+    Tabs,
 } from "@clientbridge/ui";
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-import {
-    ClientSelect,
-    SellGiftCard,
-    SellPackage,
-    StartSubscription,
-} from "../components/EntitlementSales";
+import { SellEntitlement } from "../components/EntitlementSales";
+import { SalesBoard, SalesHistory } from "../components/SaleOrders";
+import { PaySheet, TicketPanel } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
-import { useRole } from "../lib/auth";
+import { useViewer } from "../lib/auth";
+import { useOpenLink } from "../lib/links";
 
+const d = strings.pos.desk;
+
+/** Sales: the register, the front desk board and (for owners and admins) the sales history. */
 export function POS() {
-    const cart = useCart(api);
+    const viewer = useViewer();
+    const role = viewer?.role ?? null;
+    const sale = useSale(api, {
+        role,
+        viewerStaffId: viewer?.staffId ?? null,
+        platform: "web",
+    });
     const items = useCatalogItems();
-    const active = useMemo(() => sellableItems(items), [items]);
-    const entitlements = useMemo(() => entitlementKindsOnSale(items), [items]);
-    const [selling, setSelling] = useState<EntitlementKind | null>(null);
-    const { q, setQ, filtered } = useSearch(active, filterItems);
+    const views = salesViewsFor(role);
+    const [params, setParams] = useSearchParams();
+    const asked = params.get("view");
+    const view: SalesView = views.some((v) => v.key === asked) ? (asked as SalesView) : "register";
+    const show = (next: SalesView): void => {
+        setParams(next === "register" ? {} : { view: next }, { replace: true });
+    };
+    const resume = (order: OrderOut): void => {
+        sale.resume(order, items);
+        show("register");
+    };
 
     return (
-        <div className="flex gap-6">
-            <section className="min-w-0 flex-1">
-                <p className="text-sm text-muted">{strings.pos.subtitle}</p>
-
-                <div className="mt-5">
-                    <SearchField
-                        value={q}
-                        onChange={setQ}
-                        placeholder={strings.pos.searchPlaceholder}
-                    />
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {filtered.map((item) => (
-                        <button
-                            key={item.id}
-                            type="button"
-                            disabled={cart.phase === "awaiting_reader"}
-                            onClick={() => {
-                                cart.addItem(item);
-                            }}
-                            className="flex flex-col items-start rounded-lg border border-line bg-surface p-3 text-left transition hover:border-accent disabled:opacity-50"
-                        >
-                            <ItemImage
-                                src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                                name={item.name}
-                                color={item.color}
-                                size={48}
-                            />
-                            <span className="mt-2 line-clamp-2 text-sm font-medium text-ink">
-                                {item.name}
-                            </span>
-                            <span className="mt-1 text-sm tabular-nums text-muted">
-                                {formatMoney(item.price_cents)}
-                            </span>
-                        </button>
-                    ))}
-                    {filtered.length === 0 ? (
-                        <div className="col-span-full">
-                            <Empty
-                                message={q ? strings.pos.searchEmpty : strings.pos.emptyCatalog}
-                            />
-                        </div>
-                    ) : null}
-                </div>
-
-                {entitlements.length > 0 ? (
-                    <section className="mt-8">
-                        <h2 className="font-display text-base font-semibold text-ink">
-                            {strings.pos.alsoSell}
-                        </h2>
-                        <div className="mt-2">
-                            <Choice
-                                options={entitlements.map((kind) => ({
-                                    key: kind,
-                                    label: ENTITLEMENT_LABEL[kind],
-                                }))}
-                                value={selling}
-                                onChange={(kind) => {
-                                    setSelling(selling === kind ? null : kind);
-                                }}
-                            />
-                        </div>
-                        {selling !== null ? (
-                            <div className="mt-3">
-                                <EntitlementSale
-                                    kind={selling}
-                                    onClose={() => {
-                                        setSelling(null);
-                                    }}
-                                />
-                            </div>
-                        ) : null}
-                    </section>
-                ) : null}
-
-                <OnlineOrders />
-                <OpenOrders />
-            </section>
-
-            <aside className="w-80 shrink-0">
-                <CartPanel cart={cart} />
-            </aside>
+        <div className="space-y-5">
+            <Tabs items={views} active={view} onSelect={show} variant="pill" label={d.title} />
+            {view === "register" ? (
+                <Register sale={sale} />
+            ) : view === "board" ? (
+                <SalesBoard onResume={resume} />
+            ) : (
+                <SalesHistory onResume={resume} />
+            )}
         </div>
     );
 }
 
-const ENTITLEMENT_LABEL: Record<EntitlementKind, string> = {
-    gift: strings.pos.sellGiftCard,
-    package: strings.pos.sellPackage,
-    subscription: strings.pos.sellSubscription,
-};
-
-function EntitlementSale({ kind, onClose }: { kind: EntitlementKind; onClose: () => void }) {
-    if (kind === "gift") return <SellGiftCard onClose={onClose} />;
-    if (kind === "package") return <SellPackage clientId={null} onClose={onClose} />;
-    return <StartSubscription clientId={null} onClose={onClose} />;
-}
-
-function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
-    const clients = useClients();
+function VisitRow({
+    v,
+    onTicket,
+    onCheckOut,
+}: {
+    v: CheckoutVisit;
+    onTicket: boolean;
+    onCheckOut: () => void;
+}) {
+    const st = VISIT_STATE[v.state];
     return (
-        <div className="space-y-2 border-b border-line px-4 py-3">
-            <ClientSelect
-                label={strings.pos.clientLabel}
-                clients={clients}
-                value={cart.clientId ?? ""}
-                onChange={(id) => {
-                    cart.setClientId(id === "" ? null : id);
-                }}
-            />
-            <div className="grid grid-cols-2 gap-2">
-                <TextField
-                    label={strings.pos.receiptEmail}
-                    type="email"
-                    value={cart.receiptEmail}
-                    onChange={cart.setReceiptEmail}
-                />
-                <TextField
-                    label={strings.pos.receiptPhone}
-                    type="tel"
-                    value={cart.receiptPhone}
-                    onChange={cart.setReceiptPhone}
-                />
+        <div className={`flex items-center gap-3 px-4 py-3 ${onTicket ? "bg-accent-weak/50" : ""}`}>
+            <div className="w-24 shrink-0 whitespace-nowrap">
+                <p className="text-sm font-semibold text-ink">{formatTime(v.start)}</p>
+                <p className="text-xs text-muted">{d.endsAt(formatTime(v.end))}</p>
             </div>
-            <p className="text-xs text-muted">{strings.pos.receiptHint}</p>
-        </div>
-    );
-}
-
-function CardPayment({ cart }: { cart: ReturnType<typeof useCart> }) {
-    const cards = useSavedCards(cart.clientId ?? "");
-    const methods = checkoutMethods(cards);
-    const sale = useSaleCheckout(api, cart, methods[0]?.id);
-    if (cart.order === null) return null;
-    return (
-        <ChargeSheet
-            checkout={sale.checkout}
-            methods={methods}
-            amountLabel={formatMoney(cart.order.total_cents)}
-            submitLabel={strings.pos.payCard}
-            busyLabel={strings.pos.paying}
-            onSubmit={sale.submit}
-            onCancel={cart.backToCart}
-        />
-    );
-}
-
-function CartPanel({ cart }: { cart: ReturnType<typeof useCart> }) {
-    const canVoid = canVoidSale(useRole());
-    if (cart.phase === "paid" && cart.order !== null) {
-        return (
-            <Panel title={strings.pos.paidTitle}>
-                <p className="text-sm text-ink-soft">
-                    {strings.pos.paidBody(formatMoney(cart.order.total_cents))}
+            <span
+                className="h-10 w-1 shrink-0 rounded-full bg-line"
+                style={v.line.color === null ? undefined : { backgroundColor: v.line.color }}
+            />
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">{v.clientName}</p>
+                <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted">
+                    <Avatar name={v.staffName} size="sm" color={v.staffColor} />
+                    <span className="truncate">
+                        {v.itemName} · {formatMoney(v.priceCents)}
+                        {v.depositCents > 0
+                            ? ` · ${d.depositCredit(formatMoney(v.depositCents))}`
+                            : ""}
+                    </span>
                 </p>
-                <Button size="lg" full onPress={cart.newSale}>
-                    {strings.pos.newSale}
-                </Button>
-            </Panel>
-        );
-    }
-    return (
-        <div className="flex max-h-[calc(100vh-4rem)] flex-col rounded-lg border border-line bg-surface shadow-card">
-            <div className="flex items-center justify-between border-b border-line px-4 py-3">
-                <h2 className="font-display text-base font-bold text-ink">{strings.pos.cart}</h2>
-                {cart.isEmpty ? null : (
-                    <Button variant="quiet" size="sm" onPress={cart.clear}>
-                        {strings.pos.clear}
+            </div>
+            <StatusPill status={st.label} intent={st.intent} asWritten />
+            <div className="w-24 shrink-0 text-right">
+                {v.state === "paid" ? null : onTicket ? (
+                    <span className="inline-flex items-center gap-1 text-sm font-medium text-accent">
+                        <Icon name="check" size={15} />
+                        {d.onTicket}
+                    </span>
+                ) : (
+                    <Button
+                        size="sm"
+                        variant={v.state === "upcoming" ? "outline" : "primary"}
+                        onPress={onCheckOut}
+                    >
+                        {d.checkOut}
                     </Button>
                 )}
             </div>
+        </div>
+    );
+}
 
-            <SaleDetails cart={cart} />
+const PLAN_KINDS: { key: WalletKind; label: string; icon: "tag" | "box" | "repeat" }[] = [
+    { key: "gift_card", label: d.sellGiftCard, icon: "tag" },
+    { key: "package", label: d.sellPackage, icon: "box" },
+    { key: "membership", label: d.sellMembership, icon: "repeat" },
+];
 
-            <div className="flex-1 overflow-y-auto px-4 py-2">
-                {cart.isEmpty ? (
-                    <Empty message={strings.pos.cartEmpty} />
-                ) : (
-                    cart.lines.map((line) => (
-                        <CartLineRow
-                            key={line.key}
-                            line={line}
-                            onQuantity={(qty) => {
-                                cart.setQuantity(line.key, qty);
-                            }}
-                            onRemove={() => {
-                                cart.removeLine(line.key);
-                            }}
+function Register({ sale }: { sale: SaleTicket }) {
+    const queue = useCheckoutQueue();
+    const catalog = useRegisterCatalog();
+    const openLink = useOpenLink();
+    const [paying, setPaying] = useState(false);
+    const [selling, setSelling] = useState<WalletKind | null>(null);
+    const onTicket = (id: string): number =>
+        sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
+
+    return (
+        <div className="flex items-start gap-6">
+            <section className="min-w-0 flex-1 space-y-8">
+                <div className="flex items-start justify-between gap-4">
+                    <h2 className="font-display text-xl font-bold text-ink">{d.newSaleTitle}</h2>
+                    <Button variant="outline" icon="user" onPress={sale.newSale}>
+                        {d.walkInSale}
+                    </Button>
+                </div>
+                <Panel flush title={d.todaysVisits} subtitle={d.todaysVisitsHint}>
+                    {queue.load.state === "loading" ? (
+                        <Skeleton variant="row" count={4} label={d.loadingVisits} />
+                    ) : queue.load.state === "error" ? (
+                        <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
+                    ) : queue.visits.every((v) => v.state === "paid") ? (
+                        <Empty message={d.noVisits} />
+                    ) : (
+                        <div className="divide-y divide-line-soft">
+                            {queue.visits.map((v) => (
+                                <VisitRow
+                                    key={v.bookingId}
+                                    v={v}
+                                    onTicket={sale.hasVisit(v.bookingId)}
+                                    onCheckOut={() => {
+                                        sale.addVisit(v);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </Panel>
+
+                <div>
+                    <div className="flex flex-wrap items-end justify-between gap-4">
+                        <h2 className="font-display text-base font-bold text-ink">{d.addExtras}</h2>
+                        <div className="w-64">
+                            <SearchField
+                                value={catalog.q}
+                                onChange={catalog.setQ}
+                                placeholder={d.searchShort}
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-3">
+                        <Choice
+                            label={d.addExtras}
+                            options={catalog.filters}
+                            value={catalog.filter}
+                            onChange={catalog.setFilter}
                         />
-                    ))
-                )}
-            </div>
+                    </div>
+                    <div className="mt-3">
+                        {catalog.load.state === "loading" ? (
+                            <Skeleton variant="row" count={3} label={d.loadingCatalog} />
+                        ) : catalog.items.length === 0 ? (
+                            <Empty
+                                variant="card"
+                                icon="box"
+                                message={catalog.empty}
+                                {...(catalog.q === ""
+                                    ? {
+                                          body: d.noItemsBody,
+                                          actions: (
+                                              <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  onPress={() => {
+                                                      openLink("catalog");
+                                                  }}
+                                              >
+                                                  {d.addCatalog}
+                                              </Button>
+                                          ),
+                                      }
+                                    : {})}
+                            />
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                                {catalog.items.map((item) => {
+                                    const out = saleTileOut(item);
+                                    return (
+                                        <ItemTile
+                                            key={item.id}
+                                            name={item.name}
+                                            imageSrc={mediaUrl(apiBaseUrl, item.image_file_id)}
+                                            color={item.color}
+                                            cents={item.price_cents}
+                                            meta={saleTileMeta(item)}
+                                            count={onTicket(item.id)}
+                                            tag={
+                                                out
+                                                    ? { label: d.outOfStock, intent: "danger" }
+                                                    : null
+                                            }
+                                            onPress={() => {
+                                                sale.addItem(item);
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
 
-            <div className="border-t border-line px-4 py-3">
-                {cart.phase === "review" && cart.order !== null ? (
-                    <>
-                        <Totals order={cart.order} />
-                        <div className="mt-3">
-                            <CardPayment cart={cart} />
-                        </div>
-                        <div className="mt-3 flex gap-2">
-                            {canVoid ? (
-                                <Button
-                                    variant="quiet"
-                                    grow
-                                    onPress={cart.voidSale}
-                                    disabled={cart.busy}
-                                >
-                                    {strings.pos.voidSale}
-                                </Button>
-                            ) : null}
-                            <Button variant="outline" grow onPress={cart.newSale}>
-                                {strings.pos.newSale}
-                            </Button>
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-muted">{strings.pos.subtotal}</span>
-                            <span className="font-medium tabular-nums text-ink">
-                                {formatMoney(cart.subtotalCents)}
-                                <span className="text-xs text-muted">{strings.pos.plusTax}</span>
-                            </span>
-                        </div>
-                        <div className="mt-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+                    <div>
+                        <p className="text-sm font-semibold text-ink">{d.alsoSell}</p>
+                        <p className="text-xs text-muted">{d.alsoSellHint}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {PLAN_KINDS.map((k) => (
                             <Button
-                                size="lg"
-                                full
-                                onPress={cart.review}
-                                busy={cart.busy}
-                                disabled={cart.isEmpty}
+                                key={k.key}
+                                size="sm"
+                                variant="outline"
+                                icon={k.icon}
+                                onPress={() => {
+                                    setSelling(k.key);
+                                }}
                             >
-                                {cart.busy ? strings.pos.totalling : strings.pos.reviewTotal}
+                                {k.label}
                             </Button>
-                        </div>
-                    </>
-                )}
-                {cart.error !== null ? <Notice tone="danger">{cart.error}</Notice> : null}
-            </div>
-        </div>
-    );
-}
+                        ))}
+                    </div>
+                </div>
+            </section>
 
-function CartLineRow({
-    line,
-    onQuantity,
-    onRemove,
-}: {
-    line: CartLine;
-    onQuantity: (quantity: number) => void;
-    onRemove: () => void;
-}) {
-    return (
-        <div className="flex items-center gap-2 border-b border-line-soft py-2 last:border-0">
-            <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink">{line.description}</p>
-                <p className="text-xs tabular-nums text-muted">
-                    {strings.pos.unitEach(formatMoney(line.unitAmountCents))}
-                </p>
-            </div>
-            <Stepper
-                value={line.quantity}
-                onChange={onQuantity}
-                min={0}
-                label={strings.pos.quantity}
+            <TicketPanel
+                sale={sale}
+                onCharge={() => {
+                    setPaying(true);
+                }}
             />
-            <span className="w-16 text-right text-sm font-medium tabular-nums text-ink">
-                {formatMoney(line.unitAmountCents * line.quantity)}
-            </span>
-            <Button variant="quiet" size="sm" label={strings.pos.removeLine} onPress={onRemove}>
-                ×
-            </Button>
+            {paying ? (
+                <PaySheet
+                    sale={sale}
+                    onClose={() => {
+                        setPaying(false);
+                    }}
+                    onBookNext={() => {
+                        setPaying(false);
+                        openLink("booking");
+                    }}
+                />
+            ) : null}
+            {selling !== null ? (
+                <Modal
+                    open
+                    size="lg"
+                    onClose={() => {
+                        setSelling(null);
+                    }}
+                >
+                    <SellEntitlement
+                        kind={selling}
+                        clientId={sale.clientId}
+                        onClose={() => {
+                            setSelling(null);
+                        }}
+                    />
+                </Modal>
+            ) : null}
         </div>
-    );
-}
-
-function Totals({ order }: { order: Order }) {
-    return (
-        <div className="space-y-1 text-sm">
-            <Row label={strings.pos.subtotal} cents={order.subtotal_cents} />
-            <Row label={strings.pos.tax} cents={order.tax_total_cents} />
-            <div className="flex justify-between border-t border-line-soft pt-1 font-semibold">
-                <span className="text-ink">{strings.pos.total}</span>
-                <span className="tabular-nums text-ink">{formatMoney(order.total_cents)}</span>
-            </div>
-        </div>
-    );
-}
-
-function Row({ label, cents }: { label: string; cents: number }) {
-    return (
-        <div className="flex justify-between">
-            <span className="text-muted">{label}</span>
-            <span className="tabular-nums text-ink-soft">{formatMoney(cents)}</span>
-        </div>
-    );
-}
-
-function OnlineOrders() {
-    const pickup = usePickupOrders(api);
-    const orders = pickup.all.filter((o) => o.status !== "picked_up");
-    if (orders.length === 0) return null;
-
-    return (
-        <section className="mt-8">
-            <h2 className="font-display text-base font-semibold text-ink">
-                {strings.pos.onlineOrders}
-            </h2>
-            <div className="mt-2">
-                <Panel flush>
-                    <div className="divide-y divide-line-soft">
-                        {orders.map((order) => (
-                            <div
-                                key={order.id}
-                                className="flex items-center gap-3 px-4 py-2.5 text-sm"
-                            >
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-ink">{order.clientName}</p>
-                                    <p className="truncate text-xs text-muted">
-                                        {order.lines
-                                            .map((l) => strings.pos.pickup.line(l.quantity, l.name))
-                                            .join(", ")}
-                                    </p>
-                                </div>
-                                <StatusPill
-                                    status={order.statusLabel}
-                                    intent={order.intent}
-                                    asWritten
-                                />
-                                <span className="font-medium tabular-nums text-ink">
-                                    {order.total}
-                                </span>
-                                {pickupActions(order.status).map((step) => (
-                                    <Button
-                                        key={step.status}
-                                        variant="outline"
-                                        size="sm"
-                                        busy={pickup.busyId === order.id}
-                                        onPress={() => {
-                                            pickup.move(order.id, step.status);
-                                        }}
-                                    >
-                                        {step.label}
-                                    </Button>
-                                ))}
-                            </div>
-                        ))}
-                    </div>
-                </Panel>
-            </div>
-            {pickup.error !== null ? <Notice tone="danger">{pickup.error}</Notice> : null}
-        </section>
-    );
-}
-
-function OpenOrders() {
-    const orders = useOpenOrders();
-    if (orders.length === 0) return null;
-
-    return (
-        <section className="mt-8">
-            <h2 className="font-display text-base font-semibold text-ink">
-                {strings.pos.openOrders}
-            </h2>
-            <div className="mt-2">
-                <Panel flush>
-                    <div className="divide-y divide-line-soft">
-                        {orders.map((order: OpenOrderRow) => (
-                            <div
-                                key={order.id}
-                                className="flex items-center gap-3 px-4 py-2.5 text-sm"
-                            >
-                                <span className="min-w-0 flex-1 truncate text-ink">
-                                    {order.client_name ?? strings.pos.walkIn}
-                                </span>
-                                <StatusPill
-                                    status={order.status}
-                                    intent={orderStatusIntent(order.status)}
-                                />
-                                <span className="font-medium tabular-nums text-ink">
-                                    {formatMoney(order.total_cents)}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </Panel>
-            </div>
-        </section>
     );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { formatDate } from "../datetime";
-import { formatMoney } from "../format";
+import { formatMoney, parseCents } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, Intent, PrintedDoc, PrintedDocLine, PrintedDocTax } from "../ui";
@@ -37,6 +37,8 @@ export interface PublicDocLine {
     unit_amount_cents: number;
     amount_cents: number;
     tax_codes: string[];
+    discount_cents?: number;
+    discount_reason?: string | null;
 }
 
 export interface PublicDocTax {
@@ -72,9 +74,12 @@ interface PublicInvoice {
     gst_hst_number: string | null;
     qst_number: string | null;
     lines: PublicDocLine[];
+    discount_cents?: number;
+    discount_reason?: string | null;
     taxes: PublicDocTax[];
     credits: PublicCredit[];
     interac?: PublicInteracRequest | null;
+    tip_for?: string[];
 }
 
 interface PublicInteracRequest {
@@ -108,7 +113,19 @@ export function publicDocLines(lines: readonly PublicDocLine[]): PrintedDocLine[
 /** What the client reads under the lines: subtotal, tax per code, total, payments and balance. */
 export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
     const pp = strings.publicPay;
+    const discount = invoice.discount_cents ?? 0;
     return [
+        ...(discount > 0
+            ? [
+                  {
+                      key: "discount",
+                      label: strings.publicReceipt.discount,
+                      cents: discount,
+                      kind: "credit" as const,
+                      hint: invoice.discount_reason ?? undefined,
+                  },
+              ]
+            : []),
         { key: "subtotal", label: pp.subtotal, cents: invoice.subtotal_cents, kind: "subtotal" },
         ...publicDocTaxes(invoice.taxes).map((t): DocTotalLine => ({
             key: t.code,
@@ -207,7 +224,7 @@ class PublicPayError extends Error {
 interface PublicPayClient {
     getPublicInvoice: (token: string) => Promise<PublicInvoice>;
     payInterac(token: string): Promise<InteracRequest>;
-    payCard(token: string): Promise<PublicCardIntent>;
+    payCard(token: string, tipCents?: number): Promise<PublicCardIntent>;
 }
 
 export function createPublicPayClient(baseUrl: string): PublicPayClient {
@@ -226,8 +243,12 @@ export function createPublicPayClient(baseUrl: string): PublicPayClient {
             request<InteracRequest>(`/pay/${encodeURIComponent(token)}/interac`, {
                 method: "POST",
             }),
-        payCard: (token) =>
-            request<PublicCardIntent>(`/pay/${encodeURIComponent(token)}/card`, { method: "POST" }),
+        payCard: (token, tipCents = 0) =>
+            request<PublicCardIntent>(`/pay/${encodeURIComponent(token)}/card`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tip_cents: tipCents }),
+            }),
     };
 }
 
@@ -243,6 +264,7 @@ interface PublicPayForm {
     card: PublicCardIntent | null;
     payInterac: () => void;
     payCard: () => void;
+    tip: PayLinkTip;
     markPaid: () => void;
     busy: boolean;
     error: string | null;
@@ -268,10 +290,12 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
             { errorMessage: strings.publicPay.interacStartError },
         );
     };
+    const tip = usePayLinkTip(invoice);
     const payCard = (): void => {
+        if (tip.error !== null) return;
         run(
             async () => {
-                setCard(await pay.payCard(token));
+                setCard(await pay.payCard(token, tip.cents));
             },
             { errorMessage: strings.publicPay.cardStartError },
         );
@@ -287,12 +311,75 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
         card,
         payInterac,
         payCard,
+        tip,
         markPaid: () => {
             setPaid(true);
         },
         busy,
         error,
         setError,
+    };
+}
+
+const TIP_PERCENTS = [15, 18, 20] as const;
+
+interface PayLinkTip {
+    title: string;
+    note: string;
+    key: string;
+    options: { key: string; label: string; hint: string }[];
+    choose: (key: string) => void;
+    custom: string;
+    setCustom: (v: string) => void;
+    cents: number;
+    totalCents: number;
+    error: string | null;
+}
+
+/** The client's tip on a pay link: a share of the price before tax, never taxed itself. */
+function usePayLinkTip(invoice: PublicInvoice | null): PayLinkTip {
+    const pp = strings.publicPay;
+    const [key, setKey] = useState("none");
+    const [custom, setCustom] = useState("");
+    const base = invoice?.subtotal_cents ?? 0;
+    const balance = invoice?.balance_cents ?? 0;
+    const customCents = parseCents(custom);
+    const pct = TIP_PERCENTS.find((n) => String(n) === key);
+    const cents =
+        pct !== undefined
+            ? Math.round((base * pct) / 100)
+            : key === "custom"
+              ? (customCents ?? 0)
+              : 0;
+    const error =
+        key === "custom" && custom.trim() !== "" && customCents === null
+            ? pp.tipInvalid
+            : cents > balance
+              ? pp.tipTooBig
+              : null;
+    const names = invoice?.tip_for ?? [];
+    return {
+        title: pp.tipTitle(names.length === 0 ? pp.tipTeam : names.join(" and ")),
+        note: pp.tipBase(formatMoney(base)),
+        key,
+        options: [
+            ...TIP_PERCENTS.map((n) => ({
+                key: String(n),
+                label: `${String(n)}%`,
+                hint: formatMoney(Math.round((base * n) / 100)),
+            })),
+            { key: "custom", label: pp.tipCustom, hint: pp.tipAmount },
+            { key: "none", label: pp.tipNone, hint: formatMoney(0) },
+        ],
+        choose: setKey,
+        custom,
+        setCustom: (v) => {
+            setKey("custom");
+            setCustom(v);
+        },
+        cents,
+        totalCents: balance + cents,
+        error,
     };
 }
 

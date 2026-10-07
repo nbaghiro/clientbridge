@@ -1,5 +1,4 @@
 import {
-    type ClientRow,
     type EntitlementSaleForm,
     type WalletKind,
     formatMoney,
@@ -145,10 +144,6 @@ function Sold({ form, onClose }: { form: EntitlementSaleForm; onClose: () => voi
     );
 }
 
-export function SellGiftCard({ onClose }: { onClose: () => void }) {
-    return <SellEntitlement kind="gift_card" onClose={onClose} />;
-}
-
 export function SellPackage({
     clientId,
     onClose,
@@ -167,28 +162,4 @@ export function StartSubscription({
     onClose: () => void;
 }) {
     return <SellEntitlement kind="membership" clientId={clientId} onClose={onClose} />;
-}
-
-export function ClientSelect({
-    label,
-    clients,
-    value,
-    onChange,
-}: {
-    label: string;
-    clients: ClientRow[];
-    value: string;
-    onChange: (v: string) => void;
-}) {
-    return (
-        <Select
-            label={label}
-            value={value}
-            options={[
-                { key: "", label: w.chooseClient },
-                ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
-            ]}
-            onChange={onChange}
-        />
-    );
 }

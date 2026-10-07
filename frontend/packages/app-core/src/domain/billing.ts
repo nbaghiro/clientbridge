@@ -82,6 +82,9 @@ interface LineRow {
     optional: number | null;
     selected: number | null;
     position: number;
+    discount_kind?: string | null;
+    discount_value?: number | null;
+    discount_reason?: string | null;
 }
 
 export const INVOICES_SQL = `
@@ -116,7 +119,8 @@ ORDER BY e.created_at DESC`;
 
 export const LINES_SQL = `
 SELECT id, item_id, booking_id, description, quantity, unit_amount_cents, amount_cents,
-       tax_amount_cents, tax_class, optional, selected, position
+       tax_amount_cents, tax_class, optional, selected, position, discount_kind, discount_value,
+       discount_reason
 FROM lines WHERE ? IN (invoice_id, estimate_id) ORDER BY position`;
 
 // Per-code tax is on an issued invoice's journal; a draft's is worked out from its lines.
@@ -227,6 +231,42 @@ interface DocPricing {
     subtotalCents: number;
     taxCents: number;
     totalCents: number;
+}
+
+export type DiscountKind = "percent" | "amount";
+
+// value is a whole percent (10) or cents (500), as the server stores it.
+export interface SaleDiscount {
+    kind: DiscountKind;
+    value: number;
+    reason: string | null;
+}
+
+/** Split `total` in whole cents by weight, largest remainder first, so the parts always add up. */
+export function allocate(total: number, weights: readonly number[]): number[] {
+    const sum = weights.reduce((a, b) => a + b, 0);
+    if (total === 0 || sum <= 0) return weights.map(() => 0);
+    const parts = weights.map((w) => Math.floor((total * w) / sum));
+    const order = weights
+        .map((w, i) => ({ i, r: (total * w) % sum }))
+        .sort((a, b) => b.r - a.r || a.i - b.i);
+    let left = total - parts.reduce((a, b) => a + b, 0);
+    for (const { i } of order) {
+        if (left <= 0) break;
+        parts[i] = (parts[i] ?? 0) + 1;
+        left -= 1;
+    }
+    return parts;
+}
+
+/** What a discount takes off `baseCents`, never more than the base (percent rounds half up). */
+export function discountCents(baseCents: number, discount: SaleDiscount | null): number {
+    if (discount === null || baseCents <= 0) return 0;
+    const off =
+        discount.kind === "percent"
+            ? Math.floor((baseCents * discount.value * 2 + 100) / 200)
+            : discount.value;
+    return Math.min(baseCents, Math.max(0, off));
 }
 
 /** Tax per line and per code over the included lines, as the server works it out. */
@@ -1234,10 +1274,12 @@ interface DraftLine {
     itemId: string | null;
     taxClass: TaxClass;
     optional: boolean;
+    discount: SaleDiscount | null;
 }
 
 interface ComposerLine extends DraftLine {
     key: string;
+    grossCents: number;
     amountCents: number;
     taxCodes: string[];
     error: string | null;
@@ -1250,6 +1292,13 @@ export interface DocDraft {
     clientId: string;
     notes: string;
     lines: DraftLine[];
+}
+
+function lineDiscount(l: LineRow): SaleDiscount | null {
+    const kind = l.discount_kind;
+    const value = l.discount_value ?? null;
+    if ((kind !== "percent" && kind !== "amount") || value === null || value <= 0) return null;
+    return { kind, value, reason: l.discount_reason ?? null };
 }
 
 export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[]): DocDraft {
@@ -1265,6 +1314,7 @@ export function docDraft(row: InvoiceRow | EstimateRow, lines: readonly LineRow[
             itemId: l.item_id,
             taxClass: asTaxClass(l.tax_class),
             optional: l.optional === 1,
+            discount: lineDiscount(l),
         })),
     };
 }
@@ -1282,6 +1332,7 @@ const blankLine = (): DraftLine & { key: string } =>
         itemId: null,
         taxClass: "standard",
         optional: false,
+        discount: null,
     });
 
 const qtyOf = (l: DraftLine): number => Number(l.quantity) || 0;
@@ -1298,6 +1349,10 @@ interface DocComposer {
     setLine: (key: string, patch: Partial<DraftLine>) => void;
     addLine: () => void;
     removeLine: (key: string) => void;
+    setLineDiscount: (key: string, discount: SaleDiscount | null) => void;
+    docDiscount: SaleDiscount | null;
+    setDocDiscount: (discount: SaleDiscount | null) => void;
+    discountBaseCents: number;
     addCatalogItem: (item: {
         id: string;
         name: string;
@@ -1343,6 +1398,8 @@ export function useDocComposer(
         draft !== undefined && draft.lines.length > 0 ? draft.lines.map(keyed) : [blankLine()],
     );
     const [message, setMessage] = useState(draft?.notes ?? "");
+    const [docDiscount, setDocDiscountState] = useState<SaleDiscount | null>(null);
+    const [docDiscountTouched, setDocDiscountTouched] = useState(false);
     const [terms, setTerms] = useState<DocTerms>(kind === "estimate" ? "d14" : "d14");
     const [attempted, setAttempted] = useState(false);
     const [dirty, setDirty] = useState(false);
@@ -1360,11 +1417,22 @@ export function useDocComposer(
         setSaved(null);
         keyRef.current = null;
     };
+    const gross = lines.map((l) => Math.round(qtyOf(l) * unitOf(l)));
+    const lineOff = lines.map((l, i) => discountCents(gross[i] ?? 0, l.discount));
+    const bases = gross.map((g, i) => g - (lineOff[i] ?? 0));
+    const counted = lines.map((l) => !isBlank(l) && !l.optional);
+    const docBase = bases.reduce((sum, v, i) => sum + (counted[i] === true ? v : 0), 0);
+    const docOff = discountCents(docBase, docDiscount);
+    const shares = allocate(
+        docOff,
+        bases.map((v, i) => (counted[i] === true ? v : 0)),
+    );
+    const net = bases.map((v, i) => v - (shares[i] ?? 0));
     const pricing = priceDoc(
-        lines.map((l) => ({
-            amountCents: Math.round(qtyOf(l) * unitOf(l)),
+        lines.map((l, i) => ({
+            amountCents: net[i] ?? 0,
             taxClass: l.taxClass,
-            included: !isBlank(l) && !l.optional,
+            included: counted[i] === true,
         })),
         rates,
     );
@@ -1373,7 +1441,8 @@ export function useDocComposer(
             !isBlank(l) && (l.description.trim() === "" || unitOf(l) <= 0 || qtyOf(l) <= 0);
         return {
             ...l,
-            amountCents: Math.round(qtyOf(l) * unitOf(l)),
+            grossCents: gross[i] ?? 0,
+            amountCents: net[i] ?? 0,
             taxCodes: pricing.lines[i]?.codes ?? [],
             error: attempted && incomplete ? s.lineIncomplete : null,
         };
@@ -1383,7 +1452,7 @@ export function useDocComposer(
         clientId !== "" &&
         filled.some((l) => !l.optional) &&
         !composerLines.some(
-            (l) => !isBlank(l) && (l.description.trim() === "" || l.amountCents <= 0),
+            (l) => !isBlank(l) && (l.description.trim() === "" || l.grossCents <= 0),
         );
 
     const body = (withSend: boolean): Record<string, unknown> => {
@@ -1396,8 +1465,10 @@ export function useDocComposer(
                 unit_amount_cents: unitOf(l),
                 item_id: l.itemId,
                 tax_class: l.taxClass,
+                discount: l.discount,
                 ...(kind === "estimate" ? { optional: l.optional } : {}),
             })),
+            ...(docDiscountTouched || docId === null ? { discount: docDiscount } : {}),
             notes: blankToNull(message),
             ...(kind === "invoice"
                 ? { due_at: due.toISOString() }
@@ -1453,7 +1524,39 @@ export function useDocComposer(
         );
     };
 
+    const lineDiscountCents = lineOff.reduce((sum, v, i) => sum + (counted[i] === true ? v : 0), 0);
     const totals: DocTotalLine[] = [
+        ...(lineDiscountCents + docOff > 0
+            ? [
+                  {
+                      key: "gross",
+                      label: s.itemsTotal,
+                      cents: pricing.subtotalCents + lineDiscountCents + docOff,
+                      kind: "subtotal" as const,
+                  },
+                  ...(lineDiscountCents > 0
+                      ? [
+                            {
+                                key: "lineDisc",
+                                label: s.lineDiscounts,
+                                cents: lineDiscountCents,
+                                kind: "credit" as const,
+                            },
+                        ]
+                      : []),
+                  ...(docOff > 0
+                      ? [
+                            {
+                                key: "docDisc",
+                                label: s.docDiscount,
+                                cents: docOff,
+                                kind: "credit" as const,
+                                hint: docDiscount?.reason ?? undefined,
+                            },
+                        ]
+                      : []),
+              ]
+            : []),
         { key: "subtotal", label: s.subtotal, cents: pricing.subtotalCents, kind: "subtotal" },
         ...pricing.taxes.map((t): DocTotalLine => ({
             key: t.code,
@@ -1501,6 +1604,17 @@ export function useDocComposer(
             touch();
             setLines((ls) => (ls.length > 1 ? ls.filter((l) => l.key !== key) : [blankLine()]));
         },
+        setLineDiscount: (key, discount) => {
+            touch();
+            setLines((ls) => ls.map((l) => (l.key === key ? { ...l, discount } : l)));
+        },
+        docDiscount,
+        setDocDiscount: (discount) => {
+            touch();
+            setDocDiscountTouched(true);
+            setDocDiscountState(discount);
+        },
+        discountBaseCents: docBase,
         addCatalogItem: (item) => {
             touch();
             const line = keyed({
@@ -1510,6 +1624,7 @@ export function useDocComposer(
                 itemId: item.id,
                 taxClass: asTaxClass(item.tax_class),
                 optional: false,
+                discount: null,
             });
             setLines((ls) => {
                 const last = ls.at(-1);
@@ -1551,6 +1666,8 @@ export function useDocComposer(
             setDocId(null);
             setClientId("");
             setMessage("");
+            setDocDiscountState(null);
+            setDocDiscountTouched(false);
             setLines([blankLine()]);
             keyRef.current = null;
         },

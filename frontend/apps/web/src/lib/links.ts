@@ -10,7 +10,7 @@ const PATHS: Record<ShellTarget, string> = {
     hours: "/setup/team",
     sale: "/payments/sales",
     checkout: "/payments/sales",
-    orders: "/payments/sales",
+    orders: "/payments/sales?view=board",
     invoices: "/payments/invoices",
     invoice: "/payments/invoices",
     estimate: "/payments/invoices?doc=estimates",

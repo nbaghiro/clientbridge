@@ -1,6 +1,8 @@
 import {
     type DocDraft,
     type DocTerms,
+    discountCents,
+    discountLabel,
     formatMoney,
     sellableItems,
     strings,
@@ -28,6 +30,7 @@ import {
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { DiscountForm } from "./SaleTicket";
 
 const c = theme.colors;
 const s = strings.billing;
@@ -45,6 +48,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
     const letterhead = useLetterhead();
     const form = useDocComposer(api, kind, draft);
     const [preview, setPreview] = useState(false);
+    const [discounting, setDiscounting] = useState<string | null>(null);
     const client = clients.find((x) => x.id === form.clientId) ?? null;
 
     const close = (): void => {
@@ -140,7 +144,11 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                             }}
                                         />
                                     </View>
-                                    <Text style={styles.amount}>{formatMoney(l.amountCents)}</Text>
+                                    <Text style={styles.amount}>
+                                        {formatMoney(
+                                            l.grossCents - discountCents(l.grossCents, l.discount),
+                                        )}
+                                    </Text>
                                     <IconButton
                                         icon="trash"
                                         label={s.removeLine}
@@ -199,6 +207,36 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                                         }}
                                     />
                                 ) : null}
+                                {discounting === l.key ? (
+                                    <DiscountForm
+                                        title={s.lineDiscount(
+                                            l.description || s.descriptionPlaceholder,
+                                        )}
+                                        initial={l.discount}
+                                        baseCents={l.grossCents}
+                                        onApply={(next) => {
+                                            form.setLineDiscount(l.key, next);
+                                            setDiscounting(null);
+                                        }}
+                                        onCancel={() => {
+                                            setDiscounting(null);
+                                        }}
+                                    />
+                                ) : (
+                                    <Button
+                                        variant="link"
+                                        size="sm"
+                                        icon="percent"
+                                        disabled={l.grossCents <= 0}
+                                        onPress={() => {
+                                            setDiscounting(l.key);
+                                        }}
+                                    >
+                                        {l.discount !== null
+                                            ? s.discountedBy(discountLabel(l.discount))
+                                            : s.addDiscount}
+                                    </Button>
+                                )}
                                 {l.error !== null ? <Notice tone="danger">{l.error}</Notice> : null}
                             </View>
                         ))}
@@ -228,6 +266,34 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                     </View>
 
                     <View style={[styles.card, styles.section]}>
+                        {discounting === "doc" ? (
+                            <DiscountForm
+                                title={s.discountTitle}
+                                initial={form.docDiscount}
+                                baseCents={form.discountBaseCents}
+                                onApply={(next) => {
+                                    form.setDocDiscount(next);
+                                    setDiscounting(null);
+                                }}
+                                onCancel={() => {
+                                    setDiscounting(null);
+                                }}
+                            />
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                icon="percent"
+                                disabled={form.discountBaseCents <= 0}
+                                onPress={() => {
+                                    setDiscounting("doc");
+                                }}
+                            >
+                                {form.docDiscount !== null
+                                    ? s.discountedBy(discountLabel(form.docDiscount))
+                                    : s.discountTitle}
+                            </Button>
+                        )}
                         <DocTotals lines={form.totals} />
                     </View>
 

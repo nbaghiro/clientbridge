@@ -1,627 +1,309 @@
 import {
-    type EntitlementKind,
-    canVoidSale,
-    checkoutMethods,
-    entitlementKindsOnSale,
-    useClients,
-    useSaleCheckout,
-    useSavedCards,
-    type CartLine,
-    type Order,
-    filterItems,
+    type CheckoutVisit,
+    type OrderOut,
+    type SaleTicket,
+    type SalesView,
+    VISIT_STATE,
+    type WalletKind,
     formatMoney,
+    formatTime,
     mediaUrl,
-    orderStatusIntent,
-    sellableItems,
+    saleTileMeta,
+    saleTileOut,
+    salesViewsFor,
     strings,
-    useCart,
     useCatalogItems,
-    useConnectionToken,
-    useOpenOrders,
-    usePickupOrders,
-    pickupActions,
-    useSearch,
+    useCheckoutQueue,
+    useRegisterCatalog,
+    useSale,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
     Button,
-    ChargeSheet,
     Choice,
     Empty,
-    ItemImage,
-    Notice,
+    ItemTile,
+    LoadFailed,
+    Modal,
     SearchField,
+    Skeleton,
     StatusPill,
-    Stepper,
-    TextField,
-    ui,
+    Tabs,
 } from "@clientbridge/ui";
 
-import {
-    ClientChips,
-    SellGiftCard,
-    SellPackage,
-    StartSubscription,
-} from "../components/EntitlementSales";
-import { useRole } from "../lib/auth";
-import { TerminalProvider, useTerminalCheckout } from "../components/Terminal";
+import { SellEntitlement } from "../components/EntitlementSales";
+import { SalesBoard, SalesHistory } from "../components/SaleOrders";
+import { TicketSheet } from "../components/SaleTicket";
 import { api, apiBaseUrl } from "../lib/api";
+import { useViewer } from "../lib/auth";
+import { useOpenLink } from "../lib/links";
 
+const d = strings.pos.desk;
 const c = theme.colors;
 
+/** Sales on a phone: the register, the front desk board and, for owners and admins, history. */
 export function POS() {
-    const cart = useCart(api);
-    const canVoid = canVoidSale(useRole());
+    const viewer = useViewer();
+    const role = viewer?.role ?? null;
+    const sale = useSale(api, {
+        role,
+        viewerStaffId: viewer?.staffId ?? null,
+        platform: "mobile",
+    });
     const items = useCatalogItems();
-    const active = useMemo(() => sellableItems(items), [items]);
-    const { q, setQ, filtered } = useSearch(active, filterItems);
-    const reviewing = cart.phase === "awaiting_reader";
-    const tokenProvider = useConnectionToken(api); // feeds the Terminal SDK its connection token
-    const entitlements = useMemo(() => entitlementKindsOnSale(items), [items]);
-    const [selling, setSelling] = useState<EntitlementKind | null>(null);
-    const [payingByCard, setPayingByCard] = useState(false);
-
-    if (cart.phase === "paid" && cart.order !== null) {
-        return (
-            <View style={[styles.screen, styles.reader]}>
-                <Text style={styles.readerTitle}>{strings.pos.paidTitle}</Text>
-                <Text style={styles.readerSub}>
-                    {strings.pos.paidBody(formatMoney(cart.order.total_cents))}
-                </Text>
-                <Button
-                    size="lg"
-                    full
-                    onPress={() => {
-                        setPayingByCard(false);
-                        cart.newSale();
-                    }}
-                >
-                    {strings.pos.newSale}
-                </Button>
-            </View>
-        );
-    }
-
-    if (payingByCard && cart.phase === "review" && cart.order !== null) {
-        return (
-            <ScrollView style={styles.screen} contentContainerStyle={styles.reader}>
-                <Totals order={cart.order} />
-                <CardPayment
-                    cart={cart}
-                    onCancel={() => {
-                        setPayingByCard(false);
-                    }}
-                />
-            </ScrollView>
-        );
-    }
-
+    const views = salesViewsFor(role);
+    const [view, setView] = useState<SalesView>("register");
+    const [ticketOpen, setTicketOpen] = useState(false);
+    const resume = (order: OrderOut): void => {
+        sale.resume(order, items);
+        setView("register");
+        setTicketOpen(true);
+    };
     return (
         <View style={styles.screen}>
-            {reviewing && cart.checkoutResult !== null && cart.order !== null ? (
-                <TerminalProvider tokenProvider={tokenProvider}>
-                    <ReaderPanel
-                        order={cart.order}
-                        clientSecret={cart.checkoutResult.client_secret}
-                        onDone={cart.newSale}
-                        onVoid={canVoid ? cart.voidSale : undefined}
-                        busy={cart.busy}
-                    />
-                </TerminalProvider>
+            <Tabs items={views} active={view} onSelect={setView} variant="pill" label={d.title} />
+            {view === "register" ? (
+                <Register sale={sale} ticketOpen={ticketOpen} setTicketOpen={setTicketOpen} />
             ) : (
-                <>
-                    <View style={styles.searchWrap}>
-                        <SearchField
-                            value={q}
-                            onChange={setQ}
-                            placeholder={strings.pos.searchPlaceholder}
-                        />
-                    </View>
-
-                    <FlatList
-                        data={filtered}
-                        keyExtractor={(i) => i.id}
-                        numColumns={2}
-                        columnWrapperStyle={styles.gridRow}
-                        contentContainerStyle={styles.grid}
-                        renderItem={({ item }) => (
-                            <Pressable
-                                style={styles.tile}
-                                onPress={() => {
-                                    cart.addItem(item);
-                                }}
-                            >
-                                <ItemImage
-                                    src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                                    name={item.name}
-                                    color={item.color}
-                                    size={44}
-                                />
-                                <Text style={styles.tileName} numberOfLines={2}>
-                                    {item.name}
-                                </Text>
-                                <Text style={styles.tilePrice}>
-                                    {formatMoney(item.price_cents)}
-                                </Text>
-                            </Pressable>
-                        )}
-                        ListEmptyComponent={
-                            <Empty message={q ? strings.pos.searchEmpty : strings.pos.empty} />
-                        }
-                        ListFooterComponent={
-                            <>
-                                {entitlements.length > 0 ? (
-                                    <View style={styles.openOrders}>
-                                        <Text style={styles.openTitle}>{strings.pos.alsoSell}</Text>
-                                        <Choice
-                                            options={entitlements.map((kind) => ({
-                                                key: kind,
-                                                label: ENTITLEMENT_LABEL[kind],
-                                            }))}
-                                            value={selling}
-                                            onChange={(kind) => {
-                                                setSelling(selling === kind ? null : kind);
-                                            }}
-                                        />
-                                        {selling !== null ? (
-                                            <EntitlementSale
-                                                kind={selling}
-                                                onClose={() => {
-                                                    setSelling(null);
-                                                }}
-                                            />
-                                        ) : null}
-                                    </View>
-                                ) : null}
-                                <OnlineOrders />
-                                <OpenOrders />
-                            </>
-                        }
-                    />
-
-                    <CartBar
-                        cart={cart}
-                        onCard={() => {
-                            setPayingByCard(true);
-                        }}
-                    />
-                </>
-            )}
-        </View>
-    );
-}
-
-const ENTITLEMENT_LABEL: Record<EntitlementKind, string> = {
-    gift: strings.pos.sellGiftCard,
-    package: strings.pos.sellPackage,
-    subscription: strings.pos.sellSubscription,
-};
-
-function EntitlementSale({ kind, onClose }: { kind: EntitlementKind; onClose: () => void }) {
-    if (kind === "gift") return <SellGiftCard onClose={onClose} />;
-    if (kind === "package") return <SellPackage clientId={null} onClose={onClose} />;
-    return <StartSubscription clientId={null} onClose={onClose} />;
-}
-
-function CardPayment({
-    cart,
-    onCancel,
-}: {
-    cart: ReturnType<typeof useCart>;
-    onCancel: () => void;
-}) {
-    const cards = useSavedCards(cart.clientId ?? "");
-    const methods = checkoutMethods(cards);
-    const sale = useSaleCheckout(api, cart, methods[0]?.id);
-    if (cart.order === null) return null;
-    return (
-        <ChargeSheet
-            checkout={sale.checkout}
-            methods={methods}
-            amountLabel={formatMoney(cart.order.total_cents)}
-            submitLabel={strings.pos.payCard}
-            busyLabel={strings.pos.paying}
-            onSubmit={sale.submit}
-            onCancel={onCancel}
-        />
-    );
-}
-
-function SaleDetails({ cart }: { cart: ReturnType<typeof useCart> }) {
-    const clients = useClients();
-    const [open, setOpen] = useState(false);
-    const client = clients.find((cl) => cl.id === cart.clientId);
-    return (
-        <View>
-            <Button
-                variant="quiet"
-                size="sm"
-                onPress={() => {
-                    setOpen(!open);
-                }}
-            >
-                {strings.pos.saleDetails(client?.name ?? strings.pos.walkIn, open)}
-            </Button>
-            {open ? (
-                <View style={styles.details}>
-                    <ClientChips
-                        clients={clients}
-                        value={cart.clientId ?? ""}
-                        onChange={(id) => {
-                            cart.setClientId(id === "" ? null : id);
-                        }}
-                    />
-                    <TextField
-                        label={strings.pos.receiptEmail}
-                        type="email"
-                        size="sm"
-                        value={cart.receiptEmail}
-                        onChange={cart.setReceiptEmail}
-                    />
-                    <TextField
-                        label={strings.pos.receiptPhone}
-                        type="tel"
-                        size="sm"
-                        value={cart.receiptPhone}
-                        onChange={cart.setReceiptPhone}
-                    />
-                    <Text style={ui.note}>{strings.pos.receiptHint}</Text>
-                </View>
-            ) : null}
-        </View>
-    );
-}
-
-function CartBar({ cart, onCard }: { cart: ReturnType<typeof useCart>; onCard: () => void }) {
-    return (
-        <View style={styles.cart}>
-            <SaleDetails cart={cart} />
-            {cart.isEmpty ? (
-                <Text style={styles.cartEmpty}>{strings.pos.cartEmptyStart}</Text>
-            ) : (
-                <ScrollView style={styles.cartLines}>
-                    {cart.lines.map((line) => (
-                        <CartLineRow
-                            key={line.key}
-                            line={line}
-                            onQuantity={(qty) => {
-                                cart.setQuantity(line.key, qty);
-                            }}
-                            onRemove={() => {
-                                cart.removeLine(line.key);
-                            }}
-                        />
-                    ))}
+                <ScrollView contentContainerStyle={styles.body}>
+                    {view === "board" ? (
+                        <SalesBoard onResume={resume} />
+                    ) : (
+                        <SalesHistory onResume={resume} />
+                    )}
                 </ScrollView>
             )}
-
-            {cart.phase === "review" && cart.order !== null ? (
-                <>
-                    <Totals order={cart.order} />
-                    <View style={styles.actions}>
-                        <Button size="lg" full onPress={cart.charge} busy={cart.busy}>
-                            {strings.pos.tapToPayAmount(formatMoney(cart.order.total_cents))}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            full
-                            onPress={onCard}
-                            disabled={cart.busy}
-                        >
-                            {strings.pos.payCard}
-                        </Button>
-                    </View>
-                </>
-            ) : (
-                <>
-                    <View style={styles.subtotalRow}>
-                        <Text style={styles.subtotalLabel}>{strings.pos.subtotal}</Text>
-                        <Text style={styles.subtotalValue}>
-                            {formatMoney(cart.subtotalCents)}
-                            <Text style={styles.subtotalTax}>{strings.pos.plusTax}</Text>
-                        </Text>
-                    </View>
-                    <View style={styles.actions}>
-                        <Button
-                            size="lg"
-                            full
-                            onPress={cart.review}
-                            busy={cart.busy}
-                            disabled={cart.isEmpty}
-                        >
-                            {strings.pos.reviewTotal}
-                        </Button>
-                    </View>
-                </>
-            )}
-            {cart.error !== null ? <Notice tone="danger">{cart.error}</Notice> : null}
         </View>
     );
 }
 
-function CartLineRow({
-    line,
-    onQuantity,
-    onRemove,
+function VisitCard({
+    v,
+    onTicket,
+    onCheckOut,
 }: {
-    line: CartLine;
-    onQuantity: (quantity: number) => void;
-    onRemove: () => void;
+    v: CheckoutVisit;
+    onTicket: boolean;
+    onCheckOut: () => void;
 }) {
+    const st = VISIT_STATE[v.state];
     return (
-        <View style={styles.lineRow}>
-            <View style={styles.lineMain}>
-                <Text style={styles.lineName} numberOfLines={1}>
-                    {line.description}
+        <View style={[styles.visit, onTicket ? styles.visitOn : null]}>
+            <View style={styles.row}>
+                <Text style={styles.soft}>
+                    <Text style={styles.strong}>{formatTime(v.start)}</Text>{" "}
+                    {d.endsAt(formatTime(v.end))}
                 </Text>
-                <Text style={styles.lineUnit}>
-                    {strings.pos.unitEach(formatMoney(line.unitAmountCents))}
-                </Text>
+                <StatusPill status={st.label} intent={st.intent} asWritten />
             </View>
-            <Stepper
-                value={line.quantity}
-                onChange={onQuantity}
-                min={0}
-                label={strings.pos.quantity}
-            />
-            <Button variant="quiet" size="sm" label={strings.pos.removeLine} onPress={onRemove}>
-                ×
-            </Button>
-        </View>
-    );
-}
-
-function Totals({ order }: { order: Order }) {
-    return (
-        <View style={styles.totals}>
-            <TotalRow label={strings.pos.subtotal} cents={order.subtotal_cents} />
-            <TotalRow label={strings.pos.tax} cents={order.tax_total_cents} />
-            <View style={[styles.totalRow, styles.totalGrand]}>
-                <Text style={styles.grandLabel}>{strings.pos.total}</Text>
-                <Text style={styles.grandValue}>{formatMoney(order.total_cents)}</Text>
-            </View>
-        </View>
-    );
-}
-
-function TotalRow({ label, cents }: { label: string; cents: number }) {
-    return (
-        <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{label}</Text>
-            <Text style={styles.totalValue}>{formatMoney(cents)}</Text>
-        </View>
-    );
-}
-
-function ReaderPanel({
-    order,
-    clientSecret,
-    onDone,
-    onVoid,
-    busy,
-}: {
-    order: Order;
-    clientSecret: string;
-    onDone: () => void;
-    onVoid: (() => void) | undefined;
-    busy: boolean;
-}) {
-    const terminal = useTerminalCheckout();
-    const status =
-        terminal.phase === "connecting"
-            ? strings.pos.readerConnecting
-            : terminal.phase === "ready"
-              ? strings.pos.readerReady
-              : terminal.phase === "collecting"
-                ? strings.pos.readerCollecting
-                : terminal.phase === "done"
-                  ? strings.pos.readerApproved
-                  : strings.pos.readerUnavailable;
-
-    return (
-        <ScrollView contentContainerStyle={styles.reader}>
-            <Text style={styles.readerTitle}>{strings.pos.readerTitle}</Text>
-            <Text style={styles.readerSub}>
-                {strings.pos.readerCollect(formatMoney(order.total_cents))}
+            <Text style={styles.name}>{v.clientName}</Text>
+            <Text style={styles.soft}>
+                {`${v.staffName} · ${v.itemName} · ${formatMoney(v.priceCents)}`}
             </Text>
-            <View style={styles.readerBox}>
-                <Text style={styles.readerWaiting}>{status}</Text>
-                {terminal.error !== null ? (
-                    <Text style={styles.readerNote}>{terminal.error}</Text>
-                ) : null}
-                <Text style={styles.readerNote}>{strings.pos.readerRequirements}</Text>
-            </View>
-            {terminal.phase === "done" ? (
-                <Button size="lg" full onPress={onDone}>
-                    {strings.pos.newSale}
-                </Button>
-            ) : (
-                <Button
-                    size="lg"
-                    full
-                    disabled={!terminal.ready || terminal.phase === "collecting"}
-                    onPress={() => {
-                        terminal.charge(clientSecret);
-                    }}
-                >
-                    {strings.pos.collect(formatMoney(order.total_cents))}
-                </Button>
-            )}
-            {onVoid !== undefined ? (
-                <Button variant="quiet" full onPress={onVoid} disabled={busy}>
-                    {strings.pos.voidSale}
-                </Button>
+            {v.depositCents > 0 ? (
+                <Text style={styles.ok}>{d.depositCredit(formatMoney(v.depositCents))}</Text>
             ) : null}
-        </ScrollView>
-    );
-}
-
-function OnlineOrders() {
-    const pickup = usePickupOrders(api);
-    const orders = pickup.all.filter((o) => o.status !== "picked_up");
-    if (orders.length === 0) return null;
-
-    return (
-        <View style={styles.openOrders}>
-            <Text style={styles.openTitle}>{strings.pos.onlineOrders}</Text>
-            {orders.map((order) => (
-                <View key={order.id} style={styles.onlineRow}>
-                    <View style={styles.onlineHead}>
-                        <Text style={styles.openName} numberOfLines={1}>
-                            {order.clientName}
-                        </Text>
-                        <StatusPill status={order.statusLabel} intent={order.intent} asWritten />
-                        <Text style={styles.openValue}>{order.total}</Text>
-                    </View>
-                    <Text style={ui.note}>
-                        {order.lines
-                            .map((l) => strings.pos.pickup.line(l.quantity, l.name))
-                            .join(", ")}
-                    </Text>
-                    <View style={styles.steps}>
-                        {pickupActions(order.status).map((step) => (
-                            <Button
-                                key={step.status}
-                                variant="outline"
-                                size="sm"
-                                busy={pickup.busyId === order.id}
-                                onPress={() => {
-                                    pickup.move(order.id, step.status);
-                                }}
-                            >
-                                {step.label}
-                            </Button>
-                        ))}
-                    </View>
+            {v.state === "paid" ? null : onTicket ? (
+                <Text style={styles.accent}>{d.onTicket}</Text>
+            ) : (
+                <View style={styles.left}>
+                    <Button size="sm" variant="outline" onPress={onCheckOut}>
+                        {d.checkOut}
+                    </Button>
                 </View>
-            ))}
-            {pickup.error !== null ? <Notice tone="danger">{pickup.error}</Notice> : null}
+            )}
         </View>
     );
 }
 
-function OpenOrders() {
-    const orders = useOpenOrders();
-    if (orders.length === 0) return null;
+const PLAN_KINDS: { key: WalletKind; label: string }[] = [
+    { key: "gift_card", label: d.sellGiftCard },
+    { key: "package", label: d.sellPackage },
+    { key: "membership", label: d.sellMembership },
+];
 
+function Register({
+    sale,
+    ticketOpen,
+    setTicketOpen,
+}: {
+    sale: SaleTicket;
+    ticketOpen: boolean;
+    setTicketOpen: (open: boolean) => void;
+}) {
+    const queue = useCheckoutQueue();
+    const catalog = useRegisterCatalog();
+    const openLink = useOpenLink();
+    const [selling, setSelling] = useState<WalletKind | null>(null);
+    const onTicket = (id: string): number =>
+        sale.lines.filter((l) => l.itemId === id).reduce((n, l) => n + l.quantity, 0);
     return (
-        <View style={styles.openOrders}>
-            <Text style={styles.openTitle}>{strings.pos.openOrders}</Text>
-            {orders.map((order) => (
-                <View key={order.id} style={styles.openRow}>
-                    <Text style={styles.openName} numberOfLines={1}>
-                        {order.client_name ?? strings.pos.walkIn}
-                    </Text>
-                    <StatusPill status={order.status} intent={orderStatusIntent(order.status)} />
-                    <Text style={styles.openValue}>{formatMoney(order.total_cents)}</Text>
+        <View style={styles.screen}>
+            <ScrollView contentContainerStyle={styles.body}>
+                <View style={styles.row}>
+                    <Text style={styles.title}>{d.newSaleTitle}</Text>
+                    <Button size="sm" variant="outline" onPress={sale.newSale}>
+                        {d.walkInSale}
+                    </Button>
                 </View>
-            ))}
+                <Text style={styles.heading}>{d.todaysVisits.toUpperCase()}</Text>
+                {queue.load.state === "loading" ? (
+                    <Skeleton variant="row" count={3} label={d.loadingVisits} />
+                ) : queue.load.state === "error" ? (
+                    <LoadFailed message={d.visitsError} body={d.catalogErrorBody} />
+                ) : queue.visits.every((v) => v.state === "paid") ? (
+                    <Empty message={d.noVisits} />
+                ) : (
+                    queue.visits.map((v) => (
+                        <VisitCard
+                            key={v.bookingId}
+                            v={v}
+                            onTicket={sale.hasVisit(v.bookingId)}
+                            onCheckOut={() => {
+                                sale.addVisit(v);
+                            }}
+                        />
+                    ))
+                )}
+                <Text style={styles.heading}>{d.addExtras.toUpperCase()}</Text>
+                <SearchField
+                    value={catalog.q}
+                    onChange={catalog.setQ}
+                    placeholder={d.searchShort}
+                />
+                <Choice
+                    label={d.addExtras}
+                    options={catalog.filters}
+                    value={catalog.filter}
+                    onChange={catalog.setFilter}
+                />
+                {catalog.load.state === "loading" ? (
+                    <Skeleton variant="row" count={2} label={d.loadingCatalog} />
+                ) : catalog.items.length === 0 ? (
+                    <Empty message={catalog.empty} />
+                ) : (
+                    <View style={styles.grid}>
+                        {catalog.items.map((item) => {
+                            const out = saleTileOut(item);
+                            return (
+                                <View key={item.id} style={styles.cell}>
+                                    <ItemTile
+                                        name={item.name}
+                                        imageSrc={mediaUrl(apiBaseUrl, item.image_file_id)}
+                                        color={item.color}
+                                        cents={item.price_cents}
+                                        meta={saleTileMeta(item)}
+                                        count={onTicket(item.id)}
+                                        tag={out ? { label: d.outOfStock, intent: "danger" } : null}
+                                        onPress={() => {
+                                            sale.addItem(item);
+                                        }}
+                                    />
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
+                <Text style={styles.heading}>{d.alsoSell.toUpperCase()}</Text>
+                <Text style={styles.note}>{d.alsoSellHint}</Text>
+                <View style={styles.wrap}>
+                    {PLAN_KINDS.map((k) => (
+                        <Button
+                            key={k.key}
+                            size="sm"
+                            variant="outline"
+                            onPress={() => {
+                                setSelling(k.key);
+                            }}
+                        >
+                            {k.label}
+                        </Button>
+                    ))}
+                </View>
+            </ScrollView>
+            {sale.isEmpty ? null : (
+                <View style={styles.bar}>
+                    <View style={styles.grow}>
+                        <Text style={styles.strong}>{d.items(sale.itemCount)}</Text>
+                        <Text style={styles.note}>{sale.client?.name ?? d.walkIn}</Text>
+                    </View>
+                    <Button
+                        size="lg"
+                        onPress={() => {
+                            setTicketOpen(true);
+                        }}
+                    >
+                        {d.charge(formatMoney(sale.totals.dueCents))}
+                    </Button>
+                </View>
+            )}
+            <TicketSheet
+                sale={sale}
+                open={ticketOpen}
+                onClose={() => {
+                    setTicketOpen(false);
+                }}
+                onBookNext={() => {
+                    openLink("booking");
+                }}
+            />
+            <Modal
+                open={selling !== null}
+                size="xl"
+                onClose={() => {
+                    setSelling(null);
+                }}
+            >
+                {selling === null ? null : (
+                    <SellEntitlement
+                        kind={selling}
+                        clientId={sale.clientId}
+                        onClose={() => {
+                            setSelling(null);
+                        }}
+                    />
+                )}
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: c.bg },
-    searchWrap: { margin: 16, marginBottom: 8 },
-    grid: { paddingHorizontal: 16, paddingBottom: 16 },
-    gridRow: { gap: 12 },
-    tile: {
-        flex: 1,
-        marginBottom: 12,
-        padding: 12,
+    screen: { flex: 1 },
+    body: { gap: 12, padding: 16, paddingBottom: 32 },
+    row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    left: { flexDirection: "row" },
+    grow: { flex: 1 },
+    title: { color: c.ink, fontSize: 24, fontWeight: "700" },
+    heading: { color: c.muted, fontSize: 11, fontWeight: "600", letterSpacing: 0.6, marginTop: 8 },
+    name: { color: c.ink, fontSize: 16, fontWeight: "600" },
+    strong: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    soft: { color: c.inkSoft, fontSize: 14 },
+    note: { color: c.muted, fontSize: 12 },
+    ok: { color: c.okFg, fontSize: 13, fontWeight: "600" },
+    accent: { color: c.accent, fontSize: 14, fontWeight: "600" },
+    visit: {
+        gap: 4,
+        padding: 14,
         borderRadius: theme.radius,
         borderWidth: 1,
         borderColor: c.border,
         backgroundColor: c.surface,
-        minHeight: 72,
-        justifyContent: "space-between",
     },
-    tileName: { color: c.ink, fontSize: 14, fontWeight: "600", marginTop: 8 },
-    tilePrice: { color: c.muted, fontSize: 14, marginTop: 6, fontVariant: ["tabular-nums"] },
-    cart: {
-        borderTopColor: c.border,
-        borderTopWidth: 1,
-        backgroundColor: c.surface,
+    visitOn: { borderColor: c.accent, backgroundColor: c.accentWeak },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    cell: { width: "48%" },
+    bar: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
         paddingHorizontal: 16,
-        paddingTop: 10,
-        paddingBottom: 14,
-    },
-    cartEmpty: { color: c.muted, fontSize: 14, paddingVertical: 8 },
-    cartLines: { maxHeight: 180 },
-    lineRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingVertical: 8,
-        borderBottomColor: c.borderSoft,
-        borderBottomWidth: StyleSheet.hairlineWidth,
-    },
-    lineMain: { flex: 1 },
-    lineName: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    lineUnit: { color: c.muted, fontSize: 12, marginTop: 1, fontVariant: ["tabular-nums"] },
-    subtotalRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginTop: 8,
-    },
-    subtotalLabel: { color: c.muted, fontSize: 14 },
-    subtotalValue: { color: c.ink, fontSize: 15, fontWeight: "700", fontVariant: ["tabular-nums"] },
-    subtotalTax: { color: c.muted, fontSize: 12, fontWeight: "400" },
-    totals: { marginTop: 8, gap: 4 },
-    totalRow: { flexDirection: "row", justifyContent: "space-between" },
-    totalLabel: { color: c.muted, fontSize: 14 },
-    totalValue: { color: c.inkSoft, fontSize: 14, fontVariant: ["tabular-nums"] },
-    totalGrand: {
-        borderTopColor: c.borderSoft,
-        borderTopWidth: StyleSheet.hairlineWidth,
-        paddingTop: 4,
-    },
-    grandLabel: { color: c.ink, fontSize: 15, fontWeight: "700" },
-    grandValue: { color: c.ink, fontSize: 15, fontWeight: "700", fontVariant: ["tabular-nums"] },
-    actions: { marginTop: 12, gap: 8 },
-    steps: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    reader: { padding: 20, gap: 12 },
-    readerTitle: { color: c.ink, fontSize: 20, fontWeight: "700" },
-    readerSub: { color: c.muted, fontSize: 14 },
-    readerBox: {
-        borderWidth: 1,
-        borderStyle: "dashed",
-        borderColor: c.accentLine,
-        backgroundColor: c.accentWeak,
-        borderRadius: theme.radius,
-        padding: 18,
-        alignItems: "center",
-    },
-    readerWaiting: { color: c.accentStrong, fontSize: 15, fontWeight: "600" },
-    readerNote: { color: c.muted, fontSize: 12, marginTop: 6, textAlign: "center" },
-    openOrders: { marginTop: 8, gap: 6 },
-    details: { paddingBottom: 10 },
-    openTitle: { color: c.ink, fontSize: 15, fontWeight: "700", marginBottom: 2 },
-    openRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: c.border,
         backgroundColor: c.surface,
     },
-    onlineRow: {
-        gap: 8,
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderRadius: theme.radius,
-        borderWidth: 1,
-        borderColor: c.border,
-        backgroundColor: c.surface,
-    },
-    onlineHead: { flexDirection: "row", alignItems: "center", gap: 10 },
-    openName: { flex: 1, color: c.ink, fontSize: 14 },
-    openValue: { color: c.ink, fontSize: 14, fontWeight: "600", fontVariant: ["tabular-nums"] },
 });

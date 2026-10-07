@@ -11,7 +11,16 @@ import {
     strings,
     usePublicPayForm,
 } from "@clientbridge/app-core/public";
-import { Button, CardForm, Choice, DocTotals, Icon, Notice, StatusPill } from "@clientbridge/ui";
+import {
+    Button,
+    CardForm,
+    Choice,
+    DocTotals,
+    Icon,
+    Notice,
+    StatusPill,
+    TextField,
+} from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -218,6 +227,44 @@ export function PublicPay() {
                                         form.setError(null);
                                     }}
                                 />
+                                {form.method === "card" && form.card === null ? (
+                                    <section className="space-y-3 border-t border-line-soft pt-4">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-ink">
+                                                {form.tip.title}
+                                            </h3>
+                                            <p className="text-xs text-muted">{pp.tipHint}</p>
+                                        </div>
+                                        <Choice
+                                            layout="tiles"
+                                            columns={3}
+                                            label={form.tip.title}
+                                            options={form.tip.options}
+                                            value={form.tip.key}
+                                            onChange={form.tip.choose}
+                                        />
+                                        {form.tip.key === "custom" ? (
+                                            <TextField
+                                                label={pp.tipAmount}
+                                                prefix="$"
+                                                type="number"
+                                                width="narrow"
+                                                value={form.tip.custom}
+                                                onChange={form.tip.setCustom}
+                                                error={form.tip.error}
+                                            />
+                                        ) : null}
+                                        <p className="text-xs text-muted">{form.tip.note}</p>
+                                        {form.tip.cents > 0 ? (
+                                            <p className="flex justify-between text-sm text-ink">
+                                                <span>{pp.tipRow}</span>
+                                                <span className="tabular-nums">
+                                                    {formatMoney(form.tip.cents)}
+                                                </span>
+                                            </p>
+                                        ) : null}
+                                    </section>
+                                ) : null}
                                 {form.method === "interac" ? (
                                     <Button size="lg" full onPress={openInterac}>
                                         {invoice.interac ? pp.seeSteps : pp.payByInterac}
@@ -228,7 +275,7 @@ export function PublicPay() {
                                         stripeAccount={form.card.stripe_account_id}
                                         submitLabel={strings.checkout.pay(
                                             formatMoneyWithCurrency(
-                                                invoice.balance_cents,
+                                                form.tip.totalCents,
                                                 invoice.currency,
                                             ),
                                         )}
@@ -237,7 +284,16 @@ export function PublicPay() {
                                     />
                                 ) : (
                                     <Button size="lg" full onPress={runCard} busy={form.busy}>
-                                        {form.busy ? strings.common.working : pp.payByCard}
+                                        {form.busy
+                                            ? strings.common.working
+                                            : form.tip.cents > 0
+                                              ? pp.payWithTip(
+                                                    formatMoneyWithCurrency(
+                                                        form.tip.totalCents,
+                                                        invoice.currency,
+                                                    ),
+                                                )
+                                              : pp.payByCard}
                                     </Button>
                                 )}
                                 {form.error ? <Notice tone="danger">{form.error}</Notice> : null}

@@ -115,6 +115,33 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await openAndClose(page, strings.entitlements.sellNew);
     await openAndClose(page, strings.entitlements.redeemGift);
 
+    const s = strings.pos.desk;
+    await navigate(page, "/payments/sales");
+    const register = page.locator("main");
+    await expect(register.getByText(s.todaysVisits)).toBeVisible();
+    await register.locator("div.grid").last().getByRole("button").first().click();
+    const ticket = page.getByRole("complementary", { name: s.ticket });
+    await ticket.getByRole("button", { name: s.addDiscount, exact: true }).click();
+    await expect(page.getByRole("dialog")).toContainText(s.discountScope);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await ticket.getByRole("button", { name: /^Charge/ }).click();
+    await expect(page.getByRole("dialog")).toContainText(s.howPaying);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await ticket.getByRole("button", { name: s.clear }).click();
+    await register.getByRole("tab", { name: s.ordersTitle }).click();
+    await expect(register.getByText(s.openTickets)).toBeVisible();
+    await register.getByRole("tab", { name: s.history }).click();
+    await expect(register.getByText(s.todaySales)).toBeVisible();
+    await register
+        .getByRole("button", { name: /^S-\d+/ })
+        .first()
+        .click();
+    await expect(page.getByRole("dialog")).toContainText(s.payments);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+
     await navigate(page, "/inbox");
     await openAndClose(page, new RegExp(`^${strings.messaging.newMessage}$`));
     await openAndClose(page, new RegExp(`^${strings.messaging.broadcast}$`));

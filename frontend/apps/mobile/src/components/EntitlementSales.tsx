@@ -1,48 +1,16 @@
 import {
-    type ClientRow,
     type EntitlementSaleForm,
     type WalletKind,
     formatMoney,
     strings,
     useEntitlementSaleForm,
 } from "@clientbridge/app-core";
-import { StyleSheet, Text, View } from "react-native";
-import {
-    Button,
-    ChargeSheet,
-    Choice,
-    DocTotals,
-    Field,
-    Notice,
-    TextField,
-    ui,
-} from "@clientbridge/ui";
+import { StyleSheet, View } from "react-native";
+import { Button, ChargeSheet, Choice, DocTotals, Field, Notice, TextField } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
 const w = strings.entitlements;
-
-export function ClientChips({
-    clients,
-    value,
-    onChange,
-}: {
-    clients: ClientRow[];
-    value: string;
-    onChange: (id: string) => void;
-}) {
-    if (clients.length === 0)
-        return <Text style={ui.note}>{strings.entitlements.giftCards.addClientFirst}</Text>;
-    return (
-        <Choice
-            options={clients.map((cl) => ({ key: cl.id, label: cl.name }))}
-            value={value}
-            onChange={(id) => {
-                onChange(id === value ? "" : id);
-            }}
-        />
-    );
-}
 
 /** Sell a package, membership or gift card: what, for whom, how they pay, and the total with tax. */
 export function SellEntitlement({
@@ -154,10 +122,6 @@ function SaleFields({
             <DocTotals lines={form.lines} density="compact" />
         </View>
     );
-}
-
-export function SellGiftCard({ onClose }: { onClose: () => void }) {
-    return <SellEntitlement kind="gift_card" onClose={onClose} />;
 }
 
 export function SellPackage({

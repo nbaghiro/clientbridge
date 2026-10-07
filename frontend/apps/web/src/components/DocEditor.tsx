@@ -1,6 +1,8 @@
 import {
     type DocDraft,
     type DocTerms,
+    discountCents,
+    discountLabel,
     formatMoney,
     sellableItems,
     strings,
@@ -29,6 +31,7 @@ import { cssVar } from "@clientbridge/tokens";
 import { useMemo, useState } from "react";
 
 import { api } from "../lib/api";
+import { DiscountForm } from "./SaleTicket";
 
 const s = strings.billing;
 
@@ -46,6 +49,7 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
     const letterhead = useLetterhead();
     const c = useDocComposer(api, kind, draft, onSent);
     const [showPreview, setShowPreview] = useState(false);
+    const [discounting, setDiscounting] = useState<string | null>(null);
     const client = clients.find((x) => x.id === c.clientId) ?? null;
     const doc = c.preview(client, letterhead, cssVar("accent"));
 
@@ -168,7 +172,15 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                                 />
                                             </div>
                                             <span className="w-24 text-right font-display font-bold tabular-nums text-ink">
-                                                {formatMoney(l.amountCents)}
+                                                {l.discount !== null ? (
+                                                    <span className="block text-xs font-normal text-muted line-through">
+                                                        {formatMoney(l.grossCents)}
+                                                    </span>
+                                                ) : null}
+                                                {formatMoney(
+                                                    l.grossCents -
+                                                        discountCents(l.grossCents, l.discount),
+                                                )}
                                             </span>
                                             <IconButton
                                                 icon="trash"
@@ -231,6 +243,36 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                                 ) : null}
                                             </div>
                                         ) : null}
+                                        {discounting === l.key ? (
+                                            <DiscountForm
+                                                title={s.lineDiscount(
+                                                    l.description || s.descriptionPlaceholder,
+                                                )}
+                                                initial={l.discount}
+                                                baseCents={l.grossCents}
+                                                onApply={(next) => {
+                                                    c.setLineDiscount(l.key, next);
+                                                    setDiscounting(null);
+                                                }}
+                                                onCancel={() => {
+                                                    setDiscounting(null);
+                                                }}
+                                            />
+                                        ) : (
+                                            <Button
+                                                variant="link"
+                                                size="sm"
+                                                icon="percent"
+                                                disabled={l.grossCents <= 0}
+                                                onPress={() => {
+                                                    setDiscounting(l.key);
+                                                }}
+                                            >
+                                                {l.discount !== null
+                                                    ? s.discountedBy(discountLabel(l.discount))
+                                                    : s.addDiscount}
+                                            </Button>
+                                        )}
                                         {l.error !== null ? (
                                             <Notice tone="danger">{l.error}</Notice>
                                         ) : null}
@@ -265,7 +307,37 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
                                 ) : null}
                             </section>
 
-                            <div className="ml-auto max-w-sm">
+                            <div className="ml-auto max-w-sm space-y-3">
+                                {discounting === "doc" ? (
+                                    <DiscountForm
+                                        title={s.discountTitle}
+                                        initial={c.docDiscount}
+                                        baseCents={c.discountBaseCents}
+                                        onApply={(next) => {
+                                            c.setDocDiscount(next);
+                                            setDiscounting(null);
+                                        }}
+                                        onCancel={() => {
+                                            setDiscounting(null);
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="flex justify-end">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            icon="percent"
+                                            disabled={c.discountBaseCents <= 0}
+                                            onPress={() => {
+                                                setDiscounting("doc");
+                                            }}
+                                        >
+                                            {c.docDiscount !== null
+                                                ? s.discountedBy(discountLabel(c.docDiscount))
+                                                : s.discountTitle}
+                                        </Button>
+                                    </div>
+                                )}
                                 <DocTotals lines={c.totals} />
                             </div>
 
