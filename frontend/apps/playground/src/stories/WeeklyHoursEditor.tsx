@@ -67,5 +67,44 @@ export default story<WeeklyHoursEditorProps>({
             title: "All closed",
             props: () => ({ ...base, days: DAYS.map((d) => ({ ...d, open: false })) }),
         },
+        {
+            key: "mixed",
+            title: "Uneven days, weekend open, no copy action",
+            props: () => ({
+                ...base,
+                days: DAYS.map((d) =>
+                    d.weekday === 5
+                        ? { ...d, open: true, start: "10:00", end: "14:30", hours: 4.5 }
+                        : d.weekday === 0
+                          ? { ...d, open: false }
+                          : { ...d, start: "08:30", end: "16:00", hours: 7.5 },
+                ),
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Hebrew day names and long labels",
+            props: () => ({
+                ...base,
+                closedLabel: "סגור",
+                toLabel: "עד",
+                copyLabel: "להעתיק את השעות של יום שני לכל ימי החול בשבוע",
+                hoursLabel: (h: number) => `${String(h)} שעות`,
+                onCopy: noop,
+                days: DAYS.map((d, i) => ({
+                    ...d,
+                    label:
+                        [
+                            "יום שני",
+                            "יום שלישי",
+                            "יום רביעי",
+                            "יום חמישי",
+                            "יום שישי",
+                            "שבת",
+                            "יום ראשון",
+                        ][i] ?? d.label,
+                })),
+            }),
+        },
     ],
 });

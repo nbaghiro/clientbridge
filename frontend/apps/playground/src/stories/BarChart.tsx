@@ -40,6 +40,37 @@ export default story<BarChartProps>({
             }),
         },
         {
+            key: "year",
+            title: "Twelve months, tall",
+            props: () => ({
+                label: "Bookings by month",
+                height: 220,
+                bars: ["Nov", "Dec", "Jan", "Feb", "Mar", "Apr", ...MONTHS].map((m, i) => ({
+                    key: m,
+                    label: m,
+                    value: 40 + ((i * 37) % 60),
+                    valueLabel: `${String(40 + ((i * 37) % 60))} bookings`,
+                })),
+            }),
+        },
+        {
+            key: "single",
+            title: "One bar, long label",
+            props: () => ({
+                label: "This week",
+                height: 100,
+                bars: [
+                    {
+                        key: "w",
+                        label: "Week of Oct 5 to Oct 11",
+                        value: 2760,
+                        valueLabel: "$2,760",
+                        partial: true,
+                    },
+                ],
+            }),
+        },
+        {
             key: "empty",
             title: "All zero",
             props: () => ({

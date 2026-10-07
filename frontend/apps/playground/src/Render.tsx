@@ -19,7 +19,26 @@ export function Rendered({
     values?: Readonly<Record<string, ControlValue>> | undefined;
 }) {
     const [open, setOpen] = useState(false);
-    const props = { ...example.props(kit), ...values };
+    const base: Record<string, unknown> = { ...example.props(kit), ...values };
+    const binding = example.state;
+    const seed = binding ? base[binding.value] : undefined;
+    const [held, setHeld] = useState<unknown>(seed);
+    // A live control that edits the bound prop resets the held value.
+    const seedKey: string | undefined = JSON.stringify(seed);
+    const [heldFrom, setHeldFrom] = useState(seedKey);
+    if (heldFrom !== seedKey) {
+        setHeldFrom(seedKey);
+        setHeld(seed);
+    }
+    const props = binding
+        ? {
+              ...base,
+              [binding.value]: held,
+              [binding.onChange]: (next: unknown) => {
+                  setHeld((h: unknown) => (binding.reduce ? binding.reduce(h, next) : next));
+              },
+          }
+        : base;
     const draw = (extra: object): ReactNode => {
         if (entry.render) return entry.render(kit, { ...props, ...extra });
         const Component = ui[entry.component] as ComponentType<object> | undefined;

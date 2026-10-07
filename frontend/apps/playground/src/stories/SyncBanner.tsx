@@ -38,6 +38,30 @@ export default story<SyncBannerProps>({
             }),
         },
         {
+            key: "title-only",
+            title: "Strip, title only",
+            props: () => ({ state: "syncing", title: "Syncing" }),
+        },
+        {
+            key: "long",
+            title: "Strip, long detail",
+            props: () => ({
+                state: "error",
+                title: "Sync failed",
+                detail: "4 changes to bookings, 2 client notes and a signed waiver for Biscuit didn't upload because the server refused them.",
+                action: { label: "See what failed", onPress: noop },
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Strip, Hebrew copy",
+            props: () => ({
+                state: "offline",
+                title: "אין חיבור",
+                detail: "השינויים יסונכרנו כשהחיבור יחזור.",
+            }),
+        },
+        {
             key: "card",
             title: "Offline card",
             props: (k) => ({
@@ -47,6 +71,28 @@ export default story<SyncBannerProps>({
                 detail: "Bookings, clients and notes still work. Payments wait until you're back online.",
                 action: { label: "Try again", onPress: noop },
                 children: <k.Text tone="muted">Last synced 9:12 a.m.</k.Text>,
+            }),
+        },
+        {
+            key: "card-syncing",
+            title: "Syncing card",
+            props: () => ({
+                state: "syncing",
+                variant: "card",
+                title: "Catching up",
+                detail: "Uploading 12 changes made while you were offline.",
+            }),
+        },
+        {
+            key: "card-error",
+            title: "Error card",
+            props: (k) => ({
+                state: "error",
+                variant: "card",
+                title: "Some changes didn't sync",
+                detail: "The server refused 2 changes. Review them before they're lost.",
+                action: { label: "Review", onPress: noop },
+                children: <k.Text>Moved Diego's groom to 2:30 p.m.</k.Text>,
             }),
         },
     ],

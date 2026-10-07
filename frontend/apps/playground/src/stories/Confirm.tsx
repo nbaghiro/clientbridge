@@ -34,6 +34,28 @@ export default [
                 }),
             },
             {
+                key: "long",
+                title: "Long message",
+                props: () => ({
+                    title: "Cancel all 12 upcoming visits for Bartholomew Featherstonehaugh-Montgomery?",
+                    message:
+                        "Each client gets a cancellation text and any deposits are refunded to the card they paid with. Visits already checked in stay on the calendar.",
+                    confirmLabel: "Cancel 12 visits",
+                    cancelLabel: "Keep them",
+                    destructive: true,
+                }),
+            },
+            {
+                key: "rtl",
+                title: "Right-to-left text",
+                props: () => ({
+                    title: "למחוק את הלקוחה נועה כהן?",
+                    message: "ليلى حداد",
+                    confirmLabel: "מחיקה",
+                    destructive: true,
+                }),
+            },
+            {
                 key: "plain",
                 title: "Plain question",
                 props: () => ({

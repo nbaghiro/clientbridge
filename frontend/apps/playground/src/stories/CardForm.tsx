@@ -24,6 +24,19 @@ export default story<CardFormProps>({
             }),
         },
         {
+            key: "setup-framed",
+            title: "Save a card, framed",
+            props: () => ({
+                clientSecret: "seti_demo_secret",
+                stripeAccount: "acct_demo",
+                mode: "setup",
+                submitLabel: "Save card",
+                busyLabel: "Saving…",
+                onDone: noop,
+                onCancel: noop,
+            }),
+        },
+        {
             key: "bare",
             title: "Bare public form",
             props: () => ({

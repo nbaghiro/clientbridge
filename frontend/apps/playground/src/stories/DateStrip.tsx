@@ -15,7 +15,11 @@ const WEEK: readonly DateStripDay[] = [
 export default story<DateStripProps>({
     component: "DateStrip",
     summary: "A week of dates with how busy each one is; closed days can't be picked.",
-    controls: { label: { type: "text" } },
+    controls: {
+        label: { type: "text" },
+        prevLabel: { type: "text" },
+        nextLabel: { type: "text" },
+    },
     examples: [
         {
             key: "week",
@@ -32,6 +36,46 @@ export default story<DateStripProps>({
             key: "plain",
             title: "Without navigation",
             props: () => ({ label: "Pick a day", days: WEEK.slice(1, 6) }),
+        },
+        {
+            key: "controlled",
+            title: "Controlled",
+            state: { value: "value", onChange: "onChange" },
+            props: () => ({
+                label: "Pick a day",
+                days: WEEK,
+                value: "2026-10-08",
+                onPrev: noop,
+                onNext: noop,
+                prevLabel: "Previous week",
+                nextLabel: "Next week",
+            }),
+        },
+        {
+            key: "none",
+            title: "Nothing chosen, all closed but one",
+            props: () => ({
+                label: "Pick a day",
+                days: WEEK.map((d) =>
+                    d.key === "2026-10-09" ? d : { ...d, closed: true, busy: 0 },
+                ),
+                value: null,
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left weekday names",
+            props: () => ({
+                label: "اختر يومًا",
+                days: [
+                    { key: "a", weekday: "الإثنين", day: "٥", closed: true },
+                    { key: "b", weekday: "الثلاثاء", day: "٦", busy: 3, isToday: true },
+                    { key: "c", weekday: "الأربعاء", day: "٧", busy: 2 },
+                    { key: "d", weekday: "الخميس", day: "٨", busy: 1 },
+                    { key: "e", weekday: "الجمعة", day: "٩" },
+                ],
+                defaultValue: "b",
+            }),
         },
     ],
 });

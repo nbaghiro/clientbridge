@@ -68,6 +68,45 @@ export default story<ActivityTimelineProps>({
                 ],
             }),
         },
+        {
+            key: "intents",
+            title: "Every intent",
+            props: () => ({
+                entries: (["accent", "success", "warning", "danger", "neutral"] as const).map(
+                    (intent, i) => ({
+                        key: intent,
+                        label: `${intent[0]?.toUpperCase() ?? ""}${intent.slice(1)} entry`,
+                        at: `Oct ${String(i + 1)}`,
+                        intent,
+                        icon: "check" as const,
+                    }),
+                ),
+            }),
+        },
+        {
+            key: "long",
+            title: "Long text and a right-to-left name",
+            props: () => ({
+                entries: [
+                    {
+                        key: "1",
+                        label: "Reminder sent to Bartholomew Featherstonehaugh-Montgomery about Saturday's full groom, nail trim and teeth cleaning",
+                        detail: "By text to +1 250 555 0101, then by email to bartholomew.featherstonehaugh@example.com",
+                        at: "Oct 4, 11:59 p.m.",
+                        aside: "$1,240.00",
+                        icon: "message",
+                    },
+                    {
+                        key: "2",
+                        label: "ليلى حداد دفعت الفاتورة",
+                        detail: "נועה כהן",
+                        at: "Oct 5",
+                        intent: "success",
+                        quote: "Supercalifragilisticexpialidocious-unbroken-word-that-should-wrap-inside-the-quote-box-and-not-overflow",
+                    },
+                ],
+            }),
+        },
         { key: "empty", title: "No entries", props: () => ({ entries: [] }) },
     ],
 });

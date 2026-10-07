@@ -124,6 +124,71 @@ const receipt: PrintedDoc = {
     message: null,
 };
 
+const estimate: PrintedDoc = {
+    ...invoice,
+    kind: "estimate",
+    title: "Estimate",
+    number: "E-0042",
+    partyLabel: "Prepared for",
+    meta: [
+        { label: "Estimate number", value: "#E-0042" },
+        { label: "Issued", value: "October 6, 2026" },
+        { label: "Valid until", value: "November 5, 2026" },
+    ],
+    totals: [
+        { key: "sub", label: "Subtotal", cents: 16_100, kind: "subtotal" },
+        { key: "tax", label: "Tax", cents: 1_141, kind: "tax" },
+        { key: "total", label: "Estimate total", cents: 17_241, kind: "total" },
+    ],
+    headline: { label: "Estimate total", cents: 17_241 },
+    payUrl: "https://book.clientbridge.app/accept/est_0042",
+    instructions: ["Accept online with the link or code."],
+    message: null,
+};
+
+const voided: PrintedDoc = {
+    ...invoice,
+    number: "1150",
+    stamp: "Void",
+    payUrl: null,
+    instructions: [],
+};
+
+const long: PrintedDoc = {
+    ...invoice,
+    number: "2026-000118-BB",
+    business: {
+        ...business,
+        name: "Birchbark Pet Studio and Mobile Grooming Collective of Southern Vancouver Island",
+        initials: "BP",
+    },
+    partyName: "ليلى عبد الرحمن الهاشمي",
+    partyLines: ["layla.alhashemi.family.account@example-really-long-domain.com"],
+    lines: [
+        {
+            id: "l1",
+            description:
+                "Full groom for a very large double-coated breed including de-shedding treatment, blowout and hand scissoring",
+            subject: "Sir Reginald Fluffington the Third",
+            quantity: 1,
+            unitCents: 18_500,
+            amountCents: 18_500,
+            taxCodes: ["GST", "PST"],
+        },
+        {
+            id: "l2",
+            description: "قص الأظافر",
+            subject: "ليلى",
+            quantity: 12,
+            unitCents: 1_800,
+            amountCents: 21_600,
+            taxCodes: ["GST"],
+        },
+    ],
+    message:
+        "Thank you for trusting us with Sir Reginald. He was a perfect gentleman, apart from the brief standoff with the dryer, which we resolved with patience and a peanut butter lick mat.",
+};
+
 export default story<PrintedDocumentProps>({
     component: "PrintedDocument",
     summary:
@@ -141,6 +206,18 @@ export default story<PrintedDocumentProps>({
             key: "receipt-statement",
             title: "Receipt, statement",
             props: () => ({ doc: receipt, template: "statement" }),
+        },
+        { key: "estimate", title: "Estimate, classic", props: () => ({ doc: estimate }) },
+        {
+            key: "estimate-statement",
+            title: "Estimate, statement",
+            props: () => ({ doc: estimate, template: "statement" }),
+        },
+        { key: "void", title: "Void invoice, no way to pay", props: () => ({ doc: voided }) },
+        {
+            key: "long",
+            title: "Long names, Arabic client and lines",
+            props: () => ({ doc: long }),
         },
     ],
 });

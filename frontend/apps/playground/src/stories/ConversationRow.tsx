@@ -10,6 +10,8 @@ export default story<ConversationRowProps>({
         name: { type: "text" },
         unread: { type: "number", min: 0, max: 120 },
         channel: { type: "select", options: ["sms", "email", "chat"] },
+        preview: { type: "text" },
+        channelLabel: { type: "text" },
         selected: { type: "boolean" },
     },
     examples: [
@@ -64,6 +66,33 @@ export default story<ConversationRowProps>({
                 channel: "sms",
                 channelLabel: "Text",
                 tag: { label: "Opted out", intent: "danger" },
+                onPress: noop,
+            }),
+        },
+        {
+            key: "long",
+            title: "Long name and preview",
+            props: () => ({
+                name: "Maximiliana Featherstonehaugh-Villanueva",
+                preview:
+                    "Hi, just checking whether Biscuit's appointment next Thursday still works, because we may be travelling that week and could need to move it to the following Monday afternoon.",
+                at: "11:48 a.m.",
+                unread: 120,
+                channel: "email",
+                channelLabel: "Email",
+                onPress: noop,
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left name",
+            props: () => ({
+                name: "نور الهدى عبد الرحمن",
+                preview: "هل يمكن نقل موعد بسكويت إلى يوم الجمعة بعد الظهر؟",
+                at: "8:05 a.m.",
+                unread: 1,
+                channel: "chat",
+                channelLabel: "Chat",
                 onPress: noop,
             }),
         },

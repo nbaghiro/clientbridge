@@ -68,6 +68,47 @@ export default story<ActionMenuProps>({
             }),
         },
         {
+            key: "grid-footer",
+            title: "Grid with a footer, opening above",
+            overlay: true,
+            props: (k) => ({
+                open: false,
+                onClose: noop,
+                title: "Create",
+                items: ITEMS,
+                onSelect: noop,
+                layout: "grid",
+                placement: "above-start",
+                footer: <k.Text tone="muted">Recent: Biscuit, Juniper</k.Text>,
+            }),
+        },
+        {
+            key: "long",
+            title: "Long labels and a right-to-left name",
+            overlay: true,
+            props: () => ({
+                open: false,
+                onClose: noop,
+                title: "Book again",
+                onSelect: noop,
+                items: [
+                    {
+                        key: "long",
+                        label: "Book Bartholomew Featherstonehaugh-Montgomery's full groom and nail trim",
+                        hint: "Last visit Sep 28 with Hannah Lee, full groom, nail trim, teeth and a bow",
+                        icon: "calendar",
+                        shortcut: "B",
+                    },
+                    {
+                        key: "rtl",
+                        label: "ליאור בן-דוד · טיפוח מלא",
+                        hint: "ليلى حداد، زيارة كل أربعة أسابيع",
+                        icon: "clients",
+                    },
+                ],
+            }),
+        },
+        {
             key: "footer",
             title: "With a footer",
             overlay: true,

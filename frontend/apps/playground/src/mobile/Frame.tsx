@@ -57,21 +57,27 @@ export default function Frame({ hash }: { hash: string }) {
                 >
                     {page?.stories.map((entry) => (
                         <Fragment key={entry.component}>
-                            {page.stories.length > 1 ? (
+                            {page.stories.length > 1 && !route.only ? (
                                 <Text style={styles.component}>{entry.component}</Text>
                             ) : null}
-                            {entry.examples.map((ex, i) => (
-                                <View key={ex.key} nativeID={ex.key} style={styles.example}>
-                                    <Text style={styles.title}>{ex.title}</Text>
-                                    <Rendered
-                                        entry={entry}
-                                        example={ex}
-                                        kit={mobileKit}
-                                        ui={ui}
-                                        values={i === 0 ? values[entry.component] : undefined}
-                                    />
-                                </View>
-                            ))}
+                            {entry.examples
+                                .filter((ex) => !route.only || ex.key === route.example)
+                                .map((ex) => (
+                                    <View key={ex.key} nativeID={ex.key} style={styles.example}>
+                                        <Text style={styles.title}>{ex.title}</Text>
+                                        <Rendered
+                                            entry={entry}
+                                            example={ex}
+                                            kit={mobileKit}
+                                            ui={ui}
+                                            values={
+                                                ex === entry.examples[0]
+                                                    ? values[entry.component]
+                                                    : undefined
+                                            }
+                                        />
+                                    </View>
+                                ))}
                         </Fragment>
                     ))}
                 </ScrollView>

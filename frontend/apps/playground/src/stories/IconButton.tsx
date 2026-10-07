@@ -10,6 +10,7 @@ export default story<IconButtonProps>({
         label: { type: "text" },
         variant: { type: "select", options: ["quiet", "outline"] },
         size: { type: "select", options: ["sm", "md"] },
+        icon: { type: "select", options: ["settings", "filter", "more", "bell", "trash", "edit"] },
         pressed: { type: "boolean" },
         disabled: { type: "boolean" },
     },
@@ -58,6 +59,50 @@ export default story<IconButtonProps>({
             key: "disabled",
             title: "Disabled",
             props: () => ({ icon: "trash", label: "Delete", disabled: true, onPress: noop }),
+        },
+        {
+            key: "toggle",
+            title: "Controlled toggle",
+            state: {
+                value: "pressed",
+                onChange: "onPress",
+                reduce: (held: unknown) => held !== true,
+            },
+            props: () => ({ icon: "filter", label: "Filters", variant: "outline", pressed: false }),
+        },
+        {
+            key: "outline-pressed",
+            title: "Outline, pressed, with a count",
+            props: () => ({
+                icon: "filter",
+                label: "Filters",
+                variant: "outline",
+                pressed: true,
+                badge: 3,
+                onPress: noop,
+            }),
+        },
+        {
+            key: "small-dot",
+            title: "Small with a dot",
+            props: () => ({
+                icon: "inbox",
+                label: "Inbox",
+                size: "sm",
+                badge: true,
+                onPress: noop,
+            }),
+        },
+        {
+            key: "outline-disabled",
+            title: "Outline, disabled",
+            props: () => ({
+                icon: "edit",
+                label: "Edit",
+                variant: "outline",
+                disabled: true,
+                onPress: noop,
+            }),
         },
     ],
 });

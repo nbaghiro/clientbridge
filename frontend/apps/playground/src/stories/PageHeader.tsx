@@ -35,5 +35,43 @@ export default story<PageHeaderProps>({
                 ),
             }),
         },
+        {
+            key: "several-actions",
+            title: "Several actions and a row",
+            props: (k) => ({
+                title: "Schedule",
+                subtitle: "Tuesday, October 6",
+                actions: (
+                    <>
+                        <k.Button variant="outline" onPress={noop}>
+                            Today
+                        </k.Button>
+                        <k.Button icon="plus" onPress={noop}>
+                            Book
+                        </k.Button>
+                    </>
+                ),
+                children: <k.Badge label="3 requests waiting" intent="warning" />,
+            }),
+        },
+        {
+            key: "long",
+            title: "Long title and subtitle",
+            props: (k) => ({
+                title: "Maximiliane Alexandra Featherstonehaugh-Wolfeschlegel",
+                subtitle:
+                    "Client since March 2021 · 3 pets · Prefers text messages in the afternoon after school pickup",
+                actions: (
+                    <k.Button variant="outline" onPress={noop}>
+                        Edit
+                    </k.Button>
+                ),
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left title",
+            props: () => ({ title: "ليلى حداد", subtitle: "عميلة منذ ٢٠٢١" }),
+        },
     ],
 });

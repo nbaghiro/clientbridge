@@ -60,5 +60,50 @@ export default story<MessageBubbleProps>({
                 width: "full",
             }),
         },
+        {
+            key: "multiline",
+            title: "Line breaks",
+            props: () => ({
+                body: "Biscuit: full groom\nMochi: bath and tidy\nTotal: $140.00",
+                direction: "out",
+                meta: "Yesterday",
+            }),
+        },
+        {
+            key: "link",
+            title: "A long link",
+            props: () => ({
+                body: "Pay here: https://book.clientbridge.app/pay/inv_1148_9f8e7d6c5b4a39281706f5e4d3c2b1a0",
+                direction: "out",
+                meta: "9:20 a.m.",
+            }),
+        },
+        {
+            key: "long-in",
+            title: "Long incoming",
+            props: () => ({
+                body: "Hello, I wanted to ask whether you could also trim around the eyes and paws this time, and whether the de-shedding treatment is worth it for a double coat in the fall. Thanks so much for last time.",
+                direction: "in",
+                meta: "Sun 8:41 p.m.",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left",
+            props: () => ({
+                body: "مرحبا، هل يمكن أن يأتي بسكويت يوم الخميس بدلا من الجمعة؟",
+                direction: "in",
+                meta: "9:12 a.m.",
+            }),
+        },
+        {
+            key: "event-long",
+            title: "Long system event",
+            props: () => ({
+                body: "Messages from +1 250 555 0199 now go to Hannah Lee because Priya Shah is away until Monday",
+                direction: "in",
+                variant: "event",
+            }),
+        },
     ],
 });

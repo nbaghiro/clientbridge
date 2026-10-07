@@ -49,5 +49,66 @@ export default story<KeyValueListProps>({
                 ],
             }),
         },
+        {
+            key: "stack-three",
+            title: "Stacked, three columns, every intent",
+            props: () => ({
+                layout: "stack",
+                columns: 3,
+                rows: [
+                    { label: "Plan", value: "Studio", intent: "accent" },
+                    { label: "Paid", value: "Yes", intent: "success" },
+                    { label: "Card", value: "Expires soon", intent: "warning" },
+                    { label: "Balance", value: "$84.00", intent: "danger" },
+                    { label: "Notes", value: "None", intent: "neutral" },
+                    { label: "Visits", value: "14" },
+                ],
+            }),
+        },
+        {
+            key: "long",
+            title: "Long labels and values",
+            props: () => ({
+                rows: [
+                    {
+                        label: "Preferred groomer for full grooms booked online",
+                        value: "Hannah Lee, or the next available senior groomer",
+                    },
+                    {
+                        label: "Email",
+                        value: "maximiliana.featherstonehaugh-villanueva@longfamilyname.example.com",
+                    },
+                    {
+                        label: "Notes",
+                        value: "Nervous with the dryer; use the quiet setting, take breaks every ten minutes, and never use the muzzle.",
+                    },
+                ],
+            }),
+        },
+        {
+            key: "stack-long",
+            title: "Stacked, long values",
+            props: () => ({
+                layout: "stack",
+                rows: [
+                    {
+                        label: "Address",
+                        value: "1148 Birch Bark Lane, Unit 2201, Victoria, British Columbia V8V 1A1",
+                    },
+                    { label: "Email", value: "amelie.tremblay-okonkwo@example.com" },
+                ],
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left",
+            props: () => ({
+                rows: [
+                    { label: "العميل", value: "نور الهدى عبد الرحمن" },
+                    { label: "الحيوان", value: "بسكويت" },
+                    { label: "الرصيد", value: "٨٤٫٠٠ $", intent: "danger" },
+                ],
+            }),
+        },
     ],
 });

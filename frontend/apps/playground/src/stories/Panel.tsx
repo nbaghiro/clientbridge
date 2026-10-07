@@ -48,5 +48,44 @@ export default story<PanelProps>({
             title: "No header",
             props: (k) => ({ children: <k.Text>Just content.</k.Text> }),
         },
+        {
+            key: "flush-actions",
+            title: "Flush with actions",
+            props: (k) => ({
+                title: "Payouts",
+                subtitle: "Every business day",
+                flush: true,
+                actions: (
+                    <k.Button size="sm" variant="link" onPress={noop}>
+                        View all
+                    </k.Button>
+                ),
+                children: <k.Text tone="muted">No payouts yet.</k.Text>,
+            }),
+        },
+        {
+            key: "long",
+            title: "Long title and subtitle",
+            props: (k) => ({
+                title: "Online booking rules for new clients who haven't visited the studio before",
+                subtitle:
+                    "New clients need a deposit, a signed waiver and their pet's vaccination record before the first visit can be confirmed.",
+                actions: (
+                    <k.Button size="sm" variant="outline" onPress={noop}>
+                        Edit
+                    </k.Button>
+                ),
+                children: <k.Text>Deposit: 20% · Waiver: required · Records: required</k.Text>,
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left title",
+            props: (k) => ({
+                title: "تفاصيل العمل",
+                subtitle: "تظهر على الفواتير والإيصالات",
+                children: <k.Text>استوديو بيرشبارك للحيوانات الأليفة</k.Text>,
+            }),
+        },
     ],
 });

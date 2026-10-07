@@ -10,6 +10,7 @@ export default story<EmptyProps>({
         body: { type: "text" },
         intent: { type: "select", options: ["neutral", "danger"] },
         variant: { type: "select", options: ["inline", "card"] },
+        icon: { type: "select", options: ["calendar", "clients", "inbox", "alert", "search"] },
     },
     examples: [
         { key: "line", title: "One line", props: () => ({ message: "No invoices yet." }) },
@@ -51,6 +52,55 @@ export default story<EmptyProps>({
                         Retry
                     </k.Button>
                 ),
+            }),
+        },
+        {
+            key: "card-error",
+            title: "Card, failed load with two actions",
+            props: (k) => ({
+                message: "Couldn't reach Stripe",
+                body: "Payouts will show here again once the connection is back.",
+                icon: "alert",
+                intent: "danger",
+                variant: "card",
+                actions: (
+                    <k.Stack row>
+                        <k.Button size="sm" icon="refresh">
+                            Retry
+                        </k.Button>
+                        <k.Button size="sm" variant="outline">
+                            Status page
+                        </k.Button>
+                    </k.Stack>
+                ),
+            }),
+        },
+        {
+            key: "search",
+            title: "No search results",
+            props: () => ({
+                message: "No clients match “Featherstonehaugh”",
+                icon: "search",
+            }),
+        },
+        {
+            key: "long",
+            title: "Long message and body",
+            props: () => ({
+                message:
+                    "No gift cards have been sold or redeemed in the period you picked, across any of your locations",
+                body: "Gift cards appear here once a client buys one at the register, online through your booking page, or when you issue one by hand as a goodwill credit after a missed appointment.",
+                icon: "tag",
+                variant: "card",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left",
+            props: () => ({
+                message: "لا توجد حجوزات هذا الأسبوع",
+                body: "شارك صفحة الحجز أو أضف زيارة بنفسك.",
+                icon: "calendar",
             }),
         },
     ],

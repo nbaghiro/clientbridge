@@ -59,6 +59,26 @@ export default [
                     children: <k.Text tone="muted">Nothing chosen</k.Text>,
                 }),
             },
+            {
+                key: "field-long",
+                title: "Long label, hint and error",
+                props: (k) => ({
+                    label: "Which groomer should clients see first when they book a full groom online",
+                    hint: "If that groomer is fully booked, clients are offered the next available groomer with the same services and a similar price.",
+                    error: "Pick a groomer who offers full grooms, or turn off online booking for this service.",
+                    required: true,
+                    children: <k.Text>Hannah Lee</k.Text>,
+                }),
+            },
+            {
+                key: "field-rtl",
+                title: "Right-to-left",
+                props: (k) => ({
+                    label: "المصفف المفضل",
+                    hint: "يرى العملاء هذا في صفحة الحجز.",
+                    children: <k.Text>هناء لي</k.Text>,
+                }),
+            },
         ],
     }),
     story<TextFieldProps>({
@@ -162,9 +182,77 @@ export default [
                     disabled: true,
                 }),
             },
+            {
+                key: "text-controlled",
+                title: "Controlled",
+                state: { value: "value", onChange: "onChange" },
+                props: () => ({
+                    label: "Pet name",
+                    value: "Biscuit",
+                    hint: "Typing updates the value the parent holds.",
+                    maxLength: 30,
+                }),
+            },
+            {
+                key: "text-password",
+                title: "Password",
+                props: () => ({
+                    label: "Password",
+                    type: "password",
+                    autoComplete: "new-password",
+                    defaultValue: "correct horse",
+                    required: true,
+                }),
+            },
+            {
+                key: "text-date",
+                title: "Date and time",
+                props: () => ({
+                    label: "Starts",
+                    type: "datetime-local",
+                    defaultValue: "2026-10-06T09:30",
+                }),
+            },
+            {
+                key: "text-prefix-error",
+                title: "Prefix with an error, on a surface",
+                props: () => ({
+                    label: "Deposit",
+                    prefix: "$",
+                    type: "number",
+                    surface: "surface",
+                    width: "narrow",
+                    defaultValue: "-5",
+                    error: "Enter an amount above zero.",
+                }),
+            },
+            {
+                key: "text-auto",
+                title: "Auto width",
+                props: () => ({ label: "Code", width: "auto", defaultValue: "BB-1148" }),
+            },
+            {
+                key: "text-long",
+                title: "Long label and value",
+                props: () => ({
+                    label: "How should we greet your pet when they arrive for their first full groom with us",
+                    defaultValue:
+                        "Sir Reginald Fluffington III, Esquire, Keeper of the Back Garden and Destroyer of Tennis Balls",
+                    hint: "We print this on the kennel card.",
+                }),
+            },
+            {
+                key: "text-rtl",
+                title: "Right-to-left",
+                props: () => ({
+                    label: "اسم العميل",
+                    defaultValue: "نور الهدى عبد الرحمن",
+                    hint: "كما يظهر في الفواتير.",
+                }),
+            },
         ],
     }),
-    story<SelectProps<Coat>>({
+    story<SelectProps<string>>({
         component: "Select",
         summary: "A labelled select on web and a row of chips on mobile.",
         controls: {
@@ -224,6 +312,50 @@ export default [
                     options: COATS,
                 }),
             },
+            {
+                key: "select-controlled",
+                title: "Controlled",
+                state: { value: "value", onChange: "onChange" },
+                props: () => ({ label: "Coat type", value: "curly", options: COATS }),
+            },
+            {
+                key: "select-large",
+                title: "Large",
+                props: () => ({
+                    label: "Coat type",
+                    size: "lg",
+                    defaultValue: "wire",
+                    options: COATS,
+                }),
+            },
+            {
+                key: "select-long",
+                title: "Long option labels",
+                props: () => ({
+                    label: "Cancellation policy",
+                    defaultValue: "strict",
+                    options: [
+                        {
+                            key: "strict",
+                            label: "Strict: no refund within 48 hours of the appointment, deposit kept",
+                        },
+                        { key: "flexible", label: "Flexible: free until 2 hours before" },
+                    ],
+                }),
+            },
+            {
+                key: "select-rtl",
+                title: "Right-to-left",
+                props: () => ({
+                    label: "نوع الفراء",
+                    defaultValue: "b",
+                    options: [
+                        { key: "a", label: "قصير" },
+                        { key: "b", label: "مزدوج" },
+                        { key: "c", label: "مجعد" },
+                    ],
+                }),
+            },
         ],
     }),
     story<ToggleProps>({
@@ -257,6 +389,30 @@ export default [
                     label: "Accept tips",
                     defaultValue: true,
                     disabled: true,
+                }),
+            },
+            {
+                key: "toggle-controlled",
+                title: "Controlled",
+                state: { value: "value", onChange: "onChange" },
+                props: () => ({ label: "Show prices on the booking page", value: false }),
+            },
+            {
+                key: "toggle-long",
+                title: "Long label and hint",
+                props: () => ({
+                    label: "Send clients a reminder by text and by email the day before every appointment, including recurring visits",
+                    hint: "Clients who opted out of texts get the email only. Reminders go out at 10 a.m. in your business's time zone.",
+                    defaultValue: true,
+                }),
+            },
+            {
+                key: "toggle-rtl",
+                title: "Right-to-left",
+                props: () => ({
+                    label: "إرسال التذكيرات",
+                    hint: "قبل يوم من الموعد.",
+                    defaultValue: true,
                 }),
             },
         ],

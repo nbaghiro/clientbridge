@@ -18,8 +18,28 @@ export default story<BrandMarkProps>({
             title: "Amex, small",
             props: () => ({ method: "card", brand: "amex", size: "sm" }),
         },
+        {
+            key: "discover",
+            title: "Discover",
+            props: () => ({ method: "card", brand: "discover" }),
+        },
         { key: "unknown", title: "Unknown card", props: () => ({ method: "card", brand: null }) },
+        {
+            key: "unknown-brand",
+            title: "Brand we have no mark for",
+            props: () => ({ method: "card", brand: "unionpay" }),
+        },
         { key: "bank", title: "Bank account", props: () => ({ method: "bank_eft", brand: null }) },
         { key: "interac", title: "Interac", props: () => ({ method: "interac", brand: null }) },
+        {
+            key: "interac-small",
+            title: "Interac, small",
+            props: () => ({ method: "interac", brand: null, size: "sm" }),
+        },
+        {
+            key: "bank-small",
+            title: "Bank account, small",
+            props: () => ({ method: "bank_eft", brand: null, size: "sm" }),
+        },
     ],
 });

@@ -53,5 +53,20 @@ export default story<PaymentMethodFormProps>({
                 allowBank: true,
             }),
         },
+        {
+            key: "bank-starting",
+            title: "Starting a bank account",
+            props: () => ({ flow: flow({ busy: true, kind: "bank" }), allowBank: true }),
+        },
+        {
+            key: "long-error",
+            title: "Long error, card only",
+            props: () => ({
+                flow: flow({
+                    error: "The connected account can't save cards yet. Finish the payouts setup in Getting paid, then try again. If this keeps happening, contact support with reference seti_123.",
+                }),
+                allowBank: false,
+            }),
+        },
     ],
 });

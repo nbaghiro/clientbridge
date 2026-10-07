@@ -1,4 +1,14 @@
-import { Avatar, Badge, Button, Icon, Lockup, Logo, Money, confirm } from "@clientbridge/ui";
+import {
+    Avatar,
+    Badge,
+    Button,
+    Checkbox,
+    Icon,
+    Lockup,
+    Logo,
+    Money,
+    confirm,
+} from "@clientbridge/ui";
 import type { ReactNode } from "react";
 
 import type { Kit } from "../kit";
@@ -15,11 +25,18 @@ function KitText({
     );
 }
 
-function KitStack({ children, row = false }: { children: ReactNode; row?: boolean | undefined }) {
+function KitStack({
+    children,
+    row = false,
+    end = false,
+}: {
+    children: ReactNode;
+    row?: boolean | undefined;
+    end?: boolean | undefined;
+}) {
+    const cross = end ? "items-end" : row ? "items-center" : "items-start";
     return (
-        <div
-            className={`flex flex-wrap gap-2 ${row ? "flex-row items-center" : "flex-col items-start"}`}
-        >
+        <div className={`flex flex-wrap gap-2 ${row ? "flex-row" : "flex-col"} ${cross}`}>
             {children}
         </div>
     );
@@ -29,6 +46,7 @@ export const webKit: Kit = {
     platform: "web",
     Button,
     Badge,
+    Checkbox,
     Avatar,
     Icon,
     Money,

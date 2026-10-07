@@ -48,9 +48,31 @@ export default story<SignaturePadProps>({
             }),
         },
         {
+            key: "controlled",
+            title: "Controlled, with a custom clear label and a tall pad",
+            state: { value: "strokes", onChange: "onChange" },
+            props: () => ({
+                strokes: SIGNED,
+                label: "Guardian signature",
+                placeholder: "Sign with your finger",
+                clearLabel: "Start over",
+                height: 200,
+            }),
+        },
+        {
             key: "read-only",
             title: "Read only, on a signed contract",
             props: () => ({ strokes: SIGNED, label: "Amélie Tremblay's signature", height: 72 }),
+        },
+        {
+            key: "read-only-empty",
+            title: "Read only, not signed yet",
+            props: () => ({
+                strokes: [],
+                label: "Client signature",
+                placeholder: "Not signed yet",
+                height: 72,
+            }),
         },
     ],
 });

@@ -15,6 +15,26 @@ export default story<SearchFieldProps>({
             props: () => ({ placeholder: "Search clients…", defaultValue: "Tremblay" }),
         },
         {
+            key: "controlled",
+            title: "Controlled",
+            state: { value: "value", onChange: "onChange" },
+            props: () => ({ placeholder: "Search pets…", value: "Biscuit" }),
+        },
+        {
+            key: "long",
+            title: "Long query",
+            props: () => ({
+                placeholder: "Search clients…",
+                defaultValue:
+                    "Amélie Tremblay-Fitzgerald, Golden retriever, full groom with nail trim and teeth",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Arabic query",
+            props: () => ({ placeholder: "ابحث عن عميل…", defaultValue: "ليلى عبد الرحمن" }),
+        },
+        {
             key: "large",
             title: "Large, for a command palette",
             props: () => ({

@@ -27,7 +27,7 @@ export default story<TimeSlotPickerProps>({
     component: "TimeSlotPicker",
     summary:
         "Open times grouped by part of the day; a taken time stays visible but can't be picked.",
-    controls: { columns: { type: "number", min: 3, max: 5 } },
+    controls: { columns: { type: "number", min: 3, max: 5 }, label: { type: "text" } },
     examples: [
         {
             key: "default",
@@ -38,6 +38,48 @@ export default story<TimeSlotPickerProps>({
             key: "picked",
             title: "One picked",
             props: () => ({ groups: GROUPS, defaultValue: "14:30", label: "Pick a time" }),
+        },
+        {
+            key: "controlled",
+            title: "Controlled",
+            state: { value: "value", onChange: "onChange" },
+            props: () => ({ groups: GROUPS, value: "10:00", label: "Pick a time" }),
+        },
+        {
+            key: "five",
+            title: "Five across (four on mobile)",
+            props: () => ({ groups: GROUPS, columns: 5, label: "Pick a time" }),
+        },
+        {
+            key: "long-hint",
+            title: "Long hints truncate",
+            props: () => ({
+                label: "Pick a time",
+                groups: [
+                    {
+                        label: "Evening",
+                        slots: [
+                            { key: "17:00", label: "5:00", hint: "with Priya Ramaswamy-Okafor" },
+                            { key: "17:30", label: "5:30", hint: "with Amélie Tremblay" },
+                            { key: "18:00", label: "6:00", hint: "עם יעל כהן" },
+                            { key: "18:30", label: "6:30", disabled: true },
+                        ],
+                    },
+                ],
+            }),
+        },
+        {
+            key: "all-taken",
+            title: "Every time taken",
+            props: () => ({
+                label: "Pick a time",
+                groups: [
+                    {
+                        label: "Morning",
+                        slots: GROUPS[0]?.slots.map((x) => ({ ...x, disabled: true })) ?? [],
+                    },
+                ],
+            }),
         },
         {
             key: "three",

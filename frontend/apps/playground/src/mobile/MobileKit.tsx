@@ -1,4 +1,14 @@
-import { Avatar, Badge, Button, Icon, Lockup, Logo, Money, confirm } from "@clientbridge/ui";
+import {
+    Avatar,
+    Badge,
+    Button,
+    Checkbox,
+    Icon,
+    Lockup,
+    Logo,
+    Money,
+    confirm,
+} from "@clientbridge/ui";
 import type { ReactNode } from "react";
 import { Text, View } from "react-native";
 
@@ -19,9 +29,24 @@ function KitText({
     );
 }
 
-function KitStack({ children, row = false }: { children: ReactNode; row?: boolean | undefined }) {
+function KitStack({
+    children,
+    row = false,
+    end = false,
+}: {
+    children: ReactNode;
+    row?: boolean | undefined;
+    end?: boolean | undefined;
+}) {
     return (
-        <View style={{ flexDirection: row ? "row" : "column", gap: 8, flexWrap: "wrap" }}>
+        <View
+            style={{
+                flexDirection: row ? "row" : "column",
+                alignItems: end ? "flex-end" : row ? "center" : undefined,
+                gap: 8,
+                flexWrap: "wrap",
+            }}
+        >
             {children}
         </View>
     );
@@ -31,6 +56,7 @@ export const mobileKit: Kit = {
     platform: "mobile",
     Button,
     Badge,
+    Checkbox,
     Avatar,
     Icon,
     Money,

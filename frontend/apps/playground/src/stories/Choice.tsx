@@ -1,6 +1,6 @@
 import type { ChoiceProps } from "@clientbridge/app-core";
 
-import { story } from "../story";
+import { noop, story, toggleKey } from "../story";
 
 const SIZES = [
     { key: "small", label: "Small", hint: "Under 10 kg" },
@@ -91,6 +91,137 @@ export default story<ChoiceProps<string>>({
                     { key: "none", label: "None" },
                 ],
                 defaultValue: "18",
+            }),
+        },
+        {
+            key: "controlled",
+            title: "Controlled, one value",
+            state: { value: "value", onChange: "onChange" },
+            props: () => ({ label: "Coat size", options: SIZES, value: "small", onChange: noop }),
+        },
+        {
+            key: "controlled-many",
+            title: "Controlled, several values",
+            state: { value: "value", onChange: "onChange", reduce: toggleKey },
+            props: () => ({
+                label: "Days",
+                options: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => ({
+                    key: d,
+                    label: d,
+                })),
+                value: ["Tue", "Thu"],
+                onChange: noop,
+            }),
+        },
+        {
+            key: "none",
+            title: "Nothing chosen",
+            props: () => ({ label: "Coat size", options: SIZES, defaultValue: null }),
+        },
+        {
+            key: "segmented-disabled",
+            title: "Segmented, one option disabled",
+            props: () => ({
+                label: "View",
+                layout: "segmented",
+                options: [
+                    { key: "day", label: "Day" },
+                    { key: "week", label: "Week" },
+                    { key: "month", label: "Month", disabled: true },
+                ],
+                defaultValue: "day",
+            }),
+        },
+        {
+            key: "cards-disabled",
+            title: "Cards, one disabled",
+            props: () => ({
+                label: "Deposit",
+                layout: "cards",
+                options: [
+                    { key: "none", label: "No deposit", hint: "Clients pay at the visit" },
+                    { key: "flat", label: "Flat amount", hint: "$20 when they book" },
+                    {
+                        key: "percent",
+                        label: "Percentage",
+                        hint: "Needs Stripe to be verified first",
+                        disabled: true,
+                    },
+                ],
+                defaultValue: "flat",
+            }),
+        },
+        {
+            key: "tiles-five",
+            title: "Tiles, five across with one disabled",
+            props: () => ({
+                label: "Duration",
+                layout: "tiles",
+                columns: 5,
+                options: ["15", "30", "45", "60", "90"].map((m) => ({
+                    key: m,
+                    label: `${m} min`,
+                    disabled: m === "90",
+                })),
+                defaultValue: "45",
+            }),
+        },
+        {
+            key: "tiles-two",
+            title: "Tiles, two across with details",
+            props: () => ({
+                label: "Who pays",
+                layout: "tiles",
+                columns: 2,
+                options: [
+                    {
+                        key: "client",
+                        label: "The client",
+                        hint: "Charged at checkout",
+                        detail: "Card on file or a new card",
+                    },
+                    {
+                        key: "business",
+                        label: "The business",
+                        hint: "Absorbed as a fee",
+                        detail: "Shows on the payout report",
+                    },
+                ],
+                defaultValue: "client",
+            }),
+        },
+        {
+            key: "long",
+            title: "Long labels and right-to-left text",
+            props: () => ({
+                label: "Groomer",
+                options: [
+                    {
+                        key: "a",
+                        label: "Bartholomew Featherstonehaugh-Montgomery",
+                        hint: "Senior groomer, large breeds and hand-stripping",
+                    },
+                    { key: "b", label: "ليلى حداد", hint: "נועה כהן" },
+                    { key: "c", label: "Any available groomer" },
+                ],
+                defaultValue: "b",
+            }),
+        },
+        {
+            key: "long-cards",
+            title: "Long labels as cards",
+            props: () => ({
+                label: "Groomer",
+                layout: "cards",
+                options: [
+                    {
+                        key: "a",
+                        label: "Bartholomew Featherstonehaugh-Montgomery",
+                        hint: "Senior groomer, large breeds and hand-stripping, Tuesday to Saturday",
+                    },
+                    { key: "b", label: "ليلى حداد", hint: "נועה כהן" },
+                ],
+                defaultValue: "a",
             }),
         },
     ],

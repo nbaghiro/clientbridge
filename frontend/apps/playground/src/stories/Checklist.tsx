@@ -38,6 +38,32 @@ export default story<ChecklistProps>({
             }),
         },
         {
+            key: "attention",
+            title: "Everything needs attention, long text",
+            props: () => ({
+                label: "Before payouts resume",
+                items: [
+                    {
+                        key: "id",
+                        label: "Upload a government-issued photo ID for Bartholomew Featherstonehaugh-Montgomery, the account representative",
+                        hint: "Stripe could not read the last upload; make sure all four corners are visible and nothing is covered",
+                        done: false,
+                        attention: true,
+                        action: { label: "Upload a new photo", onPress: noop },
+                    },
+                    {
+                        key: "rtl",
+                        label: "ليلى حداد: تأكيد الحساب البنكي",
+                        hint: "נועה כהן",
+                        done: false,
+                        attention: true,
+                        action: { label: "Confirm", onPress: noop },
+                    },
+                ],
+            }),
+        },
+        { key: "empty", title: "No items", props: () => ({ label: "Nothing to do", items: [] }) },
+        {
             key: "all-done",
             title: "All done",
             props: () => ({

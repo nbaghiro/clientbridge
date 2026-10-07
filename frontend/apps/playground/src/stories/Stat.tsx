@@ -8,7 +8,7 @@ export default story<StatProps>({
     controls: {
         label: { type: "text" },
         size: { type: "select", options: ["md", "lg"] },
-        tone: { type: "select", options: ["ink", "muted", "success", "danger"] },
+        tone: { type: "select", options: ["ink", "muted", "success", "warning", "danger"] },
         hint: { type: "text" },
     },
     examples: [
@@ -42,14 +42,58 @@ export default story<StatProps>({
             }),
         },
         {
+            key: "warning",
+            title: "Warning",
+            props: () => ({
+                label: "Low stock",
+                value: "4",
+                tone: "warning",
+                hint: "items at or under their low line",
+            }),
+        },
+        {
             key: "danger",
             title: "Danger",
             props: () => ({ label: "Overdue", cents: 12_600, tone: "danger" }),
         },
         {
             key: "muted",
-            title: "Muted, nothing yet",
-            props: () => ({ label: "Tips", cents: null, tone: "muted" }),
+            title: "Muted",
+            props: () => ({ label: "Tips", cents: 0, tone: "muted", hint: "none yet" }),
+        },
+        {
+            key: "loading",
+            title: "Loading (no figure yet)",
+            props: () => ({ label: "Tips", cents: null }),
+        },
+        {
+            key: "loading-large",
+            title: "Loading, large",
+            props: () => ({ label: "Awaiting payment", cents: null, size: "lg" }),
+        },
+        {
+            key: "large-success",
+            title: "Large, success with a text value",
+            props: () => ({
+                label: "Rebooked before leaving",
+                value: "86%",
+                tone: "success",
+                size: "lg",
+            }),
+        },
+        {
+            key: "long",
+            title: "Long label and hint",
+            props: () => ({
+                label: "Deposits collected for upcoming bookings in the next thirty days",
+                cents: 1_234_500,
+                hint: "includes deposits on recurring visits and class packages bought online",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Hebrew label",
+            props: () => ({ label: "הכנסות היום", cents: 48_400, hint: "התקבל היום" }),
         },
     ],
 });

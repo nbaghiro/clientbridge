@@ -2,11 +2,9 @@ import type { ImagePickerProps } from "@clientbridge/app-core";
 
 import { noop, story } from "../story";
 
+// A PNG, since react-native-web does not load SVG data URIs.
 const PHOTO =
-    "data:image/svg+xml;utf8," +
-    encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" fill="#D9E4DA"/><circle cx="48" cy="44" r="22" fill="#8AA88E"/><rect x="26" y="70" width="44" height="10" rx="5" fill="#5F7F63"/></svg>',
-    );
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwAgMAAAAqbBEUAAAADFBMVEXo3MiwjVeKazwAAACYQcf9AAAAhklEQVR42sXRMQrCQBCF4W/XFCnTaO1RPIIg3sfzpPIInsI6R0iZIhiLTAKSgIKCrxj2572ZZWf5m7ZnkCEdHGcoKGADJ9KuCWdSRoIqoIi+ZawS2YXzNbQwrDm9KDkS2tVpV4bbBH30vWznQyXU4H6R56v2ZMoRyjfv6cZTR+YxQvPrT38CXiITV3RjfLcAAAAASUVORK5CYII=";
 
 export default story<ImagePickerProps>({
     component: "ImagePicker",
@@ -65,6 +63,59 @@ export default story<ImagePickerProps>({
                 name: "Bandana",
                 label: "Uploading…",
                 busy: true,
+                onPick: noop,
+            }),
+        },
+        {
+            key: "photo-large",
+            title: "Large photo with both sources and remove",
+            props: () => ({
+                src: PHOTO,
+                name: "Full groom",
+                label: "Take a photo",
+                hint: "Shown on your booking page.",
+                size: "lg",
+                onPick: noop,
+                onPickAlt: noop,
+                altLabel: "Choose from library",
+                onRemove: noop,
+                removeLabel: "Remove photo",
+            }),
+        },
+        {
+            key: "busy-photo",
+            title: "Replacing a photo",
+            props: () => ({
+                src: PHOTO,
+                name: "Slicker brush",
+                label: "Uploading…",
+                busy: true,
+                onPick: noop,
+                onRemove: noop,
+                removeLabel: "Remove photo",
+            }),
+        },
+        {
+            key: "long",
+            title: "Long label and hint",
+            props: () => ({
+                src: null,
+                name: "Self-cleaning slicker brush with retractable pins",
+                color: "#B08D57",
+                label: "Add a photo of this product for the register and the online shop",
+                hint: "JPEG, PNG or HEIC up to 10 MB. Square photos on a plain background look best in the product grid and on receipts.",
+                onPick: noop,
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left",
+            props: () => ({
+                src: null,
+                name: "شامبو الشوفان",
+                color: "#2E7A5A",
+                label: "أضف صورة",
+                hint: "الصور المربعة أفضل.",
                 onPick: noop,
             }),
         },

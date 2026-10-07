@@ -25,5 +25,24 @@ export default story<StatusPillProps>({
             title: "As written",
             props: () => ({ status: "Checked in", intent: "accent", asWritten: true }),
         },
+        {
+            key: "raw-snake",
+            title: "Raw value, capitalized",
+            props: () => ({ status: "partially refunded", intent: "warning" }),
+        },
+        {
+            key: "long",
+            title: "Long label",
+            props: () => ({
+                status: "Waiting for the client to sign the updated grooming agreement",
+                intent: "warning",
+                asWritten: true,
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Arabic label",
+            props: () => ({ status: "مدفوع", intent: "success", asWritten: true }),
+        },
     ],
 });

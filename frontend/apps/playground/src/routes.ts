@@ -1,6 +1,6 @@
 import { THEME_KEYS, type ThemeKey } from "@clientbridge/tokens";
 
-export type Platform = "both" | "web" | "mobile";
+export type Platform = "compare" | "web" | "mobile";
 export type Device = "both" | "iphone" | "android";
 
 export type Route =
@@ -19,6 +19,8 @@ export type Route =
           example: string | null;
           device: "iphone" | "android";
           theme: ThemeKey;
+          // Draws only the named example, for one sheet or dialog in the side-by-side view.
+          only: boolean;
       };
 
 const pick = <T extends string>(value: string | null, options: readonly T[], fallback: T): T =>
@@ -36,6 +38,7 @@ export function parseHash(hash: string): Route {
             example: q.get("example"),
             device: pick(q.get("device"), ["iphone", "android"] as const, "iphone"),
             theme,
+            only: q.get("only") === "1",
         };
     }
     if (first === "") return { kind: "index", theme };
@@ -43,7 +46,7 @@ export function parseHash(hash: string): Route {
         kind: "page",
         name: first,
         example: second === "" ? null : second,
-        platform: pick(q.get("platform"), ["both", "web", "mobile"] as const, "both"),
+        platform: pick(q.get("platform"), ["compare", "web", "mobile"] as const, "compare"),
         device: pick(q.get("device"), ["both", "iphone", "android"] as const, "both"),
         theme,
     };
@@ -57,7 +60,7 @@ export function pageHash(r: {
     theme?: ThemeKey;
 }): string {
     const q = new URLSearchParams();
-    if (r.platform !== undefined && r.platform !== "both") q.set("platform", r.platform);
+    if (r.platform !== undefined && r.platform !== "compare") q.set("platform", r.platform);
     if (r.device !== undefined && r.device !== "both") q.set("device", r.device);
     if (r.theme !== undefined && r.theme !== "pewter") q.set("theme", r.theme);
     const tail = q.toString();

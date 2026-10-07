@@ -38,6 +38,28 @@ export default story<RatingDistributionProps>({
             }),
         },
         {
+            key: "large-counts",
+            title: "Four-digit counts",
+            props: () => ({
+                rows: [
+                    { stars: 5, count: 12480 },
+                    { stars: 4, count: 2210 },
+                    { stars: 3, count: 318 },
+                    { stars: 2, count: 41 },
+                    { stars: 1, count: 1003 },
+                ],
+                label,
+            }),
+        },
+        {
+            key: "single",
+            title: "One review",
+            props: () => ({
+                rows: [5, 4, 3, 2, 1].map((stars) => ({ stars, count: stars === 4 ? 1 : 0 })),
+                label,
+            }),
+        },
+        {
             key: "empty",
             title: "No reviews yet",
             props: () => ({ rows: [5, 4, 3, 2, 1].map((stars) => ({ stars, count: 0 })), label }),

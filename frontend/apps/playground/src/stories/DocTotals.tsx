@@ -34,5 +34,68 @@ export default story<DocTotalsProps>({
                 ],
             }),
         },
+        {
+            key: "estimate",
+            title: "Estimate, no balance",
+            props: () => ({
+                lines: [
+                    { key: "sub", label: "Subtotal", cents: 24000, kind: "subtotal" },
+                    { key: "gst", label: "GST", hint: "5%", cents: 1200, kind: "tax" },
+                    { key: "total", label: "Estimate total", cents: 25200, kind: "total" },
+                ],
+            }),
+        },
+        {
+            key: "paid",
+            title: "Paid in full with a gift card",
+            props: () => ({
+                lines: [
+                    { key: "total", label: "Total", cents: 9520, kind: "total" },
+                    {
+                        key: "gift",
+                        label: "Gift card ending 2KXP",
+                        cents: 5000,
+                        kind: "credit",
+                        hint: "Balance left $0.00",
+                    },
+                    { key: "card", label: "Visa ending 4242", cents: 4520, kind: "credit" },
+                    { key: "balance", label: "Balance due", cents: 0, kind: "balance" },
+                ],
+            }),
+        },
+        {
+            key: "long",
+            title: "Long labels and large amounts",
+            props: () => ({
+                lines: [
+                    {
+                        key: "sub",
+                        label: "Subtotal for twelve weekly grooming visits in the autumn package",
+                        cents: 123456789,
+                        kind: "subtotal",
+                    },
+                    {
+                        key: "hst",
+                        label: "Harmonized sales tax",
+                        hint: "13% on taxable services and retail products",
+                        cents: 16049382,
+                        kind: "tax",
+                    },
+                    { key: "total", label: "Total", cents: 139506171, kind: "total" },
+                ],
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left labels",
+            props: () => ({
+                density: "compact",
+                lines: [
+                    { key: "sub", label: "المجموع الفرعي", cents: 9000, kind: "subtotal" },
+                    { key: "tax", label: "الضريبة", hint: "٥٪", cents: 450, kind: "tax" },
+                    { key: "total", label: "الإجمالي", cents: 9450, kind: "total" },
+                ],
+            }),
+        },
     ],
 });

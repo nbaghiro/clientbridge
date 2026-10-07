@@ -10,5 +10,13 @@ export default story<LoadingProps>({
         { key: "default", title: "Default", props: () => ({}) },
         { key: "label", title: "With a label", props: () => ({ label: "Loading clients…" }) },
         { key: "inline", title: "Inline", props: () => ({ label: "Syncing", inline: true }) },
+        { key: "inline-bare", title: "Inline without a label", props: () => ({ inline: true }) },
+        {
+            key: "long",
+            title: "Long label",
+            props: () => ({
+                label: "Loading the last twelve months of sales, refunds and payouts for every location…",
+            }),
+        },
     ],
 });

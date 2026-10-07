@@ -53,5 +53,20 @@ export default story<NoticeProps>({
                 children: "This shop isn't taking online payments right now.",
             }),
         },
+        {
+            key: "long-banner",
+            title: "Long box",
+            props: () => ({
+                tone: "danger",
+                banner: true,
+                children:
+                    "Stripe needs more information before payouts can resume: a photo of government ID for Hannah Lee, the business number for Birchbark Pet Studio, and a bank statement dated in the last three months. Payouts are paused until then.",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left line",
+            props: () => ({ tone: "info", children: "يرى العملاء هذا على إيصالهم." }),
+        },
     ],
 });

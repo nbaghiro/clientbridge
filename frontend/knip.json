@@ -27,6 +27,7 @@
             "entry": [
                 "src/stories/*.tsx",
                 "src/mobile/Frame.tsx",
+                "src/mobile/Inline.tsx",
                 "src/mobile/StripeStub.tsx",
                 "e2e/*.ts"
             ]

@@ -14,6 +14,8 @@ export default story<MeterProps>({
         labelPosition: { type: "select", options: ["above", "below", "beside", "hidden"] },
         size: { type: "select", options: ["sm", "md"] },
         units: { type: "boolean" },
+        overflow: { type: "number", min: 0, max: 6 },
+        marker: { type: "number", min: 0, max: 20 },
     },
     examples: [
         {
@@ -94,6 +96,68 @@ export default story<MeterProps>({
             key: "empty",
             title: "Empty",
             props: () => ({ value: 0, max: 10, label: "Nothing used yet" }),
+        },
+        {
+            key: "success-small",
+            title: "Success, small",
+            props: () => ({
+                value: 10,
+                max: 10,
+                label: "Package used up",
+                detail: "10 of 10",
+                intent: "success",
+                size: "sm",
+            }),
+        },
+        {
+            key: "neutral",
+            title: "Neutral",
+            props: () => ({ value: 2, max: 5, label: "Staff seats", detail: "2 of 5" }),
+        },
+        {
+            key: "units-small",
+            title: "Seats, small, label below",
+            props: () => ({
+                value: 2,
+                max: 12,
+                label: "2 of 12 booked",
+                labelPosition: "below",
+                units: true,
+                size: "sm",
+            }),
+        },
+        {
+            key: "over",
+            title: "Over the max",
+            props: () => ({
+                value: 14,
+                max: 10,
+                label: "Gift card",
+                detail: "Overspent by $40.00",
+                intent: "danger",
+            }),
+        },
+        {
+            key: "long",
+            title: "Long label and detail",
+            props: () => ({
+                value: 7,
+                max: 10,
+                label: "Puppy kindergarten (Saturday mornings at the Cook Street studio)",
+                detail: "7 of 10 seats booked, 3 on the waitlist",
+                intent: "accent",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left label beside",
+            props: () => ({
+                value: 4,
+                max: 10,
+                label: "שמפו שיבולת שועל",
+                labelPosition: "beside",
+                intent: "warning",
+            }),
         },
     ],
 });

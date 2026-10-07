@@ -79,6 +79,52 @@ export default story<ContractDocumentProps>({
             }),
         },
         {
+            key: "compact-signed",
+            title: "Compact, signed",
+            props: () => ({
+                issuer: "Birchbark Pet Studio",
+                title: "Grooming agreement",
+                meta: "Version 3",
+                clauses,
+                signature,
+                density: "compact",
+            }),
+        },
+        {
+            key: "long",
+            title: "Long text and a right-to-left signer",
+            props: () => ({
+                issuer: "Birchbark Pet Studio and Mobile Grooming Services of Greater Victoria",
+                title: "Grooming, boarding, transport and emergency veterinary care agreement",
+                meta: "Version 12 · for Bartholomew Featherstonehaugh-Montgomery's three dogs",
+                clauses: [
+                    {
+                        heading:
+                            "Emergency veterinary care and who pays for it when we can't reach you",
+                        text: "If your pet is hurt or falls ill in our care and we cannot reach you or your emergency contact within thirty minutes, we take it to the nearest open clinic. https://birchbark.example.com/policies/emergency-veterinary-care-and-costs",
+                    },
+                ],
+                signature: {
+                    ...signature,
+                    name: "ليلى حداد",
+                    facts: [
+                        { label: "Signed", value: "Oct 3, 2026, 8:14 a.m." },
+                        { label: "Signed for", value: "נועה כהן" },
+                    ],
+                },
+            }),
+        },
+        {
+            key: "empty",
+            title: "No clauses yet",
+            props: () => ({
+                issuer: "Birchbark Pet Studio",
+                title: "Untitled agreement",
+                meta: "Draft",
+                clauses: [],
+            }),
+        },
+        {
             key: "compact",
             title: "Compact preview",
             props: () => ({

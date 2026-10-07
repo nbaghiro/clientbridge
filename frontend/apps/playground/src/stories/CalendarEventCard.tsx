@@ -51,6 +51,58 @@ export default story<CalendarEventCardProps>({
             props: () => ({ ...base, intent: "danger", state: "refused" }),
         },
         {
+            key: "neutral",
+            title: "Neutral (blocked time), no swatch",
+            props: () => ({
+                ...base,
+                headline: "Lunch",
+                detail: undefined,
+                intent: "neutral",
+                color: null,
+                onPress: undefined,
+            }),
+        },
+        {
+            key: "compact-refused",
+            title: "Compact, refused",
+            props: () => ({
+                ...base,
+                density: "compact",
+                time: "9:30",
+                intent: "danger",
+                state: "refused",
+            }),
+        },
+        {
+            key: "all-flags",
+            title: "Every flag",
+            props: () => ({
+                ...base,
+                flags: ["online", "recurring", "deposit_due", "addons", "note", "walk_in", "class"],
+            }),
+        },
+        {
+            key: "long",
+            title: "Long text (truncates)",
+            props: () => ({
+                ...base,
+                headline:
+                    "Bartholomew Featherstonehaugh-Montgomery · Full groom, nail trim, teeth and a bow",
+                detail: "Amélie Tremblay-Gagnon-Featherstonehaugh, second pet in the same visit",
+                flags: ["online", "note", "addons"],
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left names",
+            props: () => ({
+                ...base,
+                headline: "ليلى حداد · טיפוח מלא",
+                detail: "נועה כהן",
+                density: "regular",
+            }),
+        },
+        {
             key: "class",
             title: "Class with walk-ins",
             props: () => ({

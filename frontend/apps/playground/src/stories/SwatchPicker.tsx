@@ -29,6 +29,31 @@ export default story<SwatchPickerProps>({
             props: () => ({ label: "Staff colour", colours: COLOURS }),
         },
         {
+            key: "controlled",
+            title: "Controlled",
+            state: { value: "value", onChange: "onChange" },
+            props: () => ({ label: "Pet colour", colours: COLOURS, value: "#7A4E8C" }),
+        },
+        {
+            key: "many",
+            title: "Many colours wrap",
+            props: () => ({
+                label: "Service colour",
+                colours: [
+                    ...COLOURS,
+                    "#C0392B",
+                    "#16A085",
+                    "#8E44AD",
+                    "#D35400",
+                    "#2C3E50",
+                    "#7F8C8D",
+                    "#27AE60",
+                    "#F39C12",
+                ],
+                defaultValue: "#16A085",
+            }),
+        },
+        {
             key: "few",
             title: "Short list",
             props: () => ({

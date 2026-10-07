@@ -21,5 +21,28 @@ export default story<BadgeProps>({
         { key: "danger", title: "Danger", props: () => ({ label: "Opted out", intent: "danger" }) },
         { key: "neutral", title: "Neutral", props: () => ({ label: "Refund", intent: "neutral" }) },
         { key: "count", title: "Count", props: () => ({ label: 3, variant: "count" }) },
+        {
+            key: "count-large",
+            title: "Large count",
+            props: () => ({ label: "99+", variant: "count" }),
+        },
+        {
+            key: "number",
+            title: "Number as a pill",
+            props: () => ({ label: 12, intent: "neutral" }),
+        },
+        {
+            key: "long",
+            title: "Long label (truncates)",
+            props: () => ({
+                label: "Needs a hand-strip add-on before the next full groom can be booked online",
+                intent: "warning",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Right-to-left label",
+            props: () => ({ label: "ليلى حداد · נועה כהן" }),
+        },
     ],
 });

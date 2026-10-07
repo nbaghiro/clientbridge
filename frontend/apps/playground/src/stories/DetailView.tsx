@@ -41,6 +41,49 @@ export default [
                     children: <k.Text tone="muted">500 ml · 12 in stock</k.Text>,
                 }),
             },
+            {
+                key: "overdue",
+                title: "Danger status with an icon",
+                overlay: true,
+                props: (k) => ({
+                    open: false,
+                    onClose: noop,
+                    title: "Invoice 1148",
+                    subtitle: "Due Sep 30 · Diego Ruiz",
+                    status: { status: "overdue", intent: "danger" },
+                    leading: <k.Icon name="invoices" size={28} />,
+                    actions: <k.Button size="sm">Send reminder</k.Button>,
+                    children: <k.Money cents={8400} strong />,
+                }),
+            },
+            {
+                key: "long",
+                title: "Long title and subtitle",
+                overlay: true,
+                props: (k) => ({
+                    open: false,
+                    onClose: noop,
+                    title: "Maximiliana Featherstonehaugh-Villanueva and the Okonkwo-Lindqvist family",
+                    subtitle:
+                        "Client since 2019 · Biscuit, Maple, Juniper, Pepper, Clementine and Sir Reginald Fluffington III",
+                    status: { status: "pending", intent: "warning" },
+                    children: <k.Text>Three visits booked this month.</k.Text>,
+                }),
+            },
+            {
+                key: "rtl",
+                title: "Right-to-left title",
+                overlay: true,
+                props: (k) => ({
+                    open: false,
+                    onClose: noop,
+                    title: "نور الهدى عبد الرحمن",
+                    subtitle: "عميلة منذ ٢٠٢٤",
+                    status: { status: "active", intent: "success" },
+                    leading: <k.Avatar name="نور الهدى" size="lg" />,
+                    children: <k.Text>الزيارة القادمة يوم الثلاثاء.</k.Text>,
+                }),
+            },
         ],
     }),
     story<DetailSectionProps>({
@@ -65,6 +108,19 @@ export default [
                 key: "untitled",
                 title: "Untitled",
                 props: (k) => ({ children: <k.Text tone="muted">No notes yet.</k.Text> }),
+            },
+            {
+                key: "section-long",
+                title: "Long title beside an action",
+                props: (k) => ({
+                    title: "Vaccination records, signed waivers and grooming consent forms on file",
+                    action: (
+                        <k.Button size="sm" variant="link">
+                            Upload
+                        </k.Button>
+                    ),
+                    children: <k.Text>Rabies, Sep 2026</k.Text>,
+                }),
             },
         ],
     }),

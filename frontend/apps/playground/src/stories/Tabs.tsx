@@ -12,29 +12,34 @@ const ITEMS: TabsProps<Key>["items"] = [
     { key: "reports", label: "Reports" },
 ];
 
-export default story<TabsProps<Key>>({
+const SELECT = { value: "active", onChange: "onSelect" };
+
+export default story<TabsProps<string>>({
     component: "Tabs",
     summary: "The underline tab bar, or a row of pills for a view switch.",
     controls: {
         variant: { type: "select", options: ["underline", "pill"] },
         active: { type: "select", options: ITEMS.map((i) => i.key) },
         inset: { type: "boolean" },
+        label: { type: "text" },
     },
     examples: [
         {
             key: "underline",
-            title: "Underline",
+            title: "Underline, controlled",
+            state: SELECT,
             props: () => ({ items: ITEMS, active: "invoices", onSelect: noop, label: "Payments" }),
         },
         {
             key: "pill",
-            title: "Pills",
+            title: "Pills, controlled",
+            state: SELECT,
             props: () => ({
                 items: [
-                    { key: "invoices", label: "Agenda" },
-                    { key: "sales", label: "Day" },
+                    { key: "agenda", label: "Agenda" },
+                    { key: "day", label: "Day" },
                 ],
-                active: "sales",
+                active: "day",
                 variant: "pill",
                 onSelect: noop,
                 label: "Schedule view",
@@ -43,12 +48,71 @@ export default story<TabsProps<Key>>({
         {
             key: "flush",
             title: "Pills without side padding",
+            state: SELECT,
             props: () => ({
                 items: ITEMS.slice(0, 3),
                 active: "invoices",
                 variant: "pill",
                 inset: false,
                 onSelect: noop,
+                label: "Payments",
+            }),
+        },
+        {
+            key: "underline-flush",
+            title: "Underline without side padding",
+            state: SELECT,
+            props: () => ({
+                items: ITEMS.slice(0, 3),
+                active: "sales",
+                inset: false,
+                onSelect: noop,
+                label: "Payments",
+            }),
+        },
+        {
+            key: "two",
+            title: "Two tabs",
+            state: SELECT,
+            props: () => ({
+                items: [
+                    { key: "upcoming", label: "Upcoming" },
+                    { key: "past", label: "Past" },
+                ],
+                active: "past",
+                onSelect: noop,
+                label: "Visits",
+            }),
+        },
+        {
+            key: "long",
+            title: "Long labels",
+            state: SELECT,
+            props: () => ({
+                items: [
+                    { key: "a", label: "Outstanding invoices and estimates" },
+                    { key: "b", label: "Refunds and disputes" },
+                    { key: "c", label: "Payouts to your bank account" },
+                ],
+                active: "a",
+                onSelect: noop,
+                label: "Money",
+            }),
+        },
+        {
+            key: "rtl",
+            title: "Hebrew labels",
+            state: SELECT,
+            props: () => ({
+                items: [
+                    { key: "a", label: "חשבוניות" },
+                    { key: "b", label: "מכירות" },
+                    { key: "c", label: "כרטיסי מתנה" },
+                ],
+                active: "b",
+                variant: "pill",
+                onSelect: noop,
+                label: "תשלומים",
             }),
         },
     ],
