@@ -539,6 +539,9 @@ function MessageDialog({
                     value={m.channel}
                     onChange={m.setChannel}
                 />
+                {m.smsBlocked ? (
+                    <Notice tone="danger">{strings.messaging.smsBlockedNew}</Notice>
+                ) : null}
                 <TextField
                     label={s.messageBody}
                     multiline
@@ -546,6 +549,7 @@ function MessageDialog({
                     value={m.body}
                     onChange={m.setBody}
                     placeholder={s.messagePlaceholder}
+                    disabled={m.smsBlocked}
                     autoFocus
                 />
                 {m.error !== null ? <Notice tone="danger">{m.error}</Notice> : null}
@@ -553,7 +557,7 @@ function MessageDialog({
                     <Button variant="outline" onPress={onClose}>
                         {s.messageCancel}
                     </Button>
-                    <Button busy={m.busy} onPress={m.submit} icon="send">
+                    <Button busy={m.busy} disabled={m.smsBlocked} onPress={m.submit} icon="send">
                         {s.messageSend}
                     </Button>
                 </div>

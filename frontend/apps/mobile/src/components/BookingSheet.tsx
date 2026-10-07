@@ -516,6 +516,9 @@ function MessageSheet({
                     value={m.channel}
                     onChange={m.setChannel}
                 />
+                {m.smsBlocked ? (
+                    <Notice tone="danger">{strings.messaging.smsBlockedNew}</Notice>
+                ) : null}
                 <TextField
                     label={s.messageBody}
                     multiline
@@ -523,9 +526,10 @@ function MessageSheet({
                     value={m.body}
                     onChange={m.setBody}
                     placeholder={s.messagePlaceholder}
+                    disabled={m.smsBlocked}
                 />
                 {m.error !== null ? <Notice tone="danger">{m.error}</Notice> : null}
-                <Button full busy={m.busy} onPress={m.submit} icon="send">
+                <Button full busy={m.busy} disabled={m.smsBlocked} onPress={m.submit} icon="send">
                     {s.messageSend}
                 </Button>
             </View>
