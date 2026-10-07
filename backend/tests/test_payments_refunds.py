@@ -15,7 +15,7 @@ from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory
-from tests.helpers import client_id, enable_payments
+from tests.helpers import card_pay, client_id, enable_payments
 
 GOOD = {"Stripe-Signature": "good"}
 
@@ -44,14 +44,12 @@ async def _paid_invoice(api: httpx.AsyncClient, db: AsyncSession) -> tuple[str, 
     db.add(inv)
     await db.flush()
     await ledger.post_invoice(db, inv, TaxResult(10000, 1200, 11200, {"GST": 1200}, []))
-    pay = (await api.post(f"/v1/payments/invoice/{inv.id}")).json()
-    pi = (
-        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
-    ).scalar_one()
+    pay_id = await card_pay(api, db, inv.id)
+    pi = (await db.execute(select(Payment.provider_ref).where(Payment.id == pay_id))).scalar_one()
     assert pi is not None
     res = await api.post("/webhooks/stripe", content=_settled(f"evt_{inv.id}", pi), headers=GOOD)
     assert res.status_code == 200
-    return inv.id, str(pay["payment_id"])
+    return inv.id, pay_id
 
 
 async def _invoice_net(db: AsyncSession, inv_id: str, kind: str) -> int:
@@ -86,19 +84,19 @@ async def test_partial_refunds_unwind_revenue_and_tax_pro_rata(
 ) -> None:
     inv_id, pay_id = await _paid_invoice(as_owner, db)
 
-    first = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=2800")
+    first = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 2800})
     assert first.status_code == 200, first.text
     assert await _status(db, inv_id) == "paid"  # a partial credit note leaves it settled
     assert await ledger.collected(db, BIZ, "invoice", inv_id) == (8400, True)
     assert await _invoice_net(db, inv_id, "revenue") == -7500
     assert await _invoice_net(db, inv_id, "tax") == -900
 
-    second = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=5600")
+    second = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 5600})
     assert second.status_code == 200, second.text
     assert await _invoice_net(db, inv_id, "revenue") == -2500
     assert await _invoice_net(db, inv_id, "tax") == -300
 
-    rest = await as_owner.post(f"/v1/payments/{pay_id}/refund")  # no amount = what's left
+    rest = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})  # no amount = what's left
     assert rest.status_code == 200, rest.text
     assert await _status(db, inv_id) == "refunded"
     assert await ledger.collected(db, BIZ, "invoice", inv_id) == (0, True)
@@ -112,10 +110,10 @@ async def test_uneven_partial_refunds_clear_every_cent_of_tax(
 ) -> None:
     inv_id, pay_id = await _paid_invoice(as_owner, db)
     for amount in (3701, 3700):
-        res = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents={amount}")
+        res = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": amount})
         assert res.status_code == 200, res.text
     assert await _invoice_net(db, inv_id, "tax") == -(1200 - 792)
-    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund")).status_code == 200
+    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})).status_code == 200
     assert await _invoice_net(db, inv_id, "tax") == 0
     assert await _invoice_net(db, inv_id, "revenue") == 0
 
@@ -125,14 +123,16 @@ async def test_over_refund_and_bad_amounts_409(
 ) -> None:
     _, pay_id = await _paid_invoice(as_owner, db)
     for amount in (11201, 0, -5):
-        res = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents={amount}")
+        res = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": amount})
         assert res.status_code == 409, amount
-    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=11000")).is_success
     assert (
-        await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=300")
+        await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 11000})
+    ).is_success
+    assert (
+        await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 300})
     ).status_code == 409  # only 200 left
-    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund")).is_success
-    again = await as_owner.post(f"/v1/payments/{pay_id}/refund")
+    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})).is_success
+    again = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})
     assert again.status_code == 409  # fully refunded
     assert await _refunds(db, pay_id) == 2
 
@@ -142,9 +142,9 @@ async def test_refund_replay_does_not_refund_twice(
 ) -> None:
     _, pay_id = await _paid_invoice(as_owner, db)
     headers = {"Idempotency-Key": "refund-once"}
-    url = f"/v1/payments/{pay_id}/refund?amount_cents=1000"
-    first = await as_owner.post(url, headers=headers)
-    retry = await as_owner.post(url, headers=headers)
+    url = f"/v1/payments/{pay_id}/refund"
+    first = await as_owner.post(url, json={"amount_cents": 1000}, headers=headers)
+    retry = await as_owner.post(url, json={"amount_cents": 1000}, headers=headers)
     assert first.status_code == retry.status_code == 200
     assert retry.json()["refund_id"] == first.json()["refund_id"]
     assert await _refunds(db, pay_id) == 1
@@ -153,7 +153,7 @@ async def test_refund_replay_does_not_refund_twice(
 async def test_staff_cannot_refund_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     payment = await _entitlement_payment(db, 5000)
-    res = await as_staff.post(f"/v1/payments/{payment.id}/refund?amount_cents=100")
+    res = await as_staff.post(f"/v1/payments/{payment.id}/refund", json={"amount_cents": 100})
     assert res.status_code == 403
     assert await _refunds(db, payment.id) == 0
 
@@ -178,7 +178,7 @@ async def test_other_business_payment_404(
     )
     db.add(foreign)
     await db.flush()
-    res = await as_owner.post(f"/v1/payments/{foreign.id}/refund?amount_cents=100")
+    res = await as_owner.post(f"/v1/payments/{foreign.id}/refund", json={"amount_cents": 100})
     assert res.status_code == 404
 
 
@@ -196,7 +196,9 @@ async def test_order_stays_paid_until_fully_refunded(
     await as_owner.post("/webhooks/stripe", content=_settled("evt_ord_ref", pi), headers=GOOD)
     total = order["total_cents"]
 
-    part = await as_owner.post(f"/v1/payments/{checkout['payment_id']}/refund?amount_cents=300")
+    part = await as_owner.post(
+        f"/v1/payments/{checkout['payment_id']}/refund", json={"amount_cents": 300}
+    )
     assert part.status_code == 200, part.text
     status = (
         await db.execute(select(ledger.order_status_expr()).where(Order.id == order["id"]))
@@ -204,7 +206,9 @@ async def test_order_stays_paid_until_fully_refunded(
     assert status == "paid"
     assert await ledger.collected(db, BIZ, "order", order["id"]) == (total - 300, True)
 
-    assert (await as_owner.post(f"/v1/payments/{checkout['payment_id']}/refund")).is_success
+    assert (
+        await as_owner.post(f"/v1/payments/{checkout['payment_id']}/refund", json={})
+    ).is_success
     status = (
         await db.execute(select(ledger.order_status_expr()).where(Order.id == order["id"]))
     ).scalar_one()
@@ -250,10 +254,10 @@ async def test_gift_card_purchase_refunds_in_full_only(
     await db.commit()  # the 409 below rolls the request back; keep the setup
     pay_id, card_id = payment.id, card.id
 
-    part = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=1000")
+    part = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 1000})
     assert part.status_code == 409
     assert part.json()["message"] == "a gift card purchase is refunded in full"
-    full = await as_owner.post(f"/v1/payments/{pay_id}/refund")
+    full = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})
     assert full.status_code == 200, full.text
     card = (await db.execute(select(GiftCard).where(GiftCard.id == card_id))).scalar_one()
     assert await ledger.gift_card_balance(db, card) == 0
@@ -281,10 +285,10 @@ async def test_package_purchase_refunds_in_full_only(
     await db.commit()  # the 409 below rolls the request back; keep the setup
     pay_id, package_id = payment.id, package.id
 
-    part = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=1000")
+    part = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 1000})
     assert part.status_code == 409
     assert part.json()["message"] == "a package purchase is refunded in full"
-    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund")).status_code == 200
+    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})).status_code == 200
     deferred = await ledger.balance(
         db, BIZ, owner_type="package", owner_id=package_id, category="deferred"
     )
@@ -319,7 +323,7 @@ async def test_forfeited_deposit_refunds_in_full_only(
     )
     db.add(deposit)
     await db.flush()
-    res = await as_owner.post(f"/v1/payments/{deposit.id}/refund?amount_cents=500")
+    res = await as_owner.post(f"/v1/payments/{deposit.id}/refund", json={"amount_cents": 500})
     assert res.status_code == 409
     assert res.json()["message"] == "a forfeited deposit is refunded in full"
 
@@ -388,7 +392,7 @@ async def test_stripe_side_refund_skips_one_we_already_recorded(
     as_owner: httpx.AsyncClient, api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     _, pay_id = await _paid_invoice(as_owner, db)
-    ours = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=2000")
+    ours = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 2000})
     assert ours.status_code == 200
     our_ref = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == ours.json()["refund_id"]))
@@ -424,6 +428,6 @@ async def test_used_package_cannot_be_refunded(
     await ledger.post_payment(db, payment)
     for _ in range(2):
         await ledger.post_consumption(db, package)
-    res = await as_owner.post(f"/v1/payments/{payment.id}/refund")
+    res = await as_owner.post(f"/v1/payments/{payment.id}/refund", json={})
     assert res.status_code == 409
     assert res.json()["message"] == "can't refund a package with sessions already used"

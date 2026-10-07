@@ -12,7 +12,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
-from tests.helpers import enable_payments, sent_invoice
+from tests.helpers import card_pay, enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -33,7 +33,7 @@ async def _client_with_contact(db: AsyncSession, *, email: str | None, phone: st
 async def _pay_and_settle(
     client: httpx.AsyncClient, db: AsyncSession, inv_id: str, event_id: str
 ) -> None:
-    pay = (await client.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(client, db, inv_id)}
     pi = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
     ).scalar_one()
@@ -186,20 +186,22 @@ async def test_invoice_sent_carries_pay_link(
     assert any(f"/i/{token}" in m.body for m in sms.sent)
 
 
+@pytest.mark.parametrize("channel", ["email", "sms"])
 async def test_interac_request_reaches_client(
     as_owner: httpx.AsyncClient,
     db: AsyncSession,
     email: FakeEmailSender,
     sms: FakeSmsSender,
+    channel: str,
 ) -> None:
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     inv_id = await sent_invoice(db, client=cid, number=9600)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")
+    res = await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={"channel": channel})
     assert res.status_code == 200, res.text
     ref = res.json()["reference_code"]
     assert ref
-    assert any(ref in m.body for m in email.sent)
-    assert any(ref in m.body for m in sms.sent)
+    sent = email.sent if channel == "email" else sms.sent
+    assert any(ref in m.body for m in sent)
 
 
 async def test_refund_notifies_client(
@@ -211,7 +213,7 @@ async def test_refund_notifies_client(
     await enable_payments(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     inv_id = await sent_invoice(db, client=cid, number=9600)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
     ).scalar_one()
@@ -222,7 +224,7 @@ async def test_refund_notifies_client(
     email.sent.clear()
     sms.sent.clear()
 
-    refund = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
+    refund = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
     assert refund.status_code == 200, refund.text
     assert any("refund" in m.body.lower() and "$50.00" in m.body for m in email.sent)
     assert any("refund" in m.body.lower() for m in sms.sent)
@@ -310,7 +312,7 @@ async def test_payment_failed_notifies_client(
     await enable_payments(db)
     cid = await _client_with_contact(db, email="pat@example.ca", phone="+15145551234")
     inv_id = await sent_invoice(db, client=cid, number=9600)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
     ).scalar_one()
@@ -417,7 +419,7 @@ async def test_failing_channel_does_not_500(
 
     monkeypatch.setattr(sms, "send", boom)
 
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
     ).scalar_one()

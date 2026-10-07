@@ -13,16 +13,24 @@ from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
+from clientbridge.services.business import business_tz
 from clientbridge.services.ledger import Leg
 from clientbridge.services.tax import TaxResult, rates_for_province
-from tests.helpers import client_id
+from tests.helpers import client_id, enable_payments, settle
 
 BIZ = "bz_birchbark"
 WIDE = "start=2000-01-01&end=2100-01-01"
+SHAMPOO = "it_shampoo"
 IN_RANGE = datetime(2026, 6, 15, 12, tzinfo=UTC)
 OUT_RANGE = datetime(1990, 1, 1, 12, tzinfo=UTC)  # before WIDE start → excluded
 IN_2025 = datetime(2025, 6, 15, 12, tzinfo=UTC)
 IN_2024 = datetime(2024, 6, 15, 12, tzinfo=UTC)
+
+
+async def _income(api: httpx.AsyncClient, query: str = WIDE) -> dict[str, int]:
+    res = await api.get(f"/v1/reports/income.csv?{query}")
+    assert res.status_code == 200, res.text
+    return {row[0]: int(row[1]) for row in list(csv.reader(io.StringIO(res.text)))[1:]}
 
 
 async def _add_payment(
@@ -179,18 +187,18 @@ def test_rates_for_province_derivation() -> None:
 async def test_income_summary_nets_payments_and_refunds(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    before = (await as_owner.get(f"/v1/reports/income?{WIDE}")).json()
+    before = await _income(as_owner)
     card = await _add_payment(db, amount=10000, method="card", paid_at=IN_RANGE)
     await _add_payment(db, amount=5000, method="interac", paid_at=IN_RANGE)
     await _add_payment(db, amount=2000, method="card", paid_at=IN_RANGE, refunds=card)
     await _add_payment(db, amount=99999, method="card", paid_at=OUT_RANGE)
-    after = (await as_owner.get(f"/v1/reports/income?{WIDE}")).json()
+    after = await _income(as_owner)
 
-    assert after["gross_cents"] - before["gross_cents"] == 15000
-    assert after["refunds_cents"] - before["refunds_cents"] == 2000
-    assert after["net_cents"] - before["net_cents"] == 13000  # out-of-range 99999 excluded
-    assert after["by_method"]["card"] - before["by_method"].get("card", 0) == 8000  # 10000 - 2000
-    assert after["by_method"]["interac"] - before["by_method"].get("interac", 0) == 5000
+    assert after["gross"] - before["gross"] == 15000
+    assert after["refunds"] - before["refunds"] == 2000
+    assert after["net"] - before["net"] == 13000  # out-of-range 99999 excluded
+    assert after["method:card"] - before.get("method:card", 0) == 8000  # 10000 - 2000
+    assert after["method:interac"] - before.get("method:interac", 0) == 5000
 
 
 async def test_gst_hst_return_splits_tax_by_code(
@@ -266,10 +274,10 @@ async def test_t4a_sums_earnings_paid_in_year(
     await _earn(db, staff_id=staff_id, amount=999, at=IN_2025, stage="pending")
     await _earn(db, staff_id=staff_id, amount=8888, at=IN_2024, stage="approved")
 
-    rows = (await as_owner.get("/v1/reports/t4a?year=2025")).json()
-    row = next(r for r in rows if r["staff_id"] == staff_id)
-    assert row["total_cents"] == 6000  # paid only; approved-unpaid, pending and prior-year excluded
-    assert row["name"] == "Wade Payee"
+    res = await as_owner.get("/v1/reports/t4a.csv?year=2025")
+    row = next(r for r in csv.reader(io.StringIO(res.text)) if r[0] == staff_id)
+    assert row[2] == "6000"  # paid only; approved-unpaid, pending and prior-year excluded
+    assert row[1] == "Wade Payee"
 
 
 async def test_t4a_csv_has_header_and_values(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -316,19 +324,30 @@ async def test_gst_hst_csv_returns_text_csv(as_owner: httpx.AsyncClient) -> None
 @pytest.mark.parametrize(
     "path",
     [
-        f"/v1/reports/income?{WIDE}",
         f"/v1/reports/income.csv?{WIDE}",
         f"/v1/reports/gst-hst?{WIDE}",
         f"/v1/reports/gst-hst.csv?{WIDE}",
-        "/v1/reports/t4a?year=2025",
         "/v1/reports/t4a.csv?year=2025",
-        f"/v1/reports/sales-by-item?{WIDE}",
         f"/v1/reports/sales-by-item.csv?{WIDE}",
+        f"/v1/reports/pst.csv?{WIDE}",
+        f"/v1/reports/payouts.csv?{WIDE}",
         "/v1/dashboard/summary",
     ],
 )
 async def test_staff_forbidden(as_staff: httpx.AsyncClient, path: str) -> None:
     assert (await as_staff.get(path)).status_code == 403
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        f"/v1/reports/pst.csv?{WIDE}",
+        f"/v1/reports/payouts.csv?{WIDE}",
+        "/v1/dashboard/summary",
+    ],
+)
+async def test_unauth_401(unauth: httpx.AsyncClient, path: str) -> None:
+    assert (await unauth.get(path)).status_code == 401
 
 
 async def test_other_business_income_excluded(
@@ -339,14 +358,14 @@ async def test_other_business_income_excluded(
     )
     db.add(other)
     await db.flush()
-    before = (await as_owner.get(f"/v1/reports/income?{WIDE}")).json()
+    before = await _income(as_owner)
     await _add_payment(db, amount=50000, method="card", paid_at=IN_RANGE, biz=other.id)
-    after = (await as_owner.get(f"/v1/reports/income?{WIDE}")).json()
-    assert after["gross_cents"] == before["gross_cents"]  # other tenant's payment not counted
+    after = await _income(as_owner)
+    assert after["gross"] == before["gross"]  # other tenant's payment not counted
 
 
 async def test_malformed_date_is_422(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.get("/v1/reports/income?start=not-a-date&end=2026-01-01")
+    res = await as_owner.get("/v1/reports/income.csv?start=not-a-date&end=2026-01-01")
     assert res.status_code == 422
 
 
@@ -355,7 +374,39 @@ async def test_inverted_range_yields_empty_window(
 ) -> None:
     # end before start is an empty window: a 200 with zero totals, not an error
     await _add_payment(db, amount=12345, method="card", paid_at=IN_RANGE)
-    res = await as_owner.get("/v1/reports/income?start=2026-12-31&end=2026-01-01")
+    body = await _income(as_owner, "start=2026-12-31&end=2026-01-01")
+    assert body["gross"] == 0 and body["net"] == 0 and body["refunds"] == 0
+
+
+async def _paid_shampoo_sale(
+    api: httpx.AsyncClient, db: AsyncSession, quantity: int, event: str
+) -> dict[str, str]:
+    line = {
+        "description": SHAMPOO,
+        "item_id": SHAMPOO,
+        "quantity": quantity,
+        "unit_amount_cents": 2400,
+    }
+    sale = (await api.post("/v1/orders", json={"lines": [line]})).json()
+    pay = (await api.post(f"/v1/orders/{sale['id']}/pay", json={})).json()
+    await settle(api, db, pay["payment_id"], event)
+    return {"id": sale["id"], "payment_id": pay["payment_id"]}
+
+
+async def test_sales_by_item_report(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await enable_payments(db)
+    await _paid_shampoo_sale(as_owner, db, 3, "evt_rep1")
+    sale = await _paid_shampoo_sale(as_owner, db, 1, "evt_rep2")
+    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={})
+    order = await db.get(Order, sale["id"])
+    assert order is not None
+    _, paid_at = await ledger.order_state(db, order)
+    assert paid_at is not None
+    day = paid_at.astimezone(await business_tz(db, BIZ)).date().isoformat()
+    res = await as_owner.get(f"/v1/reports/sales-by-item.csv?start={day}&end={day}")
     assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["gross_cents"] == 0 and body["net_cents"] == 0 and body["refunds_cents"] == 0
+    rows = list(csv.DictReader(io.StringIO(res.text)))
+    (row,) = [r for r in rows if r["item"].startswith("Oatmeal")]
+    assert float(row["quantity"]) >= 4
+    assert int(row["sales_cents"]) >= 9600
+    assert int(row["refunded_cents"]) >= 2400

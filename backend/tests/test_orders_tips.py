@@ -1,4 +1,5 @@
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -134,13 +135,14 @@ async def test_a_tip_is_approved_and_paid_like_an_earning(
             )
         )
     ).scalar()
-    approved = ok(await as_owner.post(f"/v1/earnings/{journal}/approve")).json()
+    ids = {"ids": [journal]}
+    [approved] = ok(await as_owner.post("/v1/earnings/approve", json=ids)).json()["earnings"]
     assert (approved["kind"], approved["amount_cents"], approved["staff_id"]) == (
         "tip",
         300,
         "st_owner",
     )
-    paid_out = ok(await as_owner.post(f"/v1/earnings/{journal}/pay")).json()
+    [paid_out] = ok(await as_owner.post("/v1/earnings/pay", json=ids)).json()["earnings"]
     assert paid_out["status"] == "paid"
 
 
@@ -241,6 +243,51 @@ async def test_pay_link_refuses_a_tip_larger_than_the_bill(
     await sent_invoice(db, total=1000, pay_token="tok_big")
     res = await unauth.post("/pay/tok_big/card", json={"tip_cents": 5000})
     assert res.status_code == 422
+
+
+async def test_tap_to_pay_takes_a_tip_split_as_given(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [GROOM, SHAMPOO]}), 201).json()
+    split = [{"staff_id": "st_diego", "cents": 300}, {"staff_id": "st_priya", "cents": 200}]
+    out = ok(
+        await as_owner.post(
+            f"/v1/orders/{sale['id']}/checkout",
+            json={"tip_cents": 500, "tip_split": split},
+            headers=key(),
+        )
+    ).json()
+    charge = await payment(db, out["payment_id"])
+    assert (charge.amount_cents, charge.tip_cents) == (sale["total_cents"] + 500, 500)
+    assert charge.tip_split == split
+
+
+@pytest.mark.parametrize(
+    ("tip", "split", "status"),
+    [
+        (500, [{"staff_id": "st_diego", "cents": 400}], 422),
+        (0, [{"staff_id": "st_diego", "cents": 100}], 422),
+        (500, [{"staff_id": "st_nope", "cents": 500}], 404),
+    ],
+)
+async def test_tap_to_pay_refuses_a_bad_tip_split(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    tip: int,
+    split: list[dict[str, object]],
+    status: int,
+) -> None:
+    await enable_payments(db)
+    sale = ok(await as_owner.post("/v1/orders", json={"lines": [SHAMPOO]}), 201).json()
+    res = await as_owner.post(
+        f"/v1/orders/{sale['id']}/checkout",
+        json={"tip_cents": tip, "tip_split": split},
+        headers=key(),
+    )
+    assert res.status_code == status
+    opened = await db.execute(select(Payment.id).where(Payment.order_id == sale["id"]))
+    assert opened.first() is None
 
 
 async def _order(db: AsyncSession, order_id: str) -> Order:

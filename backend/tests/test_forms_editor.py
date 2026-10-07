@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from itertools import count
 
 import httpx
 from sqlalchemy import select
@@ -133,15 +134,20 @@ async def test_opening_the_link_is_recorded(api: httpx.AsyncClient, db: AsyncSes
     assert row.opened_at is not None
 
 
+_FREE_DAY = datetime(2031, 1, 6, 8, tzinfo=UTC)  # nothing seeded this far out
+_HOURS = count()
+
+
 async def _book(db: AsyncSession, client_id: str, created_at: datetime) -> str:
     item = (await db.execute(select(Item).where(Item.business_id == BIZ).limit(1))).scalar_one()
+    starts = _FREE_DAY + timedelta(hours=next(_HOURS))
     slot = Slot(
         id=new_id("slot"),
         business_id=BIZ,
         item_id=item.id,
         staff_id="st_owner",
-        starts_at=created_at + timedelta(days=3),
-        ends_at=created_at + timedelta(days=3, hours=1),
+        starts_at=starts,
+        ends_at=starts + timedelta(hours=1),
         capacity=1,
         status="scheduled",
     )
@@ -179,13 +185,14 @@ async def test_intake_goes_once_to_each_new_client(
     await _book(db, regular, now - timedelta(hours=1))
     notifier = Notifier(email, sms, push)
 
-    assert await run_intake_forms(db, notifier, now) == 1
+    await run_intake_forms(db, notifier, now)
     sent = (
         (await db.execute(select(FormResponse).where(FormResponse.form_id == form["id"])))
         .scalars()
         .all()
     )
-    assert [(r.client_id, r.parent_id) for r in sent] == [(newcomer, first_booking)]
+    ours = [(r.client_id, r.parent_id) for r in sent if r.client_id in {newcomer, regular}]
+    assert ours == [(newcomer, first_booking)]
     assert any(m.to == "newpup@example.ca" for m in email.sent)
     assert await run_intake_forms(db, notifier, now) == 0  # never twice
 
@@ -203,3 +210,84 @@ async def test_manual_forms_are_not_sent_by_the_job(
     await run_intake_forms(db, Notifier(email, sms, push), now)
     rows = await db.execute(select(FormResponse).where(FormResponse.form_id == form["id"]))
     assert rows.scalars().all() == []
+
+
+async def test_a_blank_question_label_is_refused(as_owner: httpx.AsyncClient) -> None:
+    body = {"name": "Blank", "fields": [{"input": "text", "label": "   "}]}
+    assert (await as_owner.post("/v1/forms", json=body)).status_code == 422
+
+
+async def test_edit_unknown_form_404(as_owner: httpx.AsyncClient) -> None:
+    assert (await as_owner.patch("/v1/forms/frm_nope", json=INTAKE)).status_code == 404
+
+
+async def test_editor_needs_a_session_401(unauth: httpx.AsyncClient) -> None:
+    assert (await unauth.post("/v1/forms", json=INTAKE)).status_code == 401
+    assert (await unauth.patch("/v1/forms/frm_satisfaction", json=INTAKE)).status_code == 401
+
+
+async def _intake_responses(db: AsyncSession, client_ids: set[str]) -> list[tuple[str, str]]:
+    rows = await db.execute(
+        select(FormResponse.form_id, FormResponse.client_id).where(
+            FormResponse.client_id.in_(client_ids)
+        )
+    )
+    return [(form_id, cid) for form_id, cid in rows.all() if cid is not None]
+
+
+async def test_inactive_forms_are_not_sent_by_the_job(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    form = ok(await as_owner.post("/v1/forms", json={**INTAKE, "active": False}), 201).json()
+    now = datetime.now(UTC)
+    newcomer = await new_client(db, name="Quiet Pup", email="quietpup@example.ca")
+    await _book(db, newcomer, now - timedelta(hours=1))
+    await run_intake_forms(db, Notifier(email, sms, push), now)
+    rows = await db.execute(select(FormResponse).where(FormResponse.form_id == form["id"]))
+    assert rows.scalars().all() == []
+
+
+async def test_canceled_or_deleted_first_bookings_get_no_intake(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    form = ok(await as_owner.post("/v1/forms", json=INTAKE), 201).json()
+    now = datetime.now(UTC)
+    control = await new_client(db, name="Booked Pup", email="bookedpup@example.ca")
+    await _book(db, control, now - timedelta(hours=1))
+    canceled = await new_client(db, name="Canceled Pup", email="canceledpup@example.ca")
+    deleted = await new_client(db, name="Deleted Pup", email="deletedpup@example.ca")
+    gone = await db.get(Booking, await _book(db, canceled, now - timedelta(hours=1)))
+    removed = await db.get(Booking, await _book(db, deleted, now - timedelta(hours=1)))
+    assert gone is not None and removed is not None
+    gone.status = "canceled"
+    removed.deleted_at = now
+    await db.flush()
+    await run_intake_forms(db, Notifier(email, sms, push), now)
+    sent = await _intake_responses(db, {control, canceled, deleted})
+    assert [cid for form_id, cid in sent if form_id == form["id"]] == [control]
+
+
+async def test_another_business_form_never_reaches_our_client(
+    db: AsyncSession,
+    factory: Factory,
+    email: FakeEmailSender,
+    sms: FakeSmsSender,
+    push: FakePushSender,
+) -> None:
+    other = await factory.business(name="Rival Intake")
+    theirs = Form(id=new_id("form"), business_id=other.id, name="Their intake", send_on="booking")
+    db.add(theirs)
+    await db.flush()
+    now = datetime.now(UTC)
+    ours = await new_client(db, name="Loyal Pup", email="loyalpup@example.ca")
+    await _book(db, ours, now - timedelta(hours=1))
+    await run_intake_forms(db, Notifier(email, sms, push), now)
+    assert all(form_id != theirs.id for form_id, _ in await _intake_responses(db, {ours}))

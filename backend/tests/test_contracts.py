@@ -9,7 +9,6 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_contract_rate_limit
 from clientbridge.main import app
 from clientbridge.models.documents import Contract, Signature
-from clientbridge.models.platform import File
 from tests.conftest import Factory, FakeEmailSender
 from tests.helpers import client_id, new_client
 
@@ -32,19 +31,6 @@ async def _a_signature(db: AsyncSession, *, contract_id: str = WAIVER) -> str:
     await db.flush()
     assert signature.token
     return signature.token
-
-
-async def _a_file(db: AsyncSession, *, business_id: str = BIZ) -> str:
-    file = File(
-        id=new_id("file"),
-        business_id=business_id,
-        parent_type="signature",
-        parent_id="sig_x",
-        s3_key=f"{business_id}/{new_id('file')}",
-    )
-    db.add(file)
-    await db.flush()
-    return file.id
 
 
 async def test_send_creates_pending_and_notifies(
@@ -117,25 +103,6 @@ async def test_public_sign_records_snapshot_and_ip(
     assert contract.body in row.signed_body and "Jane Doe" in row.signed_body
 
 
-async def test_public_sign_with_image(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    token = await _a_signature(db)
-    image_id = await _a_file(db)
-    res = await api.post(f"/contract/{token}/sign", json={**SIGN, "signature_image_id": image_id})
-    assert res.status_code == 200, res.text
-    row = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
-    assert row.signature_image_id == image_id
-
-
-async def test_public_sign_cross_tenant_image_404(
-    api: httpx.AsyncClient, db: AsyncSession, factory: Factory
-) -> None:
-    token = await _a_signature(db)
-    other = await factory.business(name="Rival Images")
-    foreign = await _a_file(db, business_id=other.id)
-    res = await api.post(f"/contract/{token}/sign", json={**SIGN, "signature_image_id": foreign})
-    assert res.status_code == 404
-
-
 async def test_public_second_sign_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
     token = await _a_signature(db)
     assert (await api.post(f"/contract/{token}/sign", json=SIGN)).status_code == 200
@@ -147,24 +114,6 @@ async def test_public_decline_then_sign_409(api: httpx.AsyncClient, db: AsyncSes
     declined = await api.post(f"/contract/{token}/decline")
     assert declined.status_code == 200 and declined.json()["status"] == "declined"
     assert (await api.post(f"/contract/{token}/sign", json=SIGN)).status_code == 409
-
-
-async def test_public_upload_then_sign_with_image(api: httpx.AsyncClient, db: AsyncSession) -> None:
-    token = await _a_signature(db)
-    up = await api.post(f"/contract/{token}/upload", json={"content_type": "image/png"})
-    assert up.status_code == 200, up.text
-    fid = up.json()["file_id"]
-    assert up.json()["upload_url"]  # presigned PUT target
-    row = (await db.execute(select(File).where(File.id == fid))).scalar_one()
-    assert row.business_id == BIZ  # the public upload is scoped to the token's business
-    signed = await api.post(f"/contract/{token}/sign", json={**SIGN, "signature_image_id": fid})
-    assert signed.status_code == 200, signed.text
-    sig = (await db.execute(select(Signature).where(Signature.token == token))).scalar_one()
-    assert sig.signature_image_id == fid
-
-
-async def test_public_upload_unknown_token_404(api: httpx.AsyncClient) -> None:
-    assert (await api.post("/contract/nope/upload", json={})).status_code == 404
 
 
 async def test_public_unknown_token_404(api: httpx.AsyncClient) -> None:

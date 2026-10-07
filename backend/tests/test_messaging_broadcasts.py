@@ -171,3 +171,35 @@ async def test_cancel_is_tenant_scoped(
     assert (await as_owner.post(f"/v1/broadcasts/{bid}/cancel")).status_code == 404
     row = (await db.execute(select(Broadcast).where(Broadcast.id == bid))).scalar_one()
     assert row.status == "scheduled"
+
+
+async def test_cancel_unknown_broadcast_404(as_owner: httpx.AsyncClient) -> None:
+    assert (await as_owner.post("/v1/broadcasts/bc_nope/cancel")).status_code == 404
+
+
+async def test_cancel_needs_a_session_401(unauth: httpx.AsyncClient, db: AsyncSession) -> None:
+    bid = await _scheduled(db)
+    assert (await unauth.post(f"/v1/broadcasts/{bid}/cancel")).status_code == 401
+
+
+async def test_the_job_sends_a_due_broadcast_and_keeps_its_counts(
+    db: AsyncSession, sms: FakeSmsSender, email: FakeEmailSender
+) -> None:
+    ids = await _audience(db)
+    bid = await _scheduled(db)
+    await db.execute(
+        update(Broadcast).where(Broadcast.id == bid).values(audience={"tags": ["promo"]})
+    )
+    await db.flush()
+    later = datetime.now(UTC) + timedelta(days=2)
+    assert await run_due_broadcasts(db, sms, email, later) >= 1
+    row = (
+        await db.execute(
+            select(Broadcast).where(Broadcast.id == bid).execution_options(populate_existing=True)
+        )
+    ).scalar_one()
+    assert (row.recipient_count, row.excluded_count, row.status) == (2, 2, "sent")
+    stopped = await db.get(Client, ids["stopped"])
+    assert stopped is not None
+    assert stopped.phone not in {m.to for m in sms.sent}
+    assert sorted(m.to for m in sms.sent) == ["+15145558000", "+15145558001"]

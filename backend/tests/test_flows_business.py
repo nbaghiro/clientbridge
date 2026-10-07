@@ -38,7 +38,11 @@ async def test_sign_up_onboard_invite_and_accept(unauth: httpx.AsyncClient) -> N
         )
     ).json()
     api.headers["Authorization"] = f"Bearer {joined['access_token']}"
-    page = ok(await api.get("/v1/clients")).json()
-    assert [c["id"] for c in page["items"]] == [client["id"]]
+    team = ok(await api.get("/v1/staff/team")).json()
+    assert sorted(m["role"] for m in team["members"]) == ["owner", "staff"]
+    note = await api.post(
+        "/v1/notes", json={"parent_type": "client", "parent_id": client["id"], "body": "Hello"}
+    )
+    assert note.status_code == 201
     denied = await api.post("/v1/staff/invites", json={"email": "x@flow.test", "role": "staff"})
     assert denied.status_code == 403

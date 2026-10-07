@@ -85,7 +85,7 @@ async def test_send_is_tenant_isolated(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     other = await factory.business(name="Rival Forms")
-    form = Form(id=new_id("form"), business_id=other.id, name="Theirs", attach_to=[])
+    form = Form(id=new_id("form"), business_id=other.id, name="Theirs")
     db.add(form)
     await db.flush()
     cid = await client_id(db)

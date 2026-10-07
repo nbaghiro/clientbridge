@@ -1,6 +1,7 @@
 """Catalog (items) endpoints + the business tax-rates list, against the seeded DB."""
 
 import httpx
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,15 +12,7 @@ from tests.conftest import Factory
 BIZ = "bz_birchbark"
 
 
-async def test_list_items_is_business_scoped(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.get("/v1/items", params={"limit": 5})
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["total"] > 0
-    assert all(i["business_id"] == BIZ for i in body["items"])
-
-
-async def test_create_get_update_deactivate(as_owner: httpx.AsyncClient) -> None:
+async def test_create_update_deactivate(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     res = await as_owner.post(
         "/v1/items",
         json={"kind": "service", "name": "Nail trim", "price_cents": 2500, "duration_min": 20},
@@ -32,24 +25,19 @@ async def test_create_get_update_deactivate(as_owner: httpx.AsyncClient) -> None
     assert item["price_cents"] == 2500
     assert item["active"] is True
 
-    res = await as_owner.get(f"/v1/items/{iid}")
-    assert res.status_code == 200
-    assert res.json()["name"] == "Nail trim"
-
     res = await as_owner.patch(f"/v1/items/{iid}", json={"price_cents": 3000})
     assert res.status_code == 200
     assert res.json()["price_cents"] == 3000
 
-    # delete = deactivate (items are referenced; not hard-removed)
-    res = await as_owner.delete(f"/v1/items/{iid}")
-    assert res.status_code == 204
-    res = await as_owner.get(f"/v1/items/{iid}")
+    # items are referenced by lines, so they are deactivated rather than removed
+    res = await as_owner.patch(f"/v1/items/{iid}", json={"active": False})
     assert res.status_code == 200
-    assert res.json()["active"] is False
+    row = await db.get(Item, iid, populate_existing=True)
+    assert row is not None and row.active is False and row.name == "Nail trim"
 
 
-async def test_get_unknown_item_404(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.get("/v1/items/it_nope")
+async def test_update_unknown_item_404(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch("/v1/items/it_nope", json={"price_cents": 100})
     assert res.status_code == 404
 
 
@@ -68,11 +56,10 @@ async def test_foreign_item_404_by_scoping(
     db.add(item)
     await db.flush()
 
-    assert (await as_owner.get(f"/v1/items/{item.id}")).status_code == 404
     assert (
         await as_owner.patch(f"/v1/items/{item.id}", json={"price_cents": 9999})
     ).status_code == 404
-    assert (await as_owner.delete(f"/v1/items/{item.id}")).status_code == 404
+    assert (await as_owner.patch(f"/v1/items/{item.id}", json={"active": False})).status_code == 404
 
     after = await db.get(Item, item.id)
     assert after is not None
@@ -99,9 +86,28 @@ async def test_staff_cannot_write_catalog(as_staff: httpx.AsyncClient) -> None:
     assert res.status_code == 403
 
 
-async def test_unauth_cannot_list_items(unauth: httpx.AsyncClient) -> None:
-    res = await unauth.get("/v1/items")
-    assert res.status_code == 401
+async def test_staff_cannot_deactivate_an_item_403(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    res = await as_staff.patch("/v1/items/it_shampoo", json={"active": False})
+    assert res.status_code == 403
+    row = await db.get(Item, "it_shampoo", populate_existing=True)
+    assert row is not None and row.active is True
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("POST", "/v1/items", {"kind": "service", "name": "x", "price_cents": 100}),
+        ("PATCH", "/v1/items/it_shampoo", {"active": False}),
+        ("POST", "/v1/items/tax-class", {"item_ids": ["it_shampoo"], "tax_class": "exempt"}),
+        ("POST", "/v1/items/it_shampoo/restock", {"quantity": 5}),
+    ],
+)
+async def test_unauth_401(
+    unauth: httpx.AsyncClient, method: str, path: str, body: dict[str, object]
+) -> None:
+    assert (await unauth.request(method, path, json=body)).status_code == 401
 
 
 async def test_invalid_kind_is_422(as_owner: httpx.AsyncClient) -> None:

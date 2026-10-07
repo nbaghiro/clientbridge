@@ -1,6 +1,7 @@
 """Pets and other subjects on a client: add, edit, remove."""
 
 import httpx
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,8 +55,13 @@ async def test_unknown_client_404(as_owner: httpx.AsyncClient) -> None:
     assert res.status_code == 404
 
 
-async def test_requires_auth_401(unauth: httpx.AsyncClient) -> None:
-    res = await unauth.post("/v1/subjects", json={"client_id": "cl_grace", "name": "X"})
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [("POST", "/v1/subjects"), ("PATCH", "/v1/subjects/sj_rex"), ("DELETE", "/v1/subjects/sj_rex")],
+)
+async def test_requires_auth_401(unauth: httpx.AsyncClient, method: str, path: str) -> None:
+    body = {"client_id": "cl_grace", "name": "X"}
+    res = await unauth.request(method, path, json=None if method == "DELETE" else body)
     assert res.status_code == 401
 
 

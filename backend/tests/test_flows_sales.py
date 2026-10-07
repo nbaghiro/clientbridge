@@ -3,7 +3,7 @@
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.catalog import GiftCard, Package
+from clientbridge.models.catalog import GiftCard, Item, Package
 from clientbridge.services.entitlements import run_expiry_sweeps
 from tests.conftest import FakeEmailSender
 from tests.helpers import (
@@ -34,8 +34,10 @@ def _line(item_id: str, cents: int, quantity: int = 1) -> dict[str, object]:
     }
 
 
-async def _stock(api: httpx.AsyncClient, item_id: str) -> int:
-    return int(ok(await api.get(f"/v1/items/{item_id}")).json()["stock_on_hand"])
+async def _stock(db: AsyncSession, item_id: str) -> int:
+    item = await db.get(Item, item_id, populate_existing=True)
+    assert item is not None and item.stock_on_hand is not None
+    return item.stock_on_hand
 
 
 async def test_pos_sale_moves_stock_pays_commission_and_refunds(
@@ -66,20 +68,20 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
     paid = await order(db, sale["id"])
     assert (paid.status, paid.balance_cents) == ("paid", 0)
     assert paid.amount_paid_cents == sale["total_cents"] and paid.paid_at is not None
-    assert await _stock(api, SHAMPOO) == 3
+    assert await _stock(db, SHAMPOO) == 3
     [commission] = await earnings(db, "order", sale["id"])
     assert await earning_status(db, commission) == "pending"
     (receipt,) = [m for m in email.sent if m.to == "walkin-flow@example.ca"]
     assert "it_shampoo x2  $48.00 CAD" in receipt.body
 
     await settle(api, db, charge["payment_id"])  # a redelivered settlement changes nothing
-    assert await _stock(api, SHAMPOO) == 3
+    assert await _stock(db, SHAMPOO) == 3
     assert await earnings(db, "order", sale["id"]) == [commission]
 
-    ok(await api.post(f"/v1/payments/{charge['payment_id']}/refund"))
+    ok(await api.post(f"/v1/payments/{charge['payment_id']}/refund", json={}))
     refunded = await order(db, sale["id"])
     assert (refunded.status, refunded.amount_paid_cents) == ("refunded", 0)
-    assert await _stock(api, SHAMPOO) == 5
+    assert await _stock(db, SHAMPOO) == 5
     assert await earning_status(db, commission) == "reversed"
 
 

@@ -19,7 +19,7 @@ async def test_request_interac_creates_pending(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     inv_id = await sent_invoice(db, number=9100)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")
+    res = await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})
     assert res.status_code == 200, res.text
     body = res.json()
     assert len(body["reference_code"]) == 8
@@ -33,7 +33,7 @@ async def test_webhook_automatches_and_pays_invoice(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     inv_id = await sent_invoice(db, number=9100)
-    req = (await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")).json()
+    req = (await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})).json()
     res = await as_owner.post(
         "/webhooks/interac", json=_etransfer(req["reference_code"], 5000), headers=GOOD
     )
@@ -51,7 +51,7 @@ async def test_underpaid_etransfer_does_not_match(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     inv_id = await sent_invoice(db, number=9100)
-    req = (await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")).json()
+    req = (await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})).json()
     res = await as_owner.post(
         "/webhooks/interac", json=_etransfer(req["reference_code"], 4000), headers=GOOD
     )
@@ -76,7 +76,7 @@ async def test_bad_secret_rejected(as_owner: httpx.AsyncClient) -> None:
 
 async def test_staff_cannot_request_interac(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     inv_id = await sent_invoice(db, number=9100)
-    res = await as_staff.post(f"/v1/payments/invoice/{inv_id}/interac")
+    res = await as_staff.post(f"/v1/invoices/{inv_id}/interac-request", json={})
     assert res.status_code == 403
 
 
@@ -84,7 +84,7 @@ async def test_duplicate_webhook_settles_once(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     inv_id = await sent_invoice(db, number=9100)
-    req = (await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")).json()
+    req = (await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})).json()
     first = await as_owner.post(
         "/webhooks/interac", json=_etransfer(req["reference_code"], 5000), headers=GOOD
     )
@@ -112,7 +112,7 @@ async def test_overpaid_etransfer_matches_at_requested_amount(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     inv_id = await sent_invoice(db, number=9100, total=5000)
-    req = (await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")).json()
+    req = (await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})).json()
     # the client sends MORE than the balance — still matches; net is the requested amount, no fee
     res = await as_owner.post(
         "/webhooks/interac", json=_etransfer(req["reference_code"], 6000), headers=GOOD

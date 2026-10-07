@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
+from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.payments import Payment
+from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.services import ledger
 from tests.conftest import Factory, book_invoice
-from tests.helpers import enable_payments, sent_invoice
+from tests.helpers import card_pay, enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
 
@@ -36,16 +37,42 @@ async def _provider_ref(db: AsyncSession, payment_id: str) -> str:
     return ref
 
 
-async def test_pay_invoice_creates_intent(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+async def _charge_saved_card(
+    api: httpx.AsyncClient, db: AsyncSession, invoice_id: str, amount: int, idem: str = "card"
+) -> httpx.Response:
+    inv = await db.get(Invoice, invoice_id)
+    assert inv is not None
+    pm = (
+        await db.execute(select(PaymentMethod).where(PaymentMethod.client_id == inv.client_id))
+    ).scalar()
+    if pm is None:
+        await db.execute(
+            update(Client).where(Client.id == inv.client_id).values(stripe_customer_id="cus_pay")
+        )
+        pm = PaymentMethod(
+            id=new_id("payment_method"),
+            business_id=BIZ,
+            client_id=inv.client_id,
+            method="card",
+            provider="stripe",
+            provider_ref="pm_pay",
+            status="active",
+        )
+        db.add(pm)
+        await db.flush()
+    body = {"method": "card", "amount_cents": amount, "payment_method_id": pm.id}
+    return await api.post(
+        f"/v1/invoices/{invoice_id}/payments", json=body, headers={"Idempotency-Key": idem}
+    )
+
+
+async def test_pay_link_creates_intent(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["amount_cents"] == 11200
-    assert body["client_secret"].startswith("pi_fake")
-    pay = (await db.execute(select(Payment).where(Payment.id == body["payment_id"]))).scalar_one()
-    assert pay.status == "pending"
+    pay = (
+        await db.execute(select(Payment).where(Payment.id == await card_pay(as_owner, db, inv_id)))
+    ).scalar_one()
+    assert pay.status == "pending" and pay.amount_cents == 11200
     assert pay.provider_ref is not None and pay.provider_ref.startswith("pi_fake")
 
 
@@ -54,7 +81,7 @@ async def test_succeeded_webhook_marks_invoice_paid(
 ) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi_id = await _provider_ref(db, pay["payment_id"])
     res = await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_p1", pi_id), headers={"Stripe-Signature": "good"}
@@ -72,7 +99,7 @@ async def test_settlement_books_stripe_and_platform_fees(
     # Stripe's processing fee and our application fee both come off the provider's balance
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi_id = await _provider_ref(db, pay["payment_id"])
     res = await as_owner.post(
         "/webhooks/stripe",
@@ -102,7 +129,7 @@ async def test_partial_payment_marks_invoice_partial(
 ) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=10000)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}?amount_cents=4000")).json()
+    pay = (await _charge_saved_card(as_owner, db, inv_id, 4000)).json()
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_pp", pi_id), headers={"Stripe-Signature": "good"}
@@ -116,12 +143,12 @@ async def test_partial_payment_marks_invoice_partial(
 async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_r1", pi_id), headers={"Stripe-Signature": "good"}
     )
-    refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
+    refunded = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
     assert refunded.status_code == 200
     inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     assert (await ledger.invoice_state(db, inv))[0] == "refunded"
@@ -138,13 +165,15 @@ async def test_refund_credits_the_invoice(as_owner: httpx.AsyncClient, db: Async
 async def test_double_refund_rejected(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_dr", pi_id), headers={"Stripe-Signature": "good"}
     )
-    assert (await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")).status_code == 200
-    again = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund")
+    assert (
+        await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
+    ).status_code == 200
+    again = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", json={})
     assert again.status_code == 409  # a fresh-key second refund — no second real refund
 
 
@@ -154,14 +183,18 @@ async def test_refund_same_idempotency_key_replays(
     # a retried refund (same Idempotency-Key) replays the original 200, not a 409, and mints one row
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe", content=_pi_event("evt_ri", pi_id), headers={"Stripe-Signature": "good"}
     )
     headers = {"Idempotency-Key": "refund-key-1"}
-    first = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", headers=headers)
-    second = await as_owner.post(f"/v1/payments/{pay['payment_id']}/refund", headers=headers)
+    first = await as_owner.post(
+        f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=headers
+    )
+    second = await as_owner.post(
+        f"/v1/payments/{pay['payment_id']}/refund", json={}, headers=headers
+    )
     assert first.status_code == 200 and second.status_code == 200, second.text
     assert first.json()["refund_id"] == second.json()["refund_id"]
     refunds = (
@@ -179,11 +212,10 @@ async def test_pending_payment_blocks_overpay(
 ) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    assert (
-        await as_owner.post(f"/v1/payments/invoice/{inv_id}")
-    ).status_code == 200  # full balance
+    await card_pay(as_owner, db, inv_id)  # full balance
     # a second method while the first is still pending would overpay → rejected
-    assert (await as_owner.post(f"/v1/payments/invoice/{inv_id}/interac")).status_code == 409
+    interac = await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})
+    assert interac.status_code == 409
 
 
 async def test_failed_webhook_marks_payment_failed(
@@ -191,7 +223,7 @@ async def test_failed_webhook_marks_payment_failed(
 ) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe",
@@ -207,7 +239,7 @@ async def test_failed_webhook_marks_payment_failed(
 async def test_canceled_intent_frees_room(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).json()
+    pay = {"payment_id": await card_pay(as_owner, db, inv_id)}
     pi_id = await _provider_ref(db, pay["payment_id"])
     await as_owner.post(
         "/webhooks/stripe",
@@ -216,47 +248,36 @@ async def test_canceled_intent_frees_room(as_owner: httpx.AsyncClient, db: Async
     )
     pmt = (await db.execute(select(Payment).where(Payment.id == pay["payment_id"]))).scalar_one()
     assert pmt.status == "canceled"
-    # the pending row no longer reserves the balance → the invoice can be charged again
-    assert (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).status_code == 200
+    # the pending row no longer reserves the balance, so another method can take it
+    interac = await as_owner.post(f"/v1/invoices/{inv_id}/interac-request", json={})
+    assert interac.status_code == 200, interac.text
 
 
 async def test_cannot_pay_when_not_onboarded(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await db.execute(
         update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)
     )
-    await db.flush()
-    inv_id = await sent_invoice(db, number=9001, total=11200)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
+    inv_id = await sent_invoice(db, number=9001, total=11200, pay_token="tok-not-onboarded")
+    res = await as_owner.post("/pay/tok-not-onboarded/card", json={})
     assert res.status_code == 409
+    assert (
+        await db.execute(select(Payment.id).where(Payment.invoice_id == inv_id))
+    ).first() is None
 
 
 async def test_cannot_pay_void_invoice(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
-    inv_id = await sent_invoice(db, number=9001, total=11200, status="void")
-    res = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
-    assert res.status_code == 409
+    await sent_invoice(db, number=9001, total=11200, status="void", pay_token="tok-void")
+    assert (await as_owner.post("/pay/tok-void/card", json={})).status_code == 409
 
 
-async def test_unknown_invoice_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await enable_payments(db)
-    res = await as_owner.post("/v1/payments/invoice/inv_nope")
-    assert res.status_code == 404
-
-
-async def test_staff_cannot_pay(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
+async def test_staff_cannot_charge_a_saved_card(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
     inv_id = await sent_invoice(db, number=9001, total=11200)
-    res = await as_staff.post(f"/v1/payments/invoice/{inv_id}")
+    body = {"method": "card", "amount_cents": 1000, "payment_method_id": "default"}
+    res = await as_staff.post(f"/v1/invoices/{inv_id}/payments", json=body)
     assert res.status_code == 403
-
-
-async def test_pay_idempotent_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await enable_payments(db)
-    inv_id = await sent_invoice(db, number=9001, total=11200)
-    headers = {"Idempotency-Key": "pay-1"}
-    first = await as_owner.post(f"/v1/payments/invoice/{inv_id}", headers=headers)
-    second = await as_owner.post(f"/v1/payments/invoice/{inv_id}", headers=headers)
-    assert first.status_code == 200 and second.status_code == 200
-    assert first.json()["payment_id"] == second.json()["payment_id"]
 
 
 async def test_distinct_partials_same_amount_not_deduped(
@@ -264,23 +285,20 @@ async def test_distinct_partials_same_amount_not_deduped(
 ) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=10000)
-    url = f"/v1/payments/invoice/{inv_id}?amount_cents=4000"
-    r1 = await as_owner.post(url, headers={"Idempotency-Key": "k1"})
-    r2 = await as_owner.post(url, headers={"Idempotency-Key": "k2"})
-    assert r1.status_code == 200 and r2.status_code == 200, (r1.text, r2.text)
+    r1 = await _charge_saved_card(as_owner, db, inv_id, 4000, "k1")
+    r2 = await _charge_saved_card(as_owner, db, inv_id, 4000, "k2")
+    assert r1.status_code == 201 and r2.status_code == 201, (r1.text, r2.text)
     assert r1.json()["payment_id"] != r2.json()["payment_id"]
     ref1 = await _provider_ref(db, r1.json()["payment_id"])
     ref2 = await _provider_ref(db, r2.json()["payment_id"])
-    assert ref1 != ref2  # two distinct Stripe intents — no silent under-collection
+    assert ref1 != ref2  # two distinct Stripe intents, no silent under-collection
 
 
 async def test_same_key_partial_is_deduped(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
     await enable_payments(db)
     inv_id = await sent_invoice(db, number=9001, total=10000)
-    url = f"/v1/payments/invoice/{inv_id}?amount_cents=4000"
-    headers = {"Idempotency-Key": "same"}
-    r1 = await as_owner.post(url, headers=headers)
-    r2 = await as_owner.post(url, headers=headers)
+    r1 = await _charge_saved_card(as_owner, db, inv_id, 4000, "same")
+    r2 = await _charge_saved_card(as_owner, db, inv_id, 4000, "same")
     assert r1.json()["payment_id"] == r2.json()["payment_id"]  # one charge for a true retry
 
 
@@ -310,9 +328,10 @@ async def test_pay_foreign_invoice_404_by_scoping(
     # BIZ is onboarded, so the 404 comes from the business-scoped lookup, not a missing id
     await enable_payments(db)
     foreign_inv = await _foreign_invoice(db, factory)
-    res = await as_owner.post(f"/v1/payments/invoice/{foreign_inv}")
+    body = {"method": "card", "amount_cents": 1000, "payment_method_id": "default"}
+    res = await as_owner.post(f"/v1/invoices/{foreign_inv}/payments", json=body)
     assert res.status_code == 404
-    interac = await as_owner.post(f"/v1/payments/invoice/{foreign_inv}/interac")
+    interac = await as_owner.post(f"/v1/invoices/{foreign_inv}/interac-request", json={})
     assert interac.status_code == 404
     # the foreign invoice is untouched — no payment was minted against it
     minted = (
@@ -342,7 +361,7 @@ async def test_refund_foreign_payment_404_by_scoping(
     )
     db.add(foreign_pay)
     await db.flush()
-    res = await as_owner.post(f"/v1/payments/{foreign_pay.id}/refund")
+    res = await as_owner.post(f"/v1/payments/{foreign_pay.id}/refund", json={})
     assert res.status_code == 404  # scoped out, not refunded across the tenant boundary
     # no refund row was created and the foreign payment is still a clean succeeded charge
     refund = (

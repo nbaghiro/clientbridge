@@ -195,3 +195,15 @@ async def test_composer_tax_class_is_kept(as_owner: httpx.AsyncClient, db: Async
     body = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})).json()
     assert body["lines"][0]["tax_class"] == "federal_only"
     assert body["tax_total_cents"] == 500  # GST only
+
+
+async def test_line_staff_must_be_on_the_team_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.staff(business=await factory.business())
+    cid = await client_id(db)
+    for staff_id in ("st_nope", other.id):
+        line = {"description": "Groom", "unit_amount_cents": 5000, "staff_id": staff_id}
+        res = await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})
+        assert res.status_code == 404, res.text
+        assert res.json()["message"] == "staff member not found"

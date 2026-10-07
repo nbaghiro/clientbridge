@@ -134,20 +134,16 @@ async def test_closure_blocks_every_member(as_owner: httpx.AsyncClient, db: Asyn
     )
     for staff in (ST_OWNER, ST_PRIYA):
         res = await as_owner.post(
-            "/v1/bookings/check",
+            "/v1/bookings",
             json={
+                "client_id": "cl_amelie",
                 "item_id": await _service(db),
                 "staff_id": staff,
                 "starts_at": "2027-03-08T18:00:00Z",
             },
         )
-        assert res.status_code == 200
-        assert res.json() == {
-            "ok": False,
-            "problem": "closed",
-            "reason": "Closed",
-            "message": "the business is closed then",
-        }
+        assert res.status_code == 409
+        assert res.json()["message"] == "the business is closed then"
 
 
 async def test_owner_removes_time_off(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -197,11 +193,12 @@ async def test_staff_cannot_remove_a_closure(as_staff: httpx.AsyncClient, db: As
     assert await db.get(Hours, "av_closed") is not None
 
 
-async def test_unauth_cannot_add_time_off(unauth: httpx.AsyncClient) -> None:
+async def test_unauth_cannot_add_or_remove_time_off(unauth: httpx.AsyncClient) -> None:
     res = await unauth.post(
         "/v1/time-off", json=_away(ST_OWNER, "2027-03-02T20:00:00Z", "2027-03-02T22:00:00Z")
     )
     assert res.status_code == 401
+    assert (await unauth.delete("/v1/time-off/av_st_owner_1")).status_code == 401
 
 
 async def test_time_off_must_end_after_it_starts(as_owner: httpx.AsyncClient) -> None:

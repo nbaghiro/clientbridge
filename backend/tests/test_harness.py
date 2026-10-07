@@ -51,13 +51,13 @@ async def test_auth_clients_resolve_principal(
     as_owner: httpx.AsyncClient, as_staff: httpx.AsyncClient
 ) -> None:
     for client in (as_owner, as_staff):
-        res = await client.get("/v1/clients", params={"limit": 1})
+        res = await client.get("/v1/staff/team")
         assert res.status_code == 200
-        assert res.json()["total"] > 0
+        assert len(res.json()["members"]) > 0
 
 
 async def test_unauth_rejected(unauth: httpx.AsyncClient) -> None:
-    res = await unauth.get("/v1/clients", params={"limit": 1})
+    res = await unauth.get("/v1/staff/team")
     assert res.status_code == 401
 
 

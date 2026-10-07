@@ -298,7 +298,6 @@ async def test_staff_cannot_change_or_cancel_anothers_series(
         client_id=CL_AMELIE,
         frequency="week",
         interval=1,
-        start_date=date(2027, 3, 1),
         status="active",
     )
     db.add(recurrence)
@@ -352,7 +351,6 @@ async def test_another_business_series_404(
         client_id=client.id,
         frequency="week",
         interval=1,
-        start_date=date(2027, 3, 1),
         status="active",
     )
     db.add(recurrence)

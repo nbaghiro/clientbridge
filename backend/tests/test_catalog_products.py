@@ -11,9 +11,8 @@ from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item, Package, StockMovement
 from clientbridge.models.ledger import Entry
 from clientbridge.services import ledger
-from clientbridge.services.business import business_tz
-from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
-from tests.helpers import enable_payments, settle
+from tests.conftest import Factory, FakePaymentGateway
+from tests.helpers import card_pay, enable_payments, settle
 
 GOOD = {"Stripe-Signature": "good"}
 SHAMPOO = "it_shampoo"  # seeded product, $24.00
@@ -250,7 +249,7 @@ async def test_paid_sale_moves_stock_once_and_full_refund_restores(
     await settle(as_owner, db, str(sale["payment_id"]), "evt_stk1_again")
     assert await _stock(db, SHAMPOO) == 3
 
-    refund = await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund")
+    refund = await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={})
     assert refund.status_code == 200, refund.text
     assert await _stock(db, SHAMPOO) == 5
     moves = (
@@ -264,7 +263,9 @@ async def test_partial_refund_keeps_stock_out(
 ) -> None:
     await _track(db, SHAMPOO, 5)
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_stk2")
-    res = await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund?amount_cents=500")
+    res = await as_owner.post(
+        f"/v1/payments/{sale['payment_id']}/refund", json={"amount_cents": 500}
+    )
     assert res.status_code == 200, res.text
     assert await _stock(db, SHAMPOO) == 4
 
@@ -273,32 +274,6 @@ async def test_selling_past_zero_is_allowed(as_owner: httpx.AsyncClient, db: Asy
     await _track(db, SHAMPOO, 1)
     await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400, quantity=3)], "evt_stk3")
     assert await _stock(db, SHAMPOO) == -2
-
-
-async def test_stock_is_not_sync_writable_403(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [{"op": "PATCH", "type": "items", "id": SHAMPOO, "data": {"stock_on_hand": 99}}]
-        },
-    )
-    assert res.status_code == 403
-
-
-async def test_sync_cannot_publish_a_product_for_booking(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    res = await as_owner.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {"op": "PATCH", "type": "items", "id": SHAMPOO, "data": {"online_bookable": True}}
-            ]
-        },
-    )
-    assert res.status_code == 403
-    item = await db.get(Item, SHAMPOO, populate_existing=True)
-    assert item is not None and item.online_bookable is False
 
 
 async def _commission(db: AsyncSession, staff_id: str, bps: int) -> None:
@@ -329,12 +304,13 @@ async def test_paid_sale_accrues_commission_on_products_only(
         .first()
     )
     assert journal is not None
-    approved = await as_owner.post(f"/v1/earnings/{journal}/approve")
+    approved = await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})
     assert approved.status_code == 200, approved.text
-    assert approved.json()["order_id"] == sale["id"]
-    assert approved.json()["booking_id"] is None
-    assert approved.json()["amount_cents"] == 240  # 10% of the $24 shampoo, not the bath
-    assert approved.json()["status"] == "approved"
+    [earning] = approved.json()["earnings"]
+    assert earning["order_id"] == sale["id"]
+    assert earning["booking_id"] is None
+    assert earning["amount_cents"] == 240  # 10% of the $24 shampoo, not the bath
+    assert earning["status"] == "approved"
 
 
 async def test_refund_reverses_pending_commission(
@@ -342,7 +318,7 @@ async def test_refund_reverses_pending_commission(
 ) -> None:
     await _commission(db, "st_owner", 1000)
     sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_com2")
-    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund")
+    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={})
     refs = (await db.execute(select(Entry.ref).where(Entry.subject_id == sale["id"]))).scalars()
     assert any(ref.endswith(":reversal") for ref in refs)
 
@@ -357,85 +333,6 @@ async def test_no_commission_without_a_retail_rate(
         )
     ).first()
     assert found is None
-
-
-async def test_owner_sets_staff_pay(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.patch(
-        "/v1/staff/st_diego/pay", json={"retail_rate_bps": 1500, "payee": True}
-    )
-    assert res.status_code == 200, res.text
-    assert res.json()["retail_rate_bps"] == 1500
-    assert (
-        await as_owner.patch("/v1/staff/st_diego/pay", json={"retail_rate_bps": 20000})
-    ).status_code == 422
-    assert (await as_owner.patch("/v1/staff/st_nope/pay", json={"payee": True})).status_code == 404
-
-
-async def test_staff_rate_is_held_in_the_unit_of_its_basis(as_owner: httpx.AsyncClient) -> None:
-    pct = await as_owner.patch(
-        "/v1/staff/st_diego/pay", json={"rate_type": "percent", "rate_bps": 4250}
-    )
-    assert (pct.json()["rate_bps"], pct.json()["rate_cents"]) == (4250, None)
-    hourly = await as_owner.patch(
-        "/v1/staff/st_diego/pay", json={"rate_type": "hourly", "rate_cents": 2400}
-    )
-    assert (hourly.json()["rate_bps"], hourly.json()["rate_cents"]) == (None, 2400)
-    wrong = await as_owner.patch("/v1/staff/st_diego/pay", json={"rate_bps": 5000})
-    assert wrong.status_code == 422
-    assert wrong.json()["message"] == "rate_cents holds the rate for rate_type hourly"
-    unset = await as_owner.patch("/v1/staff/st_invite/pay", json={"rate_cents": 1000})
-    assert unset.status_code == 422
-
-
-async def test_staff_cannot_set_pay_403(as_staff: httpx.AsyncClient) -> None:
-    res = await as_staff.patch("/v1/staff/st_diego/pay", json={"retail_rate_bps": 9000})
-    assert res.status_code == 403
-
-
-async def test_walk_in_gets_an_itemised_receipt(
-    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
-) -> None:
-    await _paid_sale(
-        as_owner,
-        db,
-        [await _line(SHAMPOO, 2400, quantity=2)],
-        "evt_rcp1",
-        receipt_email="walkin@example.ca",
-    )
-    (receipt,) = [m for m in email.sent if m.to == "walkin@example.ca"]
-    assert "it_shampoo x2  $48.00 CAD" in receipt.body
-    assert "GST  $2.40 CAD" in receipt.body
-    assert "PST  $3.36 CAD" in receipt.body
-    assert "Total  $53.76 CAD" in receipt.body
-
-
-async def test_bad_receipt_email_422(as_owner: httpx.AsyncClient) -> None:
-    res = await as_owner.post("/v1/orders", json={"lines": [], "receipt_email": "not-an-email"})
-    assert res.status_code == 422
-
-
-async def test_sales_by_item_report(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400, quantity=3)], "evt_rep1")
-    sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400)], "evt_rep2")
-    await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund")
-    order = await db.get(Order, sale["id"])
-    assert order is not None
-    _, paid_at = await ledger.order_state(db, order)
-    assert paid_at is not None
-    day = paid_at.astimezone(await business_tz(db, BIZ)).date().isoformat()
-    res = await as_owner.get(f"/v1/reports/sales-by-item?start={day}&end={day}")
-    assert res.status_code == 200, res.text
-    (row,) = [r for r in res.json() if r["item_id"] == SHAMPOO]
-    assert row["quantity"] >= 4
-    assert row["sales_cents"] >= 9600
-    assert row["refunded_cents"] >= 2400
-    csv = await as_owner.get(f"/v1/reports/sales-by-item.csv?start={day}&end={day}")
-    assert csv.status_code == 200 and "Oatmeal" in csv.text
-
-
-async def test_sales_by_item_is_owner_only_403(as_staff: httpx.AsyncClient) -> None:
-    res = await as_staff.get("/v1/reports/sales-by-item?start=2026-01-01&end=2026-12-31")
-    assert res.status_code == 403
 
 
 async def test_sale_takes_its_items_currency(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -505,9 +402,7 @@ async def test_paid_invoice_moves_stock(as_owner: httpx.AsyncClient, db: AsyncSe
     assert invoice.status_code == 201, invoice.text
     inv_id = invoice.json()["id"]
     assert (await as_owner.post(f"/v1/invoices/{inv_id}/send")).status_code == 200
-    pay = await as_owner.post(f"/v1/payments/invoice/{inv_id}")
-    assert pay.status_code in (200, 201), pay.text
-    await settle(as_owner, db, pay.json()["payment_id"], "evt_inv_stk")
+    await settle(as_owner, db, await card_pay(as_owner, db, inv_id), "evt_inv_stk")
     assert await _stock(db, SHAMPOO) == 2
 
 

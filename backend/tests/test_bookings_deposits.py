@@ -1,5 +1,3 @@
-import json
-
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,10 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.models.billing import Invoice
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
-from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
-from tests.helpers import enable_payments, sent_invoice
+from tests.helpers import card_pay, enable_payments
 from tests.test_bookings import (
     CL_AMELIE,
     _deposit_booking,
@@ -78,33 +75,6 @@ async def test_booking_no_deposit_when_item_has_none(
     assert bk.deposit_amount_cents == 0
 
 
-async def test_card_deposit_is_marked_kind_deposit(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    await enable_payments(db)
-    inv_id = await sent_invoice(db, number=9800, total=10000)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv_id}?amount_cents=2000&deposit=true")
-    assert res.status_code == 200, res.text
-    pay = (
-        await db.execute(select(Payment).where(Payment.id == res.json()["payment_id"]))
-    ).scalar_one()
-    assert pay.kind == "deposit" and pay.amount_cents == 2000
-
-
-async def test_interac_deposit_is_marked_kind_deposit(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    inv_id = await sent_invoice(db, number=9800, total=8000)
-    res = await as_owner.post(
-        f"/v1/payments/invoice/{inv_id}/interac?amount_cents=3000&deposit=true"
-    )
-    assert res.status_code == 200, res.text
-    pay = (
-        await db.execute(select(Payment).where(Payment.id == res.json()["payment_id"]))
-    ).scalar_one()
-    assert pay.kind == "deposit" and pay.method == "interac"
-
-
 async def test_deposit_amount_computed_from_item(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -118,27 +88,6 @@ async def test_deposit_amount_computed_from_item(
     res = await as_owner.post("/v1/bookings", json=_booking(cid, iid, "2027-04-03T17:00:00Z"))
     assert res.status_code == 201, res.text
     assert res.json()["deposit_amount_cents"] == 1000  # 20% of $50
-
-
-async def test_deposit_settles_invoice_to_partial(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    await enable_payments(db)
-    inv_id = await sent_invoice(db, number=9800, total=10000)
-    pay = (
-        await as_owner.post(f"/v1/payments/invoice/{inv_id}?amount_cents=2500&deposit=true")
-    ).json()
-    pi = (
-        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
-    ).scalar_one()
-    event = json.dumps(
-        {"id": "evt_dep", "type": "payment_intent.succeeded", "data": {"object": {"id": pi}}}
-    )
-    await as_owner.post("/webhooks/stripe", content=event, headers={"Stripe-Signature": "good"})
-    inv = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
-    assert (await ledger.invoice_state(db, inv))[0] == "partial"
-    assert await ledger.invoice_balance(db, inv) == 7500
-    assert await ledger.collected(db, BIZ, "invoice", inv_id) == (2500, False)
 
 
 GOOD = {"Stripe-Signature": "good"}
@@ -225,10 +174,10 @@ async def test_refunding_an_applied_deposit_reopens_the_invoice(
 ) -> None:
     bid, pay_id = await _collected(as_owner, db, "2027-07-04T10:00:00Z")
     inv_id = await _api_invoice(as_owner, bid)
-    partial = await as_owner.post(f"/v1/payments/{pay_id}/refund?amount_cents=500")
+    partial = await as_owner.post(f"/v1/payments/{pay_id}/refund", json={"amount_cents": 500})
     assert partial.status_code == 409
     assert partial.json()["message"] == "a deposit applied to an invoice is refunded in full"
-    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund")).status_code == 200
+    assert (await as_owner.post(f"/v1/payments/{pay_id}/refund", json={})).status_code == 200
     invoice = (await db.execute(select(Invoice).where(Invoice.id == inv_id))).scalar_one()
     status, held, balance = await _state(db, bid, inv_id)
     assert (status, held, balance) == ("refunded", 0, invoice.total_cents)
@@ -240,7 +189,7 @@ async def test_void_with_a_payment_in_progress_409(
     await enable_payments(db)
     bid = await _deposit_booking(as_owner, db, starts="2027-07-05T10:00:00Z")
     inv_id = await _api_invoice(as_owner, bid)
-    assert (await as_owner.post(f"/v1/payments/invoice/{inv_id}")).status_code in (200, 201)
+    await card_pay(as_owner, db, inv_id)
     res = await as_owner.post(f"/v1/invoices/{inv_id}/void")
     assert res.status_code == 409
     assert res.json()["message"] == "this invoice has a payment in progress"

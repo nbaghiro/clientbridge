@@ -11,7 +11,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
-from tests.helpers import enable_payments, settle
+from tests.helpers import enable_payments, key, settle
 
 PURCHASER = "cl_marcus"  # seeded client with a default saved card (pm_demo_5454)
 
@@ -389,7 +389,7 @@ async def test_refund_voids_settled_gift_card(
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
     ).scalar_one()
     assert card.status == "active"
-    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund")
+    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund", json={})
     assert refunded.status_code == 200, refunded.text
     card = (
         await db.execute(select(GiftCard).where(GiftCard.id == body["gift_card_id"]))
@@ -417,5 +417,24 @@ async def test_refund_partially_redeemed_gift_card_blocked(
     )
     assert redeemed.status_code == 200, redeemed.text
     # $20 of value already delivered → refunding the full $50 purchase must be blocked
-    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund")
+    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund", json={})
     assert refunded.status_code == 409
+
+
+async def test_redeem_replays_on_the_same_key(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    card = await _active_card(db, code="REPLAYCODE01", balance=5000)
+    headers = key()
+    body = {"code": card.code, "amount_cents": 2000}
+    first = await as_owner.post("/v1/gift-cards/redeem", json=body, headers=headers)
+    again = await as_owner.post("/v1/gift-cards/redeem", json=body, headers=headers)
+    assert first.status_code == again.status_code == 200
+    assert again.json() == first.json()
+    assert await ledger.gift_card_balance(db, card) == 3000
+
+
+@pytest.mark.parametrize("path", ["/v1/gift-cards", "/v1/gift-cards/redeem"])
+async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
+    body = {"code": "WHATEVER1234", "amount_cents": 100, "purchaser_client_id": PURCHASER}
+    assert (await unauth.post(path, json=body)).status_code == 401

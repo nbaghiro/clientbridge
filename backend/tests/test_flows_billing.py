@@ -3,13 +3,18 @@
 from datetime import datetime, timedelta
 
 import httpx
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
+from clientbridge.models.clients import Client
+from clientbridge.models.payments import PaymentMethod
 from clientbridge.services.business import business_tz
 from tests.conftest import BIZ, FakePaymentGateway
 from tests.helpers import (
     INTERAC,
     business_balance,
+    card_pay,
     enable_payments,
     invoice,
     ok,
@@ -41,6 +46,11 @@ async def _sent_invoice(api: httpx.AsyncClient, unit: int = 5000, quantity: floa
     return str(draft["id"])
 
 
+async def _set_aside(api: httpx.AsyncClient) -> int:
+    filings = ok(await api.get("/v1/payments/remittances")).json()
+    return int(filings["federal_set_aside_cents"]) + int(filings["provincial_set_aside_cents"])
+
+
 async def test_estimate_to_invoice_partial_pay_and_refund(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -67,7 +77,22 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
     sent = ok(await api.post(f"/v1/invoices/{converted['id']}/send")).json()
     assert sent["status"] == "sent"
 
-    intent = ok(await api.post(f"/v1/payments/invoice/{converted['id']}?amount_cents=5000")).json()
+    await db.execute(
+        update(Client).where(Client.id == AMELIE).values(stripe_customer_id="cus_flow")
+    )
+    card = PaymentMethod(
+        id=new_id("payment_method"),
+        business_id=BIZ,
+        client_id=AMELIE,
+        method="card",
+        provider="stripe",
+        provider_ref="pm_flow",
+        status="active",
+    )
+    db.add(card)
+    await db.flush()
+    body = {"method": "card", "amount_cents": 5000, "payment_method_id": card.id}
+    intent = ok(await api.post(f"/v1/invoices/{converted['id']}/payments", json=body), 201).json()
     await settle(api, db, intent["payment_id"])
     partial = await invoice(db, converted["id"])
     assert (partial.status, partial.amount_paid_cents, partial.balance_cents) == (
@@ -77,7 +102,9 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
     )
     assert partial.paid_at is None
 
-    refund = ok(await api.post(f"/v1/payments/{intent['payment_id']}/refund?amount_cents=2000"))
+    refund = ok(
+        await api.post(f"/v1/payments/{intent['payment_id']}/refund", json={"amount_cents": 2000})
+    )
     assert refund.json()["status"] == "succeeded"
     refunded = await invoice(db, converted["id"])
     assert (refunded.status, refunded.amount_paid_cents, refunded.balance_cents) == (
@@ -86,15 +113,15 @@ async def test_estimate_to_invoice_partial_pay_and_refund(
         6200,
     )  # a refund credits the invoice pro rata, so the balance owed does not grow
 
-    rest = ok(await api.post(f"/v1/payments/invoice/{converted['id']}")).json()
-    assert rest["amount_cents"] == 6200
+    rest = {"payment_id": await card_pay(api, db, converted["id"])}
+    assert (await payment(db, rest["payment_id"])).amount_cents == 6200
     await settle(api, db, rest["payment_id"])
     paid = await invoice(db, converted["id"])
     assert (paid.status, paid.balance_cents, paid.amount_paid_cents) == ("paid", 0, 9200)
     assert paid.paid_at is not None
 
-    ok(await api.post(f"/v1/payments/{rest['payment_id']}/refund"))
-    ok(await api.post(f"/v1/payments/{intent['payment_id']}/refund"))
+    ok(await api.post(f"/v1/payments/{rest['payment_id']}/refund", json={}))
+    ok(await api.post(f"/v1/payments/{intent['payment_id']}/refund", json={}))
     back = await invoice(db, converted["id"])
     assert (back.status, back.amount_paid_cents) == ("refunded", 0)
 
@@ -103,7 +130,7 @@ async def test_interac_request_is_matched(as_owner: httpx.AsyncClient, db: Async
     api = as_owner
     inv = await _sent_invoice(api)
     total = (await invoice(db, inv)).total_cents
-    request = ok(await api.post(f"/v1/payments/invoice/{inv}/interac")).json()
+    request = ok(await api.post(f"/v1/invoices/{inv}/interac-request", json={})).json()
     assert request["amount_cents"] == total and len(request["reference_code"]) == 8
 
     ok(
@@ -123,11 +150,11 @@ async def test_dispute_opens_and_is_won(as_owner: httpx.AsyncClient, db: AsyncSe
     api = as_owner
     await enable_payments(db)
     inv = await _sent_invoice(api)
-    intent = ok(await api.post(f"/v1/payments/invoice/{inv}")).json()
+    intent = {"payment_id": await card_pay(api, db, inv)}
     await settle(api, db, intent["payment_id"])
     pi = await provider_ref(db, intent["payment_id"])
     stripe = await business_balance(db, "stripe")
-    amount = intent["amount_cents"]
+    amount = (await payment(db, intent["payment_id"])).amount_cents
 
     dispute = {"id": f"dp_{pi}", "payment_intent": pi, "amount": amount}
     await stripe_event(api, "charge.dispute.created", {**dispute, "status": "needs_response"})
@@ -156,9 +183,9 @@ async def test_remittance_files_the_tax_payable(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     api = as_owner
-    payable = ok(await api.get("/v1/payments/remittance")).json()["tax_collected_cents"]
+    payable = await _set_aside(api)
     await _sent_invoice(api, unit=10000)
-    owed = ok(await api.get("/v1/payments/remittance")).json()["tax_collected_cents"]
+    owed = await _set_aside(api)
     assert owed - payable == 1200  # BC GST 5% + PST 7%
 
     yesterday = datetime.now(await business_tz(db, BIZ)).date() - timedelta(days=1)
@@ -170,7 +197,7 @@ async def test_remittance_files_the_tax_payable(
         201,
     ).json()
     assert filed["total_cents"] == sum(filed["by_code"].values())
-    left = ok(await api.get("/v1/payments/remittance")).json()["tax_collected_cents"]
+    left = await _set_aside(api)
     assert owed - left == filed["total_cents"]
 
 

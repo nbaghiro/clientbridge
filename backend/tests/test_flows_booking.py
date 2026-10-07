@@ -1,5 +1,7 @@
 """Booking flows: an online booking from deposit to T4A, a no-show, and a recurring series."""
 
+import csv
+import io
 from datetime import datetime, timedelta
 from itertools import pairwise
 
@@ -10,6 +12,7 @@ from tests.helpers import (
     SLUG,
     booking,
     business_balance,
+    card_pay,
     deposit_held,
     deposit_payment,
     earning_status,
@@ -18,6 +21,7 @@ from tests.helpers import (
     invoice,
     key,
     ok,
+    payment,
     settle,
 )
 
@@ -25,6 +29,11 @@ GROOM_LG = "it_groom_lg"  # $110 service, 25% deposit
 GROOM_SM = "it_groom_sm"
 BRUSH = "it_brush"  # $29 product sold as an add-on
 AMELIE = "cl_amelie"  # seeded client with a default saved card
+
+
+async def _t4a(api: httpx.AsyncClient, year: int) -> dict[str, int]:
+    res = ok(await api.get(f"/v1/reports/t4a.csv?year={year}"))
+    return {r["staff_id"]: int(r["total_cents"]) for r in csv.DictReader(io.StringIO(res.text))}
 
 
 async def test_online_booking_from_deposit_to_t4a(
@@ -86,9 +95,9 @@ async def test_online_booking_from_deposit_to_t4a(
     assert opened.amount_paid_cents == 0
 
     # the client pays the rest
-    intent = ok(await api.post(f"/v1/payments/invoice/{draft['id']}")).json()
-    assert intent["amount_cents"] == opened.total_cents - 2750
-    await settle(api, db, intent["payment_id"])
+    payment_id = await card_pay(api, db, draft["id"])
+    assert (await payment(db, payment_id)).amount_cents == opened.total_cents - 2750
+    await settle(api, db, payment_id)
     paid = await invoice(db, draft["id"])
     assert (paid.status, paid.balance_cents) == ("paid", 0)
     assert paid.amount_paid_cents == opened.total_cents - 2750
@@ -98,20 +107,17 @@ async def test_online_booking_from_deposit_to_t4a(
     [journal] = await earnings(db, "booking", bid)
     assert await earning_status(db, journal) == "pending"
     year = datetime.now().year
-    before = {
-        r["staff_id"]: r["total_cents"]
-        for r in ok(await api.get(f"/v1/reports/t4a?year={year}")).json()
-    }
-    approved = ok(await api.post(f"/v1/earnings/{journal}/approve")).json()
+    before = await _t4a(api, year)
+    approved = ok(await api.post("/v1/earnings/approve", json={"ids": [journal]})).json()[
+        "earnings"
+    ][0]
     assert approved["amount_cents"] == 4400  # 40% of the $110 service line
     assert approved["booking_id"] == bid and approved["status"] == "approved"
     bank = await business_balance(db, "bank")
-    assert ok(await api.post(f"/v1/earnings/{journal}/pay")).json()["status"] == "paid"
+    paid_out = ok(await api.post("/v1/earnings/pay", json={"ids": [journal]})).json()
+    assert paid_out["earnings"][0]["status"] == "paid"
     assert await business_balance(db, "bank") == bank - 4400
-    after = {
-        r["staff_id"]: r["total_cents"]
-        for r in ok(await api.get(f"/v1/reports/t4a?year={year}")).json()
-    }
+    after = await _t4a(api, year)
     assert after["st_owner"] - before.get("st_owner", 0) == 4400
 
 

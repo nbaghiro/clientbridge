@@ -163,3 +163,61 @@ async def test_booking_replays_on_the_same_key(api: httpx.AsyncClient, db: Async
     assert first.json()["booking_id"] == again.json()["booking_id"]
     rows = await db.execute(select(Booking.id).where(Booking.source == "online"))
     assert first.json()["booking_id"] in rows.scalars().all()
+
+
+def _days(**params: str | int) -> dict[str, str | int]:
+    return {"item_id": "it_groom_sm", "staff_id": "st_owner", "from": TUESDAY, **params}
+
+
+async def test_days_refuse_unknown_slug_item_and_staff(api: httpx.AsyncClient) -> None:
+    assert (await api.get("/book/no-such-page/days", params=_days())).status_code == 404
+    unknown_item = await api.get(f"/book/{SLUG}/days", params=_days(item_id="it_nope"))
+    assert unknown_item.status_code == 404
+    unknown_staff = await api.get(f"/book/{SLUG}/days", params=_days(staff_id="st_nope"))
+    assert unknown_staff.status_code == 404
+
+
+async def test_days_refuse_a_service_not_bookable_online(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Item).where(Item.id == "it_groom_sm").values(online_bookable=False))
+    await db.flush()
+    assert (await api.get(f"/book/{SLUG}/days", params=_days())).status_code == 409
+
+
+async def test_days_validate_the_window(api: httpx.AsyncClient) -> None:
+    for days in (0, 15):
+        res = await api.get(f"/book/{SLUG}/days", params=_days(days=days))
+        assert res.status_code == 422
+    no_start = {"item_id": "it_groom_sm", "staff_id": "st_owner"}
+    assert (await api.get(f"/book/{SLUG}/days", params=no_start)).status_code == 422
+
+
+async def test_anyone_is_refused_when_every_member_is_busy(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(
+        update(Staff)
+        .where(Staff.business_id == BIZ, Staff.id != "st_owner")
+        .values(bookable_online=False)
+    )
+    await db.flush()
+    first = await api.post(f"/book/{SLUG}", json=_body())
+    assert first.status_code == 200, first.text
+    assert (await api.post(f"/book/{SLUG}", json=_body(staff="any"))).status_code == 409
+
+
+async def test_an_addon_over_stock_is_refused(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await db.execute(
+        update(Item).where(Item.id == "it_shampoo").values(track_stock=True, stock_on_hand=1)
+    )
+    await db.flush()
+    res = await api.post(
+        f"/book/{SLUG}", json=_body(addons=[{"item_id": "it_shampoo", "quantity": 2}])
+    )
+    assert res.status_code == 409
+
+
+async def test_a_short_idempotency_key_is_refused(api: httpx.AsyncClient) -> None:
+    res = await api.post(f"/book/{SLUG}", json=_body(), headers={"Idempotency-Key": "short"})
+    assert res.status_code == 422

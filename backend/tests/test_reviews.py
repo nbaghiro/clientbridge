@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import TooManyRequests
@@ -207,14 +207,9 @@ async def test_hide_then_publish_toggles_status(
     assert (await as_owner.post(f"/v1/reviews/{rid}/publish")).json()["status"] == "published"
 
 
-async def test_mark_sent_to_google(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    rid = await _a_review(db)
-    assert (await as_owner.post(f"/v1/reviews/{rid}/google")).json()["sent_to_google"] is True
-
-
 async def test_moderation_requires_admin(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
     rid = await _a_review(db)
-    for action in ("hide", "publish", "google"):
+    for action in ("hide", "publish", "share"):
         assert (await as_staff.post(f"/v1/reviews/{rid}/{action}")).status_code == 403, action
 
 
@@ -224,27 +219,9 @@ async def test_moderation_is_tenant_isolated(
     other = await factory.business(name="Rival Reviews")
     await factory.client(business=other)
     rid = await _a_review(db, business_id=other.id)
-    for action in ("hide", "publish", "google"):
+    for action in ("hide", "publish", "share"):
         assert (await as_owner.post(f"/v1/reviews/{rid}/{action}")).status_code == 404, action
     reply = await as_owner.post(f"/v1/reviews/{rid}/respond", json={"response": "Thanks"})
     assert reply.status_code == 404
     after = await db.get(Review, rid, populate_existing=True)
     assert after is not None and after.response is None
-
-
-async def test_summary_counts_published_only(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    base = (
-        await db.execute(
-            select(func.count()).select_from(
-                select(Review.id)
-                .where(Review.business_id == BIZ, Review.status == "published")
-                .subquery()
-            )
-        )
-    ).scalar_one()
-    await _a_review(db, rating=4, status="published")
-    await _a_review(db, rating=2, status="published")
-    await _a_review(db, rating=1, status="hidden")  # excluded from the rollup
-    body = (await as_owner.get("/v1/reviews/summary")).json()
-    assert body["count"] == base + 2
-    assert body["average"] is not None

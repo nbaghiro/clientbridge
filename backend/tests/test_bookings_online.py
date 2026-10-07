@@ -92,8 +92,14 @@ async def test_staff_cannot_change_online_booking(as_staff: httpx.AsyncClient) -
     ).status_code == 403
 
 
-async def test_unauth_cannot_read_online_booking(unauth: httpx.AsyncClient) -> None:
+async def test_unauth_cannot_read_or_change_online_booking(unauth: httpx.AsyncClient) -> None:
     assert (await unauth.get("/v1/online-booking")).status_code == 401
+    change = await unauth.patch("/v1/online-booking", json={"policy": {"lead_hours": 1}})
+    assert change.status_code == 401
+    addons = await unauth.patch(
+        "/v1/online-booking/addons", json={"offers": [{"id": "it_brush", "addon": False}]}
+    )
+    assert addons.status_code == 401
 
 
 async def test_another_business_items_are_out_of_reach(
@@ -113,24 +119,3 @@ async def test_saving_the_same_settings_twice_is_stable(as_owner: httpx.AsyncCli
     first = await as_owner.patch("/v1/online-booking", json=body)
     again = await as_owner.patch("/v1/online-booking", json=body)
     assert first.json()["policy"] == again.json()["policy"]
-
-
-async def test_reminder_preview_matches_what_is_sent(as_owner: httpx.AsyncClient) -> None:
-    created = await as_owner.post(
-        "/v1/bookings",
-        json={
-            "client_id": "cl_amelie",
-            "item_id": "it_groom_sm",
-            "staff_id": "st_priya",
-            "starts_at": "2027-03-01T18:00:00Z",
-        },
-    )
-    bid = created.json()["id"]
-    res = await as_owner.get(f"/v1/bookings/{bid}/reminder")
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["subject"].startswith("Appointment reminder")
-    assert "Change or cancel:" in body["body"]
-    assert body["sends_at"].startswith("2027-02-28T18:00")
-    assert body["sent_at"] is None
-    assert (await as_owner.get("/v1/bookings/bk_missing/reminder")).status_code == 404

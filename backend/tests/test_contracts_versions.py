@@ -1,4 +1,5 @@
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,6 +51,14 @@ async def test_new_text_is_a_new_version_and_signed_copies_keep_theirs(
     assert signed["version"] == old_version and old_body in signed["body"]
     later = await _send(as_owner, db)
     assert later["contract_version"] == old_version + 1
+
+
+async def test_version_replay_publishes_once(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    before = (await db.execute(select(Contract.version).where(Contract.id == WAIVER))).scalar_one()
+    url, headers = f"/v1/contracts/{WAIVER}/versions", key()
+    first = ok(await as_owner.post(url, json={"body": "Replayed terms"}, headers=headers)).json()
+    again = ok(await as_owner.post(url, json={"body": "Replayed terms"}, headers=headers)).json()
+    assert again == first and first["version"] == before + 1
 
 
 async def test_unchanged_text_is_refused(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -162,3 +171,16 @@ async def test_signing_needs_agreement_and_a_real_drawing(
     assert (await api.post(url, json={"typed_name": "", "agreed": True})).status_code == 422
     await db.refresh(signature)
     assert signature.status == "pending"
+
+
+async def test_publish_to_an_unknown_contract_404(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.post("/v1/contracts/con_nope/versions", json={"body": "Terms"})
+    assert res.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "path", ["/v1/contracts", f"/v1/contracts/{WAIVER}/versions", "/v1/signatures/sig_x/resend"]
+)
+async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
+    res = await unauth.post(path, json={"name": "A", "body": "B"})
+    assert res.status_code == 401

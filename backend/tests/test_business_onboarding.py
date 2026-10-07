@@ -50,17 +50,16 @@ async def test_onboard_province_drives_taxes(api: httpx.AsyncClient, factory: Fa
     assert [(r["jurisdiction"], r["rate_bps"]) for r in rates] == [("HST", 1300)]
 
 
-async def test_onboard_owner_can_access_scoped_clients(
+async def test_onboard_owner_can_access_their_team(
     api: httpx.AsyncClient, factory: Factory
 ) -> None:
     user = await factory.user()
     _auth(api, user.id)
     res = await api.post("/v1/onboarding", json={"name": "X", "slug": "x-co", "province": "AB"})
     assert res.status_code == 201
-    # the user now has exactly one business → /v1/clients resolves + is scoped (empty)
-    res = await api.get("/v1/clients")
+    res = await api.get("/v1/staff/team")
     assert res.status_code == 200
-    assert res.json()["total"] == 0
+    assert [m["role"] for m in res.json()["members"]] == ["owner"]
 
 
 async def test_onboard_duplicate_slug_409_no_partial(

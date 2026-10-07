@@ -121,6 +121,20 @@ async def sent_invoice(
     return inv.id
 
 
+async def card_pay(
+    api: httpx.AsyncClient, db: AsyncSession, invoice_id: str, tip_cents: int = 0
+) -> str:
+    """Open a card payment through the invoice's public pay link and return the payment id."""
+    inv = await db.get(Invoice, invoice_id, populate_existing=True)
+    assert inv is not None
+    if inv.pay_token is None:
+        inv.pay_token = uuid.uuid4().hex
+        await db.flush()
+    res = ok(await api.post(f"/pay/{inv.pay_token}/card", json={"tip_cents": tip_cents}))
+    ref = str(res.json()["client_secret"]).removesuffix("_secret")
+    return (await payment_by_ref(db, ref)).id
+
+
 async def provider_ref(db: AsyncSession, payment_id: str) -> str:
     ref = (
         await db.execute(select(Payment.provider_ref).where(Payment.id == payment_id))

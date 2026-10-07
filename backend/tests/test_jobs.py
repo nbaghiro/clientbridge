@@ -1,8 +1,15 @@
+import importlib
+import inspect
+import pkgutil
 from datetime import UTC, datetime, timedelta
+from types import FunctionType
+from typing import cast
 
+from arq.cron import CronJob
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge import services
 from clientbridge.core.ids import new_id
 from clientbridge.models.billing import Estimate, Invoice
 from clientbridge.models.catalog import GiftCard, Item, Package
@@ -15,6 +22,7 @@ from clientbridge.services.entitlements import run_expiry_sweeps
 from clientbridge.services.ledger import Leg
 from clientbridge.services.notifications import Notifier, run_prune_devices
 from clientbridge.services.reviews import build_review_request, run_review_requests
+from clientbridge.tasks.worker import WorkerSettings
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import client_id, sent_invoice
 
@@ -273,3 +281,25 @@ async def test_expiry_sweeps_lapse_only_past_rows(db: AsyncSession) -> None:
         await db.execute(select(Package.status).where(Package.id == expired_pkg.id))
     ).scalar_one()
     assert pkg_status == "expired"
+
+
+def _service_jobs() -> set[str]:
+    found: set[str] = set()
+    for info in pkgutil.iter_modules(services.__path__):
+        module = importlib.import_module(f"{services.__name__}.{info.name}")
+        for name, fn in inspect.getmembers(module, inspect.iscoroutinefunction):
+            if name.startswith("run_") and fn.__module__ == module.__name__:
+                found.add(name)
+    return found
+
+
+def test_the_worker_schedules_every_service_job() -> None:
+    scheduled: set[str] = set()
+    for job in WorkerSettings.cron_jobs:
+        assert isinstance(job, CronJob)
+        scheduled |= {
+            n for n in cast(FunctionType, job.coroutine).__code__.co_names if n.startswith("run_")
+        }
+    jobs = _service_jobs()
+    assert jobs, "no run_* jobs found in clientbridge.services"
+    assert scheduled == jobs

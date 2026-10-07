@@ -4,8 +4,7 @@ import json
 from datetime import UTC, datetime
 
 import httpx
-import pytest
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
@@ -15,12 +14,12 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
 from clientbridge.services.earnings import ensure_earnings, load_earning
 from clientbridge.services.ledger import Leg
 from tests.conftest import Factory, book_invoice
+from tests.helpers import card_pay
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -116,9 +115,9 @@ async def _paid_booking(
     )
     await db.flush()
     await book_invoice(db, inv)
-    pay = (await as_owner.post(f"/v1/payments/invoice/{inv.id}")).json()
+    payment_id = await card_pay(as_owner, db, inv.id)
     pi = (
-        await db.execute(select(Payment.provider_ref).where(Payment.id == pay["payment_id"]))
+        await db.execute(select(Payment.provider_ref).where(Payment.id == payment_id))
     ).scalar_one()
     event = json.dumps(
         {
@@ -128,7 +127,7 @@ async def _paid_booking(
         }
     )
     await as_owner.post("/webhooks/stripe", content=event, headers=GOOD)
-    return booking.id, inv.id, pay["payment_id"]
+    return booking.id, inv.id, payment_id
 
 
 async def _journals(db: AsyncSession, booking_id: str) -> list[str]:
@@ -207,12 +206,13 @@ async def test_approve_then_pay_moves_payable_to_bank(
     journal = await _earning(db, staff_id=staff.id)
     bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
 
-    approved = await as_owner.post(f"/v1/earnings/{journal}/approve")
+    approved = await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})
     assert approved.status_code == 200, approved.text
-    assert approved.json() == {
+    [earning] = approved.json()["earnings"]
+    assert earning == {
         "id": journal,
         "staff_id": staff.id,
-        "booking_id": approved.json()["booking_id"],
+        "booking_id": earning["booking_id"],
         "order_id": None,
         "amount_cents": 6000,
         "status": "approved",
@@ -221,80 +221,14 @@ async def test_approve_then_pay_moves_payable_to_bank(
     assert await _payable(db, staff.id, "pending") == 0
     assert await _payable(db, staff.id, "approved") == -6000
 
-    paid = await as_owner.post(f"/v1/earnings/{journal}/pay")
+    paid = await as_owner.post("/v1/earnings/pay", json={"ids": [journal]})
     assert paid.status_code == 200, paid.text
-    assert paid.json()["status"] == "paid"
+    assert paid.json()["earnings"][0]["status"] == "paid"
     assert await _payable(db, staff.id, "approved") == 0
     assert (
         await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
         == bank - 6000
     )
-
-
-async def test_approve_unknown_404(as_owner: httpx.AsyncClient) -> None:
-    assert (await as_owner.post("/v1/earnings/jrn_nope/approve")).status_code == 404
-
-
-async def test_approve_non_pending_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    journal = await _earning(db)
-    assert (await as_owner.post(f"/v1/earnings/{journal}/approve")).status_code == 200
-    assert (await as_owner.post(f"/v1/earnings/{journal}/approve")).status_code == 409
-
-
-async def test_pay_before_approve_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    journal = await _earning(db)
-    assert (await as_owner.post(f"/v1/earnings/{journal}/pay")).status_code == 409
-
-
-async def test_staff_cannot_approve_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
-    journal = await _earning(db)
-    assert (await as_staff.post(f"/v1/earnings/{journal}/approve")).status_code == 403
-
-
-@pytest.mark.parametrize("action", ["approve", "pay"])
-async def test_other_business_earning_404(
-    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, action: str
-) -> None:
-    other = await factory.business()
-    staff = await factory.staff(business=other)
-    journal = await _earning(db, business_id=other.id, staff_id=staff.id)
-    assert (await as_owner.post(f"/v1/earnings/{journal}/{action}")).status_code == 404
-
-
-async def test_idempotent_approve_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    journal = await _earning(db)
-    headers = {"Idempotency-Key": "earn-approve-1"}
-    first = await as_owner.post(f"/v1/earnings/{journal}/approve", headers=headers)
-    second = await as_owner.post(f"/v1/earnings/{journal}/approve", headers=headers)
-    assert first.status_code == second.status_code == 200
-    assert first.json() == second.json()
-    assert second.json()["status"] == "approved"
-
-
-async def test_idempotent_pay_replays(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    journal = await _earning(db)
-    assert (await as_owner.post(f"/v1/earnings/{journal}/approve")).status_code == 200
-    headers = {"Idempotency-Key": "earn-pay-1"}
-    first = await as_owner.post(f"/v1/earnings/{journal}/pay", headers=headers)
-    second = await as_owner.post(f"/v1/earnings/{journal}/pay", headers=headers)
-    assert first.status_code == second.status_code == 200
-    assert first.json() == second.json()
-    paid_audits = (
-        await db.execute(
-            select(func.count())
-            .select_from(Audit)
-            .where(Audit.entity_id == journal, Audit.action == "earning.pay")
-        )
-    ).scalar_one()
-    assert paid_audits == 1
-    payments = (
-        await db.execute(
-            select(func.count(func.distinct(Entry.journal_id))).where(
-                Entry.event == "staff_payment", Entry.source_id == journal
-            )
-        )
-    ).scalar_one()
-    assert payments == 1
 
 
 async def test_refund_reverses_pending_earning(
@@ -304,7 +238,7 @@ async def test_refund_reverses_pending_earning(
     booking_id, inv_id, payment_id = await _paid_booking(as_owner, db)
     [journal] = await _journals(db, booking_id)
     assert await _payable(db, "st_diego", "pending") == pending - 6000
-    assert (await as_owner.post(f"/v1/payments/{payment_id}/refund")).status_code == 200
+    assert (await as_owner.post(f"/v1/payments/{payment_id}/refund", json={})).status_code == 200
     earning = await load_earning(db, BIZ, journal)
     assert earning is not None and earning.status == "reversed"
     assert await _payable(db, "st_diego", "pending") == pending
@@ -324,8 +258,9 @@ async def test_refund_leaves_approved_earning(
 ) -> None:
     booking_id, _, payment_id = await _paid_booking(as_owner, db)
     [journal] = await _journals(db, booking_id)
-    assert (await as_owner.post(f"/v1/earnings/{journal}/approve")).status_code == 200
-    assert (await as_owner.post(f"/v1/payments/{payment_id}/refund")).status_code == 200
+    approved = await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})
+    assert approved.status_code == 200
+    assert (await as_owner.post(f"/v1/payments/{payment_id}/refund", json={})).status_code == 200
     earning = await load_earning(db, BIZ, journal)
     assert earning is not None and earning.status == "approved"
 
@@ -408,29 +343,3 @@ async def test_payout_for_unknown_account_is_ignored(
     )
     assert res.status_code == 200
     assert await ledger.journal_for(db, BIZ, "payout:po_none") is None
-
-
-async def test_remittance_is_tax_payable_on_the_ledger(
-    as_owner: httpx.AsyncClient, db: AsyncSession
-) -> None:
-    before = (await as_owner.get("/v1/payments/remittance")).json()["tax_collected_cents"]
-    inv = Invoice(
-        id=new_id("invoice"),
-        business_id=BIZ,
-        client_id=await _seed_id(db, Client),
-        number=9200,
-        status="sent",
-        currency="CAD",
-        subtotal_cents=10000,
-        tax_total_cents=1200,
-        total_cents=11200,
-    )
-    db.add(inv)
-    await db.flush()
-    await book_invoice(db, inv)
-    after = (await as_owner.get("/v1/payments/remittance")).json()["tax_collected_cents"]
-    assert after - before == 1200
-
-
-async def test_staff_cannot_view_remittance(as_staff: httpx.AsyncClient) -> None:
-    assert (await as_staff.get("/v1/payments/remittance")).status_code == 403

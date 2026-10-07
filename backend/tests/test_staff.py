@@ -1,9 +1,12 @@
 """Staff invites — owner/admin create + email; invitee accepts → active staff."""
 
 import httpx
+import pytest
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.security import issue_access_token
+from clientbridge.models.business import Business
 from clientbridge.models.platform import Audit
 from tests.conftest import Factory, FakeEmailSender
 
@@ -111,10 +114,10 @@ async def test_accept_invite_grants_scoped_access(as_owner: httpx.AsyncClient) -
         "/auth/accept-invite", json={"token": token, "name": "J2", "password": "pw-123456"}
     )
     access = res.json()["access_token"]
-    # the invitee's own access now resolves to the business + sees its client book
-    clients = await as_owner.get("/v1/clients", headers={"Authorization": f"Bearer {access}"})
-    assert clients.status_code == 200
-    assert all(c["business_id"] == BIZ for c in clients.json()["items"])
+    # the invitee's own access now resolves to the business and sees its team
+    team = await as_owner.get("/v1/staff/team", headers={"Authorization": f"Bearer {access}"})
+    assert team.status_code == 200
+    assert {m["id"] for m in team.json()["members"]} >= {"st_owner", "st_diego"}
 
 
 async def test_double_accept_409(as_owner: httpx.AsyncClient) -> None:
@@ -276,11 +279,96 @@ async def test_staff_cannot_manage_the_team_403(as_staff: httpx.AsyncClient) -> 
 
 
 async def test_team_endpoints_scope_by_business(
-    as_owner: httpx.AsyncClient, factory: Factory
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
     other = await factory.business()
     member = await factory.staff(business=other, role="staff")
+    invite = await factory.staff(business=other, role="staff")
+    invite.status = "invited"
+    await db.flush()
     res = await as_owner.patch(f"/v1/staff/{member.id}", json={"role": "admin"})
     assert res.status_code == 404
     assert (await as_owner.delete(f"/v1/staff/{member.id}")).status_code == 404
-    assert (await as_owner.post(f"/v1/staff/invites/{member.id}/resend")).status_code == 404
+    assert (await as_owner.post(f"/v1/staff/invites/{invite.id}/resend")).status_code == 404
+    assert (await as_owner.post(f"/v1/staff/invites/{invite.id}/revoke")).status_code == 404
+    assert await db.scalar(text("SELECT status FROM staff WHERE id = :i"), {"i": invite.id}) == (
+        "invited"
+    )
+
+
+async def test_owner_sets_staff_pay(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch(
+        "/v1/staff/st_diego/pay", json={"retail_rate_bps": 1500, "payee": True}
+    )
+    assert res.status_code == 200, res.text
+    assert res.json()["retail_rate_bps"] == 1500
+    assert (
+        await as_owner.patch("/v1/staff/st_diego/pay", json={"retail_rate_bps": 20000})
+    ).status_code == 422
+    assert (await as_owner.patch("/v1/staff/st_nope/pay", json={"payee": True})).status_code == 404
+
+
+async def test_staff_rate_is_held_in_the_unit_of_its_basis(as_owner: httpx.AsyncClient) -> None:
+    pct = await as_owner.patch(
+        "/v1/staff/st_diego/pay", json={"rate_type": "percent", "rate_bps": 4250}
+    )
+    assert (pct.json()["rate_bps"], pct.json()["rate_cents"]) == (4250, None)
+    hourly = await as_owner.patch(
+        "/v1/staff/st_diego/pay", json={"rate_type": "hourly", "rate_cents": 2400}
+    )
+    assert (hourly.json()["rate_bps"], hourly.json()["rate_cents"]) == (None, 2400)
+    wrong = await as_owner.patch("/v1/staff/st_diego/pay", json={"rate_bps": 5000})
+    assert wrong.status_code == 422
+    assert wrong.json()["message"] == "rate_cents holds the rate for rate_type hourly"
+    unset = await as_owner.patch("/v1/staff/st_invite/pay", json={"rate_cents": 1000})
+    assert unset.status_code == 422
+
+
+async def _as_admin(api: httpx.AsyncClient, db: AsyncSession, factory: Factory) -> None:
+    biz = await db.get(Business, BIZ)
+    assert biz is not None
+    user = await factory.user()
+    await factory.staff(business=biz, user=user, role="admin")
+    api.headers.update({"Authorization": f"Bearer {issue_access_token(user.id)}"})
+
+
+async def test_an_admin_cannot_change_or_remove_the_owner_403(
+    api: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await _as_admin(api, db, factory)
+    assert (await api.patch("/v1/staff/st_owner", json={"role": "staff"})).status_code == 403
+    assert (await api.delete("/v1/staff/st_owner")).status_code == 403
+    assert await db.scalar(text("SELECT role FROM staff WHERE id = 'st_owner'")) == "owner"
+    assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_owner'")) == "active"
+
+
+async def test_an_admin_manages_other_members(
+    api: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await _as_admin(api, db, factory)
+    assert (await api.patch("/v1/staff/st_priya", json={"role": "admin"})).status_code == 204
+
+
+async def test_nobody_removes_themselves_403(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    assert (await as_owner.delete("/v1/staff/st_owner")).status_code == 403
+    assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_owner'")) == "active"
+
+
+async def test_resending_to_an_active_member_404(as_owner: httpx.AsyncClient) -> None:
+    assert (await as_owner.post("/v1/staff/invites/st_diego/resend")).status_code == 404
+    assert (await as_owner.post("/v1/staff/invites/st_diego/revoke")).status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/v1/staff/team"),
+        ("POST", "/v1/staff/invites/st_invite/resend"),
+        ("POST", "/v1/staff/invites/st_invite/revoke"),
+        ("PATCH", "/v1/staff/st_priya"),
+        ("DELETE", "/v1/staff/st_priya"),
+    ],
+)
+async def test_unauth_401(unauth: httpx.AsyncClient, method: str, path: str) -> None:
+    body = {"role": "staff"} if method == "PATCH" else None
+    assert (await unauth.request(method, path, json=body)).status_code == 401

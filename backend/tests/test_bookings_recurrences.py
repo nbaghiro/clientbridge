@@ -2,13 +2,16 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import httpx
+import pytest
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.scheduling import Slot
 from clientbridge.services.bookings import expand_occurrences
+from tests.conftest import BIZ, Factory
 
 ST_OWNER = "st_owner"
 ST_PRIYA = "st_priya"  # seeded staff with no hours rows → unconfigured (all hours open)
@@ -205,3 +208,62 @@ async def test_series_is_idempotent(as_owner: httpx.AsyncClient, db: AsyncSessio
     assert first.json()["id"] == second.json()["id"]
     # the replay must not create a second series
     assert await _slot_count(db, first.json()["id"]) == 8
+
+
+async def test_service_without_a_duration_422(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    client_id, _ = await _client_and_item(db)
+    item = Item(
+        id=new_id("item"),
+        business_id=BIZ,
+        kind="service",
+        name="Open-ended consult",
+        price_cents=5000,
+        currency="CAD",
+    )
+    db.add(item)
+    await db.flush()
+    res = await as_owner.post("/v1/recurrences", json=_body(client_id, item.id))
+    assert res.status_code == 422
+
+
+@pytest.mark.parametrize("field", ["client_id", "item_id", "staff_id"])
+async def test_unknown_client_item_or_staff_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, field: str
+) -> None:
+    client_id, item_id = await _client_and_item(db)
+    body = {**_body(client_id, item_id), field: "zz_missing"}
+    assert (await as_owner.post("/v1/recurrences", json=body)).status_code == 404
+
+
+@pytest.mark.parametrize("field", ["client_id", "item_id", "staff_id"])
+async def test_another_business_client_item_or_staff_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, field: str
+) -> None:
+    other = await factory.business(name="Rival Co")
+    foreign_item = Item(
+        id=new_id("item"),
+        business_id=other.id,
+        kind="service",
+        name="Rival Groom",
+        price_cents=5000,
+        currency="CAD",
+        duration_min=60,
+    )
+    db.add(foreign_item)
+    await db.flush()
+    foreign = {
+        "client_id": (await factory.client(business=other)).id,
+        "item_id": foreign_item.id,
+        "staff_id": (await factory.staff(business=other, user=await factory.user())).id,
+    }
+    client_id, item_id = await _client_and_item(db)
+    body = {**_body(client_id, item_id), field: foreign[field]}
+    res = await as_owner.post("/v1/recurrences", json=body)
+    assert res.status_code == 404
+
+
+async def test_unauth_cannot_schedule_a_series(unauth: httpx.AsyncClient) -> None:
+    res = await unauth.post("/v1/recurrences", json=_body("cl_amelie", "it_groom_sm"))
+    assert res.status_code == 401

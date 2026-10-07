@@ -15,7 +15,8 @@ from clientbridge.schemas.payments import RemittanceIn
 from clientbridge.services import ledger
 from clientbridge.services.remittances import RemittanceService
 from clientbridge.services.tax import TaxResult
-from tests.conftest import BIZ, Factory
+from tests.conftest import BIZ, Factory, book_invoice
+from tests.helpers import client_id as seeded_client
 
 Q1 = {"period_start": "2021-01-01", "period_end": "2021-03-31"}
 IN_Q1 = datetime(2021, 2, 15, 18, tzinfo=UTC)
@@ -54,6 +55,14 @@ async def _q1_tax(db: AsyncSession) -> None:
     await db.commit()  # a rejected filing rolls the request back; keep the setup
 
 
+async def _set_aside(api: httpx.AsyncClient) -> int:
+    res = await api.get("/v1/payments/remittances")
+    assert res.status_code == 200, res.text
+    return int(res.json()["federal_set_aside_cents"]) + int(
+        res.json()["provincial_set_aside_cents"]
+    )
+
+
 async def _remittances(db: AsyncSession, business_id: str = BIZ) -> int:
     return (
         await db.execute(
@@ -69,7 +78,7 @@ async def test_filing_moves_tax_payable_to_the_bank(
 ) -> None:
     await _q1_tax(db)
     q1 = f"start={Q1['period_start']}&end={Q1['period_end']}"
-    payable = (await as_owner.get("/v1/payments/remittance")).json()["tax_collected_cents"]
+    payable = await _set_aside(as_owner)
     set_aside = (await as_owner.get("/v1/dashboard/summary")).json()["gst_hst_set_aside_cents"]
     report = (await as_owner.get(f"/v1/reports/gst-hst?{q1}")).json()
     bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
@@ -79,7 +88,7 @@ async def test_filing_moves_tax_payable_to_the_bank(
     assert res.json()["by_code"] == {"GST": 500, "PST": 700}
     assert res.json()["total_cents"] == 1200
 
-    after = (await as_owner.get("/v1/payments/remittance")).json()["tax_collected_cents"]
+    after = await _set_aside(as_owner)
     assert payable - after == 1200
     dash = (await as_owner.get("/v1/dashboard/summary")).json()["gst_hst_set_aside_cents"]
     assert set_aside - dash == 1200
@@ -173,3 +182,29 @@ async def test_two_businesses_can_file_the_same_period(
     await _q1_tax(db)
     res = await as_owner.post("/v1/payments/remittances", json=Q1)
     assert res.status_code == 201, res.text
+
+
+async def test_remittance_is_tax_payable_on_the_ledger(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    before = await _set_aside(as_owner)
+    inv = Invoice(
+        id=new_id("invoice"),
+        business_id=BIZ,
+        client_id=await seeded_client(db),
+        number=9200,
+        status="sent",
+        currency="CAD",
+        subtotal_cents=10000,
+        tax_total_cents=1200,
+        total_cents=11200,
+    )
+    db.add(inv)
+    await db.flush()
+    await book_invoice(db, inv)
+    after = await _set_aside(as_owner)
+    assert after - before == 1200
+
+
+async def test_staff_cannot_view_filings_403(as_staff: httpx.AsyncClient) -> None:
+    assert (await as_staff.get("/v1/payments/remittances")).status_code == 403

@@ -3,6 +3,7 @@
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.models.reviews import Review
 from tests.conftest import FakeEmailSender, FakeSmsSender
 from tests.helpers import TWILIO, ok, review_id, unread
 
@@ -69,7 +70,6 @@ async def test_review_is_requested_submitted_answered_and_hidden(
 ) -> None:
     api = as_owner
     cid = await _client(api, email="review-flow@example.ca")
-    summary = ok(await api.get("/v1/reviews/summary")).json()
     request = ok(await api.post("/v1/reviews/request", json={"client_id": cid}), 201).json()
     assert request["status"] == "requested"
     assert any(f"/review/{request['token']}" in m.body for m in email.sent)
@@ -81,14 +81,12 @@ async def test_review_is_requested_submitted_answered_and_hidden(
     ).json()
     assert submitted["completed"] is True and submitted["rating"] == 5
     assert (await api.post(f"/review/{request['token']}", json={"rating": 5})).status_code == 409
-    after = ok(await api.get("/v1/reviews/summary")).json()
-    assert after["count"] == summary["count"] + 1
-
     rid = await review_id(db, request["token"])
+    review = await db.get(Review, rid, populate_existing=True)
+    assert review is not None and review.status == "published"
     replied = ok(await api.post(f"/v1/reviews/{rid}/respond", json={"response": "Thanks"})).json()
     assert replied["response"] == "Thanks" and replied["responded_at"] is not None
     assert ok(await api.post(f"/v1/reviews/{rid}/hide")).json()["status"] == "hidden"
-    assert ok(await api.get("/v1/reviews/summary")).json()["count"] == summary["count"]
     assert ok(await api.post(f"/v1/reviews/{rid}/publish")).json()["status"] == "published"
 
 

@@ -15,6 +15,7 @@ from clientbridge.services.tax import TaxResult
 from tests.conftest import BIZ, Factory, FakeEmailSender
 from tests.helpers import (
     business_balance,
+    card_pay,
     client_id,
     enable_payments,
     invoice,
@@ -46,9 +47,9 @@ async def _taxed_card_payment(
     db.add(inv)
     await db.flush()
     await ledger.post_invoice(db, inv, TaxResult(10000, 700, 10700, {"GST": 500, "PST": 200}, []))
-    pay = ok(await api.post(f"/v1/payments/invoice/{inv.id}")).json()
-    await settle(api, db, str(pay["payment_id"]))
-    return inv.id, str(pay["payment_id"])
+    pay_id = await card_pay(api, db, inv.id)
+    await settle(api, db, pay_id)
+    return inv.id, pay_id
 
 
 def _parts(preview: dict[str, object]) -> dict[str, int]:

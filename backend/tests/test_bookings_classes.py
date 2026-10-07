@@ -1,10 +1,12 @@
 from datetime import UTC, datetime
 
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.catalog import Item
 from clientbridge.models.messaging import Message
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services.bookings import booked_count, run_reminders
@@ -21,15 +23,22 @@ CLIENTS = ["cl_amelie", "cl_marcus", "cl_yuki", "cl_liam"]
 
 
 async def _class(
-    db: AsyncSession, *, staff: str = "st_owner", capacity: int = 2, day: int = 6
+    db: AsyncSession,
+    *,
+    staff: str = "st_owner",
+    capacity: int = 2,
+    day: int = 6,
+    year: int = 2027,
+    business_id: str = BIZ,
+    item_id: str = "it_puppy",
 ) -> str:
     slot = Slot(
         id=new_id("slot"),
-        business_id=BIZ,
-        item_id="it_puppy",
+        business_id=business_id,
+        item_id=item_id,
         staff_id=staff,
-        starts_at=datetime(2027, 3, day, 18, tzinfo=UTC),
-        ends_at=datetime(2027, 3, day, 19, tzinfo=UTC),
+        starts_at=datetime(year, 3, day, 18, tzinfo=UTC),
+        ends_at=datetime(year, 3, day, 19, tzinfo=UTC),
         capacity=capacity,
         status="scheduled",
     )
@@ -181,11 +190,6 @@ async def test_staff_runs_only_their_own_classes(
     assert msg.status_code == 403
 
 
-async def test_unauth_cannot_touch_a_roster(unauth: httpx.AsyncClient) -> None:
-    res = await unauth.post("/v1/classes/ses_x/roster", json={"client_id": CLIENTS[0]})
-    assert res.status_code == 401
-
-
 async def test_unknown_and_other_business_class_404(
     as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
 ) -> None:
@@ -211,3 +215,86 @@ async def test_check_in_twice_keeps_the_first_time(
     first = (await as_owner.patch(url, json={"action": "check_in"})).json()["checked_in_at"]
     again = (await as_owner.patch(url, json={"action": "check_in"})).json()["checked_in_at"]
     assert first == again
+
+
+async def _rival_class(db: AsyncSession, factory: Factory) -> str:
+    other = await factory.business(name="Rival Co")
+    owner = await factory.staff(business=other, user=await factory.user(), role="owner")
+    item = Item(
+        id=new_id("item"),
+        business_id=other.id,
+        kind="service",
+        name="Rival class",
+        price_cents=3000,
+        currency="CAD",
+        duration_min=60,
+    )
+    db.add(item)
+    await db.flush()
+    return await _class(db, staff=owner.id, business_id=other.id, item_id=item.id)
+
+
+async def test_class_that_already_happened_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db, year=2020)
+    res = await as_owner.post(f"/v1/classes/{sid}/roster", json={"client_id": CLIENTS[0]})
+    assert res.status_code == 409
+    assert res.json()["message"] == "that class has already happened"
+
+
+async def test_another_business_class_slot_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    sid = await _rival_class(db, factory)
+    add = await as_owner.post(f"/v1/classes/{sid}/roster", json={"client_id": CLIENTS[0]})
+    assert add.status_code == 404
+    act = await as_owner.patch(f"/v1/classes/{sid}/roster/bk_x", json={"action": "undo"})
+    assert act.status_code == 404
+    msg = await as_owner.post(f"/v1/classes/{sid}/message", json={"body": "hi"})
+    assert msg.status_code == 404
+
+
+async def test_staff_cannot_change_another_members_roster(
+    as_staff: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    sid = await _class(db, staff="st_owner")
+    booking = Booking(
+        id=new_id("booking"),
+        business_id=BIZ,
+        slot_id=sid,
+        staff_id="st_owner",
+        client_id=CLIENTS[0],
+        status="confirmed",
+        source="manual",
+    )
+    db.add(booking)
+    await db.flush()
+    res = await as_staff.patch(
+        f"/v1/classes/{sid}/roster/{booking.id}", json={"action": "check_in"}
+    )
+    assert res.status_code == 403
+
+
+async def test_message_to_an_unknown_or_single_slot_is_refused(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    missing = await as_owner.post("/v1/classes/ses_missing/message", json={"body": "hi"})
+    assert missing.status_code == 404
+    single = await _class(db, capacity=1)
+    res = await as_owner.post(f"/v1/classes/{single}/message", json={"body": "hi"})
+    assert res.status_code == 409
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("POST", "/v1/classes/ses_x/roster", {"client_id": "cl_amelie"}),
+        ("PATCH", "/v1/classes/ses_x/roster/bk_x", {"action": "check_in"}),
+        ("POST", "/v1/classes/ses_x/message", {"body": "hi"}),
+    ],
+)
+async def test_unauth_cannot_run_a_class(
+    unauth: httpx.AsyncClient, method: str, path: str, body: dict[str, str]
+) -> None:
+    assert (await unauth.request(method, path, json=body)).status_code == 401

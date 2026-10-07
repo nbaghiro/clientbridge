@@ -97,9 +97,9 @@ async def test_access_token_authorizes(api: httpx.AsyncClient, factory: Factory)
     await factory.staff(business=biz, user=user, role="owner")
     login = await api.post("/auth/login", json={"email": "owner@test.ca", "password": "pw-123456"})
     access = login.json()["access_token"]
-    res = await api.get("/v1/clients", headers={"Authorization": f"Bearer {access}"})
+    res = await api.get("/v1/staff/team", headers={"Authorization": f"Bearer {access}"})
     assert res.status_code == 200
-    assert res.json()["total"] == 0  # fresh business → no clients
+    assert [m["role"] for m in res.json()["members"]] == ["owner"]
 
 
 async def _login(api: httpx.AsyncClient, factory: Factory) -> tuple[str, str]:
@@ -154,7 +154,7 @@ async def test_tampered_access_token_rejected(api: httpx.AsyncClient) -> None:
     # real header + payload, but a signature that can't match the HMAC → always rejected
     header, payload, _sig = issue_access_token(OWNER_USER).split(".")
     tampered = f"{header}.{payload}.wrongsignature"
-    assert (await api.get("/v1/clients", headers=_auth(tampered))).status_code == 401
+    assert (await api.get("/v1/staff/team", headers=_auth(tampered))).status_code == 401
 
 
 async def test_expired_access_token_rejected(api: httpx.AsyncClient) -> None:
@@ -171,7 +171,7 @@ async def test_expired_access_token_rejected(api: httpx.AsyncClient) -> None:
         s.jwt_secret,
         algorithm="HS256",
     )
-    assert (await api.get("/v1/clients", headers=_auth(expired))).status_code == 401
+    assert (await api.get("/v1/staff/team", headers=_auth(expired))).status_code == 401
 
 
 async def test_forged_signature_rejected(api: httpx.AsyncClient) -> None:
@@ -182,13 +182,13 @@ async def test_forged_signature_rejected(api: httpx.AsyncClient) -> None:
         "not-the-real-signing-secret-but-plenty-long-enough",
         algorithm="HS256",
     )
-    assert (await api.get("/v1/clients", headers=_auth(forged))).status_code == 401
+    assert (await api.get("/v1/staff/team", headers=_auth(forged))).status_code == 401
 
 
 async def test_sync_token_rejected_on_api_route(api: httpx.AsyncClient) -> None:
     # a PowerSync token (aud=powersync, no iss) must not authorize a /v1 API route
     sync_token = issue_powersync_token(OWNER_USER)
-    assert (await api.get("/v1/clients", headers=_auth(sync_token))).status_code == 401
+    assert (await api.get("/v1/staff/team", headers=_auth(sync_token))).status_code == 401
 
 
 async def test_forgot_password_existing_sends_email(

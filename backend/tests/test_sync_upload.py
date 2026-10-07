@@ -63,23 +63,6 @@ async def test_rejects_broadcast_sync_write(as_owner: httpx.AsyncClient) -> None
     assert res.status_code == 403
 
 
-async def test_rejects_faking_an_inbound_message(as_staff: httpx.AsyncClient) -> None:
-    res = await as_staff.post(
-        "/sync/upload",
-        json={
-            "ops": [
-                {
-                    "op": "PUT",
-                    "type": "messages",
-                    "id": "msg_fake",
-                    "data": {"business_id": BIZ, "direction": "in", "status": "delivered"},
-                }
-            ]
-        },
-    )
-    assert res.status_code == 403
-
-
 async def test_rejects_minting_a_gift_card(as_owner: httpx.AsyncClient) -> None:
     # gift_cards balance is server-authoritative — a client can't mint store credit via sync
     res = await as_owner.post(

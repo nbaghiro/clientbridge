@@ -1,13 +1,13 @@
 from datetime import UTC, datetime
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Note
-from clientbridge.models.scheduling import Addon, Booking, Slot
+from clientbridge.models.scheduling import Addon, Booking, Resource, Slot
 from tests.conftest import BIZ, Factory, FakeEmailSender, FakeSmsSender
 from tests.helpers import client_id
 
@@ -147,23 +147,6 @@ async def test_check_names_the_time_off(as_owner: httpx.AsyncClient, db: AsyncSe
     assert moved.status_code == 409
 
 
-async def test_probe_checks_a_new_visit(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
-    body = {"item_id": await _service(db), "staff_id": ST_PRIYA}
-    busy = await as_owner.post(
-        "/v1/bookings/check", json={**body, "starts_at": "2027-03-01T18:30:00Z"}
-    )
-    assert busy.json()["problem"] == "overlap"
-    free = await as_owner.post(
-        "/v1/bookings/check", json={**body, "starts_at": "2027-03-01T21:00:00Z"}
-    )
-    assert free.json()["ok"] is True
-    past = await as_owner.post(
-        "/v1/bookings/check", json={**body, "starts_at": "2020-03-01T21:00:00Z"}
-    )
-    assert past.json()["problem"] == "past"
-
-
 async def test_move_onto_another_visit_is_refused(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -233,15 +216,6 @@ async def test_staff_cannot_check_another_members_visit(
         f"/v1/bookings/{bid}/check", json={"starts_at": "2027-03-03T20:00:00Z"}
     )
     assert res.status_code == 403
-    probe = await as_staff.post(
-        "/v1/bookings/check",
-        json={
-            "item_id": await _service(db),
-            "staff_id": ST_OWNER,
-            "starts_at": "2027-03-03T20:00:00Z",
-        },
-    )
-    assert probe.status_code == 403
 
 
 async def test_unauth_cannot_check(unauth: httpx.AsyncClient) -> None:
@@ -383,3 +357,32 @@ async def test_note_is_kept_and_confirmation_can_be_skipped(
     await _book(as_owner, db, ST_PRIYA, "2027-03-01T22:00:00Z", note="  ")
     notes = await db.execute(select(Note.id).where(Note.parent_type == "booking"))
     assert len(notes.scalars().all()) == 1
+
+
+async def test_switched_off_room_blocks_new_visits(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Resource).where(Resource.id == "rs_station_a").values(active=False))
+    await db.flush()
+    booked = await as_owner.post(
+        "/v1/bookings",
+        json={
+            "client_id": await client_id(db),
+            "item_id": "it_bath",
+            "staff_id": ST_PRIYA,
+            "starts_at": "2027-03-01T18:00:00Z",
+            "resource_id": "rs_station_a",
+        },
+    )
+    assert booked.status_code == 409
+
+
+async def test_another_business_room_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business(name="Rival Co")
+    db.add(Resource(id="rs_rival", business_id=other.id, name="Rival table", category="station"))
+    await db.flush()
+    bid = await _book(as_owner, db, ST_PRIYA, "2027-03-01T18:00:00Z")
+    res = await as_owner.patch(f"/v1/bookings/{bid}", json={"resource_id": "rs_rival"})
+    assert res.status_code == 404

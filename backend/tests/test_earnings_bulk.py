@@ -100,3 +100,47 @@ async def test_repeated_ids_count_once(as_owner: httpx.AsyncClient, db: AsyncSes
     res = await as_owner.post("/v1/earnings/approve", json={"ids": [journal, journal]})
     assert res.status_code == 200
     assert len(res.json()["earnings"]) == 1
+
+
+async def test_approving_twice_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    journal = await _earning(db)
+    assert (await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})).status_code == 200
+    assert (await as_owner.post("/v1/earnings/approve", json={"ids": [journal]})).status_code == 409
+
+
+async def test_paying_a_pending_earning_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    journal = await _earning(db)
+    await db.commit()  # a refused request rolls back; keep the setup
+    assert (await as_owner.post("/v1/earnings/pay", json={"ids": [journal]})).status_code == 409
+    assert await _status(db, journal) == "pending"
+
+
+async def test_staff_cannot_pay_403(as_staff: httpx.AsyncClient, db: AsyncSession) -> None:
+    journal = await _earning(db)
+    await db.commit()  # a refused request rolls back; keep the setup
+    assert (await as_staff.post("/v1/earnings/pay", json={"ids": [journal]})).status_code == 403
+    assert await _status(db, journal) == "pending"
+
+
+async def test_other_business_earning_cannot_be_paid_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    other = await factory.business()
+    staff = await factory.staff(business=other)
+    journal = await _earning(db, business_id=other.id, staff_id=staff.id)
+    await db.commit()  # a refused request rolls back; keep the setup
+    assert (await as_owner.post("/v1/earnings/pay", json={"ids": [journal]})).status_code == 404
+    assert await _status(db, journal, other.id) == "pending"
+
+
+async def test_replayed_payment_pays_once(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    ids = [await _earning(db), await _earning(db, cents=1500)]
+    assert (await as_owner.post("/v1/earnings/approve", json={"ids": ids})).status_code == 200
+    bank = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
+    headers = {"Idempotency-Key": "bulk-pay-1"}
+    first = await as_owner.post("/v1/earnings/pay", json={"ids": ids}, headers=headers)
+    again = await as_owner.post("/v1/earnings/pay", json={"ids": ids}, headers=headers)
+    assert first.status_code == again.status_code == 200
+    assert first.json() == again.json()
+    after = await ledger.balance(db, BIZ, owner_type="business", owner_id=BIZ, category="bank")
+    assert after == bank - 5500

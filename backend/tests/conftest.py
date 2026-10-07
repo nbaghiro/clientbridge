@@ -17,6 +17,7 @@ from clientbridge.core.ratelimit import (
     public_contract_rate_limit,
     public_form_rate_limit,
     public_pay_rate_limit,
+    public_prefs_rate_limit,
     public_review_rate_limit,
 )
 from clientbridge.core.security import hash_password, issue_access_token
@@ -382,6 +383,7 @@ async def api(
     app.dependency_overrides[public_form_rate_limit] = lambda: None
     app.dependency_overrides[public_contract_rate_limit] = lambda: None
     app.dependency_overrides[public_booking_rate_limit] = lambda: None
+    app.dependency_overrides[public_prefs_rate_limit] = lambda: None
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

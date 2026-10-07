@@ -16,6 +16,11 @@ BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
 
 
+async def _charge(api: httpx.AsyncClient, invoice_id: str, method_id: str) -> httpx.Response:
+    body = {"method": "card", "amount_cents": 4000, "payment_method_id": method_id}
+    return await api.post(f"/v1/invoices/{invoice_id}/payments", json=body)
+
+
 async def test_setup_intent_returns_client_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
@@ -104,8 +109,8 @@ async def test_pay_with_saved_card(as_owner: httpx.AsyncClient, db: AsyncSession
     db.add(inv)
     await db.flush()
     await book_invoice(db, inv)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
-    assert res.status_code == 200, res.text
+    res = await _charge(as_owner, inv.id, pm.id)
+    assert res.status_code == 201, res.text
     payment = (
         await db.execute(select(Payment).where(Payment.id == res.json()["payment_id"]))
     ).scalar_one()
@@ -131,7 +136,7 @@ async def test_pay_with_unknown_saved_card_404(
     db.add(inv)
     await db.flush()
     await book_invoice(db, inv)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=pm_nope")
+    res = await _charge(as_owner, inv.id, "pm_nope")
     assert res.status_code == 404
 
 
@@ -170,7 +175,7 @@ async def test_cannot_use_another_clients_saved_card(
     db.add(inv)
     await db.flush()
     await book_invoice(db, inv)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={other_pm.id}")
+    res = await _charge(as_owner, inv.id, other_pm.id)
     assert res.status_code == 404  # the saved card belongs to a different client
 
 
@@ -366,7 +371,7 @@ async def test_off_session_card_declined_402(as_owner: httpx.AsyncClient, db: As
     db.add_all([pm, inv])
     await db.flush()
     await book_invoice(db, inv)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
+    res = await _charge(as_owner, inv.id, pm.id)
     assert res.status_code == 402
     assert res.json()["error"] == "card_declined"
     # the declined charge left no phantom pending payment
@@ -385,7 +390,7 @@ async def test_off_session_requires_action_402(
     db.add_all([pm, inv])
     await db.flush()
     await book_invoice(db, inv)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id={pm.id}")
+    res = await _charge(as_owner, inv.id, pm.id)
     assert res.status_code == 402
     assert res.json()["error"] == "payment_action_required"
 
@@ -401,8 +406,8 @@ async def test_pay_with_default_card(
     db.add_all([default, other, inv])
     await db.flush()
     await book_invoice(db, inv)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=default")
-    assert res.status_code == 200, res.text
+    res = await _charge(as_owner, inv.id, "default")
+    assert res.status_code == 201, res.text
     assert gateway.charged_methods == ["pm_default"]  # the preferred card was charged off-session
 
 
@@ -416,5 +421,5 @@ async def test_pay_with_default_no_default_404(
     db.add_all([pm, inv])
     await db.flush()
     await book_invoice(db, inv)
-    res = await as_owner.post(f"/v1/payments/invoice/{inv.id}?payment_method_id=default")
+    res = await _charge(as_owner, inv.id, "default")
     assert res.status_code == 404

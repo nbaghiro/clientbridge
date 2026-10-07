@@ -115,6 +115,8 @@ async def test_preferences_link_must_be_signed(api: httpx.AsyncClient, db: Async
     assert (await api.get("/prefs/nothing")).status_code == 404
     forged = await api.post(f"/prefs/{cid}.forged", json={"email": True, "sms": True})
     assert forged.status_code == 404
+    unsubscribed = await api.post(f"/prefs/{cid}.forged/unsubscribe", json={})
+    assert unsubscribed.status_code == 404
     assert await _consents(db, cid, "sms") == []
 
 
@@ -182,8 +184,32 @@ async def test_preferences_are_rate_limited(api: httpx.AsyncClient, db: AsyncSes
 
     app.dependency_overrides[public_prefs_rate_limit] = limited
     token = prefs_token(await _client(db))
-    try:
-        assert (await api.get(f"/prefs/{token}")).status_code == 200
-        assert (await api.get(f"/prefs/{token}")).status_code == 429
-    finally:
-        app.dependency_overrides.pop(public_prefs_rate_limit, None)
+    assert (await api.get(f"/prefs/{token}")).status_code == 200
+    assert (await api.get(f"/prefs/{token}")).status_code == 429
+
+
+async def test_a_deleted_clients_link_is_not_found(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    await db.execute(update(Client).where(Client.id == cid).values(deleted_at=datetime.now(UTC)))
+    await db.flush()
+    assert (await api.get(f"/prefs/{prefs_token(cid)}")).status_code == 404
+
+
+async def test_unsubscribe_without_a_channel_withdraws_both(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await _client(db)
+    for channel in ("email", "sms"):
+        await record_consent(
+            db, BIZ, cid, channel=channel, status="granted", source="in_person", recorded_by=None
+        )
+    out = ok(await api.post(f"/prefs/{prefs_token(cid)}/unsubscribe", json={})).json()
+    assert (out["email"], out["sms"]) == (False, False)
+    assert (await _consents(db, cid, "email"))[-1] == ("withdrawn", "unsubscribe")
+    assert (await _consents(db, cid, "sms"))[-1] == ("withdrawn", "unsubscribe")
+
+
+async def test_export_needs_a_session(unauth: httpx.AsyncClient) -> None:
+    assert (await unauth.post("/v1/consents/export")).status_code == 401

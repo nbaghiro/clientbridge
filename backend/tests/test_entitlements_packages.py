@@ -1,6 +1,7 @@
 """Package purchase (charge now, grant on settlement) + session consumption, vs the seeded DB."""
 
 import httpx
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +10,7 @@ from clientbridge.models.catalog import Item, Package
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from tests.conftest import BIZ, Factory, FakePaymentGateway
-from tests.helpers import client_id, enable_payments, settle
+from tests.helpers import client_id, enable_payments, key, settle
 
 PKG_ITEM = "it_pkg5"  # seeded package item: price $200, session_count = 5, GST+PST taxable
 PKG_TAXED = 22400  # $200 + 12% (BC GST 5% + PST 7%)
@@ -270,7 +271,25 @@ async def test_refund_cancels_settled_package(
     await settle(as_owner, db, body["payment_id"], "evt_pkg_refund")
     pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
     assert pkg.status == "active"
-    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund")
+    refunded = await as_owner.post(f"/v1/payments/{body['payment_id']}/refund", json={})
     assert refunded.status_code == 200, refunded.text
     pkg = (await db.execute(select(Package).where(Package.id == body["package_id"]))).scalar_one()
     assert pkg.status == "canceled"
+
+
+async def test_consume_replays_on_the_same_key(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    pkg = await _active_package(db, total=3)
+    headers = key()
+    first = await as_owner.post(f"/v1/packages/{pkg.id}/consume", headers=headers)
+    again = await as_owner.post(f"/v1/packages/{pkg.id}/consume", headers=headers)
+    assert first.status_code == again.status_code == 200
+    assert again.json() == first.json()
+    assert await ledger.sessions_used(db, pkg) == 1
+
+
+@pytest.mark.parametrize("path", ["/v1/packages", "/v1/packages/pkg_whatever/consume"])
+async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
+    body = {"client_id": CARD_CLIENT, "item_id": PKG_ITEM}
+    assert (await unauth.post(path, json=body)).status_code == 401

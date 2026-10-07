@@ -36,6 +36,5 @@ async def test_create_edit_and_archive_each_kind(as_owner: httpx.AsyncClient, ki
     ).json()
     assert (edited["name"], edited["price_cents"]) == (f"Renamed {kind}", 5000)
 
-    ok(await as_owner.delete(f"/v1/items/{created['id']}"), 204)
-    archived = ok(await as_owner.get(f"/v1/items/{created['id']}")).json()
-    assert archived["active"] is False
+    archived = ok(await as_owner.patch(f"/v1/items/{created['id']}", json={"active": False}))
+    assert archived.json()["active"] is False

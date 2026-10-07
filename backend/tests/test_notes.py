@@ -1,6 +1,7 @@
 """Notes on a client or a pet: write, pin, edit, delete, and who may change them."""
 
 import httpx
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -96,3 +97,31 @@ async def test_foreign_note_404_by_scoping(
     )
     assert (await as_owner.patch("/v1/notes/nt_foreign", json={"body": "y"})).status_code == 404
     assert (await as_owner.delete("/v1/notes/nt_foreign")).status_code == 404
+
+
+async def test_note_on_a_foreign_pet_404(
+    as_owner: httpx.AsyncClient, factory: Factory, db: AsyncSession
+) -> None:
+    other = await factory.business()
+    foreign = await factory.client(business=other)
+    await db.execute(
+        text(
+            "INSERT INTO subjects (id, business_id, client_id, kind, name, attributes)"
+            " VALUES ('sj_foreign_note', :b, :c, 'pet', 'Theirs', '{}')"
+        ),
+        {"b": other.id, "c": foreign.id},
+    )
+    res = await as_owner.post(
+        "/v1/notes", json={"parent_type": "subject", "parent_id": "sj_foreign_note", "body": "x"}
+    )
+    assert res.status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [("POST", "/v1/notes"), ("PATCH", "/v1/notes/nt_x"), ("DELETE", "/v1/notes/nt_x")],
+)
+async def test_requires_auth_401(unauth: httpx.AsyncClient, method: str, path: str) -> None:
+    body = {"parent_type": "client", "parent_id": "cl_grace", "body": "x"}
+    res = await unauth.request(method, path, json=None if method == "DELETE" else body)
+    assert res.status_code == 401

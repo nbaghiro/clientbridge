@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +17,7 @@ from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Webhook
 from clientbridge.services import ledger
 from tests.conftest import Factory, FakeEmailSender, FakePaymentGateway
-from tests.helpers import client_id, enable_payments
+from tests.helpers import client_id, enable_payments, key
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -191,10 +192,14 @@ async def test_cancel_subscription(
     )
     db.add(sub)
     await db.flush()
-    res = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel")
+    headers = key()
+    res = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel", headers=headers)
     assert res.status_code == 200, res.text
     assert res.json()["status"] == "canceled"
-    assert "sub_existing" in gateway.canceled_subscriptions
+    assert gateway.canceled_subscriptions.count("sub_existing") == 1
+    replay = await as_owner.post(f"/v1/subscriptions/{sub.id}/cancel", headers=headers)
+    assert replay.json() == res.json()
+    assert gateway.canceled_subscriptions.count("sub_existing") == 1
     status = (
         await db.execute(select(Subscription.status).where(Subscription.id == sub.id))
     ).scalar_one()
@@ -622,3 +627,63 @@ async def test_zero_amount_invoice_records_nothing(
         headers=GOOD,
     )
     assert res.status_code == 200
+
+
+async def _active_sub(db: AsyncSession, ref: str) -> Subscription:
+    item = await _sub_item(db)
+    sub = Subscription(
+        id=new_id("subscription"),
+        business_id=BIZ,
+        client_id=await client_id(db),
+        item_id=item.id,
+        status="active",
+        provider_ref=ref,
+    )
+    db.add(sub)
+    await db.flush()
+    return sub
+
+
+async def test_create_without_stripe_connected_409(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await enable_payments(db, None)
+    cid = await client_id(db)
+    item = await _sub_item(db)
+    pm = await _saved_method(db, cid)
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, pm.id))
+    assert res.status_code == 409
+    assert gateway.created_subscriptions == []
+
+
+async def test_create_unknown_or_foreign_client_404(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory
+) -> None:
+    await enable_payments(db)
+    item = await _sub_item(db)
+    foreign = await factory.client(business=await factory.business())
+    for cid in ("cl_nope", foreign.id):
+        res = await as_owner.post("/v1/subscriptions", json=_body(cid, item.id, "pm_x"))
+        assert res.status_code == 404
+
+
+async def test_create_unknown_item_404(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await enable_payments(db)
+    cid = await client_id(db)
+    pm = await _saved_method(db, cid)
+    res = await as_owner.post("/v1/subscriptions", json=_body(cid, "it_nope", pm.id))
+    assert res.status_code == 404
+
+
+async def test_staff_cannot_cancel_subscription(
+    as_staff: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    sub = await _active_sub(db, "sub_staff")
+    assert (await as_staff.post(f"/v1/subscriptions/{sub.id}/cancel")).status_code == 403
+    assert gateway.canceled_subscriptions == []
+
+
+@pytest.mark.parametrize("path", ["/v1/subscriptions", "/v1/subscriptions/sub_x/cancel"])
+async def test_writes_need_a_session_401(unauth: httpx.AsyncClient, path: str) -> None:
+    body = {"client_id": "cl_x", "item_id": "it_x", "payment_method_id": "pm_x"}
+    assert (await unauth.post(path, json=body)).status_code == 401

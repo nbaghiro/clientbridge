@@ -168,3 +168,8 @@ async def test_share_is_tenant_scoped(
     await factory.client(business=other)
     rid = await _published(db, business_id=other.id)
     assert (await as_owner.post(f"/v1/reviews/{rid}/share")).status_code == 404
+
+
+async def test_share_needs_a_session_401(unauth: httpx.AsyncClient, db: AsyncSession) -> None:
+    rid = await _published(db)
+    assert (await unauth.post(f"/v1/reviews/{rid}/share")).status_code == 401

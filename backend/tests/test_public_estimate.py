@@ -118,6 +118,7 @@ async def test_only_offered_addons_can_be_ticked(
 async def test_unknown_token_is_not_found(unauth: httpx.AsyncClient) -> None:
     assert (await unauth.get("/estimate/nope")).status_code == 404
     assert (await unauth.post("/estimate/nope/accept", json={})).status_code == 404
+    assert (await unauth.post("/estimate/nope/decline", json={})).status_code == 404
 
 
 async def test_draft_has_no_public_link(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

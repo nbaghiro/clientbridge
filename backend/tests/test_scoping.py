@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.core.scoping import scoped_count, scoped_delete, scoped_page, scoped_update
+from clientbridge.core.scoping import scoped, scoped_delete, scoped_update
 from clientbridge.models.billing import Line
 from clientbridge.models.clients import Client
 from tests.conftest import Factory
@@ -50,12 +50,7 @@ async def test_scoped_reads_isolate_business_and_soft_delete(db: AsyncSession) -
     await f.client(business=biz2, name="Other")
     await db.flush()
 
-    # live rows are this business's, minus tombstones
-    assert await scoped_count(db, Client, biz1.id, soft_delete=True) == 1
-    live = await scoped_page(db, Client, biz1.id, limit=50, offset=0, soft_delete=True)
+    live = (await db.execute(scoped(Client, biz1.id, soft_delete=True))).scalars().all()
     assert [c.id for c in live] == [keep.id]
-
-    # without the soft-delete guard the tombstoned row is still counted — biz2's never is
-    assert await scoped_count(db, Client, biz1.id) == 2
-    ids = {c.id for c in await scoped_page(db, Client, biz1.id, limit=50, offset=0)}
-    assert ids == {keep.id, gone.id}
+    every = (await db.execute(scoped(Client, biz1.id))).scalars().all()
+    assert {c.id for c in every} == {keep.id, gone.id}
