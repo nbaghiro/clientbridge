@@ -5,13 +5,14 @@ import { noop, story } from "../story";
 export default story<ButtonProps>({
     component: "Button",
     summary:
-        "Primary, outline, quiet, danger and link buttons in three sizes, with an icon and a busy state.",
+        "Primary, outline, quiet, danger and link buttons in three sizes, with an icon and a busy state, and an inverse tone for dark, brand and photo backgrounds.",
     controls: {
         children: { type: "text" },
         variant: { type: "select", options: ["primary", "outline", "quiet", "danger", "link"] },
         size: { type: "select", options: ["sm", "md", "lg"] },
         icon: { type: "select", options: ["plus", "check", "calendar", "send", "trash"] },
         label: { type: "text" },
+        tone: { type: "select", options: ["default", "inverse"] },
         disabled: { type: "boolean" },
         busy: { type: "boolean" },
         full: { type: "boolean" },
@@ -128,6 +129,76 @@ export default story<ButtonProps>({
             key: "rtl",
             title: "Right-to-left text",
             props: () => ({ children: "احجز موعدًا · קבע תור", icon: "calendar", onPress: noop }),
+        },
+        {
+            key: "inverse-primary",
+            title: "Inverse primary on a photo",
+            backdrop: "photo",
+            props: () => ({ children: "Book a visit", tone: "inverse", size: "lg", onPress: noop }),
+        },
+        {
+            key: "inverse-outline",
+            title: "Inverse outline on a photo",
+            backdrop: "photo",
+            props: () => ({
+                children: "Services",
+                tone: "inverse",
+                variant: "outline",
+                size: "lg",
+                onPress: noop,
+            }),
+        },
+        {
+            key: "inverse-quiet",
+            title: "Inverse quiet on the dark surface",
+            backdrop: "dark",
+            props: () => ({
+                children: "Skip",
+                tone: "inverse",
+                variant: "quiet",
+                icon: "chevronRight",
+                onPress: noop,
+            }),
+        },
+        {
+            key: "inverse-link",
+            title: "Inverse link on the brand colour",
+            backdrop: "brand",
+            props: () => ({
+                children: "View all",
+                tone: "inverse",
+                variant: "link",
+                onPress: noop,
+            }),
+        },
+        {
+            key: "inverse-danger",
+            title: "Inverse danger on the dark surface",
+            backdrop: "dark",
+            props: () => ({
+                children: "Cancel booking",
+                tone: "inverse",
+                variant: "danger",
+                onPress: noop,
+            }),
+        },
+        {
+            key: "inverse-outline-brand",
+            title: "Inverse outline with a glyph on the brand colour",
+            backdrop: "brand",
+            props: () => ({
+                children: "Call",
+                icon: "phone",
+                tone: "inverse",
+                variant: "outline",
+                onPress: noop,
+            }),
+        },
+        {
+            key: "inverse-busy",
+            title: "Inverse, busy",
+            backdrop: "dark",
+            props: () => ({ children: "Booking…", tone: "inverse", busy: true }),
         },
     ],
 });

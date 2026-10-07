@@ -4,6 +4,9 @@ import type { Kit } from "./kit";
 
 export type ControlValue = string | number | boolean;
 
+// What an example sits on: the dark sidebar colour, the accent, or a photo under a scrim.
+export type Backdrop = "dark" | "brand" | "photo";
+
 export type Control =
     | { type: "select"; options: readonly string[] }
     | { type: "boolean" }
@@ -18,6 +21,7 @@ interface Example<P> {
     overlay?: boolean;
     // A controlled example: the preview holds `value` in state and updates it from `onChange`.
     state?: StateBinding;
+    backdrop?: Backdrop;
 }
 
 interface StateBinding {
@@ -47,6 +51,7 @@ export interface StoryEntry {
         props: (kit: Kit) => object;
         overlay?: boolean;
         state?: StateBinding;
+        backdrop?: Backdrop;
     }[];
     controls?: Readonly<Record<string, Control>>;
     render?: (kit: Kit, props: object) => ReactNode;

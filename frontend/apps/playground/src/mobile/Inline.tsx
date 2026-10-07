@@ -7,6 +7,7 @@ import { SafeAreaFrameContext, SafeAreaInsetsContext } from "react-native-safe-a
 import { Rendered } from "../Render";
 import type { ControlValue } from "../story";
 import { findPage } from "../stories";
+import { Backdrop } from "./Backdrop";
 import { DEVICES } from "./Frame";
 import { mobileKit } from "./MobileKit";
 import { theme } from "./nativeTheme";
@@ -35,7 +36,15 @@ export default function Inline({
         <SafeAreaFrameContext.Provider value={{ x: 0, y: 0, width: d.width, height: d.height }}>
             <SafeAreaInsetsContext.Provider value={NO_INSETS}>
                 <View style={[styles.root, { width: d.width }]}>
-                    <Rendered entry={entry} example={ex} kit={mobileKit} ui={ui} values={values} />
+                    <Backdrop backdrop={ex.backdrop}>
+                        <Rendered
+                            entry={entry}
+                            example={ex}
+                            kit={mobileKit}
+                            ui={ui}
+                            values={values}
+                        />
+                    </Backdrop>
                 </View>
             </SafeAreaInsetsContext.Provider>
         </SafeAreaFrameContext.Provider>

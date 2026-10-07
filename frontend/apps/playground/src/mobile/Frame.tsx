@@ -10,6 +10,7 @@ import { Rendered } from "../Render";
 import { parseHash } from "../routes";
 import type { ControlValue } from "../story";
 import { findPage } from "../stories";
+import { Backdrop } from "./Backdrop";
 import { mobileKit } from "./MobileKit";
 import { theme } from "./nativeTheme";
 
@@ -65,17 +66,19 @@ export default function Frame({ hash }: { hash: string }) {
                                 .map((ex) => (
                                     <View key={ex.key} nativeID={ex.key} style={styles.example}>
                                         <Text style={styles.title}>{ex.title}</Text>
-                                        <Rendered
-                                            entry={entry}
-                                            example={ex}
-                                            kit={mobileKit}
-                                            ui={ui}
-                                            values={
-                                                ex === entry.examples[0]
-                                                    ? values[entry.component]
-                                                    : undefined
-                                            }
-                                        />
+                                        <Backdrop backdrop={ex.backdrop}>
+                                            <Rendered
+                                                entry={entry}
+                                                example={ex}
+                                                kit={mobileKit}
+                                                ui={ui}
+                                                values={
+                                                    ex === entry.examples[0]
+                                                        ? values[entry.component]
+                                                        : undefined
+                                                }
+                                            />
+                                        </Backdrop>
                                     </View>
                                 ))}
                         </Fragment>

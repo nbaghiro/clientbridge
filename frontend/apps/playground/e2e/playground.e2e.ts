@@ -199,3 +199,92 @@ test("DateField opens a calendar that moves and picks by keyboard", async ({ pag
     await expect(page.getByRole("dialog")).toBeHidden();
     await expect(date).toBeFocused();
 });
+
+// Text against what is behind it while the pointer is over it; a photo backdrop counts as its scrim over white or black.
+async function hoverContrast(page: Page, index: number): Promise<number> {
+    return page
+        .locator("[data-example] button:enabled")
+        .nth(index)
+        .evaluate((el) => {
+            const ctx = document.createElement("canvas").getContext("2d", {
+                willReadFrequently: true,
+            });
+            if (!ctx) throw new Error("no canvas");
+            const rgba = (css: string): [number, number, number, number] => {
+                ctx.clearRect(0, 0, 1, 1);
+                ctx.fillStyle = css;
+                ctx.fillRect(0, 0, 1, 1);
+                const [r = 0, g = 0, b = 0, a = 0] = ctx.getImageData(0, 0, 1, 1).data;
+                return [r, g, b, a / 255];
+            };
+            const over = (
+                top: [number, number, number, number],
+                under: [number, number, number],
+            ): [number, number, number] => [
+                top[0] * top[3] + under[0] * (1 - top[3]),
+                top[1] * top[3] + under[1] * (1 - top[3]),
+                top[2] * top[3] + under[2] * (1 - top[3]),
+            ];
+            const luminance = ([r, g, b]: [number, number, number]): number => {
+                const lin = (v: number): number => {
+                    const s = v / 255;
+                    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+                };
+                return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+            };
+            const layers: [number, number, number, number][] = [];
+            let bases: [number, number, number][] = [[255, 255, 255]];
+            for (let n: Element | null = el; n; n = n.parentElement) {
+                if (n instanceof HTMLElement && n.dataset.backdrop === "photo") {
+                    const scrim = rgba("rgba(0, 0, 0, 0.55)");
+                    bases = [over(scrim, [255, 255, 255]), over(scrim, [0, 0, 0])];
+                    break;
+                }
+                const fill = rgba(getComputedStyle(n).backgroundColor);
+                if (fill[3] === 0) continue;
+                if (fill[3] === 1) {
+                    bases = [[fill[0], fill[1], fill[2]]];
+                    break;
+                }
+                layers.push(fill);
+            }
+            const text = rgba(getComputedStyle(el).color);
+            return Math.min(
+                ...bases.map((base) => {
+                    const back = layers.reduceRight<[number, number, number]>(
+                        (under, top) => over(top, under),
+                        base,
+                    );
+                    const [hi, lo] = [luminance(over(text, back)), luminance(back)].sort(
+                        (a, b) => b - a,
+                    );
+                    return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
+                }),
+            );
+        });
+}
+
+for (const name of ["Button", "IconButton"]) {
+    test(`${name} keeps its text readable while hovered`, async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto(`/#/${name}?platform=web`);
+        await expect(page.locator('[data-backdrop="photo"]').first()).toBeVisible();
+        const buttons = page.locator("[data-example] button:enabled");
+        const low: string[] = [];
+        const floor = name === "Button" ? 4.5 : 3;
+        for (let i = 0; i < (await buttons.count()); i += 1) {
+            const button = buttons.nth(i);
+            await button.scrollIntoViewIfNeeded();
+            await button.hover();
+            await page.waitForTimeout(200);
+            const ratio = await hoverContrast(page, i);
+            if (ratio < floor) {
+                const example = await button.evaluate(
+                    (el) => el.closest("[data-example]")?.getAttribute("data-example") ?? "",
+                );
+                low.push(`${example}: ${ratio.toFixed(2)}`);
+            }
+        }
+        expect(low).toEqual([]);
+    });
+}

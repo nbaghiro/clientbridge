@@ -14,7 +14,8 @@ import {
 
 import { Rendered } from "../Render";
 import { type Device, type Platform, type Route, frameSrc, pageHash, parseHash } from "../routes";
-import type { ControlValue, StoryEntry } from "../story";
+import photo from "../backdrop-photo.jpg";
+import type { Backdrop, ControlValue, StoryEntry } from "../story";
 import { PAGES, findPage } from "../stories";
 import { Controls } from "./Controls";
 import { PhoneFrame } from "./PhoneFrame";
@@ -128,6 +129,40 @@ function MobileTwin({
                 values={values}
             />
         </Suspense>
+    );
+}
+
+const BACKDROP: Record<Backdrop, string> = {
+    dark: "bg-side",
+    brand: "bg-accent-strong",
+    photo: "bg-side",
+};
+
+function OnBackdrop({
+    backdrop,
+    children,
+}: {
+    backdrop: Backdrop | undefined;
+    children: ReactNode;
+}) {
+    if (backdrop === undefined) return <>{children}</>;
+    return (
+        <div
+            data-backdrop={backdrop}
+            className={`relative isolate overflow-hidden rounded-md p-4 ${BACKDROP[backdrop]}`}
+        >
+            {backdrop === "photo" ? (
+                <>
+                    <img
+                        src={photo}
+                        alt=""
+                        className="absolute inset-0 -z-10 h-full w-full object-cover"
+                    />
+                    <span aria-hidden className="absolute inset-0 -z-10 bg-black/55" />
+                </>
+            ) : null}
+            {children}
+        </div>
     );
 }
 
@@ -246,7 +281,11 @@ function Section({
                     </header>
                     <Pair
                         route={route}
-                        web={<Rendered entry={entry} example={ex} kit={webKit} ui={ui} />}
+                        web={
+                            <OnBackdrop backdrop={ex.backdrop}>
+                                <Rendered entry={entry} example={ex} kit={webKit} ui={ui} />
+                            </OnBackdrop>
+                        }
                         mobile={<MobileTwin route={route} entry={entry} example={ex} />}
                     />
                 </article>
