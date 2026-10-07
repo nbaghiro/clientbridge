@@ -107,7 +107,7 @@ export function SignaturePad({
                             onClick={() => {
                                 setStrokes([]);
                             }}
-                            className="absolute right-2 top-2 rounded px-2 py-1 text-xs font-medium text-accent hover:bg-surface"
+                            className="absolute right-2 top-2 rounded px-2 py-1 text-xs font-medium text-accent hover:bg-surface hover:text-accent-strong"
                         >
                             {clearLabel}
                         </button>

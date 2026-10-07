@@ -42,7 +42,7 @@ export function Tabs<K extends string>({
                                 ? `shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-medium transition ${
                                       on
                                           ? "border-accent bg-accent text-accent-ink"
-                                          : "border-line bg-surface text-ink-soft hover:bg-bg"
+                                          : "border-line bg-surface text-ink-soft hover:bg-bg hover:text-ink"
                                   }`
                                 : `-mb-px shrink-0 whitespace-nowrap border-b-2 pb-3 pt-1 transition ${
                                       on

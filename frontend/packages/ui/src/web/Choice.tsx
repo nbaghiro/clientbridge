@@ -19,14 +19,14 @@ const COLS = { 2: "grid-cols-2", 3: "grid-cols-3", 4: "grid-cols-4", 5: "grid-co
 function optionClass(layout: keyof typeof GROUP, on: boolean, lg: boolean): string {
     if (layout === "segmented") {
         return `rounded px-3.5 py-1.5 font-medium transition disabled:opacity-50 ${
-            on ? "bg-accent text-accent-ink" : "text-ink-soft hover:bg-bg"
+            on ? "bg-accent text-accent-ink" : "text-ink-soft hover:bg-bg hover:text-ink"
         }`;
     }
     if (layout === "cards") {
         return `rounded-md border px-3.5 py-3 text-left text-sm transition disabled:opacity-50 ${
             on
                 ? "border-accent bg-accent-weak text-accent-strong"
-                : "border-line bg-surface text-ink hover:bg-bg"
+                : "border-line bg-surface text-ink hover:bg-bg hover:text-ink"
         }`;
     }
     if (layout === "tiles") {
@@ -35,13 +35,13 @@ function optionClass(layout: keyof typeof GROUP, on: boolean, lg: boolean): stri
         } ${
             on
                 ? "border-accent bg-accent-weak shadow-[inset_0_0_0_1px_var(--accent)]"
-                : "border-line bg-surface hover:border-accent-line hover:bg-bg"
+                : "border-line bg-surface text-ink hover:border-accent-line hover:bg-bg hover:text-ink"
         }`;
     }
     return `rounded-full border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
         on
             ? "border-accent bg-accent text-accent-ink"
-            : "border-line bg-surface text-ink-soft hover:bg-bg"
+            : "border-line bg-surface text-ink-soft hover:bg-bg hover:text-ink"
     }`;
 }
 

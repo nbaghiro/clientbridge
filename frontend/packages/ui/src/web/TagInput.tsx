@@ -54,7 +54,7 @@ export function TagInput({
                             onClick={() => {
                                 remove(t);
                             }}
-                            className="shrink-0 rounded-full p-0.5 hover:bg-accent-line"
+                            className="shrink-0 rounded-full p-0.5 hover:bg-accent-line hover:text-accent-strong"
                         >
                             <Icon name="x" size={12} />
                         </button>
@@ -87,7 +87,7 @@ export function TagInput({
                             onClick={() => {
                                 add(s.tag);
                             }}
-                            className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs font-medium text-ink-soft hover:bg-bg"
+                            className="inline-flex items-center gap-1 rounded-full border border-line bg-surface px-2.5 py-0.5 text-xs font-medium text-ink-soft hover:bg-bg hover:text-ink"
                         >
                             <Icon name="plus" size={12} />
                             {s.tag}
@@ -100,7 +100,7 @@ export function TagInput({
                             onClick={() => {
                                 add(text);
                             }}
-                            className="inline-flex items-center gap-1 rounded-full border border-dashed border-accent-line px-2.5 py-0.5 text-xs font-medium text-accent hover:bg-accent-weak"
+                            className="inline-flex items-center gap-1 rounded-full border border-dashed border-accent-line px-2.5 py-0.5 text-xs font-medium text-accent hover:bg-accent-weak hover:text-accent-strong"
                         >
                             <Icon name="plus" size={12} />
                             {createLabel(text)}

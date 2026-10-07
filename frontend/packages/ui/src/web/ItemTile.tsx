@@ -81,7 +81,7 @@ export function ItemTile({
                 `relative flex min-h-[112px] min-w-0 flex-col rounded-lg border bg-surface p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-55 ${
                     count > 0
                         ? "border-accent shadow-[inset_0_0_0_1px_var(--accent)]"
-                        : "border-line hover:border-accent-line hover:bg-bg"
+                        : "border-line hover:border-accent-line hover:bg-bg hover:text-ink"
                 }`,
                 className,
             )}

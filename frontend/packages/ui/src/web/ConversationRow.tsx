@@ -27,7 +27,7 @@ export function ConversationRow({
             aria-current={selected ? true : undefined}
             className={cx(
                 `flex w-full items-start gap-3 border-b border-line-soft px-4 py-3 text-left transition ${
-                    selected ? "bg-accent-weak" : "hover:bg-bg"
+                    selected ? "bg-accent-weak text-ink" : "hover:bg-bg hover:text-ink"
                 }`,
                 className,
             )}

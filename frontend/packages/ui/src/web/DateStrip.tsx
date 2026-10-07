@@ -59,7 +59,7 @@ export function DateStrip({
                                     ? "border-accent bg-accent text-accent-ink"
                                     : off
                                       ? "cursor-not-allowed border-transparent text-muted/60"
-                                      : "border-transparent text-ink hover:border-line hover:bg-bg"
+                                      : "border-transparent text-ink hover:border-line hover:bg-bg hover:text-ink"
                             }`}
                         >
                             <span

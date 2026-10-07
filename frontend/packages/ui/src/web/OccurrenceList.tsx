@@ -65,7 +65,7 @@ export function OccurrenceList({
                                         className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                                             a.selected === true
                                                 ? "border-accent bg-accent-weak text-accent-strong"
-                                                : "border-line bg-surface text-ink-soft hover:bg-bg"
+                                                : "border-line bg-surface text-ink-soft hover:bg-bg hover:text-ink"
                                         }`}
                                     >
                                         {a.label}

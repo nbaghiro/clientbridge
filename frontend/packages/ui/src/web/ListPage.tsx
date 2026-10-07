@@ -107,7 +107,7 @@ export function ListPage<T, K extends string = string>({
                                 onClick={() => {
                                     onRowPress(row);
                                 }}
-                                className="block w-full border-b border-line-soft px-4 py-3 text-left text-sm transition last:border-0 hover:bg-bg"
+                                className="block w-full border-b border-line-soft px-4 py-3 text-left text-sm transition last:border-0 hover:bg-bg hover:text-ink"
                             >
                                 {renderRow(row)}
                             </button>

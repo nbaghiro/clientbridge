@@ -3,7 +3,7 @@ import { type StepperProps, strings } from "@clientbridge/app-core/public";
 import { type WebProps, cx } from "./props";
 
 const STEP =
-    "flex h-7 w-7 items-center justify-center rounded-md border border-line text-sm text-ink-soft transition hover:bg-bg disabled:opacity-40";
+    "flex h-7 w-7 items-center justify-center rounded-md border border-line text-sm text-ink-soft transition hover:bg-bg hover:text-ink disabled:opacity-40";
 
 export function Stepper({ value, onChange, min, max, label, className }: WebProps<StepperProps>) {
     return (

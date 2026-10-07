@@ -170,7 +170,7 @@ export function DateField({
                               onClick={() => {
                                   month.setView(month.view === "years" ? "days" : "years");
                               }}
-                              className="flex items-center gap-1 rounded-md px-2 py-1 font-display text-sm font-bold text-ink transition hover:bg-bg focus-visible:outline-2 focus-visible:outline-accent"
+                              className="flex items-center gap-1 rounded-md px-2 py-1 font-display text-sm font-bold text-ink transition hover:bg-bg hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                           >
                               {month.title}
                               <Icon
@@ -264,7 +264,7 @@ export function DateField({
                                                       ? "bg-accent font-semibold text-accent-ink"
                                                       : d.disabled
                                                         ? "cursor-default text-muted opacity-40"
-                                                        : `hover:bg-bg ${d.inMonth ? "text-ink" : "text-muted"} ${d.today ? "font-semibold text-accent" : ""}`
+                                                        : `hover:bg-bg hover:text-ink ${d.inMonth ? "text-ink" : "text-muted"} ${d.today ? "font-semibold text-accent" : ""}`
                                               }`}
                                           >
                                               {d.day}
@@ -288,7 +288,7 @@ export function DateField({
                                       onClick={() => {
                                           pick(today);
                                       }}
-                                      className="rounded-md px-2 py-1 text-sm font-semibold text-accent transition hover:bg-accent-weak focus-visible:outline-2 focus-visible:outline-accent"
+                                      className="rounded-md px-2 py-1 text-sm font-semibold text-accent transition hover:bg-accent-weak hover:text-accent-strong focus-visible:outline-2 focus-visible:outline-accent"
                                   >
                                       {strings.common.today}
                                   </button>

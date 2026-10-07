@@ -69,7 +69,7 @@ export function ListRow({
                     onClick={onPress}
                     aria-label={label}
                     aria-current={selected === true ? true : undefined}
-                    className={`flex min-w-0 flex-1 items-center gap-3 text-left transition hover:bg-bg ${selected === true ? "hover:bg-accent-weak" : ""} ${pad}`}
+                    className={`flex min-w-0 flex-1 items-center gap-3 text-left transition hover:bg-bg hover:text-ink ${selected === true ? "hover:bg-accent-weak" : ""} ${pad}`}
                 >
                     {body}
                 </button>

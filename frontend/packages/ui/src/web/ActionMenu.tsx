@@ -100,8 +100,8 @@ export function ActionMenu({
                         }}
                         className={
                             layout === "grid"
-                                ? "flex items-start gap-3 rounded-md border border-line-soft p-3 text-left transition hover:border-accent-line hover:bg-accent-weak focus:border-accent focus:outline-hidden"
-                                : "flex w-full items-center gap-3 px-4 py-2 text-left transition hover:bg-bg focus:bg-bg focus:outline-hidden"
+                                ? "flex items-start gap-3 rounded-md border border-line-soft p-3 text-left transition hover:border-accent-line hover:bg-accent-weak hover:text-ink focus:border-accent focus:outline-hidden"
+                                : "flex w-full items-center gap-3 px-4 py-2 text-left transition hover:bg-bg hover:text-ink focus:bg-bg focus:text-ink focus:outline-hidden"
                         }
                     >
                         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-weak text-accent">
