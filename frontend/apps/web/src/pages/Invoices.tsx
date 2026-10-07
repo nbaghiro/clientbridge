@@ -1,145 +1,129 @@
 import {
-    DOC_ACTION_LABEL,
-    DOC_TABS,
-    type DocTab,
-    type EstimateRow,
-    type InvoiceRow,
+    type EstimateRecord,
+    type EstimateSegment,
+    type InvoiceRecord,
+    type InvoiceSegment,
     type PaymentRow,
     canManagePayments,
     docDraft,
-    docHeading,
-    estimateActions,
-    estimateStatusIntent,
-    filterEstimates,
-    filterInvoices,
     formatMoney,
-    formatMoneyWithCurrency,
-    invoiceActions,
-    invoiceStatusIntent,
-    isPayable,
-    isRefundRow,
     isRefundable,
-    payLinkUrl,
-    paymentStatusIntent,
-    useRefundForm,
-    strings,
-    useAsyncAction,
-    useEstimates,
-    useInvoicePayments,
-    useInvoices,
+    printedEstimate,
+    printedInvoice,
+    printedReceipt,
     refundPlaceholder,
-    useDocTotals,
+    strings,
+    useEstimateActions,
+    useEstimateDesk,
+    useEstimateRecord,
+    useEstimates,
+    useInvoiceActions,
+    useInvoiceDesk,
+    useInvoicePayments,
+    useInvoiceRecord,
+    useInvoices,
+    useLetterhead,
     useLines,
-    useSearch,
+    useRefundForm,
 } from "@clientbridge/app-core";
 import {
+    ActivityTimeline,
+    Avatar,
     Badge,
     Button,
-    confirm,
+    Choice,
+    CopyField,
     DetailSection,
     DetailView,
+    DocTotals,
+    KeyValueList,
     ListPage,
     Money,
     Notice,
+    Stat,
     StatusPill,
     TextField,
+    confirm,
 } from "@clientbridge/ui";
+import { cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
+import { DocumentPreview, type PreviewDoc } from "../components/DocumentPreview";
+import { RecordPayment } from "../components/RecordPayment";
 import { config } from "../config";
 import { api } from "../lib/api";
-import { useLinkIntent } from "../lib/links";
 import { useRole } from "../lib/auth";
+import { useLinkIntent } from "../lib/links";
 
-const GRID = "grid grid-cols-[6rem_2fr_1fr_1fr] items-center gap-4";
+const s = strings.billing;
+const GRID =
+    "grid grid-cols-[4.5rem_minmax(0,2.2fr)_5.5rem_minmax(0,1.4fr)_6.5rem_6.5rem] items-center gap-4";
+const EST_GRID =
+    "grid grid-cols-[4.5rem_minmax(0,2.2fr)_minmax(0,1.6fr)_6.5rem] items-center gap-4";
+
+type DocKind = "invoices" | "estimates";
+type Composing = { kind: "invoice" | "estimate"; id: string | null } | null;
 
 export function Invoices() {
-    const invoices = useInvoices();
-    const estimates = useEstimates();
-    const [creating, setCreating] = useState(false);
+    const [composing, setComposing] = useState<Composing>(null);
     const [openId, setOpenId] = useState<string | null>(null);
     const params = useLinkIntent({
         onCreate: () => {
-            setCreating(true);
+            setComposing({
+                kind: params.get("doc") === "estimates" ? "estimate" : "invoice",
+                id: null,
+            });
         },
         onOpen: setOpenId,
     });
-    const [tab, setTab] = useState<DocTab>(
+    const [doc, setDoc] = useState<DocKind>(
         params.get("doc") === "estimates" ? "estimates" : "invoices",
     );
-    const { q, setQ, filtered } = useSearch<InvoiceRow | EstimateRow>(
-        tab === "invoices" ? invoices : estimates,
-        (tab === "invoices" ? filterInvoices : filterEstimates) as (
-            rows: (InvoiceRow | EstimateRow)[],
-            q: string,
-        ) => (InvoiceRow | EstimateRow)[],
-    );
-    const noun = tab === "invoices" ? "invoice" : "estimate";
-    const intent = tab === "invoices" ? invoiceStatusIntent : estimateStatusIntent;
 
     return (
         <div>
-            <ListPage
-                summary={strings.billing.countSummary(invoices.length, estimates.length)}
-                action={{
-                    label: strings.billing.newButton(noun),
-                    onPress: () => {
-                        setCreating(true);
-                    },
+            <Choice<DocKind>
+                layout="segmented"
+                label={s.invoices}
+                options={[
+                    { key: "invoices", label: s.invoices },
+                    { key: "estimates", label: s.estimates },
+                ]}
+                value={doc}
+                onChange={(k) => {
+                    setDoc(k);
+                    setOpenId(null);
                 }}
-                segments={{ items: DOC_TABS, active: tab, onSelect: setTab }}
-                search={{
-                    value: q,
-                    onChange: setQ,
-                    placeholder: strings.billing.searchPlaceholder(tab),
-                }}
-                head={
-                    <div className={GRID}>
-                        <span>{strings.billing.colNumber}</span>
-                        <span>{strings.billing.colClient}</span>
-                        <span>{strings.billing.colStatus}</span>
-                        <span className="text-right">{strings.billing.colTotal}</span>
-                    </div>
-                }
-                rows={filtered}
-                rowKey={(r) => r.id}
-                onRowPress={(r) => {
-                    setOpenId(r.id);
-                }}
-                empty={q ? strings.billing.searchEmpty(tab) : strings.billing.empty(tab)}
-                renderRow={(r) => (
-                    <div className={GRID}>
-                        <span className="font-medium tabular-nums text-ink">
-                            {r.number ?? strings.clients.dash}
-                        </span>
-                        <span className="truncate text-ink">
-                            {r.client_name ?? strings.clients.dash}
-                        </span>
-                        <span>
-                            <StatusPill status={r.status} intent={intent(r.status)} />
-                        </span>
-                        <span className="text-right">
-                            <Money cents={r.total_cents} />
-                        </span>
-                    </div>
-                )}
             />
-
-            {creating ? (
-                <DocEditor
-                    kind={tab === "invoices" ? "invoice" : "estimate"}
+            <div className="mt-6">
+                {doc === "invoices" ? (
+                    <InvoiceDeskView
+                        openId={openId}
+                        setOpenId={setOpenId}
+                        compose={(id) => {
+                            setComposing({ kind: "invoice", id });
+                        }}
+                    />
+                ) : (
+                    <EstimateDeskView
+                        openId={openId}
+                        setOpenId={setOpenId}
+                        compose={(id) => {
+                            setComposing({ kind: "estimate", id });
+                        }}
+                        openInvoice={(id) => {
+                            setDoc("invoices");
+                            setOpenId(id);
+                        }}
+                    />
+                )}
+            </div>
+            {composing !== null ? (
+                <Composer
+                    composing={composing}
                     onClose={() => {
-                        setCreating(false);
-                    }}
-                />
-            ) : null}
-            {openId !== null ? (
-                <DocDetail
-                    kind={tab}
-                    row={filtered.find((r) => r.id === openId) ?? null}
-                    onClose={() => {
-                        setOpenId(null);
+                        setComposing(null);
                     }}
                 />
             ) : null}
@@ -147,187 +131,435 @@ export function Invoices() {
     );
 }
 
-function DocDetail({
-    kind,
-    row,
+function Composer({
+    composing,
     onClose,
 }: {
-    kind: DocTab;
-    row: InvoiceRow | EstimateRow | null;
+    composing: NonNullable<Composing>;
     onClose: () => void;
 }) {
-    const parentType = kind === "invoices" ? "invoice" : "estimate";
-    const lines = useLines(row?.id ?? "");
-    const totals = useDocTotals(parentType, row);
-    const { busy, error, run } = useAsyncAction();
-    const role = useRole();
-    const [editing, setEditing] = useState(false);
+    const invoices = useInvoices();
+    const estimates = useEstimates();
+    const lines = useLines(composing.id ?? "");
+    if (composing.id === null) return <DocEditor kind={composing.kind} onClose={onClose} />;
+    const row =
+        composing.kind === "invoice"
+            ? invoices.find((r) => r.id === composing.id)
+            : estimates.find((r) => r.id === composing.id);
+    if (row === undefined) return null;
+    return <DocEditor kind={composing.kind} draft={docDraft(row, lines)} onClose={onClose} />;
+}
 
-    if (row === null) return null;
-    const isInvoice = kind === "invoices";
-    if (editing) {
-        return (
-            <DocEditor
-                kind={isInvoice ? "invoice" : "estimate"}
-                draft={docDraft(row, lines)}
-                onClose={() => {
-                    setEditing(false);
-                }}
-            />
-        );
-    }
-    const canRefund = canManagePayments(role);
-    const actions = isInvoice
-        ? invoiceActions(api, row as InvoiceRow)
-        : estimateActions(api, row as EstimateRow);
-    const payToken = isInvoice ? (row as InvoiceRow).pay_token : null;
-    const canPay = isInvoice && isPayable(row as InvoiceRow);
+function InvoiceDeskView({
+    openId,
+    setOpenId,
+    compose,
+}: {
+    openId: string | null;
+    setOpenId: (id: string | null) => void;
+    compose: (id: string | null) => void;
+}) {
+    const desk = useInvoiceDesk();
+    const { stats } = desk;
+    const ready = desk.load.state === "ready";
+    const figure = (cents: number): { cents: number | null } => ({ cents: ready ? cents : null });
 
     return (
-        <DetailView
-            open
-            title={docHeading(kind, row.number)}
-            subtitle={row.client_name ?? strings.clients.dash}
-            status={{
-                status: row.status,
-                intent: isInvoice
-                    ? invoiceStatusIntent(row.status)
-                    : estimateStatusIntent(row.status),
-            }}
-            onClose={onClose}
-            actions={
-                <>
-                    {row.status === "draft" ? (
-                        <Button
-                            variant="outline"
-                            onPress={() => {
-                                setEditing(true);
-                            }}
-                        >
-                            {strings.billing.edit}
-                        </Button>
-                    ) : null}
-                    {actions.map((a) => (
-                        <Button
-                            key={a.key}
-                            disabled={busy}
-                            onPress={() => {
-                                run(a.run, {
-                                    onSuccess: onClose,
-                                    errorMessage: strings.billing.actionError(
-                                        DOC_ACTION_LABEL[a.key].toLowerCase(),
-                                    ),
-                                });
-                            }}
-                        >
-                            {DOC_ACTION_LABEL[a.key]}
-                        </Button>
-                    ))}
-                </>
-            }
-        >
-            <DetailSection>
-                <div className="divide-y divide-line-soft text-sm">
-                    {lines.map((l) => (
-                        <div key={l.id} className="flex items-center gap-4 py-2">
-                            <span className="flex-1 text-ink">{l.description}</span>
-                            <span className="tabular-nums text-muted">
-                                {l.quantity} × {formatMoney(l.unit_amount_cents)}
-                            </span>
-                            <span className="w-24 text-right">
-                                <Money cents={l.amount_cents} />
-                            </span>
-                        </div>
-                    ))}
+        <div className="@container space-y-6">
+            <div className="flex items-center justify-between gap-4">
+                <p className="text-sm text-muted">{desk.summary}</p>
+                <Button
+                    icon="plus"
+                    onPress={() => {
+                        compose(null);
+                    }}
+                >
+                    {s.newInvoice}
+                </Button>
+            </div>
+            {desk.load.state === "error" || desk.nothingYet ? undefined : (
+                <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
+                    <Stat
+                        label={s.statOutstanding}
+                        {...figure(stats.outstandingCents)}
+                        hint={ready ? s.statOutstandingHint(stats.outstandingCount) : undefined}
+                    />
+                    <Stat
+                        label={s.statOverdue}
+                        {...figure(stats.overdueCents)}
+                        tone={stats.overdueCents > 0 ? "danger" : "ink"}
+                        hint={ready ? s.statOverdueHint(stats.overdueCount) : undefined}
+                    />
+                    <Stat
+                        label={s.statPaid}
+                        {...figure(stats.paid30Cents)}
+                        tone="success"
+                        hint={ready ? s.statPaidHint(stats.paid30Count) : undefined}
+                    />
+                    <Stat
+                        label={s.statDrafts}
+                        {...figure(stats.draftCents)}
+                        hint={ready ? s.statDraftsHint(stats.draftCount) : undefined}
+                    />
                 </div>
-                <div className="mt-4 space-y-1 text-sm">
-                    {totals.map((t) => (
-                        <div key={t.key} className="flex justify-end gap-4 text-muted">
-                            <span className={t.strong ? "text-ink" : undefined}>{t.label}</span>
-                            <span className="w-24 text-right">
-                                <Money cents={t.cents} strong={t.strong} />
+            )}
+            <ListPage<(typeof desk.rows)[number], InvoiceSegment>
+                segments={{ items: desk.segments, active: desk.segment, onSelect: desk.setSegment }}
+                search={{ value: desk.q, onChange: desk.setQ, placeholder: s.search }}
+                head={
+                    <div className={GRID}>
+                        <span>{s.colNumber}</span>
+                        <span>{s.colClient}</span>
+                        <span>{s.colIssued}</span>
+                        <span>{s.colStatus}</span>
+                        <span className="text-right">{s.colTotal}</span>
+                        <span className="text-right">{s.colBalance}</span>
+                    </div>
+                }
+                rows={desk.rows}
+                rowKey={(r) => r.row.id}
+                onRowPress={(r) => {
+                    setOpenId(r.row.id);
+                }}
+                state={
+                    desk.load.state === "loading"
+                        ? "loading"
+                        : desk.load.state === "error"
+                          ? "error"
+                          : undefined
+                }
+                onRetry={desk.load.retry}
+                empty={
+                    desk.nothingYet
+                        ? {
+                              message: s.emptyInvoicesTitle,
+                              body: s.emptyInvoicesBody,
+                              icon: "invoices",
+                              variant: "card",
+                              actions: (
+                                  <Button
+                                      icon="plus"
+                                      onPress={() => {
+                                          compose(null);
+                                      }}
+                                  >
+                                      {s.newInvoice}
+                                  </Button>
+                              ),
+                          }
+                        : desk.emptyMessage
+                }
+                renderRow={(r) => (
+                    <div className={GRID}>
+                        <span className="font-medium tabular-nums text-ink">{r.number}</span>
+                        <span className="flex min-w-0 items-center gap-3">
+                            <Avatar name={r.row.client_name ?? ""} size="sm" />
+                            <span className="truncate font-medium text-ink">
+                                {r.row.client_name}
                             </span>
-                        </div>
-                    ))}
-                </div>
-            </DetailSection>
-            {canPay && payToken !== null ? <PayLink token={payToken} /> : null}
-            {isInvoice ? <PaymentsSection invoiceId={row.id} canRefund={canRefund} /> : null}
-            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
-        </DetailView>
+                        </span>
+                        <span className="text-ink-soft">{r.issuedLabel}</span>
+                        <span className="flex min-w-0 flex-col items-start gap-1">
+                            <StatusPill status={r.statusLabel} intent={r.intent} />
+                            <span
+                                className={`truncate text-xs ${r.late ? "font-medium text-danger" : "text-muted"}`}
+                            >
+                                {r.dueLabel}
+                            </span>
+                        </span>
+                        <span className="text-right">
+                            <Money cents={r.row.total_cents} tone="muted" />
+                        </span>
+                        <span className="text-right">
+                            {(r.row.balance_cents ?? 0) > 0 && r.status !== "void" ? (
+                                <Money
+                                    cents={r.row.balance_cents}
+                                    strong
+                                    tone={r.late ? "danger" : "ink"}
+                                />
+                            ) : (
+                                <span className="text-muted">{s.dash}</span>
+                            )}
+                        </span>
+                    </div>
+                )}
+            />
+            {openId !== null ? (
+                <InvoicePanel
+                    id={openId}
+                    onClose={() => {
+                        setOpenId(null);
+                    }}
+                    onEdit={compose}
+                />
+            ) : null}
+        </div>
     );
 }
 
-function PayLink({ token }: { token: string }) {
-    const url = payLinkUrl(config.payUrl, token);
-    const [copied, setCopied] = useState(false);
+function InvoicePanel({
+    id,
+    onClose,
+    onEdit,
+}: {
+    id: string;
+    onClose: () => void;
+    onEdit: (id: string) => void;
+}) {
+    const rec = useInvoiceRecord(api, id, config.payUrl);
+    const act = useInvoiceActions(api);
+    const role = useRole();
+    const letterhead = useLetterhead();
+    const estimates = useEstimates();
+    const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
+    const estimate = useEstimateRecord(api, estimateId, config.payUrl);
+    const [recording, setRecording] = useState(false);
+    const [previewing, setPreviewing] = useState(false);
+    if (rec === null) return null;
 
-    const copy = (): void => {
-        navigator.clipboard
-            .writeText(url)
-            .then(() => {
-                setCopied(true);
-                window.setTimeout(() => {
-                    setCopied(false);
-                }, 1500);
+    const voidIt = (): void => {
+        confirm({
+            title:
+                rec.row.number === null
+                    ? s.voidDraftConfirmTitle
+                    : s.voidConfirmTitle(rec.row.number),
+            message: s.voidConfirmBody,
+            confirmLabel: s.void,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) act.voidIt(rec);
             })
             .catch(() => undefined);
     };
 
+    if (recording) {
+        return (
+            <RecordPayment
+                rec={rec}
+                onClose={() => {
+                    setRecording(false);
+                }}
+            />
+        );
+    }
+    if (previewing) {
+        return (
+            <DocumentPreview
+                businessName={letterhead.name}
+                initial="invoice"
+                docs={invoicePreviewDocs(rec, estimate, letterhead)}
+                onClose={() => {
+                    setPreviewing(false);
+                }}
+            />
+        );
+    }
+
     return (
-        <DetailSection title={strings.billing.payLink}>
-            <div className="flex items-center gap-2 rounded-md border border-line bg-bg px-3 py-2.5">
-                <span className="flex-1 truncate text-sm text-ink-soft">{url}</span>
-                <Button variant="outline" size="sm" onPress={copy}>
-                    {copied ? strings.billing.copied : strings.billing.copy}
-                </Button>
-            </div>
-        </DetailSection>
+        <DetailView
+            open
+            title={rec.title}
+            subtitle={rec.row.client_name ?? undefined}
+            status={{ status: rec.statusLabel, intent: rec.intent }}
+            onClose={onClose}
+            actions={
+                <>
+                    <Button
+                        variant="outline"
+                        icon="receipt"
+                        onPress={() => {
+                            setPreviewing(true);
+                        }}
+                    >
+                        {s.pdf}
+                    </Button>
+                    {rec.canEdit ? (
+                        <Button
+                            variant="outline"
+                            icon="edit"
+                            onPress={() => {
+                                onEdit(rec.row.id);
+                            }}
+                        >
+                            {s.edit}
+                        </Button>
+                    ) : null}
+                    {rec.canVoid ? (
+                        <Button variant="quiet" busy={act.busy} onPress={voidIt}>
+                            {s.void}
+                        </Button>
+                    ) : null}
+                    {rec.canRemind ? (
+                        <Button
+                            variant="outline"
+                            icon="bell"
+                            busy={act.busy}
+                            onPress={() => {
+                                act.remind(rec);
+                            }}
+                        >
+                            {s.remind}
+                        </Button>
+                    ) : null}
+                    {rec.canSend ? (
+                        <Button
+                            icon="send"
+                            busy={act.busy}
+                            onPress={() => {
+                                act.send(rec);
+                            }}
+                        >
+                            {s.sendInvoice}
+                        </Button>
+                    ) : null}
+                    {rec.canRecord ? (
+                        <Button
+                            icon="dollar"
+                            onPress={() => {
+                                setRecording(true);
+                            }}
+                        >
+                            {s.recordPayment}
+                        </Button>
+                    ) : null}
+                </>
+            }
+        >
+            {act.notice !== null ? (
+                <Notice tone="success" banner>
+                    {act.notice}
+                </Notice>
+            ) : null}
+            {act.error !== null ? (
+                <Notice tone="danger" banner>
+                    {act.error}
+                </Notice>
+            ) : null}
+            <KeyValueList layout="stack" columns={3} rows={rec.facts} />
+            <DetailSection title={s.lines}>
+                <div className="divide-y divide-line-soft rounded-lg border border-line">
+                    {rec.lines.map((l) => (
+                        <div
+                            key={l.id}
+                            className="flex items-start justify-between gap-4 px-4 py-3"
+                        >
+                            <div className="min-w-0">
+                                <p className="text-sm text-ink">{l.description}</p>
+                                <p className="text-xs text-muted">{rec.lineDetail(l)}</p>
+                            </div>
+                            <Money cents={l.amountCents} />
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-3 rounded-lg bg-bg px-4 py-3">
+                    <DocTotals lines={rec.totals} />
+                </div>
+            </DetailSection>
+            {rec.payUrl !== null ? (
+                <DetailSection title={s.payLink}>
+                    <CopyField
+                        label={s.payLink}
+                        value={rec.payUrl}
+                        copyLabel={s.copyLink}
+                        copiedLabel={s.copied}
+                    />
+                </DetailSection>
+            ) : null}
+            <PaymentsSection invoiceId={rec.row.id} rec={rec} canRefund={canManagePayments(role)} />
+            {rec.row.notes !== null ? (
+                <DetailSection title={s.notes}>
+                    <p className="whitespace-pre-line text-sm text-ink-soft">{rec.row.notes}</p>
+                </DetailSection>
+            ) : null}
+            <DetailSection title={s.history}>
+                <ActivityTimeline entries={rec.timeline} />
+            </DetailSection>
+        </DetailView>
     );
 }
 
-function PaymentsSection({ invoiceId, canRefund }: { invoiceId: string; canRefund: boolean }) {
-    const payments = useInvoicePayments(invoiceId);
-    if (payments.length === 0) return null;
+function invoicePreviewDocs(
+    rec: InvoiceRecord,
+    estimate: EstimateRecord | null,
+    letterhead: ReturnType<typeof useLetterhead>,
+): PreviewDoc[] {
+    const color = cssVar("accent");
+    const d = s.doc;
+    const paid = rec.payments.find((x) => !x.refund && !x.pending);
+    const sentAt =
+        rec.row.issued_at === null ? d.notSentYet : d.attachedInvoice(rec.facts[1]?.value ?? "");
+    return [
+        {
+            kind: "invoice",
+            doc: printedInvoice(rec, letterhead, color),
+            missing: "",
+            attached: sentAt,
+            facts: rec.facts.slice(1),
+        },
+        {
+            kind: "estimate",
+            doc: estimate === null ? null : printedEstimate(estimate, letterhead, color),
+            missing: d.noEstimate,
+            attached: estimate === null ? "" : d.attachedEstimate(estimate.validLabel),
+            facts: estimate === null ? [] : [{ label: s.colValid, value: estimate.validLabel }],
+        },
+        {
+            kind: "receipt",
+            doc: paid === undefined ? null : printedReceipt(rec, paid.id, letterhead, color),
+            missing: d.noReceipt,
+            attached: paid === undefined ? "" : d.attachedReceipt(paid.detail),
+            facts:
+                paid === undefined
+                    ? []
+                    : [{ label: paid.label, value: formatMoney(paid.amountCents) }],
+        },
+    ];
+}
 
+function PaymentsSection({
+    invoiceId,
+    rec,
+    canRefund,
+}: {
+    invoiceId: string;
+    rec: InvoiceRecord;
+    canRefund: boolean;
+}) {
+    const all = useInvoicePayments(invoiceId);
+    if (rec.payments.length === 0) return null;
     return (
-        <DetailSection title={strings.billing.payments}>
-            <div className="divide-y divide-line-soft rounded-md border border-line">
-                {payments.map((p) => (
-                    <PaymentRowItem
-                        key={p.id}
-                        payment={p}
-                        payments={payments}
-                        canRefund={canRefund}
-                    />
+        <DetailSection title={s.payments}>
+            <div className="divide-y divide-line-soft rounded-lg border border-line">
+                {rec.payments.map((p) => (
+                    <PaymentLine key={p.id} view={p} all={all} canRefund={canRefund} />
                 ))}
             </div>
         </DetailSection>
     );
 }
 
-function PaymentRowItem({
-    payment,
-    payments,
+function PaymentLine({
+    view,
+    all,
     canRefund,
 }: {
-    payment: PaymentRow;
-    payments: PaymentRow[];
+    view: InvoiceRecord["payments"][number];
+    all: PaymentRow[];
     canRefund: boolean;
 }) {
     const { amount, setAmount, remainingCents, busy, error, submit } = useRefundForm(
         api,
-        payment,
-        payments,
+        view.payment,
+        all,
     );
-    const isRefund = isRefundRow(payment);
-    const showRefund = canRefund && isRefundable(payment, payments);
-
+    const refundable =
+        canRefund && view.payment.method === "card" && isRefundable(view.payment, all);
     const refund = (): void => {
         confirm({
-            title: strings.billing.refundTitle,
-            message: strings.billing.refundConfirm,
-            confirmLabel: strings.billing.refund,
+            title: s.refundTitle,
+            message: s.refundConfirm,
+            confirmLabel: s.refund,
             destructive: true,
         })
             .then((ok) => {
@@ -335,41 +567,325 @@ function PaymentRowItem({
             })
             .catch(() => undefined);
     };
-
     return (
-        <div className="px-3 py-2 text-sm">
+        <div className="px-4 py-3 text-sm">
             <div className="flex items-center gap-3">
-                <span
-                    className={`font-medium tabular-nums ${isRefund ? "text-danger" : "text-ink"}`}
-                >
-                    {isRefund ? "−" : ""}
-                    {formatMoneyWithCurrency(payment.amount_cents, payment.currency)}
+                <div className="min-w-0 flex-1">
+                    <p className="font-medium text-ink">{view.label}</p>
+                    <p className="truncate text-xs text-muted">{view.detail}</p>
+                </div>
+                {view.refund ? <Badge label={s.refundBadge} intent="neutral" /> : null}
+                <span className={`tabular-nums ${view.refund ? "text-danger" : "text-ink"}`}>
+                    {view.refund ? "−" : ""}
+                    {formatMoney(view.amountCents)}
                 </span>
-                {isRefund ? (
-                    <Badge label={strings.billing.refundBadge} intent="neutral" />
-                ) : (
-                    <span className="capitalize text-muted">{payment.method}</span>
-                )}
-                <StatusPill status={payment.status} intent={paymentStatusIntent(payment.status)} />
-                {showRefund ? (
-                    <div className="ml-auto flex items-center gap-2">
-                        <TextField
-                            type="number"
-                            size="sm"
-                            width="narrow"
-                            surface="surface"
-                            name={strings.billing.refund}
-                            value={amount}
-                            onChange={setAmount}
-                            placeholder={refundPlaceholder(remainingCents)}
-                        />
-                        <Button variant="outline" size="sm" busy={busy} onPress={refund}>
-                            {busy ? strings.billing.refunding : strings.billing.refund}
-                        </Button>
-                    </div>
-                ) : null}
             </div>
+            {refundable ? (
+                <div className="mt-2 flex items-center justify-end gap-2">
+                    <TextField
+                        size="sm"
+                        width="narrow"
+                        name={s.refund}
+                        value={amount}
+                        onChange={setAmount}
+                        placeholder={refundPlaceholder(remainingCents)}
+                    />
+                    <Button variant="outline" size="sm" busy={busy} onPress={refund}>
+                        {busy ? s.refunding : s.refund}
+                    </Button>
+                </div>
+            ) : null}
             {error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </div>
+    );
+}
+
+function EstimateDeskView({
+    openId,
+    setOpenId,
+    compose,
+    openInvoice,
+}: {
+    openId: string | null;
+    setOpenId: (id: string | null) => void;
+    compose: (id: string | null) => void;
+    openInvoice: (id: string) => void;
+}) {
+    const desk = useEstimateDesk();
+    return (
+        <div>
+            <ListPage<(typeof desk.rows)[number], EstimateSegment>
+                summary={desk.summary}
+                action={{
+                    label: s.newEstimate,
+                    onPress: () => {
+                        compose(null);
+                    },
+                }}
+                segments={{ items: desk.segments, active: desk.segment, onSelect: desk.setSegment }}
+                search={{ value: desk.q, onChange: desk.setQ, placeholder: s.search }}
+                head={
+                    <div className={EST_GRID}>
+                        <span>{s.colNumber}</span>
+                        <span>{s.colClient}</span>
+                        <span>{s.colStatus}</span>
+                        <span className="text-right">{s.colTotal}</span>
+                    </div>
+                }
+                rows={desk.rows}
+                rowKey={(r) => r.row.id}
+                onRowPress={(r) => {
+                    setOpenId(r.row.id);
+                }}
+                state={
+                    desk.load.state === "loading"
+                        ? "loading"
+                        : desk.load.state === "error"
+                          ? "error"
+                          : undefined
+                }
+                onRetry={desk.load.retry}
+                empty={
+                    desk.nothingYet
+                        ? {
+                              message: s.emptyEstimatesTitle,
+                              body: s.emptyEstimatesBody,
+                              icon: "receipt",
+                              variant: "card",
+                              actions: (
+                                  <Button
+                                      icon="plus"
+                                      onPress={() => {
+                                          compose(null);
+                                      }}
+                                  >
+                                      {s.newEstimate}
+                                  </Button>
+                              ),
+                          }
+                        : desk.emptyMessage
+                }
+                renderRow={(r) => (
+                    <div className={EST_GRID}>
+                        <span className="font-medium tabular-nums text-ink">{r.number}</span>
+                        <span className="flex min-w-0 items-center gap-3">
+                            <Avatar name={r.row.client_name ?? ""} size="sm" />
+                            <span className="truncate font-medium text-ink">
+                                {r.row.client_name}
+                            </span>
+                        </span>
+                        <span className="flex min-w-0 flex-col items-start gap-1">
+                            <StatusPill status={r.statusLabel} intent={r.intent} />
+                            <span className="truncate text-xs text-muted">{r.validLabel}</span>
+                        </span>
+                        <span className="text-right">
+                            <Money cents={r.row.total_cents} />
+                        </span>
+                    </div>
+                )}
+            />
+            {openId !== null ? (
+                <EstimatePanel
+                    id={openId}
+                    onClose={() => {
+                        setOpenId(null);
+                    }}
+                    onEdit={compose}
+                    openInvoice={openInvoice}
+                />
+            ) : null}
+        </div>
+    );
+}
+
+function EstimatePanel({
+    id,
+    onClose,
+    onEdit,
+    openInvoice,
+}: {
+    id: string;
+    onClose: () => void;
+    onEdit: (id: string) => void;
+    openInvoice: (id: string) => void;
+}) {
+    const rec = useEstimateRecord(api, id, config.payUrl);
+    const act = useEstimateActions(api);
+    const letterhead = useLetterhead();
+    const [previewing, setPreviewing] = useState(false);
+    if (rec === null) return null;
+
+    const convert = (): void => {
+        confirm({ title: s.convertTitle, message: s.convertBody, confirmLabel: s.convert })
+            .then((ok) => {
+                if (ok) act.convert(rec, openInvoice);
+            })
+            .catch(() => undefined);
+    };
+
+    if (previewing) {
+        return (
+            <DocumentPreview
+                businessName={letterhead.name}
+                initial="estimate"
+                docs={[
+                    {
+                        kind: "estimate",
+                        doc: printedEstimate(rec, letterhead, cssVar("accent")),
+                        missing: "",
+                        attached:
+                            rec.row.number === null
+                                ? s.doc.notSentYet
+                                : s.doc.attachedEstimate(rec.validLabel),
+                        facts: [{ label: s.colValid, value: rec.validLabel }],
+                    },
+                ]}
+                onClose={() => {
+                    setPreviewing(false);
+                }}
+            />
+        );
+    }
+
+    return (
+        <DetailView
+            open
+            title={rec.title}
+            subtitle={rec.row.client_name ?? undefined}
+            status={{ status: rec.statusLabel, intent: rec.intent }}
+            onClose={onClose}
+            actions={
+                <>
+                    <Button
+                        variant="outline"
+                        icon="receipt"
+                        onPress={() => {
+                            setPreviewing(true);
+                        }}
+                    >
+                        {s.pdf}
+                    </Button>
+                    {rec.canEdit ? (
+                        <Button
+                            variant="outline"
+                            icon="edit"
+                            onPress={() => {
+                                onEdit(rec.row.id);
+                            }}
+                        >
+                            {s.edit}
+                        </Button>
+                    ) : null}
+                    {rec.canMark ? (
+                        <>
+                            <Button
+                                variant="quiet"
+                                busy={act.busy}
+                                onPress={() => {
+                                    act.decline(rec);
+                                }}
+                            >
+                                {s.markDeclined}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                busy={act.busy}
+                                onPress={() => {
+                                    act.accept(rec);
+                                }}
+                            >
+                                {s.markAccepted}
+                            </Button>
+                        </>
+                    ) : null}
+                    {rec.canSend ? (
+                        <Button
+                            icon="send"
+                            busy={act.busy}
+                            onPress={() => {
+                                act.send(rec);
+                            }}
+                        >
+                            {s.sendEstimate}
+                        </Button>
+                    ) : null}
+                    {rec.canConvert ? (
+                        <Button busy={act.busy} onPress={convert}>
+                            {s.convert}
+                        </Button>
+                    ) : null}
+                </>
+            }
+        >
+            {act.notice !== null ? (
+                <Notice tone="success" banner>
+                    {act.notice}
+                </Notice>
+            ) : null}
+            {act.error !== null ? (
+                <Notice tone="danger" banner>
+                    {act.error}
+                </Notice>
+            ) : null}
+            <KeyValueList
+                layout="stack"
+                columns={2}
+                rows={[
+                    { label: s.total, value: formatMoney(rec.row.total_cents) },
+                    { label: s.colValid, value: rec.validLabel },
+                ]}
+            />
+            {rec.row.decline_reason !== null ? (
+                <DetailSection title={s.declineReason}>
+                    <p className="text-sm text-ink-soft">{rec.row.decline_reason}</p>
+                </DetailSection>
+            ) : null}
+            <DetailSection title={s.lines}>
+                <div className="divide-y divide-line-soft rounded-lg border border-line">
+                    {rec.lines.map((l) => (
+                        <div
+                            key={l.id}
+                            className="flex items-start justify-between gap-4 px-4 py-3"
+                        >
+                            <div className="min-w-0">
+                                <p
+                                    className={`text-sm ${l.optional && !l.selected ? "text-muted" : "text-ink"}`}
+                                >
+                                    {l.description}
+                                </p>
+                                <p className="text-xs text-muted">
+                                    {[rec.lineDetail(l), l.note].filter(Boolean).join(" · ")}
+                                </p>
+                            </div>
+                            <Money
+                                cents={l.amountCents}
+                                tone={l.optional && !l.selected ? "muted" : "ink"}
+                            />
+                        </div>
+                    ))}
+                </div>
+                <div className="mt-3 rounded-lg bg-bg px-4 py-3">
+                    <DocTotals lines={rec.totals} />
+                </div>
+            </DetailSection>
+            {rec.acceptUrl !== null ? (
+                <DetailSection title={s.acceptLink}>
+                    <CopyField
+                        label={s.acceptLink}
+                        value={rec.acceptUrl}
+                        copyLabel={s.copyLink}
+                        copiedLabel={s.copied}
+                    />
+                </DetailSection>
+            ) : null}
+            {rec.row.notes !== null ? (
+                <DetailSection title={s.notes}>
+                    <p className="whitespace-pre-line text-sm text-ink-soft">{rec.row.notes}</p>
+                </DetailSection>
+            ) : null}
+            <DetailSection title={s.history}>
+                <ActivityTimeline entries={rec.timeline} />
+            </DetailSection>
+        </DetailView>
     );
 }

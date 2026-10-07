@@ -1,36 +1,64 @@
 import { describe, expect, it } from "vitest";
 
-import { docTotals } from "./billing";
+import { docRates, priceDoc } from "./billing";
 import { type SavedCardRow, canBeDefault, checkoutMethods } from "./payments";
 
-const doc = { subtotal_cents: 10000, tax_total_cents: 1200, total_cents: 11200 };
+const BC = [
+    { code: "GST", rateBps: 500 },
+    { code: "PST", rateBps: 700 },
+];
 
-describe("docTotals", () => {
-    it("splits tax by code when the ledger breakdown matches the stored total", () => {
-        const rows = docTotals(doc, [
-            { code: "GST", cents: 500 },
-            { code: "PST", cents: 700 },
+describe("priceDoc", () => {
+    it("taxes each line by its class and totals per code, half up", () => {
+        const priced = priceDoc(
+            [
+                { amountCents: 4500, taxClass: "federal_only", included: true },
+                { amountCents: 2400, taxClass: "standard", included: true },
+                { amountCents: 2900, taxClass: "standard", included: true },
+            ],
+            BC,
+        );
+        expect(priced.lines.map((l) => l.codes)).toEqual([["GST"], ["GST", "PST"], ["GST", "PST"]]);
+        expect(priced.taxes.map((t) => [t.label, t.baseCents, t.cents])).toEqual([
+            ["GST 5%", 9800, 490],
+            ["PST 7%", 5300, 371],
         ]);
-        expect(rows.map((r) => [r.label, r.cents])).toEqual([
-            ["Subtotal", 10000],
-            ["GST", 500],
-            ["PST", 700],
-            ["Total", 11200],
-        ]);
+        expect(priced.totalCents).toBe(10661);
     });
 
-    it("falls back to one tax row without a matching breakdown", () => {
-        expect(docTotals(doc, []).map((r) => r.label)).toEqual(["Subtotal", "Tax", "Total"]);
-        expect(docTotals(doc, [{ code: "GST", cents: 500 }]).map((r) => r.label)).toEqual([
-            "Subtotal",
-            "Tax",
-            "Total",
-        ]);
+    it("leaves unticked add-ons and exempt lines out of the tax", () => {
+        const priced = priceDoc(
+            [
+                { amountCents: 10000, taxClass: "exempt", included: true },
+                { amountCents: 2000, taxClass: "standard", included: false },
+            ],
+            BC,
+        );
+        expect(priced.taxes).toEqual([]);
+        expect(priced.subtotalCents).toBe(10000);
+        expect(priced.lines[1]?.taxCents).toBe(240);
     });
 
-    it("omits the tax row when nothing is taxed", () => {
-        const untaxed = { subtotal_cents: 5000, tax_total_cents: 0, total_cents: 5000 };
-        expect(docTotals(untaxed, []).map((r) => r.label)).toEqual(["Subtotal", "Total"]);
+    it("prices QST at its exact rate and collects nothing for a small supplier", () => {
+        const qc = docRates(
+            [
+                { id: "QC_GST", jurisdiction: "GST", province: "QC", rate_bps: 500, name: "GST" },
+                { id: "QC_QST", jurisdiction: "QST", province: "QC", rate_bps: 998, name: "QST" },
+            ],
+            true,
+        );
+        const priced = priceDoc([{ amountCents: 10000, taxClass: "standard", included: true }], qc);
+        expect(priced.taxes.map((t) => [t.label, t.cents])).toEqual([
+            ["GST 5%", 500],
+            ["QST 9.975%", 998],
+        ]);
+        expect(docRates(null, true)).toEqual([]);
+        expect(
+            docRates(
+                [{ id: "x", jurisdiction: "GST", province: "AB", rate_bps: 500, name: "GST" }],
+                false,
+            ),
+        ).toEqual([]);
     });
 });
 

@@ -2,7 +2,8 @@ import { useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { Intent } from "../ui";
+import type { DocTotalLine, Intent, PrintedDoc, PrintedDocLine, PrintedDocTax } from "../ui";
+import { longDate, printedDoc, ratePct, shortDate } from "./printing";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
 type PayMethod = "interac" | "card";
@@ -28,16 +29,146 @@ export function invoiceStatusIntent(status: string): Intent {
     }
 }
 
+export interface PublicDocLine {
+    description: string;
+    quantity: number;
+    unit_amount_cents: number;
+    amount_cents: number;
+    tax_codes: string[];
+}
+
+export interface PublicDocTax {
+    code: string;
+    rate_bps: number;
+    base_cents: number;
+    cents: number;
+}
+
+interface PublicCredit {
+    kind: "payment" | "deposit";
+    method: string | null;
+    amount_cents: number;
+    at: string | null;
+}
+
 interface PublicInvoice {
     number: number | null;
     business_name: string;
     brand: PublicBrand;
     currency: string;
+    subtotal_cents: number;
+    tax_total_cents: number;
     total_cents: number;
     balance_cents: number;
     status: string;
     accepts_card: boolean;
     interac_email: string | null;
+    client_name: string | null;
+    issued_at: string | null;
+    due_at: string | null;
+    notes: string | null;
+    gst_hst_number: string | null;
+    qst_number: string | null;
+    lines: PublicDocLine[];
+    taxes: PublicDocTax[];
+    credits: PublicCredit[];
+}
+
+export function publicDocTaxes(taxes: readonly PublicDocTax[]): PrintedDocTax[] {
+    return taxes.map((t) => ({
+        code: t.code,
+        label: strings.billing.taxRow(t.code, ratePct(t.code, t.rate_bps)),
+        baseCents: t.base_cents,
+        cents: t.cents,
+    }));
+}
+
+export function publicDocLines(lines: readonly PublicDocLine[]): PrintedDocLine[] {
+    return lines.map((l, i) => ({
+        id: String(i),
+        description: l.description,
+        subject: null,
+        quantity: l.quantity,
+        unitCents: l.unit_amount_cents,
+        amountCents: l.amount_cents,
+        taxCodes: l.tax_codes,
+    }));
+}
+
+/** What the client reads under the lines: subtotal, tax per code, total, payments and balance. */
+export function publicInvoiceTotals(invoice: PublicInvoice): DocTotalLine[] {
+    const pp = strings.publicPay;
+    return [
+        { key: "subtotal", label: pp.subtotal, cents: invoice.subtotal_cents, kind: "subtotal" },
+        ...publicDocTaxes(invoice.taxes).map((t): DocTotalLine => ({
+            key: t.code,
+            label: t.label,
+            cents: t.cents,
+            kind: "tax",
+        })),
+        { key: "total", label: pp.total, cents: invoice.total_cents, kind: "total" },
+        ...invoice.credits.map((c, i): DocTotalLine => ({
+            key: `credit-${String(i)}`,
+            label:
+                c.kind === "deposit"
+                    ? pp.depositCredit
+                    : pp.credit(
+                          pp.method[c.method ?? "other"] ?? pp.method.other ?? "",
+                          shortDate(c.at),
+                      ),
+            cents: c.amount_cents,
+            kind: "credit",
+        })),
+        { key: "balance", label: pp.balanceDue, cents: invoice.balance_cents, kind: "balance" },
+    ];
+}
+
+/** The invoice as a printed page, for "Download invoice" on the pay link. */
+export function printedPublicInvoice(
+    invoice: PublicInvoice,
+    payUrl: string,
+    fallbackColor: string,
+): PrintedDoc {
+    const pr = strings.printing;
+    const paid = invoice.balance_cents <= 0;
+    const number = invoice.number === null ? pr.draftNumber : String(invoice.number);
+    return printedDoc(
+        {
+            kind: "invoice",
+            number,
+            partyName: invoice.client_name ?? "",
+            partyLines: [],
+            meta: [
+                { label: pr.invoiceNumber, value: `#${number}` },
+                { label: pr.issued, value: longDate(invoice.issued_at) },
+                { label: pr.due, value: longDate(invoice.due_at) },
+            ],
+            lines: publicDocLines(invoice.lines),
+            taxes: publicDocTaxes(invoice.taxes),
+            totals: publicInvoiceTotals(invoice),
+            headline: { label: strings.publicPay.balanceDue, cents: invoice.balance_cents },
+            stamp: paid ? pr.paidStamp : null,
+            payUrl: paid ? null : payUrl,
+            instructions: paid
+                ? []
+                : [
+                      pr.payOnline(payUrl),
+                      ...(invoice.interac_email !== null
+                          ? [pr.payInterac(invoice.interac_email)]
+                          : []),
+                  ],
+            message: invoice.notes,
+        },
+        {
+            name: invoice.business_name,
+            tagline: invoice.brand.tagline,
+            brandColor: invoice.brand.primary,
+            email: invoice.interac_email,
+            gstHstNumber: invoice.gst_hst_number,
+            qstNumber: invoice.qst_number,
+        },
+        fallbackColor,
+    );
 }
 
 export interface InteracRequest {

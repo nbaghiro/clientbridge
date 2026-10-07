@@ -1,191 +1,351 @@
 import {
     type DocDraft,
-    docEditorTitle,
+    type DocTerms,
     formatMoney,
-    mediaUrl,
     sellableItems,
     strings,
     useCatalogItems,
     useClients,
-    useDocForm,
+    useDocComposer,
+    useLetterhead,
 } from "@clientbridge/app-core";
-import { Button, ItemImage, Modal, Notice, Select, TextField } from "@clientbridge/ui";
+import {
+    Avatar,
+    Button,
+    Checkbox,
+    DocTotals,
+    Empty,
+    Icon,
+    IconButton,
+    Modal,
+    Notice,
+    PrintedDocument,
+    Select,
+    StatusPill,
+    TextField,
+    confirm,
+} from "@clientbridge/ui";
+import { cssVar } from "@clientbridge/tokens";
 import { useMemo, useState } from "react";
 
-import { api, apiBaseUrl } from "../lib/api";
+import { api } from "../lib/api";
 
-const box =
-    "rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink outline-hidden placeholder:text-muted focus:border-accent";
+const s = strings.billing;
 
 export interface DocEditorProps {
     kind: "invoice" | "estimate";
     draft?: DocDraft | undefined;
     onClose: () => void;
+    onSent?: ((id: string) => void) | undefined;
 }
 
-export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
+export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
-    const form = useDocForm(api, kind, onClose, draft);
-    const [picking, setPicking] = useState(false);
+    const letterhead = useLetterhead();
+    const c = useDocComposer(api, kind, draft, onSent);
+    const [showPreview, setShowPreview] = useState(false);
+    const client = clients.find((x) => x.id === c.clientId) ?? null;
+    const doc = c.preview(client, letterhead, cssVar("accent"));
+
+    const close = (): void => {
+        if (!c.dirty || c.sent !== null) {
+            onClose();
+            return;
+        }
+        confirm({
+            title: s.discardTitle,
+            message: s.discardBody,
+            confirmLabel: s.discard,
+            cancelLabel: s.keepEditing,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) onClose();
+            })
+            .catch(() => undefined);
+    };
 
     return (
-        <Modal onClose={onClose} size="lg" framed={false}>
-            <form
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.submit();
-                }}
-                className="flex max-h-[88vh] flex-col rounded-lg border border-line bg-surface shadow-card"
-            >
-                <h2 className="border-b border-line px-6 py-4 font-display text-lg font-bold text-ink">
-                    {docEditorTitle(kind, form.editing)}
-                </h2>
-                <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-                    <Select
-                        label={strings.billing.clientLabel}
-                        value={form.clientId}
-                        disabled={form.editing}
-                        options={[
-                            { key: "", label: strings.billing.clientPlaceholder },
-                            ...clients.map((c) => ({ key: c.id, label: c.name })),
-                        ]}
-                        onChange={form.setClientId}
-                    />
-
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted">
-                            <span className="flex-1">{strings.billing.lineDescription}</span>
-                            <span className="w-14 text-center">{strings.billing.lineQty}</span>
-                            <span className="w-24 text-right">{strings.billing.linePrice}</span>
-                            <span className="w-5" />
-                        </div>
-                        {form.lines.map((l) => (
-                            <div key={l.key} className="flex items-center gap-2">
-                                <input
-                                    value={l.description}
-                                    onChange={(e) => {
-                                        form.setLine(l.key, {
-                                            description: e.target.value,
-                                            itemId: null,
-                                        });
-                                    }}
-                                    placeholder={strings.billing.lineDescriptionPlaceholder}
-                                    className={`${box} min-w-0 flex-1`}
-                                />
-                                <input
-                                    value={l.quantity}
-                                    onChange={(e) => {
-                                        form.setLine(l.key, { quantity: e.target.value });
-                                    }}
-                                    inputMode="decimal"
-                                    className={`${box} w-14 shrink-0 text-center`}
-                                />
-                                <input
-                                    value={l.unit}
-                                    onChange={(e) => {
-                                        form.setLine(l.key, { unit: e.target.value });
-                                    }}
-                                    inputMode="decimal"
-                                    placeholder={strings.billing.linePricePlaceholder}
-                                    className={`${box} w-24 shrink-0 text-right`}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        form.removeLine(l.key);
-                                    }}
-                                    className="w-5 text-muted transition hover:text-danger"
-                                    aria-label={strings.billing.removeLine}
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        ))}
-                        <div className="flex gap-4">
+        <Modal onClose={close} size="xl" framed={false}>
+            <div className="@container flex h-[92vh] flex-col overflow-hidden rounded-lg border border-line bg-bg shadow-card">
+                <header className="flex flex-wrap items-center gap-3 border-b border-line bg-surface px-6 py-4">
+                    <h2 className="font-display text-xl font-bold text-ink">{c.title}</h2>
+                    <StatusPill status={s.statusLabel.draft ?? ""} intent="neutral" />
+                    <div className="ml-auto flex items-center gap-2">
+                        <span className="@4xl:hidden">
                             <Button
-                                variant="link"
+                                variant="quiet"
+                                icon="eye"
                                 onPress={() => {
-                                    form.addLine();
+                                    setShowPreview((v) => !v);
                                 }}
                             >
-                                {strings.billing.addLine}
+                                {s.preview}
                             </Button>
-                            {catalog.length > 0 ? (
+                        </span>
+                        {c.sent === null ? (
+                            <>
                                 <Button
-                                    variant="link"
-                                    onPress={() => {
-                                        setPicking((p) => !p);
-                                    }}
+                                    variant="outline"
+                                    busy={c.busy}
+                                    disabled={c.sending}
+                                    onPress={c.saveDraft}
                                 >
-                                    {strings.billing.fromCatalog}
+                                    {c.busy ? s.saving : s.saveDraft}
                                 </Button>
-                            ) : null}
-                        </div>
-                        {picking ? (
-                            <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-md border border-line p-2">
-                                {catalog.map((item) => (
-                                    <button
-                                        key={item.id}
-                                        type="button"
-                                        onClick={() => {
-                                            form.addCatalogItem(item);
-                                            setPicking(false);
-                                        }}
-                                        className="flex items-center gap-2 rounded-md p-1.5 text-left transition hover:bg-bg"
+                                <Button
+                                    icon="send"
+                                    busy={c.sending}
+                                    disabled={c.busy}
+                                    onPress={c.send}
+                                >
+                                    {c.sending
+                                        ? s.sending
+                                        : kind === "invoice"
+                                          ? s.sendInvoice
+                                          : s.sendEstimate}
+                                </Button>
+                            </>
+                        ) : null}
+                        <IconButton icon="x" label={strings.common.close} onPress={close} />
+                    </div>
+                </header>
+
+                {c.sent !== null ? (
+                    <div className="flex flex-1 items-center justify-center p-8">
+                        <Empty
+                            variant="card"
+                            icon="check"
+                            message={c.sent}
+                            body={s.sentBody(client?.name ?? "")}
+                            actions={
+                                <>
+                                    <Button onPress={onClose}>{strings.common.done}</Button>
+                                    <Button variant="outline" onPress={c.startOver}>
+                                        {s.startAnother}
+                                    </Button>
+                                </>
+                            }
+                        />
+                    </div>
+                ) : (
+                    <div className="grid min-h-0 flex-1 grid-cols-1 @4xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                        <div
+                            className={`min-h-0 space-y-6 overflow-y-auto px-6 py-6 ${showPreview ? "max-@4xl:hidden" : ""}`}
+                        >
+                            <ClientPicker
+                                clients={clients}
+                                value={c.clientId}
+                                editing={c.editing}
+                                error={c.clientError}
+                                onChange={c.setClientId}
+                            />
+
+                            <section className="space-y-3">
+                                <div className="flex items-baseline justify-between gap-4">
+                                    <h3 className="text-sm font-semibold text-ink">{s.lines}</h3>
+                                    <p className="text-xs text-muted">{c.rateNote}</p>
+                                </div>
+                                {c.lines.map((l) => (
+                                    <div
+                                        key={l.key}
+                                        className="space-y-3 rounded-lg border border-line bg-surface p-4"
                                     >
-                                        <ItemImage
-                                            src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                                            name={item.name}
-                                            color={item.color}
-                                            size={32}
-                                        />
-                                        <span className="min-w-0">
-                                            <span className="block truncate text-sm text-ink">
-                                                {item.name}
+                                        <div className="flex items-center gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <TextField
+                                                    name={s.description}
+                                                    value={l.description}
+                                                    placeholder={s.descriptionPlaceholder}
+                                                    onChange={(v) => {
+                                                        c.setLine(l.key, {
+                                                            description: v,
+                                                            itemId: null,
+                                                        });
+                                                    }}
+                                                />
+                                            </div>
+                                            <span className="w-24 text-right font-display font-bold tabular-nums text-ink">
+                                                {formatMoney(l.amountCents)}
                                             </span>
-                                            <span className="text-xs tabular-nums text-muted">
-                                                {formatMoney(item.price_cents)}
-                                            </span>
-                                        </span>
-                                    </button>
+                                            <IconButton
+                                                icon="trash"
+                                                label={s.removeLine}
+                                                onPress={() => {
+                                                    c.removeLine(l.key);
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-[5rem_7rem_minmax(0,1fr)] gap-3">
+                                            <TextField
+                                                label={s.qty}
+                                                size="sm"
+                                                value={l.quantity}
+                                                type="number"
+                                                min="0"
+                                                step="any"
+                                                onChange={(v) => {
+                                                    c.setLine(l.key, { quantity: v });
+                                                }}
+                                            />
+                                            <TextField
+                                                label={s.price}
+                                                size="sm"
+                                                prefix="$"
+                                                value={l.unit}
+                                                placeholder="0.00"
+                                                onChange={(v) => {
+                                                    c.setLine(l.key, { unit: v });
+                                                }}
+                                            />
+                                            <Select
+                                                label={s.taxClass}
+                                                size="sm"
+                                                value={l.taxClass}
+                                                options={c.taxClassOptions}
+                                                onChange={(v) => {
+                                                    c.setLine(l.key, {
+                                                        taxClass:
+                                                            v === "federal_only" || v === "exempt"
+                                                                ? v
+                                                                : "standard",
+                                                    });
+                                                }}
+                                            />
+                                        </div>
+                                        {kind === "estimate" ? (
+                                            <div>
+                                                <Checkbox
+                                                    label={s.optional}
+                                                    value={l.optional}
+                                                    onChange={(v) => {
+                                                        c.setLine(l.key, { optional: v });
+                                                    }}
+                                                />
+                                                {l.optional ? (
+                                                    <p className="ml-7 text-xs text-muted">
+                                                        {s.optionalHint}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
+                                        {l.error !== null ? (
+                                            <Notice tone="danger">{l.error}</Notice>
+                                        ) : null}
+                                    </div>
                                 ))}
+                                <div className="flex flex-wrap items-end gap-3">
+                                    {catalog.length > 0 ? (
+                                        <div className="w-64">
+                                            <Select
+                                                name={s.addFromCatalog}
+                                                value=""
+                                                options={[
+                                                    { key: "", label: s.addFromCatalog },
+                                                    ...catalog.map((i) => ({
+                                                        key: i.id,
+                                                        label: `${i.name} · ${formatMoney(i.price_cents)}`,
+                                                    })),
+                                                ]}
+                                                onChange={(id) => {
+                                                    const item = catalog.find((i) => i.id === id);
+                                                    if (item !== undefined) c.addCatalogItem(item);
+                                                }}
+                                            />
+                                        </div>
+                                    ) : null}
+                                    <Button variant="outline" icon="plus" onPress={c.addLine}>
+                                        {s.addCustomLine}
+                                    </Button>
+                                </div>
+                                {c.linesError !== null ? (
+                                    <Notice tone="danger">{c.linesError}</Notice>
+                                ) : null}
+                            </section>
+
+                            <div className="ml-auto max-w-sm">
+                                <DocTotals lines={c.totals} />
                             </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <Select<DocTerms>
+                                    label={kind === "estimate" ? s.validFor : s.dueTerms}
+                                    value={c.terms}
+                                    options={c.termOptions}
+                                    onChange={c.setTerms}
+                                />
+                            </div>
+                            <TextField
+                                label={s.messageToClient}
+                                optional
+                                multiline
+                                rows={3}
+                                value={c.message}
+                                placeholder={s.messagePlaceholder}
+                                onChange={c.setMessage}
+                            />
+                            {c.saved !== null ? <Notice tone="success">{c.saved}</Notice> : null}
+                            {c.error !== null ? <Notice tone="danger">{c.error}</Notice> : null}
+                        </div>
+
+                        <aside
+                            className={`min-h-0 overflow-y-auto border-l border-line bg-bg px-6 py-6 ${showPreview ? "" : "max-@4xl:hidden"}`}
+                        >
+                            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                                <Icon name="eye" size={14} />
+                                {s.livePreview}
+                            </p>
+                            <PrintedDocument doc={doc} />
+                        </aside>
+                    </div>
+                )}
+            </div>
+        </Modal>
+    );
+}
+
+function ClientPicker({
+    clients,
+    value,
+    editing,
+    error,
+    onChange,
+}: {
+    clients: readonly { id: string; name: string; email: string | null }[];
+    value: string;
+    editing: boolean;
+    error: string | null;
+    onChange: (id: string) => void;
+}) {
+    const chosen = clients.find((x) => x.id === value) ?? null;
+    if (editing && chosen !== null) {
+        return (
+            <section className="space-y-2">
+                <h3 className="text-sm font-semibold text-ink">{s.client}</h3>
+                <div className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+                    <Avatar name={chosen.name} size="sm" />
+                    <div className="min-w-0">
+                        <p className="truncate font-medium text-ink">{chosen.name}</p>
+                        {chosen.email !== null ? (
+                            <p className="truncate text-xs text-muted">{chosen.email}</p>
                         ) : null}
                     </div>
-
-                    <TextField
-                        label={strings.billing.notesLabel}
-                        multiline
-                        rows={2}
-                        value={form.notes}
-                        onChange={form.setNotes}
-                    />
-                    {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
                 </div>
-                <div className="flex items-center justify-between border-t border-line px-6 py-4">
-                    <span className="text-sm text-muted">
-                        {strings.billing.subtotal}{" "}
-                        <span className="font-semibold text-ink">
-                            {formatMoney(form.subtotalCents)}
-                        </span>
-                        <span className="text-xs">{strings.billing.plusTax}</span>
-                    </span>
-                    <div className="flex gap-2">
-                        <Button variant="quiet" onPress={onClose}>
-                            {strings.common.cancel}
-                        </Button>
-                        <Button submit busy={form.busy}>
-                            {form.busy
-                                ? strings.common.saving
-                                : form.editing
-                                  ? strings.billing.saveChanges
-                                  : strings.billing.saveDraft}
-                        </Button>
-                    </div>
-                </div>
-            </form>
-        </Modal>
+            </section>
+        );
+    }
+    return (
+        <Select
+            label={s.client}
+            value={value}
+            error={error}
+            options={[
+                { key: "", label: s.chooseClient },
+                ...clients.map((x) => ({ key: x.id, label: x.name })),
+            ]}
+            onChange={onChange}
+        />
     );
 }

@@ -175,3 +175,21 @@ body {
         animation: none;
     }
 }
+
+/* Print only the document a preview shows, as the PDF a client gets. */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .print-area,
+    .print-area * {
+        visibility: visible;
+    }
+    .print-area {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        max-width: none;
+    }
+}

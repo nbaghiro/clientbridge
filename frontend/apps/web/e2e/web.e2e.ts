@@ -82,6 +82,25 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     for (const tab of PAYMENTS_TABS) await navigate(page, `/payments/${tab}`);
     await navigate(page, "/payments/invoices");
     await openAndClose(page, /new invoice/i);
+    const desk = page.locator("main");
+    await desk
+        .getByText(new RegExp(`^${strings.billing.segments.open} \\d`))
+        .first()
+        .click();
+    await desk.locator("button.block").first().click();
+    const record = page.getByRole("dialog");
+    await record.getByRole("button", { name: strings.billing.recordPayment }).click();
+    await expect(page.getByRole("dialog")).toContainText(strings.billing.rec.howPaid);
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").getByRole("button", { name: strings.billing.pdf }).click();
+    await expect(page.getByRole("dialog")).toContainText(strings.billing.doc.download);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toContainText(strings.billing.lines);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await desk.getByText(strings.billing.estimates, { exact: true }).first().click();
+    await openFirstRow(page);
+    await openAndClose(page, /new estimate/i);
 
     await navigate(page, "/inbox");
     await openAndClose(page, new RegExp(`^${strings.messaging.newMessage}$`));

@@ -33,7 +33,11 @@ export function PaymentsScreen() {
                 <>
                     <Tabs items={tabs} active={current.key} onSelect={setTab} />
                     <View style={styles.body}>
-                        {tabBody(current.key, tab === "invoices" ? params?.create : undefined)}
+                        {tabBody(
+                            current.key,
+                            tab === "invoices" ? params?.create : undefined,
+                            tab === "invoices" ? params?.open : undefined,
+                        )}
                     </View>
                 </>
             )}
@@ -41,10 +45,14 @@ export function PaymentsScreen() {
     );
 }
 
-function tabBody(key: PaymentsTabKey, createToken: number | undefined): ReactElement {
+function tabBody(
+    key: PaymentsTabKey,
+    createToken: number | undefined,
+    openId: string | undefined,
+): ReactElement {
     switch (key) {
         case "invoices":
-            return <Invoices createToken={createToken} />;
+            return <Invoices createToken={createToken} openId={openId} />;
         case "sales":
             return <POS />;
         case "giftCards":

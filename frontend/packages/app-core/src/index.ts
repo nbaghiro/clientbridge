@@ -31,6 +31,8 @@ export * from "./domain/contracts";
 export * from "./domain/forms";
 export * from "./domain/publicResource";
 export * from "./domain/publicPay";
+export * from "./domain/publicEstimate";
+export * from "./domain/printing";
 export * from "./domain/publicBooking";
 export * from "./domain/publicForm";
 export * from "./domain/publicContract";

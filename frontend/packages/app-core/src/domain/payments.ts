@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { formatMoney } from "../format";
+import { blankToNull, formatMoney, parseCents } from "../format";
 import { type ApiLike, newIdempotencyKey } from "../api";
 import type { CheckoutMethod } from "./checkout";
 import type { Intent } from "../ui";
@@ -74,10 +74,15 @@ export interface PaymentRow {
     status: string;
     method: string;
     created_at: string;
+    paid_at: string | null;
+    reference: string | null;
+    note: string | null;
+    tendered_cents: number | null;
 }
 
 export const INVOICE_PAYMENTS_SQL = `
-SELECT id, kind, parent_payment_id, amount_cents, currency, status, method, created_at
+SELECT id, kind, parent_payment_id, amount_cents, currency, status, method, created_at, paid_at,
+       reference, note, tendered_cents
 FROM payments WHERE invoice_id = ? ORDER BY created_at`;
 
 export function useInvoicePayments(invoiceId: string): PaymentRow[] {
@@ -125,16 +130,6 @@ export function paymentStatusIntent(status: string): Intent {
         default:
             return "neutral"; // refunded
     }
-}
-
-/** An invoice can be paid when it's been issued and still owes a balance. */
-export function isPayable(row: { status: string; balance_cents: number | null }): boolean {
-    return (
-        row.status !== "draft" &&
-        row.status !== "void" &&
-        row.status !== "paid" &&
-        (row.balance_cents ?? 0) > 0
-    );
 }
 
 /** `base` is the one pay host (pay.clientbridge.ca in production) each app is configured with. */
@@ -238,4 +233,241 @@ export function detachCard(api: ApiLike, id: string): Promise<{ detached: boolea
 
 export function setDefaultCard(api: ApiLike, id: string): Promise<{ id: string }> {
     return api.post<{ id: string }>(`/v1/payments/methods/${id}/default`, {});
+}
+
+export type TenderKey = "saved_card" | "reader" | "cash" | "etransfer" | "cheque";
+
+const TENDER_METHOD: Record<Exclude<TenderKey, "reader">, string> = {
+    saved_card: "card",
+    cash: "cash",
+    etransfer: "interac",
+    cheque: "cheque",
+};
+
+interface TenderOption {
+    key: TenderKey;
+    label: string;
+    hint: string;
+    disabled?: boolean;
+}
+
+interface RecordTarget {
+    invoiceId: string;
+    label: string;
+    clientId: string;
+    clientEmail: string | null;
+    balanceCents: number;
+}
+
+interface PaymentDone {
+    title: string;
+    lines: string[];
+    paidInFull: boolean;
+}
+
+interface PaymentRecorder {
+    methods: TenderOption[];
+    method: TenderKey;
+    setMethod: (k: TenderKey) => void;
+    amountMode: "full" | "part";
+    setAmountMode: (m: "full" | "part") => void;
+    amount: string;
+    setAmount: (v: string) => void;
+    balanceCents: number;
+    tendered: string;
+    setTendered: (v: string) => void;
+    changeCents: number;
+    reference: string;
+    setReference: (v: string) => void;
+    receivedOn: string;
+    setReceivedOn: (v: string) => void;
+    note: string;
+    setNote: (v: string) => void;
+    sendReceipt: boolean;
+    setSendReceipt: (v: boolean) => void;
+    receiptTo: string | null;
+    amountCents: number;
+    afterCents: number;
+    resultLabel: string;
+    amountError: string | null;
+    tenderedError: string | null;
+    dateError: string | null;
+    submitLabel: string;
+    busy: boolean;
+    error: string | null;
+    submit: () => void;
+    done: PaymentDone | null;
+    reset: () => void;
+}
+
+const today = (): string => {
+    const d = new Date();
+    const pad = (n: number): string => String(n).padStart(2, "0");
+    return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
+/** One payment on an invoice, method first: cash with change, an e-Transfer or cheque received, or a saved card. */
+export function usePaymentRecorder(api: ApiLike, target: RecordTarget): PaymentRecorder {
+    const r = strings.billing.rec;
+    const cards = checkoutMethods(useSavedCards(target.clientId));
+    const card = cards[0] ?? null;
+    const methods: TenderOption[] = [
+        card !== null
+            ? { key: "saved_card", label: card.label, hint: r.savedCardHint }
+            : { key: "saved_card", label: r.noSavedCard, hint: r.noSavedCardHint, disabled: true },
+        { key: "reader", label: r.reader, hint: r.readerHint, disabled: true },
+        { key: "cash", label: r.cash, hint: r.cashHint },
+        { key: "etransfer", label: r.etransfer, hint: r.etransferHint },
+        { key: "cheque", label: r.cheque, hint: r.chequeHint },
+    ];
+    const [method, setMethodState] = useState<TenderKey>("cash");
+    const [amountMode, setAmountModeState] = useState<"full" | "part">("full");
+    const [amount, setAmountState] = useState("");
+    const [tendered, setTendered] = useState("");
+    const [reference, setReference] = useState("");
+    const [receivedOn, setReceivedOn] = useState(today);
+    const [note, setNote] = useState("");
+    const [sendReceipt, setSendReceipt] = useState(true);
+    const [attempted, setAttempted] = useState(false);
+    const [done, setDone] = useState<PaymentDone | null>(null);
+    const { busy, error, setError, run } = useAsyncAction();
+    const keyRef = useRef<string | null>(null);
+    const resetKey = (): void => {
+        keyRef.current = null;
+    };
+
+    const balanceCents = target.balanceCents;
+    const parsed = amountMode === "full" ? balanceCents : parseCents(amount);
+    const validAmount = parsed !== null && parsed > 0;
+    const amountCents = validAmount ? parsed : 0;
+    const tenderedCents = method === "cash" && tendered.trim() !== "" ? parseCents(tendered) : null;
+    const changeCents =
+        tenderedCents !== null && tenderedCents > amountCents ? tenderedCents - amountCents : 0;
+    const afterCents = Math.max(0, balanceCents - amountCents);
+    const dated = method === "etransfer" || method === "cheque";
+    const dateOk = !dated || (/^\d{4}-\d{2}-\d{2}$/.test(receivedOn) && receivedOn <= today());
+
+    const amountError = !attempted
+        ? null
+        : !validAmount
+          ? r.amountInvalid
+          : amountCents > balanceCents
+            ? r.amountTooHigh(formatMoney(balanceCents))
+            : null;
+    const tenderedError =
+        attempted &&
+        tendered.trim() !== "" &&
+        (tenderedCents === null || tenderedCents < amountCents)
+            ? r.tenderedShort
+            : null;
+    const dateError = attempted && !dateOk ? r.dateInvalid : null;
+
+    const submit = (): void => {
+        setAttempted(true);
+        if (!validAmount || amountCents > balanceCents || !dateOk) return;
+        if (tendered.trim() !== "" && (tenderedCents === null || tenderedCents < amountCents))
+            return;
+        if (method === "reader" || (method === "saved_card" && card === null)) return;
+        keyRef.current ??= newIdempotencyKey();
+        const key = keyRef.current;
+        const body = {
+            method: TENDER_METHOD[method],
+            amount_cents: amountCents,
+            tendered_cents: tenderedCents,
+            reference: blankToNull(reference),
+            received_on: dated ? receivedOn : null,
+            note: blankToNull(note),
+            payment_method_id: method === "saved_card" ? card?.id : null,
+            send_receipt: sendReceipt && target.clientEmail !== null,
+        };
+        run(
+            async () => {
+                const res = await api.post<{ status: string; balance_cents: number }>(
+                    `/v1/invoices/${target.invoiceId}/payments`,
+                    body,
+                    { idempotencyKey: key },
+                );
+                keyRef.current = null;
+                if (res.status === "pending") {
+                    setDone({ title: r.cardTitle, lines: [r.cardBody], paidInFull: false });
+                    return;
+                }
+                const lines = [
+                    res.balance_cents === 0
+                        ? r.donePaid(target.label)
+                        : r.donePartial(target.label, formatMoney(res.balance_cents)),
+                ];
+                if (changeCents > 0) lines.push(r.giveChange(formatMoney(changeCents)));
+                if (body.send_receipt && target.clientEmail !== null)
+                    lines.push(r.receiptSent(target.clientEmail));
+                setDone({ title: r.doneTitle, lines, paidInFull: res.balance_cents === 0 });
+            },
+            { errorMessage: r.error },
+        );
+    };
+
+    const charging = method === "saved_card";
+    const money = formatMoney(amountCents);
+    return {
+        methods,
+        method,
+        setMethod: (k) => {
+            resetKey();
+            setError(null);
+            setMethodState(k);
+        },
+        amountMode,
+        setAmountMode: (m) => {
+            resetKey();
+            setAmountModeState(m);
+        },
+        amount,
+        setAmount: (v) => {
+            resetKey();
+            setAmountState(v);
+        },
+        balanceCents,
+        tendered,
+        setTendered,
+        changeCents,
+        reference,
+        setReference: (v) => {
+            resetKey();
+            setReference(v);
+        },
+        receivedOn,
+        setReceivedOn,
+        note,
+        setNote,
+        sendReceipt,
+        setSendReceipt,
+        receiptTo: target.clientEmail,
+        amountCents,
+        afterCents,
+        resultLabel: afterCents === 0 ? r.resultPaid : r.resultPartial,
+        amountError,
+        tenderedError,
+        dateError,
+        submitLabel: busy
+            ? charging
+                ? r.charging
+                : r.recording
+            : charging
+              ? r.charge(money)
+              : r.record(money),
+        busy,
+        error,
+        submit,
+        done,
+        reset: () => {
+            resetKey();
+            setDone(null);
+            setAttempted(false);
+            setAmountModeState("full");
+            setAmountState("");
+            setTendered("");
+            setReference("");
+            setNote("");
+        },
+    };
 }

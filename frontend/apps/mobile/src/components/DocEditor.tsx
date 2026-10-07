@@ -1,22 +1,36 @@
 import {
     type DocDraft,
-    docEditorTitle,
+    type DocTerms,
     formatMoney,
-    mediaUrl,
     sellableItems,
     strings,
     useCatalogItems,
     useClients,
-    useDocForm,
+    useDocComposer,
+    useLetterhead,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Button, Choice, ItemImage, Modal, Notice, TextField } from "@clientbridge/ui";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+    Button,
+    Checkbox,
+    Choice,
+    DocTotals,
+    Empty,
+    IconButton,
+    Modal,
+    Notice,
+    PrintedDocument,
+    Select,
+    TextField,
+    confirm,
+} from "@clientbridge/ui";
 
-import { api, apiBaseUrl } from "../lib/api";
+import { api } from "../lib/api";
 
 const c = theme.colors;
+const s = strings.billing;
 
 export interface DocEditorProps {
     kind: "invoice" | "estimate";
@@ -28,201 +42,281 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
-    const form = useDocForm(api, kind, onClose, draft);
-    const [picking, setPicking] = useState(false);
-    const shownClients = form.editing ? clients.filter((cl) => cl.id === form.clientId) : clients;
+    const letterhead = useLetterhead();
+    const form = useDocComposer(api, kind, draft);
+    const [preview, setPreview] = useState(false);
+    const client = clients.find((x) => x.id === form.clientId) ?? null;
+
+    const close = (): void => {
+        if (!form.dirty || form.sent !== null) {
+            onClose();
+            return;
+        }
+        confirm({
+            title: s.discardTitle,
+            message: s.discardBody,
+            confirmLabel: s.discard,
+            cancelLabel: s.keepEditing,
+            destructive: true,
+        })
+            .then((ok) => {
+                if (ok) onClose();
+            })
+            .catch(() => undefined);
+    };
 
     return (
-        <Modal onClose={onClose}>
-            <Text style={styles.sheetTitle}>{docEditorTitle(kind, form.editing)}</Text>
-            <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
-                <Text style={styles.sectionLabel}>{strings.billing.clientLabel}</Text>
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.chipRow}
+        <Modal onClose={close} size="xl">
+            <View style={styles.head}>
+                <IconButton icon="x" label={strings.common.close} onPress={close} />
+                <Text style={styles.title}>{form.title}</Text>
+                <Button
+                    variant="link"
+                    onPress={() => {
+                        setPreview((v) => !v);
+                    }}
                 >
-                    <Choice
-                        label={strings.billing.clientLabel}
-                        options={shownClients.map((cl) => ({
-                            key: cl.id,
-                            label: cl.name,
-                            disabled: form.editing,
-                        }))}
-                        value={form.clientId}
-                        onChange={form.setClientId}
-                    />
-                </ScrollView>
-
-                <Text style={[styles.sectionLabel, styles.sectionSpace]}>
-                    {strings.billing.linesLabel}
-                </Text>
-                {form.lines.map((l) => (
-                    <View key={l.key} style={styles.lineEdit}>
-                        <TextInput
-                            style={[styles.lineInput, styles.lineDescInput]}
-                            value={l.description}
-                            onChangeText={(v) => {
-                                form.setLine(l.key, { description: v, itemId: null });
-                            }}
-                            placeholder={strings.billing.lineDescriptionPlaceholder}
-                            placeholderTextColor={c.muted}
-                        />
-                        <TextInput
-                            style={[styles.lineInput, styles.lineQtyInput]}
-                            value={l.quantity}
-                            onChangeText={(v) => {
-                                form.setLine(l.key, { quantity: v });
-                            }}
-                            keyboardType="decimal-pad"
-                            placeholder={strings.billing.lineQty}
-                            placeholderTextColor={c.muted}
-                        />
-                        <TextInput
-                            style={[styles.lineInput, styles.linePriceInput]}
-                            value={l.unit}
-                            onChangeText={(v) => {
-                                form.setLine(l.key, { unit: v });
-                            }}
-                            keyboardType="decimal-pad"
-                            placeholder={strings.billing.linePricePlaceholder}
-                            placeholderTextColor={c.muted}
-                        />
-                        <Pressable
-                            onPress={() => {
-                                form.removeLine(l.key);
-                            }}
-                            style={styles.lineRemove}
-                            hitSlop={8}
-                        >
-                            <Text style={styles.lineRemoveText}>×</Text>
-                        </Pressable>
-                    </View>
-                ))}
-                <View style={styles.lineLinks}>
-                    <Button
-                        variant="link"
-                        onPress={() => {
-                            form.addLine();
-                        }}
-                    >
-                        {strings.billing.addLine}
-                    </Button>
-                    {catalog.length > 0 ? (
-                        <Button
-                            variant="link"
-                            onPress={() => {
-                                setPicking((p) => !p);
-                            }}
-                        >
-                            {strings.billing.fromCatalog}
-                        </Button>
-                    ) : null}
-                </View>
-                {picking ? (
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.chipRow}
-                    >
-                        {catalog.map((item) => (
-                            <Pressable
-                                key={item.id}
-                                style={styles.pick}
-                                onPress={() => {
-                                    form.addCatalogItem(item);
-                                    setPicking(false);
-                                }}
-                            >
-                                <ItemImage
-                                    src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                                    name={item.name}
-                                    color={item.color}
-                                    size={40}
-                                />
-                                <Text style={styles.pickName} numberOfLines={2}>
-                                    {item.name}
-                                </Text>
-                                <Text style={styles.pickPrice}>
-                                    {formatMoney(item.price_cents)}
-                                </Text>
-                            </Pressable>
-                        ))}
-                    </ScrollView>
-                ) : null}
-
-                <TextField
-                    label={strings.billing.notesLabel}
-                    multiline
-                    rows={2}
-                    value={form.notes}
-                    onChange={form.setNotes}
-                    placeholder={strings.billing.notesPlaceholder}
-                />
-            </ScrollView>
-            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-            <View style={styles.foot}>
-                <Text style={styles.subtotal}>
-                    {strings.billing.subtotal}{" "}
-                    <Text style={styles.subtotalValue}>{formatMoney(form.subtotalCents)}</Text>
-                    <Text style={styles.subtotalTax}>{strings.billing.plusTax}</Text>
-                </Text>
-                <View style={styles.actions}>
-                    <Button variant="quiet" onPress={onClose}>
-                        {strings.common.cancel}
-                    </Button>
-                    <Button busy={form.busy} onPress={form.submit}>
-                        {form.editing ? strings.billing.saveChanges : strings.billing.saveDraft}
-                    </Button>
-                </View>
+                    {preview ? s.edit : s.preview}
+                </Button>
             </View>
+
+            {form.sent !== null ? (
+                <Empty
+                    variant="card"
+                    icon="check"
+                    message={form.sent}
+                    body={s.sentBody(client?.name ?? "")}
+                    actions={
+                        <>
+                            <Button onPress={onClose}>{strings.common.done}</Button>
+                            <Button variant="outline" onPress={form.startOver}>
+                                {s.startAnother}
+                            </Button>
+                        </>
+                    }
+                />
+            ) : preview ? (
+                <ScrollView style={styles.body}>
+                    <PrintedDocument doc={form.preview(client, letterhead, c.accent)} />
+                </ScrollView>
+            ) : (
+                <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
+                    {form.editing && client !== null ? (
+                        <View style={styles.card}>
+                            <Text style={styles.label}>{s.client}</Text>
+                            <Text style={styles.strong}>{client.name}</Text>
+                        </View>
+                    ) : (
+                        <Select
+                            label={s.client}
+                            value={form.clientId}
+                            error={form.clientError}
+                            options={[
+                                { key: "", label: s.chooseClient },
+                                ...clients.map((x) => ({ key: x.id, label: x.name })),
+                            ]}
+                            onChange={form.setClientId}
+                        />
+                    )}
+
+                    <View style={styles.section}>
+                        <View style={styles.sectionHead}>
+                            <Text style={styles.label}>{s.lines}</Text>
+                            <Text style={styles.note}>{form.rateNote}</Text>
+                        </View>
+                        {form.lines.map((l) => (
+                            <View key={l.key} style={styles.card}>
+                                <View style={styles.lineHead}>
+                                    <View style={styles.grow}>
+                                        <TextField
+                                            name={s.description}
+                                            value={l.description}
+                                            placeholder={s.descriptionPlaceholder}
+                                            onChange={(v) => {
+                                                form.setLine(l.key, {
+                                                    description: v,
+                                                    itemId: null,
+                                                });
+                                            }}
+                                        />
+                                    </View>
+                                    <Text style={styles.amount}>{formatMoney(l.amountCents)}</Text>
+                                    <IconButton
+                                        icon="trash"
+                                        label={s.removeLine}
+                                        size="sm"
+                                        onPress={() => {
+                                            form.removeLine(l.key);
+                                        }}
+                                    />
+                                </View>
+                                <View style={styles.lineFields}>
+                                    <View style={styles.qty}>
+                                        <TextField
+                                            label={s.qty}
+                                            size="sm"
+                                            type="number"
+                                            value={l.quantity}
+                                            onChange={(v) => {
+                                                form.setLine(l.key, { quantity: v });
+                                            }}
+                                        />
+                                    </View>
+                                    <View style={styles.grow}>
+                                        <TextField
+                                            label={s.price}
+                                            size="sm"
+                                            type="number"
+                                            prefix="$"
+                                            value={l.unit}
+                                            placeholder="0.00"
+                                            onChange={(v) => {
+                                                form.setLine(l.key, { unit: v });
+                                            }}
+                                        />
+                                    </View>
+                                </View>
+                                <Select
+                                    label={s.taxClass}
+                                    size="sm"
+                                    value={l.taxClass}
+                                    options={form.taxClassOptions}
+                                    onChange={(v) => {
+                                        form.setLine(l.key, {
+                                            taxClass:
+                                                v === "federal_only" || v === "exempt"
+                                                    ? v
+                                                    : "standard",
+                                        });
+                                    }}
+                                />
+                                {kind === "estimate" ? (
+                                    <Checkbox
+                                        label={s.optional}
+                                        value={l.optional}
+                                        onChange={(v) => {
+                                            form.setLine(l.key, { optional: v });
+                                        }}
+                                    />
+                                ) : null}
+                                {l.error !== null ? <Notice tone="danger">{l.error}</Notice> : null}
+                            </View>
+                        ))}
+                        {catalog.length > 0 ? (
+                            <Select
+                                name={s.addFromCatalog}
+                                value=""
+                                options={[
+                                    { key: "", label: s.addFromCatalog },
+                                    ...catalog.map((i) => ({
+                                        key: i.id,
+                                        label: `${i.name} · ${formatMoney(i.price_cents)}`,
+                                    })),
+                                ]}
+                                onChange={(id) => {
+                                    const item = catalog.find((i) => i.id === id);
+                                    if (item !== undefined) form.addCatalogItem(item);
+                                }}
+                            />
+                        ) : null}
+                        <Button variant="outline" icon="plus" onPress={form.addLine}>
+                            {s.addCustomLine}
+                        </Button>
+                        {form.linesError !== null ? (
+                            <Notice tone="danger">{form.linesError}</Notice>
+                        ) : null}
+                    </View>
+
+                    <View style={[styles.card, styles.section]}>
+                        <DocTotals lines={form.totals} />
+                    </View>
+
+                    <View style={styles.section}>
+                        <Text style={styles.label}>
+                            {kind === "estimate" ? s.validFor : s.dueTerms}
+                        </Text>
+                        <Choice<DocTerms>
+                            layout="segmented"
+                            label={kind === "estimate" ? s.validFor : s.dueTerms}
+                            options={form.termOptions}
+                            value={form.terms}
+                            onChange={form.setTerms}
+                        />
+                    </View>
+                    <View style={styles.section}>
+                        <TextField
+                            label={s.messageToClient}
+                            optional
+                            multiline
+                            rows={3}
+                            value={form.message}
+                            placeholder={s.messagePlaceholder}
+                            onChange={form.setMessage}
+                        />
+                    </View>
+                    {form.saved !== null ? <Notice tone="success">{form.saved}</Notice> : null}
+                    {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
+                </ScrollView>
+            )}
+
+            {form.sent === null ? (
+                <View style={styles.footer}>
+                    <View style={styles.grow}>
+                        <Text style={styles.note}>{s.total}</Text>
+                        <Text style={styles.total}>{formatMoney(form.pricing.totalCents)}</Text>
+                    </View>
+                    <Button
+                        variant="outline"
+                        busy={form.busy}
+                        disabled={form.sending}
+                        onPress={form.saveDraft}
+                    >
+                        {form.busy ? s.saving : s.saveDraft}
+                    </Button>
+                    <Button
+                        icon="send"
+                        busy={form.sending}
+                        disabled={form.busy}
+                        onPress={form.send}
+                    >
+                        {form.sending ? s.sending : s.send}
+                    </Button>
+                </View>
+            ) : null}
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700" },
-    sheetBody: { maxHeight: "70%" },
-    sectionLabel: {
-        color: c.muted,
-        fontSize: 11,
-        fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-    },
-    sectionSpace: { marginTop: 16 },
-    chipRow: { paddingVertical: 8 },
-    lineEdit: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-    lineInput: {
-        borderColor: c.border,
+    head: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+    title: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700", color: c.ink },
+    body: { flexGrow: 0, maxHeight: 560 },
+    section: { marginTop: 16, gap: 10 },
+    sectionHead: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+    label: { fontSize: 14, fontWeight: "600", color: c.ink },
+    note: { fontSize: 12, color: c.muted, flexShrink: 1 },
+    strong: { fontSize: 15, fontWeight: "600", color: c.ink, marginTop: 2 },
+    card: {
         borderWidth: 1,
-        borderRadius: theme.radius,
-        paddingHorizontal: 10,
-        paddingVertical: 9,
-        color: c.ink,
-        fontSize: 14,
-        backgroundColor: c.bg,
-    },
-    lineDescInput: { flex: 1 },
-    lineQtyInput: { width: 52, textAlign: "center" },
-    linePriceInput: { width: 76, textAlign: "right" },
-    lineRemove: { width: 20, alignItems: "center" },
-    lineRemoveText: { color: c.muted, fontSize: 18 },
-    lineLinks: { flexDirection: "row", gap: 18, marginTop: 6 },
-    pick: {
-        width: 96,
-        padding: 8,
-        borderRadius: theme.radius,
         borderColor: c.border,
-        borderWidth: 1,
-        backgroundColor: c.bg,
+        borderRadius: 10,
+        backgroundColor: c.surface,
+        padding: 12,
+        gap: 10,
     },
-    pickName: { color: c.ink, fontSize: 12, fontWeight: "600", marginTop: 6 },
-    pickPrice: { color: c.muted, fontSize: 12, marginTop: 2, fontVariant: ["tabular-nums"] },
-
-    foot: { marginTop: 12 },
-    subtotal: { color: c.muted, fontSize: 13 },
-    subtotalValue: { color: c.ink, fontWeight: "700" },
-    subtotalTax: { fontSize: 11 },
-    actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
+    lineHead: { flexDirection: "row", alignItems: "center", gap: 8 },
+    lineFields: { flexDirection: "row", gap: 10 },
+    qty: { width: 80 },
+    grow: { flex: 1 },
+    amount: { fontSize: 15, fontWeight: "700", color: c.ink, fontVariant: ["tabular-nums"] },
+    total: { fontSize: 20, fontWeight: "700", color: c.ink },
+    footer: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingTop: 12,
+        marginTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: c.border,
+    },
 });

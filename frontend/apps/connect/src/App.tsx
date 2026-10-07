@@ -5,6 +5,7 @@ import { PublicStatus } from "./components/PublicStatus";
 import { useEmbedResize } from "./embed";
 import { PublicBooking } from "./pages/PublicBooking";
 import { PublicContract } from "./pages/PublicContract";
+import { PublicEstimate } from "./pages/PublicEstimate";
 import { PublicForm } from "./pages/PublicForm";
 import { PublicLanding } from "./pages/PublicLanding";
 import { PublicPay } from "./pages/PublicPay";
@@ -21,6 +22,7 @@ export function App() {
                 <Route path="/book/:slug" element={<PublicBooking />} />
                 <Route path="/pay/:token" element={<PublicPay />} />
                 <Route path="/i/:token" element={<PublicPay />} />
+                <Route path="/e/:token" element={<PublicEstimate />} />
                 <Route path="/form/:token" element={<PublicForm />} />
                 <Route path="/contract/:token" element={<PublicContract />} />
                 <Route path="/review/:token" element={<PublicReview />} />

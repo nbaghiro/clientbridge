@@ -808,6 +808,25 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("reads what paid an invoice down and the business letterhead", () => {
+        expect(pick(run("INVOICE_CREDITS_SQL", ["inv_1"]), "event", "cents", "method")).toEqual([
+            { event: "payment", cents: 5000, method: "card" },
+        ]);
+        expect(run("INVOICE_CREDITS_SQL", ["inv_2"])).toEqual([]);
+        expect(pick(run("LETTERHEAD_SQL"), "name", "billing_email", "gst_hst_number")).toEqual([
+            {
+                name: "Birch Studio",
+                billing_email: "billing@birch.test",
+                gst_hst_number: "123456789RT0001",
+            },
+        ]);
+        expect(pick(run("INVOICES_SQL"), "id", "client_email", "paid_cents", "paid_at")).toEqual([
+            { id: "inv_1", client_email: "ann@x.test", paid_cents: 5000, paid_at: TS },
+            { id: "inv_3", client_email: null, paid_cents: 2000, paid_at: TS },
+            { id: "inv_2", client_email: null, paid_cents: 0, paid_at: null },
+        ]);
+    });
+
     it("lists clients by name with their lifetime value", () => {
         expect(pick(run("CLIENTS_SQL"), "id", "lifetime_value_cents")).toEqual([
             { id: "cl_ann", lifetime_value_cents: 6750 },

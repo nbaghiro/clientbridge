@@ -52,9 +52,7 @@ function Parties({ doc }: { doc: Doc }) {
                         {l}
                     </p>
                 ))}
-                <p className="text-ink-soft">
-                    {b.phone} · {b.email}
-                </p>
+                <p className="text-ink-soft">{[b.phone, b.email].filter(Boolean).join(" · ")}</p>
             </div>
             <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted">
@@ -218,7 +216,7 @@ function Footer({ doc }: { doc: Doc }) {
             <div>
                 <p className="text-ink-soft">{doc.footer}</p>
                 <p className="mt-0.5">
-                    {doc.business.registration} · {doc.business.website}
+                    {[doc.business.registration, doc.business.website].filter(Boolean).join(" · ")}
                 </p>
             </div>
             <p>{doc.labels.page}</p>
@@ -238,7 +236,10 @@ function Classic({ doc }: { doc: Doc }) {
                     >
                         {doc.title}
                     </p>
-                    <p className="mt-0.5 text-[11px] text-muted">#{doc.number}</p>
+                    <p className="mt-0.5 text-[11px] text-muted">
+                        {/^\d/.test(doc.number) ? "#" : ""}
+                        {doc.number}
+                    </p>
                 </div>
             </header>
             <div
@@ -284,7 +285,8 @@ function Statement({ doc }: { doc: Doc }) {
                 <BrandBlock doc={doc} inverse />
                 <div className="text-right text-on-data">
                     <p className="font-display text-lg font-bold">
-                        {doc.title} #{doc.number}
+                        {doc.title} {/^\d/.test(doc.number) ? "#" : ""}
+                        {doc.number}
                     </p>
                     <p className="text-[11px] text-on-data/75">{doc.meta[1]?.value}</p>
                 </div>

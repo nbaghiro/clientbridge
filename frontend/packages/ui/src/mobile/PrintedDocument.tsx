@@ -39,7 +39,7 @@ function Parties({ doc }: { doc: Doc }) {
                         {l}
                     </Text>
                 ))}
-                <Text style={styles.body}>{b.phone}</Text>
+                <Text style={styles.body}>{[b.phone, b.email].filter(Boolean).join(" · ")}</Text>
             </View>
             <View style={styles.flex}>
                 <Text style={styles.cap}>{doc.partyLabel}</Text>
@@ -111,7 +111,8 @@ export function PrintedDocument({
                 <View style={[styles.band, { backgroundColor: doc.business.brandColor }]}>
                     <Brand doc={doc} inverse />
                     <Text style={[styles.bandTitle, styles.inverse]}>
-                        {doc.title} #{doc.number}
+                        {doc.title} {/^\d/.test(doc.number) ? "#" : ""}
+                        {doc.number}
                     </Text>
                 </View>
             ) : (
@@ -122,7 +123,10 @@ export function PrintedDocument({
                             <Text style={[styles.title, { color: doc.business.brandColor }]}>
                                 {doc.title.toUpperCase()}
                             </Text>
-                            <Text style={styles.small}>#{doc.number}</Text>
+                            <Text style={styles.small}>
+                                {/^\d/.test(doc.number) ? "#" : ""}
+                                {doc.number}
+                            </Text>
                         </View>
                     </View>
                     <View style={[styles.rule, { backgroundColor: doc.business.brandColor }]} />
