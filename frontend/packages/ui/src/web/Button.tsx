@@ -1,14 +1,38 @@
-import type { ButtonProps, ButtonVariant, ControlSize } from "@clientbridge/app-core/public";
+import type {
+    ButtonProps,
+    ButtonVariant,
+    ControlSize,
+    ControlTone,
+} from "@clientbridge/app-core/public";
 
 import { Icon } from "./Icon";
 import { type WebProps, type WithRef, cx } from "./props";
 
-const VARIANT: Record<ButtonVariant, string> = {
-    primary: "rounded-md bg-accent font-semibold text-accent-ink hover:opacity-90",
-    outline: "rounded-md border border-line font-medium text-ink-soft hover:bg-bg",
-    quiet: "rounded-md font-medium text-ink-soft hover:bg-bg",
-    danger: "rounded-md border border-danger font-medium text-danger hover:bg-danger hover:text-surface",
-    link: "font-medium text-accent hover:underline",
+// Every hover sets its text colour with its fill, so the text never takes on the colour of the fill.
+const VARIANT: Record<ControlTone, Record<ButtonVariant, string>> = {
+    default: {
+        primary:
+            "rounded-md bg-accent font-semibold text-accent-ink hover:bg-accent/90 hover:text-accent-ink",
+        outline:
+            "rounded-md border border-line font-medium text-ink-soft hover:bg-bg hover:text-ink",
+        quiet: "rounded-md font-medium text-ink-soft hover:bg-bg hover:text-ink",
+        danger: "rounded-md border border-danger font-medium text-danger hover:bg-danger hover:text-surface",
+        link: "font-medium text-accent hover:text-accent-strong hover:underline",
+    },
+    inverse: {
+        primary:
+            "rounded-md bg-inverse font-semibold text-inverse-ink hover:bg-inverse/85 hover:text-inverse-ink",
+        outline:
+            "rounded-md border border-inverse/60 font-medium text-inverse hover:border-inverse hover:bg-inverse hover:text-inverse-ink",
+        quiet: "rounded-md font-medium text-inverse hover:bg-inverse/15 hover:text-inverse",
+        danger: "rounded-md bg-inverse font-medium text-danger hover:bg-danger hover:text-inverse",
+        link: "font-medium text-inverse hover:text-inverse hover:underline",
+    },
+};
+
+const FOCUS: Record<ControlTone, string> = {
+    default: "focus-visible:outline-accent",
+    inverse: "focus-visible:outline-inverse",
 };
 
 const SIZE: Record<ControlSize, string> = {
@@ -31,6 +55,7 @@ export function Button({
     grow = false,
     icon,
     label,
+    tone = "default",
     className,
     ref,
 }: WebProps<ButtonProps> & WithRef<HTMLButtonElement>) {
@@ -44,7 +69,7 @@ export function Button({
             aria-busy={busy || undefined}
             aria-label={label}
             className={cx(
-                `inline-flex shrink-0 items-center justify-center gap-1.5 transition disabled:opacity-60 ${VARIANT[variant]} ${sizing} ${full ? "w-full" : ""} ${grow ? "flex-1" : ""}`,
+                `inline-flex shrink-0 items-center justify-center gap-1.5 transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${VARIANT[tone][variant]} ${FOCUS[tone]} ${sizing} ${full ? "w-full" : ""} ${grow ? "flex-1" : ""}`,
                 className,
             )}
         >

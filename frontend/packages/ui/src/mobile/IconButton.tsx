@@ -1,5 +1,5 @@
 import { type IconButtonProps, strings } from "@clientbridge/app-core";
-import { ON_DATA } from "@clientbridge/tokens";
+import { ON_DATA, tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -17,12 +17,14 @@ export function IconButton({
     size = "md",
     pressed,
     disabled = false,
+    tone = "default",
     style,
     ref,
 }: NativeProps<IconButtonProps> & WithRef<View>) {
     const count =
         typeof badge === "number" && badge > 0 ? (badge > 99 ? "99+" : String(badge)) : null;
     const px = size === "sm" ? 34 : 40;
+    const inverse = tone === "inverse";
     return (
         <Pressable
             ref={ref}
@@ -35,27 +37,42 @@ export function IconButton({
                 ...(pressed === undefined ? {} : { selected: pressed }),
             }}
             hitSlop={6}
-            style={[
+            style={({ pressed: down }) => [
                 styles.base,
                 { width: px, height: px },
-                variant === "outline" && styles.outline,
-                pressed === true && styles.pressed,
+                variant === "outline" && (inverse ? styles.outlineInverse : styles.outline),
+                inverse &&
+                    down &&
+                    (variant === "outline" ? styles.filledInverse : styles.tintInverse),
+                pressed === true && (inverse ? styles.filledInverse : styles.pressed),
                 disabled && styles.off,
                 style,
             ]}
         >
-            <Icon
-                name={icon}
-                size={size === "sm" ? 18 : 22}
-                color={pressed === true ? c.accent : c.inkSoft}
-            />
-            {count !== null ? (
-                <View style={styles.count}>
-                    <Text style={styles.countText}>{count}</Text>
-                </View>
-            ) : badge === true ? (
-                <View style={styles.dot} />
-            ) : null}
+            {({ pressed: down }) => (
+                <>
+                    <Icon
+                        name={icon}
+                        size={size === "sm" ? 18 : 22}
+                        color={
+                            inverse
+                                ? pressed === true || (down && variant === "outline")
+                                    ? c.ink
+                                    : ON_DATA
+                                : pressed === true
+                                  ? c.accent
+                                  : c.inkSoft
+                        }
+                    />
+                    {count !== null ? (
+                        <View style={styles.count}>
+                            <Text style={styles.countText}>{count}</Text>
+                        </View>
+                    ) : badge === true ? (
+                        <View style={styles.dot} />
+                    ) : null}
+                </>
+            )}
         </Pressable>
     );
 }
@@ -64,6 +81,9 @@ const styles = StyleSheet.create({
     base: { alignItems: "center", justifyContent: "center", borderRadius: theme.radius },
     outline: { borderWidth: 1, borderColor: c.border, backgroundColor: c.surface },
     pressed: { backgroundColor: c.accentWeak },
+    outlineInverse: { borderWidth: 1, borderColor: tintHex(ON_DATA, 60) },
+    tintInverse: { backgroundColor: tintHex(ON_DATA, 15) },
+    filledInverse: { backgroundColor: c.surface, borderColor: c.surface },
     off: { opacity: 0.5 },
     count: {
         position: "absolute",

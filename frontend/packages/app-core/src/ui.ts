@@ -116,6 +116,8 @@ export interface ModalProps {
 
 export type ButtonVariant = "primary" | "outline" | "quiet" | "danger" | "link";
 export type ControlSize = "sm" | "md" | "lg";
+// "inverse" draws a control for a dark, photo or brand-coloured background.
+export type ControlTone = "default" | "inverse";
 
 export interface ButtonProps {
     children: ReactNode;
@@ -131,6 +133,7 @@ export interface ButtonProps {
     // A glyph name, or an element for anything else (a brand mark, a spinner).
     icon?: IconName | ReactElement | undefined;
     label?: string | undefined;
+    tone?: ControlTone | undefined;
 }
 
 export interface FieldProps {
@@ -655,6 +658,7 @@ export interface IconButtonProps {
     // A toggle's state (a filter on, a panel open); omit for a plain action.
     pressed?: boolean | undefined;
     disabled?: boolean | undefined;
+    tone?: ControlTone | undefined;
 }
 
 export interface ListRowProps {
