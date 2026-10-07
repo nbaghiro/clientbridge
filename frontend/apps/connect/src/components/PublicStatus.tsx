@@ -1,5 +1,5 @@
 import { type PublicBrand, strings } from "@clientbridge/app-core/public";
-import { Loading } from "@clientbridge/ui";
+import { Button, Loading } from "@clientbridge/ui";
 import type { ReactNode } from "react";
 
 import { PublicFrame } from "./PublicFrame";
@@ -8,24 +8,35 @@ export function PublicStatus({
     kind,
     title,
     body,
+    brand = null,
+    onRetry,
 }: {
     kind: "loading" | "notFound" | "error";
     title?: string;
     body?: string;
+    brand?: PublicBrand | null;
+    onRetry?: () => void;
 }) {
     if (kind === "loading") {
         return (
-            <PublicFrame>
+            <PublicFrame brand={brand}>
                 <Loading />
             </PublicFrame>
         );
     }
     return (
-        <PublicFrame>
+        <PublicFrame brand={brand}>
             <h1 className="font-display text-xl font-bold text-ink">
                 {title ?? strings.common.somethingWrong}
             </h1>
             <p className="mt-2 text-sm text-muted">{body ?? strings.common.tryAgainLater}</p>
+            {kind === "error" && onRetry !== undefined ? (
+                <div className="mt-4">
+                    <Button size="sm" variant="outline" icon="refresh" onPress={onRetry}>
+                        {strings.ui.retry}
+                    </Button>
+                </div>
+            ) : null}
         </PublicFrame>
     );
 }

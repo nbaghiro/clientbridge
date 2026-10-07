@@ -923,10 +923,40 @@ describe("app-core SQL against the replica schema", () => {
                 total_cents: 1200,
             },
         ]);
-        expect(pick(run("REVIEWS_SQL"), "id", "rating", "client_name")).toEqual([
-            { id: "rv_1", rating: 5, client_name: "Ann" },
+        expect(pick(run("REVIEWS_SQL"), "id", "rating", "client_name", "visit_at")).toEqual([
+            { id: "rv_1", rating: 5, client_name: "Ann", visit_at: "2026-06-26 10:00:00+00" },
         ]);
-        expect(run("AWAITING_REVIEWS_SQL")).toEqual([{ n: 2 }]);
+        expect(run("REVIEWS_SQL")[0]?.service).toEqual(expect.any(String));
+        expect(
+            run("REVIEW_REQUESTS_SQL")
+                .map((r) => r.id)
+                .sort(),
+        ).toEqual(["rv_asked", "rv_seen"]);
+        expect(run("REVIEW_SETTINGS_SQL")).toEqual([
+            { review_hold_at: null, google_review_url: null },
+        ]);
+    });
+
+    it("suggests recent visits nobody has been asked about", () => {
+        scoped("bookings", [
+            {
+                id: "bk_done",
+                slot_id: "ss_3",
+                staff_id: "st_amy",
+                client_id: "cl_ben",
+                status: "completed",
+                source: "manual",
+                price_cents: 5000,
+                deposit_amount_cents: 0,
+                deposit_status: "none",
+                completed_at: "2026-06-27T10:00:00Z",
+            },
+        ]);
+        expect(pick(run("REVIEW_SUGGESTIONS_SQL", ["2026-06-25"]), "client_id")).toEqual([
+            { client_id: "cl_ben" },
+        ]);
+        expect(run("REVIEW_SUGGESTIONS_SQL", ["2026-06-28"])).toEqual([]);
+        db.run("DELETE FROM bookings WHERE id = 'bk_done'");
     });
 
     it("reads the team, the viewer and staff pay", () => {
