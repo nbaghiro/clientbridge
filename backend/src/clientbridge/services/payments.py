@@ -116,6 +116,15 @@ class PaymentService:
             return [str(x) for x in value] if isinstance(value, list) else []
 
         reason = req.get("disabled_reason")
+        deadline = req.get("current_deadline")
+        available: int | None = None
+        if business.stripe_account_id is not None and business.stripe_charges_enabled:
+            try:
+                available = await self.gateway.get_balance_cents(
+                    business.stripe_account_id, currency="cad"
+                )
+            except Exception:
+                available = None
         return ConnectStatus(
             connected=business.stripe_account_id is not None,
             charges_enabled=business.stripe_charges_enabled,
@@ -126,6 +135,10 @@ class PaymentService:
             currently_due=_due("currently_due"),
             past_due=_due("past_due"),
             pending_verification=_due("pending_verification"),
+            current_deadline=datetime.fromtimestamp(deadline, UTC)
+            if isinstance(deadline, int)
+            else None,
+            available_cents=available,
         )
 
     async def pay_invoice(

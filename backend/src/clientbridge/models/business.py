@@ -24,6 +24,7 @@ class Business(PKMixin, TimestampMixin, Base):
         # webhooks resolve the business by connected account; unique = one business per account
         Index("ix_businesses_stripe_account", "stripe_account_id", unique=True),
         enum_check("businesses", "status", "active", "closed"),
+        enum_check("businesses", "filing_frequency", "monthly", "quarterly", "annual"),
     )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -34,6 +35,9 @@ class Business(PKMixin, TimestampMixin, Base):
     gst_hst_number: Mapped[str | None] = mapped_column(String)
     qst_number: Mapped[str | None] = mapped_column(String)
     tax_registered: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    pst_number: Mapped[str | None] = mapped_column(String)
+    filing_frequency: Mapped[str | None] = mapped_column(String)
+    setup_dismissed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     brand: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     billing_email: Mapped[str | None] = mapped_column(String)
     stripe_account_id: Mapped[str | None] = mapped_column(String)
@@ -65,7 +69,7 @@ class Staff(PKMixin, TimestampMixin, Base):
     __tablename__ = "staff"
     __table_args__ = (
         enum_check("staff", "role", "owner", "admin", "staff", "contractor"),
-        enum_check("staff", "status", "active", "invited"),
+        enum_check("staff", "status", "active", "invited", "removed"),
         enum_check("staff", "rate_type", "percent", "fixed", "hourly"),
         # a percent rate is in basis points, a fixed or hourly rate in cents; never both
         CheckConstraint(
@@ -94,3 +98,5 @@ class Staff(PKMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
     invite_email: Mapped[str | None] = mapped_column(String)
     invite_token: Mapped[str | None] = mapped_column(String)
+    invited_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    invited_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))

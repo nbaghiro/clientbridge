@@ -45,7 +45,8 @@ export function visibleInboxSegments(role: string | null): typeof INBOX_SEGMENTS
     return INBOX_SEGMENTS.filter((s) => !s.managersOnly || canManagePayments(role));
 }
 
-export type SetupSectionKey = "business" | "services" | "team" | "gettingPaid" | "onlineBooking";
+export type SetupSectionKey =
+    "start" | "business" | "services" | "team" | "gettingPaid" | "taxes" | "onlineBooking";
 
 export const SETUP_SECTIONS: {
     key: SetupSectionKey;
@@ -53,6 +54,12 @@ export const SETUP_SECTIONS: {
     webOnly: boolean;
     managersOnly: boolean;
 }[] = [
+    {
+        key: "start",
+        label: strings.navigation.setupSections.start,
+        webOnly: false,
+        managersOnly: true,
+    },
     {
         key: "business",
         label: strings.navigation.setupSections.business,
@@ -74,6 +81,12 @@ export const SETUP_SECTIONS: {
     {
         key: "gettingPaid",
         label: strings.navigation.setupSections.gettingPaid,
+        webOnly: false,
+        managersOnly: true,
+    },
+    {
+        key: "taxes",
+        label: strings.navigation.setupSections.taxes,
         webOnly: false,
         managersOnly: true,
     },
@@ -118,6 +131,8 @@ export type ShellTarget =
     | "reports"
     | "staffPay"
     | "business"
+    | "setup"
+    | "taxes"
     | "team"
     | "gettingPaid"
     | "onlineBooking"
@@ -264,6 +279,6 @@ export function useShellNav(viewer: Viewer | null, bookBase: string): ShellNav {
         create: createActionsFor(role),
         recentClients: recent.slice(0, 4),
         setup,
-        showSetup: manager && !setup.complete,
+        showSetup: manager && !setup.complete && !setup.dismissed,
     };
 }

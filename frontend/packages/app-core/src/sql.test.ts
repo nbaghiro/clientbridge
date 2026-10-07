@@ -931,7 +931,6 @@ describe("app-core SQL against the replica schema", () => {
 
     it("reads the team, the viewer and staff pay", () => {
         expect(run("STAFF_SQL").map((r) => r.id)).toEqual(["st_owner", "st_amy"]);
-        expect(run("PENDING_INVITES_SQL").map((r) => r.id)).toEqual(["st_new"]);
         expect(run("CURRENT_VIEWER_SQL", ["us_amy"])).toEqual([{ id: "st_amy", role: "staff" }]);
         expect(
             pick(run("STAFF_PAY_SQL"), "id", "payee", "rate_type", "rate_bps", "rate_cents"),
@@ -1219,6 +1218,44 @@ describe("app-core SQL against the replica schema", () => {
         ).toEqual([
             { id: "cl_ann", bookings: 2, pet_count: 1, notes: 1 },
             { id: "cl_ben", bookings: 1, pet_count: 0, notes: 1 },
+        ]);
+    });
+
+    it("reads tax settings, item tax classes, brand, the booking preview and the team", () => {
+        db.run(
+            "UPDATE businesses SET province = 'BC', slug = 'birch', pst_number = 'PST12345678', filing_frequency = 'quarterly'",
+        );
+        expect(run("TAX_SETTINGS_SQL")).toEqual([
+            {
+                province: "BC",
+                tax_registered: 1,
+                gst_hst_number: "123456789RT0001",
+                pst_number: "PST12345678",
+                filing_frequency: "quarterly",
+            },
+        ]);
+        expect(run("TAXABLE_ITEMS_SQL").every((r) => typeof r.name === "string")).toBe(true);
+        expect(pick(run("BRAND_SQL"), "id", "slug", "province")).toEqual([
+            { id: BIZ, slug: "birch", province: "BC" },
+        ]);
+        db.run("UPDATE items SET online_bookable = 1 WHERE id = 'it_cut'");
+        expect(run("BOOKING_PREVIEW_SQL").map((r) => r.id)).toEqual(["it_cut"]);
+        expect(run("PREVIEW_RATING_SQL").length).toBe(1);
+        expect(pick(run("TEAM_SQL"), "id", "status")).toEqual([
+            { id: "st_owner", status: "active" },
+            { id: "st_amy", status: "active" },
+            { id: "st_new", status: "invited" },
+        ]);
+        expect(
+            pick(
+                run("SETUP_PROGRESS_SQL"),
+                "province",
+                "tax_registered",
+                "invites",
+                "dismissed_at",
+            ),
+        ).toEqual([
+            { province: "BC", tax_registered: 1, invites: "new@birch.test", dismissed_at: null },
         ]);
     });
 

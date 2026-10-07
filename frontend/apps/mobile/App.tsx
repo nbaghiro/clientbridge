@@ -21,6 +21,8 @@ import type { RootStackParamList, TabParamList } from "./src/navigation";
 import { ScheduleScreen } from "./src/screens/Schedule";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
+import { GetSetUpScreen } from "./src/components/GetSetUp";
+import { TaxesScreen } from "./src/screens/Taxes";
 import {
     ClientHistoryScreen,
     ClientPetsScreen,
@@ -169,6 +171,16 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                 name="Setup"
                                 component={SetupScreen}
                                 options={{ title: strings.navigation.setup }}
+                            />
+                            <RootStack.Screen
+                                name="GetSetUp"
+                                component={GetSetUpScreen}
+                                options={{ title: strings.navigation.setupSections.start }}
+                            />
+                            <RootStack.Screen
+                                name="Taxes"
+                                component={TaxesScreen}
+                                options={{ title: strings.navigation.setupSections.taxes }}
                             />
                             <RootStack.Screen
                                 name="Business"

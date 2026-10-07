@@ -2,7 +2,15 @@ import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page, test } from "@playwright/test";
 
 const PAYMENTS_TABS = ["invoices", "sales", "gift-cards", "staff-pay", "reports"];
-const SETUP_SECTIONS = ["business", "services", "team", "getting-paid", "online-booking"];
+const SETUP_SECTIONS = [
+    "start",
+    "business",
+    "services",
+    "team",
+    "getting-paid",
+    "taxes",
+    "online-booking",
+];
 
 async function navigate(page: Page, path: string): Promise<void> {
     await page.evaluate((to) => {
@@ -107,6 +115,9 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
 
     for (const section of SETUP_SECTIONS) await navigate(page, `/setup/${section}`);
     await navigate(page, "/setup/services");
+    await openFirstRow(page);
+    await navigate(page, "/setup/team");
+    await openAndClose(page, strings.staff.team.inviteMember);
     await openFirstRow(page);
 
     expect(errors).toEqual([]);

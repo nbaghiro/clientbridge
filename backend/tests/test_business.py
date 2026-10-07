@@ -88,3 +88,45 @@ async def test_staff_cannot_update_account(as_staff: httpx.AsyncClient) -> None:
 async def test_unauth_cannot_update_account(unauth: httpx.AsyncClient) -> None:
     res = await unauth.patch("/v1/business", json={"name": "Nope"})
     assert res.status_code == 401
+
+
+async def test_tax_registration_numbers_and_filing(as_owner: httpx.AsyncClient) -> None:
+    res = await as_owner.patch(
+        "/v1/business",
+        json={
+            "tax_registered": True,
+            "gst_hst_number": "123456789 rt 0001",
+            "pst_number": "PST-1234-5678",
+            "filing_frequency": "quarterly",
+        },
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["tax_registered"] is True
+    assert body["gst_hst_number"] == "123456789RT0001"
+    assert body["pst_number"] == "PST12345678"
+    assert body["filing_frequency"] == "quarterly"
+    cleared = await as_owner.patch("/v1/business", json={"pst_number": ""})
+    assert cleared.json()["pst_number"] is None
+
+
+async def test_bad_tax_numbers_are_422(as_owner: httpx.AsyncClient) -> None:
+    for body in (
+        {"gst_hst_number": "12345"},
+        {"qst_number": "1234567890RT0001"},
+        {"pst_number": "PST-12"},
+        {"filing_frequency": "weekly"},
+    ):
+        assert (await as_owner.patch("/v1/business", json=body)).status_code == 422, body
+
+
+async def test_setup_list_can_be_hidden_and_shown(as_owner: httpx.AsyncClient) -> None:
+    hidden = await as_owner.patch("/v1/business", json={"setup_dismissed": True})
+    assert hidden.json()["setup_dismissed_at"] is not None
+    shown = await as_owner.patch("/v1/business", json={"setup_dismissed": False})
+    assert shown.json()["setup_dismissed_at"] is None
+
+
+async def test_staff_cannot_change_tax_settings_403(as_staff: httpx.AsyncClient) -> None:
+    res = await as_staff.patch("/v1/business", json={"tax_registered": True})
+    assert res.status_code == 403

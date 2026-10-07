@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,3 +36,29 @@ class StaffPayOut(BaseModel):
     rate_bps: int | None
     rate_cents: int | None
     retail_rate_bps: int | None
+
+
+MemberRole = Literal["admin", "staff", "contractor"]
+
+
+class RoleUpdate(BaseModel):
+    role: MemberRole
+
+
+class TeamMember(BaseModel):
+    id: str
+    name: str | None
+    email: str | None
+    role: str
+    status: str
+    last_active_at: datetime | None = Field(
+        description="When the member last signed in or refreshed a session"
+    )
+    invited_at: datetime | None
+    invited_by_name: str | None
+    expires_at: datetime | None = Field(description="When a pending invite stops working")
+
+
+class TeamOut(BaseModel):
+    members: list[TeamMember]
+    invites: list[TeamMember]

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.integrations.stripe import account_status_from
 from clientbridge.models.business import Business
 from clientbridge.services.business import derive_kyc_status, kyc_status
+from tests.conftest import FakePaymentGateway
 
 BIZ = "bz_birchbark"
 
@@ -123,3 +124,46 @@ def test_derives_restricted_when_stripe_still_needs_things() -> None:
     status = account_status_from("acct_x", _account_object("account_updated.json"))
     # details submitted, but currently_due/past_due are non-empty → the provider must act
     assert derive_kyc_status(status) == "restricted"
+
+
+def test_reads_the_requirements_deadline() -> None:
+    data = _account_object("account_updated.json")
+    req = cast(dict[str, object], data["requirements"])
+    data = {**data, "requirements": {**req, "current_deadline": 1_800_000_000}}
+    assert account_status_from("acct_x", data).current_deadline == 1_800_000_000
+
+
+async def test_status_shows_deadline_and_available_balance(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    gateway.balance_cents = 12_345
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(
+            stripe_charges_enabled=True,
+            stripe_requirements={
+                "currently_due": ["external_account"],
+                "current_deadline": 1_800_000_000,
+            },
+        )
+    )
+    body = (await as_owner.get("/v1/connect/status")).json()
+    assert body["available_cents"] == 12_345
+    assert body["current_deadline"].startswith("2027-01-15")
+
+
+async def test_status_without_the_balance_when_stripe_fails(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    async def broken(account_id: str, *, currency: str) -> int:
+        raise RuntimeError("stripe down")
+
+    gateway.get_balance_cents = broken  # type: ignore[method-assign]
+    await db.execute(update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=True))
+    body = (await as_owner.get("/v1/connect/status")).json()
+    assert body["available_cents"] is None
+
+
+async def test_staff_cannot_read_connect_status_403(as_staff: httpx.AsyncClient) -> None:
+    assert (await as_staff.get("/v1/connect/status")).status_code == 403

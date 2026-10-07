@@ -1,4 +1,4 @@
-import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
+import { PROVINCES, strings, taxSummary, useOnboardingForm } from "@clientbridge/app-core";
 import { useState } from "react";
 
 import { Button, Lockup, Logo, Notice, Select, TextField } from "@clientbridge/ui";
@@ -63,6 +63,18 @@ export function Onboarding({ onSignOut }: { onSignOut: () => void }) {
                         onChange={form.setProvince}
                         size="lg"
                     />
+                    <div className="rounded-md border border-line bg-surface px-3 py-2.5">
+                        <p className="text-sm font-medium text-ink">
+                            {strings.business.onboarding.taxTitle(
+                                PROVINCES.find((p) => p.code === form.province)?.name ?? "",
+                            )}
+                            {": "}
+                            {taxSummary(form.province)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted">
+                            {strings.business.onboarding.taxNone}
+                        </p>
+                    </div>
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
 

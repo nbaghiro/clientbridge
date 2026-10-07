@@ -1,10 +1,283 @@
 import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
-import { useAsyncAction } from "../hooks";
+import { parseTimestamp } from "../datetime";
+import { type Load, useAsyncAction, useRemote } from "../hooks";
+import type { Intent } from "../ui";
 import type { AuthTokens, Viewer } from "./auth";
+import { useReplicaLoad } from "./sync";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
+
+export type MemberRole = "owner" | "admin" | "staff" | "contractor";
+
+export const INVITE_ROLES: MemberRole[] = ["admin", "staff", "contractor"];
+const ROLE_ORDER: MemberRole[] = ["owner", "admin", "staff", "contractor"];
+
+export function memberRoleIntent(role: string): Intent {
+    return role === "owner" ? "accent" : role === "admin" ? "success" : "neutral";
+}
+
+interface TeamApiMember {
+    id: string;
+    email: string | null;
+    last_active_at: string | null;
+    invited_by_name: string | null;
+}
+
+export interface TeamMember {
+    id: string;
+    name: string;
+    title: string | null;
+    color: string | null;
+    role: MemberRole;
+    email: string | null;
+    isYou: boolean;
+    activeLabel: string;
+    activeNow: boolean;
+}
+
+export interface TeamInvite {
+    id: string;
+    email: string;
+    role: MemberRole;
+    expired: boolean;
+    daysLeft: number;
+    sentLine: string;
+}
+
+export interface TeamView {
+    load: Load;
+    alone: boolean;
+    members: TeamMember[];
+    invites: TeamInvite[];
+    canManage: boolean;
+    viewerRole: MemberRole | null;
+    ownerName: string | null;
+    busyId: string | null;
+    resentIds: string[];
+    error: string | null;
+    resend: (id: string) => void;
+    revoke: (id: string) => void;
+    remove: (id: string) => void;
+    changeRole: (id: string, role: MemberRole) => void;
+}
+
+export const TEAM_SQL = `
+SELECT id, user_id, name, title, role, color, status, invite_email, invited_at, created_at
+FROM staff WHERE status IN ('active', 'invited') ORDER BY created_at`;
+
+interface TeamRow {
+    id: string;
+    user_id: string | null;
+    name: string | null;
+    title: string | null;
+    role: string;
+    color: string | null;
+    status: string;
+    invite_email: string | null;
+    invited_at: string | null;
+    created_at: string;
+}
+
+const INVITE_DAYS = 7;
+const DAY_MS = 86_400_000;
+
+function sinceLabel(at: string, now: Date): string {
+    const mins = (now.getTime() - parseTimestamp(at).getTime()) / 60_000;
+    if (mins < 60) return strings.common.relativeTime.minutes(Math.max(1, Math.floor(mins)));
+    if (mins < 1440) return strings.common.relativeTime.hours(Math.floor(mins / 60));
+    return strings.common.relativeTime.days(Math.floor(mins / 1440));
+}
+
+/** Members from the replica; emails and last activity come from the server for managers. */
+export function useTeam(api: ApiLike, viewer: Viewer | null): TeamView {
+    const t = strings.staff.team;
+    const query = useQuery<TeamRow>(TEAM_SQL);
+    const rows = query.data;
+    const canManage = canManageStaff(viewer?.role ?? null);
+    const remote = useRemote(
+        () =>
+            canManage
+                ? api.get<{ members: TeamApiMember[]; invites: TeamApiMember[] }>("/v1/staff/team")
+                : Promise.resolve({ members: [], invites: [] }),
+        `${String(canManage)}:${String(rows.length)}`,
+    );
+    const load = useReplicaLoad([query], rows.length === 0);
+    const [busyId, setBusyId] = useState<string | null>(null);
+    const [resentIds, setResentIds] = useState<string[]>([]);
+    const { error, run } = useAsyncAction();
+    const extra = new Map(
+        [...(remote.data?.members ?? []), ...(remote.data?.invites ?? [])].map((m) => [m.id, m]),
+    );
+    const now = new Date();
+    const members: TeamMember[] = rows
+        .filter((r) => r.status === "active")
+        .map((r) => {
+            const info = extra.get(r.id);
+            const last = info?.last_active_at ?? null;
+            const recent =
+                last !== null && now.getTime() - parseTimestamp(last).getTime() < 15 * 60_000;
+            return {
+                id: r.id,
+                name: staffName(r),
+                title: r.title,
+                color: r.color,
+                role: r.role as MemberRole,
+                email: info?.email ?? null,
+                isYou: r.id === viewer?.staffId,
+                activeNow: recent,
+                activeLabel:
+                    last === null
+                        ? canManage
+                            ? t.neverSignedIn
+                            : ""
+                        : recent
+                          ? t.activeNow
+                          : t.activeAgo(sinceLabel(last, now)),
+            };
+        })
+        .sort(
+            (a, b) =>
+                ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role) ||
+                a.name.localeCompare(b.name),
+        );
+    const invites: TeamInvite[] = canManage
+        ? rows
+              .filter((r) => r.status === "invited")
+              .map((r) => {
+                  const sent = parseTimestamp(r.invited_at ?? r.created_at);
+                  const leftMs = sent.getTime() + INVITE_DAYS * DAY_MS - now.getTime();
+                  const by = extra.get(r.id)?.invited_by_name ?? null;
+                  const ago = sinceLabel(r.invited_at ?? r.created_at, now);
+                  return {
+                      id: r.id,
+                      email: r.invite_email ?? "",
+                      role: r.role as MemberRole,
+                      expired: leftMs <= 0,
+                      daysLeft: leftMs <= 0 ? 0 : Math.max(1, Math.floor(leftMs / DAY_MS)),
+                      sentLine: by === null ? t.invited(ago) : t.invitedBy(by, ago),
+                  };
+              })
+        : [];
+    const act = (id: string, fn: () => Promise<unknown>, after?: () => void): void => {
+        setBusyId(id);
+        run(fn, {
+            errorMessage: t.actionError,
+            onSuccess: () => {
+                setBusyId(null);
+                after?.();
+                remote.refresh().catch(() => undefined);
+            },
+        });
+    };
+    const owner = members.find((m) => m.role === "owner");
+    return {
+        load,
+        alone: members.length === 1 && invites.length === 0,
+        members,
+        invites,
+        canManage,
+        viewerRole: (viewer?.role ?? null) as MemberRole | null,
+        ownerName: owner?.name ?? null,
+        busyId,
+        resentIds,
+        error,
+        resend: (id) => {
+            act(
+                id,
+                () => api.post(`/v1/staff/invites/${id}/resend`, {}),
+                () => {
+                    setResentIds((r) => [...r, id]);
+                },
+            );
+        },
+        revoke: (id) => {
+            act(id, () => api.post(`/v1/staff/invites/${id}/revoke`, {}));
+        },
+        remove: (id) => {
+            act(id, () => api.delete(`/v1/staff/${id}`));
+        },
+        changeRole: (id, role) => {
+            act(id, () => api.patch(`/v1/staff/${id}`, { role }));
+        },
+    };
+}
+
+export interface InviteTeammatesForm {
+    emails: string;
+    setEmails: (v: string) => void;
+    role: MemberRole;
+    setRole: (r: MemberRole) => void;
+    error: string | null;
+    busy: boolean;
+    sent: Invite[];
+    submit: () => void;
+    reset: () => void;
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Several emails at once, each invited with the same role. */
+export function useInviteTeammatesForm(
+    api: ApiLike,
+    existing: readonly string[],
+): InviteTeammatesForm {
+    const t = strings.staff.team;
+    const [emails, setEmails] = useState("");
+    const [role, setRole] = useState<MemberRole>("staff");
+    const [sent, setSent] = useState<Invite[]>([]);
+    const { busy, error, setError, run } = useAsyncAction();
+    return {
+        emails,
+        setEmails: (v) => {
+            setEmails(v);
+            setError(null);
+        },
+        role,
+        setRole,
+        error,
+        busy,
+        sent,
+        submit: () => {
+            const list = [
+                ...new Set(
+                    emails
+                        .split(/[\s,;]+/)
+                        .map((e) => e.trim().toLowerCase())
+                        .filter((e) => e !== ""),
+                ),
+            ];
+            if (list.length === 0) {
+                setError(t.emailRequired);
+                return;
+            }
+            const bad = list.find((e) => !EMAIL.test(e));
+            if (bad !== undefined) {
+                setError(t.emailInvalid(bad));
+                return;
+            }
+            const dupe = list.find((e) => existing.includes(e));
+            if (dupe !== undefined) {
+                setError(t.alreadyMember(dupe));
+                return;
+            }
+            run(
+                async () => {
+                    const made: Invite[] = [];
+                    for (const email of list) made.push(await inviteStaff(api, { email, role }));
+                    setSent(made);
+                    setEmails("");
+                },
+                { errorMessage: t.inviteError },
+            );
+        },
+        reset: () => {
+            setSent([]);
+            setError(null);
+        },
+    };
+}
 
 export interface StaffRow {
     id: string;
@@ -21,24 +294,13 @@ const STAFF_COLS = "id, user_id, name, title, role, color, status, invite_email"
 
 export const STAFF_SQL = `SELECT ${STAFF_COLS} FROM staff WHERE status = 'active' ORDER BY role`;
 
-export const PENDING_INVITES_SQL = `SELECT ${STAFF_COLS} FROM staff WHERE status = 'invited' ORDER BY created_at DESC`;
-
 export function useStaff(): StaffRow[] {
     return useQuery<StaffRow>(STAFF_SQL).data;
-}
-
-export function usePendingInvites(): StaffRow[] {
-    return useQuery<StaffRow>(PENDING_INVITES_SQL).data;
 }
 
 export function staffLabel(s: StaffRow): string {
     const t = s.title ?? "";
     return t.length > 0 ? t : s.role;
-}
-
-/** Best display name for the Team list: title → invited email → role. */
-export function staffDisplayName(s: Pick<StaffRow, "title" | "invite_email" | "role">): string {
-    return s.title ?? s.invite_email ?? s.role;
 }
 
 /** A member's name for the schedule and Today: their name, else their title, invite email or role. */
@@ -51,7 +313,7 @@ export function staffName(s: {
     return s.name ?? s.title ?? s.invite_email ?? s.role;
 }
 
-export function canManageStaff(role: string | null): boolean {
+function canManageStaff(role: string | null): boolean {
     return role === "owner" || role === "admin";
 }
 
@@ -62,12 +324,6 @@ export function editableStaff(staff: StaffRow[], viewer: Viewer | null): StaffRo
 }
 
 type StaffRole = "admin" | "staff" | "contractor";
-
-export const INVITABLE_ROLES: { value: StaffRole; label: string }[] = [
-    { value: "staff", label: strings.staff.roleStaff },
-    { value: "admin", label: strings.staff.roleAdmin },
-    { value: "contractor", label: strings.staff.roleContractor },
-];
 
 /** Matches the backend InviteOut; `invite_token` is the raw token, returned once to the inviter. */
 export interface Invite {
@@ -80,7 +336,7 @@ export interface Invite {
 
 interface InviteInput {
     email: string;
-    role: StaffRole;
+    role: StaffRole | MemberRole;
 }
 
 function inviteStaff(api: ApiLike, input: InviteInput): Promise<Invite> {
@@ -107,49 +363,6 @@ export function acceptInvite(api: ApiLike, input: AcceptInviteInput): Promise<Au
 
 export function acceptInviteUrl(base: string, token: string): string {
     return `${base.replace(/\/+$/, "")}/accept-invite?token=${encodeURIComponent(token)}`;
-}
-
-export interface InviteForm {
-    email: string;
-    setEmail: (v: string) => void;
-    role: StaffRole;
-    setRole: (v: StaffRole) => void;
-    busy: boolean;
-    error: string | null;
-    /** The most recent invite (its raw token / link to copy), cleared when a new one starts. */
-    invite: Invite | null;
-    submit: () => void;
-    reset: () => void;
-}
-
-export function useInviteForm(api: ApiLike, onInvited?: (invite: Invite) => void): InviteForm {
-    const [email, setEmail] = useState("");
-    const [role, setRole] = useState<StaffRole>("staff");
-    const [invite, setInvite] = useState<Invite | null>(null);
-    const { busy, error, setError, run } = useAsyncAction();
-
-    const submit = (): void => {
-        if (email.trim().length === 0) {
-            setError(strings.staff.emailRequired);
-            return;
-        }
-        run(
-            async () => {
-                const created = await inviteStaff(api, { email, role });
-                setInvite(created);
-                setEmail("");
-                onInvited?.(created);
-            },
-            { errorMessage: strings.staff.inviteError },
-        );
-    };
-
-    const reset = (): void => {
-        setInvite(null);
-        setError(null);
-    };
-
-    return { email, setEmail, role, setRole, busy, error, invite, submit, reset };
 }
 
 interface AcceptInviteForm {

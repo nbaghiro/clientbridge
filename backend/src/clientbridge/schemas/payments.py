@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,12 @@ class ConnectStatus(BaseModel):
     past_due: list[str] = Field(default_factory=list)
     pending_verification: list[str] = Field(
         default_factory=list, description="What Stripe is still reviewing"
+    )
+    current_deadline: datetime | None = Field(
+        default=None, description="When Stripe pauses payouts if what is due isn't sent"
+    )
+    available_cents: int | None = Field(
+        default=None, description="The Stripe balance available to pay out, when connected"
     )
 
 

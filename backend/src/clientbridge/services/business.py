@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -87,6 +88,7 @@ def apply_account_status(business: Business, status: ConnectAccount) -> None:
         "past_due": status.past_due,
         "pending_verification": status.pending_verification,
         "disabled_reason": status.disabled_reason,
+        "current_deadline": status.current_deadline,
     }
 
 
@@ -117,8 +119,12 @@ class BusinessService:
         business = await self.db.get(Business, self.principal.business_id)
         if business is None:
             raise NotFound("business not found")
-        for key, value in data.model_dump(exclude_unset=True, exclude={"brand"}).items():
-            setattr(business, key, value)
+        fields = data.model_dump(exclude_unset=True, exclude={"brand", "setup_dismissed"})
+        for key, value in fields.items():
+            cleared = value == "" and key in ("gst_hst_number", "qst_number", "pst_number")
+            setattr(business, key, None if cleared else value)
+        if data.setup_dismissed is not None:
+            business.setup_dismissed_at = datetime.now(UTC) if data.setup_dismissed else None
         if data.brand is not None:
             if data.brand.logo_file_id is not None:
                 await self._assert_logo(data.brand.logo_file_id)

@@ -175,7 +175,7 @@ async def test_accept_expired_invite_401(as_owner: httpx.AsyncClient, db: AsyncS
     token = inv.json()["invite_token"]
     await db.execute(
         text(
-            "UPDATE staff SET created_at = now() - interval '60 days' "
+            "UPDATE staff SET invited_at = now() - interval '8 days' "
             "WHERE invite_email = 'exp@test.ca'"
         )
     )
@@ -183,3 +183,104 @@ async def test_accept_expired_invite_401(as_owner: httpx.AsyncClient, db: AsyncS
         "/auth/accept-invite", json={"token": token, "name": "E", "password": "pw-123456"}
     )
     assert res.status_code == 401
+
+
+async def test_team_lists_members_and_invites(as_owner: httpx.AsyncClient) -> None:
+    await as_owner.post(
+        "/auth/login", json={"email": "hannah@birchbarkpets.ca", "password": "demo1234"}
+    )
+    res = await as_owner.get("/v1/staff/team")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    owner = next(m for m in body["members"] if m["id"] == "st_owner")
+    assert owner["email"] == "hannah@birchbarkpets.ca"
+    assert owner["last_active_at"] is not None
+    invite = next(i for i in body["invites"] if i["id"] == "st_invite")
+    assert invite["email"] == "sam.newhire@example.com"
+    assert invite["expires_at"] is not None
+
+
+async def test_staff_see_the_team_without_emails_or_invites(as_staff: httpx.AsyncClient) -> None:
+    body = (await as_staff.get("/v1/staff/team")).json()
+    assert {m["id"] for m in body["members"]} >= {"st_owner", "st_diego"}
+    assert all(m["email"] is None and m["last_active_at"] is None for m in body["members"])
+    assert body["invites"] == []
+
+
+async def test_resend_invite_issues_a_new_link(
+    as_owner: httpx.AsyncClient, email: FakeEmailSender, db: AsyncSession
+) -> None:
+    first = (
+        await as_owner.post("/v1/staff/invites", json={"email": "again@test.ca", "role": "staff"})
+    ).json()
+    await db.execute(
+        text("UPDATE staff SET invited_at = now() - interval '6 days' WHERE id = :i"),
+        {"i": first["id"]},
+    )
+    res = await as_owner.post(f"/v1/staff/invites/{first['id']}/resend")
+    assert res.status_code == 200, res.text
+    assert res.json()["invite_token"] != first["invite_token"]
+    assert len(email.sent) == 2
+    old = await as_owner.post(
+        "/auth/accept-invite",
+        json={"token": first["invite_token"], "name": "A", "password": "pw-123456"},
+    )
+    assert old.status_code == 401
+    new = await as_owner.post(
+        "/auth/accept-invite",
+        json={"token": res.json()["invite_token"], "name": "A", "password": "pw-123456"},
+    )
+    assert new.status_code == 200
+
+
+async def test_revoke_invite_removes_it(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    inv = (
+        await as_owner.post("/v1/staff/invites", json={"email": "gone@test.ca", "role": "staff"})
+    ).json()
+    assert (await as_owner.post(f"/v1/staff/invites/{inv['id']}/revoke")).status_code == 204
+    left = await db.scalar(text("SELECT count(*) FROM staff WHERE id = :i"), {"i": inv["id"]})
+    assert left == 0
+    assert "staff.invite_revoke" in await _actions(db, inv["id"])
+    assert (await as_owner.post(f"/v1/staff/invites/{inv['id']}/revoke")).status_code == 404
+
+
+async def test_change_role_and_remove_member(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    await db.execute(
+        text(
+            "INSERT INTO sessions (id, user_id, family_id, token_hash, expires_at)"
+            " VALUES ('ase_priya', 'us_priya', 'fam', 'h', now() + interval '1 day')"
+        )
+    )
+    res = await as_owner.patch("/v1/staff/st_priya", json={"role": "admin"})
+    assert res.status_code == 204
+    assert await db.scalar(text("SELECT role FROM staff WHERE id = 'st_priya'")) == "admin"
+    assert (await as_owner.delete("/v1/staff/st_priya")).status_code == 204
+    assert await db.scalar(text("SELECT status FROM staff WHERE id = 'st_priya'")) == "removed"
+    revoked = await db.scalar(text("SELECT revoked_at FROM sessions WHERE id = 'ase_priya'"))
+    assert revoked is not None
+    assert set(await _actions(db, "st_priya")) >= {"staff.role", "staff.remove"}
+    assert (await as_owner.delete("/v1/staff/st_priya")).status_code == 404
+
+
+async def test_role_changes_are_guarded(as_owner: httpx.AsyncClient) -> None:
+    assert (await as_owner.patch("/v1/staff/st_owner", json={"role": "staff"})).status_code == 403
+    res = await as_owner.patch("/v1/staff/st_diego", json={"role": "owner"})
+    assert res.status_code == 422
+
+
+async def test_staff_cannot_manage_the_team_403(as_staff: httpx.AsyncClient) -> None:
+    assert (await as_staff.patch("/v1/staff/st_priya", json={"role": "staff"})).status_code == 403
+    assert (await as_staff.delete("/v1/staff/st_priya")).status_code == 403
+    assert (await as_staff.post("/v1/staff/invites/st_invite/revoke")).status_code == 403
+    assert (await as_staff.post("/v1/staff/invites/st_invite/resend")).status_code == 403
+
+
+async def test_team_endpoints_scope_by_business(
+    as_owner: httpx.AsyncClient, factory: Factory
+) -> None:
+    other = await factory.business()
+    member = await factory.staff(business=other, role="staff")
+    res = await as_owner.patch(f"/v1/staff/{member.id}", json={"role": "admin"})
+    assert res.status_code == 404
+    assert (await as_owner.delete(f"/v1/staff/{member.id}")).status_code == 404
+    assert (await as_owner.post(f"/v1/staff/invites/{member.id}/resend")).status_code == 404

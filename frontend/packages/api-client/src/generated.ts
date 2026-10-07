@@ -783,6 +783,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/items/tax-class": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Tax Class */
+        post: operations["set_tax_class_v1_items_tax_class_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/items/{item_id}": {
         parameters: {
             query?: never;
@@ -1618,6 +1635,75 @@ export interface paths {
         patch: operations["update_pay_v1_staff__staff_id__pay_patch"];
         trace?: never;
     };
+    "/v1/staff/team": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Team */
+        get: operations["team_v1_staff_team_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/staff/invites/{invite_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resend Invite */
+        post: operations["resend_invite_v1_staff_invites__invite_id__resend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/staff/invites/{invite_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke Invite */
+        post: operations["revoke_invite_v1_staff_invites__invite_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/staff/{staff_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Member */
+        delete: operations["remove_member_v1_staff__staff_id__delete"];
+        options?: never;
+        head?: never;
+        /** Change Role */
+        patch: operations["change_role_v1_staff__staff_id__patch"];
+        trace?: never;
+    };
     "/v1/dashboard/summary": {
         parameters: {
             query?: never;
@@ -2165,6 +2251,14 @@ export interface components {
             gst_hst_number: string | null;
             /** Qst Number */
             qst_number: string | null;
+            /** Pst Number */
+            pst_number: string | null;
+            /** Tax Registered */
+            tax_registered: boolean;
+            /** Filing Frequency */
+            filing_frequency: string | null;
+            /** Setup Dismissed At */
+            setup_dismissed_at: string | null;
             /** Brand */
             brand: {
                 [key: string]: unknown;
@@ -2187,6 +2281,17 @@ export interface components {
             gst_hst_number?: string | null;
             /** Qst Number */
             qst_number?: string | null;
+            /** Pst Number */
+            pst_number?: string | null;
+            /** Tax Registered */
+            tax_registered?: boolean | null;
+            /** Filing Frequency */
+            filing_frequency?: ("monthly" | "quarterly" | "annual") | null;
+            /**
+             * Setup Dismissed
+             * @description Hide (true) or show (false) the Get set up list
+             */
+            setup_dismissed?: boolean | null;
             brand?: components["schemas"]["BrandInput"] | null;
         };
         /** CheckoutOut */
@@ -2358,6 +2463,16 @@ export interface components {
              * @description What Stripe is still reviewing
              */
             pending_verification?: string[];
+            /**
+             * Current Deadline
+             * @description When Stripe pauses payouts if what is due isn't sent
+             */
+            current_deadline?: string | null;
+            /**
+             * Available Cents
+             * @description The Stripe balance available to pay out, when connected
+             */
+            available_cents?: number | null;
         };
         /** ConnectionTokenOut */
         ConnectionTokenOut: {
@@ -3940,6 +4055,14 @@ export interface components {
              */
             count: number;
         };
+        /** RoleUpdate */
+        RoleUpdate: {
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "staff" | "contractor";
+        };
         /** SalesByItemRow */
         SalesByItemRow: {
             /** Item Id */
@@ -4137,6 +4260,21 @@ export interface components {
              */
             total_cents: number;
         };
+        /** TaxClassChange */
+        TaxClassChange: {
+            /** Item Ids */
+            item_ids: string[];
+            /**
+             * Tax Class
+             * @enum {string}
+             */
+            tax_class: "standard" | "federal_only" | "exempt";
+        };
+        /** TaxClassResult */
+        TaxClassResult: {
+            /** Count */
+            count: number;
+        };
         /** TaxRateOut */
         TaxRateOut: {
             /** Id */
@@ -4149,6 +4287,40 @@ export interface components {
             rate_bps: number;
             /** Name */
             name: string;
+        };
+        /** TeamMember */
+        TeamMember: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Email */
+            email: string | null;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+            /**
+             * Last Active At
+             * @description When the member last signed in or refreshed a session
+             */
+            last_active_at: string | null;
+            /** Invited At */
+            invited_at: string | null;
+            /** Invited By Name */
+            invited_by_name: string | null;
+            /**
+             * Expires At
+             * @description When a pending invite stops working
+             */
+            expires_at: string | null;
+        };
+        /** TeamOut */
+        TeamOut: {
+            /** Members */
+            members: components["schemas"]["TeamMember"][];
+            /** Invites */
+            invites: components["schemas"]["TeamMember"][];
         };
         /** ThreadOut */
         ThreadOut: {
@@ -5989,6 +6161,43 @@ export interface operations {
             };
         };
     };
+    set_tax_class_v1_items_tax_class_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaxClassChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxClassResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_item_v1_items__item_id__get: {
         parameters: {
             query?: never;
@@ -7797,6 +8006,172 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StaffPayOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    team_v1_staff_team_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resend_invite_v1_staff_invites__invite_id__resend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_invite_v1_staff_invites__invite_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_v1_staff__staff_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_role_v1_staff__staff_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
