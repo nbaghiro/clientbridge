@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    SmallInteger,
+    String,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -66,3 +75,7 @@ class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):
     preferred: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     mandate_status: Mapped[str] = mapped_column(String, default="none", nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
+    exp_month: Mapped[int | None] = mapped_column(SmallInteger)
+    exp_year: Mapped[int | None] = mapped_column(SmallInteger)
+    holder_name: Mapped[str | None] = mapped_column(String)
+    bank_name: Mapped[str | None] = mapped_column(String)

@@ -10,6 +10,9 @@ bucket_definitions:
       WHERE user_id = request.user_id() AND status = 'active'
     data:
       - SELECT * FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM subjects        WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM notes           WHERE business_id = bucket.business_id
+      - SELECT * FROM consents        WHERE business_id = bucket.business_id
       - SELECT * FROM items           WHERE business_id = bucket.business_id
       - SELECT * FROM packages        WHERE business_id = bucket.business_id
       - SELECT * FROM subscriptions   WHERE business_id = bucket.business_id

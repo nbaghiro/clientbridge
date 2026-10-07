@@ -40,6 +40,8 @@ const clients = new Table(
         status: column.text,
         custom_fields: column.text,
         stripe_customer_id: column.text,
+        preferred_channel: column.text,
+        archived_at: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -50,6 +52,64 @@ const clients = new Table(
             clients_business_email: ["business_id", "email"],
             clients_business_id: ["business_id"],
             clients_business_phone: ["business_id", "phone"],
+        },
+    },
+);
+
+const subjects = new Table(
+    {
+        client_id: column.text,
+        kind: column.text,
+        name: column.text,
+        attributes: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+        deleted_at: column.text,
+    },
+    {
+        indexes: {
+            subjects_business_client: ["business_id", "client_id"],
+            subjects_business_id: ["business_id"],
+        },
+    },
+);
+
+const notes = new Table(
+    {
+        created_by: column.text,
+        parent_type: column.text,
+        parent_id: column.text,
+        body: column.text,
+        pinned: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            notes_business_id: ["business_id"],
+            notes_parent: ["business_id", "parent_type", "parent_id"],
+        },
+    },
+);
+
+const consents = new Table(
+    {
+        client_id: column.text,
+        channel: column.text,
+        status: column.text,
+        source: column.text,
+        recorded_by: column.text,
+        expires_at: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            consents_business_id: ["business_id"],
+            consents_client: ["business_id", "client_id", "channel", "created_at"],
         },
     },
 );
@@ -622,6 +682,10 @@ const payment_methods = new Table(
         preferred: column.integer,
         mandate_status: column.text,
         status: column.text,
+        exp_month: column.integer,
+        exp_year: column.integer,
+        holder_name: column.text,
+        bank_name: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -673,6 +737,9 @@ const device_prefs = new Table(
 export const AppSchema = new Schema({
     staff,
     clients,
+    subjects,
+    notes,
+    consents,
     items,
     packages,
     subscriptions,

@@ -574,6 +574,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/clients/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Clients */
+        post: operations["archive_clients_v1_clients_archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/clients/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tag Clients */
+        post: operations["tag_clients_v1_clients_tags_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/clients/{client_id}": {
         parameters: {
             query?: never;
@@ -591,6 +625,127 @@ export interface paths {
         head?: never;
         /** Update Client */
         patch: operations["update_client_v1_clients__client_id__patch"];
+        trace?: never;
+    };
+    "/v1/clients/{client_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive Client */
+        post: operations["archive_client_v1_clients__client_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/clients/{client_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Client */
+        post: operations["restore_client_v1_clients__client_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/clients/{client_id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge Clients */
+        post: operations["merge_clients_v1_clients__client_id__merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Subject */
+        post: operations["create_subject_v1_subjects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/subjects/{subject_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Subject */
+        delete: operations["delete_subject_v1_subjects__subject_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Subject */
+        patch: operations["update_subject_v1_subjects__subject_id__patch"];
+        trace?: never;
+    };
+    "/v1/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Note */
+        post: operations["create_note_v1_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Note */
+        delete: operations["delete_note_v1_notes__note_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Note */
+        patch: operations["update_note_v1_notes__note_id__patch"];
         trace?: never;
     };
     "/v1/business": {
@@ -1983,6 +2138,11 @@ export interface components {
              */
             scheduled_at?: string | null;
         };
+        /** BulkResult */
+        BulkResult: {
+            /** Count */
+            count: number;
+        };
         /** BusinessOut */
         BusinessOut: {
             /** Id */
@@ -2058,6 +2218,33 @@ export interface components {
             custom_fields?: {
                 [key: string]: unknown;
             };
+            /**
+             * Preferred Channel
+             * @default sms
+             * @enum {string}
+             */
+            preferred_channel: "sms" | "email";
+            /**
+             * Marketing Consent
+             * @description Record that the client agreed to news and offers
+             * @default false
+             */
+            marketing_consent: boolean;
+            subject?: components["schemas"]["FirstSubject"] | null;
+        };
+        /** ClientIds */
+        ClientIds: {
+            /** Client Ids */
+            client_ids: string[];
+        };
+        /** ClientMerge */
+        ClientMerge: {
+            /** From Client Id */
+            from_client_id: string;
+            /** Fields */
+            fields?: {
+                [key: string]: "kept" | "other";
+            };
         };
         /** ClientOut */
         ClientOut: {
@@ -2079,10 +2266,18 @@ export interface components {
             custom_fields?: {
                 [key: string]: unknown;
             };
+            /**
+             * Preferred Channel
+             * @default sms
+             * @enum {string}
+             */
+            preferred_channel: "sms" | "email";
             /** Id */
             id: string;
             /** Business Id */
             business_id: string;
+            /** Archived At */
+            archived_at: string | null;
             /**
              * Created At
              * Format: date-time
@@ -2093,6 +2288,18 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ClientTags */
+        ClientTags: {
+            /** Client Ids */
+            client_ids: string[];
+            /**
+             * Set
+             * @description Each tag to add (true) or remove (false) on every client
+             */
+            set: {
+                [key: string]: boolean;
+            };
         };
         /** ClientUpdate */
         ClientUpdate: {
@@ -2110,6 +2317,10 @@ export interface components {
             custom_fields?: {
                 [key: string]: unknown;
             } | null;
+            /** Preferred Channel */
+            preferred_channel?: ("sms" | "email") | null;
+            /** Marketing Consent */
+            marketing_consent?: boolean | null;
         };
         /** ConnectStatus */
         ConnectStatus: {
@@ -2328,6 +2539,18 @@ export interface components {
             file: components["schemas"]["FileOut"];
             /** Upload Url */
             upload_url: string;
+        };
+        /** FirstSubject */
+        FirstSubject: {
+            /**
+             * Kind
+             * @default pet
+             * @enum {string}
+             */
+            kind: "pet" | "vehicle" | "child" | "property";
+            /** Name */
+            name: string;
+            attributes?: components["schemas"]["SubjectAttributes"];
         };
         /** ForgotPasswordBody */
         ForgotPasswordBody: {
@@ -2892,6 +3115,57 @@ export interface components {
             channel: "sms" | "email";
             /** Body */
             body: string;
+        };
+        /** NoteCreate */
+        NoteCreate: {
+            /**
+             * Parent Type
+             * @enum {string}
+             */
+            parent_type: "client" | "subject";
+            /** Parent Id */
+            parent_id: string;
+            /** Body */
+            body: string;
+            /**
+             * Pinned
+             * @default false
+             */
+            pinned: boolean;
+        };
+        /** NoteOut */
+        NoteOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Parent Type */
+            parent_type: string;
+            /** Parent Id */
+            parent_id: string;
+            /** Body */
+            body: string;
+            /** Pinned */
+            pinned: boolean;
+            /** Created By */
+            created_by: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** NoteUpdate */
+        NoteUpdate: {
+            /** Body */
+            body?: string | null;
+            /** Pinned */
+            pinned?: boolean | null;
         };
         /** OAuthGoogleBody */
         OAuthGoogleBody: {
@@ -3749,6 +4023,83 @@ export interface components {
              * @description Commission on product sales in basis points
              */
             retail_rate_bps?: number | null;
+        };
+        /**
+         * SubjectAttributes
+         * @description The typed details of a subject; keys a kind doesn't use stay empty, unknown keys are kept.
+         */
+        SubjectAttributes: {
+            /** Species */
+            species?: ("dog" | "cat" | "other") | null;
+            /** Breed */
+            breed?: string | null;
+            /** Weight Kg */
+            weight_kg?: number | null;
+            /** Birthday */
+            birthday?: string | null;
+            /** Sex */
+            sex?: ("female" | "male") | null;
+            /** Temperament */
+            temperament?: string | null;
+            /** Coat */
+            coat?: string | null;
+            /** Allergies */
+            allergies?: string | null;
+            /** Vet */
+            vet?: string | null;
+            /** Rabies Until */
+            rabies_until?: string | null;
+            /** Style */
+            style?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** SubjectCreate */
+        SubjectCreate: {
+            /** Client Id */
+            client_id: string;
+            /**
+             * Kind
+             * @default pet
+             * @enum {string}
+             */
+            kind: "pet" | "vehicle" | "child" | "property";
+            /** Name */
+            name: string;
+            attributes?: components["schemas"]["SubjectAttributes"];
+        };
+        /** SubjectOut */
+        SubjectOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Attributes */
+            attributes: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SubjectUpdate */
+        SubjectUpdate: {
+            /** Name */
+            name?: string | null;
+            attributes?: components["schemas"]["SubjectAttributes"] | null;
         };
         /** SubscriptionCreate */
         SubscriptionCreate: {
@@ -5032,6 +5383,80 @@ export interface operations {
             };
         };
     };
+    archive_clients_v1_clients_archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientIds"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tag_clients_v1_clients_tags_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientTags"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_client_v1_clients__client_id__get: {
         parameters: {
             query?: never;
@@ -5123,6 +5548,327 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_client_v1_clients__client_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_client_v1_clients__client_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_clients_v1_clients__client_id__merge_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientMerge"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_subject_v1_subjects_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_subject_v1_subjects__subject_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_subject_v1_subjects__subject_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                subject_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubjectUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_note_v1_notes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_note_v1_notes__note_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_note_v1_notes__note_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
                 };
             };
             /** @description Validation Error */

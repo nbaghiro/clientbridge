@@ -1348,6 +1348,10 @@ async def _record_payment_method(
     detail = detail if isinstance(detail, dict) else {}
     brand = detail.get("bank_name") if kind == "bank_eft" else detail.get("brand")
     last4 = detail.get("last4")
+    exp_month, exp_year = detail.get("exp_month"), detail.get("exp_year")
+    bank_name = detail.get("bank_name")
+    billing = data.get("billing_details")
+    holder = billing.get("name") if isinstance(billing, dict) else None
     db.add(
         PaymentMethod(
             id=new_id("payment_method"),
@@ -1361,6 +1365,10 @@ async def _record_payment_method(
             preferred=has_card is None,  # first method on file becomes the default
             mandate_status=mandate,
             status="active",
+            exp_month=exp_month if isinstance(exp_month, int) else None,
+            exp_year=exp_year if isinstance(exp_year, int) else None,
+            holder_name=holder if isinstance(holder, str) else None,
+            bank_name=bank_name if isinstance(bank_name, str) else None,
         )
     )
     await db.flush()

@@ -12,17 +12,21 @@ from clientbridge.api import (
     files,
     forms,
     messaging,
+    notes,
     notifications,
     orders,
     payments,
     reports,
     reviews,
     staff,
+    subjects,
     tax,
 )
 
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(clients.router)
+api_router.include_router(subjects.router)
+api_router.include_router(notes.router)
 api_router.include_router(business.business_router)
 api_router.include_router(catalog.router)
 api_router.include_router(bookings.router)
