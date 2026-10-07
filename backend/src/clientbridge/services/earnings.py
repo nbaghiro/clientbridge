@@ -58,14 +58,6 @@ class EarningService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def approve(self, earning_id: str, idempotency_key: str | None = None) -> EarningOut:
-        return await self._advance(
-            earning_id, "pending", "approved", "earning.approve", idempotency_key
-        )
-
-    async def pay(self, earning_id: str, idempotency_key: str | None = None) -> EarningOut:
-        return await self._advance(earning_id, "approved", "paid", "earning.pay", idempotency_key)
-
     async def approve_many(
         self, earning_ids: list[str], idempotency_key: str | None = None
     ) -> EarningsOut:
@@ -119,41 +111,6 @@ class EarningService:
             action=action,
             run=run,
             response_model=EarningsOut,
-            idempotency_key=idempotency_key,
-        )
-
-    async def _advance(
-        self,
-        earning_id: str,
-        current: str,
-        target: str,
-        action: str,
-        idempotency_key: str | None,
-    ) -> EarningOut:
-        assert_role(
-            self.principal, "owner", "admin", message="only an owner or admin can manage earnings"
-        )
-        earning = await load_earning(self.db, self.biz, earning_id)
-        if earning is None:
-            raise NotFound("earning not found")
-
-        async def run(cmd: Command) -> EarningOut:
-            await _lock_subject(self.db, earning.subject)
-            fresh = await load_earning(self.db, self.biz, earning.id)
-            if fresh is None or fresh.status != current:
-                raise Conflict(f"only a {current} earning can be marked {target}")
-            await advance_earning(self.db, earning, target)
-            cmd.record(action, entity_type="earning", entity_id=earning.id)
-            done = await load_earning(self.db, self.biz, earning.id)
-            assert done is not None
-            return done.out()
-
-        return await run_command(
-            self.db,
-            self.principal,
-            action=action,
-            run=run,
-            response_model=EarningOut,
             idempotency_key=idempotency_key,
         )
 

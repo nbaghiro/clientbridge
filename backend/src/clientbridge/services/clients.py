@@ -9,7 +9,7 @@ from clientbridge.core.db import Base
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
-from clientbridge.core.scoping import scoped, scoped_count, scoped_page, scoped_update
+from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.models.billing import Estimate, Invoice, Order
 from clientbridge.models.catalog import GiftCard, Package, Subscription
 from clientbridge.models.clients import Client, Consent, Note, Subject
@@ -66,15 +66,6 @@ class ClientService:
         self.principal = principal
         self.biz = principal.business_id
 
-    async def list(self, *, limit: int, offset: int) -> tuple[Sequence[Client], int]:
-        items = await scoped_page(
-            self.db, Client, self.biz, limit=limit, offset=offset, soft_delete=True
-        )
-        return items, await scoped_count(self.db, Client, self.biz, soft_delete=True)
-
-    async def get(self, client_id: str) -> Client:
-        return await load_client(self.db, self.biz, client_id)
-
     async def create(self, data: ClientCreate) -> Client:
         client = Client(
             id=new_id("client"),
@@ -111,7 +102,7 @@ class ClientService:
         return client
 
     async def update(self, client_id: str, data: ClientUpdate) -> Client:
-        client = await self.get(client_id)
+        client = await load_client(self.db, self.biz, client_id)
         changes = data.model_dump(exclude_unset=True, exclude={"marketing_consent"})
         if "tags" in changes:
             changes["tags"] = clean_tags(data.tags or [])
@@ -130,16 +121,11 @@ class ClientService:
         await self.db.commit()
         return client
 
-    async def delete(self, client_id: str) -> None:
-        client = await self.get(client_id)
-        client.deleted_at = datetime.now(UTC)
-        await self.db.commit()
-
     async def set_archived(
         self, client_id: str, *, archived: bool, idempotency_key: str | None
     ) -> ClientOut:
         assert_role(self.principal, *MANAGERS, message="only owners and admins archive clients")
-        client = await self.get(client_id)
+        client = await load_client(self.db, self.biz, client_id)
 
         async def run(cmd: Command) -> ClientOut:
             client.status = "inactive" if archived else "active"
@@ -231,8 +217,8 @@ class ClientService:
             raise Conflict("a client can't be merged into itself")
 
         async def run(cmd: Command) -> ClientOut:
-            kept = await self.get(client_id)
-            gone = await self.get(data.from_client_id)
+            kept = await load_client(self.db, self.biz, client_id)
+            gone = await load_client(self.db, self.biz, data.from_client_id)
             await self._assert_mergeable(gone)
             for field in ("name", "phone", "email"):
                 if data.fields.get(field) == "other" or getattr(kept, field) in (None, ""):

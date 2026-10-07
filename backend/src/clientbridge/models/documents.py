@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -33,7 +33,6 @@ class Form(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (enum_check("forms", "send_on", "booking", "manual"),)
 
     name: Mapped[str] = mapped_column(String, nullable=False)
-    attach_to: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, nullable=False)
     require_signature: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     send_on: Mapped[str] = mapped_column(
@@ -88,7 +87,6 @@ class Contract(PKMixin, BusinessScoped, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     body: Mapped[str] = mapped_column(String, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    always_require: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
@@ -109,7 +107,6 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     parent_id: Mapped[str | None] = mapped_column(String)
     token: Mapped[str | None] = mapped_column(String)  # public sign-link key (server-minted)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    signature_image_id: Mapped[str | None] = mapped_column(ForeignKey("files.id"))
     signed_body: Mapped[str | None] = mapped_column(String)  # snapshot at signing
     ip: Mapped[str | None] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)

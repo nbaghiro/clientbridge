@@ -1,7 +1,7 @@
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +19,6 @@ from clientbridge.schemas.reviews import (
     ReviewOut,
     ReviewRequestCreate,
     ReviewShareOut,
-    ReviewSummary,
 )
 from clientbridge.services.notifications import Notifier
 
@@ -78,14 +77,6 @@ class ReviewService:
             idempotency_key=idempotency_key,
         )
 
-    async def summary(self) -> ReviewSummary:
-        sub = scoped(Review, self.biz).where(Review.status == "published").subquery()
-        row = (
-            await self.db.execute(select(func.avg(sub.c.rating), func.count()).select_from(sub))
-        ).one()
-        avg, count = row[0], int(row[1])
-        return ReviewSummary(average=round(float(avg), 2) if avg is not None else None, count=count)
-
     async def respond_to_review(self, review_id: str, response: str) -> ReviewOut:
         self._assert_admin()
         review = await self._review(review_id)
@@ -106,20 +97,6 @@ class ReviewService:
 
     async def publish_review(self, review_id: str) -> ReviewOut:
         return await self._set_status(review_id, "published", "review.publish")
-
-    async def mark_sent_to_google(self, review_id: str) -> ReviewOut:
-        self._assert_admin()
-        review = await self._review(review_id)
-
-        async def run(cmd: Command) -> ReviewOut:
-            review.sent_to_google = True
-            await self.db.flush()
-            cmd.record("review.google", entity_type="review", entity_id=review.id)
-            return _review_out(review)
-
-        return await run_command(
-            self.db, self.principal, action="review.google", run=run, response_model=ReviewOut
-        )
 
     async def share(self, review_id: str) -> ReviewShareOut:
         self._assert_admin()

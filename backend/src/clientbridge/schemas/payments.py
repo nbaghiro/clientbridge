@@ -36,12 +36,6 @@ class ConnectStatus(BaseModel):
     )
 
 
-class PayIntentOut(BaseModel):
-    payment_id: str
-    client_secret: str
-    amount_cents: int
-
-
 class SetupIntentOut(BaseModel):
     client_secret: str
     stripe_account_id: str
@@ -113,10 +107,6 @@ class DetachResult(BaseModel):
 class InteracWebhookBody(BaseModel):
     reference_code: str
     amount_cents: int
-
-
-class RemittanceSummary(BaseModel):
-    tax_collected_cents: int = Field(description="Sales tax collected and not yet filed")
 
 
 TaxFamily = Literal["federal", "provincial"]

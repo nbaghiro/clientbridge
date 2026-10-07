@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession, StorageDep
-from clientbridge.schemas.files import FileCreate, FileDownload, FileUpload
+from clientbridge.schemas.files import FileCreate, FileUpload
 from clientbridge.services.files import FileService
 
 router = APIRouter(prefix="/files", tags=["files"])
@@ -12,10 +12,3 @@ async def create_file(
     body: FileCreate, principal: CurrentPrincipal, db: DbSession, storage: StorageDep
 ) -> FileUpload:
     return await FileService(db, principal, storage).create(body)
-
-
-@router.get("/{file_id}/url", response_model=FileDownload)
-async def file_download_url(
-    file_id: str, principal: CurrentPrincipal, db: DbSession, storage: StorageDep
-) -> FileDownload:
-    return await FileService(db, principal, storage).download_url(file_id)

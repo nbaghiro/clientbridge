@@ -11,13 +11,13 @@ from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.models.catalog import Item
 from clientbridge.models.platform import File
-from clientbridge.schemas.files import FileCreate, FileDownload, FileOut, FileUpload
+from clientbridge.schemas.files import FileCreate, FileOut, FileUpload
 
 _DEFAULT_CONTENT_TYPE = "application/octet-stream"
 
 
 class FileService:
-    """Signature images and attachments; rows are server-minted so the S3 key can't be forged."""
+    """Logos, item images and form uploads; rows are server-minted so the S3 key can't be forged."""
 
     def __init__(self, db: AsyncSession, principal: Principal, storage: FileStorage) -> None:
         self.db = db
@@ -59,14 +59,6 @@ class FileService:
             ).scalar_one_or_none() is not None
         if not found:
             raise NotFound(f"{data.parent_type} not found")
-
-    async def download_url(self, file_id: str) -> FileDownload:
-        file = (
-            await self.db.execute(scoped(File, self.biz).where(File.id == file_id))
-        ).scalar_one_or_none()
-        if file is None:
-            raise NotFound("file not found")
-        return FileDownload(url=self.storage.presign_download(file.s3_key))
 
 
 async def mint_upload(

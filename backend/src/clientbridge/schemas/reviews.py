@@ -34,11 +34,6 @@ class ReviewRespond(BaseModel):
     response: str = Field(min_length=1)
 
 
-class ReviewSummary(BaseModel):
-    average: float | None = Field(description="Mean rating of published reviews; null if none")
-    count: int = Field(description="Number of published reviews")
-
-
 class ReviewShareOut(BaseModel):
     review: ReviewOut
     google_review_url: str

@@ -17,7 +17,7 @@ from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import File, IdempotencyKey
+from clientbridge.models.platform import IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
 from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import (
@@ -778,8 +778,6 @@ class PublicContractService:
             raise Unprocessable("agree to sign electronically first")
         if data.strokes is not None and not _valid_strokes(data.strokes):
             raise Unprocessable("the drawn signature is empty or too detailed")
-        if data.signature_image_id is not None:
-            await self._assert_image(data.signature_image_id, signature.business_id)
         signature.status = "signed"
         signature.signed_at = datetime.now(UTC)
         signature.signed_body = _snapshot(contract.body, data.typed_name.strip())
@@ -787,27 +785,9 @@ class PublicContractService:
         signature.signer_name = data.typed_name.strip()
         signature.method = "drawn" if data.strokes else "typed"
         signature.strokes = [[list(p) for p in stroke] for stroke in data.strokes or []] or None
-        signature.signature_image_id = data.signature_image_id
         signature.ip = ip
         await self.db.commit()
         return await self._context(signature, contract, business)
-
-    async def upload(
-        self, token: str, data: PublicFileCreate, storage: FileStorage
-    ) -> PublicFileUpload:
-        signature, _, _ = await self._resolve(token)
-        result = await mint_upload(
-            self.db,
-            storage,
-            business_id=signature.business_id,
-            parent_type="signature",
-            parent_id=signature.id,
-            purpose="signature",
-            content_type=data.content_type,
-            size=data.size,
-        )
-        await self.db.commit()
-        return PublicFileUpload(file_id=result.file.id, upload_url=result.upload_url)
 
     async def decline(self, token: str) -> PublicContractContext:
         signature, contract, business = await self._resolve(token)
@@ -836,11 +816,6 @@ class PublicContractService:
             typed_name=signature.signer_name,
             strokes=_strokes_out(signature.strokes),
         )
-
-    async def _assert_image(self, file_id: str, business_id: str) -> None:
-        file = await self.db.get(File, file_id)
-        if file is None or file.business_id != business_id:
-            raise NotFound("signature image not found")
 
 
 _MAX_POINTS = 4000

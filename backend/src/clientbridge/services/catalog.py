@@ -1,5 +1,3 @@
-from collections.abc import Sequence
-
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +5,7 @@ from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
-from clientbridge.core.scoping import scoped, scoped_count, scoped_page
+from clientbridge.core.scoping import scoped
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.schemas.catalog import (
     ItemCreate,
@@ -21,14 +19,6 @@ class CatalogService:
     def __init__(self, db: AsyncSession, principal: Principal) -> None:
         self.db = db
         self.principal = principal
-
-    async def list(self, *, limit: int, offset: int) -> tuple[Sequence[Item], int]:
-        biz = self.principal.business_id
-        items = await scoped_page(self.db, Item, biz, limit=limit, offset=offset)
-        return items, await scoped_count(self.db, Item, biz)
-
-    async def get(self, item_id: str) -> Item:
-        return await load_item(self.db, self.principal.business_id, item_id, require_active=False)
 
     def _assert_admin(self) -> None:
         assert_role(
@@ -123,7 +113,7 @@ class CatalogService:
 
     async def update(self, item_id: str, data: ItemUpdate) -> Item:
         self._assert_admin()
-        item = await self.get(item_id)
+        item = await load_item(self.db, self.principal.business_id, item_id, require_active=False)
         changes = data.model_dump(exclude_unset=True)
         for key, value in changes.items():
             setattr(item, key, _amounts(value) if key == "gift_amounts" else value)
@@ -156,13 +146,6 @@ class CatalogService:
             await self.db.rollback()
             raise Conflict("another item already uses that SKU") from exc
         await self.db.refresh(item)
-        await self.db.commit()
-
-    async def deactivate(self, item_id: str) -> None:
-        self._assert_admin()
-        # Items are referenced by lines/bookings, so "delete" deactivates rather than removing.
-        item = await self.get(item_id)
-        item.active = False
         await self.db.commit()
 
 

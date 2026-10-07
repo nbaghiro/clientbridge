@@ -35,7 +35,6 @@ from clientbridge.schemas.payments import (
     InvoicePaymentIn,
     InvoicePaymentOut,
     OnboardingLink,
-    PayIntentOut,
     PaymentMethodOut,
     PublicCredit,
     PublicInterac,
@@ -150,56 +149,6 @@ class PaymentService:
             if isinstance(deadline, int)
             else None,
             available_cents=available,
-        )
-
-    async def pay_invoice(
-        self,
-        invoice_id: str,
-        amount_cents: int | None,
-        idempotency_key: str | None,
-        payment_method_id: str | None = None,
-        deposit: bool = False,
-    ) -> PayIntentOut:
-        self._assert_admin()
-        business = await self._business()
-        if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before taking payments")
-        account_id = business.stripe_account_id
-        invoice = await self._invoice(invoice_id)
-        balance = await assert_payable(self.db, invoice)
-        amount = balance if amount_cents is None else amount_cents
-        if amount <= 0 or amount > balance:
-            raise Conflict("invalid payment amount")
-        client = await self._client(invoice.client_id)
-        fee_bps = get_settings().platform_fee_bps
-        pm_ref = await self._saved_method_ref(payment_method_id, invoice.client_id)
-
-        async def run(cmd: Command) -> PayIntentOut:
-            payment, client_secret = await open_card_payment(
-                self.db,
-                self.gateway,
-                account_id=account_id,
-                business_id=self.biz,
-                invoice=invoice,
-                client=client,
-                amount=amount,
-                fee_bps=fee_bps,
-                payment_method=pm_ref,
-                kind="deposit" if deposit else "payment",
-                idempotency_key=idempotency_key,
-            )
-            cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
-            return PayIntentOut(
-                payment_id=payment.id, client_secret=client_secret, amount_cents=amount
-            )
-
-        return await run_command(
-            self.db,
-            self.principal,
-            action="payment.intent",
-            run=run,
-            response_model=PayIntentOut,
-            idempotency_key=idempotency_key,
         )
 
     async def record_invoice_payment(
@@ -598,7 +547,6 @@ class PaymentService:
         invoice_id: str,
         amount_cents: int | None,
         idempotency_key: str | None,
-        deposit: bool = False,
         *,
         channel: str | None = None,
         expires_in_days: int | None = None,
@@ -624,7 +572,6 @@ class PaymentService:
                 business_id=self.biz,
                 invoice=invoice,
                 amount=amount,
-                kind="deposit" if deposit else "payment",
                 replace=channel is not None,
                 channel=channel,
                 expires_at=expires_at,
@@ -916,7 +863,6 @@ async def open_card_payment(
     amount: int,
     fee_bps: int,
     payment_method: str | None = None,
-    kind: str = "payment",
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
 ) -> tuple[Payment, str]:
@@ -934,7 +880,7 @@ async def open_card_payment(
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"invoice_id": invoice.id, "business_id": business_id},
         # Keyed on the Idempotency-Key, so retries dedupe but distinct partials don't.
-        idempotency_key=f"{kind}_{invoice.id}_{idempotency_key or amount}",
+        idempotency_key=f"payment_{invoice.id}_{idempotency_key or amount}",
         payment_method=payment_method,
     )
     existing = (
@@ -950,7 +896,7 @@ async def open_card_payment(
         id=new_id("payment"),
         business_id=business_id,
         client_id=client.id,
-        kind=kind,
+        kind="payment",
         invoice_id=invoice.id,
         amount_cents=amount,
         tip_cents=tip.cents,
@@ -1192,7 +1138,6 @@ async def open_interac_payment(
     business_id: str,
     invoice: Invoice,
     amount: int,
-    kind: str = "payment",
     replace: bool = False,
     channel: str | None = None,
     expires_at: datetime | None = None,
@@ -1226,7 +1171,7 @@ async def open_interac_payment(
         id=new_id("payment"),
         business_id=business_id,
         client_id=invoice.client_id,
-        kind=kind,
+        kind="payment",
         invoice_id=invoice.id,
         amount_cents=amount,
         currency=invoice.currency,

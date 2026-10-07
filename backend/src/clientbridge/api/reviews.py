@@ -9,7 +9,6 @@ from clientbridge.schemas.reviews import (
     ReviewRequestCreate,
     ReviewRespond,
     ReviewShareOut,
-    ReviewSummary,
 )
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.reviews import ReviewService
@@ -32,11 +31,6 @@ async def request_review(
     )
 
 
-@router.get("/summary", response_model=ReviewSummary)
-async def review_summary(principal: CurrentPrincipal, db: DbSession) -> ReviewSummary:
-    return await ReviewService(db, principal).summary()
-
-
 @router.post("/{review_id}/respond", response_model=ReviewOut)
 async def respond_to_review(
     review_id: str, body: ReviewRespond, principal: CurrentPrincipal, db: DbSession
@@ -52,13 +46,6 @@ async def hide_review(review_id: str, principal: CurrentPrincipal, db: DbSession
 @router.post("/{review_id}/publish", response_model=ReviewOut)
 async def publish_review(review_id: str, principal: CurrentPrincipal, db: DbSession) -> ReviewOut:
     return await ReviewService(db, principal).publish_review(review_id)
-
-
-@router.post("/{review_id}/google", response_model=ReviewOut)
-async def mark_sent_to_google(
-    review_id: str, principal: CurrentPrincipal, db: DbSession
-) -> ReviewOut:
-    return await ReviewService(db, principal).mark_sent_to_google(review_id)
 
 
 @router.post("/{review_id}/share", response_model=ReviewShareOut)

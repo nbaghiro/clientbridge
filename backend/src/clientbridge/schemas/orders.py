@@ -8,7 +8,6 @@ from clientbridge.schemas.payments import PublicDocLine, PublicDocTax, TipShareI
 from clientbridge.schemas.public import PublicBrand
 
 _PIN = r"^[0-9]{4}$"
-_EMAIL = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
 
 
 class OrderCreate(BaseModel):

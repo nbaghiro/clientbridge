@@ -41,7 +41,6 @@ from clientbridge.schemas.bookings import (
     BookingOut,
     BookingPatch,
     BookingPolicy,
-    BookingProbe,
     ClassMessage,
     ClassMessageOut,
     DepositOut,
@@ -596,25 +595,6 @@ class BookingService:
         )
         return problem or BookingCheck(ok=True)
 
-    async def probe(self, data: BookingProbe) -> BookingCheck:
-        """Whether a new visit fits here; the same checks a booking create runs."""
-        self._assert_can_act_as(data.staff_id)
-        item = await self._item(data.item_id)
-        await self._staff(data.staff_id)
-        if data.starts_at < datetime.now(UTC):
-            return _verdict("past", _PAST)
-        ends_at = data.starts_at + timedelta(minutes=item.duration_min or 0)
-        problem = await slot_problem(
-            self.db,
-            self.biz,
-            item,
-            data.staff_id,
-            data.starts_at,
-            ends_at,
-            resource_id=data.resource_id,
-        )
-        return problem or BookingCheck(ok=True)
-
     def _moves(self, data: BookingMove, slot: Slot) -> bool:
         return (
             data.starts_at is not None
@@ -1032,7 +1012,6 @@ class RecurrenceService:
                 monthly_by=data.monthly_by,
                 count=data.count,
                 until=data.until,
-                start_date=local.date(),
                 status="active",
             )
             self.db.add(recurrence)

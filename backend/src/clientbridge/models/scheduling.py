@@ -162,7 +162,6 @@ class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
     )
     count: Mapped[int | None] = mapped_column(Integer)
     until: Mapped[date | None] = mapped_column(Date)
-    start_date: Mapped[date] = mapped_column(Date, nullable=False)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 
 

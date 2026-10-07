@@ -45,7 +45,6 @@ class PublicContractSign(BaseModel):
         default=None, max_length=60, description="A drawn signature as points from 0 to 1"
     )
     agreed: bool = Field(description="The client agreed to sign electronically")
-    signature_image_id: str | None = None
 
 
 class ContractCreate(BaseModel):

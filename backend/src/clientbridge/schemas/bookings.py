@@ -26,13 +26,6 @@ class BookingPatch(BookingMove):
     status: Literal["confirmed", "completed", "canceled", "no_show"] | None = None
 
 
-class BookingProbe(BaseModel):
-    item_id: str
-    staff_id: str
-    starts_at: datetime
-    resource_id: str | None = None
-
-
 Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "resource", "class"]
 
 

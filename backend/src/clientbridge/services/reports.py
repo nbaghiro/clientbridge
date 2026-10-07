@@ -16,7 +16,6 @@ from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import Item
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
-from clientbridge.schemas.payments import RemittanceSummary
 from clientbridge.schemas.reports import (
     DashboardSummary,
     ExportKind,
@@ -86,13 +85,6 @@ class ReportService:
         if business is None:
             raise NotFound("business not found")
         return business
-
-    async def remittance_summary(self) -> RemittanceSummary:
-        return RemittanceSummary(
-            tax_collected_cents=-await ledger.account_total(
-                self.db, self.biz, Account.category == "tax"
-            )
-        )
 
     async def income_summary(self, start: date, end: date) -> IncomeReport:
         lo, hi = period_bounds(start, end, ZoneInfo((await self._business()).timezone))

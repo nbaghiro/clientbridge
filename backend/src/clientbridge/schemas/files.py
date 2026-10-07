@@ -30,10 +30,6 @@ class FileUpload(BaseModel):
     upload_url: str
 
 
-class FileDownload(BaseModel):
-    url: str
-
-
 class PublicFileCreate(BaseModel):
     content_type: str | None = None
     size: int | None = None

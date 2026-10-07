@@ -40,18 +40,6 @@ def get_sms_webhook_secret() -> str:
 SmsWebhookSecretDep = Annotated[str, Depends(get_sms_webhook_secret)]
 
 
-async def current_claims(authorization: str = Header(default="")) -> dict[str, object]:
-    if not authorization.startswith("Bearer "):
-        raise Unauthorized("missing bearer token")
-    try:
-        return decode_jwt(authorization.removeprefix("Bearer "))
-    except Exception as e:
-        raise Unauthorized("invalid token") from e
-
-
-Claims = Annotated[dict[str, object], Depends(current_claims)]
-
-
 async def current_user_id(authorization: str = Header(default="")) -> str:
     if not authorization.startswith("Bearer "):
         raise Unauthorized("missing bearer token")

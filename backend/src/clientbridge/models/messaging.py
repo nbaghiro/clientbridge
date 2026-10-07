@@ -38,7 +38,6 @@ class Message(PKMixin, BusinessScoped, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String, default="queued", nullable=False)
     broadcast_id: Mapped[str | None] = mapped_column(ForeignKey("broadcasts.id"))
     provider_ref: Mapped[str | None] = mapped_column(String)
-    attachments: Mapped[list[object]] = mapped_column(JSONB, default=list, nullable=False)
 
 
 class Broadcast(PKMixin, BusinessScoped, TimestampMixin, Base):

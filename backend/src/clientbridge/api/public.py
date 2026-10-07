@@ -208,17 +208,6 @@ async def public_contract_sign(
     return await PublicContractService(db).sign(token, body, _client_ip(request))
 
 
-@contract_router.post("/{token}/upload", response_model=PublicFileUpload)
-async def public_contract_upload(
-    token: str,
-    body: PublicFileCreate,
-    db: DbSession,
-    storage: StorageDep,
-    _: ContractRateLimited,
-) -> PublicFileUpload:
-    return await PublicContractService(db).upload(token, body, storage)
-
-
 @contract_router.post("/{token}/decline", response_model=PublicContractContext)
 async def public_contract_decline(
     token: str, db: DbSession, _: ContractRateLimited

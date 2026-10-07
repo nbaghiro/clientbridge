@@ -18,7 +18,6 @@ from clientbridge.schemas.bookings import (
     BookingMove,
     BookingOut,
     BookingPatch,
-    BookingProbe,
     ClassMessage,
     ClassMessageOut,
     DepositOut,
@@ -64,13 +63,6 @@ async def create_booking(
     if body.notify:
         await Notifier(email, sms, push).on_booking_confirmed(db, result.id)
     return result
-
-
-@router.post("/check", response_model=BookingCheck)
-async def probe_booking(
-    body: BookingProbe, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
-) -> BookingCheck:
-    return await BookingService(db, principal, gateway).probe(body)
 
 
 @router.patch("/{booking_id}", response_model=BookingOut)

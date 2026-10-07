@@ -488,23 +488,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/contract/{token}/upload": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Public Contract Upload */
-        post: operations["public_contract_upload_contract__token__upload_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/contract/{token}/decline": {
         parameters: {
             query?: never;
@@ -768,8 +751,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Clients */
-        get: operations["list_clients_v1_clients_get"];
+        get?: never;
         put?: never;
         /** Create Client */
         post: operations["create_client_v1_clients_post"];
@@ -820,12 +802,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Client */
-        get: operations["get_client_v1_clients__client_id__get"];
+        get?: never;
         put?: never;
         post?: never;
-        /** Delete Client */
-        delete: operations["delete_client_v1_clients__client_id__delete"];
+        delete?: never;
         options?: never;
         head?: never;
         /** Update Client */
@@ -994,8 +974,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Items */
-        get: operations["list_items_v1_items_get"];
+        get?: never;
         put?: never;
         /** Create Item */
         post: operations["create_item_v1_items_post"];
@@ -1029,12 +1008,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Item */
-        get: operations["get_item_v1_items__item_id__get"];
+        get?: never;
         put?: never;
         post?: never;
-        /** Deactivate Item */
-        delete: operations["deactivate_item_v1_items__item_id__delete"];
+        delete?: never;
         options?: never;
         head?: never;
         /** Update Item */
@@ -1069,23 +1046,6 @@ export interface paths {
         put?: never;
         /** Create Booking */
         post: operations["create_booking_v1_bookings_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/bookings/check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Probe Booking */
-        post: operations["probe_booking_v1_bookings_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1365,40 +1325,6 @@ export interface paths {
         patch: operations["update_addon_offers_v1_online_booking_addons_patch"];
         trace?: never;
     };
-    "/v1/resources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Resource */
-        post: operations["create_resource_v1_resources_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/resources/{resource_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update Resource */
-        patch: operations["update_resource_v1_resources__resource_id__patch"];
-        trace?: never;
-    };
     "/v1/invoices": {
         parameters: {
             query?: never;
@@ -1552,40 +1478,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/earnings/{earning_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve Earning */
-        post: operations["approve_earning_v1_earnings__earning_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/earnings/{earning_id}/pay": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pay Earning */
-        post: operations["pay_earning_v1_earnings__earning_id__pay_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/estimates": {
         parameters: {
             query?: never;
@@ -1722,23 +1614,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/payments/invoice/{invoice_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pay Invoice */
-        post: operations["pay_invoice_v1_payments_invoice__invoice_id__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/payments/setup-intent/{client_id}": {
         parameters: {
             query?: never;
@@ -1841,23 +1716,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/payments/remittance": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Remittance */
-        get: operations["remittance_v1_payments_remittance_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/payments/remittances": {
         parameters: {
             query?: never;
@@ -1870,23 +1728,6 @@ export interface paths {
         put?: never;
         /** Record Remittance */
         post: operations["record_remittance_v1_payments_remittances_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/payments/invoice/{invoice_id}/interac": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Request Interac */
-        post: operations["request_interac_v1_payments_invoice__invoice_id__interac_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2353,23 +2194,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/reports/income": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Income */
-        get: operations["income_v1_reports_income_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/reports/income.csv": {
         parameters: {
             query?: never;
@@ -2421,23 +2245,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/reports/t4a": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** T4A */
-        get: operations["t4a_v1_reports_t4a_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/reports/t4a.csv": {
         parameters: {
             query?: never;
@@ -2447,23 +2254,6 @@ export interface paths {
         };
         /** T4A Csv */
         get: operations["t4a_csv_v1_reports_t4a_csv_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/reports/sales-by-item": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Sales By Item */
-        get: operations["sales_by_item_v1_reports_sales_by_item_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2574,23 +2364,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/reviews/summary": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Review Summary */
-        get: operations["review_summary_v1_reviews_summary_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/reviews/{review_id}/respond": {
         parameters: {
             query?: never;
@@ -2636,23 +2409,6 @@ export interface paths {
         put?: never;
         /** Publish Review */
         post: operations["publish_review_v1_reviews__review_id__publish_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/reviews/{review_id}/google": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Mark Sent To Google */
-        post: operations["mark_sent_to_google_v1_reviews__review_id__google_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2874,23 +2630,6 @@ export interface paths {
         put?: never;
         /** Create File */
         post: operations["create_file_v1_files_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/files/{file_id}/url": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** File Download Url */
-        get: operations["file_download_url_v1_files__file_id__url_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3133,20 +2872,6 @@ export interface components {
             late_cancel_deposit?: ("keep" | "refund") | null;
             /** Max Reschedules */
             max_reschedules?: number | null;
-        };
-        /** BookingProbe */
-        BookingProbe: {
-            /** Item Id */
-            item_id: string;
-            /** Staff Id */
-            staff_id: string;
-            /**
-             * Starts At
-             * Format: date-time
-             */
-            starts_at: string;
-            /** Resource Id */
-            resource_id?: string | null;
         };
         /**
          * BrandInput
@@ -3731,11 +3456,6 @@ export interface components {
             /** Size */
             size?: number | null;
         };
-        /** FileDownload */
-        FileDownload: {
-            /** Url */
-            url: string;
-        };
         /** FileOut */
         FileOut: {
             /** Id */
@@ -4028,31 +3748,6 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
-        };
-        /** IncomeReport */
-        IncomeReport: {
-            /**
-             * Gross Cents
-             * @description Payments and deposits received in the period
-             */
-            gross_cents: number;
-            /**
-             * Refunds Cents
-             * @description Refunds paid out in the period
-             */
-            refunds_cents: number;
-            /**
-             * Net Cents
-             * @description Gross minus refunds
-             */
-            net_cents: number;
-            /**
-             * By Method
-             * @description Net received per payment method
-             */
-            by_method: {
-                [key: string]: number;
-            };
         };
         /** IncomeSummary */
         IncomeSummary: {
@@ -5206,37 +4901,6 @@ export interface components {
              */
             client_secret: string | null;
         };
-        /** Page[ClientOut] */
-        Page_ClientOut_: {
-            /** Items */
-            items: components["schemas"]["ClientOut"][];
-            /** Total */
-            total: number;
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-        };
-        /** Page[ItemOut] */
-        Page_ItemOut_: {
-            /** Items */
-            items: components["schemas"]["ItemOut"][];
-            /** Total */
-            total: number;
-            /** Limit */
-            limit: number;
-            /** Offset */
-            offset: number;
-        };
-        /** PayIntentOut */
-        PayIntentOut: {
-            /** Payment Id */
-            payment_id: string;
-            /** Client Secret */
-            client_secret: string;
-            /** Amount Cents */
-            amount_cents: number;
-        };
         /** PaymentMethodOut */
         PaymentMethodOut: {
             /** Id */
@@ -5486,8 +5150,6 @@ export interface components {
              * @description The client agreed to sign electronically
              */
             agreed: boolean;
-            /** Signature Image Id */
-            signature_image_id?: string | null;
         };
         /** PublicCredit */
         PublicCredit: {
@@ -6455,14 +6117,6 @@ export interface components {
              */
             filed_on: string;
         };
-        /** RemittanceSummary */
-        RemittanceSummary: {
-            /**
-             * Tax Collected Cents
-             * @description Sales tax collected and not yet filed
-             */
-            tax_collected_cents: number;
-        };
         /** ReportExportIn */
         ReportExportIn: {
             /** Kinds */
@@ -6527,61 +6181,6 @@ export interface components {
             token: string;
             /** New Password */
             new_password: string;
-        };
-        /** ResourceCreate */
-        ResourceCreate: {
-            /** Name */
-            name: string;
-            /**
-             * Category
-             * @default station
-             * @enum {string}
-             */
-            category: "room" | "station" | "equipment";
-            /**
-             * Capacity
-             * @default 1
-             */
-            capacity: number;
-            /**
-             * Active
-             * @default true
-             */
-            active: boolean;
-        };
-        /** ResourceOut */
-        ResourceOut: {
-            /** Id */
-            id: string;
-            /** Business Id */
-            business_id: string;
-            /** Name */
-            name: string;
-            /** Category */
-            category: string;
-            /** Capacity */
-            capacity: number;
-            /** Active */
-            active: boolean;
-            /**
-             * Upcoming
-             * @description Upcoming visits that hold it
-             */
-            upcoming: number;
-        };
-        /** ResourcePatch */
-        ResourcePatch: {
-            /** Name */
-            name?: string | null;
-            /** Category */
-            category?: ("room" | "station" | "equipment") | null;
-            /** Capacity */
-            capacity?: number | null;
-            /**
-             * Active
-             * @description Off keeps existing bookings and hides it from new ones
-             */
-            active?: boolean | null;
         };
         /** RestockIn */
         RestockIn: {
@@ -6678,19 +6277,6 @@ export interface components {
             review: components["schemas"]["ReviewOut"];
             /** Google Review Url */
             google_review_url: string;
-        };
-        /** ReviewSummary */
-        ReviewSummary: {
-            /**
-             * Average
-             * @description Mean rating of published reviews; null if none
-             */
-            average: number | null;
-            /**
-             * Count
-             * @description Number of published reviews
-             */
-            count: number;
         };
         /** RoleUpdate */
         RoleUpdate: {
@@ -6934,18 +6520,6 @@ export interface components {
              */
             payments: number;
             /** Total Cents */
-            total_cents: number;
-        };
-        /** T4ARow */
-        T4ARow: {
-            /** Staff Id */
-            staff_id: string;
-            /** Name */
-            name: string;
-            /**
-             * Total Cents
-             * @description Earnings paid to the staff member in the calendar year
-             */
             total_cents: number;
         };
         /** TaxClassChange */
@@ -8137,41 +7711,6 @@ export interface operations {
             };
         };
     };
-    public_contract_upload_contract__token__upload_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PublicFileCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicFileUpload"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     public_contract_decline_contract__token__decline_post: {
         parameters: {
             query?: never;
@@ -8708,41 +8247,6 @@ export interface operations {
             };
         };
     };
-    list_clients_v1_clients_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_ClientOut_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     create_client_v1_clients_post: {
         parameters: {
             query?: never;
@@ -8841,72 +8345,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BulkResult"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_client_v1_clients__client_id__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                client_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClientOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_client_v1_clients__client_id__delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                client_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -9346,41 +8784,6 @@ export interface operations {
             };
         };
     };
-    list_items_v1_items_get: {
-        parameters: {
-            query?: {
-                limit?: number;
-                offset?: number;
-            };
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Page_ItemOut_"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     create_item_v1_items_post: {
         parameters: {
             query?: never;
@@ -9442,72 +8845,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TaxClassResult"];
                 };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_item_v1_items__item_id__get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ItemOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    deactivate_item_v1_items__item_id__delete: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                item_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -9621,42 +8958,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    probe_booking_v1_bookings_check_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BookingProbe"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BookingCheck"];
                 };
             };
             /** @description Validation Error */
@@ -10289,81 +9590,6 @@ export interface operations {
             };
         };
     };
-    create_resource_v1_resources_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResourceCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResourceOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_resource_v1_resources__resource_id__patch: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                resource_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResourcePatch"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ResourceOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     create_invoice_v1_invoices_post: {
         parameters: {
             query?: never;
@@ -10694,76 +9920,6 @@ export interface operations {
             };
         };
     };
-    approve_earning_v1_earnings__earning_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                earning_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EarningOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    pay_earning_v1_earnings__earning_id__pay_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                earning_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EarningOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     create_estimate_v1_estimates_post: {
         parameters: {
             query?: never;
@@ -11045,45 +10201,6 @@ export interface operations {
             };
         };
     };
-    pay_invoice_v1_payments_invoice__invoice_id__post: {
-        parameters: {
-            query?: {
-                amount_cents?: number | null;
-                payment_method_id?: string | null;
-                deposit?: boolean;
-            };
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                invoice_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PayIntentOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     setup_card_v1_payments_setup_intent__client_id__post: {
         parameters: {
             query?: never;
@@ -11224,9 +10341,7 @@ export interface operations {
     };
     refund_payment_v1_payments__payment_id__refund_post: {
         parameters: {
-            query?: {
-                amount_cents?: number | null;
-            };
+            query?: never;
             header?: {
                 "Idempotency-Key"?: string | null;
                 "x-business-id"?: string;
@@ -11237,9 +10352,9 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
+        requestBody: {
             content: {
-                "application/json": components["schemas"]["RefundIn"] | null;
+                "application/json": components["schemas"]["RefundIn"];
             };
         };
         responses: {
@@ -11286,38 +10401,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RefundPreview"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    remittance_v1_payments_remittance_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RemittanceSummary"];
                 };
             };
             /** @description Validation Error */
@@ -11387,44 +10470,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RemittanceOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    request_interac_v1_payments_invoice__invoice_id__interac_post: {
-        parameters: {
-            query?: {
-                amount_cents?: number | null;
-                deposit?: boolean;
-            };
-            header?: {
-                "Idempotency-Key"?: string | null;
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                invoice_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["InteracRequest"];
                 };
             };
             /** @description Validation Error */
@@ -12432,41 +11477,6 @@ export interface operations {
             };
         };
     };
-    income_v1_reports_income_get: {
-        parameters: {
-            query: {
-                start: string;
-                end: string;
-            };
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IncomeReport"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     income_csv_v1_reports_income_csv_get: {
         parameters: {
             query: {
@@ -12572,40 +11582,6 @@ export interface operations {
             };
         };
     };
-    t4a_v1_reports_t4a_get: {
-        parameters: {
-            query: {
-                year: number;
-            };
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["T4ARow"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     t4a_csv_v1_reports_t4a_csv_get: {
         parameters: {
             query: {
@@ -12627,41 +11603,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    sales_by_item_v1_reports_sales_by_item_get: {
-        parameters: {
-            query: {
-                start: string;
-                end: string;
-            };
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SalesByItemRow"][];
                 };
             };
             /** @description Validation Error */
@@ -12888,38 +11829,6 @@ export interface operations {
             };
         };
     };
-    review_summary_v1_reviews_summary_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewSummary"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     respond_to_review_v1_reviews__review_id__respond_post: {
         parameters: {
             query?: never;
@@ -12993,40 +11902,6 @@ export interface operations {
         };
     };
     publish_review_v1_reviews__review_id__publish_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                review_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    mark_sent_to_google_v1_reviews__review_id__google_post: {
         parameters: {
             query?: never;
             header?: {
@@ -13519,40 +12394,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FileUpload"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    file_download_url_v1_files__file_id__url_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-business-id"?: string;
-                authorization?: string;
-            };
-            path: {
-                file_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["FileDownload"];
                 };
             };
             /** @description Validation Error */
