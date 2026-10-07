@@ -20,6 +20,8 @@ const SECTION_SCREEN: Partial<Record<SetupSectionKey, keyof RootStackParamList>>
     services: "Services",
     team: "Team",
     gettingPaid: "GettingPaid",
+    onlineBooking: "OnlineBooking",
+    reminders: "Reminders",
 };
 
 export function SetupScreen() {

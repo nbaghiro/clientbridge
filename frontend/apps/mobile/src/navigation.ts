@@ -21,4 +21,8 @@ export type RootStackParamList = {
     Services: undefined;
     Team: undefined;
     GettingPaid: undefined;
+    Classes: undefined;
+    Recurrences: undefined;
+    Reminders: undefined;
+    OnlineBooking: undefined;
 };

@@ -15,7 +15,6 @@ import { ActionMenu, Avatar, Icon } from "@clientbridge/ui";
 import { useViewer } from "../lib/auth";
 import { bookUrl } from "../lib/config";
 import { useOpenLink } from "../lib/links";
-import { BookingForm } from "./BookingForm";
 
 const c = theme.colors;
 
@@ -42,7 +41,6 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     const nav = useShellNav(useViewer(), bookUrl);
     const openLink = useOpenLink();
     const [menu, setMenu] = useState(false);
-    const [booking, setBooking] = useState(false);
     const close = (): void => {
         setMenu(false);
     };
@@ -115,8 +113,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     close();
                     const action = nav.create.find((a) => a.key === key);
                     if (action === undefined) return;
-                    if (action.key === "booking") setBooking(true);
-                    else openLink(action.target);
+                    openLink(action.target);
                 }}
                 footer={
                     nav.recentClients.length === 0 ? undefined : (
@@ -135,7 +132,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                                         accessibilityLabel={strings.navigation.bookAgain(r.name)}
                                         onPress={() => {
                                             close();
-                                            setBooking(true);
+                                            openLink("booking");
                                         }}
                                     >
                                         <Avatar name={r.name} size="sm" />
@@ -148,13 +145,6 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                         </>
                     )
                 }
-            />
-
-            <BookingForm
-                visible={booking}
-                onClose={() => {
-                    setBooking(false);
-                }}
             />
         </View>
     );
