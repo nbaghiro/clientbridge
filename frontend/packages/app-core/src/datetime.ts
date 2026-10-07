@@ -24,24 +24,12 @@ export function startOfWeek(d: Date, weekStartsOn = 1): Date {
     return addDays(startOfDay(d), -diff);
 }
 
-export function startOfMonth(d: Date): Date {
-    return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
 export function sameDay(a: Date, b: Date): boolean {
     return (
         a.getFullYear() === b.getFullYear() &&
         a.getMonth() === b.getMonth() &&
         a.getDate() === b.getDate()
     );
-}
-
-export function isSameMonth(a: Date, b: Date): boolean {
-    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-}
-
-export function minutesSinceMidnight(d: Date): number {
-    return d.getHours() * 60 + d.getMinutes();
 }
 
 export function dateKey(d: Date): string {
@@ -85,10 +73,6 @@ export function formatMonthDay(d: Date, locale = "en-CA"): string {
 
 export function formatFullDate(d: Date, locale = "en-CA"): string {
     return d.toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric" });
-}
-
-export function formatMonthYear(d: Date, locale = "en-CA"): string {
-    return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
 }
 
 export function formatDate(d: Date, locale = "en-CA"): string {

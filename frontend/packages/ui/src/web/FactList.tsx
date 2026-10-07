@@ -1,0 +1,24 @@
+import type { Fact, FactListProps } from "@clientbridge/app-core/public";
+
+import { Icon } from "./Icon";
+import { type WebProps, cx } from "./props";
+
+export function FactList({ facts, label, className }: WebProps<FactListProps>) {
+    return (
+        <ul aria-label={label} className={cx("space-y-3", className)}>
+            {facts.map((f: Fact) => (
+                <li key={f.key} className="flex items-start gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bg text-ink-soft">
+                        <Icon name={f.icon} size={16} />
+                    </span>
+                    <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-ink">{f.title}</span>
+                        {f.detail !== undefined ? (
+                            <span className="block text-xs text-muted">{f.detail}</span>
+                        ) : null}
+                    </span>
+                </li>
+            ))}
+        </ul>
+    );
+}

@@ -2,7 +2,7 @@ import { useQuery } from "@powersync/react";
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks";
-import type { AuthTokens, Viewer } from "./auth";
+import type { AuthTokens } from "./auth";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
@@ -31,11 +31,6 @@ export function usePendingInvites(): StaffRow[] {
     return useQuery<StaffRow>(PENDING_INVITES_SQL).data;
 }
 
-export function staffLabel(s: StaffRow): string {
-    const t = s.title ?? "";
-    return t.length > 0 ? t : s.role;
-}
-
 /** Best display name for the Team list: title → invited email → role. */
 export function staffDisplayName(s: Pick<StaffRow, "title" | "invite_email" | "role">): string {
     return s.title ?? s.invite_email ?? s.role;
@@ -53,12 +48,6 @@ export function staffName(s: {
 
 export function canManageStaff(role: string | null): boolean {
     return role === "owner" || role === "admin";
-}
-
-/** Whose hours the viewer may edit: everyone for a manager, else only their own. */
-export function editableStaff(staff: StaffRow[], viewer: Viewer | null): StaffRow[] {
-    if (viewer === null) return [];
-    return canManageStaff(viewer.role) ? staff : staff.filter((s) => s.id === viewer.staffId);
 }
 
 type StaffRole = "admin" | "staff" | "contractor";

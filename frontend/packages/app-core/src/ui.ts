@@ -392,6 +392,19 @@ export interface KeyValueListProps {
     columns?: 2 | 3 | 4 | undefined;
 }
 
+export interface Fact {
+    key: string;
+    icon: IconName;
+    title: string;
+    detail?: string | undefined;
+}
+
+// Icon-led facts about one visit or order: when, who, what, where.
+export interface FactListProps {
+    facts: readonly Fact[];
+    label?: string | undefined;
+}
+
 export interface IconProps {
     name: IconName;
     size?: number | undefined;
