@@ -229,7 +229,7 @@ export function onboard(api: ApiLike, input: OnboardInput): Promise<Business> {
 }
 
 /** Business name → URL-safe slug (lowercase, accent-stripped, hyphen-separated, alnum only). */
-export function slugify(name: string): string {
+function slugify(name: string): string {
     return name
         .toLowerCase()
         .normalize("NFKD")

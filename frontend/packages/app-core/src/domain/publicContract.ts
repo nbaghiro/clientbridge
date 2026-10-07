@@ -1,21 +1,8 @@
 import { useState } from "react";
 
 import { useAsyncAction } from "../hooks";
-import type { Intent, SignatureStrokes } from "../ui";
+import type { SignatureStrokes } from "../ui";
 import { type PublicBrand, usePublicResource } from "./publicResource";
-
-export function signatureStatusIntent(status: string): Intent {
-    switch (status) {
-        case "signed":
-            return "success";
-        case "declined":
-            return "danger";
-        case "expired":
-            return "neutral";
-        default:
-            return "warning"; // pending
-    }
-}
 
 export interface PublicContract {
     contract_name: string;

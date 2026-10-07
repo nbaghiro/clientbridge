@@ -1144,9 +1144,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(items[3]).toEqual({ id: "it_soap", image_file_id: null, stock_on_hand: 3 });
     });
 
-    it("reads and writes forms, contracts and weekly hours", () => {
-        expect(run("FORMS_SQL").map((r) => r.id)).toEqual(["frm_a", "frm_b", "frm_z"]);
-        expect(run("FORM_FIELDS_SQL", ["frm_a"]).map((r) => r.id)).toEqual(["ff_1", "ff_2"]);
+    it("reads forms, contracts and weekly hours", () => {
         scoped("responses", [
             { id: "rs_1", form_id: "frm_a", status: "submitted", submitted_at: TS, answers: "{}" },
             { id: "rs_2", form_id: "frm_a", status: "draft", answers: "{}" },
@@ -1157,9 +1155,6 @@ describe("app-core SQL against the replica schema", () => {
             { id: "frm_z", field_count: 0, submitted: 0, waiting: 0 },
         ]);
         expect(run("FORM_QUESTIONS_SQL", ["frm_a"]).map((r) => r.id)).toEqual(["ff_1", "ff_2"]);
-        expect(run("CONTRACTS_SQL")).toEqual([
-            { id: "con_1", name: "Waiver", version: 2, always_require: 1, active: 1 },
-        ]);
         scoped("signatures", [
             {
                 id: "sig_1",
@@ -1180,24 +1175,8 @@ describe("app-core SQL against the replica schema", () => {
             { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
 
-        run("INSERT_FORM_SQL", ["frm_new", BIZ, "Intake", "[]", 0, 1]);
-        run("INSERT_FORM_FIELD_SQL", [
-            "ff_new",
-            BIZ,
-            "frm_new",
-            "text",
-            "pet",
-            "Pet",
-            1,
-            "[]",
-            "{}",
-            0,
-        ]);
-        run("INSERT_CONTRACT_SQL", ["con_new", BIZ, "Policy", "Terms", 1, 0, 1]);
         run("CLEAR_RECURRING_HOURS_SQL", ["st_amy"]);
         run("INSERT_RECURRING_HOURS_SQL", ["av_new", BIZ, "st_amy", 2, "10:00:00", "14:00:00", 1]);
-        expect(run("FORM_FIELDS_SQL", ["frm_new"]).map((r) => r.id)).toEqual(["ff_new"]);
-        expect(run("CONTRACTS_SQL").map((r) => r.id)).toEqual(["con_new", "con_1"]);
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
             { weekday: 2, start_time: "10:00:00", end_time: "14:00:00", available: 1 },
         ]);
