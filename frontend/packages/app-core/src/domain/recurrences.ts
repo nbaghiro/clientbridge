@@ -460,15 +460,14 @@ export const SERIES_SQL = `
 SELECT r.id, r.item_id, r.staff_id, r.client_id, r.frequency, r.interval, r.count, r.until, r.status,
        i.name AS item_name, i.color AS item_color, i.duration_min, i.deposit_type,
        c.name AS client_name
-FROM recurrences r JOIN items i ON i.id = r.item_id LEFT JOIN clients c ON c.id = r.client_id`;
+FROM recurrences r JOIN items i ON i.id = r.item_id JOIN clients c ON c.id = r.client_id`;
 
 export const SERIES_VISITS_SQL = `
 SELECT s.id AS slot_id, s.recurrence_id, s.starts_at, s.ends_at, s.staff_id, b.id AS booking_id,
        b.status, b.deposit_status, sj.name AS pet_name
-FROM slots s
+FROM slots s JOIN recurrences r ON r.id = s.recurrence_id AND r.client_id IS NOT NULL
 LEFT JOIN bookings b ON b.slot_id = s.id AND b.deleted_at IS NULL
 LEFT JOIN subjects sj ON sj.id = b.subject_id
-WHERE s.recurrence_id IS NOT NULL
 ORDER BY s.starts_at`;
 
 interface SeriesDate extends SeriesOccurrence {

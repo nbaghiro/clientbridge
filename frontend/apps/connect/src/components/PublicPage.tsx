@@ -35,7 +35,7 @@ export function PublicPage({
                             <img
                                 src={brand.logo_url}
                                 alt=""
-                                className="h-9 w-9 rounded-md object-cover"
+                                className="h-9 w-9 rounded-md object-contain"
                             />
                         ) : (
                             <span

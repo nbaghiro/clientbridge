@@ -300,7 +300,8 @@ export const strings = {
         problemPast: "That time has passed",
         problemRoom: "That room or station is taken then",
         problemClass: "A class moves as a whole from its session",
-        moved: (when: string) => `Moved to ${when}. The client gets an updated confirmation.`,
+        moved: (when: string) =>
+            `Moved to ${when.replace(/\.$/, "")}. The client gets an updated confirmation.`,
         undo: "Undo",
         emptyDayTitle: "Nothing booked yet",
         dash: "–",
@@ -1600,10 +1601,11 @@ export const strings = {
         doneTitle: "You're booked",
         pendingTitle: "Request sent",
         pendingBody: (when: string) =>
-            `The studio confirms new clients first. You'll hear back about ${when}.`,
+            `The studio confirms new clients first. You'll hear back about ${when.replace(/\.$/, "")}.`,
         doneBody: (pet: string, when: string) =>
-            `${pet} is booked for ${when}. A confirmation is on its way.`,
-        doneNoPet: (when: string) => `You're booked for ${when}. A confirmation is on its way.`,
+            `${pet} is booked for ${when.replace(/\.$/, "")}. A confirmation is on its way.`,
+        doneNoPet: (when: string) =>
+            `You're booked for ${when.replace(/\.$/, "")}. A confirmation is on its way.`,
         addToCalendar: "Add to calendar",
         calendarTitle: (service: string, business: string) => `${service} at ${business}`,
         manage: "Change or cancel",
@@ -1844,7 +1846,8 @@ export const strings = {
         confirmMove: (time: string) => `Move to ${time}`,
         moving: "Moving…",
         movedTitle: "Booking moved",
-        movedBody: (when: string) => `See you ${when}. Your deposit moved with it.`,
+        movedBody: (when: string) =>
+            `See you ${when.replace(/\.$/, "")}. Your deposit moved with it.`,
         back: "Back",
         notFoundTitle: "Booking not found",
         notFoundBody:

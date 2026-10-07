@@ -383,6 +383,8 @@ export function useGridDrag({
             onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
                 if (!canDrag || e.button !== 0) return;
                 const resize = (e.target as HTMLElement).dataset.handle === "resize";
+                // The handle sits on the bottom edge, so the first move already leaves the card.
+                if (resize) e.currentTarget.setPointerCapture(e.pointerId);
                 origin.current = {
                     x: e.clientX,
                     y: e.clientY,
@@ -499,7 +501,7 @@ export function GridEvent({
     return (
         <>
             <div
-                className={`group absolute ${bind.canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
+                className={`group absolute select-none ${bind.canDrag ? "cursor-grab active:cursor-grabbing" : ""}`}
                 style={{
                     top,
                     height,

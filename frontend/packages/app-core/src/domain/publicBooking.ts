@@ -806,7 +806,10 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         live,
         canCancel: live && data.can_cancel,
         canMove: live && data.can_move,
-        blocked: live ? data.blocked : null,
+        blocked:
+            live && data.blocked !== null
+                ? `${data.blocked.charAt(0).toUpperCase()}${data.blocked.slice(1)}.`
+                : null,
         policyLine: policy
             ? policy.self_service
                 ? m.policyLine(policy.cancel_cutoff_hours, policy.reschedule_cutoff_hours)
