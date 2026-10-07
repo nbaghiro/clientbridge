@@ -49,7 +49,7 @@ import {
 import { DocEditor } from "../components/DocEditor";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { publicWebUrl } from "../lib/config";
+import { payUrl } from "../lib/config";
 
 const c = theme.colors;
 
@@ -249,7 +249,7 @@ function DetailModal({
 }
 
 function PayLinkRow({ token }: { token: string }) {
-    const url = payLinkUrl(publicWebUrl, token);
+    const url = payLinkUrl(payUrl, token);
     const share = (): void => {
         Share.share({ message: url }).catch(() => undefined);
     };

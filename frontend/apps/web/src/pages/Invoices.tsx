@@ -47,7 +47,9 @@ import {
 import { useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
+import { config } from "../config";
 import { api } from "../lib/api";
+import { useLinkIntent } from "../lib/links";
 import { useRole } from "../lib/auth";
 
 const GRID = "grid grid-cols-[6rem_2fr_1fr_1fr] items-center gap-4";
@@ -55,9 +57,17 @@ const GRID = "grid grid-cols-[6rem_2fr_1fr_1fr] items-center gap-4";
 export function Invoices() {
     const invoices = useInvoices();
     const estimates = useEstimates();
-    const [tab, setTab] = useState<DocTab>("invoices");
     const [creating, setCreating] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
+    const params = useLinkIntent({
+        onCreate: () => {
+            setCreating(true);
+        },
+        onOpen: setOpenId,
+    });
+    const [tab, setTab] = useState<DocTab>(
+        params.get("doc") === "estimates" ? "estimates" : "invoices",
+    );
     const { q, setQ, filtered } = useSearch<InvoiceRow | EstimateRow>(
         tab === "invoices" ? invoices : estimates,
         (tab === "invoices" ? filterInvoices : filterEstimates) as (
@@ -249,7 +259,7 @@ function DocDetail({
 }
 
 function PayLink({ token }: { token: string }) {
-    const url = payLinkUrl(window.location.origin, token);
+    const url = payLinkUrl(config.payUrl, token);
     const [copied, setCopied] = useState(false);
 
     const copy = (): void => {

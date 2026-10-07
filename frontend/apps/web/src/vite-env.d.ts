@@ -2,6 +2,8 @@
 interface ImportMetaEnv {
     readonly VITE_API_URL?: string;
     readonly VITE_POWERSYNC_URL?: string;
+    readonly VITE_PAY_URL?: string;
+    readonly VITE_BOOK_URL?: string;
     readonly VITE_STRIPE_PUBLISHABLE_KEY?: string;
 }
 interface ImportMeta {

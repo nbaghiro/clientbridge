@@ -4,6 +4,8 @@ const extra = (Constants.expoConfig?.extra ?? {}) as {
     apiUrl?: string;
     powersyncUrl?: string;
     publicWebUrl?: string;
+    payUrl?: string;
+    bookUrl?: string;
     stripePublishableKey?: string;
     stripeMerchantId?: string;
     stripeTerminalLocationId?: string;
@@ -17,6 +19,12 @@ export const powersyncUrl = extra.powersyncUrl ?? "http://localhost:8704";
 
 /** Public-web origin used to build invoice pay links (see app.config.ts `extra.publicWebUrl`). */
 export const publicWebUrl = extra.publicWebUrl ?? "https://app.clientbridge.ca";
+
+/** The one host every invoice pay link uses. */
+export const payUrl = extra.payUrl ?? "https://pay.clientbridge.ca";
+
+/** Where the public booking pages live (Connect). */
+export const bookUrl = extra.bookUrl ?? "https://book.clientbridge.ca";
 
 /** Blank until configured; the card forms then show a not-configured note. Never a secret key. */
 export const stripePublishableKey = extra.stripePublishableKey ?? "";

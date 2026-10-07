@@ -30,6 +30,11 @@ from clientbridge.services.tax import tax_breakdown
 _log = logging.getLogger(__name__)
 
 
+def pay_link(token: str) -> str:
+    """The client's link to pay an invoice: one host for every business."""
+    return f"{get_settings().pay_base_url}/i/{token}"
+
+
 def _money(cents: int, currency: str) -> str:
     return f"${cents // 100}.{cents % 100:02d} {currency.upper()}"
 
@@ -254,11 +259,7 @@ class Notifier:
         if business is None:
             return
         amount = _money(invoice.total_cents, invoice.currency)
-        link = (
-            f"{get_settings().connect_base_url}/pay/{invoice.pay_token}"
-            if invoice.pay_token
-            else ""
-        )
+        link = pay_link(invoice.pay_token) if invoice.pay_token else ""
         subject, body = _invoice_sent(invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 
@@ -270,11 +271,7 @@ class Notifier:
         if business is None:
             return
         amount = _money(await ledger.invoice_balance(db, invoice), invoice.currency)
-        link = (
-            f"{get_settings().connect_base_url}/pay/{invoice.pay_token}"
-            if invoice.pay_token
-            else ""
-        )
+        link = pay_link(invoice.pay_token) if invoice.pay_token else ""
         subject, body = _invoice_overdue(invoice.number, amount, business.name, link)
         await self._to_client(db, invoice.client_id, subject, body)
 

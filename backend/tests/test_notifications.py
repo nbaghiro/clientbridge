@@ -182,8 +182,8 @@ async def test_invoice_sent_carries_pay_link(
     assert sent.status_code == 200, sent.text
     token = sent.json()["pay_token"]
     assert token
-    assert any(f"/pay/{token}" in m.body for m in email.sent)
-    assert any(f"/pay/{token}" in m.body for m in sms.sent)
+    assert any(f"http://localhost:8709/i/{token}" in m.body for m in email.sent)
+    assert any(f"/i/{token}" in m.body for m in sms.sent)
 
 
 async def test_interac_request_reaches_client(

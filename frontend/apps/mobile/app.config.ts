@@ -38,6 +38,8 @@ const config: ExpoConfig = {
         apiUrl: process.env.API_URL ?? "http://localhost:8701",
         powersyncUrl: process.env.POWERSYNC_URL ?? "http://localhost:8704",
         publicWebUrl: process.env.PUBLIC_WEB_URL ?? "https://app.clientbridge.ca",
+        payUrl: process.env.PAY_URL ?? "https://pay.clientbridge.ca",
+        bookUrl: process.env.BOOK_URL ?? "https://book.clientbridge.ca",
         // Stripe publishable (platform) key — NOT a secret; left blank until configured per env.
         stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
         stripeMerchantId: STRIPE_MERCHANT_ID,

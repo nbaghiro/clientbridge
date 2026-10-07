@@ -20,6 +20,7 @@ export function App() {
                 <Route path="/b/:slug" element={<PublicLanding />} />
                 <Route path="/book/:slug" element={<PublicBooking />} />
                 <Route path="/pay/:token" element={<PublicPay />} />
+                <Route path="/i/:token" element={<PublicPay />} />
                 <Route path="/form/:token" element={<PublicForm />} />
                 <Route path="/contract/:token" element={<PublicContract />} />
                 <Route path="/review/:token" element={<PublicReview />} />

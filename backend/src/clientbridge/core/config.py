@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     api_base_url: str = "http://localhost:8701"
     web_base_url: str = "http://localhost:8700"
     connect_base_url: str = "http://localhost:8709"
+    # Every invoice pay link uses this one host (production: https://pay.clientbridge.ca).
+    pay_base_url: str = "http://localhost:8709"
     cors_allow_origins: str = ""
     platform_fee_bps: int = 200  # application fee per direct charge (basis points; 200 = 2%)
     interac_webhook_secret: str = ""
