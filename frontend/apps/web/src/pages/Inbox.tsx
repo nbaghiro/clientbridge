@@ -20,6 +20,7 @@ import {
     visibleInboxSegments,
 } from "@clientbridge/app-core";
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
     Badge,
     Button,
@@ -36,6 +37,7 @@ import {
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { useLinkIntent } from "../lib/links";
 import { useRole } from "../lib/auth";
 import { Reviews } from "./Reviews";
 
@@ -43,7 +45,10 @@ type Panel = "none" | "new" | "broadcast";
 
 export function Inbox() {
     const segments = visibleInboxSegments(useRole());
-    const [segment, setSegment] = useState<InboxSegmentKey>("messages");
+    const [params] = useSearchParams();
+    const [segment, setSegment] = useState<InboxSegmentKey>(
+        params.get("segment") === "reviews" ? "reviews" : "messages",
+    );
 
     return (
         <div className="flex h-full flex-col">
@@ -72,6 +77,16 @@ function Messages() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [panel, setPanel] = useState<Panel>("none");
     const selected = threads.find((t) => t.id === selectedId) ?? null;
+    useLinkIntent({
+        onCreate: () => {
+            setPanel("new");
+        },
+        onOpen: (clientId) => {
+            const thread = threads.find((t) => t.client_id === clientId);
+            if (thread === undefined) setPanel("new");
+            else setSelectedId(thread.id);
+        },
+    });
 
     return (
         <div className="flex min-h-0 flex-1 flex-col px-8 py-6">

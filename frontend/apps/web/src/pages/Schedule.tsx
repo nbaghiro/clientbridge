@@ -58,12 +58,14 @@ import {
     type SubmitEvent,
     type PointerEvent as ReactPointerEvent,
     type ReactNode,
+    useEffect,
     useLayoutEffect,
     useRef,
     useState,
 } from "react";
 
 import { api } from "../lib/api";
+import { useLinkIntent } from "../lib/links";
 import { useViewer } from "../lib/auth";
 
 const HOUR_PX = 48;
@@ -102,6 +104,19 @@ export function Schedule() {
     const { view, setView, anchor, goToday, shift, events } = useScheduleView<CalendarView>("week");
     const [booking, setBooking] = useState(false);
     const [detail, setDetail] = useState<CalendarEvent | null>(null);
+    const [linkedId, setLinkedId] = useState<string | null>(null);
+    useLinkIntent({
+        onCreate: () => {
+            setBooking(true);
+        },
+        onOpen: setLinkedId,
+    });
+    const linked = events.find((e) => e.bookingId !== null && e.bookingId === linkedId);
+    useEffect(() => {
+        if (linked === undefined) return;
+        setDetail(linked);
+        setLinkedId(null);
+    }, [linked]);
 
     const isMonth = view === "month";
     const isStaff = view === "staff";

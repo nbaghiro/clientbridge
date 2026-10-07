@@ -39,8 +39,38 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await page.fill('input[type="password"]', "demo1234");
     await page.click('button[type="submit"]');
     await page.waitForURL("**/today");
-    await expect(page.locator("main").getByText(strings.today.title).first()).toBeVisible();
+    await expect(page.locator("main").getByText(strings.today.schedule)).toBeVisible();
+    await expect(page.locator("main").getByText(strings.today.needsYou)).toBeVisible();
     await page.waitForTimeout(6000);
+    await expect(page.locator("main").getByText(strings.today.booked)).toBeVisible();
+
+    const sidebar = page.locator("aside");
+    await sidebar.getByRole("button", { name: strings.navigation.createMenu }).click();
+    const menu = page.getByRole("menu", { name: strings.navigation.createMenu });
+    await expect(menu.getByRole("menuitem")).toHaveCount(7);
+    await page.keyboard.press("c");
+    await expect(page).toHaveURL(/\/clients$/);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+
+    await page.keyboard.press("ControlOrMeta+k");
+    const palette = page.getByRole("dialog");
+    await expect(palette.getByText(strings.search.jumpTo)).toBeVisible();
+    await page.keyboard.type("ma");
+    await expect(palette.getByText(strings.search.clients, { exact: true }).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+
+    await sidebar.getByRole("button", { name: strings.notifications.title }).click();
+    await expect(page.getByRole("dialog", { name: strings.notifications.title })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: strings.notifications.title })).toBeHidden();
+
+    await sidebar.getByRole("link", { name: strings.navigation.schedule }).click();
+    await expect(page).toHaveURL(/\/schedule$/);
+    await sidebar.getByRole("link", { name: strings.navigation.today }).click();
+    await expect(page).toHaveURL(/\/today$/);
 
     await navigate(page, "/schedule");
     await openAndClose(page, strings.bookings.newBookingButton);

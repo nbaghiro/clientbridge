@@ -50,6 +50,7 @@ import { type SubmitEvent, useState } from "react";
 
 import { SellPackage, StartSubscription } from "../components/EntitlementSales";
 import { api } from "../lib/api";
+import { useLinkIntent } from "../lib/links";
 import { useRole } from "../lib/auth";
 
 export function Clients() {
@@ -57,6 +58,12 @@ export function Clients() {
     const { q, setQ, filtered } = useSearch(clients, filterClients);
     const [adding, setAdding] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
+    useLinkIntent({
+        onCreate: () => {
+            setAdding(true);
+        },
+        onOpen: setOpenId,
+    });
     const showValue = canManagePayments(useRole());
     const grid = showValue
         ? "grid grid-cols-[2fr_1fr_1fr_1fr] items-center gap-4"
