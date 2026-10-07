@@ -175,9 +175,14 @@ export interface TextFieldProps {
     maxLength?: number | undefined;
 }
 
-interface SelectOption<K extends string> {
+export interface SelectOption<K extends string> {
     key: K;
     label: string;
+    // Secondary text at the end of the row in the open list: "45 min · $45.00".
+    detail?: string | undefined;
+    // Options sharing a group sit under one heading, in the order the groups first appear.
+    group?: string | undefined;
+    disabled?: boolean | undefined;
 }
 
 export interface SelectProps<K extends string> {
@@ -186,12 +191,62 @@ export interface SelectProps<K extends string> {
     hint?: string | undefined;
     error?: string | null | undefined;
     value?: K | undefined;
-    // Without value or defaultValue the first option starts chosen.
+    // Without value or defaultValue the first option starts chosen, unless there is a placeholder.
     defaultValue?: K | undefined;
     options: readonly SelectOption<K>[];
     onChange?: ((key: K) => void) | undefined;
+    // Shown while the value matches no option.
+    placeholder?: string | undefined;
+    // A search box over the list; on by default for long lists.
+    searchable?: boolean | undefined;
     size?: "sm" | "md" | "lg" | undefined;
+    width?: "full" | "auto" | undefined;
     disabled?: boolean | undefined;
+}
+
+interface PickerFieldProps {
+    label?: string | undefined;
+    // Names the field for screen readers when there is no label.
+    name?: string | undefined;
+    hint?: string | undefined;
+    error?: string | null | undefined;
+    optional?: boolean | undefined;
+    required?: boolean | undefined;
+    placeholder?: string | undefined;
+    size?: "sm" | "md" | "lg" | undefined;
+    width?: "full" | "auto" | undefined;
+    disabled?: boolean | undefined;
+}
+
+export interface DateFieldProps extends PickerFieldProps {
+    // A "YYYY-MM-DD" day, or "" for none.
+    value?: string | undefined;
+    defaultValue?: string | undefined;
+    onChange?: ((value: string) => void) | undefined;
+    // The first and last days that can be picked, as "YYYY-MM-DD".
+    min?: string | undefined;
+    max?: string | undefined;
+}
+
+export interface TimeFieldProps extends PickerFieldProps {
+    // A 24-hour "HH:MM", or "" for none.
+    value?: string | undefined;
+    defaultValue?: string | undefined;
+    onChange?: ((value: string) => void) | undefined;
+    // Minutes between the listed times (15 by default), and the first and last as "HH:MM".
+    step?: number | undefined;
+    min?: string | undefined;
+    max?: string | undefined;
+}
+
+export interface DateTimeFieldProps extends Omit<PickerFieldProps, "placeholder"> {
+    // A local "YYYY-MM-DDTHH:MM", or "" for none.
+    value?: string | undefined;
+    defaultValue?: string | undefined;
+    onChange?: ((value: string) => void) | undefined;
+    // The first day that can be picked, as "YYYY-MM-DD".
+    min?: string | undefined;
+    step?: number | undefined;
 }
 
 export interface ToggleProps {

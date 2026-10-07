@@ -136,3 +136,113 @@ export function stampLabel(d: Date, now: Date = new Date()): string {
 export function daysUntil(d: Date, now: Date = new Date()): number {
     return Math.round((startOfDay(d).getTime() - startOfDay(now).getTime()) / 86_400_000);
 }
+
+/** A "YYYY-MM-DD" key as a local date, or null when it isn't a real day. */
+export function parseDateKey(key: string): Date | null {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+    if (m === null) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return dateKey(d) === key ? d : null;
+}
+
+/** The same day of the month `n` months on, held to the last day of a shorter month. */
+export function addMonths(d: Date, n: number): Date {
+    const last = new Date(d.getFullYear(), d.getMonth() + n + 1, 0).getDate();
+    return new Date(d.getFullYear(), d.getMonth() + n, Math.min(d.getDate(), last));
+}
+
+/** "Wed, Oct 8" this year, "Wed, Oct 8, 2027" in any other. */
+export function formatPickedDay(d: Date, now: Date = new Date(), locale = "en-CA"): string {
+    if (d.getFullYear() === now.getFullYear()) return weekdayDay(d, locale);
+    return d.toLocaleDateString(locale, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
+export interface CalendarDay {
+    key: string;
+    day: number;
+    inMonth: boolean;
+    today: boolean;
+    selected: boolean;
+    disabled: boolean;
+    // The full date for screen readers.
+    label: string;
+}
+
+interface DayBounds {
+    min?: string | undefined;
+    max?: string | undefined;
+}
+
+function outOfBounds(key: string, { min, max }: DayBounds): boolean {
+    return (
+        (min !== undefined && min !== "" && key < min) ||
+        (max !== undefined && max !== "" && key > max)
+    );
+}
+
+/** Six Monday-first weeks covering the month of `month`, so the grid never changes height. */
+export function monthWeeks(
+    month: Date,
+    selected: string,
+    bounds: DayBounds,
+    now: Date = new Date(),
+): CalendarDay[][] {
+    const first = startOfWeek(startOfMonth(month));
+    const today = dateKey(now);
+    return Array.from({ length: 6 }, (_, w) =>
+        Array.from({ length: 7 }, (_, i) => {
+            const d = addDays(first, w * 7 + i);
+            const key = dateKey(d);
+            return {
+                key,
+                day: d.getDate(),
+                inMonth: d.getMonth() === month.getMonth(),
+                today: key === today,
+                selected: key === selected,
+                disabled: outOfBounds(key, bounds),
+                label: formatFullDate(d),
+            };
+        }),
+    );
+}
+
+/** Short weekday names, Monday first. */
+export function weekdayNames(locale = "en-CA"): string[] {
+    const monday = startOfWeek(new Date());
+    return Array.from({ length: 7 }, (_, i) => formatWeekday(addDays(monday, i), locale));
+}
+
+/** "9:30 a.m." for a 24-hour "09:30". */
+function formatClock(hhmm: string, locale = "en-CA"): string {
+    return formatTime(combineDayAndTime(new Date(2000, 0, 1), hhmm), locale);
+}
+
+function minutesOf(hhmm: string): number {
+    const [h = 0, m = 0] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+}
+
+function clock(minutes: number): string {
+    return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+/** Every `step` minutes from `min` to `max`, keyed "HH:MM", with `keep` added when it falls between steps. */
+export function clockOptions(
+    step = 15,
+    min = "00:00",
+    max = "23:59",
+    keep = "",
+): { key: string; label: string }[] {
+    const keys: string[] = [];
+    for (let t = minutesOf(min); t <= minutesOf(max); t += Math.max(step, 1)) keys.push(clock(t));
+    if (/^\d{2}:\d{2}$/.test(keep) && !keys.includes(keep)) {
+        keys.push(keep);
+        keys.sort();
+    }
+    return keys.map((key) => ({ key, label: formatClock(key) }));
+}

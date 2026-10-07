@@ -8,6 +8,7 @@ import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
 import { Choice } from "./Choice";
+import { DateField, TimeField } from "./DateField";
 import { Field, TextField, Toggle } from "./Field";
 import { Icon } from "./Icon";
 import type { NativeProps } from "./props";
@@ -15,8 +16,6 @@ import type { NativeProps } from "./props";
 const c = theme.colors;
 
 const TEXT_TYPE: Partial<Record<string, TextFieldType>> = {
-    date: "date",
-    time: "time",
     email: "email",
     phone: "tel",
     number: "number",
@@ -94,6 +93,18 @@ export function FormQuestion({
                         }}
                     />
                 </Field>
+            );
+        }
+        if (f.input === "date" || f.input === "time") {
+            const Picker = f.input === "date" ? DateField : TimeField;
+            return (
+                <Picker
+                    label={f.label}
+                    hint={help}
+                    required={f.required}
+                    value={typeof value === "string" ? value : ""}
+                    onChange={set}
+                />
             );
         }
         return (

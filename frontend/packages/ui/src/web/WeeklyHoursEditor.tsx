@@ -5,7 +5,8 @@ import {
 } from "@clientbridge/app-core/public";
 
 import { Button } from "./Button";
-import { Select, Toggle } from "./Field";
+import { Toggle } from "./Field";
+import { Select } from "./Select";
 import type { WebProps } from "./props";
 
 export function WeeklyHoursEditor({

@@ -1,6 +1,5 @@
 import {
     type FieldProps,
-    type SelectProps,
     type TextFieldProps,
     type TextFieldType,
     type ToggleProps,
@@ -8,23 +7,10 @@ import {
     useControllable,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { type ReactNode, useState } from "react";
-import {
-    Pressable,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    View,
-    type KeyboardTypeOptions,
-} from "react-native";
+import type { ReactNode } from "react";
+import { StyleSheet, Switch, Text, TextInput, View, type KeyboardTypeOptions } from "react-native";
 
-import { Choice } from "./Choice";
-import { Icon } from "./Icon";
-import { ListRow } from "./ListRow";
-import { Modal } from "./Modal";
 import { Notice } from "./Notice";
-import { SearchField } from "./SearchField";
 import type { NativeProps, WithRef } from "./props";
 
 const c = theme.colors;
@@ -34,11 +20,9 @@ const KEYBOARD: Partial<Record<TextFieldType, KeyboardTypeOptions>> = {
     number: "decimal-pad",
     tel: "phone-pad",
     url: "url",
-    date: "numbers-and-punctuation",
-    time: "numbers-and-punctuation",
 };
 
-function Label({
+export function Label({
     text,
     optional,
     required = false,
@@ -48,20 +32,26 @@ function Label({
     required?: boolean;
 }) {
     return (
-        <Text style={styles.label}>
+        <Text style={fieldStyles.label}>
             {text}
-            {required ? <Text style={styles.required}> *</Text> : null}
+            {required ? <Text style={fieldStyles.required}> *</Text> : null}
             {optional && !required ? (
-                <Text style={styles.optional}> {strings.common.optional}</Text>
+                <Text style={fieldStyles.optional}> {strings.common.optional}</Text>
             ) : null}
         </Text>
     );
 }
 
-function Extras({ hint, error }: { hint: string | undefined; error: string | null | undefined }) {
+export function Extras({
+    hint,
+    error,
+}: {
+    hint: string | undefined;
+    error: string | null | undefined;
+}) {
     return (
         <>
-            {hint !== undefined ? <Text style={styles.hint}>{hint}</Text> : null}
+            {hint !== undefined ? <Text style={fieldStyles.hint}>{hint}</Text> : null}
             {error !== undefined && error !== null ? <Notice tone="danger">{error}</Notice> : null}
         </>
     );
@@ -134,14 +124,14 @@ export function TextField({
             numberOfLines={multiline ? rows : undefined}
             textAlignVertical={multiline ? "top" : "center"}
             style={[
-                styles.input,
-                SIZE[size],
-                surface === "surface" && styles.onBg,
+                fieldStyles.input,
+                FIELD_SIZE[size],
+                surface === "surface" && fieldStyles.onBg,
                 multiline && { minHeight: rows * 22 + 20 },
-                width === "narrow" && styles.narrow,
-                width === "auto" && styles.auto,
-                disabled === true && styles.disabled,
-                prefix !== undefined && styles.bare,
+                width === "narrow" && fieldStyles.narrow,
+                width === "auto" && fieldStyles.auto,
+                disabled === true && fieldStyles.disabled,
+                prefix !== undefined && fieldStyles.bare,
             ]}
         />
     );
@@ -149,9 +139,9 @@ export function TextField({
         prefix === undefined ? (
             input
         ) : (
-            <View style={[styles.prefixed, surface === "surface" && styles.onBg]}>
-                <Text style={styles.prefix}>{prefix}</Text>
-                <View style={styles.prefixInput}>{input}</View>
+            <View style={[fieldStyles.prefixed, surface === "surface" && fieldStyles.onBg]}>
+                <Text style={fieldStyles.prefix}>{prefix}</Text>
+                <View style={fieldStyles.prefixInput}>{input}</View>
             </View>
         );
     if (label === undefined && hint === undefined && (error ?? null) === null) return box;
@@ -162,109 +152,6 @@ export function TextField({
             ) : null}
             {box}
             <Extras hint={hint} error={error} />
-        </View>
-    );
-}
-
-// Above this many options a Select opens a searchable list instead of a row of chips.
-const SHEET_AFTER = 6;
-
-export function Select<K extends string>({
-    label,
-    name,
-    hint,
-    error,
-    value: valueProp,
-    defaultValue,
-    options,
-    onChange,
-    size = "md",
-    disabled = false,
-    style,
-}: NativeProps<SelectProps<K>>) {
-    const [value, setValue] = useControllable<K | undefined>(
-        valueProp,
-        defaultValue ?? options[0]?.key,
-    );
-    const [open, setOpen] = useState(false);
-    const [q, setQ] = useState("");
-    const pick = (key: K): void => {
-        setValue(key);
-        onChange?.(key);
-    };
-    const sheet = options.length > SHEET_AFTER;
-    const chosen = options.find((o) => o.key === value);
-    const needle = q.trim().toLowerCase();
-    const shown =
-        needle === "" ? options : options.filter((o) => o.label.toLowerCase().includes(needle));
-    const close = (): void => {
-        setOpen(false);
-        setQ("");
-    };
-    return (
-        <View style={style}>
-            {label !== undefined ? <Label text={label} optional={false} /> : null}
-            {sheet ? (
-                <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={label ?? name}
-                    accessibilityValue={{ text: chosen?.label ?? "" }}
-                    accessibilityState={{ disabled, expanded: open }}
-                    disabled={disabled}
-                    onPress={() => {
-                        setOpen(true);
-                    }}
-                    style={[styles.input, SIZE[size], styles.select, disabled && styles.disabled]}
-                >
-                    <Text style={[styles.selectText, SIZE_TEXT[size]]} numberOfLines={1}>
-                        {chosen?.label ?? ""}
-                    </Text>
-                    <Icon name="chevronDown" size={16} color={c.muted} />
-                </Pressable>
-            ) : (
-                <Choice
-                    options={options.map((o) => ({ key: o.key, label: o.label, disabled }))}
-                    value={value}
-                    onChange={pick}
-                    label={label}
-                    size={size === "lg" ? "lg" : "md"}
-                />
-            )}
-            <Extras hint={hint} error={error} />
-            {sheet ? (
-                <Modal open={open} onClose={close} size="xl">
-                    {label !== undefined ? <Text style={styles.sheetTitle}>{label}</Text> : null}
-                    <SearchField
-                        value={q}
-                        onChange={setQ}
-                        placeholder={strings.ui.searchOptions}
-                        autoFocus
-                    />
-                    <View style={styles.sheetList}>
-                        {shown.length === 0 ? (
-                            <Text style={styles.noMatch}>{strings.ui.noMatches}</Text>
-                        ) : (
-                            shown.map((o) => (
-                                <ListRow
-                                    key={o.key}
-                                    title={o.label}
-                                    density="compact"
-                                    selected={o.key === value}
-                                    meta={
-                                        o.key === value ? (
-                                            <Icon name="check" size={18} color={c.accent} />
-                                        ) : undefined
-                                    }
-                                    onPress={() => {
-                                        pick(o.key);
-                                        close();
-                                    }}
-                                />
-                            ))
-                        )}
-                    </View>
-                </Modal>
-            ) : null}
         </View>
     );
 }
@@ -280,10 +167,10 @@ export function Toggle({
 }: NativeProps<ToggleProps>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     return (
-        <View style={[styles.toggle, style]}>
-            <View style={styles.toggleText}>
-                <Text style={styles.toggleLabel}>{label}</Text>
-                {hint !== undefined ? <Text style={styles.hint}>{hint}</Text> : null}
+        <View style={[fieldStyles.toggle, style]}>
+            <View style={fieldStyles.toggleText}>
+                <Text style={fieldStyles.toggleLabel}>{label}</Text>
+                {hint !== undefined ? <Text style={fieldStyles.hint}>{hint}</Text> : null}
             </View>
             <Switch
                 value={value}
@@ -298,7 +185,7 @@ export function Toggle({
     );
 }
 
-const styles = StyleSheet.create({
+export const fieldStyles = StyleSheet.create({
     label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginBottom: 6, marginTop: 14 },
     optional: { color: c.muted, fontWeight: "400" },
     required: { color: c.danFg },
@@ -327,24 +214,13 @@ const styles = StyleSheet.create({
     prefix: { color: c.muted, fontSize: 15 },
     bare: { borderWidth: 0, backgroundColor: "transparent", paddingLeft: 2 },
     prefixInput: { flex: 1 },
-    select: { flexDirection: "row", alignItems: "center", gap: 8 },
-    selectText: { flex: 1, color: c.ink, fontSize: 15 },
-    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 12 },
-    sheetList: { marginTop: 8 },
-    noMatch: { color: c.muted, fontSize: 14, textAlign: "center", paddingVertical: 24 },
     toggle: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6 },
     toggleText: { flex: 1 },
     toggleLabel: { color: c.ink, fontSize: 14, fontWeight: "600" },
 });
 
-const SIZE = StyleSheet.create({
+export const FIELD_SIZE = StyleSheet.create({
     sm: { paddingHorizontal: 10, paddingVertical: 6, fontSize: 13 },
     md: { paddingHorizontal: 12, paddingVertical: 10 },
     lg: { paddingHorizontal: 13, paddingVertical: 13 },
-});
-
-const SIZE_TEXT = StyleSheet.create({
-    sm: { fontSize: 13 },
-    md: { fontSize: 15 },
-    lg: { fontSize: 15 },
 });

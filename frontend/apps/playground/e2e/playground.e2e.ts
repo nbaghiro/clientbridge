@@ -150,3 +150,52 @@ for (const name of PAGES) {
         expect(missing).toEqual([]);
     });
 }
+
+test("Select opens our own list and picks by keyboard", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/#/Select?platform=web");
+    const service = page.locator('[data-example="select-detail"]').getByRole("combobox", {
+        name: "Service",
+    });
+    await service.focus();
+    await page.keyboard.press("ArrowDown");
+    const list = page.getByRole("listbox", { name: "Service" });
+    await expect(list).toBeVisible();
+    await expect(list.getByRole("group", { name: "Grooms" })).toBeVisible();
+    await page.keyboard.press("End");
+    await expect(service).toHaveAttribute("aria-activedescendant", /.+/);
+    await page.keyboard.type("f");
+    await page.keyboard.press("Enter");
+    await expect(list).toBeHidden();
+    await expect(service).toHaveText("Full groom");
+    await expect(service).toBeFocused();
+
+    const client = page.locator('[data-example="select-many"]').getByRole("combobox", {
+        name: "Client",
+    });
+    await client.click();
+    await page.keyboard.type("yuki");
+    await page.keyboard.press("Enter");
+    await expect(client).toHaveText("Yuki Tanaka");
+});
+
+test("DateField opens a calendar that moves and picks by keyboard", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/#/DateField?platform=web");
+    const date = page.locator('[data-example="date"]').getByRole("button", { name: "Date" });
+    await date.click();
+    const calendar = page.getByRole("dialog", { name: "Date" });
+    await expect(calendar.getByRole("grid", { name: "October 2026" })).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("PageDown");
+    await expect(calendar.getByRole("grid", { name: "November 2026" })).toBeVisible();
+    await page.keyboard.press("Enter");
+    await expect(calendar).toBeHidden();
+    await expect(date).toHaveText(/^Mon, Nov 16/);
+    await expect(date).toBeFocused();
+    await date.click();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await expect(date).toBeFocused();
+});

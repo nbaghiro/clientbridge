@@ -16,5 +16,5 @@ export * from "./format";
 export * from "./payCode";
 export { strings } from "./strings";
 export * from "./icons";
-export { useAsyncAction, useControllable, useFlash } from "./hooks";
+export { useAsyncAction, useControllable, useFlash, useMonthGrid } from "./hooks";
 export type * from "./ui";

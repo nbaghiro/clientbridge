@@ -56,4 +56,26 @@
     [role="button"]:not(:disabled) {
         cursor: pointer;
     }
+
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    textarea:-webkit-autofill {
+        -webkit-text-fill-color: var(--ink);
+        caret-color: var(--ink);
+        box-shadow: 0 0 0 1000px var(--field-fill, var(--bg)) inset;
+        transition: background-color 9999s ease-out 0s;
+    }
+
+    input[type="search"]::-webkit-search-cancel-button,
+    input[type="search"]::-webkit-search-decoration,
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+        appearance: none;
+        margin: 0;
+    }
+
+    input[type="number"] {
+        appearance: textfield;
+    }
 }

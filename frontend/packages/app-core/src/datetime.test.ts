@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
     addDays,
+    addMonths,
+    clockOptions,
+    formatPickedDay,
+    monthWeeks,
+    parseDateKey,
     combineDayAndTime,
     dateKey,
     daysUntil,
@@ -138,5 +143,46 @@ describe("formatRelativeTime", () => {
             new Date(old).toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
         );
         expect(formatRelativeTime("2026-10-07 11:30:00+00", now)).toBe(t.minutes(30));
+    });
+});
+
+describe("date picker helpers", () => {
+    it("reads only real days from a date key", () => {
+        expect(parseDateKey("2026-10-08")?.getDate()).toBe(8);
+        expect(parseDateKey("2026-02-30")).toBeNull();
+        expect(parseDateKey("")).toBeNull();
+    });
+
+    it("holds the day to the end of a shorter month", () => {
+        expect(dateKey(addMonths(new Date(2026, 0, 31), 1))).toBe("2026-02-28");
+        expect(dateKey(addMonths(new Date(2026, 2, 15), -12))).toBe("2025-03-15");
+    });
+
+    it("lays out six Monday-first weeks with the bounds disabled", () => {
+        const weeks = monthWeeks(
+            new Date(2026, 9, 1),
+            "2026-10-08",
+            { min: "2026-10-05" },
+            new Date(2026, 9, 7),
+        );
+        expect(weeks).toHaveLength(6);
+        expect(weeks[0]?.[0]?.key).toBe("2026-09-28");
+        const days = weeks.flat();
+        expect(days.find((d) => d.selected)?.key).toBe("2026-10-08");
+        expect(days.find((d) => d.today)?.key).toBe("2026-10-07");
+        expect(days.find((d) => d.key === "2026-10-04")?.disabled).toBe(true);
+        expect(days.find((d) => d.key === "2026-10-05")?.disabled).toBe(false);
+    });
+
+    it("drops the year only for the current year", () => {
+        const now = new Date(2026, 9, 7);
+        expect(formatPickedDay(new Date(2026, 9, 8), now)).not.toMatch(/2026/);
+        expect(formatPickedDay(new Date(2027, 9, 8), now)).toMatch(/2027/);
+    });
+
+    it("steps through the day and keeps a time that falls between steps", () => {
+        const keys = clockOptions(30, "09:00", "11:00", "10:07").map((o) => o.key);
+        expect(keys).toEqual(["09:00", "09:30", "10:00", "10:07", "10:30", "11:00"]);
+        expect(clockOptions(15)).toHaveLength(96);
     });
 });

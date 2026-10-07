@@ -1,6 +1,5 @@
 import {
     type FieldProps,
-    type SelectProps,
     type TextFieldProps,
     type ToggleProps,
     strings,
@@ -13,13 +12,15 @@ import { type WebProps, type WithRef, cx, mergeRefs } from "./props";
 
 const INPUT_SIZE = { sm: "px-2 py-1 text-xs", md: "px-3 py-2 text-sm", lg: "px-3 py-2.5" } as const;
 const INPUT_WIDTH = { full: "w-full", narrow: "w-32", auto: "" } as const;
+const SURFACE = { bg: "bg-bg", surface: "bg-surface [--field-fill:var(--surface)]" } as const;
 
-function inputClass(
+// The one look of a text box, shared by every field that opens a picker so they line up.
+export function fieldClass(
     size: keyof typeof INPUT_SIZE,
-    surface: "bg" | "surface",
+    surface: keyof typeof SURFACE,
     width: keyof typeof INPUT_WIDTH,
 ): string {
-    return `${INPUT_WIDTH[width]} rounded-md border border-line ${surface === "bg" ? "bg-bg" : "bg-surface"} ${INPUT_SIZE[size]} text-ink outline-hidden transition placeholder:text-muted focus:border-accent disabled:opacity-60`;
+    return `${INPUT_WIDTH[width]} rounded-md border border-line ${SURFACE[surface]} ${INPUT_SIZE[size]} text-ink outline-hidden transition placeholder:text-muted focus:border-accent aria-invalid:border-danger disabled:opacity-60`;
 }
 
 function Mark({ optional, required }: { optional: boolean; required: boolean }) {
@@ -28,7 +29,7 @@ function Mark({ optional, required }: { optional: boolean; required: boolean }) 
     return null;
 }
 
-function Labelled({
+export function Labelled({
     id,
     label,
     hint,
@@ -129,7 +130,7 @@ export function TextField({
         "aria-required": required,
         "aria-label": label === undefined ? (name ?? placeholder) : undefined,
         "aria-invalid": error !== undefined && error !== null ? true : undefined,
-        className: inputClass(size, surface, width),
+        className: fieldClass(size, surface, width),
     };
     return (
         <Labelled
@@ -152,7 +153,7 @@ export function TextField({
                 />
             ) : prefix !== undefined ? (
                 <div
-                    className={`flex items-center overflow-hidden rounded-md border border-line focus-within:border-accent ${surface === "bg" ? "bg-bg" : "bg-surface"} ${INPUT_WIDTH[width]}`}
+                    className={`flex items-center overflow-hidden rounded-md border border-line focus-within:border-accent ${SURFACE[surface]} ${INPUT_WIDTH[width]}`}
                 >
                     <span className="pl-3 text-sm text-muted">{prefix}</span>
                     <input
@@ -194,59 +195,6 @@ export function TextField({
     );
 }
 
-export function Select<K extends string>({
-    label,
-    name,
-    hint,
-    error,
-    value: valueProp,
-    defaultValue,
-    options,
-    onChange,
-    size = "md",
-    disabled,
-    className,
-}: WebProps<SelectProps<K>>) {
-    const [value, setValue] = useControllable<K | undefined>(
-        valueProp,
-        defaultValue ?? options[0]?.key,
-    );
-    const pick = (key: K): void => {
-        setValue(key);
-        onChange?.(key);
-    };
-    const id = useId();
-    return (
-        <Labelled
-            className={className}
-            id={id}
-            label={label}
-            hint={hint}
-            error={error}
-            optional={false}
-            required={false}
-        >
-            <select
-                id={id}
-                value={value ?? ""}
-                disabled={disabled}
-                aria-label={label === undefined ? name : undefined}
-                onChange={(e) => {
-                    const picked = options.find((o) => o.key === e.target.value);
-                    if (picked !== undefined) pick(picked.key);
-                }}
-                className={inputClass(size, "bg", size === "sm" ? "auto" : "full")}
-            >
-                {options.map((o) => (
-                    <option key={o.key} value={o.key}>
-                        {o.label}
-                    </option>
-                ))}
-            </select>
-        </Labelled>
-    );
-}
-
 export function Toggle({
     label,
     hint,
@@ -258,16 +206,28 @@ export function Toggle({
 }: WebProps<ToggleProps>) {
     const [value, setValue] = useControllable(valueProp, defaultValue, onChange);
     return (
-        <label className={cx("flex items-start gap-2.5 text-sm text-ink", className)}>
-            <input
-                type="checkbox"
-                checked={value}
-                disabled={disabled}
-                onChange={(e) => {
-                    setValue(e.target.checked);
-                }}
-                className="mt-0.5 h-4 w-4 accent-accent"
-            />
+        <label
+            className={cx(
+                `flex items-start gap-2.5 text-sm text-ink ${disabled === true ? "opacity-60" : "cursor-pointer"}`,
+                className,
+            )}
+        >
+            <span className="relative mt-px inline-flex shrink-0">
+                <input
+                    type="checkbox"
+                    role="switch"
+                    checked={value}
+                    disabled={disabled}
+                    onChange={(e) => {
+                        setValue(e.target.checked);
+                    }}
+                    className="peer h-[18px] w-8 cursor-pointer appearance-none rounded-full border border-line bg-surface2 transition checked:border-accent checked:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-default"
+                />
+                <span
+                    aria-hidden
+                    className="pointer-events-none absolute left-[3px] top-[3px] h-3 w-3 rounded-full bg-surface shadow-sm ring-1 ring-line transition peer-checked:translate-x-3.5 peer-checked:ring-0"
+                />
+            </span>
             <span>
                 <span className="font-medium">{label}</span>
                 {hint !== undefined ? (

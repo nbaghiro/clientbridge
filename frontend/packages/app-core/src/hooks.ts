@@ -1,5 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import {
+    type CalendarDay,
+    addDays,
+    addMonths,
+    dateKey,
+    formatMonthYear,
+    monthWeeks,
+    parseDateKey,
+    startOfWeek,
+    weekdayNames,
+} from "./datetime";
 import { strings } from "./strings";
 
 interface AsyncAction {
@@ -148,4 +159,93 @@ export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
         refresh().catch(() => undefined);
     }, [refresh, key]);
     return { data, error, isLoading, refresh };
+}
+
+type DayMove = "day" | "week" | "month" | "year" | "weekEdge";
+
+interface MonthGrid {
+    title: string;
+    weekdays: readonly string[];
+    weeks: CalendarDay[][];
+    // The day keyboard focus sits on; it also picks the month shown.
+    active: string;
+    setActive: (key: string) => void;
+    move: (by: DayMove, dir: 1 | -1) => void;
+    canPrev: boolean;
+    canNext: boolean;
+    view: "days" | "years";
+    setView: (view: "days" | "years") => void;
+    years: readonly { year: number; selected: boolean }[];
+    pickYear: (year: number) => void;
+    // Back to the chosen day (or today) and the day view, for each time the picker opens.
+    reset: () => void;
+}
+
+// The month grid behind a date picker: which month shows, the focused day, and keyboard moves.
+export function useMonthGrid(value: string, min?: string, max?: string): MonthGrid {
+    const start = useCallback((): string => {
+        const today = dateKey(new Date());
+        const from = parseDateKey(value) !== null ? value : today;
+        if (min !== undefined && min !== "" && from < min) return min;
+        if (max !== undefined && max !== "" && from > max) return max;
+        return from;
+    }, [value, min, max]);
+    const [active, setActiveKey] = useState(start);
+    const [view, setView] = useState<"days" | "years">("days");
+    const bounds = useMemo(() => ({ min, max }), [min, max]);
+    const day = parseDateKey(active) ?? new Date();
+    const setActive = useCallback(
+        (key: string): void => {
+            const d = parseDateKey(key);
+            if (d === null) return;
+            const minD = parseDateKey(min ?? "");
+            const maxD = parseDateKey(max ?? "");
+            if (minD !== null && d < minD) setActiveKey(dateKey(minD));
+            else if (maxD !== null && d > maxD) setActiveKey(dateKey(maxD));
+            else setActiveKey(key);
+        },
+        [min, max],
+    );
+    const move = (by: DayMove, dir: 1 | -1): void => {
+        const next =
+            by === "day"
+                ? addDays(day, dir)
+                : by === "week"
+                  ? addDays(day, dir * 7)
+                  : by === "month"
+                    ? addMonths(day, dir)
+                    : by === "year"
+                      ? addMonths(day, dir * 12)
+                      : addDays(startOfWeek(day), dir === 1 ? 6 : 0);
+        setActive(dateKey(next));
+    };
+    const thisYear = new Date().getFullYear();
+    const firstYear = parseDateKey(min ?? "")?.getFullYear() ?? thisYear - 100;
+    const lastYear = parseDateKey(max ?? "")?.getFullYear() ?? thisYear + 10;
+    const first = dateKey(new Date(day.getFullYear(), day.getMonth(), 1));
+    const last = dateKey(new Date(day.getFullYear(), day.getMonth() + 1, 0));
+    return {
+        title: formatMonthYear(day),
+        weekdays: useMemo(() => weekdayNames(), []),
+        weeks: monthWeeks(day, value, bounds),
+        active,
+        setActive,
+        move,
+        canPrev: min === undefined || min === "" || min < first,
+        canNext: max === undefined || max === "" || max > last,
+        view,
+        setView,
+        years: Array.from({ length: lastYear - firstYear + 1 }, (_, i) => ({
+            year: firstYear + i,
+            selected: firstYear + i === day.getFullYear(),
+        })),
+        pickYear: (year) => {
+            setActive(dateKey(addMonths(day, (year - day.getFullYear()) * 12)));
+            setView("days");
+        },
+        reset: () => {
+            setActiveKey(start());
+            setView("days");
+        },
+    };
 }

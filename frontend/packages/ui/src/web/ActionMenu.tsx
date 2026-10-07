@@ -3,27 +3,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Icon } from "./Icon";
 import { moveFocus } from "./keys";
+import { type Place, fitted } from "./popover";
 import { type WebProps, cx } from "./props";
 
-const PLACE = {
+const PLACE: Record<Place, string> = {
     "below-start": "left-0 top-full mt-2",
     "below-end": "right-0 top-full mt-2",
     "above-start": "bottom-full left-0 mb-2",
     "above-end": "bottom-full right-0 mb-2",
-} as const;
-
-type Place = keyof typeof PLACE;
-
-// The preferred placement, flipped to the other side wherever the menu would leave the window.
-function fitted(preferred: Place, box: DOMRect): Place {
-    let [side, edge] = preferred.split("-") as ["below" | "above", "start" | "end"];
-    if (side === "below" && box.bottom > window.innerHeight && box.top - box.height > 0)
-        side = "above";
-    else if (side === "above" && box.top < 0) side = "below";
-    if (edge === "start" && box.right > window.innerWidth) edge = "end";
-    else if (edge === "end" && box.left < 0) edge = "start";
-    return `${side}-${edge}`;
-}
+};
 
 export function ActionMenu({
     open,

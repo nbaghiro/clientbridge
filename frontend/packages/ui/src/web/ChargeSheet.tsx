@@ -2,7 +2,7 @@ import { NEW_CARD, strings, type ChargeSheetProps } from "@clientbridge/app-core
 
 import { Button } from "./Button";
 import { CardForm } from "./CardForm";
-import { Select } from "./Field";
+import { Select } from "./Select";
 import { Notice } from "./Notice";
 import { type WebProps, cx } from "./props";
 import { stripeAccount as currentStripeAccount } from "./stripe";

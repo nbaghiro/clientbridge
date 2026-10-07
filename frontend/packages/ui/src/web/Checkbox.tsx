@@ -1,6 +1,7 @@
 import { type CheckboxProps, useControllable } from "@clientbridge/app-core/public";
 import { useEffect, useId, useRef } from "react";
 
+import { Icon } from "./Icon";
 import { type WebProps, type WithRef, cx, mergeRefs } from "./props";
 
 export function Checkbox({
@@ -28,17 +29,25 @@ export function Checkbox({
                 className,
             )}
         >
-            <input
-                ref={mergeRefs(input, ref)}
-                id={id}
-                type="checkbox"
-                checked={value}
-                disabled={disabled}
-                onChange={(e) => {
-                    setValue(e.target.checked);
-                }}
-                className="h-4 w-4 shrink-0 cursor-pointer rounded border-line accent-[var(--accent)]"
-            />
+            <span className="relative inline-flex shrink-0">
+                <input
+                    ref={mergeRefs(input, ref)}
+                    id={id}
+                    type="checkbox"
+                    checked={value}
+                    disabled={disabled}
+                    onChange={(e) => {
+                        setValue(e.target.checked);
+                    }}
+                    className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-line bg-bg transition checked:border-accent checked:bg-accent indeterminate:border-accent indeterminate:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-default"
+                />
+                <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 hidden items-center justify-center text-accent-ink peer-checked:flex peer-indeterminate:flex"
+                >
+                    <Icon name={mixed && !value ? "minus" : "check"} size={12} />
+                </span>
+            </span>
             <span className={hideLabel ? "sr-only" : ""}>{label}</span>
         </label>
     );

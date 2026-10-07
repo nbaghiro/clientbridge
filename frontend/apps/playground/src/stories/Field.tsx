@@ -1,15 +1,6 @@
-import type { FieldProps, SelectProps, TextFieldProps, ToggleProps } from "@clientbridge/app-core";
+import type { FieldProps, TextFieldProps, ToggleProps } from "@clientbridge/app-core";
 
 import { story } from "../story";
-
-type Coat = "short" | "double" | "curly" | "wire";
-
-const COATS: SelectProps<Coat>["options"] = [
-    { key: "short", label: "Short coat" },
-    { key: "double", label: "Double coat" },
-    { key: "curly", label: "Curly coat" },
-    { key: "wire", label: "Wire coat" },
-];
 
 export default [
     story<FieldProps>({
@@ -205,15 +196,6 @@ export default [
                 }),
             },
             {
-                key: "text-date",
-                title: "Date and time",
-                props: () => ({
-                    label: "Starts",
-                    type: "datetime-local",
-                    defaultValue: "2026-10-06T09:30",
-                }),
-            },
-            {
                 key: "text-prefix-error",
                 title: "Prefix with an error, on a surface",
                 props: () => ({
@@ -252,139 +234,9 @@ export default [
             },
         ],
     }),
-    story<SelectProps<string>>({
-        component: "Select",
-        summary:
-            "A labelled select on web; chips on mobile, or a searchable list above six options.",
-        controls: {
-            label: { type: "text" },
-            hint: { type: "text" },
-            error: { type: "text" },
-            size: { type: "select", options: ["sm", "md", "lg"] },
-            disabled: { type: "boolean" },
-        },
-        examples: [
-            {
-                key: "select",
-                title: "Default",
-                props: () => ({
-                    label: "Coat type",
-                    defaultValue: "double",
-                    options: COATS,
-                }),
-            },
-            {
-                key: "select-hint",
-                title: "Hint",
-                props: () => ({
-                    label: "Coat type",
-                    hint: "Sets the default length of a full groom.",
-                    defaultValue: "curly",
-                    options: COATS,
-                }),
-            },
-            {
-                key: "select-error",
-                title: "Error",
-                props: () => ({
-                    label: "Coat type",
-                    error: "Wire coats need a hand-strip add-on.",
-                    defaultValue: "wire",
-                    options: COATS,
-                }),
-            },
-            {
-                key: "select-small",
-                title: "Small, no label",
-                props: () => ({
-                    name: "Coat type",
-                    size: "sm",
-                    defaultValue: "short",
-                    options: COATS,
-                }),
-            },
-            {
-                key: "select-disabled",
-                title: "Disabled",
-                props: () => ({
-                    label: "Coat type",
-                    disabled: true,
-                    defaultValue: "short",
-                    options: COATS,
-                }),
-            },
-            {
-                key: "select-controlled",
-                title: "Controlled",
-                state: { value: "value", onChange: "onChange" },
-                props: () => ({ label: "Coat type", value: "curly", options: COATS }),
-            },
-            {
-                key: "select-large",
-                title: "Large",
-                props: () => ({
-                    label: "Coat type",
-                    size: "lg",
-                    defaultValue: "wire",
-                    options: COATS,
-                }),
-            },
-            {
-                key: "select-long",
-                title: "Long option labels",
-                props: () => ({
-                    label: "Cancellation policy",
-                    defaultValue: "strict",
-                    options: [
-                        {
-                            key: "strict",
-                            label: "Strict: no refund within 48 hours of the appointment, deposit kept",
-                        },
-                        { key: "flexible", label: "Flexible: free until 2 hours before" },
-                    ],
-                }),
-            },
-            {
-                key: "select-many",
-                title: "Many options, searchable on mobile",
-                props: () => ({
-                    label: "Client",
-                    options: [
-                        "Amélie Tremblay",
-                        "Marcus Bennett",
-                        "Olivia Martin",
-                        "Sophie Nguyen",
-                        "Yuki Tanaka",
-                        "Ethan Wright",
-                        "Grace Lin",
-                        "Liam O'Connor",
-                        "Noah Schmidt",
-                        "Priya Patel",
-                        "Diego Ramirez",
-                        "Hannah Wong",
-                        "Chloé Gagnon",
-                    ].map((name) => ({ key: name, label: name })),
-                    defaultValue: "Marcus Bennett",
-                }),
-            },
-            {
-                key: "select-rtl",
-                title: "Right-to-left",
-                props: () => ({
-                    label: "نوع الفراء",
-                    defaultValue: "b",
-                    options: [
-                        { key: "a", label: "قصير" },
-                        { key: "b", label: "مزدوج" },
-                        { key: "c", label: "مجعد" },
-                    ],
-                }),
-            },
-        ],
-    }),
     story<ToggleProps>({
         component: "Toggle",
-        summary: "A checkbox on web and a switch on mobile, with a label and hint.",
+        summary: "A switch with a label and hint, on web and mobile.",
         controls: {
             label: { type: "text" },
             hint: { type: "text" },

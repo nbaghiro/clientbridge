@@ -7,13 +7,13 @@ import {
 } from "@clientbridge/app-core/public";
 
 import { Choice } from "./Choice";
-import { Field, Select, TextField, Toggle } from "./Field";
+import { DateField, TimeField } from "./DateField";
+import { Field, TextField, Toggle } from "./Field";
 import { Icon } from "./Icon";
 import type { WebProps } from "./props";
+import { Select } from "./Select";
 
 const TEXT_TYPE: Partial<Record<string, TextFieldType>> = {
-    date: "date",
-    time: "time",
     email: "email",
     phone: "tel",
     number: "number",
@@ -117,6 +117,18 @@ export function FormQuestion({
                         }}
                     />
                 </Field>
+            );
+        }
+        if (f.input === "date" || f.input === "time") {
+            const Picker = f.input === "date" ? DateField : TimeField;
+            return (
+                <Picker
+                    label={label}
+                    hint={help}
+                    required={f.required}
+                    value={typeof value === "string" ? value : ""}
+                    onChange={set}
+                />
             );
         }
         return (
