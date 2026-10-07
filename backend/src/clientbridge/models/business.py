@@ -87,6 +87,8 @@ class Staff(PKMixin, TimestampMixin, Base):
     rate_bps: Mapped[int | None] = mapped_column(Integer)
     rate_cents: Mapped[int | None] = mapped_column(BigInteger)
     retail_rate_bps: Mapped[int | None] = mapped_column(Integer)  # commission on product sales
+    # the member's name, copied from their account so every device can show who is who
+    name: Mapped[str | None] = mapped_column(String)
     title: Mapped[str | None] = mapped_column(String)
     color: Mapped[str | None] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)

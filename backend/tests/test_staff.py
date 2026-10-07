@@ -71,12 +71,13 @@ async def test_accept_invite_activates_staff(as_owner: httpx.AsyncClient, db: As
     assert res.json()["access_token"]
     row = (
         await db.execute(
-            text("SELECT status, user_id FROM staff WHERE invite_email = 'join@test.ca'")
+            text("SELECT status, user_id, name FROM staff WHERE invite_email = 'join@test.ca'")
         )
     ).first()
     assert row is not None
     assert row[0] == "active"
     assert row[1] is not None  # linked to a user
+    assert row[2] == "Joiner"
 
 
 async def test_accept_invite_for_existing_user_requires_their_password(

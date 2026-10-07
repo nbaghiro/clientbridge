@@ -8,7 +8,7 @@ from clientbridge.core.errors import Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.stripe import ConnectAccount
-from clientbridge.models.business import Business, Staff
+from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.platform import File
 from clientbridge.schemas.business import BusinessSettingsUpdate, OnboardBody
 
@@ -151,11 +151,13 @@ class OnboardingService:
         )
         self.db.add(biz)
         await self.db.flush()  # insert the business first so the Staff FK resolves
+        user = await self.db.get(User, user_id)
         self.db.add(
             Staff(
                 id=new_id("staff"),
                 business_id=biz.id,
                 user_id=user_id,
+                name=user.name if user is not None else None,
                 role="owner",
                 status="active",
                 payee=True,

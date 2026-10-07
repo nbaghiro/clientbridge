@@ -25,13 +25,14 @@ async def test_onboard_creates_business_owner_and_taxes(
     assert biz["slug"] == "acme-clean"
     assert biz["province"] == "BC"
 
-    role = (
+    owner = (
         await db.execute(
-            text("SELECT role FROM staff WHERE business_id = :b AND user_id = :u"),
+            text("SELECT role, name FROM staff WHERE business_id = :b AND user_id = :u"),
             {"b": biz["id"], "u": user.id},
         )
-    ).scalar()
-    assert role == "owner"
+    ).one()
+    assert owner.role == "owner"
+    assert owner.name == user.name  # the owner's name syncs to the team on their staff row
 
     # An exact ordered list, so a duplicated or missing rate fails
     rates = (await api.get("/v1/tax-rates")).json()

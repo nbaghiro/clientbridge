@@ -135,6 +135,7 @@ class StaffService:
             # The token alone must not sign in an existing account; the inviter can see it.
             raise Unauthorized("enter your existing account password to accept this invite")
         staff.user_id = user.id
+        staff.name = user.name
         staff.status = "active"
         # principal-less surface — the invitee becomes one only here, so record the audit directly.
         self.db.add(
