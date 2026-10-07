@@ -11,14 +11,19 @@ from clientbridge.core.deps import (
     SmsDep,
 )
 from clientbridge.schemas.bookings import (
+    BookingCheck,
     BookingCreate,
+    BookingMove,
     BookingOut,
     BookingPatch,
+    BookingProbe,
     DepositOut,
     RecurrenceCreate,
     RecurrenceOut,
+    TimeOffCreate,
+    TimeOffOut,
 )
-from clientbridge.services.bookings import BookingService, RecurrenceService
+from clientbridge.services.bookings import BookingService, RecurrenceService, TimeOffService
 from clientbridge.services.notifications import Notifier
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -36,8 +41,16 @@ async def create_booking(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> BookingOut:
     result = await BookingService(db, principal, gateway).create(body, idempotency_key)
-    await Notifier(email, sms, push).on_booking_confirmed(db, result.id)
+    if body.notify:
+        await Notifier(email, sms, push).on_booking_confirmed(db, result.id)
     return result
+
+
+@router.post("/check", response_model=BookingCheck)
+async def probe_booking(
+    body: BookingProbe, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> BookingCheck:
+    return await BookingService(db, principal, gateway).probe(body)
 
 
 @router.patch("/{booking_id}", response_model=BookingOut)
@@ -58,6 +71,17 @@ async def patch_booking(
     elif body.starts_at is not None:
         await notifier.on_booking_rescheduled(db, result.id)
     return result
+
+
+@router.post("/{booking_id}/check", response_model=BookingCheck)
+async def check_booking_move(
+    booking_id: str,
+    body: BookingMove,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+) -> BookingCheck:
+    return await BookingService(db, principal, gateway).check(booking_id, body)
 
 
 @router.post("/{booking_id}/check-in", response_model=BookingOut)
@@ -103,3 +127,21 @@ async def create_recurrence(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RecurrenceOut:
     return await RecurrenceService(db, principal).create(body, idempotency_key)
+
+
+time_off_router = APIRouter(prefix="/time-off", tags=["time-off"])
+
+
+@time_off_router.post("", response_model=TimeOffOut, status_code=201)
+async def create_time_off(
+    body: TimeOffCreate,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> TimeOffOut:
+    return await TimeOffService(db, principal).create(body, idempotency_key)
+
+
+@time_off_router.delete("/{hours_id}", response_model=TimeOffOut)
+async def delete_time_off(hours_id: str, principal: CurrentPrincipal, db: DbSession) -> TimeOffOut:
+    return await TimeOffService(db, principal).delete(hours_id)

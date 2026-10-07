@@ -54,6 +54,83 @@ const clients = new Table(
     },
 );
 
+const subjects = new Table(
+    {
+        client_id: column.text,
+        kind: column.text,
+        name: column.text,
+        attributes: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            subjects_business_client: ["business_id", "client_id"],
+            subjects_business_id: ["business_id"],
+        },
+    },
+);
+
+const notes = new Table(
+    {
+        created_by: column.text,
+        parent_type: column.text,
+        parent_id: column.text,
+        body: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            notes_business_id: ["business_id"],
+            notes_parent: ["business_id", "parent_type", "parent_id"],
+        },
+    },
+);
+
+const resources = new Table(
+    {
+        name: column.text,
+        category: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            resources_business_id: ["business_id"],
+        },
+    },
+);
+
+const hours = new Table(
+    {
+        staff_id: column.text,
+        basis: column.text,
+        weekday: column.integer,
+        date: column.text,
+        start_time: column.text,
+        end_time: column.text,
+        available: column.integer,
+        note: column.text,
+        starts_at: column.text,
+        ends_at: column.text,
+        reason: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            hours_business_id: ["business_id"],
+            hours_exception: ["business_id", "basis", "starts_at"],
+            hours_staff: ["business_id", "staff_id", "basis"],
+        },
+    },
+);
+
 const items = new Table(
     {
         created_by: column.text,
@@ -387,24 +464,26 @@ const addons = new Table(
     },
 );
 
-const hours = new Table(
+const recurrences = new Table(
     {
+        item_id: column.text,
         staff_id: column.text,
-        basis: column.text,
-        weekday: column.integer,
-        date: column.text,
-        start_time: column.text,
-        end_time: column.text,
-        available: column.integer,
-        note: column.text,
+        client_id: column.text,
+        frequency: column.text,
+        interval: column.integer,
+        byday: column.text,
+        count: column.integer,
+        until: column.text,
+        start_date: column.text,
+        status: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
     },
     {
         indexes: {
-            hours_business_id: ["business_id"],
-            hours_staff: ["business_id", "staff_id", "basis"],
+            recurrences_business_id: ["business_id"],
+            recurrences_status: ["business_id", "status"],
         },
     },
 );
@@ -673,6 +752,10 @@ const device_prefs = new Table(
 export const AppSchema = new Schema({
     staff,
     clients,
+    subjects,
+    notes,
+    resources,
+    hours,
     items,
     packages,
     subscriptions,
@@ -687,7 +770,7 @@ export const AppSchema = new Schema({
     slots,
     bookings,
     addons,
-    hours,
+    recurrences,
     accounts,
     entries,
     invoices,

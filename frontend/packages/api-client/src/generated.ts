@@ -681,6 +681,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe Booking */
+        post: operations["probe_booking_v1_bookings_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}": {
         parameters: {
             query?: never;
@@ -696,6 +713,23 @@ export interface paths {
         head?: never;
         /** Patch Booking */
         patch: operations["patch_booking_v1_bookings__booking_id__patch"];
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Booking Move */
+        post: operations["check_booking_move_v1_bookings__booking_id__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/bookings/{booking_id}/check-in": {
@@ -761,6 +795,40 @@ export interface paths {
         /** Create Recurrence */
         post: operations["create_recurrence_v1_recurrences_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Time Off */
+        post: operations["create_time_off_v1_time_off_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time-off/{hours_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Time Off */
+        delete: operations["delete_time_off_v1_time_off__hours_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1867,6 +1935,23 @@ export interface components {
             /** Password */
             password: string;
         };
+        /**
+         * BookingCheck
+         * @description The server's verdict on a time before it is booked or moved; nothing is written.
+         */
+        BookingCheck: {
+            /** Ok */
+            ok: boolean;
+            /** Problem */
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "resource" | "class") | null;
+            /**
+             * Reason
+             * @description The closure or time-off reason
+             */
+            reason?: string | null;
+            /** Message */
+            message?: string | null;
+        };
         /** BookingCreate */
         BookingCreate: {
             /** Client Id */
@@ -1884,6 +1969,37 @@ export interface components {
             resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
+            /**
+             * Note
+             * @description Kept as a booking note
+             */
+            note?: string | null;
+            /**
+             * Notify
+             * @description Send the client a confirmation
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** BookingMove */
+        BookingMove: {
+            /** Starts At */
+            starts_at?: string | null;
+            /**
+             * Ends At
+             * @description A new end resizes the visit
+             */
+            ends_at?: string | null;
+            /**
+             * Staff Id
+             * @description Moves the visit to another member
+             */
+            staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Room or station; set to change it
+             */
+            resource_id?: string | null;
         };
         /** BookingOut */
         BookingOut: {
@@ -1926,8 +2042,37 @@ export interface components {
         BookingPatch: {
             /** Starts At */
             starts_at?: string | null;
+            /**
+             * Ends At
+             * @description A new end resizes the visit
+             */
+            ends_at?: string | null;
+            /**
+             * Staff Id
+             * @description Moves the visit to another member
+             */
+            staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Room or station; set to change it
+             */
+            resource_id?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
+        };
+        /** BookingProbe */
+        BookingProbe: {
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Resource Id */
+            resource_id?: string | null;
         };
         /**
          * BrandInput
@@ -3808,6 +3953,52 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** TimeOffCreate */
+        TimeOffCreate: {
+            /**
+             * Staff Id
+             * @description Null closes the whole business
+             */
+            staff_id?: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Reason */
+            reason: string;
+        };
+        /** TimeOffOut */
+        TimeOffOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Affected
+             * @description Live bookings inside the window, still to move
+             */
+            affected: string[];
+        };
         /** TokenPair */
         TokenPair: {
             /** Access Token */
@@ -5423,6 +5614,42 @@ export interface operations {
             };
         };
     };
+    probe_booking_v1_bookings_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingProbe"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     patch_booking_v1_bookings__booking_id__patch: {
         parameters: {
             query?: never;
@@ -5448,6 +5675,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_booking_move_v1_bookings__booking_id__check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingCheck"];
                 };
             };
             /** @description Validation Error */
@@ -5591,6 +5856,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurrenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_time_off_v1_time_off_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeOffCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOffOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_time_off_v1_time_off__hours_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                hours_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOffOut"];
                 };
             };
             /** @description Validation Error */

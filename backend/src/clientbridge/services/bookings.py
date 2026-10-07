@@ -8,31 +8,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
-from clientbridge.core.deps import Principal, assert_can_act_as
+from clientbridge.core.deps import Principal, assert_can_act_as, assert_role
 from clientbridge.core.errors import (
     AppError,
     CardDeclined,
     Conflict,
     NotFound,
     PaymentActionRequired,
+    Unprocessable,
 )
 from clientbridge.core.ids import new_id
-from clientbridge.core.scoping import scoped
+from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
-from clientbridge.models.clients import Client
+from clientbridge.models.clients import Client, Note
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Slot
+from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Resource, Slot
 from clientbridge.schemas.bookings import (
+    BookingCheck,
     BookingCreate,
+    BookingMove,
     BookingOut,
     BookingPatch,
+    BookingProbe,
     DepositOut,
+    Problem,
     RecurrenceCreate,
     RecurrenceOccurrence,
     RecurrenceOut,
+    TimeOffCreate,
+    TimeOffOut,
 )
 from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
@@ -50,6 +57,11 @@ _OVERLAP = "that staff member is already booked at that time"
 _RESOURCE_BUSY = "that resource is already booked at that time"
 _OUTSIDE_HOURS = "outside the provider's available hours"
 _CLASS_FULL = "that class is full"
+_CLOSED = "the business is closed then"
+_AWAY = "that staff member is away then"
+_PAST = "that time has already passed"
+_CLASS_MOVE = "a class session moves as a whole; change its time from the class"
+_MIN_VISIT = timedelta(minutes=5)
 _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
 
@@ -185,6 +197,56 @@ async def _client_has_seat(
     return (await db.execute(q)).first() is not None
 
 
+async def blocking_exception(
+    db: AsyncSession, business_id: str, staff_id: str, start: datetime, end: datetime
+) -> Hours | None:
+    """A closure or this member's time off overlapping the window; closures come first."""
+    q = (
+        scoped(Hours, business_id)
+        .where(
+            Hours.basis == "exception",
+            or_(Hours.staff_id.is_(None), Hours.staff_id == staff_id),
+            Hours.starts_at < end,
+            Hours.ends_at > start,
+        )
+        .order_by(Hours.staff_id.is_(None).desc(), Hours.starts_at)
+        .limit(1)
+    )
+    return (await db.execute(q)).scalars().first()
+
+
+def _verdict(problem: Problem, message: str, reason: str | None = None) -> BookingCheck:
+    return BookingCheck(ok=False, problem=problem, reason=reason, message=message)
+
+
+async def slot_problem(
+    db: AsyncSession,
+    business_id: str,
+    item: Item,
+    staff_id: str,
+    starts_at: datetime,
+    ends_at: datetime,
+    *,
+    exclude: str | None = None,
+    resource_id: str | None = None,
+) -> BookingCheck | None:
+    """Why a visit can't take this window, most fundamental reason first; None when it can."""
+    away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
+    if away is not None:
+        if away.staff_id is None:
+            return _verdict("closed", _CLOSED, away.reason)
+        return _verdict("time_off", _AWAY, away.reason)
+    if not await is_within_hours(db, staff_id, business_id, starts_at, ends_at):
+        return _verdict("off_hours", _OUTSIDE_HOURS)
+    if await conflicting_slot(db, business_id, item, staff_id, starts_at, ends_at, exclude):
+        return _verdict("overlap", _OVERLAP)
+    if resource_id is not None and await conflicting_resource(
+        db, business_id, resource_id, starts_at, ends_at, exclude
+    ):
+        return _verdict("resource", _RESOURCE_BUSY)
+    return None
+
+
 async def create_booking_core(
     db: AsyncSession,
     business_id: str,
@@ -200,12 +262,11 @@ async def create_booking_core(
     dedupe_client: bool = False,
 ) -> tuple[Booking, Slot]:
     """Create a confirmed booking under the scheduling invariant (staff and online paths)."""
-    # Lock the staff's bookings so conflict and capacity checks are atomic with the insert.
-    await db.execute(
-        text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
-        {"key": f"{business_id}:{staff_id}"},
-    )
+    await _lock_staff(db, business_id, staff_id)
     ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
+    away = await blocking_exception(db, business_id, staff_id, starts_at, ends_at)
+    if away is not None:
+        raise Conflict(_CLOSED if away.staff_id is None else _AWAY)
     if not await is_within_hours(db, staff_id, business_id, starts_at, ends_at):
         raise Conflict(_OUTSIDE_HOURS)
     is_class = item.kind == "class" and item.capacity is not None and item.capacity > 1
@@ -259,6 +320,22 @@ async def create_booking_core(
     db.add(booking)
     await db.flush()
     return booking, slot
+
+
+async def _lock_staff(db: AsyncSession, business_id: str, staff_id: str) -> None:
+    """Serialise booking writes per member so the conflict check is atomic with the write."""
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"{business_id}:{staff_id}"}
+    )
+
+
+async def load_resource(db: AsyncSession, business_id: str, resource_id: str) -> Resource:
+    row = (
+        await db.execute(scoped(Resource, business_id).where(Resource.id == resource_id))
+    ).scalar_one_or_none()
+    if row is None:
+        raise NotFound("room or station not found")
+    return row
 
 
 async def release_slot(db: AsyncSession, slot: Slot) -> None:
@@ -362,6 +439,18 @@ class BookingService:
                 subject_id=data.subject_id,
                 resource_id=data.resource_id,
             )
+            if data.note is not None and data.note.strip() != "":
+                self.db.add(
+                    Note(
+                        id=new_id("note"),
+                        business_id=self.biz,
+                        created_by=self.principal.user_id,
+                        parent_type="booking",
+                        parent_id=booking.id,
+                        body=data.note.strip(),
+                    )
+                )
+                await self.db.flush()
             cmd.record("booking.create", entity_type="booking", entity_id=booking.id)
             return await _booking_out(self.db, booking, slot)
 
@@ -378,28 +467,41 @@ class BookingService:
         booking = await self._booking(booking_id)
         self._assert_can_act_as(booking.staff_id)
         slot = await self._slot(booking.slot_id)
+        moving = self._moves(data, slot)
 
         # A terminal booking is frozen — only an idempotent re-set of the same status is allowed.
         if booking.status in _TERMINAL and (
-            data.starts_at is not None
-            or (data.status is not None and data.status != booking.status)
+            moving or (data.status is not None and data.status != booking.status)
         ):
             raise Conflict(f"a {booking.status} booking can't be modified")
+        target = await self._target(data, slot) if moving else None
 
         async def run(cmd: Command) -> BookingOut:
-            if data.starts_at is not None:
-                duration = slot.ends_at - slot.starts_at
-                new_ends = data.starts_at + duration
-                if not await is_within_hours(
-                    self.db, slot.staff_id, self.biz, data.starts_at, new_ends
-                ):
-                    raise Conflict(_OUTSIDE_HOURS)
+            if target is not None:
+                staff_id, starts_at, ends_at, resource_id = target
+                await _lock_staff(self.db, self.biz, staff_id)
                 item = await self._item(slot.item_id, require_active=False)
-                await assert_free(
-                    self.db, self.biz, item, slot.staff_id, data.starts_at, new_ends, slot.id
+                problem = await slot_problem(
+                    self.db,
+                    self.biz,
+                    item,
+                    staff_id,
+                    starts_at,
+                    ends_at,
+                    exclude=slot.id,
+                    resource_id=resource_id,
                 )
-                slot.starts_at = data.starts_at
-                slot.ends_at = new_ends
+                if problem is not None:
+                    raise Conflict(problem.message or _OVERLAP)
+                slot.starts_at, slot.ends_at = starts_at, ends_at
+                slot.staff_id, slot.resource_id = staff_id, resource_id
+                if booking.staff_id != staff_id:
+                    booking.staff_id = staff_id
+                    await self.db.execute(
+                        scoped_update(Addon, self.biz)
+                        .where(Addon.booking_id == booking.id)
+                        .values(staff_id=staff_id)
+                    )
                 try:
                     await self.db.flush()
                 except IntegrityError as exc:
@@ -428,6 +530,82 @@ class BookingService:
             run=run,
             response_model=BookingOut,
         )
+
+    async def check(self, booking_id: str, data: BookingMove) -> BookingCheck:
+        """What the server would say to this move or resize, without making it."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        slot = await self._slot(booking.slot_id)
+        if booking.status in _TERMINAL:
+            raise Conflict(f"a {booking.status} booking can't be modified")
+        if not self._moves(data, slot):
+            return BookingCheck(ok=True)
+        try:
+            staff_id, starts_at, ends_at, resource_id = await self._target(data, slot)
+        except Conflict as exc:
+            return _verdict("class" if exc.message == _CLASS_MOVE else "past", exc.message)
+        item = await self._item(slot.item_id, require_active=False)
+        problem = await slot_problem(
+            self.db,
+            self.biz,
+            item,
+            staff_id,
+            starts_at,
+            ends_at,
+            exclude=slot.id,
+            resource_id=resource_id,
+        )
+        return problem or BookingCheck(ok=True)
+
+    async def probe(self, data: BookingProbe) -> BookingCheck:
+        """Whether a new visit fits here; the same checks a booking create runs."""
+        self._assert_can_act_as(data.staff_id)
+        item = await self._item(data.item_id)
+        await self._staff(data.staff_id)
+        if data.starts_at < datetime.now(UTC):
+            return _verdict("past", _PAST)
+        ends_at = data.starts_at + timedelta(minutes=item.duration_min or 0)
+        problem = await slot_problem(
+            self.db,
+            self.biz,
+            item,
+            data.staff_id,
+            data.starts_at,
+            ends_at,
+            resource_id=data.resource_id,
+        )
+        return problem or BookingCheck(ok=True)
+
+    def _moves(self, data: BookingMove, slot: Slot) -> bool:
+        return (
+            data.starts_at is not None
+            or data.ends_at is not None
+            or (data.staff_id is not None and data.staff_id != slot.staff_id)
+            or ("resource_id" in data.model_fields_set and data.resource_id != slot.resource_id)
+        )
+
+    async def _target(
+        self, data: BookingMove, slot: Slot
+    ) -> tuple[str, datetime, datetime, str | None]:
+        """The member, window and room a move lands on, validated before any check runs."""
+        staff_id = data.staff_id or slot.staff_id
+        if staff_id != slot.staff_id:
+            self._assert_can_act_as(staff_id)
+            await self._staff(staff_id)
+            if slot.capacity > 1:
+                raise Conflict(_CLASS_MOVE)
+        starts_at = data.starts_at or slot.starts_at
+        ends_at = data.ends_at or starts_at + (slot.ends_at - slot.starts_at)
+        if ends_at - starts_at < _MIN_VISIT:
+            raise Unprocessable("a visit must end at least five minutes after it starts")
+        if starts_at != slot.starts_at and starts_at < datetime.now(UTC):
+            raise Conflict(_PAST)
+        resource_id = (
+            data.resource_id if "resource_id" in data.model_fields_set else slot.resource_id
+        )
+        if resource_id is not None and resource_id != slot.resource_id:
+            await load_resource(self.db, self.biz, resource_id)
+        return staff_id, starts_at, ends_at, resource_id
 
     async def check_in(self, booking_id: str) -> BookingOut:
         """Record that the client has arrived; checking in again keeps the first arrival time."""
@@ -629,6 +807,8 @@ async def open_slots(
     if not windows:
         return []
     tz = await business_tz(db, business_id)
+    day = datetime.combine(on_date, time.min, tzinfo=tz).astimezone(UTC)
+    away = await exceptions_between(db, business_id, staff_id, day, day + timedelta(days=1))
     step = duration + item.buffer_before_min + item.buffer_after_min
     slots: list[datetime] = []
     for window_start, window_end in windows:
@@ -637,10 +817,48 @@ async def open_slots(
         limit = datetime.combine(on_date, window_end, tzinfo=tz).astimezone(UTC)
         while start + timedelta(minutes=duration) <= limit:
             end = start + timedelta(minutes=duration)
-            if not await conflicting_slot(db, business_id, item, staff_id, start, end):
+            blocked = any(a.starts_at < end and a.ends_at > start for a in away)
+            if not blocked and not await conflicting_slot(
+                db, business_id, item, staff_id, start, end
+            ):
                 slots.append(start)
             start += timedelta(minutes=step)
     return slots
+
+
+class _Window:
+    def __init__(self, starts_at: datetime, ends_at: datetime, reason: str | None) -> None:
+        self.starts_at = starts_at
+        self.ends_at = ends_at
+        self.reason = reason
+
+
+async def exceptions_between(
+    db: AsyncSession, business_id: str, staff_id: str | None, start: datetime, end: datetime
+) -> list[_Window]:
+    """Closures, plus this member's time off when one is named, overlapping the range."""
+    who: ColumnElement[bool] = Hours.staff_id.is_(None)
+    if staff_id is not None:
+        who = or_(who, Hours.staff_id == staff_id)
+    rows = (
+        (
+            await db.execute(
+                scoped(Hours, business_id).where(
+                    Hours.basis == "exception",
+                    who,
+                    Hours.starts_at < end,
+                    Hours.ends_at > start,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        _Window(r.starts_at, r.ends_at, r.reason)
+        for r in rows
+        if r.starts_at is not None and r.ends_at is not None
+    ]
 
 
 _WEEKDAY_CODES = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
@@ -836,6 +1054,113 @@ async def is_within_hours(
     if end_local.date() != start_local.date():
         return False
     return any(ws <= start_local.time() and end_local.time() <= we for ws, we in windows)
+
+
+_MAX_AWAY = timedelta(days=366)
+
+
+class TimeOffService:
+    """Time off for one member, or a closure for the whole business, as hours exceptions."""
+
+    def __init__(self, db: AsyncSession, principal: Principal) -> None:
+        self.db = db
+        self.principal = principal
+        self.biz = principal.business_id
+
+    async def create(self, data: TimeOffCreate, idempotency_key: str | None) -> TimeOffOut:
+        await self._assert_may_edit(data.staff_id)
+        if data.ends_at <= data.starts_at:
+            raise Unprocessable("time off must end after it starts")
+        if data.ends_at - data.starts_at > _MAX_AWAY:
+            raise Unprocessable("time off can't run longer than a year; add it in parts")
+
+        async def run(cmd: Command) -> TimeOffOut:
+            row = Hours(
+                id=new_id("hours"),
+                business_id=self.biz,
+                staff_id=data.staff_id,
+                basis="exception",
+                starts_at=data.starts_at,
+                ends_at=data.ends_at,
+                reason=data.reason.strip(),
+                available=False,
+            )
+            self.db.add(row)
+            await self.db.flush()
+            action = "closure.create" if data.staff_id is None else "time_off.create"
+            cmd.record(action, entity_type="hours", entity_id=row.id)
+            return await self._out(row)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="time_off.create",
+            run=run,
+            response_model=TimeOffOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def delete(self, hours_id: str) -> TimeOffOut:
+        row = (
+            await self.db.execute(
+                scoped(Hours, self.biz).where(Hours.id == hours_id, Hours.basis == "exception")
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("time off not found")
+        await self._assert_may_edit(row.staff_id)
+
+        async def run(cmd: Command) -> TimeOffOut:
+            out = await self._out(row)
+            await self.db.delete(row)
+            await self.db.flush()
+            cmd.record("time_off.delete", entity_type="hours", entity_id=row.id)
+            return out
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="time_off.delete",
+            run=run,
+            response_model=TimeOffOut,
+        )
+
+    async def _assert_may_edit(self, staff_id: str | None) -> None:
+        if staff_id is None:
+            assert_role(
+                self.principal,
+                "owner",
+                "admin",
+                message="only an owner or admin can close the business",
+            )
+            return
+        assert_can_act_as(self.principal, staff_id)
+        await load_staff(self.db, self.biz, staff_id)
+
+    async def _out(self, row: Hours) -> TimeOffOut:
+        assert row.starts_at is not None and row.ends_at is not None
+        q = (
+            scoped(Booking, self.biz, soft_delete=True)
+            .join(Slot, Slot.id == Booking.slot_id)
+            .where(
+                Booking.status.in_(("pending", "confirmed")),
+                Slot.starts_at < row.ends_at,
+                Slot.ends_at > row.starts_at,
+            )
+            .order_by(Slot.starts_at)
+        )
+        if row.staff_id is not None:
+            q = q.where(Booking.staff_id == row.staff_id)
+        affected = (await self.db.execute(q.with_only_columns(Booking.id))).scalars().all()
+        return TimeOffOut(
+            id=row.id,
+            business_id=row.business_id,
+            staff_id=row.staff_id,
+            starts_at=row.starts_at,
+            ends_at=row.ends_at,
+            reason=row.reason or "",
+            affected=list(affected),
+        )
 
 
 _UNPAID_TTL = timedelta(minutes=30)

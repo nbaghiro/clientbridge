@@ -217,7 +217,9 @@ by line and reason; `items.stock_on_hand` is the running total).
 = capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` *(soft-del)* (client↔slot via `slot_id`; denormalized
 `staff_id`; status pending→confirmed→completed/canceled/no_show; `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
-`hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`), `resources`
+`hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
+exception is time off for one member, or a closure for everyone when `staff_id` is null, with
+`starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `resources`
 (`category` room/equipment), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
 items use → expands to slots/bookings), `addons` (products a client added to a visit when booking; they join
 the visit's invoice).
@@ -324,7 +326,8 @@ unauthenticated call mints a token for `dev_user_id` (HS256); prod requires a va
 ### The write path — `WRITE_POLICY` (`sync/upload.py`)
 The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → (min_tier,
 own_only)**. Only the tables the apps actually write offline are sync-writable:
-- **team-writable** (any active staff, own rows only): `hours`.
+- **team-writable** (any active staff, own rows only): `hours`, except exception rows (time off and
+  closures), which only their command writes (`COMMAND_ONLY_ROWS`).
 - **admin-writable** (owner/admin): `forms` · `fields` · `contracts`.
 - **not sync-writable**: everything else. Clients, pets, notes, catalog items and resources go through
   their `/v1` commands so the service validation applies; money, capacity, secrets and uniqueness
@@ -387,8 +390,10 @@ Four buckets implement the read model (owner-sees-workers'-activity is carried b
 - **`business_full`** (owner/admin only) — **all** members' work + all financials (including the whole
   ledger) + reviews.
 
-Tables no app reads yet (subjects, notes, resources, responses, signatures, broadcasts, recurrences)
-are not synced; each comes back with its story.
+`business_shared` also carries pets (`subjects`), `notes`, `resources` and closures (hours rows with no
+`staff_id`), so every member's calendar can name the pet, the room and the day the business is shut;
+`recurrences` follow their member like slots do. Tables no app reads yet (responses, signatures,
+broadcasts) are not synced; each comes back with its story.
 
 Device read scope: staff = `business_shared` + `staff_limited` + `staff_self` · owner/admin =
 `business_shared` + `staff_self` + `business_full`. Writes

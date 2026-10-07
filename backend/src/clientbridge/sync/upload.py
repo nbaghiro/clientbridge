@@ -37,6 +37,9 @@ WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "contracts": ("admin", False),
 }
 
+# Rows inside a sync-writable table that only their command may write (column, value).
+COMMAND_ONLY_ROWS: dict[str, tuple[str, str]] = {"hours": ("basis", "exception")}
+
 # Timestamps the server owns; never settable by a client write.
 SYSTEM_FIELDS = frozenset({"created_at", "updated_at"})
 
@@ -106,6 +109,15 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
                 raise Forbidden("row not found")
             row_business = existing["business_id"]
             row_staff = existing["staff_id"] if has_staff else None
+
+        guard = COMMAND_ONLY_ROWS.get(op.type)
+        if guard is not None:
+            column, value = guard
+            current = (
+                await db.execute(select(table.columns[column]).where(table.columns["id"] == op.id))
+            ).scalar_one_or_none()
+            if value in (current, data.get(column)):
+                raise Forbidden(f"{op.type} rows with {column} '{value}' are written by command")
 
         new_business = data.get("business_id")
         if isinstance(new_business, str) and new_business != row_business:

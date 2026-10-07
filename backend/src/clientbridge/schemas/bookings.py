@@ -11,11 +11,55 @@ class BookingCreate(BaseModel):
     starts_at: datetime
     resource_id: str | None = None
     subject_id: str | None = None
+    note: str | None = Field(default=None, max_length=2000, description="Kept as a booking note")
+    notify: bool = Field(default=True, description="Send the client a confirmation")
 
 
-class BookingPatch(BaseModel):
+class BookingMove(BaseModel):
     starts_at: datetime | None = None
+    ends_at: datetime | None = Field(default=None, description="A new end resizes the visit")
+    staff_id: str | None = Field(default=None, description="Moves the visit to another member")
+    resource_id: str | None = Field(default=None, description="Room or station; set to change it")
+
+
+class BookingPatch(BookingMove):
     status: Literal["confirmed", "completed", "canceled", "no_show"] | None = None
+
+
+class BookingProbe(BaseModel):
+    item_id: str
+    staff_id: str
+    starts_at: datetime
+    resource_id: str | None = None
+
+
+Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "resource", "class"]
+
+
+class BookingCheck(BaseModel):
+    """The server's verdict on a time before it is booked or moved; nothing is written."""
+
+    ok: bool
+    problem: Problem | None = None
+    reason: str | None = Field(default=None, description="The closure or time-off reason")
+    message: str | None = None
+
+
+class TimeOffCreate(BaseModel):
+    staff_id: str | None = Field(default=None, description="Null closes the whole business")
+    starts_at: datetime
+    ends_at: datetime
+    reason: str = Field(min_length=1, max_length=120)
+
+
+class TimeOffOut(BaseModel):
+    id: str
+    business_id: str
+    staff_id: str | None
+    starts_at: datetime
+    ends_at: datetime
+    reason: str
+    affected: list[str] = Field(description="Live bookings inside the window, still to move")
 
 
 class BookingOut(BaseModel):

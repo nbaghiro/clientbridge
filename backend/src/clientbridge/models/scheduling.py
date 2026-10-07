@@ -85,11 +85,18 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
 class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "hours"
     __table_args__ = (
-        enum_check("hours", "basis", "recurring", "date"),
+        enum_check("hours", "basis", "recurring", "date", "exception"),
+        CheckConstraint(
+            "basis != 'exception' OR (starts_at IS NOT NULL AND ends_at > starts_at)",
+            name="ck_hours_exception_window",
+        ),
+        CheckConstraint("basis = 'exception' OR staff_id IS NOT NULL", name="ck_hours_staff"),
         Index("ix_hours_staff", "business_id", "staff_id", "basis"),
+        Index("ix_hours_exception", "business_id", "basis", "starts_at"),
     )
 
-    staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
+    # null only on an exception: a closure of the whole business
+    staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
     basis: Mapped[str] = mapped_column(String, nullable=False)
     weekday: Mapped[int | None] = mapped_column(SmallInteger)  # 0..6 for recurring
     # explicit nullable: the attribute name `date` shadows the type and defeats inference
@@ -98,6 +105,9 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     end_time: Mapped[time | None] = mapped_column(Time)  # null = all-day
     available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     note: Mapped[str | None] = mapped_column(String)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exception only
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str | None] = mapped_column(String)
 
 
 class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
