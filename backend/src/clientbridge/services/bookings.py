@@ -1,4 +1,5 @@
 import calendar
+import secrets
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -31,15 +32,23 @@ from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Resource, Slot
 from clientbridge.schemas.bookings import (
+    AddonOffer,
+    AddonOffersOut,
+    AddonOffersPatch,
     BookingCheck,
     BookingCreate,
     BookingMove,
     BookingOut,
     BookingPatch,
+    BookingPolicy,
     BookingProbe,
     ClassMessage,
     ClassMessageOut,
     DepositOut,
+    OnlineBookingOut,
+    OnlineBookingPatch,
+    OnlineService,
+    OnlineStaff,
     Problem,
     RecurrenceCancel,
     RecurrenceCancelOut,
@@ -48,6 +57,7 @@ from clientbridge.schemas.bookings import (
     RecurrenceCreate,
     RecurrenceOccurrence,
     RecurrenceOut,
+    ReminderPreview,
     RosterAction,
     RosterAdd,
     RosterEntry,
@@ -59,7 +69,7 @@ from clientbridge.services.business import business_tz
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
 from clientbridge.services.messaging import dispatch_message, open_thread
-from clientbridge.services.notifications import Notifier
+from clientbridge.services.notifications import Notifier, reminder_message
 from clientbridge.services.payments import (
     default_method_ref,
     open_booking_deposit,
@@ -332,6 +342,7 @@ async def create_booking_core(
         deposit_amount_cents=deposit_cents(item),
         deposit_status="pending" if deposit > 0 else "none",
         confirmed_at=datetime.now(UTC),
+        manage_token=secrets.token_urlsafe(18),
     )
     db.add(booking)
     await db.flush()
@@ -635,6 +646,20 @@ class BookingService:
             await load_resource(self.db, self.biz, resource_id)
         return staff_id, starts_at, ends_at, resource_id
 
+    async def reminder(self, booking_id: str) -> ReminderPreview:
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        slot = await self._slot(booking.slot_id)
+        message = await reminder_message(self.db, booking)
+        if message is None:
+            raise NotFound("booking not found")
+        return ReminderPreview(
+            subject=message[0],
+            body=message[1],
+            sends_at=slot.starts_at - _REMINDER_WINDOW,
+            sent_at=booking.reminded_at,
+        )
+
     async def check_in(self, booking_id: str) -> BookingOut:
         """Record that the client has arrived; checking in again keeps the first arrival time."""
         booking = await self._booking(booking_id)
@@ -825,7 +850,12 @@ class BookingService:
 
 
 async def open_slots(
-    db: AsyncSession, business_id: str, item: Item, staff_id: str, on_date: date
+    db: AsyncSession,
+    business_id: str,
+    item: Item,
+    staff_id: str,
+    on_date: date,
+    step_min: int | None = None,
 ) -> list[datetime]:
     """Bookable start times for the item and staff on a date, in UTC; none until hours are set."""
     duration = item.duration_min
@@ -837,7 +867,7 @@ async def open_slots(
     tz = await business_tz(db, business_id)
     day = datetime.combine(on_date, time.min, tzinfo=tz).astimezone(UTC)
     away = await exceptions_between(db, business_id, staff_id, day, day + timedelta(days=1))
-    step = duration + item.buffer_before_min + item.buffer_after_min
+    step = step_min or duration + item.buffer_before_min + item.buffer_after_min
     slots: list[datetime] = []
     for window_start, window_end in windows:
         # window times are local wall-clock; anchor them in the business tz, then work in UTC
@@ -1474,6 +1504,176 @@ class ClassService:
             checked_in_at=booking.checked_in_at,
             waitlist_position=position,
         )
+
+
+def policy_of(business: Business) -> BookingPolicy:
+    """The business's booking rules, with a default for anything never set."""
+    return BookingPolicy.model_validate(business.booking_policy or {})
+
+
+_ONLINE_ADMIN = "only an owner or admin can change online booking"
+
+
+class OnlineBookingService:
+    """The owner's online booking page: rules, cancellation policy, what and who is bookable."""
+
+    def __init__(self, db: AsyncSession, principal: Principal) -> None:
+        assert_role(principal, "owner", "admin", message=_ONLINE_ADMIN)
+        self.db = db
+        self.principal = principal
+        self.biz = principal.business_id
+
+    async def get(self) -> OnlineBookingOut:
+        business = await self._business()
+        services = (
+            (
+                await self.db.execute(
+                    scoped(Item, self.biz)
+                    .where(Item.active.is_(True), Item.kind.in_(("service", "class")))
+                    .order_by(Item.name)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        staff = (
+            (
+                await self.db.execute(
+                    scoped(Staff, self.biz)
+                    .where(Staff.status == "active")
+                    .order_by(Staff.created_at)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        since = datetime.now(UTC) - timedelta(days=30)
+        online = (
+            await self.db.execute(
+                scoped(Booking, self.biz, soft_delete=True)
+                .where(Booking.source == "online", Booking.created_at >= since)
+                .with_only_columns(
+                    func.count(Booking.id), func.coalesce(func.sum(Booking.deposit_amount_cents), 0)
+                )
+            )
+        ).one()
+        return OnlineBookingOut(
+            slug=business.slug,
+            business_name=business.name,
+            policy=policy_of(business),
+            services=[
+                OnlineService(
+                    id=i.id,
+                    name=i.name,
+                    kind=i.kind,
+                    duration_min=i.duration_min,
+                    price_cents=i.price_cents,
+                    color=i.color,
+                    deposit_type=i.deposit_type,
+                    deposit_cents=deposit_cents(i) if i.deposit_type != "none" else 0,
+                    online_bookable=i.online_bookable,
+                )
+                for i in services
+            ],
+            staff=[
+                OnlineStaff(
+                    id=s.id,
+                    name=s.name,
+                    title=s.title,
+                    color=s.color,
+                    bookable_online=s.bookable_online,
+                )
+                for s in staff
+            ],
+            online_30d=int(online[0]),
+            deposits_30d_cents=int(online[1]),
+        )
+
+    async def update(self, data: OnlineBookingPatch) -> OnlineBookingOut:
+        business = await self._business()
+
+        async def run(cmd: Command) -> OnlineBookingOut:
+            if data.policy is not None:
+                changes = data.policy.model_dump(exclude_unset=True)
+                if changes.get("step_min") == 0:
+                    changes["step_min"] = None
+                merged = policy_of(business).model_copy(update=changes)
+                business.booking_policy = BookingPolicy.model_validate(
+                    merged.model_dump()
+                ).model_dump()
+            for item_id, bookable in (data.services or {}).items():
+                item = (
+                    await self.db.execute(
+                        scoped(Item, self.biz).where(
+                            Item.id == item_id, Item.kind.in_(("service", "class"))
+                        )
+                    )
+                ).scalar_one_or_none()
+                if item is None:
+                    raise NotFound("service not found")
+                item.online_bookable = bookable
+            for staff_id, shown in (data.staff or {}).items():
+                member = await load_staff(self.db, self.biz, staff_id)
+                member.bookable_online = shown
+            await self.db.flush()
+            cmd.record("online_booking.update", entity_type="business", entity_id=self.biz)
+            return await self.get()
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="online_booking.update",
+            run=run,
+            response_model=OnlineBookingOut,
+        )
+
+    async def set_addons(self, data: AddonOffersPatch) -> AddonOffersOut:
+        services = set(
+            (
+                await self.db.execute(
+                    scoped(Item, self.biz)
+                    .where(Item.kind.in_(("service", "class")))
+                    .with_only_columns(Item.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for offer in data.offers:
+            unknown = set(offer.addon_for) - services
+            if unknown:
+                raise NotFound("service not found")
+
+        async def run(cmd: Command) -> AddonOffersOut:
+            out: list[AddonOffer] = []
+            for offer in data.offers:
+                item = (
+                    await self.db.execute(
+                        scoped(Item, self.biz).where(Item.id == offer.id, Item.kind == "product")
+                    )
+                ).scalar_one_or_none()
+                if item is None:
+                    raise NotFound("product not found")
+                item.addon = offer.addon
+                item.addon_for = sorted(set(offer.addon_for))
+                out.append(AddonOffer(id=item.id, addon=item.addon, addon_for=item.addon_for))
+            await self.db.flush()
+            cmd.record("online_booking.addons", entity_type="business", entity_id=self.biz)
+            return AddonOffersOut(offers=out)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="online_booking.addons",
+            run=run,
+            response_model=AddonOffersOut,
+        )
+
+    async def _business(self) -> Business:
+        business = await self.db.get(Business, self.biz)
+        if business is None:
+            raise NotFound("business not found")
+        return business
 
 
 _MAX_AWAY = timedelta(days=366)

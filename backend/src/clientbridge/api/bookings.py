@@ -11,6 +11,8 @@ from clientbridge.core.deps import (
     SmsDep,
 )
 from clientbridge.schemas.bookings import (
+    AddonOffersOut,
+    AddonOffersPatch,
     BookingCheck,
     BookingCreate,
     BookingMove,
@@ -20,12 +22,15 @@ from clientbridge.schemas.bookings import (
     ClassMessage,
     ClassMessageOut,
     DepositOut,
+    OnlineBookingOut,
+    OnlineBookingPatch,
     RecurrenceCancel,
     RecurrenceCancelOut,
     RecurrenceChange,
     RecurrenceChangeOut,
     RecurrenceCreate,
     RecurrenceOut,
+    ReminderPreview,
     RosterAction,
     RosterAdd,
     RosterEntry,
@@ -35,6 +40,7 @@ from clientbridge.schemas.bookings import (
 from clientbridge.services.bookings import (
     BookingService,
     ClassService,
+    OnlineBookingService,
     RecurrenceService,
     TimeOffService,
 )
@@ -96,6 +102,13 @@ async def check_booking_move(
     gateway: GatewayDep,
 ) -> BookingCheck:
     return await BookingService(db, principal, gateway).check(booking_id, body)
+
+
+@router.get("/{booking_id}/reminder", response_model=ReminderPreview)
+async def booking_reminder(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> ReminderPreview:
+    return await BookingService(db, principal, gateway).reminder(booking_id)
 
 
 @router.post("/{booking_id}/check-in", response_model=BookingOut)
@@ -248,3 +261,25 @@ async def message_class(
     sms: SmsDep,
 ) -> ClassMessageOut:
     return await ClassService(db, principal, gateway).message(slot_id, body, sms, email)
+
+
+online_router = APIRouter(prefix="/online-booking", tags=["online-booking"])
+
+
+@online_router.get("", response_model=OnlineBookingOut)
+async def get_online_booking(principal: CurrentPrincipal, db: DbSession) -> OnlineBookingOut:
+    return await OnlineBookingService(db, principal).get()
+
+
+@online_router.patch("", response_model=OnlineBookingOut)
+async def update_online_booking(
+    body: OnlineBookingPatch, principal: CurrentPrincipal, db: DbSession
+) -> OnlineBookingOut:
+    return await OnlineBookingService(db, principal).update(body)
+
+
+@online_router.patch("/addons", response_model=AddonOffersOut)
+async def update_addon_offers(
+    body: AddonOffersPatch, principal: CurrentPrincipal, db: DbSession
+) -> AddonOffersOut:
+    return await OnlineBookingService(db, principal).set_addons(body)

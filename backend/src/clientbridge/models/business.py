@@ -47,6 +47,10 @@ class Business(PKMixin, TimestampMixin, Base):
     stripe_requirements: Mapped[dict[str, object]] = mapped_column(
         JSONB, default=dict, nullable=False
     )
+    # online booking rules and the cancellation policy; read through schemas.bookings.BookingPolicy
+    booking_policy: Mapped[dict[str, object]] = mapped_column(
+        JSONB, default=dict, server_default="{}", nullable=False
+    )
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
 
 
@@ -94,3 +98,7 @@ class Staff(PKMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
     invite_email: Mapped[str | None] = mapped_column(String)
     invite_token: Mapped[str | None] = mapped_column(String)
+    # hidden from the public booking page when off; the schedule is unchanged
+    bookable_online: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )

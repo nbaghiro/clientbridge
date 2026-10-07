@@ -1,5 +1,6 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -24,12 +25,17 @@ class PublicService(BaseModel):
     deposit_required: bool
     deposit_amount_cents: int
     image_url: str | None = None
+    kind: str = "service"
+    category: str | None = None
+    color: str | None = None
+    staff_ids: list[str] = Field(default_factory=list, description="Who can be booked for it")
 
 
 class PublicStaff(BaseModel):
     id: str
     name: str | None
     title: str | None
+    color: str | None = None
 
 
 class PublicAddon(BaseModel):
@@ -38,11 +44,24 @@ class PublicAddon(BaseModel):
     price_cents: int
     currency: str
     image_url: str | None = None
+    description: str | None = None
+    in_stock: bool = True
+    addon_for: list[str] = Field(
+        default_factory=list, description="Services it is offered with; empty means all"
+    )
 
 
 class PublicAddonIn(BaseModel):
     item_id: str
     quantity: int = Field(default=1, ge=1, le=10)
+
+
+class PublicPolicy(BaseModel):
+    self_service: bool
+    cancel_cutoff_hours: int
+    reschedule_cutoff_hours: int
+    late_cancel_deposit: str
+    max_reschedules: int
 
 
 class PublicBookingPage(BaseModel):
@@ -56,15 +75,71 @@ class PublicBookingPage(BaseModel):
     stripe_account_id: str | None = Field(
         default=None, description="Connected account for Stripe Elements, once onboarded"
     )
+    slug: str = ""
+    now: datetime | None = Field(default=None, description="The business's clock, in its zone")
+    policy: PublicPolicy | None = None
+    rating: float | None = Field(default=None, description="Average of published reviews")
+    review_count: int = 0
 
 
 class PublicSlot(BaseModel):
     starts_at: datetime
     ends_at: datetime
+    staff_id: str | None = Field(default=None, description="Who the time is with")
 
 
 class PublicSlots(BaseModel):
     slots: list[PublicSlot]
+
+
+class PublicDay(BaseModel):
+    date: date
+    count: int = Field(description="Open start times that day")
+    closed: bool = Field(description="The business is closed all day")
+    reason: str | None = None
+
+
+class PublicDays(BaseModel):
+    days: list[PublicDay]
+
+
+class ManagedAddon(BaseModel):
+    name: str
+    quantity: int
+    unit_cents: int
+
+
+class ManagedBooking(BaseModel):
+    """A client's own booking, as their manage link shows it."""
+
+    business_name: str
+    brand: PublicBrand
+    slug: str
+    client_name: str
+    pet_name: str | None
+    service: PublicService
+    staff: PublicStaff
+    starts_at: datetime
+    ends_at: datetime
+    status: str
+    deposit_cents: int
+    deposit_status: str
+    addons: list[ManagedAddon]
+    reschedules_used: int
+    policy: PublicPolicy
+    now: datetime
+    can_move: bool
+    can_cancel: bool
+    blocked: str | None = Field(default=None, description="Why a change is refused online")
+
+
+class ManageReschedule(BaseModel):
+    starts_at: datetime
+
+
+class ManageCancelResult(BaseModel):
+    deposit: Literal["refunded", "kept", "none"]
+    refund_cents: int
 
 
 class PublicBookingClient(BaseModel):
@@ -85,10 +160,15 @@ class PublicBookingCreate(BaseModel):
     starts_at: datetime
     client: PublicBookingClient
     addons: list[PublicAddonIn] = Field(default_factory=list, max_length=10)
+    pet_name: str | None = Field(default=None, max_length=60)
+    note: str | None = Field(default=None, max_length=1000)
 
 
 class PublicBookingResult(BaseModel):
     booking_id: str
+    status: str = "confirmed"
+    manage_token: str | None = None
+    deposit_cents: int = 0
     deposit_client_secret: str | None = None
     stripe_account_id: str | None = Field(
         default=None, description="Connected account for the deposit charge, once onboarded"
@@ -104,6 +184,8 @@ class PublicShopItem(BaseModel):
     currency: str
     image_url: str | None = None
     in_stock: bool = True
+    category: str | None = None
+    stock_left: int | None = Field(default=None, description="Null when stock isn't tracked")
 
 
 class PublicShop(BaseModel):

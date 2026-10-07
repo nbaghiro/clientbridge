@@ -45,6 +45,15 @@ class BookingCheck(BaseModel):
     message: str | None = None
 
 
+class ReminderPreview(BaseModel):
+    """The reminder a visit gets, word for word, and when the job sends it."""
+
+    subject: str
+    body: str
+    sends_at: datetime = Field(description="24 hours before the visit")
+    sent_at: datetime | None
+
+
 class TimeOffCreate(BaseModel):
     staff_id: str | None = Field(default=None, description="Null closes the whole business")
     starts_at: datetime
@@ -204,3 +213,85 @@ class ClassMessage(BaseModel):
 
 class ClassMessageOut(BaseModel):
     sent: int = Field(description="Clients the message went to")
+
+
+class BookingPolicy(BaseModel):
+    """The online booking rules and the cancellation policy clients' manage links follow."""
+
+    lead_hours: int = Field(default=0, ge=0, le=168, description="Earliest a visit can be booked")
+    horizon_days: int = Field(default=365, ge=1, le=365, description="Furthest ahead")
+    step_min: Literal[15, 30, 60] | None = Field(
+        default=None, description="Start times every N minutes; none follows the service length"
+    )
+    approve_new_clients: bool = Field(
+        default=False, description="A first booking waits as pending until staff confirm it"
+    )
+    self_service: bool = Field(default=True, description="Clients may move or cancel online")
+    cancel_cutoff_hours: int = Field(default=24, ge=0, le=168)
+    reschedule_cutoff_hours: int = Field(default=24, ge=0, le=168)
+    late_cancel_deposit: Literal["keep", "refund"] = "keep"
+    max_reschedules: int = Field(default=2, ge=1, le=99)
+
+
+class BookingPolicyPatch(BaseModel):
+    lead_hours: int | None = Field(default=None, ge=0, le=168)
+    horizon_days: int | None = Field(default=None, ge=1, le=365)
+    step_min: Literal[15, 30, 60, 0] | None = Field(
+        default=None, description="0 follows the service length again"
+    )
+    approve_new_clients: bool | None = None
+    self_service: bool | None = None
+    cancel_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
+    reschedule_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
+    late_cancel_deposit: Literal["keep", "refund"] | None = None
+    max_reschedules: int | None = Field(default=None, ge=1, le=99)
+
+
+class OnlineService(BaseModel):
+    id: str
+    name: str
+    kind: str
+    duration_min: int | None
+    price_cents: int
+    color: str | None
+    deposit_type: str
+    deposit_cents: int
+    online_bookable: bool
+
+
+class OnlineStaff(BaseModel):
+    id: str
+    name: str | None
+    title: str | None
+    color: str | None
+    bookable_online: bool
+
+
+class OnlineBookingOut(BaseModel):
+    slug: str
+    business_name: str
+    policy: BookingPolicy
+    services: list[OnlineService]
+    staff: list[OnlineStaff]
+    online_30d: int = Field(description="Bookings made online in the last 30 days")
+    deposits_30d_cents: int = Field(description="Deposits on those bookings")
+
+
+class OnlineBookingPatch(BaseModel):
+    policy: BookingPolicyPatch | None = None
+    services: dict[str, bool] | None = Field(default=None, description="Service id: bookable")
+    staff: dict[str, bool] | None = Field(default=None, description="Member id: shown online")
+
+
+class AddonOffer(BaseModel):
+    id: str
+    addon: bool
+    addon_for: list[str] = Field(default_factory=list, max_length=100)
+
+
+class AddonOffersPatch(BaseModel):
+    offers: list[AddonOffer] = Field(min_length=1, max_length=200)
+
+
+class AddonOffersOut(BaseModel):
+    offers: list[AddonOffer]

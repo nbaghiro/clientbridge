@@ -1,6 +1,7 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import ColumnElement, select
+from sqlalchemy import ColumnElement, and_, func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
@@ -11,26 +12,34 @@ from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Invoice, Order
-from clientbridge.models.business import Business, Staff, User
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
-from clientbridge.models.clients import Client
+from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.platform import File, IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
-from clientbridge.models.scheduling import Addon, Booking
+from clientbridge.models.scheduling import Addon, Booking, Slot
 from clientbridge.schemas.billing import LineInput
+from clientbridge.schemas.bookings import BookingPolicy
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormField, PublicFormSubmit
 from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
 from clientbridge.schemas.public import (
     HEX_COLOR,
+    ManageCancelResult,
+    ManagedAddon,
+    ManagedBooking,
+    ManageReschedule,
     PublicAddon,
     PublicBookingClient,
     PublicBookingCreate,
     PublicBookingPage,
     PublicBookingResult,
     PublicBrand,
+    PublicDay,
+    PublicDays,
+    PublicPolicy,
     PublicService,
     PublicShop,
     PublicShopItem,
@@ -43,7 +52,15 @@ from clientbridge.schemas.public import (
 )
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services import ledger
-from clientbridge.services.bookings import create_booking_core, open_slots
+from clientbridge.services.bookings import (
+    create_booking_core,
+    exceptions_between,
+    open_slots,
+    policy_of,
+    release_slot,
+    slot_problem,
+)
+from clientbridge.services.business import business_tz
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.files import item_images, media_url, mint_upload
@@ -54,6 +71,7 @@ from clientbridge.services.payments import (
     open_card_payment,
     open_interac_payment,
     open_order_card_payment,
+    refund_deposit,
 )
 from clientbridge.services.tax import tax_for_lines
 
@@ -63,7 +81,9 @@ def _account(business: Business) -> str | None:
     return business.stripe_account_id if business.stripe_charges_enabled else None
 
 
-def _service_out(item: Item, image_url: str | None) -> PublicService:
+def _service_out(
+    item: Item, image_url: str | None, staff_ids: list[str] | None = None
+) -> PublicService:
     return PublicService(
         id=item.id,
         name=item.name,
@@ -74,7 +94,26 @@ def _service_out(item: Item, image_url: str | None) -> PublicService:
         deposit_required=item.deposit_type != "none",
         deposit_amount_cents=deposit_cents(item),
         image_url=image_url,
+        kind=item.kind,
+        category=item.category,
+        color=item.color,
+        staff_ids=staff_ids or [],
     )
+
+
+def _policy_out(policy: BookingPolicy) -> PublicPolicy:
+    return PublicPolicy(
+        self_service=policy.self_service,
+        cancel_cutoff_hours=policy.cancel_cutoff_hours,
+        reschedule_cutoff_hours=policy.reschedule_cutoff_hours,
+        late_cancel_deposit=policy.late_cancel_deposit,
+        max_reschedules=policy.max_reschedules,
+    )
+
+
+_ANY = "any"
+_BOOK_SCOPE = "book.create"
+_MAX_DAYS = 14
 
 
 class PublicBookingService:
@@ -101,85 +140,169 @@ class PublicBookingService:
             .scalars()
             .all()
         )
-        staff_rows = (
-            await self.db.execute(
-                scoped(Staff, business.id)
-                .add_columns(User.name)
-                .join(User, User.id == Staff.user_id, isouter=True)
-                .where(Staff.status == "active")
-                .order_by(Staff.id)
-            )
-        ).all()
+        staff = await self._online_staff(business.id)
         images = await item_images(self.db, business.id, [i.id for i in items])
-        addons = [
-            PublicAddon(
-                id=p.id,
-                name=p.name,
-                price_cents=p.price_cents,
-                currency=p.currency,
-                image_url=p.image_url,
-            )
-            for p in await shop_items(self.db, business.id)
-        ]
+        addons = await addon_items(self.db, business.id)
+        rating, reviews = await published_rating(self.db, business.id)
+        tz = await business_tz(self.db, business.id)
+        ids = [s.id for s in staff]
         return PublicBookingPage(
             business_name=business.name,
             brand=public_brand(business),
-            services=[_service_out(i, images.get(i.id)) for i in items],
-            staff=[PublicStaff(id=r[0].id, name=r[1], title=r[0].title) for r in staff_rows],
+            services=[_service_out(i, images.get(i.id), ids) for i in items],
+            staff=[PublicStaff(id=s.id, name=s.name, title=s.title, color=s.color) for s in staff],
             addons=addons,
             stripe_account_id=_account(business),
+            slug=business.slug,
+            now=datetime.now(tz),
+            policy=_policy_out(policy_of(business)),
+            rating=rating,
+            review_count=reviews,
         )
 
     async def slots(self, slug: str, item_id: str, staff_id: str, on_date: date) -> PublicSlots:
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
-        await self._active_staff(business.id, staff_id)
-        starts = await open_slots(self.db, business.id, item, staff_id, on_date)
-        delta = timedelta(minutes=item.duration_min or 0)
-        return PublicSlots(slots=[PublicSlot(starts_at=s, ends_at=s + delta) for s in starts])
+        staff = await self._who(business.id, staff_id)
+        return PublicSlots(slots=await self._open(business, item, staff, on_date))
 
-    async def book(self, slug: str, data: PublicBookingCreate) -> PublicBookingResult:
+    async def days(
+        self, slug: str, item_id: str, staff_id: str, start: date, count: int
+    ) -> PublicDays:
+        """How many open times each day has, so the date strip can grey out full days."""
         business = await self._business(slug)
+        item = await self._bookable_item(business.id, item_id)
+        staff = await self._who(business.id, staff_id)
+        return PublicDays(days=await open_days(self.db, business, item, staff, start, count))
+
+    async def book(
+        self, slug: str, data: PublicBookingCreate, idempotency_key: str | None = None
+    ) -> PublicBookingResult:
+        business = await self._business(slug)
+        if idempotency_key is not None:
+            prior = await _replay(self.db, business.id, _BOOK_SCOPE, idempotency_key)
+            if prior is not None:
+                return PublicBookingResult.model_validate(prior)
         item = await self._bookable_item(business.id, data.item_id)
         if item.duration_min is None or item.duration_min <= 0:
             raise Unprocessable("that service has no duration and can't be booked")
-        await self._active_staff(business.id, data.staff_id)
-        addons = await online_items(
+        policy = policy_of(business)
+        _assert_bookable_window(policy, data.starts_at)
+        staff_id = await self._staff_for(business, item, data.staff_id, data.starts_at)
+        addons = await offered_addons(
             self.db,
             business.id,
+            item.id,
             [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
         )
         client = await self._find_or_create_client(business.id, data.client)
+        first_visit = not await _has_booked(self.db, business.id, client.id)
+        subject_id = await _pet(self.db, business.id, client.id, data.pet_name)
         booking, _ = await create_booking_core(
             self.db,
             business.id,
             item=item,
-            staff_id=data.staff_id,
+            staff_id=staff_id,
             starts_at=data.starts_at,
             client_id=client.id,
             source="online",
+            subject_id=subject_id,
             dedupe_client=True,
         )
-        for item, qty in addons:
+        if policy.approve_new_clients and first_visit:
+            booking.status = "pending"
+            booking.confirmed_at = None
+        if data.note is not None and data.note.strip() != "":
+            self.db.add(
+                Note(
+                    id=new_id("note"),
+                    business_id=business.id,
+                    parent_type="booking",
+                    parent_id=booking.id,
+                    body=data.note.strip(),
+                )
+            )
+        for product, qty in addons:
             self.db.add(
                 Addon(
                     id=new_id("addon"),
                     business_id=business.id,
                     booking_id=booking.id,
                     staff_id=booking.staff_id,
-                    item_id=item.id,
-                    description=item.name,
+                    item_id=product.id,
+                    description=product.name,
                     quantity=qty,
-                    unit_amount_cents=item.price_cents,
+                    unit_amount_cents=product.price_cents,
                 )
             )
         secret = await self._open_deposit(business, booking, client)
-        await self.db.commit()
-        return PublicBookingResult(
+        result = PublicBookingResult(
             booking_id=booking.id,
             deposit_client_secret=secret,
             stripe_account_id=_account(business),
+            status=booking.status,
+            manage_token=booking.manage_token,
+            deposit_cents=booking.deposit_amount_cents,
         )
+        if idempotency_key is not None:
+            _remember(
+                self.db, business.id, _BOOK_SCOPE, idempotency_key, result.model_dump(mode="json")
+            )
+        await self.db.commit()
+        return result
+
+    async def _open(
+        self, business: Business, item: Item, staff: list[Staff], on_date: date
+    ) -> list[PublicSlot]:
+        policy = policy_of(business)
+        now = datetime.now(UTC)
+        earliest = now + timedelta(hours=policy.lead_hours)
+        latest = now + timedelta(days=policy.horizon_days)
+        delta = timedelta(minutes=item.duration_min or 0)
+        seen: dict[datetime, str] = {}
+        for member in staff:
+            for start in await open_slots(
+                self.db, business.id, item, member.id, on_date, policy.step_min
+            ):
+                if earliest <= start <= latest and start not in seen:
+                    seen[start] = member.id
+        return [
+            PublicSlot(starts_at=start, ends_at=start + delta, staff_id=seen[start])
+            for start in sorted(seen)
+        ]
+
+    async def _staff_for(
+        self, business: Business, item: Item, staff_id: str, starts_at: datetime
+    ) -> str:
+        """The member a time is booked with; "any" takes the first one free then."""
+        staff = await self._who(business.id, staff_id)
+        if staff_id != _ANY:
+            return staff[0].id
+        ends_at = starts_at + timedelta(minutes=item.duration_min or 0)
+        for member in staff:
+            if (
+                await slot_problem(self.db, business.id, item, member.id, starts_at, ends_at)
+                is None
+            ):
+                return member.id
+        raise Conflict("that time was just taken; pick another")
+
+    async def _who(self, business_id: str, staff_id: str) -> list[Staff]:
+        staff = await self._online_staff(business_id)
+        if staff_id == _ANY:
+            return staff
+        chosen = [s for s in staff if s.id == staff_id]
+        if not chosen:
+            raise NotFound("staff not found")
+        return chosen
+
+    async def _online_staff(self, business_id: str) -> list[Staff]:
+        rows = await self.db.execute(
+            scoped(Staff, business_id)
+            .where(Staff.status == "active", Staff.bookable_online.is_(True))
+            .order_by(Staff.created_at, Staff.id)
+        )
+        return list(rows.scalars().all())
 
     async def _open_deposit(
         self, business: Business, booking: Booking, client: Client
@@ -231,15 +354,324 @@ class PublicBookingService:
             raise Conflict("that service isn't available for online booking")
         return item
 
-    async def _active_staff(self, business_id: str, staff_id: str) -> Staff:
-        staff = (
-            await self.db.execute(
-                scoped(Staff, business_id).where(Staff.id == staff_id, Staff.status == "active")
+
+def _assert_bookable_window(policy: BookingPolicy, starts_at: datetime) -> None:
+    now = datetime.now(UTC)
+    if starts_at < now + timedelta(hours=policy.lead_hours):
+        raise Conflict("that time is too soon to book online")
+    if starts_at > now + timedelta(days=policy.horizon_days):
+        raise Conflict("that time is too far ahead to book online")
+
+
+async def open_days(
+    db: AsyncSession,
+    business: Business,
+    item: Item,
+    staff: list[Staff],
+    start: date,
+    count: int,
+) -> list[PublicDay]:
+    """Open start times per day for one service, across the given members."""
+    policy = policy_of(business)
+    tz = await business_tz(db, business.id)
+    now = datetime.now(UTC)
+    earliest = now + timedelta(hours=policy.lead_hours)
+    latest = now + timedelta(days=policy.horizon_days)
+    out: list[PublicDay] = []
+    for offset in range(min(max(count, 1), _MAX_DAYS)):
+        day = start + timedelta(days=offset)
+        opens = datetime.combine(day, time.min, tzinfo=tz).astimezone(UTC)
+        closes = opens + timedelta(days=1)
+        closure = next(
+            (
+                w
+                for w in await exceptions_between(db, business.id, None, opens, closes)
+                if w.starts_at <= opens and w.ends_at >= closes
+            ),
+            None,
+        )
+        starts: set[datetime] = set()
+        if closure is None and closes > earliest and opens <= latest:
+            for member in staff:
+                for s in await open_slots(db, business.id, item, member.id, day, policy.step_min):
+                    if earliest <= s <= latest:
+                        starts.add(s)
+        out.append(
+            PublicDay(
+                date=day,
+                count=len(starts),
+                closed=closure is not None,
+                reason=closure.reason if closure is not None else None,
             )
-        ).scalar_one_or_none()
-        if staff is None:
-            raise NotFound("staff not found")
-        return staff
+        )
+    return out
+
+
+async def published_rating(db: AsyncSession, business_id: str) -> tuple[float | None, int]:
+    row = (
+        await db.execute(
+            scoped(Review, business_id)
+            .where(Review.status == "published")
+            .with_only_columns(func.avg(Review.rating), func.count(Review.id))
+        )
+    ).one()
+    count = int(row[1])
+    return (round(float(row[0]), 1) if count > 0 and row[0] is not None else None), count
+
+
+async def _has_booked(db: AsyncSession, business_id: str, client_id: str) -> bool:
+    found = await db.execute(
+        scoped(Booking, business_id).where(Booking.client_id == client_id).limit(1)
+    )
+    return found.first() is not None
+
+
+async def _pet(db: AsyncSession, business_id: str, client_id: str, name: str | None) -> str | None:
+    """The client's pet of that name, added to their file the first time it is booked."""
+    if name is None or name.strip() == "":
+        return None
+    clean = name.strip()
+    found = (
+        (
+            await db.execute(
+                scoped(Subject, business_id).where(
+                    Subject.client_id == client_id, func.lower(Subject.name) == clean.lower()
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if found is not None:
+        return found.id
+    pet = Subject(
+        id=new_id("subject"),
+        business_id=business_id,
+        client_id=client_id,
+        kind="pet",
+        name=clean,
+        attributes={},
+    )
+    db.add(pet)
+    await db.flush()
+    return pet.id
+
+
+async def _replay(
+    db: AsyncSession, business_id: str, scope: str, key: str
+) -> dict[str, object] | None:
+    prior = (
+        await db.execute(
+            scoped(IdempotencyKey, business_id).where(
+                IdempotencyKey.scope == scope, IdempotencyKey.key == key
+            )
+        )
+    ).scalar_one_or_none()
+    return prior.response if prior is not None else None
+
+
+def _remember(
+    db: AsyncSession, business_id: str, scope: str, key: str, response: dict[str, object]
+) -> None:
+    db.add(
+        IdempotencyKey(
+            id=new_id("idempotency_key"),
+            business_id=business_id,
+            scope=scope,
+            key=key,
+            response=response,
+        )
+    )
+
+
+_MANAGE_SCOPE = "manage"
+_GONE = "booking not found"
+
+
+class PublicManageService:
+    """A client's manage link: view, move or cancel one booking within the business's rules."""
+
+    def __init__(self, db: AsyncSession, gateway: PaymentGateway) -> None:
+        self.db = db
+        self.gateway = gateway
+
+    async def booking_id(self, token: str) -> str:
+        booking, _, _ = await self._resolve(token)
+        return booking.id
+
+    async def view(self, token: str) -> ManagedBooking:
+        booking, slot, business = await self._resolve(token)
+        return await self._view(booking, slot, business)
+
+    async def days(self, token: str, start: date, count: int) -> PublicDays:
+        booking, slot, business = await self._resolve(token)
+        item, staff = await self._visit(booking, slot, business)
+        return PublicDays(days=await open_days(self.db, business, item, [staff], start, count))
+
+    async def slots(self, token: str, on_date: date) -> PublicSlots:
+        booking, slot, business = await self._resolve(token)
+        item, staff = await self._visit(booking, slot, business)
+        policy = policy_of(business)
+        now = datetime.now(UTC)
+        delta = slot.ends_at - slot.starts_at
+        starts = await open_slots(self.db, business.id, item, staff.id, on_date, policy.step_min)
+        return PublicSlots(
+            slots=[
+                PublicSlot(starts_at=s, ends_at=s + delta, staff_id=staff.id)
+                for s in starts
+                if s >= now + timedelta(hours=policy.lead_hours) and s != slot.starts_at
+            ]
+        )
+
+    async def reschedule(
+        self, token: str, data: ManageReschedule, idempotency_key: str | None
+    ) -> ManagedBooking:
+        booking, slot, business = await self._resolve(token)
+        key = f"{booking.id}:move:{idempotency_key}" if idempotency_key else None
+        if key is not None and await _replay(self.db, business.id, _MANAGE_SCOPE, key):
+            return await self._view(booking, slot, business)
+        blocked = self._blocked(booking, slot, business, "move")
+        if blocked is not None:
+            raise Conflict(blocked)
+        policy = policy_of(business)
+        _assert_bookable_window(policy, data.starts_at)
+        item, staff = await self._visit(booking, slot, business)
+        ends_at = data.starts_at + (slot.ends_at - slot.starts_at)
+        await self.db.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+            {"key": f"{business.id}:{staff.id}"},
+        )
+        problem = await slot_problem(
+            self.db,
+            business.id,
+            item,
+            staff.id,
+            data.starts_at,
+            ends_at,
+            exclude=slot.id,
+            resource_id=slot.resource_id,
+        )
+        if problem is not None:
+            raise Conflict(problem.message or "that time isn't open")
+        slot.starts_at, slot.ends_at = data.starts_at, ends_at
+        booking.reschedule_count += 1
+        if key is not None:
+            _remember(self.db, business.id, _MANAGE_SCOPE, key, {"booking_id": booking.id})
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            raise Conflict("that time was just taken; pick another") from exc
+        out = await self._view(booking, slot, business)
+        await self.db.commit()
+        return out
+
+    async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
+        booking, slot, business = await self._resolve(token)
+        key = f"{booking.id}:cancel:{idempotency_key}" if idempotency_key else None
+        if key is not None:
+            prior = await _replay(self.db, business.id, _MANAGE_SCOPE, key)
+            if prior is not None:
+                return ManageCancelResult.model_validate(prior)
+        blocked = self._blocked(booking, slot, business, "cancel")
+        if blocked is not None:
+            raise Conflict(blocked)
+        refunded = 0
+        if booking.deposit_status == "collected":
+            refunded = await refund_deposit(self.db, self.gateway, booking)
+        elif booking.deposit_status == "pending":
+            booking.deposit_status = "none"
+        booking.status = "canceled"
+        booking.canceled_at = datetime.now(UTC)
+        await release_slot(self.db, slot)
+        result = ManageCancelResult(
+            deposit="refunded" if refunded > 0 else "none", refund_cents=refunded
+        )
+        if key is not None:
+            _remember(self.db, business.id, _MANAGE_SCOPE, key, result.model_dump(mode="json"))
+        await self.db.commit()
+        return result
+
+    def _blocked(self, booking: Booking, slot: Slot, business: Business, change: str) -> str | None:
+        """Why the client can't make this change online, or None when they can."""
+        policy = policy_of(business)
+        if booking.status not in ("pending", "confirmed"):
+            return f"this booking is {booking.status} and can't be changed online"
+        if not policy.self_service:
+            return "this business takes changes by phone; call the studio"
+        hours_away = (slot.starts_at - datetime.now(UTC)).total_seconds() / 3600
+        if change == "cancel":
+            if hours_away < policy.cancel_cutoff_hours:
+                return f"it's less than {policy.cancel_cutoff_hours} hours away; call the studio"
+            return None
+        if booking.reschedule_count >= policy.max_reschedules:
+            return "this visit has been moved as many times as the policy allows"
+        if hours_away < policy.reschedule_cutoff_hours:
+            return f"it's less than {policy.reschedule_cutoff_hours} hours away; call the studio"
+        return None
+
+    async def _resolve(self, token: str) -> tuple[Booking, Slot, Business]:
+        booking = await resolve_by_token(
+            self.db,
+            Booking,
+            and_(Booking.manage_token == token, Booking.deleted_at.is_(None)),
+            _GONE,
+        )
+        slot = await self.db.get(Slot, booking.slot_id)
+        if slot is None:
+            raise NotFound(_GONE)
+        business = await business_or_404(self.db, booking.business_id, _GONE)
+        return booking, slot, business
+
+    async def _visit(self, booking: Booking, slot: Slot, business: Business) -> tuple[Item, Staff]:
+        item = await self.db.get(Item, slot.item_id)
+        staff = await self.db.get(Staff, slot.staff_id)
+        if item is None or staff is None or item.business_id != business.id:
+            raise NotFound(_GONE)
+        return item, staff
+
+    async def _view(self, booking: Booking, slot: Slot, business: Business) -> ManagedBooking:
+        item, staff = await self._visit(booking, slot, business)
+        client = await self.db.get(Client, booking.client_id)
+        pet = await self.db.get(Subject, booking.subject_id) if booking.subject_id else None
+        addons = (
+            (
+                await self.db.execute(
+                    scoped(Addon, business.id).where(Addon.booking_id == booking.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        images = await item_images(self.db, business.id, [item.id])
+        tz = await business_tz(self.db, business.id)
+        move = self._blocked(booking, slot, business, "move")
+        cancel = self._blocked(booking, slot, business, "cancel")
+        return ManagedBooking(
+            business_name=business.name,
+            brand=public_brand(business),
+            slug=business.slug,
+            client_name=client.name if client is not None else "",
+            pet_name=pet.name if pet is not None else None,
+            service=_service_out(item, images.get(item.id)),
+            staff=PublicStaff(id=staff.id, name=staff.name, title=staff.title, color=staff.color),
+            starts_at=slot.starts_at,
+            ends_at=slot.ends_at,
+            status=booking.status,
+            deposit_cents=booking.deposit_amount_cents,
+            deposit_status=booking.deposit_status,
+            addons=[
+                ManagedAddon(
+                    name=a.description, quantity=a.quantity, unit_cents=a.unit_amount_cents
+                )
+                for a in addons
+            ],
+            reschedules_used=booking.reschedule_count,
+            policy=_policy_out(policy_of(business)),
+            now=datetime.now(tz),
+            can_move=move is None,
+            can_cancel=cancel is None,
+            blocked=cancel or move,
+        )
 
 
 async def resolve_by_token[M: Base](
@@ -583,8 +1015,74 @@ class PublicReviewService:
 _SCOPE = "shop.order"
 
 
+def _stock_left(item: Item) -> int | None:
+    return max(item.stock_on_hand or 0, 0) if item.track_stock else None
+
+
+async def addon_items(db: AsyncSession, business_id: str) -> list[PublicAddon]:
+    """Products the owner offers while booking, each with the services it goes with."""
+    items = (
+        (
+            await db.execute(
+                scoped(Item, business_id)
+                .where(Item.addon.is_(True), Item.active.is_(True), Item.kind == "product")
+                .order_by(Item.name)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    images = await item_images(db, business_id, [i.id for i in items])
+    return [
+        PublicAddon(
+            id=i.id,
+            name=i.name,
+            price_cents=i.price_cents,
+            currency=i.currency,
+            image_url=images.get(i.id),
+            description=i.description,
+            in_stock=_stock_left(i) != 0,
+            addon_for=list(i.addon_for),
+        )
+        for i in items
+    ]
+
+
+async def offered_addons(
+    db: AsyncSession, business_id: str, service_id: str, lines: list[PublicShopLine]
+) -> list[tuple[Item, int]]:
+    """Each requested add-on with its quantity, if offered with this service and in stock."""
+    wanted: dict[str, int] = {}
+    for line in lines:
+        wanted[line.item_id] = wanted.get(line.item_id, 0) + line.quantity
+    if not wanted:
+        return []
+    rows = (
+        (
+            await db.execute(
+                scoped(Item, business_id).where(
+                    Item.id.in_(wanted),
+                    Item.addon.is_(True),
+                    Item.active.is_(True),
+                    Item.kind == "product",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    found = {i.id: i for i in rows if not i.addon_for or service_id in i.addon_for}
+    if set(found) != set(wanted):
+        raise NotFound("add-on not found")
+    for item_id, qty in wanted.items():
+        left = _stock_left(found[item_id])
+        if left is not None and left < qty:
+            raise Conflict(f"only {left} left of {found[item_id].name}")
+    return [(found[item_id], qty) for item_id, qty in wanted.items()]
+
+
 async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]:
-    """A business's products listed for sale online (also offered as booking add-ons)."""
+    """A business's products listed for sale online."""
     items = (
         (
             await db.execute(
@@ -606,6 +1104,8 @@ async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]
             currency=i.currency,
             image_url=images.get(i.id),
             in_stock=not i.track_stock or (i.stock_on_hand or 0) > 0,
+            category=i.category,
+            stock_left=_stock_left(i),
         )
         for i in items
     ]

@@ -160,18 +160,22 @@ def _gift_card_issued(business_name: str, amount: str, code: str) -> tuple[str, 
     )
 
 
-def _booking_reminder(business_name: str, when: str) -> tuple[str, str]:
+def _booking_reminder(business_name: str, when: str, link: str | None) -> tuple[str, str]:
     return (
         f"Appointment reminder — {business_name}",
-        f"Reminder: you have an appointment with {business_name} on {when}.",
+        f"Reminder: you have an appointment with {business_name} on {when}.{_manage_line(link)}",
     )
 
 
-def _booking_confirmed(business_name: str, when: str) -> tuple[str, str]:
+def _booking_confirmed(business_name: str, when: str, link: str | None) -> tuple[str, str]:
     return (
         f"Booking confirmed — {business_name}",
-        f"You're booked with {business_name} on {when}.",
+        f"You're booked with {business_name} on {when}.{_manage_line(link)}",
     )
+
+
+def _manage_line(link: str | None) -> str:
+    return f" Change or cancel: {link}" if link else ""
 
 
 def _booking_rescheduled(business_name: str, when: str) -> tuple[str, str]:
@@ -228,6 +232,24 @@ def _review_requested(business_name: str, link: str) -> tuple[str, str]:
         f"How was your visit to {business_name}?",
         f"Thanks for choosing {business_name}! Leave a review: {link}",
     )
+
+
+async def reminder_message(db: AsyncSession, booking: Booking) -> tuple[str, str] | None:
+    """The reminder a visit gets, word for word, as the job would send it."""
+    slot = await db.get(Slot, booking.slot_id)
+    business = await db.get(Business, booking.business_id)
+    if slot is None or business is None:
+        return None
+    local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
+    when = f"{local:%Y-%m-%d at %H:%M}"
+    return _booking_reminder(business.name, when, _manage_link(business, booking))
+
+
+def _manage_link(business: Business, booking: Booking) -> str | None:
+    """The client's manage link, when the business lets clients change bookings online."""
+    if booking.manage_token is None or business.booking_policy.get("self_service") is False:
+        return None
+    return f"{get_settings().connect_base_url}/m/{booking.manage_token}"
 
 
 class Notifier:
@@ -422,13 +444,9 @@ class Notifier:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return
-        slot = await db.get(Slot, booking.slot_id)
-        business = await db.get(Business, booking.business_id)
-        if slot is None or business is None:
-            return
-        local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
-        subject, body = _booking_reminder(business.name, f"{local:%Y-%m-%d at %H:%M}")
-        await self._to_client(db, booking.client_id, subject, body)
+        message = await reminder_message(db, booking)
+        if message is not None:
+            await self._to_client(db, booking.client_id, *message)
 
     async def on_booking_confirmed(self, db: AsyncSession, booking_id: str) -> None:
         booking = await db.get(Booking, booking_id)
@@ -439,7 +457,8 @@ class Notifier:
         if slot is None or business is None:
             return
         local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
-        subject, body = _booking_confirmed(business.name, f"{local:%Y-%m-%d at %H:%M}")
+        when = f"{local:%Y-%m-%d at %H:%M}"
+        subject, body = _booking_confirmed(business.name, when, _manage_link(business, booking))
         await self._to_client(db, booking.client_id, subject, body)
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:

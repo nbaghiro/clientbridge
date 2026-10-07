@@ -486,11 +486,20 @@ entitlement and its liability are created.
   product lines before tax, using the same earning journals as bookings.
 - **Online shop:** products marked `sell_online` are listed at `/shop/<slug>` on Connect. An order is paid by
   card, has `source = online`, and moves through `pickup_status` (unfulfilled, ready, picked up) from Sales.
-- **Booking add-ons:** products chosen on the booking page are stored in `addons` and become lines
+- **Booking add-ons:** products the owner offers at booking (`items.addon`, with `addon_for` naming the
+  services each goes with) and the client chose on the booking page are stored in `addons` and become lines
   on the invoice created from the booking (`POST /v1/invoices/from-booking/{id}`); only the deposit is
   charged at booking time.
 - **Receipts** list every line with its tax, and walk-in sales can take an email or phone for the receipt.
   Sales by item is a report with a CSV like the others.
+
+### Online booking and manage links
+The rules the public booking page follows (lead time, how far ahead, the start-time step, approval for new
+clients) and the cancellation policy live in `businesses.booking_policy`, read and written through
+`/v1/online-booking`; members are hidden from the page with `staff.bookable_online`. Every booking gets a
+`manage_token`, and the confirmation and reminder carry `/m/<token>` on Connect, where the client can move
+or cancel within the cut-offs (`/manage/{token}`). The server enforces the cut-offs and the move limit and
+refunds a paid deposit on an allowed cancel.
 
 ### Auth
 Owners/staff: **email + password (Argon2) + Google OAuth**. Sessions are **JWT access + stateful refresh**

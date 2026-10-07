@@ -86,6 +86,11 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # reminder sent
+    # the client's link to view, move or cancel; the token is the only credential
+    manage_token: Mapped[str | None] = mapped_column(String, unique=True)
+    reschedule_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
 

@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import RedirectResponse
 
 from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep, StorageDep
@@ -18,9 +18,13 @@ from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
 from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
 from clientbridge.schemas.public import (
+    ManageCancelResult,
+    ManagedBooking,
+    ManageReschedule,
     PublicBookingCreate,
     PublicBookingPage,
     PublicBookingResult,
+    PublicDays,
     PublicShop,
     PublicShopOrderCreate,
     PublicShopOrderResult,
@@ -33,6 +37,7 @@ from clientbridge.services.public import (
     PublicBookingService,
     PublicContractService,
     PublicFormService,
+    PublicManageService,
     PublicPayService,
     PublicReviewService,
     PublicShopService,
@@ -173,6 +178,20 @@ async def public_booking_slots(
     return await PublicBookingService(db, gateway).slots(slug, item_id, staff_id, date)
 
 
+@booking_router.get("/{slug}/days", response_model=PublicDays)
+async def public_booking_days(
+    slug: str,
+    item_id: str,
+    staff_id: str,
+    start: Annotated[date, Query(alias="from")],
+    db: DbSession,
+    gateway: GatewayDep,
+    _: BookingRateLimited,
+    days: Annotated[int, Query(ge=1, le=14)] = 7,
+) -> PublicDays:
+    return await PublicBookingService(db, gateway).days(slug, item_id, staff_id, start, days)
+
+
 @booking_router.post("/{slug}", response_model=PublicBookingResult)
 async def public_book(
     slug: str,
@@ -183,8 +202,9 @@ async def public_book(
     sms: SmsDep,
     push: PushDep,
     _: BookingRateLimited,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
 ) -> PublicBookingResult:
-    result = await PublicBookingService(db, gateway).book(slug, body)
+    result = await PublicBookingService(db, gateway).book(slug, body, idempotency_key)
     await Notifier(email, sms, push).on_booking_confirmed(db, result.booking_id)
     return result
 
@@ -206,6 +226,75 @@ async def public_shop_order(
     _: BookingRateLimited,
 ) -> PublicShopOrderResult:
     return await PublicShopService(db, gateway).order(slug, body, idempotency_key)
+
+
+manage_router = APIRouter(prefix="/manage", tags=["public-manage"])
+
+
+@manage_router.get("/{token}", response_model=ManagedBooking)
+async def manage_view(
+    token: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> ManagedBooking:
+    return await PublicManageService(db, gateway).view(token)
+
+
+@manage_router.get("/{token}/days", response_model=PublicDays)
+async def manage_days(
+    token: str,
+    start: Annotated[date, Query(alias="from")],
+    db: DbSession,
+    gateway: GatewayDep,
+    _: BookingRateLimited,
+    days: Annotated[int, Query(ge=1, le=14)] = 7,
+) -> PublicDays:
+    return await PublicManageService(db, gateway).days(token, start, days)
+
+
+@manage_router.get("/{token}/slots", response_model=PublicSlots)
+async def manage_slots(
+    token: str, date: date, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> PublicSlots:
+    return await PublicManageService(db, gateway).slots(token, date)
+
+
+@manage_router.post("/{token}/reschedule", response_model=ManagedBooking)
+async def manage_reschedule(
+    token: str,
+    body: ManageReschedule,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    _: BookingRateLimited,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
+) -> ManagedBooking:
+    service = PublicManageService(db, gateway)
+    before = await service.view(token)
+    result = await service.reschedule(token, body, idempotency_key)
+    if result.starts_at != before.starts_at:
+        booking_id = await service.booking_id(token)
+        await Notifier(email, sms, push).on_booking_rescheduled(db, booking_id)
+    return result
+
+
+@manage_router.post("/{token}/cancel", response_model=ManageCancelResult)
+async def manage_cancel(
+    token: str,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    _: BookingRateLimited,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", min_length=8)] = None,
+) -> ManageCancelResult:
+    service = PublicManageService(db, gateway)
+    live = (await service.view(token)).status != "canceled"
+    result = await service.cancel(token, idempotency_key)
+    if live:
+        await Notifier(email, sms, push).on_booking_canceled(db, await service.booking_id(token))
+    return result
 
 
 media_router = APIRouter(prefix="/media", tags=["media"])

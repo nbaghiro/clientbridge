@@ -370,6 +370,7 @@ def seed_items(owner: str) -> None:
                 color=ITEM_COLORS[iid],
                 online_bookable=kind in {"service", "class"},
                 sell_online=iid in {"it_shampoo", "it_brush"},
+                addon=iid in {"it_shampoo", "it_brush"},
                 buffer_before_min=0,
                 buffer_after_min=10 if kind == "service" else 0,
                 deposit_type="percent" if kind == "service" and price >= 10000 else "none",
