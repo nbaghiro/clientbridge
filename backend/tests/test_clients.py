@@ -295,6 +295,24 @@ async def test_archiving_an_archived_client_is_a_no_op(
     assert await _audits(db, "client.archive", cid) == 1
 
 
+async def test_archive_and_restore_without_a_key_change_nothing_twice(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = (await as_owner.post("/v1/clients", json={"name": "Twice"})).json()["id"]
+    restored = await as_owner.post(f"/v1/clients/{cid}/restore")
+    assert restored.status_code == 200 and restored.json()["status"] == "active"
+    assert await _audits(db, "client.restore", cid) == 0
+    first = (await as_owner.post(f"/v1/clients/{cid}/archive")).json()
+    second = await as_owner.post(f"/v1/clients/{cid}/archive")
+    assert second.status_code == 200
+    assert second.json()["archived_at"] == first["archived_at"]
+    assert await _audits(db, "client.archive", cid) == 1
+    await as_owner.post(f"/v1/clients/{cid}/restore")
+    again = await as_owner.post(f"/v1/clients/{cid}/restore")
+    assert again.json()["archived_at"] is None
+    assert await _audits(db, "client.restore", cid) == 1
+
+
 async def test_merge_into_an_unknown_client_404(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/clients/cl_nope/merge", json={"from_client_id": "cl_grace"})
     assert res.status_code == 404

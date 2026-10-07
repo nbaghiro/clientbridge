@@ -128,12 +128,13 @@ class ClientService:
         client = await load_client(self.db, self.biz, client_id)
 
         async def run(cmd: Command) -> ClientOut:
-            client.status = "inactive" if archived else "active"
-            client.archived_at = datetime.now(UTC) if archived else None
-            await self.db.flush()
-            await self.db.refresh(client)
-            action = "client.archive" if archived else "client.restore"
-            cmd.record(action, entity_type="client", entity_id=client.id)
+            if (client.archived_at is not None) != archived:
+                client.status = "inactive" if archived else "active"
+                client.archived_at = datetime.now(UTC) if archived else None
+                await self.db.flush()
+                await self.db.refresh(client)
+                action = "client.archive" if archived else "client.restore"
+                cmd.record(action, entity_type="client", entity_id=client.id)
             return ClientOut.model_validate(client)
 
         return await run_command(
