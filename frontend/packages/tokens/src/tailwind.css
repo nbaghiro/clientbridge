@@ -31,6 +31,8 @@
     --color-logo: var(--logo);
     --color-scrim: rgba(20, 25, 30, 0.35);
     --color-on-data: #ffffff;
+    --color-inverse: var(--inverse);
+    --color-inverse-ink: var(--inverse-ink);
 
     --font-sans: "Schibsted Grotesk", sans-serif;
     --font-display: "Schibsted Grotesk", sans-serif;
@@ -41,6 +43,13 @@
     --shadow-card: var(--shadow);
     --shadow-pop: 0 12px 32px -12px rgba(20, 25, 30, 0.28);
     --shadow-page: 0 1px 3px rgba(20, 25, 30, 0.08), 0 12px 32px -12px rgba(20, 25, 30, 0.18);
+}
+
+/* Taken at the theme root, so a region that re-themes --surface or --ink leaves inverse controls intact. */
+:root,
+[data-theme] {
+    --inverse: var(--surface);
+    --inverse-ink: var(--ink);
 }
 
 @layer base {
