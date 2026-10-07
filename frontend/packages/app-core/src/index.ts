@@ -18,6 +18,7 @@ export * from "./domain/hours";
 export * from "./domain/navigation";
 export * from "./domain/billing";
 export * from "./domain/payments";
+export * from "./domain/refunds";
 export * from "./domain/gettingPaid";
 export * from "./domain/taxes";
 export * from "./domain/checkout";

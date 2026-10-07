@@ -16,6 +16,7 @@ const PATHS: Record<ShellTarget, string> = {
     estimate: "/payments/invoices?doc=estimates",
     payments: "/payments",
     giftCards: "/payments/gift-cards",
+    refunds: "/payments/refunds",
     clients: "/clients",
     client: "/clients",
     inbox: "/inbox",

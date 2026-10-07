@@ -7,11 +7,9 @@ import {
     canManagePayments,
     docDraft,
     formatMoney,
-    isRefundable,
     printedEstimate,
     printedInvoice,
     printedReceipt,
-    refundPlaceholder,
     strings,
     useEstimateActions,
     useEstimateDesk,
@@ -24,7 +22,6 @@ import {
     useInvoices,
     useLetterhead,
     useLines,
-    useRefundForm,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
@@ -42,7 +39,6 @@ import {
     Notice,
     Stat,
     StatusPill,
-    TextField,
     confirm,
 } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
@@ -50,11 +46,12 @@ import { useState } from "react";
 
 import { DocEditor } from "../components/DocEditor";
 import { DocumentPreview, type PreviewDoc } from "../components/DocumentPreview";
+import { InteracRequest } from "../components/InteracRequest";
 import { RecordPayment } from "../components/RecordPayment";
 import { config } from "../config";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
-import { useLinkIntent } from "../lib/links";
+import { useLinkIntent, useOpenLink } from "../lib/links";
 
 const s = strings.billing;
 const GRID =
@@ -315,6 +312,7 @@ function InvoicePanel({
     const estimate = useEstimateRecord(api, estimateId, config.payUrl);
     const [recording, setRecording] = useState(false);
     const [previewing, setPreviewing] = useState(false);
+    const [requesting, setRequesting] = useState(false);
     if (rec === null) return null;
 
     const voidIt = (): void => {
@@ -339,6 +337,16 @@ function InvoicePanel({
                 rec={rec}
                 onClose={() => {
                     setRecording(false);
+                }}
+            />
+        );
+    }
+    if (requesting) {
+        return (
+            <InteracRequest
+                invoice={rec.row}
+                onClose={() => {
+                    setRequesting(false);
                 }}
             />
         );
@@ -411,6 +419,17 @@ function InvoicePanel({
                             }}
                         >
                             {s.sendInvoice}
+                        </Button>
+                    ) : null}
+                    {rec.canRecord ? (
+                        <Button
+                            variant="outline"
+                            icon="send"
+                            onPress={() => {
+                                setRequesting(true);
+                            }}
+                        >
+                            {strings.payments.interac.open}
                         </Button>
                     ) : null}
                     {rec.canRecord ? (
@@ -548,25 +567,9 @@ function PaymentLine({
     all: PaymentRow[];
     canRefund: boolean;
 }) {
-    const { amount, setAmount, remainingCents, busy, error, submit } = useRefundForm(
-        api,
-        view.payment,
-        all,
-    );
-    const refundable =
-        canRefund && view.payment.method === "card" && isRefundable(view.payment, all);
-    const refund = (): void => {
-        confirm({
-            title: s.refundTitle,
-            message: s.refundConfirm,
-            confirmLabel: s.refund,
-            destructive: true,
-        })
-            .then((ok) => {
-                if (ok) submit();
-            })
-            .catch(() => undefined);
-    };
+    const openLink = useOpenLink();
+    const row = all.find((p) => p.id === view.payment.id);
+    const refundable = canRefund && !view.refund && row?.status === "succeeded";
     return (
         <div className="px-4 py-3 text-sm">
             <div className="flex items-center gap-3">
@@ -579,23 +582,18 @@ function PaymentLine({
                     {view.refund ? "−" : ""}
                     {formatMoney(view.amountCents)}
                 </span>
-            </div>
-            {refundable ? (
-                <div className="mt-2 flex items-center justify-end gap-2">
-                    <TextField
+                {refundable ? (
+                    <Button
+                        variant="outline"
                         size="sm"
-                        width="narrow"
-                        name={s.refund}
-                        value={amount}
-                        onChange={setAmount}
-                        placeholder={refundPlaceholder(remainingCents)}
-                    />
-                    <Button variant="outline" size="sm" busy={busy} onPress={refund}>
-                        {busy ? s.refunding : s.refund}
+                        onPress={() => {
+                            openLink("refunds", view.payment.id);
+                        }}
+                    >
+                        {s.refund}
                     </Button>
-                </div>
-            ) : null}
-            {error !== null ? <Notice tone="danger">{error}</Notice> : null}
+                ) : null}
+            </div>
         </div>
     );
 }

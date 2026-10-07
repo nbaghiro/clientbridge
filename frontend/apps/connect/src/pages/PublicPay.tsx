@@ -1,5 +1,4 @@
 import {
-    type InteracRequest,
     createPublicPayClient,
     formatMoney,
     formatMoneyWithCurrency,
@@ -15,7 +14,7 @@ import {
 import { Button, CardForm, Choice, DocTotals, Icon, Notice, StatusPill } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { PrintModal, PublicDocument } from "../components/PublicDocument";
 import { PublicDone, PublicStatus } from "../components/PublicStatus";
@@ -29,6 +28,11 @@ const pp = strings.publicPay;
 export function PublicPay() {
     const { token = "" } = useParams<{ token: string }>();
     const form = usePublicPayForm(pay, token);
+    const navigate = useNavigate();
+    const openInterac = (): void => {
+        const done = navigate(`/i/${token}/etransfer`);
+        if (done) done.catch(() => undefined);
+    };
     const invoice = form.invoice;
     const [printing, setPrinting] = useState(false);
     useEmbedSuccess(form.status === "paid", "pay");
@@ -215,21 +219,9 @@ export function PublicPay() {
                                     }}
                                 />
                                 {form.method === "interac" ? (
-                                    form.interac ? (
-                                        <InteracInstructions
-                                            result={form.interac}
-                                            currency={invoice.currency}
-                                        />
-                                    ) : (
-                                        <Button
-                                            size="lg"
-                                            full
-                                            onPress={form.payInterac}
-                                            busy={form.busy}
-                                        >
-                                            {form.busy ? strings.common.working : pp.payByInterac}
-                                        </Button>
-                                    )
+                                    <Button size="lg" full onPress={openInterac}>
+                                        {invoice.interac ? pp.seeSteps : pp.payByInterac}
+                                    </Button>
                                 ) : form.card ? (
                                     <CardForm
                                         clientSecret={form.card.client_secret}
@@ -276,30 +268,6 @@ function Fact({ label, value }: { label: string; value: string }) {
         <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-muted">{label}</dt>
             <dd className="mt-1 font-medium text-ink">{value}</dd>
-        </div>
-    );
-}
-
-function InteracInstructions({ result, currency }: { result: InteracRequest; currency: string }) {
-    return (
-        <div className="rounded-lg border border-accent-line bg-accent-weak px-4 py-4 text-sm text-ink">
-            <p className="font-semibold">{pp.interacHeading}</p>
-            {result.send_to !== null ? (
-                <p className="mt-2 leading-relaxed">
-                    {pp.interacSendPrefix}{" "}
-                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong>{" "}
-                    {pp.interacTo} <strong>{result.send_to}</strong> {pp.interacAndPut}{" "}
-                    <strong>{result.reference_code}</strong> {pp.interacInMessage}
-                </p>
-            ) : (
-                <p className="mt-2 leading-relaxed">
-                    {pp.interacNoEmail}{" "}
-                    <strong>{formatMoneyWithCurrency(result.amount_cents, currency)}</strong>{" "}
-                    {pp.interacAndPut} <strong>{result.reference_code}</strong>{" "}
-                    {pp.interacInMessage}
-                </p>
-            )}
-            <p className="mt-3 text-xs text-muted">{pp.interacConfirmNote}</p>
         </div>
     );
 }

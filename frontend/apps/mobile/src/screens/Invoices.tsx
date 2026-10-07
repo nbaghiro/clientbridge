@@ -1,4 +1,5 @@
 import {
+    canManagePayments,
     type EstimateRecord,
     type EstimateSegment,
     type InvoiceRecord,
@@ -44,9 +45,12 @@ import {
 
 import { DocEditor } from "../components/DocEditor";
 import { DocumentPreview } from "../components/DocumentPreview";
+import { InteracRequest } from "../components/InteracRequest";
 import { RecordPayment } from "../components/RecordPayment";
 import { api } from "../lib/api";
+import { useRole } from "../lib/auth";
 import { payUrl } from "../lib/config";
+import { useOpenLink } from "../lib/links";
 
 const c = theme.colors;
 const s = strings.billing;
@@ -266,7 +270,7 @@ function InvoiceDeskView({
     );
 }
 
-type Overlay = "record" | "pdf" | "menu" | null;
+type Overlay = "record" | "pdf" | "menu" | "interac" | null;
 
 function InvoicePanel({
     id,
@@ -284,12 +288,15 @@ function InvoicePanel({
     const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
     const estimate = useEstimateRecord(api, estimateId, payUrl);
     const [overlay, setOverlay] = useState<Overlay>(null);
+    const openLink = useOpenLink();
+    const canRefund = canManagePayments(useRole());
     if (rec === null) return null;
     const closeOverlay = (): void => {
         setOverlay(null);
     };
 
     if (overlay === "record") return <RecordPayment rec={rec} onClose={closeOverlay} />;
+    if (overlay === "interac") return <InteracRequest invoice={rec.row} onClose={closeOverlay} />;
     if (overlay === "pdf")
         return (
             <DocumentPreview
@@ -302,6 +309,9 @@ function InvoicePanel({
 
     const menu = [
         { key: "pdf", label: s.pdf, icon: "receipt" as const },
+        ...(rec.canRecord
+            ? [{ key: "interac", label: strings.payments.interac.open, icon: "send" as const }]
+            : []),
         ...(rec.canRemind ? [{ key: "remind", label: s.remind, icon: "bell" as const }] : []),
         ...(rec.canSend ? [{ key: "send", label: s.sendInvoice, icon: "send" as const }] : []),
         ...(rec.canEdit ? [{ key: "edit", label: s.edit, icon: "edit" as const }] : []),
@@ -310,6 +320,7 @@ function InvoicePanel({
     const pick = (key: string): void => {
         setOverlay(null);
         if (key === "pdf") setOverlay("pdf");
+        else if (key === "interac") setOverlay("interac");
         else if (key === "remind") act.remind(rec);
         else if (key === "send") act.send(rec);
         else if (key === "edit") onEdit(rec.row.id);
@@ -422,6 +433,17 @@ function InvoicePanel({
                                     cents={p.refund ? -p.amountCents : p.amountCents}
                                     tone={p.refund ? "danger" : "ink"}
                                 />
+                                {canRefund && !p.refund && !p.pending ? (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onPress={() => {
+                                            openLink("refunds", p.id);
+                                        }}
+                                    >
+                                        {s.refund}
+                                    </Button>
+                                ) : null}
                             </View>
                         ))}
                     </DetailSection>

@@ -20,12 +20,14 @@ export const DESTINATIONS: { key: DestinationKey; label: string }[] = [
     { key: "inbox", label: strings.navigation.inbox },
 ];
 
-export type PaymentsTabKey = "invoices" | "sales" | "giftCards" | "staffPay" | "reports";
+export type PaymentsTabKey =
+    "invoices" | "sales" | "giftCards" | "refunds" | "staffPay" | "reports";
 
 export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
     { key: "invoices", label: strings.navigation.paymentsTabs.invoices, managersOnly: true },
     { key: "sales", label: strings.navigation.paymentsTabs.sales, managersOnly: false },
     { key: "giftCards", label: strings.navigation.paymentsTabs.giftCards, managersOnly: true },
+    { key: "refunds", label: strings.navigation.paymentsTabs.refunds, managersOnly: true },
     { key: "staffPay", label: strings.navigation.paymentsTabs.staffPay, managersOnly: true },
     { key: "reports", label: strings.navigation.paymentsTabs.reports, managersOnly: true },
 ];
@@ -108,6 +110,7 @@ export type ShellTarget =
     | "estimate"
     | "payments"
     | "giftCards"
+    | "refunds"
     | "clients"
     | "client"
     | "inbox"

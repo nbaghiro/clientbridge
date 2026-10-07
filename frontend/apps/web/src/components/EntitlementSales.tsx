@@ -1,94 +1,172 @@
 import {
     type ClientRow,
-    GIFT_SALE_MODES,
-    GIFT_SALE_MODE_LABEL,
-    type ItemRow,
-    type SavedCardRow,
-    checkoutMethods,
+    type EntitlementSaleForm,
+    type WalletKind,
     formatMoney,
-    giftItems,
-    packageOfferings,
     strings,
-    subscriptionPlans,
-    useCatalogItems,
-    useClients,
-    useGiftCardSaleForm,
-    usePackageSaleForm,
-    useSavedCards,
-    useSubscriptionForm,
+    useEntitlementSaleForm,
 } from "@clientbridge/app-core";
-import { Button, ChargeSheet, Choice, Panel, Select, TextField } from "@clientbridge/ui";
-import { useMemo, useState } from "react";
+import {
+    Button,
+    ChargeSheet,
+    Choice,
+    DocTotals,
+    Field,
+    Icon,
+    Notice,
+    Select,
+    TextField,
+} from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
-export function SellGiftCard({ onClose }: { onClose: () => void }) {
-    const form = useGiftCardSaleForm(api, onClose);
-    const clients = useClients();
-    const cards = useSavedCards(form.purchaserClientId);
-    const items = giftItems(useCatalogItems());
+const w = strings.entitlements;
 
+/** Sell a package, membership or gift card: what, for whom, how they pay, and the total with tax. */
+export function SellEntitlement({
+    kind,
+    clientId = null,
+    onClose,
+}: {
+    kind?: WalletKind;
+    clientId?: string | null;
+    onClose: () => void;
+}) {
+    const form = useEntitlementSaleForm(api, { kind, clientId });
+    if (form.sold !== null) return <Sold form={form} onClose={onClose} />;
     return (
         <ChargeSheet
-            title={strings.entitlements.giftCards.sell}
+            title={w.sellTitle}
             checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                form.faceAmountCents !== null
-                    ? formatMoney(form.faceAmountCents)
-                    : strings.entitlements.giftCards.amountFallback
-            }
-            submitLabel={strings.entitlements.giftCards.sell}
-            busyLabel={strings.entitlements.giftCards.selling}
+            methods={form.methods}
+            amountLabel={formatMoney(form.totalCents)}
+            submitLabel={form.submitLabel}
+            busyLabel={form.busyLabel}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <ClientSelect
-                label={strings.entitlements.giftCards.purchaser}
-                clients={clients}
-                value={form.purchaserClientId}
-                onChange={form.setPurchaserClientId}
-            />
-            <Choice
-                layout="segmented"
-                options={GIFT_SALE_MODES.map((m) => ({ key: m, label: GIFT_SALE_MODE_LABEL[m] }))}
-                value={form.mode}
-                onChange={form.setMode}
-            />
-            {form.mode === "preset" ? (
-                <Select
-                    label={strings.entitlements.giftCards.giftCard}
-                    value={form.itemId}
-                    options={[
-                        { key: "", label: strings.entitlements.giftCards.selectGiftCard },
-                        ...items.map((it) => ({
-                            key: it.id,
-                            label:
-                                it.price_cents !== null
-                                    ? `${it.name} — ${formatMoney(it.price_cents)}`
-                                    : it.name,
-                        })),
-                    ]}
-                    onChange={form.setItemId}
-                />
-            ) : (
-                <TextField
-                    label={strings.entitlements.giftCards.amountCad}
-                    type="number"
-                    value={form.amount}
-                    onChange={form.setAmount}
-                    placeholder={strings.entitlements.giftCards.amountPlaceholder}
-                />
-            )}
-            <TextField
-                label={strings.entitlements.giftCards.recipient}
-                optional
-                value={form.recipient}
-                onChange={form.setRecipient}
-                placeholder={strings.entitlements.giftCards.recipientPlaceholder}
-            />
+            <SaleFields form={form} pickKind={kind === undefined} pickClient={clientId === null} />
         </ChargeSheet>
     );
+}
+
+function SaleFields({
+    form,
+    pickKind,
+    pickClient,
+}: {
+    form: EntitlementSaleForm;
+    pickKind: boolean;
+    pickClient: boolean;
+}) {
+    return (
+        <div className="space-y-4">
+            {pickKind ? (
+                <Field label={w.chooseKind}>
+                    <Choice
+                        layout="segmented"
+                        label={w.chooseKind}
+                        options={form.kinds}
+                        value={form.kind}
+                        onChange={form.setKind}
+                    />
+                </Field>
+            ) : null}
+            {form.kind === "gift_card" ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                        <TextField
+                            label={w.giftAmount}
+                            type="number"
+                            prefix="$"
+                            value={form.amount}
+                            onChange={form.setAmount}
+                        />
+                        <Choice
+                            label={w.giftAmount}
+                            options={form.presets}
+                            value={form.amount}
+                            onChange={form.setAmount}
+                        />
+                    </div>
+                    <TextField
+                        label={w.recipient}
+                        hint={w.recipientHint}
+                        optional
+                        value={form.recipient}
+                        onChange={form.setRecipient}
+                    />
+                </div>
+            ) : form.noItems !== null ? (
+                <Notice tone="info">{form.noItems}</Notice>
+            ) : (
+                <Field label={w.chooseItem}>
+                    <Choice
+                        layout="cards"
+                        label={w.chooseItem}
+                        options={form.items}
+                        value={form.itemId}
+                        onChange={form.setItemId}
+                    />
+                </Field>
+            )}
+            {pickClient ? (
+                <Select
+                    label={w.client}
+                    value={form.clientId}
+                    options={[{ key: "", label: w.chooseClient }, ...form.clientOptions]}
+                    onChange={form.setClientId}
+                />
+            ) : null}
+            {form.needsCard ? <Notice tone="info">{w.membershipNeedsCard}</Notice> : null}
+            <div className="rounded-md border border-line bg-bg px-4 py-3">
+                <DocTotals lines={form.lines} density="compact" />
+            </div>
+        </div>
+    );
+}
+
+function Sold({ form, onClose }: { form: EntitlementSaleForm; onClose: () => void }) {
+    return (
+        <div className="space-y-4">
+            <div className="flex items-start gap-3 rounded-md bg-ok-bg px-4 py-3 text-ok-fg">
+                <Icon name="checkCircle" size={20} />
+                <div className="text-sm">
+                    <p className="font-semibold">{w.doneTitle}</p>
+                    <p className="mt-0.5">{form.sold}</p>
+                </div>
+            </div>
+            <div className="flex justify-end">
+                <Button variant="quiet" onPress={onClose}>
+                    {strings.common.close}
+                </Button>
+            </div>
+        </div>
+    );
+}
+
+export function SellGiftCard({ onClose }: { onClose: () => void }) {
+    return <SellEntitlement kind="gift_card" onClose={onClose} />;
+}
+
+export function SellPackage({
+    clientId,
+    onClose,
+}: {
+    clientId: string | null;
+    onClose: () => void;
+}) {
+    return <SellEntitlement kind="package" clientId={clientId} onClose={onClose} />;
+}
+
+export function StartSubscription({
+    clientId,
+    onClose,
+}: {
+    clientId: string | null;
+    onClose: () => void;
+}) {
+    return <SellEntitlement kind="membership" clientId={clientId} onClose={onClose} />;
 }
 
 export function ClientSelect({
@@ -107,182 +185,10 @@ export function ClientSelect({
             label={label}
             value={value}
             options={[
-                { key: "", label: strings.entitlements.giftCards.selectClient },
+                { key: "", label: w.chooseClient },
                 ...clients.map((cl) => ({ key: cl.id, label: cl.name })),
             ]}
             onChange={onChange}
         />
-    );
-}
-
-/** Sell a package: to the given client, or after picking one (from Sales). */
-export function SellPackage({
-    clientId,
-    onClose,
-}: {
-    clientId: string | null;
-    onClose: () => void;
-}) {
-    return (
-        <WithClient clientId={clientId} onClose={onClose}>
-            {(id) => <PackageSale clientId={id} onClose={onClose} />}
-        </WithClient>
-    );
-}
-
-/** Start a subscription: for the given client, or after picking one (from Sales). */
-export function StartSubscription({
-    clientId,
-    onClose,
-}: {
-    clientId: string | null;
-    onClose: () => void;
-}) {
-    return (
-        <WithClient clientId={clientId} onClose={onClose}>
-            {(id) => <SubscriptionStart clientId={id} onClose={onClose} />}
-        </WithClient>
-    );
-}
-
-function PackageSale({ clientId, onClose }: { clientId: string; onClose: () => void }) {
-    const items = useCatalogItems();
-    const offerings = useMemo(() => packageOfferings(items), [items]);
-    const cards = useSavedCards(clientId);
-    return (
-        <SellPackageForm
-            clientId={clientId}
-            offerings={offerings}
-            cards={cards}
-            onClose={onClose}
-        />
-    );
-}
-
-function SubscriptionStart({ clientId, onClose }: { clientId: string; onClose: () => void }) {
-    const items = useCatalogItems();
-    const plans = useMemo(() => subscriptionPlans(items), [items]);
-    const cards = useSavedCards(clientId);
-    return (
-        <StartSubscriptionForm clientId={clientId} plans={plans} cards={cards} onClose={onClose} />
-    );
-}
-
-function WithClient({
-    clientId,
-    onClose,
-    children,
-}: {
-    clientId: string | null;
-    onClose: () => void;
-    children: (clientId: string) => React.ReactNode;
-}) {
-    const clients = useClients();
-    const [picked, setPicked] = useState("");
-    const id = clientId ?? (picked === "" ? null : picked);
-    if (id !== null) return <>{children(id)}</>;
-    return (
-        <Panel>
-            <ClientSelect
-                label={strings.pos.clientLabel}
-                clients={clients}
-                value={picked}
-                onChange={setPicked}
-            />
-            <p className="text-xs text-muted">{strings.pos.chooseClient}</p>
-            <div className="flex justify-end">
-                <Button variant="quiet" onPress={onClose}>
-                    {strings.common.cancel}
-                </Button>
-            </div>
-        </Panel>
-    );
-}
-
-function StartSubscriptionForm({
-    clientId,
-    plans,
-    cards,
-    onClose,
-}: {
-    clientId: string;
-    plans: ItemRow[];
-    cards: SavedCardRow[];
-    onClose: () => void;
-}) {
-    const form = useSubscriptionForm(api, clientId, onClose);
-    const plan = plans.find((p) => p.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={plan ? formatMoney(plan.price_cents) : ""}
-            submitLabel={strings.clients.startSubscription}
-            busyLabel={strings.clients.starting}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <Select
-                label={strings.clients.planLabel}
-                value={form.itemId}
-                options={[
-                    { key: "", label: strings.clients.selectPlan },
-                    ...plans.map((p) => ({
-                        key: p.id,
-                        label: `${p.name} — ${formatMoney(p.price_cents)}`,
-                    })),
-                ]}
-                onChange={form.setItemId}
-            />
-            {plans.length === 0 ? (
-                <p className="text-xs text-muted">{strings.clients.addSubscriptionItemFirst}</p>
-            ) : null}
-        </ChargeSheet>
-    );
-}
-
-function SellPackageForm({
-    clientId,
-    offerings,
-    cards,
-    onClose,
-}: {
-    clientId: string;
-    offerings: ItemRow[];
-    cards: SavedCardRow[];
-    onClose: () => void;
-}) {
-    const form = usePackageSaleForm(api, clientId, onClose);
-    const offering = offerings.find((o) => o.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
-            }
-            submitLabel={strings.clients.sellPackage}
-            busyLabel={strings.clients.selling}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <Select
-                label={strings.clients.packageLabel}
-                value={form.itemId}
-                options={[
-                    { key: "", label: strings.clients.selectPackage },
-                    ...offerings.map((o) => ({
-                        key: o.id,
-                        label: `${o.name} — ${formatMoney(o.price_cents)}`,
-                    })),
-                ]}
-                onChange={form.setItemId}
-            />
-            {offerings.length === 0 ? (
-                <p className="text-xs text-muted">{strings.clients.addPackageItemFirst}</p>
-            ) : null}
-        </ChargeSheet>
     );
 }

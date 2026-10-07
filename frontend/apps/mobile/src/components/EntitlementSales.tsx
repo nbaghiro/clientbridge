@@ -1,26 +1,26 @@
 import {
     type ClientRow,
-    GIFT_SALE_MODES,
-    GIFT_SALE_MODE_LABEL,
-    type ItemRow,
-    checkoutMethods,
+    type EntitlementSaleForm,
+    type WalletKind,
     formatMoney,
-    giftItems,
-    packageOfferings,
     strings,
-    subscriptionPlans,
-    useCatalogItems,
-    useClients,
-    useGiftCardSaleForm,
-    usePackageSaleForm,
-    useSavedCards,
-    useSubscriptionForm,
+    useEntitlementSaleForm,
 } from "@clientbridge/app-core";
-import { type ReactNode, useMemo, useState } from "react";
-import { Text, View } from "react-native";
-import { Button, ChargeSheet, Choice, Field, Panel, TextField, ui } from "@clientbridge/ui";
+import { StyleSheet, Text, View } from "react-native";
+import {
+    Button,
+    ChargeSheet,
+    Choice,
+    DocTotals,
+    Field,
+    Notice,
+    TextField,
+    ui,
+} from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+
+const w = strings.entitlements;
 
 export function ClientChips({
     clients,
@@ -44,84 +44,122 @@ export function ClientChips({
     );
 }
 
-export function SellGiftCard({ onClose }: { onClose: () => void }) {
-    const form = useGiftCardSaleForm(api, onClose);
-    const clients = useClients();
-    const cards = useSavedCards(form.purchaserClientId);
-    const items = giftItems(useCatalogItems());
-
+/** Sell a package, membership or gift card: what, for whom, how they pay, and the total with tax. */
+export function SellEntitlement({
+    kind,
+    clientId = null,
+    onClose,
+}: {
+    kind?: WalletKind;
+    clientId?: string | null;
+    onClose: () => void;
+}) {
+    const form = useEntitlementSaleForm(api, { kind, clientId });
+    if (form.sold !== null) {
+        return (
+            <View style={styles.gap}>
+                <Notice tone="success" banner>
+                    {`${w.doneTitle}. ${form.sold}`}
+                </Notice>
+                <Button variant="quiet" onPress={onClose}>
+                    {strings.common.close}
+                </Button>
+            </View>
+        );
+    }
     return (
         <ChargeSheet
-            title={strings.entitlements.giftCards.sell}
+            title={w.sellTitle}
             checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                form.faceAmountCents !== null
-                    ? formatMoney(form.faceAmountCents)
-                    : strings.entitlements.giftCards.amountFallback
-            }
-            submitLabel={strings.entitlements.giftCards.sellShort}
-            busyLabel={strings.entitlements.giftCards.selling}
+            methods={form.methods}
+            amountLabel={formatMoney(form.totalCents)}
+            submitLabel={form.submitLabel}
+            busyLabel={form.busyLabel}
             onSubmit={form.submit}
             onCancel={onClose}
         >
-            <Field label={strings.entitlements.giftCards.purchaser}>
-                <ClientChips
-                    clients={clients}
-                    value={form.purchaserClientId}
-                    onChange={form.setPurchaserClientId}
-                />
-            </Field>
-            <Field label={strings.entitlements.giftCards.type}>
-                <Choice
-                    layout="segmented"
-                    options={GIFT_SALE_MODES.map((m) => ({
-                        key: m,
-                        label: GIFT_SALE_MODE_LABEL[m],
-                    }))}
-                    value={form.mode}
-                    onChange={form.setMode}
-                />
-            </Field>
-            {form.mode === "preset" ? (
-                <Field label={strings.entitlements.giftCards.giftCard}>
-                    {items.length === 0 ? (
-                        <Text style={ui.note}>{strings.entitlements.giftCards.emptyCatalog}</Text>
-                    ) : (
-                        <Choice
-                            options={items.map((it) => ({
-                                key: it.id,
-                                label:
-                                    it.price_cents !== null
-                                        ? `${it.name} · ${formatMoney(it.price_cents)}`
-                                        : it.name,
-                            }))}
-                            value={form.itemId}
-                            onChange={form.setItemId}
-                        />
-                    )}
-                </Field>
-            ) : (
-                <TextField
-                    label={strings.entitlements.giftCards.amountCad}
-                    type="number"
-                    value={form.amount}
-                    onChange={form.setAmount}
-                    placeholder={strings.entitlements.giftCards.amountPlaceholder}
-                />
-            )}
-            <TextField
-                label={strings.entitlements.giftCards.recipient}
-                optional
-                value={form.recipient}
-                onChange={form.setRecipient}
-                placeholder={strings.entitlements.giftCards.recipientPlaceholder}
-            />
+            <SaleFields form={form} pickKind={kind === undefined} pickClient={clientId === null} />
         </ChargeSheet>
     );
 }
 
-/** Sell a package: to the given client, or after picking one (from Sales). */
+function SaleFields({
+    form,
+    pickKind,
+    pickClient,
+}: {
+    form: EntitlementSaleForm;
+    pickKind: boolean;
+    pickClient: boolean;
+}) {
+    return (
+        <View style={styles.gap}>
+            {pickKind ? (
+                <Field label={w.chooseKind}>
+                    <Choice
+                        layout="segmented"
+                        label={w.chooseKind}
+                        options={form.kinds}
+                        value={form.kind}
+                        onChange={form.setKind}
+                    />
+                </Field>
+            ) : null}
+            {form.kind === "gift_card" ? (
+                <>
+                    <TextField
+                        label={w.giftAmount}
+                        type="number"
+                        prefix="$"
+                        value={form.amount}
+                        onChange={form.setAmount}
+                    />
+                    <Choice
+                        label={w.giftAmount}
+                        options={form.presets}
+                        value={form.amount}
+                        onChange={form.setAmount}
+                    />
+                    <TextField
+                        label={w.recipient}
+                        hint={w.recipientHint}
+                        optional
+                        value={form.recipient}
+                        onChange={form.setRecipient}
+                    />
+                </>
+            ) : form.noItems !== null ? (
+                <Notice tone="info">{form.noItems}</Notice>
+            ) : (
+                <Field label={w.chooseItem}>
+                    <Choice
+                        layout="cards"
+                        label={w.chooseItem}
+                        options={form.items}
+                        value={form.itemId}
+                        onChange={form.setItemId}
+                    />
+                </Field>
+            )}
+            {pickClient ? (
+                <Field label={w.client}>
+                    <Choice
+                        options={form.clientOptions}
+                        value={form.clientId}
+                        onChange={form.setClientId}
+                    />
+                </Field>
+            ) : null}
+            {form.needsCard ? <Notice tone="info">{w.membershipNeedsCard}</Notice> : null}
+            <DocTotals lines={form.lines} density="compact" />
+        </View>
+    );
+}
+
+export function SellGiftCard({ onClose }: { onClose: () => void }) {
+    return <SellEntitlement kind="gift_card" onClose={onClose} />;
+}
+
 export function SellPackage({
     clientId,
     onClose,
@@ -129,14 +167,9 @@ export function SellPackage({
     clientId: string | null;
     onClose: () => void;
 }) {
-    return (
-        <WithClient clientId={clientId} onClose={onClose}>
-            {(id) => <PackageSale clientId={id} onClose={onClose} />}
-        </WithClient>
-    );
+    return <SellEntitlement kind="package" clientId={clientId} onClose={onClose} />;
 }
 
-/** Start a subscription: for the given client, or after picking one (from Sales). */
 export function StartSubscription({
     clientId,
     onClose,
@@ -144,119 +177,7 @@ export function StartSubscription({
     clientId: string | null;
     onClose: () => void;
 }) {
-    return (
-        <WithClient clientId={clientId} onClose={onClose}>
-            {(id) => <SubscriptionStart clientId={id} onClose={onClose} />}
-        </WithClient>
-    );
+    return <SellEntitlement kind="membership" clientId={clientId} onClose={onClose} />;
 }
 
-function WithClient({
-    clientId,
-    onClose,
-    children,
-}: {
-    clientId: string | null;
-    onClose: () => void;
-    children: (clientId: string) => ReactNode;
-}) {
-    const clients = useClients();
-    const [picked, setPicked] = useState("");
-    const id = clientId ?? (picked === "" ? null : picked);
-    if (id !== null) return <>{children(id)}</>;
-    return (
-        <Panel title={strings.pos.clientLabel}>
-            <ClientChips clients={clients} value={picked} onChange={setPicked} />
-            <Text style={ui.note}>{strings.pos.chooseClient}</Text>
-            <View style={ui.actions}>
-                <Button variant="quiet" onPress={onClose}>
-                    {strings.common.cancel}
-                </Button>
-            </View>
-        </Panel>
-    );
-}
-
-function PackageSale({ clientId, onClose }: { clientId: string; onClose: () => void }) {
-    const items = useCatalogItems();
-    const offerings = useMemo(() => packageOfferings(items), [items]);
-    const cards = useSavedCards(clientId);
-    const form = usePackageSaleForm(api, clientId, onClose);
-    const offering = offerings.find((o) => o.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={
-                offering ? formatMoney(offering.price_cents) : strings.clients.packageAmountFallback
-            }
-            submitLabel={strings.clients.sellPackage}
-            busyLabel={strings.clients.selling}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <Field label={strings.clients.packageLabel}>
-                <ItemChoice
-                    items={offerings}
-                    value={form.itemId}
-                    onChange={form.setItemId}
-                    empty={strings.clients.addPackageItemFirst}
-                />
-            </Field>
-        </ChargeSheet>
-    );
-}
-
-function SubscriptionStart({ clientId, onClose }: { clientId: string; onClose: () => void }) {
-    const items = useCatalogItems();
-    const plans = useMemo(() => subscriptionPlans(items), [items]);
-    const cards = useSavedCards(clientId);
-    const form = useSubscriptionForm(api, clientId, onClose);
-    const plan = plans.find((p) => p.id === form.itemId);
-
-    return (
-        <ChargeSheet
-            checkout={form.checkout}
-            methods={checkoutMethods(cards)}
-            amountLabel={plan ? formatMoney(plan.price_cents) : ""}
-            submitLabel={strings.clients.startSubscription}
-            busyLabel={strings.clients.starting}
-            onSubmit={form.submit}
-            onCancel={onClose}
-        >
-            <Field label={strings.clients.planLabel}>
-                <ItemChoice
-                    items={plans}
-                    value={form.itemId}
-                    onChange={form.setItemId}
-                    empty={strings.clients.addSubscriptionItemFirst}
-                />
-            </Field>
-        </ChargeSheet>
-    );
-}
-
-function ItemChoice({
-    items,
-    value,
-    onChange,
-    empty,
-}: {
-    items: ItemRow[];
-    value: string;
-    onChange: (id: string) => void;
-    empty: string;
-}) {
-    if (items.length === 0) return <Text style={ui.note}>{empty}</Text>;
-    return (
-        <Choice
-            options={items.map((i) => ({
-                key: i.id,
-                label: `${i.name} · ${formatMoney(i.price_cents)}`,
-            }))}
-            value={value}
-            onChange={onChange}
-        />
-    );
-}
+const styles = StyleSheet.create({ gap: { gap: 12 } });

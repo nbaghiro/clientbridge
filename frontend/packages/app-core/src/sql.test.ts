@@ -368,6 +368,8 @@ function seed(): void {
             id: "pay_r1",
             client_id: "cl_ann",
             kind: "refund",
+            reason: "duplicate",
+            credit_note: "CN-7-1",
             parent_payment_id: "pay_1",
             invoice_id: "inv_1",
             amount_cents: 1000,
@@ -394,6 +396,8 @@ function seed(): void {
             client_id: "cl_ben",
             kind: "payment",
             invoice_id: "inv_3",
+            reference_code: "AB12CD34",
+            channel: "sms",
             amount_cents: 2000,
             currency: "CAD",
             method: "interac",
@@ -405,6 +409,9 @@ function seed(): void {
             id: "pay_web",
             client_id: "cl_ben",
             kind: "payment",
+            dispute_status: "needs_response",
+            dispute_reason: "fraudulent",
+            dispute_respond_by: "2026-07-06T00:00:00Z",
             order_id: "ord_web",
             amount_cents: 4800,
             currency: "CAD",
@@ -466,7 +473,14 @@ function seed(): void {
         },
     ]);
     scoped("gift_cards", [
-        { id: "gc_1", code: "GIFTAAAA", initial_cents: 5000, status: "active", recipient: "a@x" },
+        {
+            id: "gc_1",
+            code: "GIFTAAAA",
+            initial_cents: 5000,
+            status: "active",
+            recipient: "a@x",
+            purchaser_client_id: "cl_ann",
+        },
         {
             id: "gc_2",
             code: "GIFTBBBB",
@@ -920,10 +934,68 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
-    it("shows gift card balances and status", () => {
-        expect(pick(run("GIFT_CARDS_SQL"), "id", "balance_cents", "status")).toEqual([
-            { id: "gc_1", balance_cents: 3000, status: "active" },
-            { id: "gc_2", balance_cents: 0, status: "redeemed" },
+    it("lists a client's wallet with what is still owed", () => {
+        expect(run("WALLET_HOLDERS_SQL").map((r) => r.id)).toEqual(["cl_ann"]);
+        expect(pick(run("WALLET_CLIENT_SQL", ["cl_ann"]), "name")).toEqual([{ name: "Ann" }]);
+        expect(
+            pick(
+                run("WALLET_SQL", ["cl_ann"]),
+                "kind",
+                "id",
+                "sessions_used",
+                "balance_cents",
+                "method_last4",
+            ),
+        ).toEqual([
+            {
+                kind: "package",
+                id: "pk_1",
+                sessions_used: 2,
+                balance_cents: 0,
+                method_last4: null,
+            },
+            {
+                kind: "membership",
+                id: "sub_1",
+                sessions_used: null,
+                balance_cents: null,
+                method_last4: "1111",
+            },
+            {
+                kind: "gift_card",
+                id: "gc_1",
+                sessions_used: null,
+                balance_cents: 3000,
+                method_last4: null,
+            },
+        ]);
+        expect(pick(run("ENTITLEMENT_HISTORY_SQL", ["package", "pk_1"]), "event", "cents")).toEqual(
+            [
+                { event: "consumption", cents: 9000 },
+                { event: "consumption", cents: 9000 },
+            ],
+        );
+    });
+
+    it("lists refundable payments, credit notes and disputes", () => {
+        expect(
+            pick(run("REFUNDABLE_PAYMENTS_SQL"), "id", "refunded_cents", "invoice_number"),
+        ).toEqual([
+            { id: "pay_1", refunded_cents: 1000, invoice_number: 7 },
+            { id: "pay_dep", refunded_cents: 0, invoice_number: null },
+            { id: "pay_web", refunded_cents: 0, invoice_number: null },
+            { id: "pay_3", refunded_cents: 0, invoice_number: 6 },
+        ]);
+        expect(pick(run("CREDIT_NOTES_SQL"), "credit_note", "client_name", "reason")).toEqual([
+            { credit_note: "CN-7-1", client_name: "Ann", reason: "duplicate" },
+        ]);
+        expect(
+            pick(run("DISPUTES_SQL"), "id", "dispute_status", "withdrawn_cents", "fee_cents"),
+        ).toEqual([
+            { id: "pay_web", dispute_status: "needs_response", withdrawn_cents: 0, fee_cents: 0 },
+        ]);
+        expect(pick(run("INVOICE_INTERAC_SQL", ["inv_3"]), "reference_code", "channel")).toEqual([
+            { reference_code: "AB12CD34", channel: "sms" },
         ]);
     });
 

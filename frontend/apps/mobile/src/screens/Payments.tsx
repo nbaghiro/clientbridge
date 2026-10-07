@@ -12,6 +12,7 @@ import { GiftCards } from "./GiftCards";
 import { Invoices } from "./Invoices";
 import { Earnings } from "./Earnings";
 import { POS } from "./POS";
+import { Refunds } from "./Refunds";
 import { Reports } from "./Reports";
 
 export function PaymentsScreen() {
@@ -36,7 +37,7 @@ export function PaymentsScreen() {
                         {tabBody(
                             current.key,
                             tab === "invoices" ? params?.create : undefined,
-                            tab === "invoices" ? params?.open : undefined,
+                            tab === "invoices" || tab === "refunds" ? params?.open : undefined,
                         )}
                     </View>
                 </>
@@ -57,6 +58,8 @@ function tabBody(
             return <POS />;
         case "giftCards":
             return <GiftCards />;
+        case "refunds":
+            return <Refunds openId={openId} />;
         case "staffPay":
             return <Earnings />;
         case "reports":

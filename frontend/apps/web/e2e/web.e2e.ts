@@ -1,7 +1,7 @@
 import { strings } from "@clientbridge/app-core/public";
 import { expect, type Page, test } from "@playwright/test";
 
-const PAYMENTS_TABS = ["invoices", "sales", "gift-cards", "staff-pay", "reports"];
+const PAYMENTS_TABS = ["invoices", "sales", "gift-cards", "refunds", "staff-pay", "reports"];
 const SETUP_SECTIONS = ["business", "services", "team", "getting-paid", "online-booking"];
 
 async function navigate(page: Page, path: string): Promise<void> {
@@ -101,6 +101,19 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await desk.getByText(strings.billing.estimates, { exact: true }).first().click();
     await openFirstRow(page);
     await openAndClose(page, /new estimate/i);
+
+    await navigate(page, "/payments/refunds");
+    await desk
+        .getByRole("button", { name: /Invoice #|Sale S-/ })
+        .first()
+        .click();
+    await expect(desk.getByText(strings.refunds.reverses)).toBeVisible();
+    await desk.getByRole("tab", { name: strings.refunds.tabs.notes }).click();
+    await desk.getByRole("tab", { name: new RegExp(strings.refunds.tabs.disputes) }).click();
+
+    await navigate(page, "/payments/gift-cards");
+    await openAndClose(page, strings.entitlements.sellNew);
+    await openAndClose(page, strings.entitlements.redeemGift);
 
     await navigate(page, "/inbox");
     await openAndClose(page, new RegExp(`^${strings.messaging.newMessage}$`));

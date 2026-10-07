@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { formatDate } from "../datetime";
+import { formatMoney } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { DocTotalLine, Intent, PrintedDoc, PrintedDocLine, PrintedDocTax } from "../ui";
@@ -72,6 +74,14 @@ interface PublicInvoice {
     lines: PublicDocLine[];
     taxes: PublicDocTax[];
     credits: PublicCredit[];
+    interac?: PublicInteracRequest | null;
+}
+
+interface PublicInteracRequest {
+    reference_code: string;
+    amount_cents: number;
+    send_to: string | null;
+    expires_at: string | null;
 }
 
 export function publicDocTaxes(taxes: readonly PublicDocTax[]): PrintedDocTax[] {
@@ -176,6 +186,7 @@ export interface InteracRequest {
     reference_code: string;
     send_to: string | null;
     amount_cents: number;
+    expires_at?: string | null;
 }
 
 interface PublicCardIntent {
@@ -282,5 +293,113 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
         busy,
         error,
         setError,
+    };
+}
+
+const POLL_MS = 10_000;
+
+interface InteracStep {
+    text: string;
+    copy: { key: string; label: string; value: string; code: boolean } | null;
+}
+
+interface PublicInterac {
+    status: PublicPayStatus;
+    invoice: PublicInvoice | null;
+    paidCents: number;
+    amount: string;
+    reference: string;
+    steps: InteracStep[];
+    done: number[];
+    toggleStep: (i: number) => void;
+    progress: string;
+    copied: string | null;
+    copy: (key: string) => void;
+    validUntil: string | null;
+    error: string | null;
+}
+
+/** The e-Transfer steps for a pay link: the waiting request (or a new one), checked every few seconds. */
+export function usePublicInterac(pay: PublicPayClient, token: string): PublicInterac {
+    const pp = strings.publicPay;
+    const { status: load, data: invoice, setData } = usePublicResource(pay.getPublicInvoice, token);
+    const [request, setRequest] = useState<PublicInteracRequest | null>(null);
+    const [done, setDone] = useState<number[]>([]);
+    const [copied, setCopied] = useState<string | null>(null);
+    const { error, run } = useAsyncAction();
+    const asked = useRef(false);
+    const waiting = invoice?.interac ?? request;
+    const paid = invoice?.status === "paid";
+
+    useEffect(() => {
+        if (load !== "ready" || paid || waiting !== null || asked.current) return;
+        asked.current = true;
+        run(
+            async () => {
+                const made = await pay.payInterac(token);
+                setRequest({
+                    reference_code: made.reference_code,
+                    amount_cents: made.amount_cents,
+                    send_to: made.send_to,
+                    expires_at: made.expires_at ?? null,
+                });
+            },
+            { errorMessage: pp.interacStartError },
+        );
+    }, [load, paid, waiting, pay, token, run, pp.interacStartError]);
+
+    useEffect(() => {
+        if (load !== "ready" || paid) return;
+        const timer = setInterval(() => {
+            pay.getPublicInvoice(token)
+                .then(setData)
+                .catch(() => undefined);
+        }, POLL_MS);
+        return () => {
+            clearInterval(timer);
+        };
+    }, [load, paid, pay, token, setData]);
+
+    const amount = formatMoney(waiting?.amount_cents ?? invoice?.balance_cents ?? 0);
+    const reference = waiting?.reference_code ?? "";
+    const email = waiting?.send_to ?? invoice?.interac_email ?? null;
+    const steps: InteracStep[] = [
+        { text: pp.step1, copy: null },
+        {
+            text: email === null ? pp.step2NoEmail : pp.step2(email),
+            copy:
+                email === null
+                    ? null
+                    : { key: "email", label: pp.sendTo, value: email, code: false },
+        },
+        {
+            text: pp.step3(amount),
+            copy: { key: "amount", label: pp.amountToSend, value: amount, code: false },
+        },
+        {
+            text: pp.step4(reference),
+            copy: { key: "ref", label: pp.putInMessage, value: reference, code: true },
+        },
+    ];
+    const status: PublicPayStatus = load !== "ready" ? load : paid ? "paid" : "ready";
+    return {
+        status,
+        invoice,
+        paidCents: invoice === null ? 0 : invoice.total_cents - invoice.balance_cents,
+        amount,
+        reference,
+        steps,
+        done,
+        toggleStep: (i) => {
+            setDone((d) => (d.includes(i) ? d.filter((x) => x !== i) : [...d, i]));
+        },
+        progress: pp.progressLabel(done.length, steps.length),
+        copied,
+        copy: setCopied,
+        validUntil:
+            waiting?.expires_at === null || waiting?.expires_at === undefined
+                ? null
+                : pp.validUntil(formatDate(new Date(waiting.expires_at))),
+        error,
     };
 }
