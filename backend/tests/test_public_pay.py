@@ -202,3 +202,27 @@ async def test_public_invoice_carries_the_document(
     assert page["credits"][0]["method"] == "interac"
     assert page["credits"][0]["amount_cents"] == 5000
     assert page["balance_cents"] == 2413
+
+
+async def test_public_invoice_names_who_a_tip_goes_to(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    lines = [
+        {"description": "Groom", "unit_amount_cents": 6000, "staff_id": "st_diego"},
+        {"description": "Nails", "unit_amount_cents": 1500, "staff_id": "st_priya"},
+        {"description": "Bow", "unit_amount_cents": 500},
+    ]
+    sent = (
+        await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": lines, "send": True})
+    ).json()
+    page = (await as_owner.get(f"/pay/{sent['pay_token']}")).json()
+    assert page["tip_for"] == ["Diego", "Priya"]
+
+    plain = (
+        await as_owner.post(
+            "/v1/invoices",
+            json={"client_id": cid, "lines": [lines[2]], "send": True},
+        )
+    ).json()
+    assert (await as_owner.get(f"/pay/{plain['pay_token']}")).json()["tip_for"] == []

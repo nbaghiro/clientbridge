@@ -538,6 +538,7 @@ class PublicPayService:
             taxes=taxes,
             credits=await invoice_credits(self.db, invoice),
             interac=await waiting_interac(self.db, invoice, business),
+            tip_for=await _tip_names(self.db, invoice.business_id, lines),
         )
 
     async def pay_card(self, token: str, data: PublicPayIn | None = None) -> PublicCardIntent:
@@ -584,6 +585,23 @@ class PublicPayService:
         )
         await self.db.commit()
         return interac_out(payment, business)
+
+
+async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> list[str]:
+    """Who a pay-link tip goes to, by first name: the staff on its lines or their bookings."""
+    ids: list[str] = []
+    for line in lines:
+        staff_id = line.staff_id
+        if staff_id is None and line.booking_id is not None:
+            booking = await db.get(Booking, line.booking_id)
+            staff_id = booking.staff_id if booking is not None else None
+        if staff_id is not None and staff_id not in ids:
+            ids.append(staff_id)
+    if not ids:
+        return []
+    rows = await db.execute(scoped(Staff, business_id).where(Staff.id.in_(ids)))
+    names = {s.id: s.name for s in rows.scalars().all()}
+    return [name.split()[0] for sid in ids if (name := names.get(sid))]
 
 
 async def public_doc_lines(

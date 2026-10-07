@@ -182,6 +182,9 @@ class PublicInvoice(BaseModel):
     interac: PublicInterac | None = Field(
         default=None, description="The e-Transfer request still waiting, if any"
     )
+    tip_for: list[str] = Field(
+        default_factory=list, description="First names of the staff a tip on this invoice goes to"
+    )
 
 
 class TipShareIn(BaseModel):

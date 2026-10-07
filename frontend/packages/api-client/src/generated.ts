@@ -4021,6 +4021,11 @@ export interface components {
             credits?: components["schemas"]["PublicCredit"][];
             /** @description The e-Transfer request still waiting, if any */
             interac?: components["schemas"]["PublicInterac"] | null;
+            /**
+             * Tip For
+             * @description First names of the staff a tip on this invoice goes to
+             */
+            tip_for?: string[];
         };
         /** PublicPayIn */
         PublicPayIn: {
