@@ -86,3 +86,76 @@ export function useFlash(ms = 2000): [boolean, () => void] {
     }, [ms]);
     return [on, flash];
 }
+
+type LoadState = "loading" | "ready" | "empty" | "error";
+
+export interface Load {
+    state: LoadState;
+    ready: boolean;
+    // Ready or empty: the screen draws its content (with empty lists) rather than a placeholder.
+    hasData: boolean;
+    retrying: boolean;
+    retry: () => void;
+}
+
+// The shape of a PowerSync `useQuery` result and of `useRemote`, so either can feed `useLoad`.
+export interface LoadSource {
+    isLoading: boolean;
+    error?: Error | null | undefined;
+    refresh?: (() => Promise<void> | void) | undefined;
+}
+
+/** One load state for a screen: loading until every source answers, error if any failed. */
+export function useLoad(sources: LoadSource[], empty: boolean): Load {
+    const [retrying, setRetrying] = useState(false);
+    const latest = useRef(sources);
+    latest.current = sources;
+    const failed = sources.some((s) => s.error !== undefined && s.error !== null);
+    const loading = sources.some((s) => s.isLoading);
+    const state: LoadState = failed ? "error" : loading ? "loading" : empty ? "empty" : "ready";
+    const retry = useCallback(() => {
+        setRetrying(true);
+        Promise.all(latest.current.map(async (s) => s.refresh?.()))
+            .catch(() => undefined)
+            .finally(() => {
+                setRetrying(false);
+            });
+    }, []);
+    return {
+        state,
+        ready: state === "ready",
+        hasData: state === "ready" || state === "empty",
+        retrying,
+        retry,
+    };
+}
+
+export interface Remote<T> extends LoadSource {
+    data: T | null;
+    error: Error | null;
+    refresh: () => Promise<void>;
+}
+
+/** A server-only figure: fetched on mount and whenever `key` changes, with a refresh for retry. */
+export function useRemote<T>(load: () => Promise<T>, key = ""): Remote<T> {
+    const [data, setData] = useState<T | null>(null);
+    const [error, setError] = useState<Error | null>(null);
+    const [isLoading, setLoading] = useState(true);
+    const current = useRef(load);
+    current.current = load;
+    const refresh = useCallback(async (): Promise<void> => {
+        setLoading(true);
+        setError(null);
+        try {
+            setData(await current.current());
+        } catch (e) {
+            setError(e instanceof Error ? e : new Error(String(e)));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+    useEffect(() => {
+        refresh().catch(() => undefined);
+    }, [refresh, key]);
+    return { data, error, isLoading, refresh };
+}

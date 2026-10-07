@@ -105,3 +105,38 @@ export function combineDayAndTime(day: Date | string, hhmm: string): Date {
     const [h = 0, m = 0] = hhmm.split(":").map(Number);
     return new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m);
 }
+
+/** "Wed, Oct 8": a near date where the year goes without saying. */
+export function weekdayDay(d: Date, locale = "en-CA"): string {
+    return d.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" });
+}
+
+/** "Today", "Yesterday" or "Tomorrow", else the short ("Wed, Oct 8") or long date. */
+export function relativeDay(
+    d: Date,
+    style: "short" | "long" = "short",
+    now: Date = new Date(),
+): string {
+    if (sameDay(d, now)) return strings.common.today;
+    if (sameDay(d, addDays(now, -1))) return strings.common.yesterday;
+    if (sameDay(d, addDays(now, 1))) return strings.common.tomorrow;
+    return style === "long" ? formatFullDate(d) : weekdayDay(d);
+}
+
+/** "Today, 2:30 p.m." or "Wed, Oct 8, 9:00 a.m." */
+export function relativeDayTime(d: Date, now: Date = new Date()): string {
+    return `${relativeDay(d, "short", now)}, ${formatTime(d)}`;
+}
+
+/** A feed timestamp: the time today, the weekday and time this week, else the date. */
+export function stampLabel(d: Date, now: Date = new Date()): string {
+    const days = Math.round((startOfDay(now).getTime() - startOfDay(d).getTime()) / 86_400_000);
+    if (days === 0) return formatTime(d);
+    if (days > 0 && days < 7) return `${formatWeekday(d)} ${formatTime(d)}`;
+    return formatDate(d);
+}
+
+/** Whole calendar days from `now` to `d`; negative when `d` is in the past. */
+export function daysUntil(d: Date, now: Date = new Date()): number {
+    return Math.round((startOfDay(d).getTime() - startOfDay(now).getTime()) / 86_400_000);
+}

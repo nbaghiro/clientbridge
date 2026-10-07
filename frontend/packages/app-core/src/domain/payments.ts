@@ -137,9 +137,14 @@ export function isPayable(row: { status: string; balance_cents: number | null })
     );
 }
 
-/** `base` is the public-web origin each app supplies. */
+/** `base` is the one pay host (pay.clientbridge.ca in production) each app is configured with. */
 export function payLinkUrl(base: string, token: string): string {
-    return `${base.replace(/\/+$/, "")}/pay/${token}`;
+    return `${base.replace(/\/+$/, "")}/i/${token}`;
+}
+
+/** Credit notes are numbered after the invoice or sale they credit, from 1: CN-1143-1, CN-S-1044-1. */
+export function creditNoteNumber(docNumber: string | number, n: number): string {
+    return `CN-${String(docNumber)}-${String(n)}`;
 }
 
 export interface SavedCardRow {
