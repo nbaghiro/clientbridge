@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -220,7 +222,12 @@ class OrderService:
             raise Conflict(f"the order is already {order.pickup_status.replace('_', ' ')}")
 
         async def run(cmd: Command) -> OrderOut:
+            now = datetime.now(UTC)
             order.pickup_status = data.status
+            if data.status == "ready":
+                order.ready_at = now
+            else:
+                order.picked_up_at = now
             await self.db.flush()
             cmd.record("order.pickup", entity_type="order", entity_id=order.id)
             lines = await fetch_lines(self.db, self.biz, "order", order.id)
@@ -334,5 +341,7 @@ async def _out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderOut:
         receipt_phone=order.receipt_phone,
         source=order.source,
         pickup_status=order.pickup_status,
+        ready_at=order.ready_at,
+        picked_up_at=order.picked_up_at,
         lines=[line_out(ln) for ln in lines],
     )

@@ -89,6 +89,8 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
     receipt_phone: Mapped[str | None] = mapped_column(String)
     source: Mapped[str] = mapped_column(String, default="pos", nullable=False)
     pickup_status: Mapped[str | None] = mapped_column(String)  # online orders collected in person
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    picked_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Line(PKMixin, BusinessScoped, TimestampMixin, Base):

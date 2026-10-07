@@ -49,6 +49,8 @@ class OrderOut(BaseModel):
     receipt_phone: str | None = None
     source: str = "pos"
     pickup_status: str | None = None
+    ready_at: datetime | None = None
+    picked_up_at: datetime | None = None
     lines: list[LineOut]
 
 

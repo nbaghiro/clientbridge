@@ -173,9 +173,14 @@ async def test_staff_mark_an_online_order_ready_then_picked_up(
     ready = await as_staff.post("/v1/orders/ord_web/pickup", json={"status": "ready"})
     assert ready.status_code == 200, ready.text
     assert ready.json()["pickup_status"] == "ready"
+    assert ready.json()["ready_at"] is not None
+    assert ready.json()["picked_up_at"] is None
     assert any("ready to pick up" in e.body for e in email.sent)
     done = await as_staff.post("/v1/orders/ord_web/pickup", json={"status": "picked_up"})
     assert done.json()["pickup_status"] == "picked_up"
+    assert done.json()["ready_at"] == ready.json()["ready_at"]
+    order = await db.get(Order, "ord_web", populate_existing=True)
+    assert order is not None and order.picked_up_at is not None
     back = await as_staff.post("/v1/orders/ord_web/pickup", json={"status": "ready"})
     assert back.status_code == 409
 
