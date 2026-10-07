@@ -1,11 +1,11 @@
 import { useQuery } from "@powersync/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
-type LoginMode = "signin" | "signup";
+type AuthMode = "signin" | "signup" | "reset" | "sent";
 
 /** Matches api-client's TokenPair; kept local so app-core needn't depend on api-client for one type. */
 export interface AuthTokens {
@@ -14,73 +14,169 @@ export interface AuthTokens {
     token_type?: string;
 }
 
-interface LoginForm {
-    mode: LoginMode;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_ATTEMPTS = 5;
+const RESEND_SECONDS = 30;
+
+// The api client throws "POST /auth/login → 429"; the status decides which message to show.
+function failedStatus(e: unknown): number | null {
+    const m = e instanceof Error ? /→ (\d{3})$/.exec(e.message) : null;
+    return m?.[1] === undefined ? null : Number(m[1]);
+}
+
+interface AuthFieldErrors {
+    name?: string;
+    email?: string;
+    password?: string;
+}
+
+interface AuthForm {
+    mode: AuthMode;
+    setMode: (m: AuthMode) => void;
     name: string;
     setName: (v: string) => void;
     email: string;
     setEmail: (v: string) => void;
     password: string;
     setPassword: (v: string) => void;
-    busy: boolean;
+    reveal: boolean;
+    toggleReveal: () => void;
+    fieldErrors: AuthFieldErrors;
     error: string | null;
+    attemptsLeft: number | null;
+    locked: boolean;
+    busy: boolean;
+    cooldown: number;
     submit: () => void;
-    flip: () => void;
+    resend: () => void;
     googleUnavailable: () => void;
 }
 
-/** `setTokens` is injected because web stores tokens synchronously and mobile asynchronously. */
-export function useLogin(
+/** Sign in, create an account, and reset a password on one card. `setTokens` is injected per platform. */
+export function useAuthForm(
     api: ApiLike,
     setTokens: (tokens: AuthTokens) => void | Promise<void>,
     onSuccess: () => void,
-    opts?: { defaultEmail?: string; defaultPassword?: string },
-): LoginForm {
-    const [mode, setMode] = useState<LoginMode>("signin");
+    opts?: { initialMode?: AuthMode; defaultEmail?: string; defaultPassword?: string },
+): AuthForm {
+    const a = strings.auth;
+    const [mode, setModeState] = useState<AuthMode>(opts?.initialMode ?? "signin");
     const [name, setName] = useState("");
     const [email, setEmail] = useState(opts?.defaultEmail ?? "");
     const [password, setPassword] = useState(opts?.defaultPassword ?? "");
+    const [reveal, setReveal] = useState(false);
+    const [failed, setFailed] = useState(0);
+    const [locked, setLocked] = useState(false);
+    const [cooldown, setCooldown] = useState(0);
+    const [fieldErrors, setFieldErrors] = useState<AuthFieldErrors>({});
     const { busy, error, setError, run } = useAsyncAction();
 
-    const submit = (): void => {
-        run(
-            async () => {
-                const path = mode === "signin" ? "/auth/login" : "/auth/register";
-                const body = mode === "signin" ? { email, password } : { email, password, name };
-                await setTokens(await api.post<AuthTokens>(path, body));
-            },
-            {
-                onSuccess,
-                errorMessage:
-                    mode === "signin"
-                        ? strings.auth.invalidCredentials
-                        : strings.auth.createAccountError,
-            },
-        );
-    };
+    useEffect(() => {
+        if (cooldown <= 0) return undefined;
+        const t = setTimeout(() => {
+            setCooldown((c) => c - 1);
+        }, 1000);
+        return () => {
+            clearTimeout(t);
+        };
+    }, [cooldown]);
 
-    const flip = (): void => {
-        setMode(mode === "signin" ? "signup" : "signin");
+    const setMode = (m: AuthMode): void => {
+        setModeState(m);
+        setFieldErrors({});
         setError(null);
     };
 
-    const googleUnavailable = (): void => {
-        setError(strings.auth.googleNotConfigured);
+    const sendReset = (): void => {
+        run(
+            async () => {
+                await api.post("/auth/forgot-password", { email: email.trim() });
+                setModeState("sent");
+                setCooldown(RESEND_SECONDS);
+            },
+            { errorMessage: a.resetError },
+        );
+    };
+
+    const submit = (): void => {
+        const errs: AuthFieldErrors = {};
+        const trimmed = email.trim();
+        if (trimmed === "") errs.email = a.emailRequired;
+        else if (!EMAIL.test(trimmed)) errs.email = a.emailInvalid;
+        if (mode === "signup" && name.trim() === "") errs.name = a.nameRequired;
+        if (mode === "signin" && password === "") errs.password = a.passwordRequired;
+        if (mode === "signup" && password.length < 8) errs.password = a.passwordShort;
+        setFieldErrors(errs);
+        if (Object.keys(errs).length > 0) return;
+        if (mode === "reset") {
+            sendReset();
+            return;
+        }
+        if (mode === "signup") {
+            run(
+                async () => {
+                    const body = { email: trimmed, password, name: name.trim() };
+                    await setTokens(await api.post<AuthTokens>("/auth/register", body));
+                },
+                { onSuccess, errorMessage: a.createAccountError },
+            );
+            return;
+        }
+        if (locked) return;
+        const go = async (): Promise<void> => {
+            setError(null);
+            try {
+                const tokens = await api.post<AuthTokens>("/auth/login", {
+                    email: trimmed,
+                    password,
+                });
+                await setTokens(tokens);
+                setFailed(0);
+                onSuccess();
+            } catch (e) {
+                const status = failedStatus(e);
+                if (status === 429) {
+                    setLocked(true);
+                    setError(a.locked);
+                } else if (status === 401) {
+                    const next = failed + 1;
+                    setFailed(next);
+                    if (next >= MAX_ATTEMPTS) setLocked(true);
+                    setError(next >= MAX_ATTEMPTS ? a.locked : a.invalidCredentials);
+                } else {
+                    setError(strings.common.somethingWrongRetry);
+                }
+            }
+        };
+        run(go);
     };
 
     return {
         mode,
+        setMode,
         name,
         setName,
         email,
         setEmail,
         password,
         setPassword,
-        busy,
+        reveal,
+        toggleReveal: () => {
+            setReveal((r) => !r);
+        },
+        fieldErrors,
         error,
+        attemptsLeft: failed > 0 && !locked ? MAX_ATTEMPTS - failed : null,
+        locked,
+        busy,
+        cooldown,
         submit,
-        flip,
-        googleUnavailable,
+        resend: () => {
+            if (cooldown <= 0) sendReset();
+        },
+        googleUnavailable: () => {
+            setError(a.googleNotConfigured);
+        },
     };
 }
 

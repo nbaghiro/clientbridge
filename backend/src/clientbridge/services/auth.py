@@ -1,14 +1,16 @@
 """Password auth and rotating refresh-token sessions with reuse detection."""
 
 import secrets
+import time
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.errors import Conflict, Unauthorized
+from clientbridge.core.errors import Conflict, TooManyRequests, Unauthorized
 from clientbridge.core.ids import new_id
+from clientbridge.core.ratelimit import login_guard
 from clientbridge.core.security import (
     hash_password,
     hash_token,
@@ -82,11 +84,18 @@ class AuthService:
         return user
 
     async def authenticate(self, email: str, password: str) -> User:
+        now = time.monotonic()
+        if login_guard.locked(email, now):
+            raise TooManyRequests(
+                "too many sign-in attempts, try again in 15 minutes", code="login_locked"
+            )
         user = (await self.db.execute(select(User).where(User.email == email))).scalar_one_or_none()
         stored = user.password_hash if user is not None and user.password_hash is not None else None
         matched = verify_password(password, stored if stored is not None else _DUMMY_HASH)
         if user is None or stored is None or not matched:
+            login_guard.failed(email, now)
             raise Unauthorized("invalid email or password")
+        login_guard.succeeded(email)
         return user
 
     async def issue_session(

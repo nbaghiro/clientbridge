@@ -52,6 +52,38 @@ async def test_login_wrong_password_401(api: httpx.AsyncClient, factory: Factory
     assert res.status_code == 401
 
 
+async def test_login_pauses_after_five_failures_429(
+    api: httpx.AsyncClient, factory: Factory
+) -> None:
+    await factory.user(email="locked@test.ca", password="correct-horse")
+    for _ in range(5):
+        res = await api.post("/auth/login", json={"email": "locked@test.ca", "password": "nope"})
+        assert res.status_code == 401
+    res = await api.post(
+        "/auth/login", json={"email": "Locked@test.ca", "password": "correct-horse"}
+    )
+    assert res.status_code == 429
+    assert res.json()["error"] == "login_locked"
+    other = await api.post("/auth/login", json={"email": "other@test.ca", "password": "x"})
+    assert other.status_code == 401
+
+
+async def test_login_success_clears_failures(api: httpx.AsyncClient, factory: Factory) -> None:
+    await factory.user(email="clears@test.ca", password="correct-horse")
+    for _ in range(4):
+        await api.post("/auth/login", json={"email": "clears@test.ca", "password": "nope"})
+    ok = await api.post(
+        "/auth/login", json={"email": "clears@test.ca", "password": "correct-horse"}
+    )
+    assert ok.status_code == 200
+    for _ in range(4):
+        await api.post("/auth/login", json={"email": "clears@test.ca", "password": "nope"})
+    ok = await api.post(
+        "/auth/login", json={"email": "clears@test.ca", "password": "correct-horse"}
+    )
+    assert ok.status_code == 200
+
+
 async def test_login_correct_password(api: httpx.AsyncClient, factory: Factory) -> None:
     await factory.user(email="pw2@test.ca", password="correct-horse")
     res = await api.post("/auth/login", json={"email": "pw2@test.ca", "password": "correct-horse"})
