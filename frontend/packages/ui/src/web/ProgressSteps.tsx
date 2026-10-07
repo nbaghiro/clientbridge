@@ -46,11 +46,11 @@ export function ProgressSteps({
                     <li
                         key={s.key}
                         aria-current={s.state === "current" ? "step" : undefined}
-                        className="flex min-w-0 items-center gap-2 sm:gap-3"
+                        className={`flex items-center gap-2 sm:gap-3 ${s.state === "current" ? "shrink-0" : "min-w-0"}`}
                     >
                         <Dot state={s.state} n={i + 1} />
                         <span
-                            className={`truncate text-sm ${s.state === "current" ? "font-semibold text-ink" : `${s.state === "done" ? "font-medium text-ink-soft" : "text-muted"} sr-only sm:not-sr-only`}`}
+                            className={`text-sm ${s.state === "current" ? "shrink-0 whitespace-nowrap font-semibold text-ink" : `truncate ${s.state === "done" ? "font-medium text-ink-soft" : "text-muted"} sr-only sm:not-sr-only`}`}
                         >
                             {s.label}
                         </span>

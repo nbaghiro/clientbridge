@@ -21,11 +21,12 @@ export function Stat({
     tone = "ink",
     hint,
     size = "md",
+    currency,
     className,
 }: WebProps<StatProps>) {
     const large = size === "lg";
-    const money = (c: number): string =>
-        large ? formatMoneyWithCurrency(c, "CAD") : formatMoney(c);
+    const money = (n: number): string =>
+        currency === undefined ? formatMoney(n) : formatMoneyWithCurrency(n, currency);
     const shown = value ?? (cents === null || cents === undefined ? null : money(cents));
     return (
         <div

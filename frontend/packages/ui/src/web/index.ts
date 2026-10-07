@@ -7,6 +7,7 @@ export { StatusPill } from "./StatusPill";
 export { configureStripe, setStripeAccount } from "./stripe";
 export { DetailSection, DetailView } from "./DetailView";
 export { Empty } from "./Empty";
+export { LoadFailed } from "./LoadFailed";
 export { ListPage } from "./ListPage";
 export { Money } from "./Money";
 export { Modal } from "./Modal";

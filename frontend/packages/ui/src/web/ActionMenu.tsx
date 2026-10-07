@@ -1,5 +1,5 @@
 import { type ActionMenuProps, type ActionMenuItem } from "@clientbridge/app-core/public";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { Icon } from "./Icon";
 import { moveFocus } from "./keys";
@@ -9,7 +9,21 @@ const PLACE = {
     "below-start": "left-0 top-full mt-2",
     "below-end": "right-0 top-full mt-2",
     "above-start": "bottom-full left-0 mb-2",
+    "above-end": "bottom-full right-0 mb-2",
 } as const;
+
+type Place = keyof typeof PLACE;
+
+// The preferred placement, flipped to the other side wherever the menu would leave the window.
+function fitted(preferred: Place, box: DOMRect): Place {
+    let [side, edge] = preferred.split("-") as ["below" | "above", "start" | "end"];
+    if (side === "below" && box.bottom > window.innerHeight && box.top - box.height > 0)
+        side = "above";
+    else if (side === "above" && box.top < 0) side = "below";
+    if (edge === "start" && box.right > window.innerWidth) edge = "end";
+    else if (edge === "end" && box.left < 0) edge = "start";
+    return `${side}-${edge}`;
+}
 
 export function ActionMenu({
     open,
@@ -23,14 +37,34 @@ export function ActionMenu({
     className,
 }: WebProps<ActionMenuProps>) {
     const ref = useRef<HTMLDivElement>(null);
+    const [place, setPlace] = useState<Place>(placement);
     const close = useRef(onClose);
+    const pick = useRef({ items, onSelect });
     useEffect(() => {
         close.current = onClose;
+        pick.current = { items, onSelect };
     });
+    useLayoutEffect(() => {
+        if (!open || ref.current === null) {
+            setPlace(placement);
+            return;
+        }
+        setPlace(fitted(placement, ref.current.getBoundingClientRect()));
+    }, [open, placement]);
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e: KeyboardEvent): void => {
-            if (e.key === "Escape") close.current();
+            if (e.key === "Escape") {
+                close.current();
+                return;
+            }
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            const key = e.key.toLowerCase();
+            const hit = pick.current.items.find((i) => i.shortcut?.toLowerCase() === key);
+            if (hit !== undefined) {
+                e.preventDefault();
+                pick.current.onSelect(hit.key);
+            }
         };
         const onDown = (e: MouseEvent): void => {
             if (ref.current && !ref.current.parentElement?.contains(e.target as Node))
@@ -56,7 +90,7 @@ export function ActionMenu({
                 moveFocus(e, '[role="menuitem"]', layout === "grid" ? "both" : "vertical");
             }}
             className={cx(
-                `absolute z-30 overflow-hidden rounded-lg border border-line bg-surface shadow-pop ${PLACE[placement]} ${
+                `absolute z-30 overflow-hidden rounded-lg border border-line bg-surface shadow-pop ${PLACE[place]} ${
                     layout === "grid" ? "w-[420px]" : "w-80"
                 }`,
                 className,

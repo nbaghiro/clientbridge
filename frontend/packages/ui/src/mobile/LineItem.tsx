@@ -62,7 +62,8 @@ export function LineItem({
                         <Stepper
                             value={quantity.value}
                             onChange={quantity.onChange}
-                            min={0}
+                            min={quantity.min ?? 0}
+                            max={quantity.max}
                             label={quantity.label}
                         />
                     </View>

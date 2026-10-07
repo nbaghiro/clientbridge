@@ -3,6 +3,7 @@ import { type ListPageProps, strings } from "@clientbridge/app-core/public";
 import { Button } from "./Button";
 import { Choice } from "./Choice";
 import { Empty } from "./Empty";
+import { LoadFailed } from "./LoadFailed";
 import { Icon } from "./Icon";
 import type { WebProps } from "./props";
 import { SearchField } from "./SearchField";
@@ -86,18 +87,10 @@ export function ListPage<T, K extends string = string>({
                 {state === "loading" ? (
                     <Skeleton variant="row" count={4} label={strings.common.loading} />
                 ) : state === "error" ? (
-                    <Empty
-                        intent="danger"
-                        icon="alert"
+                    <LoadFailed
                         message={strings.ui.listError}
                         body={strings.ui.listErrorBody}
-                        actions={
-                            onRetry !== undefined ? (
-                                <Button variant="outline" onPress={onRetry}>
-                                    {strings.ui.retry}
-                                </Button>
-                            ) : undefined
-                        }
+                        onRetry={onRetry}
                     />
                 ) : rows.length === 0 ? (
                     typeof empty === "string" ? (

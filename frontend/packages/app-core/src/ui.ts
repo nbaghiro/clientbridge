@@ -93,6 +93,17 @@ export interface EmptyProps {
     variant?: "inline" | "card" | undefined;
 }
 
+// The one failed-load state: a danger Empty with a cloudOff glyph and an outline Try again.
+export interface LoadFailedProps {
+    message?: string | undefined;
+    body?: string | undefined;
+    // Without it the state shows no button (nothing on the screen can retry).
+    onRetry?: (() => void) | undefined;
+    retrying?: boolean | undefined;
+    retryLabel?: string | undefined;
+    variant?: "inline" | "card" | undefined;
+}
+
 export interface ModalProps {
     open?: boolean | undefined;
     onClose: () => void;
@@ -266,6 +277,8 @@ export interface StatProps {
     hint?: string | undefined;
     // lg is a headline figure (Today); md sits several to a card (Reports).
     size?: "md" | "lg" | undefined;
+    // Appends the currency code, only for a figure in a currency other than the business's.
+    currency?: string | undefined;
 }
 
 export interface StarsProps {
@@ -602,7 +615,7 @@ export interface ActionMenuItem {
     label: string;
     hint?: string | undefined;
     icon: IconName;
-    // Web only: the single-key shortcut shown beside the item.
+    // Web only: the single key that picks the item while the menu is open.
     shortcut?: string | undefined;
 }
 
@@ -616,8 +629,8 @@ export interface ActionMenuProps {
     layout?: "list" | "grid" | undefined;
     // Extra content under the items, e.g. recent clients to book again.
     footer?: ReactNode | undefined;
-    // Web only: where the popover opens relative to its positioned parent; mobile is always a sheet.
-    placement?: "below-start" | "below-end" | "above-start" | undefined;
+    // Web only: the preferred side, flipped when it would leave the window; mobile is a sheet.
+    placement?: "below-start" | "below-end" | "above-start" | "above-end" | undefined;
 }
 
 export interface ChecklistItem {
@@ -707,7 +720,16 @@ export interface LineItemProps {
     title: string;
     meta?: string | undefined;
     leading?: ReactNode | undefined;
-    quantity?: { value: number; onChange: (n: number) => void; label: string } | undefined;
+    quantity?:
+        | {
+              value: number;
+              onChange: (n: number) => void;
+              label: string;
+              // Defaults to 0; max is the stock left, so + stops there.
+              min?: number | undefined;
+              max?: number | undefined;
+          }
+        | undefined;
     // Read-only quantity ("2 ×") when there is no stepper.
     count?: number | undefined;
     cents: number;

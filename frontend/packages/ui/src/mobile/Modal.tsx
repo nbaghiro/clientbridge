@@ -1,6 +1,14 @@
 import { type ModalProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Modal as NativeModal, Pressable, StyleSheet, View } from "react-native";
+import {
+    KeyboardAvoidingView,
+    Modal as NativeModal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 
 import type { NativeProps } from "./props";
 
@@ -22,25 +30,45 @@ export function Modal({
             animationType="slide"
             onRequestClose={onClose}
         >
-            <Pressable
-                style={styles.backdrop}
-                onPress={onClose}
-                accessibilityRole="button"
-                accessibilityLabel={strings.common.close}
+            <KeyboardAvoidingView
+                style={styles.fill}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <View
-                    style={[styles.sheet, size === "xl" && styles.tall, framed && styles.framed]}
-                    onStartShouldSetResponder={() => true}
-                    accessibilityViewIsModal
+                <Pressable
+                    style={styles.backdrop}
+                    onPress={onClose}
+                    accessibilityRole="button"
+                    accessibilityLabel={strings.common.close}
                 >
-                    {children}
-                </View>
-            </Pressable>
+                    <View
+                        style={[
+                            styles.sheet,
+                            size === "xl" && styles.tall,
+                            framed && styles.surface,
+                        ]}
+                        onStartShouldSetResponder={() => true}
+                        accessibilityViewIsModal
+                    >
+                        {framed ? (
+                            <ScrollView
+                                style={styles.scroll}
+                                contentContainerStyle={styles.framed}
+                                keyboardShouldPersistTaps="handled"
+                            >
+                                {children}
+                            </ScrollView>
+                        ) : (
+                            children
+                        )}
+                    </View>
+                </Pressable>
+            </KeyboardAvoidingView>
         </NativeModal>
     );
 }
 
 const styles = StyleSheet.create({
+    fill: { flex: 1 },
     backdrop: { flex: 1, backgroundColor: c.scrim, justifyContent: "flex-end" },
     sheet: {
         maxHeight: "88%",
@@ -49,5 +77,7 @@ const styles = StyleSheet.create({
         overflow: "hidden",
     },
     tall: { height: "86%" },
-    framed: { backgroundColor: c.surface, padding: 22, paddingBottom: 36 },
+    surface: { backgroundColor: c.surface },
+    scroll: { flexGrow: 0, flexShrink: 1 },
+    framed: { padding: 22, paddingBottom: 36 },
 });

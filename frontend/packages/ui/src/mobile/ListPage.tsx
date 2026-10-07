@@ -2,8 +2,8 @@ import { type ListPageProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Button } from "./Button";
 import { Empty } from "./Empty";
+import { LoadFailed } from "./LoadFailed";
 import { Icon } from "./Icon";
 import type { NativeProps } from "./props";
 import { SearchField } from "./SearchField";
@@ -103,18 +103,10 @@ export function ListPage<T, K extends string = string>({
                     state === "loading" ? (
                         <Skeleton variant="row" count={4} label={strings.common.loading} />
                     ) : state === "error" ? (
-                        <Empty
-                            intent="danger"
-                            icon="alert"
+                        <LoadFailed
                             message={strings.ui.listError}
                             body={strings.ui.listErrorBody}
-                            actions={
-                                onRetry !== undefined ? (
-                                    <Button variant="outline" onPress={onRetry}>
-                                        {strings.ui.retry}
-                                    </Button>
-                                ) : undefined
-                            }
+                            onRetry={onRetry}
                         />
                     ) : typeof empty === "string" ? (
                         <Empty message={empty} />

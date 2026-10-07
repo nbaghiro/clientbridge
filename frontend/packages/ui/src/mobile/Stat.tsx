@@ -21,11 +21,12 @@ export function Stat({
     tone = "ink",
     hint,
     size = "md",
+    currency,
     style,
 }: NativeProps<StatProps>) {
     const large = size === "lg";
     const money = (n: number): string =>
-        large ? formatMoneyWithCurrency(n, "CAD") : formatMoney(n);
+        currency === undefined ? formatMoney(n) : formatMoneyWithCurrency(n, currency);
     const shown = value ?? (cents === null || cents === undefined ? null : money(cents));
     return (
         <View style={[large ? styles.card : styles.row, style]}>

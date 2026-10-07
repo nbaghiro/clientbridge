@@ -254,7 +254,8 @@ export default [
     }),
     story<SelectProps<string>>({
         component: "Select",
-        summary: "A labelled select on web and a row of chips on mobile.",
+        summary:
+            "A labelled select on web; chips on mobile, or a searchable list above six options.",
         controls: {
             label: { type: "text" },
             hint: { type: "text" },
@@ -341,6 +342,29 @@ export default [
                         },
                         { key: "flexible", label: "Flexible: free until 2 hours before" },
                     ],
+                }),
+            },
+            {
+                key: "select-many",
+                title: "Many options, searchable on mobile",
+                props: () => ({
+                    label: "Client",
+                    options: [
+                        "Amélie Tremblay",
+                        "Marcus Bennett",
+                        "Olivia Martin",
+                        "Sophie Nguyen",
+                        "Yuki Tanaka",
+                        "Ethan Wright",
+                        "Grace Lin",
+                        "Liam O'Connor",
+                        "Noah Schmidt",
+                        "Priya Patel",
+                        "Diego Ramirez",
+                        "Hannah Wong",
+                        "Chloé Gagnon",
+                    ].map((name) => ({ key: name, label: name })),
+                    defaultValue: "Marcus Bennett",
                 }),
             },
             {

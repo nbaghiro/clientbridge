@@ -74,6 +74,17 @@ export default story<SyncBannerProps>({
             }),
         },
         {
+            key: "card-long",
+            title: "Offline card, long detail with an action",
+            props: () => ({
+                state: "offline",
+                variant: "card",
+                title: "You're offline",
+                detail: "3 changes are saved on this device and will sync when you reconnect. Last synced at 9:04 a.m.",
+                action: { label: "Try again", onPress: noop },
+            }),
+        },
+        {
             key: "card-syncing",
             title: "Syncing card",
             props: () => ({

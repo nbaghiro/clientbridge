@@ -39,7 +39,10 @@ export default story<ActionMenuProps>({
     controls: {
         title: { type: "text" },
         layout: { type: "select", options: ["list", "grid"] },
-        placement: { type: "select", options: ["below-start", "below-end", "above-start"] },
+        placement: {
+            type: "select",
+            options: ["below-start", "below-end", "above-start", "above-end"],
+        },
     },
     examples: [
         {
@@ -106,6 +109,20 @@ export default story<ActionMenuProps>({
                         icon: "clients",
                     },
                 ],
+            }),
+        },
+        {
+            key: "flip",
+            title: "Below and to the end by preference, flipped to stay in the window",
+            overlay: true,
+            props: () => ({
+                open: false,
+                onClose: noop,
+                title: "Create",
+                items: ITEMS,
+                onSelect: noop,
+                layout: "grid",
+                placement: "below-end",
             }),
         },
         {

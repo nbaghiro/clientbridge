@@ -20,7 +20,8 @@ export function Tabs<K extends string>({
                 moveFocus(e, '[role="tab"]', "horizontal");
             }}
             className={cx(
-                pill ? "flex gap-2 text-sm" : "flex gap-6 text-sm font-medium",
+                "flex max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                pill ? "gap-2 text-sm" : "-mb-px gap-6 pb-px text-sm font-medium",
                 className,
             )}
         >
@@ -38,12 +39,12 @@ export function Tabs<K extends string>({
                         }}
                         className={
                             pill
-                                ? `rounded-full border px-3.5 py-1.5 font-medium transition ${
+                                ? `shrink-0 whitespace-nowrap rounded-full border px-3.5 py-1.5 font-medium transition ${
                                       on
                                           ? "border-accent bg-accent text-accent-ink"
                                           : "border-line bg-surface text-ink-soft hover:bg-bg"
                                   }`
-                                : `-mb-px border-b-2 pb-3 pt-1 transition ${
+                                : `-mb-px shrink-0 whitespace-nowrap border-b-2 pb-3 pt-1 transition ${
                                       on
                                           ? "border-accent text-ink"
                                           : "border-transparent text-muted hover:text-ink-soft"

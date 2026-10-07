@@ -20,37 +20,39 @@ export function DetailView({
     style,
 }: NativeProps<DetailViewProps>) {
     return (
-        <Modal style={style} open={open} onClose={onClose}>
-            <View style={styles.head}>
-                <View style={styles.headMain}>
-                    {leading}
-                    <View style={styles.headText}>
-                        <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
-                            {title}
-                        </Text>
-                        {subtitle !== undefined ? (
-                            <Text style={styles.subtitle} numberOfLines={1}>
-                                {subtitle}
+        <Modal style={style} open={open} onClose={onClose} framed={false}>
+            <View style={styles.frame}>
+                <View style={styles.head}>
+                    <View style={styles.headMain}>
+                        {leading}
+                        <View style={styles.headText}>
+                            <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
+                                {title}
                             </Text>
-                        ) : null}
+                            {subtitle !== undefined ? (
+                                <Text style={styles.subtitle} numberOfLines={1}>
+                                    {subtitle}
+                                </Text>
+                            ) : null}
+                        </View>
                     </View>
+                    {status !== undefined ? (
+                        <StatusPill status={status.status} intent={status.intent} asWritten />
+                    ) : null}
                 </View>
-                {status !== undefined ? (
-                    <StatusPill status={status.status} intent={status.intent} />
-                ) : null}
-            </View>
-            <ScrollView
-                style={styles.body}
-                contentContainerStyle={styles.bodyContent}
-                keyboardShouldPersistTaps="handled"
-            >
-                {children}
-            </ScrollView>
-            <View style={styles.footer}>
-                {actions}
-                <Pressable style={styles.close} onPress={onClose} accessibilityRole="button">
-                    <Text style={styles.closeText}>{strings.common.close}</Text>
-                </Pressable>
+                <ScrollView
+                    style={styles.body}
+                    contentContainerStyle={styles.bodyContent}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {children}
+                </ScrollView>
+                <View style={styles.footer}>
+                    {actions}
+                    <Pressable style={styles.close} onPress={onClose} accessibilityRole="button">
+                        <Text style={styles.closeText}>{strings.common.close}</Text>
+                    </Pressable>
+                </View>
             </View>
         </Modal>
     );
@@ -75,6 +77,12 @@ export function DetailSection({ title, action, children, style }: NativeProps<De
 }
 
 const styles = StyleSheet.create({
+    frame: {
+        flexShrink: 1,
+        backgroundColor: c.surface,
+        padding: 22,
+        paddingBottom: 36,
+    },
     head: {
         flexDirection: "row",
         alignItems: "center",
@@ -86,7 +94,7 @@ const styles = StyleSheet.create({
     headText: { flex: 1 },
     title: { color: c.ink, fontSize: 18, fontWeight: "700" },
     subtitle: { color: c.muted, fontSize: 13, marginTop: 2 },
-    body: { flexGrow: 0 },
+    body: { flexGrow: 0, flexShrink: 1 },
     bodyContent: { paddingBottom: 8 },
     footer: {
         flexDirection: "row",

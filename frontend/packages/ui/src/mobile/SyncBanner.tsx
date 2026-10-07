@@ -42,18 +42,24 @@ export function SyncBanner({
                     {detail !== undefined ? (
                         <Text
                             style={[styles.detail, { color: fg }]}
-                            numberOfLines={variant === "strip" ? 1 : 3}
+                            numberOfLines={variant === "strip" ? 1 : undefined}
                         >
                             {detail}
                         </Text>
                     ) : null}
+                    {action !== undefined && variant === "card" ? (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onPress={action.onPress}
+                            style={styles.cardAction}
+                        >
+                            {action.label}
+                        </Button>
+                    ) : null}
                 </View>
-                {action !== undefined ? (
-                    <Button
-                        size="sm"
-                        variant={variant === "strip" ? "link" : "outline"}
-                        onPress={action.onPress}
-                    >
+                {action !== undefined && variant === "strip" ? (
+                    <Button size="sm" variant="link" onPress={action.onPress}>
                         {action.label}
                     </Button>
                 ) : null}
@@ -83,5 +89,6 @@ const styles = StyleSheet.create({
     title: { fontSize: 13.5, fontWeight: "700" },
     titleLarge: { fontSize: 16 },
     detail: { fontSize: 13, marginTop: 1, lineHeight: 18 },
+    cardAction: { marginTop: 10 },
     body: { padding: 14 },
 });

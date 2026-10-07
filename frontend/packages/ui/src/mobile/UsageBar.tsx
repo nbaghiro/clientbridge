@@ -61,8 +61,14 @@ export function UsageBar({
 }
 
 const styles = StyleSheet.create({
-    track: { height: 22, borderRadius: 6, backgroundColor: c.bg, overflow: "hidden" },
-    tick: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: c.borderSoft },
+    track: {
+        height: 22,
+        alignSelf: "stretch",
+        borderRadius: 6,
+        backgroundColor: c.surface2,
+        overflow: "hidden",
+    },
+    tick: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: c.border },
     seg: { position: "absolute", top: 3, bottom: 3, borderRadius: 4 },
     now: { position: "absolute", top: 0, bottom: 0, width: 2, backgroundColor: c.danFg },
     labels: { height: 14, marginTop: 3 },

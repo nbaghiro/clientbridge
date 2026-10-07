@@ -16,13 +16,13 @@ export function UsageBar({
             <div
                 role="img"
                 aria-label={label}
-                className="relative h-7 overflow-hidden rounded-md bg-bg"
+                className="relative h-7 overflow-hidden rounded-md bg-surface2"
             >
                 {ticks.map((t) => (
                     <span
                         key={t.at}
                         aria-hidden
-                        className="absolute inset-y-0 w-px bg-line-soft"
+                        className="absolute inset-y-0 w-px bg-line"
                         style={{ left: pct(t.at) }}
                     />
                 ))}

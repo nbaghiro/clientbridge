@@ -1,5 +1,4 @@
 import {
-    type ChoiceOption,
     type FieldProps,
     type SelectProps,
     type TextFieldProps,
@@ -9,11 +8,23 @@ import {
     useControllable,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import type { ReactNode } from "react";
-import { StyleSheet, Switch, Text, TextInput, View, type KeyboardTypeOptions } from "react-native";
+import { type ReactNode, useState } from "react";
+import {
+    Pressable,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    View,
+    type KeyboardTypeOptions,
+} from "react-native";
 
 import { Choice } from "./Choice";
+import { Icon } from "./Icon";
+import { ListRow } from "./ListRow";
+import { Modal } from "./Modal";
 import { Notice } from "./Notice";
+import { SearchField } from "./SearchField";
 import type { NativeProps, WithRef } from "./props";
 
 const c = theme.colors;
@@ -155,14 +166,19 @@ export function TextField({
     );
 }
 
+// Above this many options a Select opens a searchable list instead of a row of chips.
+const SHEET_AFTER = 6;
+
 export function Select<K extends string>({
     label,
+    name,
     hint,
     error,
     value: valueProp,
     defaultValue,
     options,
     onChange,
+    size = "md",
     disabled = false,
     style,
 }: NativeProps<SelectProps<K>>) {
@@ -170,20 +186,85 @@ export function Select<K extends string>({
         valueProp,
         defaultValue ?? options[0]?.key,
     );
+    const [open, setOpen] = useState(false);
+    const [q, setQ] = useState("");
     const pick = (key: K): void => {
         setValue(key);
         onChange?.(key);
     };
-    const choices: ChoiceOption<K>[] = options.map((o) => ({
-        key: o.key,
-        label: o.label,
-        disabled,
-    }));
+    const sheet = options.length > SHEET_AFTER;
+    const chosen = options.find((o) => o.key === value);
+    const needle = q.trim().toLowerCase();
+    const shown =
+        needle === "" ? options : options.filter((o) => o.label.toLowerCase().includes(needle));
+    const close = (): void => {
+        setOpen(false);
+        setQ("");
+    };
     return (
         <View style={style}>
             {label !== undefined ? <Label text={label} optional={false} /> : null}
-            <Choice options={choices} value={value} onChange={pick} label={label} />
+            {sheet ? (
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={label ?? name}
+                    accessibilityValue={{ text: chosen?.label ?? "" }}
+                    accessibilityState={{ disabled, expanded: open }}
+                    disabled={disabled}
+                    onPress={() => {
+                        setOpen(true);
+                    }}
+                    style={[styles.input, SIZE[size], styles.select, disabled && styles.disabled]}
+                >
+                    <Text style={[styles.selectText, SIZE_TEXT[size]]} numberOfLines={1}>
+                        {chosen?.label ?? ""}
+                    </Text>
+                    <Icon name="chevronDown" size={16} color={c.muted} />
+                </Pressable>
+            ) : (
+                <Choice
+                    options={options.map((o) => ({ key: o.key, label: o.label, disabled }))}
+                    value={value}
+                    onChange={pick}
+                    label={label}
+                    size={size === "lg" ? "lg" : "md"}
+                />
+            )}
             <Extras hint={hint} error={error} />
+            {sheet ? (
+                <Modal open={open} onClose={close} size="xl">
+                    {label !== undefined ? <Text style={styles.sheetTitle}>{label}</Text> : null}
+                    <SearchField
+                        value={q}
+                        onChange={setQ}
+                        placeholder={strings.ui.searchOptions}
+                        autoFocus
+                    />
+                    <View style={styles.sheetList}>
+                        {shown.length === 0 ? (
+                            <Text style={styles.noMatch}>{strings.ui.noMatches}</Text>
+                        ) : (
+                            shown.map((o) => (
+                                <ListRow
+                                    key={o.key}
+                                    title={o.label}
+                                    density="compact"
+                                    selected={o.key === value}
+                                    meta={
+                                        o.key === value ? (
+                                            <Icon name="check" size={18} color={c.accent} />
+                                        ) : undefined
+                                    }
+                                    onPress={() => {
+                                        pick(o.key);
+                                        close();
+                                    }}
+                                />
+                            ))
+                        )}
+                    </View>
+                </Modal>
+            ) : null}
         </View>
     );
 }
@@ -246,6 +327,11 @@ const styles = StyleSheet.create({
     prefix: { color: c.muted, fontSize: 15 },
     bare: { borderWidth: 0, backgroundColor: "transparent", paddingLeft: 2 },
     prefixInput: { flex: 1 },
+    select: { flexDirection: "row", alignItems: "center", gap: 8 },
+    selectText: { flex: 1, color: c.ink, fontSize: 15 },
+    sheetTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 12 },
+    sheetList: { marginTop: 8 },
+    noMatch: { color: c.muted, fontSize: 14, textAlign: "center", paddingVertical: 24 },
     toggle: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6 },
     toggleText: { flex: 1 },
     toggleLabel: { color: c.ink, fontSize: 14, fontWeight: "600" },
@@ -255,4 +341,10 @@ const SIZE = StyleSheet.create({
     sm: { paddingHorizontal: 10, paddingVertical: 6, fontSize: 13 },
     md: { paddingHorizontal: 12, paddingVertical: 10 },
     lg: { paddingHorizontal: 13, paddingVertical: 13 },
+});
+
+const SIZE_TEXT = StyleSheet.create({
+    sm: { fontSize: 13 },
+    md: { fontSize: 15 },
+    lg: { fontSize: 15 },
 });

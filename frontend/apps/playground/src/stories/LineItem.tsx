@@ -31,6 +31,18 @@ export default story<LineItemProps>({
             }),
         },
         {
+            key: "stepper-max",
+            title: "Quantity at the stock left",
+            props: () => ({
+                title: "Self-Cleaning Slicker Brush",
+                meta: "3 left",
+                cents: 7500,
+                quantity: { value: 3, onChange: noop, label: "Slicker brush", max: 3 },
+                onRemove: noop,
+                removeLabel: "Remove slicker brush",
+            }),
+        },
+        {
             key: "count",
             title: "Read-only count",
             props: () => ({ title: "Nail trim", cents: 4000, count: 2 }),

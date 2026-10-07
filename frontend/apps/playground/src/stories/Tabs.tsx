@@ -100,6 +100,28 @@ export default story<TabsProps<string>>({
             }),
         },
         {
+            key: "many",
+            title: "More tabs than fit, scrolling sideways",
+            state: SELECT,
+            props: () => ({
+                items: [
+                    { key: "a", label: "Invoices" },
+                    { key: "b", label: "Estimates" },
+                    { key: "c", label: "Sales" },
+                    { key: "d", label: "Gift cards" },
+                    { key: "e", label: "Packages" },
+                    { key: "f", label: "Memberships" },
+                    { key: "g", label: "Staff pay" },
+                    { key: "h", label: "Payouts" },
+                    { key: "i", label: "Tax returns" },
+                    { key: "j", label: "Reports" },
+                ],
+                active: "a",
+                onSelect: noop,
+                label: "Payments",
+            }),
+        },
+        {
             key: "rtl",
             title: "Hebrew labels",
             state: SELECT,
