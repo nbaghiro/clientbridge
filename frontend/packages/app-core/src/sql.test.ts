@@ -879,11 +879,18 @@ describe("app-core SQL against the replica schema", () => {
             { id: "th_1", unread_count: 2, last_body: "See you soon", client_name: "Ann" },
             { id: "th_2", unread_count: 0, last_body: "Receipt", client_name: "ben" },
         ]);
-        expect(run("THREAD_MESSAGES_SQL", ["th_1"]).map((r) => r.id)).toEqual([
-            "m_1",
-            "m_2",
-            "m_3",
+        expect(run("CONVERSATION_SQL", ["th_1"]).map((r) => r.id)).toEqual(["m_1", "m_2", "m_3"]);
+        expect(pick(run("INBOX_SQL"), "id", "unread_count", "pet_names")).toEqual([
+            { id: "th_1", unread_count: 2, pet_names: null },
+            { id: "th_2", unread_count: 0, pet_names: null },
         ]);
+        expect(
+            pick(
+                run("INBOX_CLIENT_SQL", ["2026-01-01", "2026-01-01", "cl_ann"]),
+                "id",
+                "balance_cents",
+            ),
+        ).toEqual([{ id: "cl_ann", balance_cents: null }]);
     });
 
     it("shows a client's package, subscription, saved cards and invoice payments", () => {

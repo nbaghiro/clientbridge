@@ -54,7 +54,7 @@ export function createClient(
 }
 
 /** A Postgres text[] synced as JSON text; an unreadable value reads as no tags. */
-export function parseTags(raw: string | null): string[] {
+function parseTags(raw: string | null): string[] {
     if (raw === null || raw === "") return [];
     try {
         const parsed: unknown = JSON.parse(raw);

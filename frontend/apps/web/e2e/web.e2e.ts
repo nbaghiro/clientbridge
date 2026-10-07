@@ -17,7 +17,7 @@ async function navigate(page: Page, path: string): Promise<void> {
         history.pushState({}, "", to);
         dispatchEvent(new PopStateEvent("popstate"));
     }, path);
-    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page).toHaveURL(new RegExp(`${path.replace(/[?]/g, "\\?")}$`));
     await page.waitForTimeout(500);
 }
 
@@ -110,8 +110,17 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await openAndClose(page, /new invoice/i);
 
     await navigate(page, "/inbox");
-    await openAndClose(page, new RegExp(`^${strings.messaging.newMessage}$`));
-    await openAndClose(page, new RegExp(`^${strings.messaging.broadcast}$`));
+    await openAndClose(page, new RegExp(`^${strings.messaging.newShort}$`));
+    await navigate(page, "/inbox?segment=reviews");
+    await openAndClose(page, new RegExp(`^${strings.reviews.requestReview}$`));
+    await navigate(page, "/inbox?segment=broadcasts");
+    await page.getByRole("button", { name: strings.broadcasts.newBroadcast }).first().click();
+    await expect(page.getByText(strings.broadcasts.optOutNote)).toBeVisible();
+    await page.getByRole("button", { name: strings.broadcasts.back }).first().click();
+    await navigate(page, "/inbox?segment=forms");
+    await expect(page.getByText(strings.forms.page.preview)).toBeVisible();
+    await navigate(page, "/inbox?segment=contracts");
+    await openAndClose(page, strings.contracts.page.newContract);
 
     for (const section of SETUP_SECTIONS) await navigate(page, `/setup/${section}`);
     await navigate(page, "/setup/services");

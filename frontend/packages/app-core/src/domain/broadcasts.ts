@@ -77,7 +77,7 @@ interface BroadcastRow {
 
 type ConsentState = "express" | "implied" | "none" | "opted_out";
 
-interface ChannelConsent {
+export interface ChannelConsent {
     state: ConsentState;
     source: string | null;
     at: string | null;
@@ -101,7 +101,7 @@ const canBroadcast = (c: ChannelConsent): boolean => c.state === "express" || c.
 type ConsentMap = Map<string, Record<Channel, ChannelConsent>>;
 
 /** Every client's current consent on both channels. */
-function useConsents(): { map: ConsentMap; isLoading: boolean } {
+export function useConsents(): { map: ConsentMap; isLoading: boolean } {
     const rows = useQuery<ConsentRow>(LATEST_CONSENTS_SQL);
     const map = useMemo(() => {
         const now = new Date();
@@ -120,7 +120,7 @@ function useConsents(): { map: ConsentMap; isLoading: boolean } {
     return { map, isLoading: rows.isLoading };
 }
 
-function consentFor(map: ConsentMap, clientId: string, channel: Channel): ChannelConsent {
+export function consentFor(map: ConsentMap, clientId: string, channel: Channel): ChannelConsent {
     return map.get(clientId)?.[channel] ?? consentOf(undefined);
 }
 
@@ -149,7 +149,7 @@ function audienceTags(raw: string | null): string[] {
 }
 
 /** SMS bills per 160-character segment (70 once any character needs Unicode). */
-function smsSegments(body: string): { chars: number; segments: number } {
+export function smsSegments(body: string): { chars: number; segments: number } {
     const unicode = /[^ -~\n\r\t]/.test(body);
     const per = unicode ? 70 : 160;
     return { chars: body.length, segments: body.length === 0 ? 0 : Math.ceil(body.length / per) };

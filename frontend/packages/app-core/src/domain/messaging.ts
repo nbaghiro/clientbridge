@@ -1,16 +1,29 @@
 import { useQuery } from "@powersync/react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { useAsyncAction } from "../hooks";
-import { strings } from "../strings";
 import { type ApiLike, newIdempotencyKey } from "../api";
+import {
+    formatDate,
+    formatRelativeTime,
+    formatTime,
+    formatWeekday,
+    parseTimestamp,
+    relativeDay,
+    sameDay,
+} from "../datetime";
+import { formatPhone } from "../format";
+import { type Load, useAsyncAction } from "../hooks";
+import { strings } from "../strings";
 import type { Intent } from "../ui";
+import { type ChannelConsent, consentFor, smsSegments, useConsents } from "./broadcasts";
+import { useClients } from "./clients";
+import { useReplicaLoad } from "./sync";
 
 export type Channel = "sms" | "email";
 
-export const MESSAGE_CHANNELS: Channel[] = ["sms", "email"];
+const m = strings.messaging;
 
-export interface ThreadRow {
+interface ThreadRow {
     id: string;
     client_id: string;
     channel: string;
@@ -39,85 +52,266 @@ export function useThreads(): ThreadRow[] {
     return useQuery<ThreadRow>(THREADS_SQL).data;
 }
 
-export interface MessageRow {
+export const INBOX_SQL = `
+SELECT t.id, t.client_id, t.channel, t.status, c.name AS client_name, c.phone, c.email,
+       (SELECT MAX(m.created_at) FROM messages m WHERE m.thread_id = t.id) AS last_message_at,
+       (SELECT COUNT(*) FROM messages m
+        WHERE m.thread_id = t.id AND m.direction = 'in' AND m.status != 'read') AS unread_count,
+       (SELECT m.body FROM messages m WHERE m.thread_id = t.id ORDER BY m.created_at DESC LIMIT 1)
+           AS last_body,
+       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = t.client_id)
+           AS pet_names
+FROM threads t
+LEFT JOIN clients c ON c.id = t.client_id
+ORDER BY last_message_at DESC`;
+
+export const CONVERSATION_SQL = `
+SELECT m.id, m.direction, m.channel, m.body, m.status, m.created_at, st.name AS author
+FROM messages m LEFT JOIN staff st ON st.user_id = m.sent_by
+WHERE m.thread_id = ? ORDER BY m.created_at`;
+
+// The client beside a thread: contact, pets, what they owe and their next visit after `?`.
+export const INBOX_CLIENT_SQL = `
+SELECT c.id, c.name, c.email, c.phone,
+       (SELECT GROUP_CONCAT(s.name, ', ') FROM subjects s WHERE s.client_id = c.id) AS pet_names,
+       (SELECT SUM(a.balance_cents) FROM accounts a WHERE a.owner_type = 'client'
+          AND a.owner_id = c.id AND a.category = 'receivable') AS balance_cents,
+       (SELECT sl.starts_at FROM bookings b JOIN slots sl ON sl.id = b.slot_id
+        WHERE b.client_id = c.id AND b.status IN ('pending', 'confirmed') AND sl.starts_at > ?
+        ORDER BY sl.starts_at LIMIT 1) AS next_at,
+       (SELECT i.name FROM bookings b JOIN slots sl ON sl.id = b.slot_id
+        JOIN items i ON i.id = sl.item_id
+        WHERE b.client_id = c.id AND b.status IN ('pending', 'confirmed') AND sl.starts_at > ?
+        ORDER BY sl.starts_at LIMIT 1) AS next_service
+FROM clients c WHERE c.id = ?`;
+
+interface InboxRow {
     id: string;
-    thread_id: string;
+    client_id: string;
+    channel: string;
+    status: string;
+    client_name: string | null;
+    phone: string | null;
+    email: string | null;
+    last_message_at: string | null;
+    unread_count: number;
+    last_body: string | null;
+    pet_names: string | null;
+}
+
+export interface InboxThread extends InboxRow {
+    title: string;
+    ago: string;
+    pets: string[];
+    // The client replied STOP: texts are blocked until they reply START.
+    textsOff: boolean;
+    channelKind: "sms" | "email" | "chat";
+}
+
+type InboxFilter = "all" | "unread" | "sms" | "email";
+
+export const INBOX_FILTERS: { key: InboxFilter; label: string }[] = [
+    { key: "all", label: m.filters.all },
+    { key: "unread", label: m.filters.unread },
+    { key: "sms", label: m.filters.sms },
+    { key: "email", label: m.filters.email },
+];
+
+export function channelLabel(channel: string): string {
+    if (channel === "sms") return m.channelSms;
+    if (channel === "email") return m.channelEmail;
+    if (channel === "chat") return m.channelChat;
+    return channel;
+}
+
+const stopped = (c: ChannelConsent): boolean => c.state === "opted_out" && c.source === "reply";
+
+interface InboxView {
+    load: Load;
+    threads: InboxThread[];
+    filtered: InboxThread[];
+    filter: InboxFilter;
+    setFilter: (f: InboxFilter) => void;
+    q: string;
+    setQ: (q: string) => void;
+    unread: number;
+}
+
+export function useInbox(): InboxView {
+    const rows = useQuery<InboxRow>(INBOX_SQL);
+    const consents = useConsents();
+    const [filter, setFilter] = useState<InboxFilter>("all");
+    const [q, setQ] = useState("");
+    const threads = useMemo(() => {
+        const now = new Date();
+        return rows.data.map((t) => ({
+            ...t,
+            title: t.client_name ?? formatPhone(t.phone),
+            ago: t.last_message_at === null ? "" : formatRelativeTime(t.last_message_at, now),
+            pets: t.pet_names === null ? [] : t.pet_names.split(", "),
+            textsOff: stopped(consentFor(consents.map, t.client_id, "sms")),
+            channelKind:
+                t.channel === "email"
+                    ? ("email" as const)
+                    : t.channel === "chat"
+                      ? ("chat" as const)
+                      : ("sms" as const),
+        }));
+    }, [rows.data, consents.map]);
+    const filtered = useMemo(() => {
+        const term = q.trim().toLowerCase();
+        return threads.filter(
+            (t) =>
+                (filter === "all" ||
+                    (filter === "unread" && t.unread_count > 0) ||
+                    t.channel === filter) &&
+                (term === "" ||
+                    [t.title, t.last_body ?? "", ...t.pets].some((v) =>
+                        v.toLowerCase().includes(term),
+                    )),
+        );
+    }, [threads, filter, q]);
+    return {
+        load: useReplicaLoad([rows], rows.data.length === 0),
+        threads,
+        filtered,
+        filter,
+        setFilter,
+        q,
+        setQ,
+        unread: threads.filter((t) => t.unread_count > 0).length,
+    };
+}
+
+interface ConversationRow {
+    id: string;
     direction: string;
     channel: string;
     body: string | null;
     status: string;
     created_at: string;
+    author: string | null;
 }
 
-export const THREAD_MESSAGES_SQL = `
-SELECT id, thread_id, direction, channel, body, status, created_at
-FROM messages WHERE thread_id = ? ORDER BY created_at`;
-
-/** A thread's messages oldest-first. Pass `""` (no selection) to get an empty result. */
-export function useThreadMessages(threadId: string): MessageRow[] {
-    return useQuery<MessageRow>(THREAD_MESSAGES_SQL, [threadId]).data;
+interface ThreadItem {
+    id: string;
+    direction: "in" | "out";
+    body: string;
+    meta: string;
+    failed: boolean;
 }
 
-export function channelLabel(channel: string): string {
-    switch (channel) {
-        case "sms":
-            return strings.messaging.channelSms;
-        case "email":
-            return strings.messaging.channelEmail;
-        case "chat":
-            return strings.messaging.channelChat;
+interface ClientContextRow {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    pet_names: string | null;
+    balance_cents: number | null;
+    next_at: string | null;
+    next_service: string | null;
+}
+
+export interface Conversation {
+    days: { label: string; items: ThreadItem[] }[];
+    client: ClientContextRow | null;
+    consent: Record<Channel, ChannelConsent>;
+    nextVisit: string | null;
+}
+
+const MESSAGE_STATUS: Record<string, string> = {
+    delivered: m.thread.status.delivered,
+    sent: m.thread.status.sent,
+    read: m.thread.status.delivered,
+    failed: m.thread.status.failed,
+    queued: m.thread.status.queued,
+};
+
+/** "Today 2:30 p.m." or "Fri 9:00 a.m." for a visit in the coming week, else the date. */
+function visitWhen(d: Date, now: Date): string {
+    const time = formatTime(d);
+    if (sameDay(d, now)) return `${strings.common.today} ${time}`;
+    return d.getTime() - now.getTime() < 6 * 86_400_000
+        ? `${formatWeekday(d)} ${time}`
+        : `${formatDate(d)}, ${time}`;
+}
+
+/** Messages grouped by day; outbound ones carry who sent them, or Automatic for the system. */
+export function useConversation(thread: InboxThread): Conversation {
+    const now = useMemo(() => new Date(), []);
+    const iso = now.toISOString();
+    const rows = useQuery<ConversationRow>(CONVERSATION_SQL, [thread.id]).data;
+    const client =
+        useQuery<ClientContextRow>(INBOX_CLIENT_SQL, [iso, iso, thread.client_id]).data[0] ?? null;
+    const consents = useConsents();
+    const days = useMemo(() => {
+        const out: Conversation["days"] = [];
+        for (const r of rows) {
+            const d = parseTimestamp(r.created_at);
+            const label = relativeDay(d, "long");
+            const author = r.author === null ? m.thread.automatic : r.author.split(" ")[0];
+            const meta =
+                r.direction === "out"
+                    ? [formatTime(d), author, MESSAGE_STATUS[r.status] ?? null]
+                          .filter((v) => v !== null && v !== undefined)
+                          .join(" · ")
+                    : formatTime(d);
+            const item: ThreadItem = {
+                id: r.id,
+                direction: r.direction === "in" ? "in" : "out",
+                body: r.body ?? "",
+                meta,
+                failed: r.status === "failed",
+            };
+            const last = out[out.length - 1];
+            if (last?.label === label) last.items.push(item);
+            else out.push({ label, items: [item] });
+        }
+        return out;
+    }, [rows]);
+    return {
+        days,
+        client,
+        consent: {
+            sms: consentFor(consents.map, thread.client_id, "sms"),
+            email: consentFor(consents.map, thread.client_id, "email"),
+        },
+        nextVisit:
+            client?.next_at === null || client === null
+                ? null
+                : [client.next_service, visitWhen(parseTimestamp(client.next_at), now)]
+                      .filter((v) => v !== null)
+                      .join(" · "),
+    };
+}
+
+export function consentDetail(c: ChannelConsent): string | null {
+    const b = strings.broadcasts;
+    if (c.state === "implied" && c.expiresAt !== null)
+        return m.consentImpliedUntil(formatDate(parseTimestamp(c.expiresAt)));
+    if (c.source !== null && c.at !== null)
+        return b.consentSource(b.sources[c.source] ?? c.source, formatDate(parseTimestamp(c.at)));
+    return null;
+}
+
+export function consentLabel(c: ChannelConsent): { label: string; intent: Intent } {
+    switch (c.state) {
+        case "express":
+            return { label: m.consentState.express, intent: "success" };
+        case "implied":
+            return { label: m.consentState.implied, intent: "accent" };
+        case "opted_out":
+            return { label: m.consentState.opted_out, intent: "danger" };
         default:
-            return channel;
+            return { label: m.consentState.none, intent: "neutral" };
     }
 }
 
-export function messageStatusIntent(status: string): Intent {
-    switch (status) {
-        case "delivered":
-        case "read":
-        case "sent":
-            return "success";
-        case "failed":
-            return "danger";
-        case "queued":
-        case "draft":
-            return "neutral";
-        default:
-            return "neutral";
-    }
+function markThreadRead(api: ApiLike, threadId: string): Promise<unknown> {
+    return api.post(`/v1/threads/${threadId}/read`, {});
 }
 
-interface MessageResult {
-    id: string;
-    thread_id: string;
-    direction: string;
-    channel: string;
-    body: string | null;
-    status: string;
-}
-
-export function sendMessage(
-    api: ApiLike,
-    input: { client_id: string; channel: Channel; body: string },
-): Promise<MessageResult> {
-    return api.post<MessageResult>(
-        "/v1/messages",
-        { client_id: input.client_id, channel: input.channel, body: input.body },
-        { idempotencyKey: newIdempotencyKey() },
-    );
-}
-
-interface ThreadResult {
-    id: string;
-    unread_count: number;
-    status: string;
-}
-
-function markThreadRead(api: ApiLike, threadId: string): Promise<ThreadResult> {
-    return api.post<ThreadResult>(`/v1/threads/${threadId}/read`, {});
-}
-
-/** Marks the open thread read on open, and again whenever new inbound messages arrive while it is open. */
+/** Marks the open thread read on open, and again when new inbound messages arrive. */
 export function useMarkThreadRead(
     api: ApiLike,
     thread: { id: string; unread_count: number },
@@ -127,166 +321,131 @@ export function useMarkThreadRead(
     }, [api, thread.id, thread.unread_count]);
 }
 
-export interface BroadcastResult {
-    id: string;
-    name: string;
-    channel: string;
-    status: string;
-    recipient_count: number;
+function sendMessage(
+    api: ApiLike,
+    input: { client_id: string; channel: Channel; body: string },
+): Promise<unknown> {
+    return api.post("/v1/messages", input, { idempotencyKey: newIdempotencyKey() });
 }
 
-interface BroadcastInput {
-    name: string;
+export interface ThreadComposer {
     channel: Channel;
-    body: string;
-    audience?: Record<string, unknown>;
-    scheduled_at?: string | null;
-}
-
-export function sendBroadcast(api: ApiLike, input: BroadcastInput): Promise<BroadcastResult> {
-    return api.post<BroadcastResult>(
-        "/v1/broadcasts",
-        {
-            name: input.name,
-            channel: input.channel,
-            body: input.body,
-            audience: input.audience ?? {},
-            scheduled_at: input.scheduled_at ?? null,
-        },
-        { idempotencyKey: newIdempotencyKey() },
-    );
-}
-
-interface ComposeMessage {
-    clientId: string;
-    setClientId: (v: string) => void;
-    channel: Channel;
-    setChannel: (v: Channel) => void;
+    setChannel: (c: Channel) => void;
     body: string;
     setBody: (v: string) => void;
     busy: boolean;
     error: string | null;
     submit: () => void;
+    segments: { chars: number; segments: number };
+    smsBlocked: boolean;
+    canSend: boolean;
 }
 
-/** The client clears on success only when `initial` did not fix it. */
-export function useComposeMessage(
-    api: ApiLike,
-    onSent: () => void,
-    initial?: { clientId?: string; channel?: Channel },
-): ComposeMessage {
-    const [clientId, setClientId] = useState(initial?.clientId ?? "");
-    const [channel, setChannel] = useState<Channel>(initial?.channel ?? "sms");
+/** A STOP reply blocks texts; email still reaches the client. */
+export function useThreadComposer(api: ApiLike, thread: InboxThread): ThreadComposer {
+    const [channel, setChannel] = useState<Channel>(
+        thread.textsOff || thread.channel === "email" ? "email" : "sms",
+    );
     const [body, setBody] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
-
-    const submit = (): void => {
-        if (clientId === "") {
-            setError(strings.messaging.selectClient);
-            return;
-        }
-        if (body.trim().length === 0) {
-            setError(strings.messaging.writeMessage);
-            return;
-        }
-        run(() => sendMessage(api, { client_id: clientId, channel, body: body.trim() }), {
-            onSuccess: () => {
-                setBody("");
-                if (initial?.clientId === undefined) setClientId("");
-                onSent();
-            },
-            errorMessage: strings.messaging.sendError,
-        });
+    const smsBlocked = thread.textsOff && channel === "sms";
+    const canSend = !smsBlocked && body.trim().length > 0;
+    return {
+        channel,
+        setChannel: (c) => {
+            setError(null);
+            setChannel(c);
+        },
+        body,
+        setBody,
+        busy,
+        error,
+        submit: () => {
+            if (!canSend) return;
+            run(
+                () =>
+                    sendMessage(api, {
+                        client_id: thread.client_id,
+                        channel,
+                        body: body.trim(),
+                    }),
+                {
+                    onSuccess: () => {
+                        setBody("");
+                    },
+                    errorMessage: m.sendError,
+                },
+            );
+        },
+        segments: smsSegments(body),
+        smsBlocked,
+        canSend,
     };
-
-    return { clientId, setClientId, channel, setChannel, body, setBody, busy, error, submit };
 }
 
-interface BroadcastForm {
-    name: string;
-    setName: (v: string) => void;
+interface NewMessage {
+    clients: { key: string; label: string }[];
+    clientId: string;
+    setClientId: (id: string) => void;
     channel: Channel;
-    setChannel: (v: Channel) => void;
+    setChannel: (c: Channel) => void;
     body: string;
     setBody: (v: string) => void;
-    tags: string;
-    setTags: (v: string) => void;
-    scheduledAt: string;
-    setScheduledAt: (v: string) => void;
+    smsBlocked: boolean;
+    segments: { chars: number; segments: number };
     busy: boolean;
     error: string | null;
     submit: () => void;
 }
 
-function parseTags(raw: string): string[] {
-    return raw
-        .split(",")
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
-}
-
-/** No tags sends to everyone; a local datetime is sent as ISO for a scheduled send. */
-export function useBroadcastForm(
+/** Picks email when the client replied STOP to texts or never agreed to them. */
+export function useNewMessage(
     api: ApiLike,
-    onSent: (result: BroadcastResult) => void,
-): BroadcastForm {
-    const [name, setName] = useState("");
+    onSent: (sent: { clientId: string; name: string }) => void,
+    initialClientId = "",
+): NewMessage {
+    const clients = useClients();
+    const consents = useConsents();
+    const [clientId, setClientIdRaw] = useState(initialClientId);
     const [channel, setChannel] = useState<Channel>("sms");
     const [body, setBody] = useState("");
-    const [tags, setTags] = useState("");
-    const [scheduledAt, setScheduledAt] = useState("");
     const { busy, error, setError, run } = useAsyncAction();
-
-    const submit = (): void => {
-        if (name.trim().length === 0) {
-            setError(strings.messaging.nameBroadcast);
-            return;
-        }
-        if (body.trim().length === 0) {
-            setError(strings.messaging.writeMessage);
-            return;
-        }
-        const tagList = parseTags(tags);
-        const audience: Record<string, unknown> =
-            tagList.length > 0 ? { tags: tagList } : { all: true };
-        const scheduled =
-            scheduledAt.trim().length > 0 ? new Date(scheduledAt).toISOString() : null;
-        run(
-            async () => {
-                const result = await sendBroadcast(api, {
-                    name: name.trim(),
-                    channel,
-                    body: body.trim(),
-                    audience,
-                    scheduled_at: scheduled,
-                });
-                onSent(result);
-            },
-            {
-                onSuccess: () => {
-                    setName("");
-                    setBody("");
-                    setTags("");
-                    setScheduledAt("");
-                },
-                errorMessage: strings.messaging.broadcastError,
-            },
-        );
-    };
-
+    const sms = consentFor(consents.map, clientId, "sms");
+    const smsBlocked = channel === "sms" && stopped(sms);
     return {
-        name,
-        setName,
+        clients: clients.map((c) => ({ key: c.id, label: c.name })),
+        clientId,
+        setClientId: (id) => {
+            setClientIdRaw(id);
+            setError(null);
+            setChannel(stopped(consentFor(consents.map, id, "sms")) ? "email" : "sms");
+        },
         channel,
         setChannel,
         body,
         setBody,
-        tags,
-        setTags,
-        scheduledAt,
-        setScheduledAt,
+        smsBlocked,
+        segments: smsSegments(body),
         busy,
         error,
-        submit,
+        submit: () => {
+            if (clientId === "") {
+                setError(m.selectClient);
+                return;
+            }
+            if (body.trim() === "") {
+                setError(m.writeMessage);
+                return;
+            }
+            if (smsBlocked) return;
+            const name = clients.find((c) => c.id === clientId)?.name ?? "";
+            run(() => sendMessage(api, { client_id: clientId, channel, body: body.trim() }), {
+                onSuccess: () => {
+                    setBody("");
+                    onSent({ clientId, name });
+                },
+                errorMessage: m.sendError,
+            });
+        },
     };
 }
