@@ -37,3 +37,5 @@ export * from "./domain/publicContract";
 export * from "./domain/publicReview";
 export * from "./domain/files";
 export * from "./domain/notifications";
+export * from "./domain/sync";
+export * from "./domain/search";

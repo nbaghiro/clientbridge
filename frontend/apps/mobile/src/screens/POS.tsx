@@ -17,13 +17,9 @@ import {
     useCart,
     useCatalogItems,
     useConnectionToken,
-    useOnlineOrders,
     useOpenOrders,
-    usePickupAction,
-    PICKUP_LABEL,
-    formatMoneyWithCurrency,
+    usePickupOrders,
     pickupActions,
-    pickupIntent,
     useSearch,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -464,8 +460,8 @@ function ReaderPanel({
 }
 
 function OnlineOrders() {
-    const orders = useOnlineOrders();
-    const pickup = usePickupAction(api);
+    const pickup = usePickupOrders(api);
+    const orders = pickup.all.filter((o) => o.status !== "picked_up");
     if (orders.length === 0) return null;
 
     return (
@@ -475,27 +471,25 @@ function OnlineOrders() {
                 <View key={order.id} style={styles.onlineRow}>
                     <View style={styles.onlineHead}>
                         <Text style={styles.openName} numberOfLines={1}>
-                            {order.client_name ?? strings.pos.walkIn}
+                            {order.clientName}
                         </Text>
-                        <StatusPill
-                            status={PICKUP_LABEL[order.pickup_status]}
-                            intent={pickupIntent(order.pickup_status)}
-                            asWritten
-                        />
-                        <Text style={styles.openValue}>
-                            {formatMoneyWithCurrency(order.total_cents, order.currency)}
-                        </Text>
+                        <StatusPill status={order.statusLabel} intent={order.intent} asWritten />
+                        <Text style={styles.openValue}>{order.total}</Text>
                     </View>
-                    {order.summary !== null ? <Text style={ui.note}>{order.summary}</Text> : null}
+                    <Text style={ui.note}>
+                        {order.lines
+                            .map((l) => strings.pos.pickup.line(l.quantity, l.name))
+                            .join(", ")}
+                    </Text>
                     <View style={styles.steps}>
-                        {pickupActions(order.pickup_status).map((step) => (
+                        {pickupActions(order.status).map((step) => (
                             <Button
                                 key={step.status}
                                 variant="outline"
                                 size="sm"
-                                disabled={pickup.busy}
+                                busy={pickup.busyId === order.id}
                                 onPress={() => {
-                                    pickup.advance(order.id, step.status);
+                                    pickup.move(order.id, step.status);
                                 }}
                             >
                                 {step.label}

@@ -9,6 +9,7 @@ import type { ApiLike } from "../api";
 export interface StaffRow {
     id: string;
     user_id: string | null;
+    name: string | null;
     title: string | null;
     role: string;
     color: string | null;
@@ -16,7 +17,7 @@ export interface StaffRow {
     invite_email: string | null;
 }
 
-const STAFF_COLS = "id, user_id, title, role, color, status, invite_email";
+const STAFF_COLS = "id, user_id, name, title, role, color, status, invite_email";
 
 export const STAFF_SQL = `SELECT ${STAFF_COLS} FROM staff WHERE status = 'active' ORDER BY role`;
 
@@ -38,6 +39,16 @@ export function staffLabel(s: StaffRow): string {
 /** Best display name for the Team list: title → invited email → role. */
 export function staffDisplayName(s: Pick<StaffRow, "title" | "invite_email" | "role">): string {
     return s.title ?? s.invite_email ?? s.role;
+}
+
+/** A member's name for the schedule and Today: their name, else their title, invite email or role. */
+export function staffName(s: {
+    name: string | null;
+    title: string | null;
+    role: string;
+    invite_email?: string | null;
+}): string {
+    return s.name ?? s.title ?? s.invite_email ?? s.role;
 }
 
 export function canManageStaff(role: string | null): boolean {

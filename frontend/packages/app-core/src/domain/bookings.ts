@@ -286,7 +286,7 @@ interface Row {
 }
 
 // The replica stores timestamptz as "...Z" or a bare "+00" offset, which SQLite only parses as "+00:00".
-function utcSql(column: string): string {
+export function utcSql(column: string): string {
     return `datetime(CASE WHEN ${column} LIKE '%+__' THEN ${column} || ':00' ELSE ${column} END)`;
 }
 

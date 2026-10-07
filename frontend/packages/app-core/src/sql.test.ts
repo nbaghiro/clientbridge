@@ -863,13 +863,10 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
-    it("feeds the dashboard activity and payouts", () => {
-        expect(pick(run("RECENT_ACTIVITY_SQL"), "id", "kind", "client_name")).toEqual([
-            { id: "pay_r1", kind: "refund", client_name: "Ann" },
-            { id: "pay_1", kind: "payment", client_name: "Ann" },
-            { id: "pay_dep", kind: "deposit", client_name: "Ann" },
-            { id: "pay_web", kind: "payment", client_name: "ben" },
-            { id: "pay_3", kind: "payment", client_name: "ben" },
+    it("feeds today's payments and the payouts", () => {
+        expect(run("TODAY_PAYMENTS_SQL", ["2026-06-26T00:00:00.000Z"])).toEqual([
+            { id: "pay_1", kind: "payment" },
+            { id: "pay_r1", kind: "refund" },
         ]);
         expect(pick(run("BANK_DEPOSITS_SQL"), "id", "amount_cents", "status")).toEqual([
             { id: "j_po2", amount_cents: 9000, status: "failed" },
@@ -911,12 +908,9 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
-    it("lists open and online orders", () => {
+    it("lists open orders", () => {
         expect(pick(run("OPEN_ORDERS_SQL"), "id", "client_name", "balance_cents")).toEqual([
             { id: "ord_open", client_name: "Ann", balance_cents: 3000 },
-        ]);
-        expect(pick(run("ONLINE_ORDERS_SQL"), "id", "pickup_status", "summary")).toEqual([
-            { id: "ord_web", pickup_status: "ready", summary: "2 × Soap" },
         ]);
     });
 
@@ -1001,6 +995,114 @@ describe("app-core SQL against the replica schema", () => {
             { weekday: 2, start_time: "10:00:00", end_time: "14:00:00", available: 1 },
         ]);
         expect(all("SELECT id FROM hours WHERE staff_id = 'st_amy'").length).toBe(2);
+    });
+
+    it("builds Today from the day's slots, hours and the client's last visit", () => {
+        const day = ["2026-06-27T00:00:00.000Z", "2026-06-26T00:00:00.000Z"];
+        expect(
+            pick(
+                run("AGENDA_SQL", day),
+                "slot_id",
+                "booking_id",
+                "client_name",
+                "staff_name",
+                "deposit_status",
+                "checked_in_at",
+            ),
+        ).toEqual([
+            {
+                slot_id: "ss_1",
+                booking_id: "bk_1",
+                client_name: "Ann",
+                staff_name: null,
+                deposit_status: "collected",
+                checked_in_at: null,
+            },
+        ]);
+        expect(run("TODAY_HOURS_SQL", [2])).toEqual([
+            { staff_id: "st_amy", start_time: "10:00:00", end_time: "14:00:00", available: 1 },
+        ]);
+        expect(run("CLIENT_LAST_VISIT_SQL", ["cl_ann", "2026-06-27T00:00:00.000Z"])).toEqual([
+            { starts_at: "2026-06-26 10:00:00+00" },
+        ]);
+        expect(run("CLIENT_LAST_VISIT_SQL", ["cl_ann", "2026-06-26T00:00:00.000Z"])).toEqual([]);
+    });
+
+    it("feeds the shell: the viewer, counts, recent clients and setup progress", () => {
+        expect(run("VIEWER_STAFF_SQL", ["st_amy"])).toEqual([
+            { name: null, title: "Groomer", role: "staff", color: null },
+        ]);
+        expect(run("UNREAD_MESSAGES_SQL")).toEqual([{ n: 2 }]);
+        expect(run("OVERDUE_INVOICES_SQL")).toEqual([{ n: 0 }]);
+        expect(run("RECENT_CLIENTS_SQL")).toEqual([
+            { id: "cl_ben", name: "ben" },
+            { id: "cl_ann", name: "Ann" },
+        ]);
+        expect(
+            pick(
+                run("SETUP_PROGRESS_SQL"),
+                "services",
+                "hours",
+                "clients",
+                "team",
+                "stripe",
+                "online",
+                "slug",
+            ),
+        ).toEqual([
+            { services: 1, hours: 1, clients: 2, team: 3, stripe: 0, online: 1, slug: null },
+        ]);
+    });
+
+    it("derives the bell from synced rows since a date", () => {
+        const since = Array<string>(6).fill("2026-06-24T00:00:00.000Z");
+        const feed = run("NOTIFICATION_FEED_SQL", since)
+            .map((r) => `${String(r.kind)}:${String(r.id)}`)
+            .sort();
+        expect(feed).toEqual([
+            "booking_new:bk-bk_1",
+            "deposit:pay-pay_dep",
+            "message:msg-m_2",
+            "message:msg-m_3",
+            "payment:pay-pay_1",
+            "payment:pay-pay_web",
+            "refund:pay-pay_r1",
+            "review:rv-rv_1",
+        ]);
+        expect(
+            run("MY_CLIENTS_SQL", ["st_owner"])
+                .map((r) => r.client_id)
+                .sort(),
+        ).toEqual(["cl_ann", "cl_ben"]);
+    });
+
+    it("searches clients, upcoming bookings, invoices and active items", () => {
+        expect(run("SEARCH_CLIENTS_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
+        expect(
+            pick(run("SEARCH_BOOKINGS_SQL", ["2026-07-01T00:00:00.000Z"]), "id", "client_name"),
+        ).toEqual([{ id: "bk_4", client_name: "ben" }]);
+        expect(pick(run("SEARCH_INVOICES_SQL"), "id", "status")).toEqual([
+            { id: "inv_1", status: "partial" },
+            { id: "inv_3", status: "paid" },
+            { id: "inv_2", status: "draft" },
+        ]);
+        expect(run("SEARCH_ITEMS_SQL").map((r) => r.id)).not.toContain("it_old");
+    });
+
+    it("lists paid online orders for pickup with their lines", () => {
+        const orders = pick(run("PICKUP_ORDERS_SQL"), "id", "pickup_status");
+        expect(orders.sort((a, b) => String(a.id).localeCompare(String(b.id)))).toEqual([
+            { id: "ord_gone", pickup_status: "picked_up" },
+            { id: "ord_web", pickup_status: "ready" },
+        ]);
+        expect(pick(run("PICKUP_LINES_SQL"), "id", "order_id")).toEqual([
+            { id: "ln_3", order_id: "ord_web" },
+        ]);
+    });
+
+    it("keeps device preferences in a local table", () => {
+        insert("device_prefs", [{ id: "search.recent", value: '["ann"]' }]);
+        expect(run("DEVICE_PREF_SQL", ["search.recent"])).toEqual([{ value: '["ann"]' }]);
     });
 
     it("covers every exported SQL constant", () => {

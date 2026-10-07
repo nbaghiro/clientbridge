@@ -17,13 +17,9 @@ import {
     strings,
     useCart,
     useCatalogItems,
-    useOnlineOrders,
     useOpenOrders,
-    usePickupAction,
-    PICKUP_LABEL,
-    formatMoneyWithCurrency,
+    usePickupOrders,
     pickupActions,
-    pickupIntent,
     useSearch,
 } from "@clientbridge/app-core";
 import {
@@ -360,8 +356,8 @@ function Row({ label, cents }: { label: string; cents: number }) {
 }
 
 function OnlineOrders() {
-    const orders = useOnlineOrders();
-    const pickup = usePickupAction(api);
+    const pickup = usePickupOrders(api);
+    const orders = pickup.all.filter((o) => o.status !== "picked_up");
     if (orders.length === 0) return null;
 
     return (
@@ -378,31 +374,29 @@ function OnlineOrders() {
                                 className="flex items-center gap-3 px-4 py-2.5 text-sm"
                             >
                                 <div className="min-w-0 flex-1">
-                                    <p className="truncate text-ink">
-                                        {order.client_name ?? strings.pos.walkIn}
+                                    <p className="truncate text-ink">{order.clientName}</p>
+                                    <p className="truncate text-xs text-muted">
+                                        {order.lines
+                                            .map((l) => strings.pos.pickup.line(l.quantity, l.name))
+                                            .join(", ")}
                                     </p>
-                                    {order.summary !== null ? (
-                                        <p className="truncate text-xs text-muted">
-                                            {order.summary}
-                                        </p>
-                                    ) : null}
                                 </div>
                                 <StatusPill
-                                    status={PICKUP_LABEL[order.pickup_status]}
-                                    intent={pickupIntent(order.pickup_status)}
+                                    status={order.statusLabel}
+                                    intent={order.intent}
                                     asWritten
                                 />
                                 <span className="font-medium tabular-nums text-ink">
-                                    {formatMoneyWithCurrency(order.total_cents, order.currency)}
+                                    {order.total}
                                 </span>
-                                {pickupActions(order.pickup_status).map((step) => (
+                                {pickupActions(order.status).map((step) => (
                                     <Button
                                         key={step.status}
                                         variant="outline"
                                         size="sm"
-                                        disabled={pickup.busy}
+                                        busy={pickup.busyId === order.id}
                                         onPress={() => {
-                                            pickup.advance(order.id, step.status);
+                                            pickup.move(order.id, step.status);
                                         }}
                                     >
                                         {step.label}

@@ -1,7 +1,9 @@
 import { useQuery } from "@powersync/react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
-import { useAsyncAction } from "../hooks";
+import { daysUntil, parseTimestamp, relativeDayTime } from "../datetime";
+import { formatMoney, formatPhone } from "../format";
+import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 import type { Intent } from "../ui";
@@ -9,6 +11,7 @@ import type { ItemRow } from "./catalog";
 import { type Checkout, useCheckout } from "./checkout";
 import { collectedSql, orderStatusSql } from "./ledger";
 import { canManagePayments } from "./payments";
+import { useReplicaLoad } from "./sync";
 
 interface OrderLineInput {
     item_id: string;
@@ -142,39 +145,230 @@ export function orderStatusIntent(status: string): Intent {
     }
 }
 
+// A paid online order moves unfulfilled -> ready -> picked_up; cancelling is a refund, not a status.
 type PickupStatus = "unfulfilled" | "ready" | "picked_up";
 
-interface OnlineOrderRow {
-    id: string;
-    client_name: string | null;
-    total_cents: number;
-    currency: string;
-    pickup_status: PickupStatus;
-    summary: string | null;
-    created_at: string;
-}
+const PICKUP_FLOW: PickupStatus[] = ["unfulfilled", "ready", "picked_up"];
 
-export const ONLINE_ORDERS_SQL = `
-SELECT o.id, c.name AS client_name, o.total_cents, o.currency, o.pickup_status, o.created_at,
-       (SELECT group_concat(CAST(l.quantity AS INTEGER) || ' × ' || l.description, ', ')
-        FROM lines l WHERE l.order_id = o.id) AS summary
-FROM orders o LEFT JOIN clients c ON c.id = o.client_id
-WHERE o.source = 'online' AND ${orderStatusSql("o")} = 'paid' AND o.pickup_status <> 'picked_up'
-ORDER BY o.created_at`;
-
-/** Paid shop orders still waiting to be collected, oldest first. */
-export function useOnlineOrders(): OnlineOrderRow[] {
-    return useQuery<OnlineOrderRow>(ONLINE_ORDERS_SQL).data;
-}
-
-export const PICKUP_LABEL: Record<PickupStatus, string> = {
-    unfulfilled: strings.pos.pickupUnfulfilled,
-    ready: strings.pos.pickupReady,
-    picked_up: strings.pos.pickupDone,
+const STATUS: Record<PickupStatus, { label: string; intent: Intent; empty: string }> = {
+    unfulfilled: {
+        label: strings.pos.pickup.toPack,
+        intent: "warning",
+        empty: strings.pos.pickup.emptyToPack,
+    },
+    ready: {
+        label: strings.pos.pickup.ready,
+        intent: "accent",
+        empty: strings.pos.pickup.emptyReady,
+    },
+    picked_up: {
+        label: strings.pos.pickup.pickedUp,
+        intent: "success",
+        empty: strings.pos.pickup.emptyPickedUp,
+    },
 };
 
-export function pickupIntent(status: PickupStatus): Intent {
-    return status === "ready" ? "success" : "warning";
+export function nextPickupStatus(s: PickupStatus): PickupStatus | null {
+    return s === "unfulfilled" ? "ready" : s === "ready" ? "picked_up" : null;
+}
+
+/** The client is told when an order is ready; nothing is sent when it is picked up. */
+function setPickupStatus(
+    api: ApiLike,
+    orderId: string,
+    status: Exclude<PickupStatus, "unfulfilled">,
+): Promise<unknown> {
+    return api.post(`/v1/orders/${orderId}/pickup`, { status });
+}
+
+export const PICKUP_ORDERS_SQL = `
+SELECT o.id, o.client_id, c.name AS client_name, c.phone, c.email, o.pickup_status,
+       o.total_cents, o.created_at, o.ready_at, o.picked_up_at
+FROM orders o LEFT JOIN clients c ON c.id = o.client_id
+WHERE o.source = 'online' AND o.pickup_status IS NOT NULL AND ${orderStatusSql("o")} = 'paid'
+ORDER BY o.created_at DESC`;
+
+export const PICKUP_LINES_SQL = `
+SELECT l.id, l.order_id, l.item_id, l.description, l.quantity, l.unit_amount_cents,
+       i.color AS item_color
+FROM lines l JOIN orders o ON o.id = l.order_id LEFT JOIN items i ON i.id = l.item_id
+WHERE o.source = 'online' AND o.pickup_status IS NOT NULL
+ORDER BY l.order_id, l.position`;
+
+interface PickupRow {
+    id: string;
+    client_id: string | null;
+    client_name: string | null;
+    phone: string | null;
+    email: string | null;
+    pickup_status: PickupStatus;
+    total_cents: number;
+    created_at: string;
+    ready_at: string | null;
+    picked_up_at: string | null;
+}
+
+interface PickupLineRow {
+    id: string;
+    order_id: string;
+    item_id: string | null;
+    description: string;
+    quantity: number;
+    unit_amount_cents: number;
+    item_color: string | null;
+}
+
+interface PickupLine {
+    id: string;
+    itemId: string | null;
+    name: string;
+    quantity: number;
+    unitCents: number;
+    color: string | null;
+}
+
+interface PickupOrder {
+    id: string;
+    clientId: string | null;
+    clientName: string;
+    status: PickupStatus;
+    statusLabel: string;
+    intent: Intent;
+    lines: PickupLine[];
+    itemsLabel: string;
+    total: string;
+    contact: string;
+    phone: string | null;
+    email: string | null;
+    // Placed, ready since or picked up at, whichever is latest.
+    when: string;
+    waiting: string;
+}
+
+export function pickupOrder(row: PickupRow, lines: PickupLineRow[], now: Date): PickupOrder {
+    const status = row.pickup_status;
+    const p = strings.pos.pickup;
+    const since = parseTimestamp(
+        status === "ready" && row.ready_at !== null ? row.ready_at : row.created_at,
+    );
+    const mine = lines.filter((l) => l.order_id === row.id);
+    return {
+        id: row.id,
+        clientId: row.client_id,
+        clientName: row.client_name ?? p.guest,
+        status,
+        statusLabel: STATUS[status].label,
+        intent: STATUS[status].intent,
+        lines: mine.map((l) => ({
+            id: l.id,
+            itemId: l.item_id,
+            name: l.description,
+            quantity: l.quantity,
+            unitCents: l.unit_amount_cents,
+            color: l.item_color,
+        })),
+        itemsLabel: p.items(mine.reduce((n, l) => n + l.quantity, 0)),
+        total: formatMoney(row.total_cents),
+        contact: [row.phone === null ? null : formatPhone(row.phone), row.email]
+            .filter((v) => v !== null && v !== "")
+            .join(" · "),
+        phone: row.phone,
+        email: row.email,
+        when:
+            status === "picked_up" && row.picked_up_at !== null
+                ? p.pickedAt(relativeDayTime(parseTimestamp(row.picked_up_at), now))
+                : status === "ready" && row.ready_at !== null
+                  ? p.readySince(relativeDayTime(parseTimestamp(row.ready_at), now))
+                  : p.placed(relativeDayTime(parseTimestamp(row.created_at), now)),
+        waiting: p.waiting(Math.max(0, -daysUntil(since, now))),
+    };
+}
+
+interface PickupQueue {
+    load: Load;
+    q: string;
+    setQ: (q: string) => void;
+    status: PickupStatus;
+    setStatus: (s: PickupStatus) => void;
+    all: PickupOrder[];
+    segments: { key: PickupStatus; label: string; count: number }[];
+    columns: {
+        key: PickupStatus;
+        label: string;
+        intent: Intent;
+        orders: PickupOrder[];
+        empty: string;
+    }[];
+    list: PickupOrder[];
+    selected: PickupOrder | null;
+    select: (id: string | null) => void;
+    advance: (id: string) => void;
+    // A step the server allows from here, e.g. straight to picked up from to pack.
+    move: (id: string, status: PickupStatus) => void;
+    busyId: string | null;
+    error: string | null;
+}
+
+/** The shared pickup queue: to pack, ready and picked up, worked from the front desk board. */
+export function usePickupOrders(api: ApiLike): PickupQueue {
+    const [now] = useState(() => new Date());
+    const orders = useQuery<PickupRow>(PICKUP_ORDERS_SQL);
+    const lines = useQuery<PickupLineRow>(PICKUP_LINES_SQL);
+    const [q, setQ] = useState("");
+    const [status, setStatus] = useState<PickupStatus>("unfulfilled");
+    const [selectedId, select] = useState<string | null>(null);
+    const [busyId, setBusyId] = useState<string | null>(null);
+    const { error, run } = useAsyncAction();
+    const all = useMemo(
+        () => orders.data.map((o) => pickupOrder(o, lines.data, now)),
+        [orders.data, lines.data, now],
+    );
+    const t = q.trim().toLowerCase();
+    const match = (o: PickupOrder): boolean =>
+        t === "" ||
+        [o.clientName, ...o.lines.map((l) => l.name)].some((v) => v.toLowerCase().includes(t));
+    const load = useReplicaLoad([orders, lines], all.length === 0);
+    const move = (id: string, to: PickupStatus): void => {
+        if (to === "unfulfilled") return;
+        setBusyId(id);
+        run(() => setPickupStatus(api, id, to), {
+            onSuccess: () => {
+                setBusyId(null);
+            },
+            errorMessage: strings.pos.pickup.error,
+        });
+    };
+    return {
+        load,
+        q,
+        setQ,
+        status,
+        setStatus,
+        all,
+        segments: PICKUP_FLOW.map((k) => ({
+            key: k,
+            label: STATUS[k].label,
+            count: all.filter((o) => o.status === k).length,
+        })),
+        columns: PICKUP_FLOW.map((k) => ({
+            key: k,
+            label: STATUS[k].label,
+            intent: STATUS[k].intent,
+            orders: all.filter((o) => o.status === k && match(o)),
+            empty: STATUS[k].empty,
+        })),
+        list: all.filter((o) => o.status === status && match(o)),
+        selected: all.find((o) => o.id === selectedId) ?? null,
+        select,
+        advance: (id) => {
+            const order = all.find((o) => o.id === id);
+            const next = order === undefined ? null : nextPickupStatus(order.status);
+            if (next !== null) move(id, next);
+        },
+        move,
+        busyId: error === null ? busyId : null,
+        error,
+    };
 }
 
 /** The steps staff can take from here; the server only moves an order forward. */
@@ -183,27 +377,6 @@ export function pickupActions(status: PickupStatus): { status: PickupStatus; lab
     if (status === "unfulfilled")
         return [{ status: "ready", label: strings.pos.markReady }, pickedUp];
     return status === "ready" ? [pickedUp] : [];
-}
-
-function setPickup(api: ApiLike, orderId: string, status: PickupStatus): Promise<Order> {
-    return api.post<Order>(`/v1/orders/${orderId}/pickup`, { status });
-}
-
-interface PickupAction {
-    advance: (orderId: string, status: PickupStatus) => void;
-    busy: boolean;
-    error: string | null;
-}
-
-export function usePickupAction(api: ApiLike): PickupAction {
-    const { busy, error, run } = useAsyncAction();
-    return {
-        advance: (orderId, status) => {
-            run(() => setPickup(api, orderId, status), { errorMessage: strings.pos.pickupError });
-        },
-        busy,
-        error,
-    };
 }
 
 export interface CartLine {

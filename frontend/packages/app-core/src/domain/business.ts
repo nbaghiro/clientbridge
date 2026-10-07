@@ -5,6 +5,7 @@ import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 import { mediaUrl } from "./files";
+import type { ShellTarget } from "./navigation";
 
 interface BusinessRow {
     id: string;
@@ -293,4 +294,99 @@ export function useOnboardingForm(
     };
 
     return { name, setName, slug, setSlug, province, setProvince, busy, error, submit };
+}
+
+export const SETUP_PROGRESS_SQL = `
+SELECT
+    (SELECT COUNT(*) FROM items WHERE active = 1 AND kind IN ('service', 'class')) AS services,
+    (SELECT COUNT(*) FROM hours WHERE basis = 'recurring' AND available = 1) AS hours,
+    (SELECT COUNT(*) FROM clients) AS clients,
+    (SELECT COUNT(*) FROM staff) AS team,
+    (SELECT COALESCE(MAX(stripe_charges_enabled), 0) FROM businesses) AS stripe,
+    (SELECT COUNT(*) FROM bookings WHERE source = 'online') AS online,
+    (SELECT slug FROM businesses LIMIT 1) AS slug,
+    (SELECT name FROM businesses LIMIT 1) AS name,
+    (SELECT brand FROM businesses LIMIT 1) AS brand`;
+
+interface SetupCounts {
+    services: number;
+    hours: number;
+    clients: number;
+    team: number;
+    stripe: number;
+    online: number;
+    slug: string | null;
+    name: string | null;
+    brand: string | null;
+}
+
+type SetupStepKey = "service" | "hours" | "client" | "team" | "stripe" | "page";
+
+interface SetupStep {
+    key: SetupStepKey;
+    label: string;
+    hint: string;
+    done: boolean;
+    target: ShellTarget;
+}
+
+export interface SetupProgress {
+    businessName: string;
+    brandColor: string | null;
+    slug: string | null;
+    steps: SetupStep[];
+    done: number;
+    total: number;
+    complete: boolean;
+}
+
+/** What a new business still has to do before clients can book, derived from synced rows. */
+function setupSteps(c: SetupCounts, bookingLink: string): SetupStep[] {
+    const s = strings.business.setupSteps;
+    return [
+        { key: "service", ...s.service, done: c.services > 0, target: "catalog" },
+        { key: "hours", ...s.hours, done: c.hours > 0, target: "hours" },
+        { key: "client", ...s.client, done: c.clients > 0, target: "client" },
+        { key: "team", ...s.team, done: c.team > 1, target: "team" },
+        { key: "stripe", ...s.stripe, done: c.stripe === 1, target: "gettingPaid" },
+        {
+            key: "page",
+            label: s.page.label,
+            hint: bookingLink,
+            done: c.online > 0,
+            target: "onlineBooking",
+        },
+    ];
+}
+
+/** The public booking page for a business, on the Connect host the app is configured with. */
+export function bookingPageUrl(base: string, slug: string): string {
+    return `${base.replace(/\/+$/, "")}/book/${slug}`;
+}
+
+export function useSetupProgress(bookBase: string): SetupProgress {
+    const row = useQuery<SetupCounts>(SETUP_PROGRESS_SQL).data[0];
+    const counts: SetupCounts = row ?? {
+        services: 0,
+        hours: 0,
+        clients: 0,
+        team: 0,
+        stripe: 0,
+        online: 0,
+        slug: null,
+        name: null,
+        brand: null,
+    };
+    const link = counts.slug === null ? "" : bookingPageUrl(bookBase, counts.slug);
+    const steps = setupSteps(counts, link.replace(/^https?:\/\//, ""));
+    const done = steps.filter((x) => x.done).length;
+    return {
+        businessName: counts.name ?? "",
+        brandColor: parseBrand(counts.brand).primary || null,
+        slug: counts.slug,
+        steps,
+        done,
+        total: steps.length,
+        complete: row !== undefined && done === steps.length,
+    };
 }
