@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { useAsyncAction } from "../hooks";
-import { strings } from "../strings";
-import type { Intent } from "../ui";
+import type { Intent, SignatureStrokes } from "../ui";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
 export function signatureStatusIntent(status: string): Intent {
@@ -25,11 +24,18 @@ export interface PublicContract {
     body: string;
     signer_name: string | null;
     status: string;
+    version: number;
+    signed_at: string | null;
+    signer_ip: string | null;
+    method: string | null;
+    typed_name: string | null;
+    strokes: SignatureStrokes | null;
 }
 
 interface SignInput {
-    typed_name?: string | null;
-    signature_image_id?: string | null;
+    typed_name: string;
+    strokes: SignatureStrokes | null;
+    agreed: boolean;
 }
 
 class PublicContractError extends Error {
@@ -46,7 +52,6 @@ interface PublicContractClient {
     getContract: (token: string) => Promise<PublicContract>;
     sign(token: string, input: SignInput): Promise<PublicContract>;
     decline(token: string): Promise<PublicContract>;
-    upload(token: string, file: Blob): Promise<string>; // returns a file_id to pass as signature_image_id
 }
 
 export function createPublicContractClient(baseUrl: string): PublicContractClient {
@@ -65,128 +70,130 @@ export function createPublicContractClient(baseUrl: string): PublicContractClien
             request<PublicContract>(`/contract/${encodeURIComponent(token)}/sign`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    typed_name: input.typed_name ?? null,
-                    signature_image_id: input.signature_image_id ?? null,
-                }),
+                body: JSON.stringify(input),
             }),
         decline: (token) =>
             request<PublicContract>(`/contract/${encodeURIComponent(token)}/decline`, {
                 method: "POST",
             }),
-        upload: async (token, file) => {
-            const meta = await request<{ file_id: string; upload_url: string }>(
-                `/contract/${encodeURIComponent(token)}/upload`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ content_type: file.type || null, size: file.size }),
-                },
-            );
-            const headers: Record<string, string> = {};
-            if (file.type) headers["Content-Type"] = file.type;
-            const put = await fetch(meta.upload_url, { method: "PUT", headers, body: file });
-            if (!put.ok)
-                throw new PublicContractError(
-                    put.status,
-                    strings.publicContract.signatureUploadFailedDetail,
-                );
-            return meta.file_id;
-        },
     };
 }
 
-type PublicContractStatus = "loading" | "not-found" | "error" | "resolved" | "pending";
+type SignMode = "type" | "draw";
+type SigningError = "name-missing" | "drawing-missing" | "consent-missing" | "failed";
 
-interface PublicContractSign {
-    status: PublicContractStatus;
-    contract: PublicContract | null;
+interface ContractSigning {
+    status: "loading" | "not-found" | "error" | "pending" | "signed" | "declined";
+    doc: PublicContract | null;
+    mode: SignMode;
+    setMode: (m: SignMode) => void;
     typedName: string;
     setTypedName: (v: string) => void;
-    imageName: string; // the attached signature-image filename, "" if none
-    uploadImage: (file: Blob, name: string) => void;
+    strokes: SignatureStrokes;
+    setStrokes: (s: SignatureStrokes) => void;
+    agreed: boolean;
+    setAgreed: (v: boolean) => void;
     sign: () => void;
     decline: () => void;
     busy: boolean;
-    error: string | null;
-    setError: (message: string | null) => void;
+    error: SigningError | null;
+    retry: () => void;
 }
 
-/** The file input stays per platform and hands its Blob to `uploadImage`. */
-export function usePublicContractSign(
+/** Typed or drawn: a drawing still needs the printed name, and agreeing is required either way. */
+export function useContractSigning(
     contracts: PublicContractClient,
     token: string,
-): PublicContractSign {
+): ContractSigning {
     const {
         status: load,
-        data: contract,
-        setData: setContract,
+        data: doc,
+        setData,
+        retry,
     } = usePublicResource(contracts.getContract, token);
-    const [typedName, setTypedName] = useState("");
-    const [imageId, setImageId] = useState<string | null>(null);
-    const [imageName, setImageName] = useState("");
-    const seededName = useRef(false);
-    const { busy, error, setError, run } = useAsyncAction();
-
-    // Seed the typed-name field once from the loaded contract's known signer (not on later updates).
-    useEffect(() => {
-        if (!seededName.current && contract?.signer_name != null) {
-            seededName.current = true;
-            setTypedName(contract.signer_name);
-        }
-    }, [contract]);
-
-    const status: PublicContractStatus =
-        load !== "ready" ? load : contract?.status !== "pending" ? "resolved" : "pending";
-
-    const sign = (): void => {
-        if (typedName.trim().length === 0 && imageId === null) {
-            setError(strings.publicContract.signPrompt);
-            return;
-        }
-        run(
-            async () => {
-                setContract(
-                    await contracts.sign(token, {
-                        typed_name: typedName.trim() || null,
-                        signature_image_id: imageId,
-                    }),
-                );
-            },
-            { errorMessage: strings.publicContract.signError },
-        );
-    };
-
-    const uploadImage = (file: Blob, name: string): void => {
-        run(
-            async () => {
-                setImageId(await contracts.upload(token, file));
-                setImageName(name);
-            },
-            { errorMessage: strings.publicContract.signatureUploadError },
-        );
-    };
-
-    const decline = (): void => {
-        run(
-            async () => {
-                setContract(await contracts.decline(token));
-            },
-            { errorMessage: strings.publicContract.recordError },
-        );
-    };
+    const [mode, setModeRaw] = useState<SignMode>("type");
+    const [typed, setTyped] = useState<string | null>(null);
+    const [strokes, setStrokesRaw] = useState<SignatureStrokes>([]);
+    const [agreed, setAgreedRaw] = useState(false);
+    const [problem, setProblem] = useState<SigningError | null>(null);
+    const action = useAsyncAction();
+    const typedName = typed ?? doc?.signer_name ?? "";
+    const status: ContractSigning["status"] =
+        load !== "ready"
+            ? load
+            : doc === null
+              ? "error"
+              : doc.status === "signed" || doc.status === "declined"
+                ? doc.status
+                : "pending";
 
     return {
         status,
-        contract,
+        doc,
+        mode,
+        setMode: (m) => {
+            setProblem(null);
+            setModeRaw(m);
+        },
         typedName,
-        setTypedName,
-        imageName,
-        uploadImage,
-        sign,
-        decline,
-        busy,
-        error,
-        setError,
+        setTypedName: (v) => {
+            setProblem(null);
+            setTyped(v);
+        },
+        strokes,
+        setStrokes: (v) => {
+            setProblem(null);
+            setStrokesRaw(v);
+        },
+        agreed,
+        setAgreed: (v) => {
+            setProblem(null);
+            setAgreedRaw(v);
+        },
+        sign: () => {
+            if (typedName.trim() === "") {
+                setProblem("name-missing");
+                return;
+            }
+            if (mode === "draw" && strokes.length === 0) {
+                setProblem("drawing-missing");
+                return;
+            }
+            if (!agreed) {
+                setProblem("consent-missing");
+                return;
+            }
+            setProblem(null);
+            action.run(async () => {
+                setData(
+                    await contracts.sign(token, {
+                        typed_name: typedName.trim(),
+                        strokes: mode === "draw" ? strokes : null,
+                        agreed,
+                    }),
+                );
+            });
+        },
+        decline: () => {
+            action.run(async () => {
+                setData(await contracts.decline(token));
+            });
+        },
+        busy: action.busy,
+        error: problem ?? (action.error === null ? null : "failed"),
+        retry,
     };
+}
+
+/** Contract text as clauses: a heading line then its text; a one-line block is plain text. */
+export function contractClauses(body: string): { heading: string; text: string }[] {
+    return body
+        .split(/\n\s*\n/)
+        .map((block) => {
+            const [first = "", ...rest] = block.trim().split("\n");
+            return rest.length === 0
+                ? { heading: "", text: first }
+                : { heading: first, text: rest.join(" ") };
+        })
+        .filter((c) => c.heading !== "" || c.text !== "");
 }

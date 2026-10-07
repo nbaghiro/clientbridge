@@ -1008,6 +1008,22 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("CONTRACTS_SQL")).toEqual([
             { id: "con_1", name: "Waiver", version: 2, always_require: 1, active: 1 },
         ]);
+        scoped("signatures", [
+            {
+                id: "sig_1",
+                contract_id: "con_1",
+                client_id: "cl_ann",
+                status: "pending",
+                token: "t1",
+            },
+        ]);
+        expect(pick(run("SIGNATURES_SQL"), "id", "client_name", "status")).toEqual([
+            { id: "sig_1", client_name: "Ann", status: "pending" },
+        ]);
+        expect(pick(run("CONTRACT_LIBRARY_SQL"), "id", "version")).toEqual([
+            { id: "con_1", version: 2 },
+        ]);
+        expect(run("CONTRACT_ISSUER_SQL")).toEqual([{ name: "Birch Studio" }]);
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
             { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
