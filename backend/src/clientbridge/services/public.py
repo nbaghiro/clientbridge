@@ -682,6 +682,7 @@ class PublicManageService:
         move = self._blocked(booking, slot, business, "move")
         cancel = self._blocked(booking, slot, business, "cancel")
         return ManagedBooking(
+            booking_id=booking.id,
             business_name=business.name,
             brand=public_brand(business),
             slug=business.slug,

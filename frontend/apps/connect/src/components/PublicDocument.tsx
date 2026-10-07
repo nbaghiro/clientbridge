@@ -1,7 +1,7 @@
 import {
     type PrintedDoc,
     type PublicBrand,
-    initialsOf,
+    initials,
     strings,
 } from "@clientbridge/app-core/public";
 import { Button, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
@@ -38,7 +38,7 @@ export function PublicDocument({
                                 style={{ backgroundColor: color }}
                                 className="flex h-9 w-9 items-center justify-center rounded-md font-display text-sm font-bold text-on-data"
                             >
-                                {initialsOf(businessName)}
+                                {initials(businessName)}
                             </span>
                         )}
                         <span className="font-display text-base font-bold text-ink">

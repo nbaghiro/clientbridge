@@ -113,6 +113,7 @@ class ManagedAddon(BaseModel):
 class ManagedBooking(BaseModel):
     """A client's own booking, as their manage link shows it."""
 
+    booking_id: str
     business_name: str
     brand: PublicBrand
     slug: str

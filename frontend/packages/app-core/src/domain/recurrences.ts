@@ -117,9 +117,15 @@ export function problemAt(
                 : s.outsideHours(name);
         }
         case "overlap": {
-            const clash = events.find(
-                (e) => e.staffId === staffId && e.start < end && e.end > start,
+            const overlaps = events.filter(
+                (e) =>
+                    e.staffId === staffId &&
+                    e.status !== "canceled" &&
+                    e.start < end &&
+                    e.end > start,
             );
+            // a no-show still holds its slot on the server, so it is named only when nothing else clashes
+            const clash = overlaps.find((e) => e.status !== "no_show") ?? overlaps[0];
             return s.taken(name, clash ? formatTime(clash.start) : "");
         }
         default:

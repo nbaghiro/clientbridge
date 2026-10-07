@@ -148,11 +148,24 @@ function audienceTags(raw: string | null): string[] {
     }
 }
 
-/** SMS bills per 160-character segment (70 once any character needs Unicode). */
+const GSM_BASIC = new Set(
+    "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà",
+);
+const GSM_EXTENDED = new Set("^{}\\[~]|€\f");
+
+/** A GSM-7 SMS holds 160 septets (153 per part once split); UCS-2 holds 70 units (67 per part). */
 export function smsSegments(body: string): { chars: number; segments: number } {
-    const unicode = /[^ -~\n\r\t]/.test(body);
-    const per = unicode ? 70 : 160;
-    return { chars: body.length, segments: body.length === 0 ? 0 : Math.ceil(body.length / per) };
+    const chars = body.length;
+    if (chars === 0) return { chars, segments: 0 };
+    let septets = 0;
+    for (const c of body) {
+        if (GSM_BASIC.has(c)) septets += 1;
+        else if (GSM_EXTENDED.has(c)) septets += 2;
+        else {
+            return { chars, segments: chars <= 70 ? 1 : Math.ceil(chars / 67) };
+        }
+    }
+    return { chars, segments: septets <= 160 ? 1 : Math.ceil(septets / 153) };
 }
 
 interface AudienceExclusion {

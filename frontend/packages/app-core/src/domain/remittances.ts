@@ -133,8 +133,12 @@ export function filingStatusIntent(status: FilingStatus): Intent {
 /** When a period is due, or was filed. */
 export function filingWhen(p: FilingPeriod): string {
     const filedOn = p.federalReturn?.filed_on ?? p.provincialReturn?.filed_on;
-    if (p.status === "filed" && filedOn !== undefined)
-        return strings.remittances.filedOn(filingDay(filedOn));
+    if (p.status === "filed") {
+        // filed per the server, but with no return row to date it (e.g. recorded before returns)
+        return filedOn === undefined
+            ? strings.remittances.filed
+            : strings.remittances.filedOn(filingDay(filedOn));
+    }
     if (p.status === "due" && p.daysToDue < 0)
         return strings.remittances.overdue(formatShortDay(p.due));
     if (p.status === "open") return strings.remittances.dueOn(formatShortDay(p.due));

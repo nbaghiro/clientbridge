@@ -4409,6 +4409,8 @@ export interface components {
          * @description A client's own booking, as their manage link shows it.
          */
         ManagedBooking: {
+            /** Booking Id */
+            booking_id: string;
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];

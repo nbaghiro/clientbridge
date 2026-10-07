@@ -42,6 +42,7 @@ async def test_view_shows_the_visit_and_what_can_change(api: httpx.AsyncClient) 
     assert body["service"]["id"] == "it_groom_sm"
     assert body["can_move"] and body["can_cancel"] and body["blocked"] is None
     assert body["policy"]["max_reschedules"] == 2
+    assert body["booking_id"].startswith("bk_")
 
 
 async def test_client_moves_their_visit(

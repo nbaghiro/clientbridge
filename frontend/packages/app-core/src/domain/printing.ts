@@ -1,4 +1,5 @@
 import { formatMonthDay } from "../datetime";
+import { initials } from "../format";
 import { strings } from "../strings";
 import type {
     DocTotalLine,
@@ -37,15 +38,6 @@ const PRINT_LABELS: PrintedDocLabels = {
     page: s.page,
     forPet: s.forPet,
 };
-
-export function initialsOf(name: string): string {
-    const words = name.trim().split(/\s+/).filter(Boolean);
-    const letters = words.length > 1 ? [words[0], words[1]] : [name.trim(), ""];
-    return letters
-        .map((w) => (w ?? "").charAt(0))
-        .join("")
-        .toUpperCase();
-}
 
 export function registrationLine(gstHst: string | null, qst: string | null): string {
     const parts = [gstHst ? s.gstNo(gstHst) : null, qst ? s.qstNo(qst) : null].filter(
@@ -101,7 +93,7 @@ export function printedDoc(
         number: src.number,
         business: {
             name: letterhead.name,
-            initials: initialsOf(letterhead.name),
+            initials: initials(letterhead.name),
             tagline: letterhead.tagline ?? "",
             brandColor: letterhead.brandColor ?? fallbackColor,
             address: [],

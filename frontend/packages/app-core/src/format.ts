@@ -9,9 +9,11 @@ export const formatMoneyWithCurrency = (cents: number, currency: string): string
 
 export const initials = (name: string): string =>
     name
-        .split(" ")
-        .map((w) => w[0] ?? "")
+        .trim()
+        .split(/\s+/)
+        .filter((w) => w !== "")
         .slice(0, 2)
+        .map((w) => String.fromCodePoint(w.codePointAt(0) ?? 0))
         .join("")
         .toUpperCase();
 

@@ -278,6 +278,7 @@ export function toStrip(
 }
 
 export interface CalendarEntry {
+    uid: string;
     title: string;
     starts_at: string;
     ends_at: string;
@@ -292,13 +293,14 @@ const icsStamp = (iso: string): string =>
 
 /** An .ics file for one visit, so "Add to calendar" works in Apple, Google and Outlook. */
 export function icsFor(e: CalendarEntry): string {
-    const esc = (t: string): string => t.replace(/[\\;,]/g, (c) => `\\${c}`);
+    const esc = (t: string): string =>
+        t.replace(/[\\;,]/g, (c) => `\\${c}`).replace(/\r\n|\r|\n/g, "\\n");
     return [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//Clientbridge//Booking//EN",
         "BEGIN:VEVENT",
-        `UID:${icsStamp(e.starts_at)}-${String(e.title.length)}@clientbridge.ca`,
+        `UID:${e.uid}@clientbridge.ca`,
         `DTSTAMP:${icsStamp(new Date().toISOString())}`,
         `DTSTART:${icsStamp(e.starts_at)}`,
         `DTEND:${icsStamp(e.ends_at)}`,
@@ -633,8 +635,9 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
             : null,
         result,
         calendar:
-            slot && service && page
+            slot && service && page && result
                 ? {
+                      uid: `${result.booking_id}.${page.slug}`,
                       title: s.calendarTitle(service.name, page.business_name),
                       starts_at: slot.starts_at,
                       ends_at: slot.ends_at,
@@ -660,6 +663,7 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
 export type PublicBookingFlow = ReturnType<typeof usePublicBookingFlow>;
 
 interface ManagedBooking {
+    booking_id: string;
     business_name: string;
     brand: PublicBrand;
     slug: string;
@@ -799,6 +803,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
         timeRange: data ? `${formatTime(start)} – ${formatTime(parseTimestamp(data.ends_at))}` : "",
         calendar: data
             ? {
+                  uid: `${data.booking_id}.${data.slug}`,
                   title: s.calendarTitle(data.service.name, data.business_name),
                   starts_at: data.starts_at,
                   ends_at: data.ends_at,

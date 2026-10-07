@@ -62,6 +62,12 @@ describe("filingWhen", () => {
         ).toBe(r.filedOn(formatShortDay(new Date(2026, 6, 20, 12))));
     });
 
+    it("says filed, never due, for a filed period with no return row", () => {
+        for (const daysToDue of [10, 0, -30]) {
+            expect(filingWhen(period({ status: "filed", daysToDue }))).toBe(r.filed);
+        }
+    });
+
     it("counts down to the due date and flags a late one", () => {
         expect(filingWhen(period({ daysToDue: 10 }))).toBe(r.dueIn(10, formatShortDay(due)));
         expect(filingWhen(period({ daysToDue: 0 }))).toBe(r.dueIn(0, formatShortDay(due)));

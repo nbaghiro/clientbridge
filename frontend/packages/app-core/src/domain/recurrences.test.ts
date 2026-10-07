@@ -141,6 +141,19 @@ describe("problemAt and suggest", () => {
         expect(check(at(7, 9), at(7, 10))).toBeNull();
     });
 
+    it("names the live visit in the way, not a canceled or no-show one", () => {
+        const c = ctx([
+            visit("bk_gone", at(7, 9, 30), at(7, 10, 30), "canceled"),
+            visit("bk_noshow", at(7, 9, 45), at(7, 10, 15), "no_show"),
+            visit("bk_live", at(7, 10, 15), at(7, 11)),
+        ]);
+        expect(problemAt(c, "st_amy", at(7, 10), at(7, 11), none)).toBe(
+            s.taken("Amy", formatTime(at(7, 10, 15))),
+        );
+        const onlyCanceled = ctx([visit("bk_gone", at(7, 10), at(7, 11), "canceled")]);
+        expect(problemAt(onlyCanceled, "st_amy", at(7, 10), at(7, 11), none)).toBeNull();
+    });
+
     it("suggests the nearest free time the same day, or nothing", () => {
         const c = ctx([visit("bk_1", at(7, 10), at(7, 11))]);
         expect(suggest(c, "st_amy", at(7, 10), 60, none)).toEqual(at(7, 11));

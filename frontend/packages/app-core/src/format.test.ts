@@ -73,6 +73,10 @@ describe("initials and blanks", () => {
         expect(initials("mary jane watson")).toBe("MJ");
         expect(initials("Ann")).toBe("A");
         expect(initials("")).toBe("");
+        expect(initials("   ")).toBe("");
+        expect(initials("  amy   lee ")).toBe("AL");
+        expect(initials(" Ann ")).toBe("A");
+        expect(initials("Zoë\tÉlise")).toBe("ZÉ");
     });
 
     it("trims text and reads a blank as null", () => {

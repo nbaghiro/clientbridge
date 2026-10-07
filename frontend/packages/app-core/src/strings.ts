@@ -3268,6 +3268,7 @@ export const strings = {
                 ? `Due ${when}, today`
                 : `Due ${when}, in ${String(days)} ${days === 1 ? "day" : "days"}`,
         filedOn: (when: string) => `Filed ${when}`,
+        filed: "Filed",
         recordFiled: "Record filed return",
         downloadCsv: "Download CSV",
         reminder: (when: string) => `We'll remind you on ${when}`,

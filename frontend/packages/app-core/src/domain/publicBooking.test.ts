@@ -90,6 +90,7 @@ describe("open times", () => {
 describe("icsFor", () => {
     it("writes one escaped UTC event with CRLF line endings", () => {
         const ics = icsFor({
+            uid: "bk_01J.birch-studio",
             title: "Groom, wash; trim\\",
             starts_at: "2026-10-07 17:00:00+00",
             ends_at: "2026-10-07T18:30:00Z",
@@ -103,7 +104,7 @@ describe("icsFor", () => {
             "PRODID:-//Clientbridge//Booking//EN",
             "BEGIN:VEVENT",
         ]);
-        expect(lines[4]).toBe("UID:20261007T170000Z-18@clientbridge.ca");
+        expect(lines[4]).toBe("UID:bk_01J.birch-studio@clientbridge.ca");
         expect(lines[5]).toMatch(/^DTSTAMP:\d{8}T\d{6}Z$/);
         expect(lines.slice(6)).toEqual([
             "DTSTART:20261007T170000Z",
@@ -113,5 +114,31 @@ describe("icsFor", () => {
             "END:VEVENT",
             "END:VCALENDAR",
         ]);
+    });
+
+    it("escapes line breaks so a multi-line field stays on one content line", () => {
+        const ics = icsFor({
+            uid: "bk_1.birch",
+            title: "Groom",
+            starts_at: "2026-10-07T17:00:00Z",
+            ends_at: "2026-10-07T18:00:00Z",
+            location: "12 Main St\r\nUnit 4\nVictoria, BC",
+        });
+        expect(ics.split("\r\n")).toContain("LOCATION:12 Main St\\nUnit 4\\nVictoria\\, BC");
+    });
+
+    it("gives each visit its own UID, even two of the same service at the same time", () => {
+        const visit = {
+            title: "Groom",
+            starts_at: "2026-10-07T17:00:00Z",
+            ends_at: "2026-10-07T18:00:00Z",
+            location: "Birch",
+        };
+        const uid = (ics: string): string | undefined =>
+            ics.split("\r\n").find((l) => l.startsWith("UID:"));
+        const a = uid(icsFor({ ...visit, uid: "bk_1.birch" }));
+        const b = uid(icsFor({ ...visit, uid: "bk_2.birch" }));
+        const c = uid(icsFor({ ...visit, uid: "bk_1.fjord" }));
+        expect(new Set([a, b, c]).size).toBe(3);
     });
 });
