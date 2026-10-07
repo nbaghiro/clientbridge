@@ -1,12 +1,10 @@
 """Server-authoritative write path for PowerSync uploads."""
 
-import json
-from datetime import UTC, date, datetime, time
+from datetime import date, datetime, time
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import Boolean, Date, DateTime, Table, Time, delete, select, update
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import IntegrityError
 
@@ -29,10 +27,8 @@ class UploadBody(BaseModel):
     ops: list[UploadOp]
 
 
-# table -> (min tier, own_only); tables absent here are written only through commands.
-WRITE_POLICY: dict[str, tuple[str, bool]] = {
-    "hours": ("team", True),
-}
+# table -> staff may write only their own rows; any table not listed is written only by command.
+WRITE_POLICY: dict[str, bool] = {"hours": True}
 
 # Rows inside a sync-writable table that only their command may write (column, value).
 COMMAND_ONLY_ROWS: dict[str, tuple[str, str]] = {"hours": ("basis", "exception")}
@@ -51,8 +47,6 @@ def _coerce(table: Table, data: dict[str, object]) -> dict[str, object]:
         col_type = table.columns[key].type
         if isinstance(col_type, Boolean):
             out[key] = bool(value)
-        elif isinstance(col_type, JSONB | ARRAY):
-            out[key] = json.loads(value) if isinstance(value, str) else value
         elif isinstance(col_type, DateTime):
             out[key] = datetime.fromisoformat(value) if isinstance(value, str) else value
         elif isinstance(col_type, Date):
@@ -82,10 +76,9 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
 
     for op in body.ops:
         table = Base.metadata.tables.get(op.type)
-        policy = WRITE_POLICY.get(op.type)
-        if table is None or policy is None:
+        own_only = WRITE_POLICY.get(op.type)
+        if table is None or own_only is None:
             raise Forbidden(f"table '{op.type}' is not writable via sync")
-        min_tier, own_only = policy
         has_staff = "staff_id" in table.columns
         data = op.data or {}
 
@@ -123,10 +116,7 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
         staff = by_business.get(row_business) if isinstance(row_business, str) else None
         if staff is None:
             raise Forbidden("not a member of that business")
-        is_admin = is_manager(staff.role)
-        if min_tier == "admin" and not is_admin:
-            raise Forbidden(f"{op.type} requires owner/admin")
-        if own_only and not is_admin and row_staff != staff.id:
+        if own_only and not is_manager(staff.role) and row_staff != staff.id:
             raise Forbidden(f"staff may only modify their own {op.type}")
 
         if op.op in ("PUT", "PATCH"):
@@ -148,17 +138,10 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
                     update(table).where(table.columns["id"] == op.id).values(**_coerce(table, data))
                 )
             elif op.op == "DELETE":
-                if "deleted_at" in table.columns:  # soft-delete so it propagates
-                    await db.execute(
-                        update(table)
-                        .where(table.columns["id"] == op.id)
-                        .values(deleted_at=datetime.now(UTC))
-                    )
-                else:
-                    await db.execute(delete(table).where(table.columns["id"] == op.id))
+                await db.execute(delete(table).where(table.columns["id"] == op.id))
             else:
                 raise Forbidden(f"unknown op '{op.op}'")
-        except IntegrityError as exc:  # a CHECK or unique rule (e.g. a bookable product, a SKU)
+        except IntegrityError as exc:  # a CHECK or unique rule on the row
             await db.rollback()
             raise Unprocessable(f"that change to {op.type} breaks a data rule") from exc
 

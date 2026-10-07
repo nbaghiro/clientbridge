@@ -7,7 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
-from clientbridge.core.deps import Principal, assert_role
+from clientbridge.core.deps import Principal, assert_role, is_manager
 from clientbridge.core.errors import (
     AppError,
     Conflict,
@@ -191,7 +191,7 @@ class StaffService:
             .group_by(AuthSession.user_id)
         )
         last = {user_id: at for user_id, at in sessions.all()}
-        managers = principal.role in ("owner", "admin")
+        managers = is_manager(principal.role)
 
         def out(s: Staff) -> TeamMember:
             user = users.get(s.user_id or "")
