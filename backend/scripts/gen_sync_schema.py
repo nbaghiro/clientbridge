@@ -23,6 +23,17 @@ import { column, Schema, Table } from "@powersync/common";
 """
 
 
+# Device-only tables: kept in local SQLite, never uploaded or synced (recent searches, read marks).
+LOCAL_ONLY = {"device_prefs": {"value": "text", "updated_at": "text"}}
+
+
+def gen_local_table(name: str, columns: dict[str, str]) -> str:
+    cols = [f"        {col}: column.{kind}," for col, kind in columns.items()]
+    return "\n".join(
+        [f"const {name} = new Table(", "    {", *cols, "    },", "    { localOnly: true },", ");"]
+    )
+
+
 def synced_tables() -> list[str]:
     """Table names appearing in any `FROM <table>` clause of the sync rules, in first-seen order."""
     text = SYNC_RULES.read_text()
@@ -68,8 +79,10 @@ def gen_table(name: str) -> str:
 
 def main() -> None:
     names = [t for t in synced_tables() if t in Base.metadata.tables]
-    body = "\n\n".join(gen_table(n) for n in names)
-    members = ",\n".join(f"    {n}" for n in names)
+    body = "\n\n".join(
+        [*(gen_table(n) for n in names), *(gen_local_table(n, c) for n, c in LOCAL_ONLY.items())]
+    )
+    members = ",\n".join(f"    {n}" for n in [*names, *LOCAL_ONLY])
     content = (
         f"{HEADER}\n"
         f"{body}\n\n"

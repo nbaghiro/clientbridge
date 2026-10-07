@@ -29,8 +29,8 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'staff'
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'contractor'
     data:
-      - SELECT id, name, timezone, locale, brand, stripe_account_id, stripe_terminal_location_id FROM businesses WHERE id = bucket.business_id
-      - SELECT id, business_id, user_id, role, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
+      - SELECT id, name, slug, timezone, locale, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered FROM businesses WHERE id = bucket.business_id
+      - SELECT id, business_id, user_id, role, name, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
 
   # 2) STAFF-SELF — a staff member's OWN work + earnings, keyed to their staff row.
   #    (staff_id is denormalized onto bookings so it can be sliced here directly.)
@@ -55,8 +55,8 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'owner'
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'admin'
     data:
-      - SELECT id, name, timezone, locale, billing_email, gst_hst_number, qst_number, brand, stripe_account_id, stripe_terminal_location_id FROM businesses WHERE id = bucket.business_id
-      - SELECT id, business_id, user_id, role, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
+      - SELECT id, name, slug, timezone, locale, billing_email, gst_hst_number, qst_number, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered FROM businesses WHERE id = bucket.business_id
+      - SELECT id, business_id, user_id, role, name, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
       - SELECT * FROM slots              WHERE business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM addons             WHERE business_id = bucket.business_id
