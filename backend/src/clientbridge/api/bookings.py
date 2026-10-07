@@ -17,6 +17,8 @@ from clientbridge.schemas.bookings import (
     BookingOut,
     BookingPatch,
     BookingProbe,
+    ClassMessage,
+    ClassMessageOut,
     DepositOut,
     RecurrenceCancel,
     RecurrenceCancelOut,
@@ -24,10 +26,18 @@ from clientbridge.schemas.bookings import (
     RecurrenceChangeOut,
     RecurrenceCreate,
     RecurrenceOut,
+    RosterAction,
+    RosterAdd,
+    RosterEntry,
     TimeOffCreate,
     TimeOffOut,
 )
-from clientbridge.services.bookings import BookingService, RecurrenceService, TimeOffService
+from clientbridge.services.bookings import (
+    BookingService,
+    ClassService,
+    RecurrenceService,
+    TimeOffService,
+)
 from clientbridge.services.notifications import Notifier
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -193,3 +203,48 @@ async def create_time_off(
 @time_off_router.delete("/{hours_id}", response_model=TimeOffOut)
 async def delete_time_off(hours_id: str, principal: CurrentPrincipal, db: DbSession) -> TimeOffOut:
     return await TimeOffService(db, principal).delete(hours_id)
+
+
+classes_router = APIRouter(prefix="/classes", tags=["classes"])
+
+
+@classes_router.post("/{slot_id}/roster", response_model=RosterEntry, status_code=201)
+async def add_to_class(
+    slot_id: str,
+    body: RosterAdd,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+) -> RosterEntry:
+    return await ClassService(db, principal, gateway).add(slot_id, body)
+
+
+@classes_router.patch("/{slot_id}/roster/{booking_id}", response_model=RosterEntry)
+async def update_class_roster(
+    slot_id: str,
+    booking_id: str,
+    body: RosterAction,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> RosterEntry:
+    result = await ClassService(db, principal, gateway).act(slot_id, booking_id, body)
+    if body.action == "promote":
+        await Notifier(email, sms, push).on_booking_confirmed(db, result.booking_id)
+    return result
+
+
+@classes_router.post("/{slot_id}/message", response_model=ClassMessageOut)
+async def message_class(
+    slot_id: str,
+    body: ClassMessage,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+) -> ClassMessageOut:
+    return await ClassService(db, principal, gateway).message(slot_id, body, sms, email)

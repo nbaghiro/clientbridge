@@ -608,14 +608,10 @@ def seed_clients(owner: str) -> None:
 
 def seed_resources_hours() -> None:
     rows.append(
-        Resource(
-            id="rs_station_a", business_id=BIZ, name="Grooming Station A", category="equipment"
-        )
+        Resource(id="rs_station_a", business_id=BIZ, name="Grooming Station A", category="station")
     )
     rows.append(
-        Resource(
-            id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="equipment"
-        )
+        Resource(id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="station")
     )
     rows.append(Resource(id="rs_bath", business_id=BIZ, name="Bath Bay", category="room"))
     # recurring weekly hours Tue–Sat 9–17 for both groomers

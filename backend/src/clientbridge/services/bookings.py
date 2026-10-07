@@ -20,11 +20,14 @@ from clientbridge.core.errors import (
 )
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.integrations.postmark import EmailSender
 from clientbridge.integrations.stripe import PaymentGateway
+from clientbridge.integrations.twilio import SmsSender
 from clientbridge.models.billing import Invoice, Line
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
-from clientbridge.models.clients import Client, Note
+from clientbridge.models.clients import Client, Note, Subject
+from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Resource, Slot
 from clientbridge.schemas.bookings import (
@@ -34,6 +37,8 @@ from clientbridge.schemas.bookings import (
     BookingOut,
     BookingPatch,
     BookingProbe,
+    ClassMessage,
+    ClassMessageOut,
     DepositOut,
     Problem,
     RecurrenceCancel,
@@ -43,6 +48,9 @@ from clientbridge.schemas.bookings import (
     RecurrenceCreate,
     RecurrenceOccurrence,
     RecurrenceOut,
+    RosterAction,
+    RosterAdd,
+    RosterEntry,
     TimeOffCreate,
     TimeOffOut,
 )
@@ -50,6 +58,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import business_tz
 from clientbridge.services.catalog import deposit_cents, load_item
 from clientbridge.services.clients import load_client
+from clientbridge.services.messaging import dispatch_message, open_thread
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import (
     default_method_ref,
@@ -70,6 +79,7 @@ _CLASS_MOVE = "a class session moves as a whole; change its time from the class"
 _MIN_VISIT = timedelta(minutes=5)
 _ALREADY_IN_CLASS = "you already have a booking for this class"
 _TERMINAL = frozenset({"completed", "canceled", "no_show"})
+_CLOSED_OR_WAITING = ("completed", "canceled", "no_show", "waitlisted")
 
 
 async def _booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> BookingOut:
@@ -97,7 +107,7 @@ def booked_count_expr() -> ColumnElement[int]:
         select(func.count(Booking.id))
         .where(
             Booking.slot_id == Slot.id,
-            Booking.status != "canceled",
+            Booking.status.not_in(("canceled", "waitlisted")),
             Booking.deleted_at.is_(None),
         )
         .scalar_subquery()
@@ -341,12 +351,22 @@ async def load_resource(db: AsyncSession, business_id: str, resource_id: str) ->
     ).scalar_one_or_none()
     if row is None:
         raise NotFound("room or station not found")
+    if not row.active:
+        raise Conflict("that room or station is switched off for new bookings")
     return row
 
 
 async def release_slot(db: AsyncSession, slot: Slot) -> None:
-    """Cancel the slot once its last live booking is gone."""
-    if await booked_count(db, slot.id) == 0:
+    """Cancel the slot once its last live or waiting booking is gone."""
+    await db.flush()
+    left = await db.execute(
+        select(func.count(Booking.id)).where(
+            Booking.slot_id == slot.id,
+            Booking.status != "canceled",
+            Booking.deleted_at.is_(None),
+        )
+    )
+    if int(left.scalar_one()) == 0:
         slot.status = "canceled"
     await db.flush()
 
@@ -432,6 +452,8 @@ class BookingService:
             raise AppError("that service has no duration and can't be booked", status_code=422)
         await self._client(data.client_id)
         await self._staff(data.staff_id)
+        if data.resource_id is not None:
+            await load_resource(self.db, self.biz, data.resource_id)
 
         async def run(cmd: Command) -> BookingOut:
             booking, slot = await create_booking_core(
@@ -519,7 +541,7 @@ class BookingService:
                     booking.deposit_status = "none"  # nothing was collected and none is due now
                 if data.status == "canceled":
                     booking.canceled_at = datetime.now(UTC)
-                    slot.status = "canceled"  # frees the slot (excluded from the overlap check)
+                    await release_slot(self.db, slot)  # a class keeps its slot for the rest
                 elif data.status == "completed":
                     booking.completed_at = datetime.now(UTC)
                     slot.status = "completed"
@@ -1258,6 +1280,202 @@ async def is_within_hours(
     return any(ws <= start_local.time() and end_local.time() <= we for ws, we in windows)
 
 
+class ClassService:
+    """A class session's roster: adding (to the waitlist when full), check-in, no-shows, seats."""
+
+    def __init__(self, db: AsyncSession, principal: Principal, gateway: PaymentGateway) -> None:
+        self.db = db
+        self.principal = principal
+        self.biz = principal.business_id
+        self.gateway = gateway
+
+    async def add(self, slot_id: str, data: RosterAdd) -> RosterEntry:
+        slot = await self._session(slot_id)
+        assert_can_act_as(self.principal, slot.staff_id)
+        await load_client(self.db, self.biz, data.client_id)
+        if data.subject_id is not None:
+            await self._subject(data.subject_id, data.client_id)
+        if slot.starts_at < datetime.now(UTC) - timedelta(hours=12):
+            raise Conflict("that class has already happened")
+        item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
+
+        async def run(cmd: Command) -> RosterEntry:
+            await _lock_staff(self.db, self.biz, slot.staff_id)
+            if await _client_has_seat(self.db, self.biz, slot.id, data.client_id):
+                raise Conflict(_ALREADY_IN_CLASS)
+            full = await booked_count(self.db, slot.id) >= slot.capacity
+            deposit = deposit_cents(item) if item.deposit_type != "none" else 0
+            booking = Booking(
+                id=new_id("booking"),
+                business_id=self.biz,
+                slot_id=slot.id,
+                staff_id=slot.staff_id,
+                client_id=data.client_id,
+                subject_id=data.subject_id,
+                status="waitlisted" if full else "confirmed",
+                source="manual",
+                price_cents=item.price_cents,
+                deposit_amount_cents=deposit,
+                deposit_status="pending" if deposit > 0 else "none",
+                confirmed_at=None if full else datetime.now(UTC),
+            )
+            self.db.add(booking)
+            await self.db.flush()
+            action = "class.waitlist" if full else "class.add"
+            cmd.record(action, entity_type="booking", entity_id=booking.id)
+            return await self._entry(booking)
+
+        return await run_command(
+            self.db, self.principal, action="class.add", run=run, response_model=RosterEntry
+        )
+
+    async def act(self, slot_id: str, booking_id: str, data: RosterAction) -> RosterEntry:
+        slot = await self._session(slot_id)
+        assert_can_act_as(self.principal, slot.staff_id)
+        booking = (
+            await self.db.execute(
+                scoped(Booking, self.biz, soft_delete=True).where(
+                    Booking.id == booking_id, Booking.slot_id == slot.id
+                )
+            )
+        ).scalar_one_or_none()
+        if booking is None:
+            raise NotFound("that booking isn't on this class")
+
+        async def run(cmd: Command) -> RosterEntry:
+            if data.action == "check_in":
+                if booking.status != "confirmed":
+                    raise Conflict(f"a {booking.status} booking can't be checked in")
+                booking.checked_in_at = booking.checked_in_at or datetime.now(UTC)
+            elif data.action == "undo":
+                await self._undo(booking)
+            elif data.action == "no_show":
+                if booking.status != "confirmed":
+                    raise Conflict(f"a {booking.status} booking can't be marked a no-show")
+                booking.status = "no_show"
+                booking.checked_in_at = None
+                await BookingService(self.db, self.principal, self.gateway)._forfeit_deposit(
+                    cmd, booking
+                )
+            else:
+                await _lock_staff(self.db, self.biz, slot.staff_id)
+                if booking.status != "waitlisted":
+                    raise Conflict("only someone on the waitlist can be given a seat")
+                if await booked_count(self.db, slot.id) >= slot.capacity:
+                    raise Conflict(_CLASS_FULL)
+                booking.status = "confirmed"
+                booking.confirmed_at = datetime.now(UTC)
+            await self.db.flush()
+            cmd.record(f"class.{data.action}", entity_type="booking", entity_id=booking.id)
+            return await self._entry(booking)
+
+        return await run_command(
+            self.db, self.principal, action="class.roster", run=run, response_model=RosterEntry
+        )
+
+    async def message(
+        self, slot_id: str, data: ClassMessage, sms: SmsSender, email: EmailSender
+    ) -> ClassMessageOut:
+        """One message to everyone booked, by text when they have a mobile, else by email."""
+        slot = await self._session(slot_id)
+        assert_can_act_as(self.principal, slot.staff_id)
+        business = await self.db.get(Business, self.biz)
+        subject = business.name if business is not None else ""
+        clients = (
+            (
+                await self.db.execute(
+                    scoped(Client, self.biz, soft_delete=True)
+                    .join(Booking, Booking.client_id == Client.id)
+                    .where(Booking.slot_id == slot.id, Booking.status == "confirmed")
+                    .distinct()
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        async def run(cmd: Command) -> ClassMessageOut:
+            sent = 0
+            for client in clients:
+                channel, to = ("sms", client.phone) if client.phone else ("email", client.email)
+                if not to:
+                    continue
+                thread = await open_thread(self.db, self.biz, client.id, channel)
+                note = Message(
+                    id=new_id("message"),
+                    business_id=self.biz,
+                    thread_id=thread.id,
+                    direction="out",
+                    channel=channel,
+                    sent_by=self.principal.user_id,
+                    body=data.body,
+                    status="queued",
+                )
+                self.db.add(note)
+                await self.db.flush()
+                ok = await dispatch_message(sms, email, channel, to, subject, data.body)
+                note.status = "sent" if ok else "failed"
+                sent += 1
+            await self.db.flush()
+            cmd.record("class.message", entity_type="slot", entity_id=slot.id)
+            return ClassMessageOut(sent=sent)
+
+        return await run_command(
+            self.db, self.principal, action="class.message", run=run, response_model=ClassMessageOut
+        )
+
+    async def _undo(self, booking: Booking) -> None:
+        if booking.status == "confirmed" and booking.checked_in_at is not None:
+            booking.checked_in_at = None
+        elif booking.status == "no_show" and booking.deposit_status != "forfeited":
+            booking.status = "confirmed"
+        else:
+            raise Conflict("there's nothing to undo on this booking")
+
+    async def _session(self, slot_id: str) -> Slot:
+        slot = (
+            await self.db.execute(scoped(Slot, self.biz).where(Slot.id == slot_id))
+        ).scalar_one_or_none()
+        if slot is None:
+            raise NotFound("class not found")
+        if slot.capacity <= 1 or slot.status == "canceled":
+            raise Conflict("that time isn't a class session")
+        return slot
+
+    async def _subject(self, subject_id: str, client_id: str) -> None:
+        found = (
+            await self.db.execute(
+                scoped(Subject, self.biz).where(
+                    Subject.id == subject_id, Subject.client_id == client_id
+                )
+            )
+        ).scalar_one_or_none()
+        if found is None:
+            raise NotFound("pet not found")
+
+    async def _entry(self, booking: Booking) -> RosterEntry:
+        position = None
+        if booking.status == "waitlisted":
+            ahead = await self.db.execute(
+                select(func.count(Booking.id)).where(
+                    Booking.slot_id == booking.slot_id,
+                    Booking.status == "waitlisted",
+                    Booking.deleted_at.is_(None),
+                    Booking.id < booking.id,
+                )
+            )
+            position = int(ahead.scalar_one()) + 1
+        return RosterEntry(
+            booking_id=booking.id,
+            slot_id=booking.slot_id,
+            client_id=booking.client_id,
+            subject_id=booking.subject_id,
+            status=booking.status,
+            checked_in_at=booking.checked_in_at,
+            waitlist_position=position,
+        )
+
+
 _MAX_AWAY = timedelta(days=366)
 
 
@@ -1391,7 +1609,7 @@ async def run_reap_unpaid_bookings(db: AsyncSession, now: datetime) -> int:
                 Booking.deleted_at.is_(None),
                 Booking.source == "online",
                 Booking.deposit_amount_cents > 0,
-                Booking.status.not_in(("completed", "canceled", "no_show")),
+                Booking.status.not_in(_CLOSED_OR_WAITING),
                 Booking.created_at < now - _UNPAID_TTL,
                 deposits("pending"),
                 ~deposits("succeeded"),
@@ -1416,7 +1634,7 @@ async def run_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> 
                 .where(
                     Booking.deleted_at.is_(None),
                     Booking.reminded_at.is_(None),
-                    Booking.status.not_in(("completed", "canceled", "no_show")),
+                    Booking.status.not_in(_CLOSED_OR_WAITING),
                     Slot.starts_at > now,
                     Slot.starts_at <= now + _REMINDER_WINDOW,
                 )

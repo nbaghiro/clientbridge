@@ -177,3 +177,30 @@ class RecurrenceOut(BaseModel):
     created: int = Field(description="Occurrences that became bookings")
     skipped: int = Field(description="Occurrences skipped for a clash or outside hours")
     occurrences: list[RecurrenceOccurrence]
+
+
+class RosterAdd(BaseModel):
+    client_id: str
+    subject_id: str | None = None
+
+
+class RosterAction(BaseModel):
+    action: Literal["check_in", "undo", "no_show", "promote"]
+
+
+class RosterEntry(BaseModel):
+    booking_id: str
+    slot_id: str
+    client_id: str
+    subject_id: str | None
+    status: str
+    checked_in_at: datetime | None
+    waitlist_position: int | None = Field(description="1 is offered the next free seat")
+
+
+class ClassMessage(BaseModel):
+    body: str = Field(min_length=1, max_length=1000)
+
+
+class ClassMessageOut(BaseModel):
+    sent: int = Field(description="Clients the message went to")

@@ -215,12 +215,12 @@ by line and reason; `items.stock_on_hand` is the running total).
 
 **scheduling (6)** — `slots` (the calendar event: capacity-bearing block; appointment = capacity 1, class
 = capacity N; seats taken are counted from its live bookings; `recurrence_id`), `bookings` *(soft-del)* (client↔slot via `slot_id`; denormalized
-`staff_id`; status pending→confirmed→completed/canceled/no_show; `source`; deposit terms (the deposit's
+`staff_id`; status pending→confirmed→completed/canceled/no_show, or waitlisted on a full class until a seat is given; `source`; deposit terms (the deposit's
 state is derived from the ledger, and a deposit is due when `deposit_amount_cents > 0`); `reminded_at`),
 `hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
 exception is time off for one member, or a closure for everyone when `staff_id` is null, with
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `resources`
-(`category` room/equipment), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
+(`category` room/station/equipment, `capacity`, and `active`, which keeps existing bookings but offers it for no new ones; managed at `/v1/resources`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
 items use, and `monthly_by` date or weekday → expands to slots/bookings; dates can be skipped or shifted
 when booking, and `PATCH /v1/recurrences/{id}` moves one, the following or all upcoming visits while
 `/cancel` ends the series and refunds paid deposits), `addons` (products a client added to a visit when booking; they join

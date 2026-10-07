@@ -94,6 +94,8 @@ const resources = new Table(
     {
         name: column.text,
         category: column.text,
+        capacity: column.integer,
+        active: column.integer,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,

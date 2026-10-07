@@ -42,7 +42,14 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __tablename__ = "bookings"
     __table_args__ = (
         enum_check(
-            "bookings", "status", "pending", "confirmed", "completed", "canceled", "no_show"
+            "bookings",
+            "status",
+            "pending",
+            "confirmed",
+            "completed",
+            "canceled",
+            "no_show",
+            "waitlisted",
         ),
         enum_check("bookings", "source", "online", "manual"),
         enum_check(
@@ -112,10 +119,18 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
 
 class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "resources"
-    __table_args__ = (enum_check("resources", "category", "room", "equipment"),)
+    __table_args__ = (
+        enum_check("resources", "category", "room", "station", "equipment"),
+        CheckConstraint("capacity > 0", name="ck_resources_capacity"),
+    )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     category: Mapped[str] = mapped_column(String, nullable=False)
+    capacity: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    # an inactive room or station keeps its bookings and is offered for no new ones
+    active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
 
 
 class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):

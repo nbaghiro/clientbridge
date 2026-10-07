@@ -868,6 +868,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/classes/{slot_id}/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add To Class */
+        post: operations["add_to_class_v1_classes__slot_id__roster_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/classes/{slot_id}/roster/{booking_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Class Roster */
+        patch: operations["update_class_roster_v1_classes__slot_id__roster__booking_id__patch"];
+        trace?: never;
+    };
+    "/v1/classes/{slot_id}/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Message Class */
+        post: operations["message_class_v1_classes__slot_id__message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Resource */
+        post: operations["create_resource_v1_resources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resources/{resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Resource */
+        patch: operations["update_resource_v1_resources__resource_id__patch"];
+        trace?: never;
+    };
     "/v1/invoices": {
         parameters: {
             query?: never;
@@ -2216,6 +2301,19 @@ export interface components {
             client_secret: string;
             /** Payment Id */
             payment_id: string;
+        };
+        /** ClassMessage */
+        ClassMessage: {
+            /** Body */
+            body: string;
+        };
+        /** ClassMessageOut */
+        ClassMessageOut: {
+            /**
+             * Sent
+             * @description Clients the message went to
+             */
+            sent: number;
         };
         /** ClientCreate */
         ClientCreate: {
@@ -3856,6 +3954,61 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** ResourceCreate */
+        ResourceCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Category
+             * @default station
+             * @enum {string}
+             */
+            category: "room" | "station" | "equipment";
+            /**
+             * Capacity
+             * @default 1
+             */
+            capacity: number;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** ResourceOut */
+        ResourceOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Capacity */
+            capacity: number;
+            /** Active */
+            active: boolean;
+            /**
+             * Upcoming
+             * @description Upcoming visits that hold it
+             */
+            upcoming: number;
+        };
+        /** ResourcePatch */
+        ResourcePatch: {
+            /** Name */
+            name?: string | null;
+            /** Category */
+            category?: ("room" | "station" | "equipment") | null;
+            /** Capacity */
+            capacity?: number | null;
+            /**
+             * Active
+             * @description Off keeps existing bookings and hides it from new ones
+             */
+            active?: boolean | null;
+        };
         /** RestockIn */
         RestockIn: {
             /**
@@ -3953,6 +4106,41 @@ export interface components {
              * @description Number of published reviews
              */
             count: number;
+        };
+        /** RosterAction */
+        RosterAction: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "check_in" | "undo" | "no_show" | "promote";
+        };
+        /** RosterAdd */
+        RosterAdd: {
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id?: string | null;
+        };
+        /** RosterEntry */
+        RosterEntry: {
+            /** Booking Id */
+            booking_id: string;
+            /** Slot Id */
+            slot_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id: string | null;
+            /** Status */
+            status: string;
+            /** Checked In At */
+            checked_in_at: string | null;
+            /**
+             * Waitlist Position
+             * @description 1 is offered the next free seat
+             */
+            waitlist_position: number | null;
         };
         /** SalesByItemRow */
         SalesByItemRow: {
@@ -6146,6 +6334,196 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimeOffOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_to_class_v1_classes__slot_id__roster_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                slot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_class_roster_v1_classes__slot_id__roster__booking_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                slot_id: string;
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    message_class_v1_classes__slot_id__message_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                slot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassMessage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassMessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_resource_v1_resources_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_resource_v1_resources__resource_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourcePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
                 };
             };
             /** @description Validation Error */
