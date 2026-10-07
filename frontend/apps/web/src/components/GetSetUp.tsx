@@ -6,7 +6,6 @@ import {
     logoTarget,
     mediaUrl,
     strings,
-    taxSummary,
     useBookingPreview,
     useBrandForm,
     useFileUpload,
@@ -16,8 +15,10 @@ import {
     Badge,
     Button,
     Checklist,
+    Choice,
     CopyField,
     Empty,
+    FactList,
     Field,
     Icon,
     LoadFailed,
@@ -27,7 +28,7 @@ import {
     SwatchPicker,
     TextField,
 } from "@clientbridge/ui";
-import { type ChangeEvent, useRef } from "react";
+import { type CSSProperties, type ChangeEvent, useRef } from "react";
 
 import { config } from "../config";
 import { api, apiBaseUrl } from "../lib/api";
@@ -70,9 +71,11 @@ function BrandMark({
 /** The client's booking page in a browser frame, drawn live from the brand being edited. */
 function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null }) {
     const preview = useBookingPreview(4);
+    const b = strings.publicBooking;
     return (
         <figure
             aria-label={o.preview}
+            style={{ "--accent": brand.colour } as CSSProperties}
             className="overflow-hidden rounded-xl border border-line bg-bg shadow-card"
         >
             <div className="flex items-center gap-3 border-b border-line bg-surface px-3 py-2">
@@ -89,71 +92,50 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                 </span>
                 <span className="w-[42px]" />
             </div>
-            <div
-                aria-hidden
-                className="h-20"
-                style={{
-                    background: `linear-gradient(135deg, ${brand.colour}, color-mix(in srgb, ${brand.colour} 55%, white))`,
-                }}
-            />
-            <div className="bg-surface px-5 pb-4">
-                <div className="-mt-7 flex items-end gap-3">
-                    <span className="rounded-xl bg-surface p-1 shadow-card">
-                        <BrandMark name={brand.name} colour={brand.colour} logo={logo} size={56} />
-                    </span>
+            <header className="flex items-center gap-3 border-b border-line bg-surface px-4 py-3">
+                <BrandMark name={brand.name} colour={brand.colour} logo={logo} size={36} />
+                <div className="min-w-0 flex-1">
+                    <p className="truncate font-display text-base font-bold text-ink">
+                        {brand.name}
+                    </p>
+                    {brand.tagline !== "" ? (
+                        <p className="truncate text-xs text-muted">{brand.tagline}</p>
+                    ) : null}
                 </div>
-                <p className="mt-2 truncate font-display text-xl font-bold text-ink">
-                    {brand.name}
-                </p>
-                {brand.tagline !== "" ? (
-                    <p className="truncate text-sm text-muted">{brand.tagline}</p>
-                ) : null}
                 {preview.rating !== null ? (
-                    <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-soft">
+                    <span className="flex shrink-0 items-center gap-1.5 text-xs text-ink-soft">
                         <Icon name="star" size={13} />
                         {preview.rating}
-                    </p>
+                    </span>
+                ) : null}
+            </header>
+            <div className="px-4 py-5">
+                <p className="font-display text-lg font-bold text-ink">{b.chooseService}</p>
+                <p className="mt-1 text-xs text-muted">{b.chooseServiceHint}</p>
+                <div className="mt-4">
+                    {preview.services.length === 0 ? (
+                        <p className="text-sm text-muted">{o.previewNoServices}</p>
+                    ) : (
+                        <Choice
+                            layout="tiles"
+                            label={b.chooseService}
+                            columns={2}
+                            value={preview.selected}
+                            onChange={preview.select}
+                            options={preview.services}
+                        />
+                    )}
+                </div>
+                {preview.facts.length > 0 ? (
+                    <div className="mt-4 rounded-lg border border-line bg-surface p-4">
+                        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                            {b.summary}
+                        </p>
+                        <FactList facts={preview.facts} label={b.summary} />
+                    </div>
                 ) : null}
             </div>
-            <div className="border-t border-line px-5 py-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    {o.previewServices}
-                </p>
-                {preview.services.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted">{o.previewNoServices}</p>
-                ) : (
-                    <ul className="mt-2 divide-y divide-line-soft">
-                        {preview.services.map((svc) => (
-                            <li key={svc.id} className="flex items-center gap-3 py-3">
-                                <span
-                                    aria-hidden
-                                    className="h-10 w-1.5 shrink-0 rounded-full bg-accent"
-                                    style={
-                                        svc.color === null
-                                            ? undefined
-                                            : { backgroundColor: svc.color }
-                                    }
-                                />
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate text-sm font-semibold text-ink">
-                                        {svc.name}
-                                    </p>
-                                    <p className="text-xs text-muted">{svc.meta}</p>
-                                </div>
-                                <span
-                                    className="rounded-md px-3 py-1 text-xs font-bold text-on-data"
-                                    style={{ backgroundColor: brand.colour }}
-                                >
-                                    {o.previewBook}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-                <p className="mt-1 text-[11px] text-muted">
-                    {o.previewTaxNote(taxSummary(brand.province, "federal_only"))}
-                </p>
-            </div>
+            <p className="pb-4 text-center text-[11px] text-muted">{b.poweredBy}</p>
         </figure>
     );
 }

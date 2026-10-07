@@ -1,11 +1,12 @@
 import { useQuery } from "@powersync/react";
 import { useEffect, useRef, useState } from "react";
 
-import { formatMoney } from "../format";
 import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
+import type { ChoiceOption, Fact } from "../ui";
 import { mediaUrl } from "./files";
+import { durationLabel, money } from "./publicBooking";
 import type { ShellTarget } from "./navigation";
 import { useReplicaLoad } from "./sync";
 
@@ -615,44 +616,80 @@ export function useBrandForm(api: ApiLike): BrandForm {
 }
 
 export const BOOKING_PREVIEW_SQL = `
-SELECT id, name, duration_min, price_cents, color FROM items
+SELECT id, name, description, duration_min, price_cents, deposit_type, deposit_value FROM items
 WHERE active = 1 AND online_bookable = 1 AND kind IN ('service', 'class')
 ORDER BY name COLLATE NOCASE`;
 
 export const PREVIEW_RATING_SQL = `
 SELECT AVG(rating) AS average, COUNT(*) AS n FROM reviews WHERE status = 'published'`;
 
+interface PreviewItem {
+    id: string;
+    name: string;
+    description: string | null;
+    duration_min: number | null;
+    price_cents: number;
+    deposit_type: string;
+    deposit_value: number | null;
+}
+
 export interface BookingPreview {
-    services: { id: string; name: string; meta: string; color: string | null }[];
+    services: ChoiceOption<string>[];
+    selected: string | null;
+    select: (id: string) => void;
+    facts: Fact[];
     rating: string | null;
 }
 
-/** What the booking page shows: the bookable services and the published rating. */
+// The same deposit the server asks for at booking (services/catalog.deposit_cents).
+function previewDeposit(i: PreviewItem): number {
+    if (i.deposit_type === "none" || i.deposit_value === null) return 0;
+    return i.deposit_type === "fixed"
+        ? i.deposit_value
+        : Math.round((i.price_cents * i.deposit_value) / 100);
+}
+
+/** The booking page's first step from the replica: the bookable services, a pick and the rating. */
 export function useBookingPreview(limit: number): BookingPreview {
-    const items = useQuery<{
-        id: string;
-        name: string;
-        duration_min: number | null;
-        price_cents: number;
-        color: string | null;
-    }>(BOOKING_PREVIEW_SQL).data;
+    const items = useQuery<PreviewItem>(BOOKING_PREVIEW_SQL).data.slice(0, limit);
     const rating = useQuery<{ average: number | null; n: number }>(PREVIEW_RATING_SQL).data[0];
-    const o = strings.business.getSetUp;
+    const [selected, setSelected] = useState<string | null>(null);
+    const chosen = items.find((i) => i.id === selected) ?? null;
+    const b = strings.publicBooking;
     return {
-        services: items.slice(0, limit).map((i) => ({
-            id: i.id,
-            name: i.name,
-            meta: [
-                i.duration_min === null ? null : o.minutes(i.duration_min),
-                formatMoney(i.price_cents),
-            ]
-                .filter((x) => x !== null)
-                .join(" · "),
-            color: i.color,
-        })),
+        services: items.map((i) => {
+            const deposit = previewDeposit(i);
+            return {
+                key: i.id,
+                label: i.name,
+                hint: [
+                    i.duration_min !== null ? durationLabel(i.duration_min) : null,
+                    money(i.price_cents),
+                    deposit > 0 ? b.deposit(money(deposit)) : null,
+                ]
+                    .filter((x) => x !== null)
+                    .join(" · "),
+                detail: i.description ?? undefined,
+            };
+        }),
+        selected: chosen?.id ?? null,
+        select: setSelected,
+        facts:
+            chosen === null
+                ? []
+                : [
+                      {
+                          key: "service",
+                          icon: "paw",
+                          title: chosen.name,
+                          ...(chosen.duration_min !== null
+                              ? { detail: durationLabel(chosen.duration_min) }
+                              : {}),
+                      },
+                  ],
         rating:
             rating?.average === null || rating === undefined || rating.n === 0
                 ? null
-                : o.rating(rating.average.toFixed(1), rating.n),
+                : b.reviews(rating.average.toFixed(1), rating.n),
     };
 }

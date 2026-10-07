@@ -2420,13 +2420,7 @@ export const strings = {
             saving: "Saving…",
             saved: "Saved. Your booking page uses it now.",
             preview: "Booking page preview",
-            previewBook: "Book",
-            previewServices: "Book online",
             previewNoServices: "Your services will appear here.",
-            previewTaxNote: (taxes: string) => `Prices before ${taxes}`,
-            minutes: (n: number) => `${String(n)} min`,
-            rating: (average: string, n: number) =>
-                `${average} (${String(n)} ${n === 1 ? "review" : "reviews"})`,
         },
         language: "Language",
         nameLabel: "Business name",

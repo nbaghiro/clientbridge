@@ -5,7 +5,6 @@ import {
     PROVINCES,
     mediaUrl,
     strings,
-    taxSummary,
     useBookingPreview,
     useBrandForm,
     useSetupChecklist,
@@ -15,8 +14,10 @@ import {
     Badge,
     Button,
     Checklist,
+    Choice,
     CopyField,
     Empty,
+    FactList,
     Field,
     Icon,
     LoadFailed,
@@ -57,6 +58,7 @@ function Mark({ brand, logo, size }: { brand: BrandForm; logo: string | null; si
 /** The booking page as a phone shows it, with the brand being edited. */
 function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null }) {
     const preview = useBookingPreview(3);
+    const b = strings.publicBooking;
     return (
         <View accessibilityLabel={o.preview} style={styles.preview}>
             <View style={styles.bar}>
@@ -65,48 +67,49 @@ function BookingPreview({ brand, logo }: { brand: BrandForm; logo: string | null
                     {bookingPageUrl(bookUrl, brand.slug).replace(/^https?:\/\//, "")}
                 </Text>
             </View>
-            <View style={[styles.cover, { backgroundColor: brand.colour }]} />
             <View style={styles.head}>
-                <View style={styles.logo}>
-                    <Mark brand={brand} logo={logo} size={48} />
-                </View>
-                <Text style={styles.name} numberOfLines={1}>
-                    {brand.name}
-                </Text>
-                {brand.tagline !== "" ? (
-                    <Text style={styles.tagline} numberOfLines={1}>
-                        {brand.tagline}
+                <Mark brand={brand} logo={logo} size={36} />
+                <View style={styles.grow}>
+                    <Text style={styles.name} numberOfLines={1}>
+                        {brand.name}
                     </Text>
-                ) : null}
+                    {brand.tagline !== "" ? (
+                        <Text style={styles.tagline} numberOfLines={1}>
+                            {brand.tagline}
+                        </Text>
+                    ) : null}
+                </View>
                 {preview.rating !== null ? (
                     <View style={styles.rating}>
-                        <Icon name="star" size={12} color={c.warnFg} />
+                        <Icon name="star" size={12} color={c.inkSoft} />
                         <Text style={styles.ratingText}>{preview.rating}</Text>
                     </View>
                 ) : null}
             </View>
             <View style={styles.previewBody}>
-                <Text style={styles.section}>{o.previewServices}</Text>
-                {preview.services.length === 0 ? (
-                    <Text style={styles.meta}>{o.previewNoServices}</Text>
-                ) : null}
-                {preview.services.map((svc, i) => (
-                    <View key={svc.id} style={[styles.row, i > 0 && styles.divider]}>
-                        <View style={[styles.stripe, { backgroundColor: svc.color ?? c.accent }]} />
-                        <View style={styles.grow}>
-                            <Text style={styles.service} numberOfLines={1}>
-                                {svc.name}
-                            </Text>
-                            <Text style={styles.meta}>{svc.meta}</Text>
-                        </View>
-                        <View style={[styles.book, { backgroundColor: brand.colour }]}>
-                            <Text style={styles.bookText}>{o.previewBook}</Text>
-                        </View>
+                <Text style={styles.stepTitle}>{b.chooseService}</Text>
+                <Text style={styles.small}>{b.chooseServiceHint}</Text>
+                <View style={styles.gap}>
+                    {preview.services.length === 0 ? (
+                        <Text style={styles.small}>{o.previewNoServices}</Text>
+                    ) : (
+                        <Choice
+                            layout="tiles"
+                            label={b.chooseService}
+                            columns={2}
+                            value={preview.selected}
+                            onChange={preview.select}
+                            options={preview.services}
+                        />
+                    )}
+                </View>
+                {preview.facts.length > 0 ? (
+                    <View style={styles.summary}>
+                        <Text style={styles.section}>{b.summary}</Text>
+                        <FactList facts={preview.facts} label={b.summary} />
                     </View>
-                ))}
-                <Text style={styles.tax}>
-                    {o.previewTaxNote(taxSummary(brand.province, "federal_only"))}
-                </Text>
+                ) : null}
+                <Text style={styles.powered}>{b.poweredBy}</Text>
             </View>
         </View>
     );
@@ -336,25 +339,31 @@ const styles = StyleSheet.create({
         borderBottomColor: c.border,
     },
     url: { color: c.muted, fontSize: 11, fontFamily: "monospace", flexShrink: 1 },
-    cover: { height: 56 },
-    head: { paddingHorizontal: 14, paddingBottom: 12 },
-    logo: {
-        marginTop: -24,
-        alignSelf: "flex-start",
-        padding: 3,
-        borderRadius: 12,
-        backgroundColor: c.surface,
+    head: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
     },
-    name: { color: c.ink, fontSize: 18, fontWeight: "700", marginTop: 6 },
-    tagline: { color: c.muted, fontSize: 13, marginTop: 1 },
-    rating: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
+    name: { color: c.ink, fontSize: 16, fontWeight: "700" },
+    tagline: { color: c.muted, fontSize: 12, marginTop: 1 },
+    rating: { flexDirection: "row", alignItems: "center", gap: 4 },
     ratingText: { color: c.inkSoft, fontSize: 12 },
     previewBody: {
-        paddingHorizontal: 14,
-        paddingBottom: 12,
+        padding: 14,
         borderTopWidth: 1,
         borderTopColor: c.border,
         backgroundColor: c.bg,
+    },
+    stepTitle: { color: c.ink, fontSize: 18, fontWeight: "700", marginBottom: 2 },
+    summary: {
+        marginTop: 12,
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
     },
     section: {
         color: c.muted,
@@ -362,17 +371,9 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         letterSpacing: 0.5,
         textTransform: "uppercase",
-        marginTop: 12,
-        marginBottom: 2,
+        marginBottom: 8,
     },
-    row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10 },
-    divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSoft },
-    stripe: { width: 5, height: 36, borderRadius: 3 },
-    service: { color: c.ink, fontSize: 14, fontWeight: "600" },
-    meta: { color: c.muted, fontSize: 12, marginTop: 1 },
-    book: { borderRadius: 6, paddingHorizontal: 12, paddingVertical: 5 },
-    bookText: { color: c.surface, fontSize: 12, fontWeight: "700" },
-    tax: { color: c.muted, fontSize: 11, marginTop: 4 },
+    powered: { color: c.muted, fontSize: 11, textAlign: "center", marginTop: 14 },
     mark: { borderRadius: 10, alignItems: "center", justifyContent: "center" },
     markText: { color: c.surface, fontWeight: "700" },
 });
