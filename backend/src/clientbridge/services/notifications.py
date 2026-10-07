@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Awaitable
 from datetime import datetime, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -28,6 +29,8 @@ from clientbridge.services.lines import LineParent, fetch_lines
 from clientbridge.services.tax import tax_breakdown
 
 _log = logging.getLogger(__name__)
+
+SeriesNotice = Literal["booked", "moved", "canceled"]
 
 
 def pay_link(token: str) -> str:
@@ -182,6 +185,27 @@ def _booking_canceled(business_name: str, when: str) -> tuple[str, str]:
     return (
         f"Appointment canceled — {business_name}",
         f"Your appointment with {business_name} on {when} was canceled.",
+    )
+
+
+def _series_confirmed(business_name: str, whens: list[str]) -> tuple[str, str]:
+    return (
+        f"Your visits are booked — {business_name}",
+        f"You're booked with {business_name} on: {'; '.join(whens)}.",
+    )
+
+
+def _series_moved(business_name: str, whens: list[str]) -> tuple[str, str]:
+    return (
+        f"Your visits were moved — {business_name}",
+        f"Your visits with {business_name} are now on: {'; '.join(whens)}.",
+    )
+
+
+def _series_canceled(business_name: str, whens: list[str]) -> tuple[str, str]:
+    return (
+        f"Your visits were canceled — {business_name}",
+        f"These visits with {business_name} were canceled: {'; '.join(whens)}.",
     )
 
 
@@ -441,6 +465,36 @@ class Notifier:
         local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_canceled(business.name, f"{local:%Y-%m-%d at %H:%M}")
         await self._to_client(db, booking.client_id, subject, body)
+
+    async def on_series_booked(
+        self, db: AsyncSession, booking_ids: list[str], kind: SeriesNotice
+    ) -> None:
+        """One message for many visits of a series, listing each date."""
+        if not booking_ids:
+            return
+        rows = (
+            await db.execute(
+                select(Booking, Slot)
+                .join(Slot, Slot.id == Booking.slot_id)
+                .where(Booking.id.in_(booking_ids))
+                .order_by(Slot.starts_at)
+            )
+        ).all()
+        if not rows:
+            return
+        first = rows[0][0]
+        business = await db.get(Business, first.business_id)
+        if business is None:
+            return
+        tz = ZoneInfo(business.timezone)
+        whens = [f"{slot.starts_at.astimezone(tz):%Y-%m-%d at %H:%M}" for _, slot in rows]
+        build = {
+            "booked": _series_confirmed,
+            "moved": _series_moved,
+            "canceled": _series_canceled,
+        }[kind]
+        subject, body = build(business.name, whens)
+        await self._to_client(db, first.client_id, subject, body)
 
     async def on_review_requested(self, db: AsyncSession, review_id: str) -> None:
         review = await db.get(Review, review_id)

@@ -1,6 +1,7 @@
 import calendar
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import ColumnElement, Exists, func, or_, select, text
 from sqlalchemy.exc import IntegrityError
@@ -35,6 +36,10 @@ from clientbridge.schemas.bookings import (
     BookingProbe,
     DepositOut,
     Problem,
+    RecurrenceCancel,
+    RecurrenceCancelOut,
+    RecurrenceChange,
+    RecurrenceChangeOut,
     RecurrenceCreate,
     RecurrenceOccurrence,
     RecurrenceOut,
@@ -49,6 +54,7 @@ from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import (
     default_method_ref,
     open_booking_deposit,
+    refund_deposit,
     resolve_saved_method_ref,
 )
 from clientbridge.services.staff import load_staff
@@ -862,6 +868,8 @@ async def exceptions_between(
 
 
 _WEEKDAY_CODES = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+_WEEKDAY_NAMES = {v: k for k, v in _WEEKDAY_CODES.items()}
+_SKIPPED = "left out when the series was booked"
 _MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
 
 
@@ -869,6 +877,17 @@ def _add_months(d: date, months: int) -> date:
     total = d.month - 1 + months
     year, month = d.year + total // 12, total % 12 + 1
     return date(year, month, min(d.day, calendar.monthrange(year, month)[1]))
+
+
+def _same_weekday(start: date, months: int) -> date:
+    """The same nth weekday `months` later (2nd Tuesday stays 2nd Tuesday); a 5th falls back."""
+    nth = (start.day - 1) // 7
+    first = _add_months(start.replace(day=1), months)
+    shift = (start.weekday() - first.weekday()) % 7
+    day = 1 + shift + nth * 7
+    while day > calendar.monthrange(first.year, first.month)[1]:
+        day -= 7
+    return first.replace(day=day)
 
 
 def expand_occurrences(
@@ -879,6 +898,7 @@ def expand_occurrences(
     byday: Sequence[str] | None,
     count: int | None,
     until: date | None,
+    monthly_by: str = "date",
 ) -> list[date]:
     """Occurrence dates for a rule, bounded by count, until and a hard cap."""
     interval = max(1, interval)
@@ -902,11 +922,12 @@ def expand_occurrences(
         return dates
 
     for step in range(limit):
-        cur = (
-            start_date + timedelta(days=step * interval)
-            if frequency == "day"
-            else _add_months(start_date, step * interval)
-        )
+        if frequency == "day":
+            cur = start_date + timedelta(days=step * interval)
+        elif monthly_by == "weekday":
+            cur = _same_weekday(start_date, step * interval)
+        else:
+            cur = _add_months(start_date, step * interval)
         if until is not None and cur > until:
             break
         dates.append(cur)
@@ -933,16 +954,18 @@ class RecurrenceService:
         base = data.starts_at
         # Re-localize the wall-clock time per date, so occurrences keep their time across DST.
         tz = await business_tz(self.db, self.biz)
-        aware = base if base.tzinfo is not None else base.replace(tzinfo=UTC)
-        local_time = aware.astimezone(tz).time()
+        local = (base if base.tzinfo is not None else base.replace(tzinfo=UTC)).astimezone(tz)
+        local_time = local.time()
         occ_dates = expand_occurrences(
-            start_date=base.date(),
+            start_date=local.date(),
             frequency=data.frequency,
             interval=data.interval,
             byday=data.byday,
             count=data.count,
             until=data.until,
+            monthly_by=data.monthly_by,
         )
+        handled = {e.date: e for e in data.exceptions}
 
         async def run(cmd: Command) -> RecurrenceOut:
             recurrence = Recurrence(
@@ -954,9 +977,10 @@ class RecurrenceService:
                 frequency=data.frequency,
                 interval=data.interval,
                 byday=data.byday,
+                monthly_by=data.monthly_by,
                 count=data.count,
                 until=data.until,
-                start_date=base.date(),
+                start_date=local.date(),
                 status="active",
             )
             self.db.add(recurrence)
@@ -966,6 +990,14 @@ class RecurrenceService:
             created = 0
             for d in occ_dates:
                 starts_at = datetime.combine(d, local_time, tzinfo=tz).astimezone(UTC)
+                handling = handled.get(d)
+                if handling is not None and handling.action == "skip":
+                    occurrences.append(
+                        RecurrenceOccurrence(starts_at=starts_at, booking_id=None, skipped=_SKIPPED)
+                    )
+                    continue
+                if handling is not None and handling.starts_at is not None:
+                    starts_at = handling.starts_at
                 try:
                     async with self.db.begin_nested():
                         booking, _ = await create_booking_core(
@@ -1014,6 +1046,176 @@ class RecurrenceService:
             response_model=RecurrenceOut,
             idempotency_key=idempotency_key,
         )
+
+    async def change(self, recurrence_id: str, data: RecurrenceChange) -> RecurrenceChangeOut:
+        """Move one, the following or all upcoming visits; a visit that would clash stays put."""
+        recurrence = await self._recurrence(recurrence_id)
+        assert_can_act_as(self.principal, recurrence.staff_id)
+        if data.weekday is None and data.time is None and data.staff_id is None:
+            raise Unprocessable("say what changes: a weekday, a time or a member")
+        if data.staff_id is not None:
+            assert_can_act_as(self.principal, data.staff_id)
+            await load_staff(self.db, self.biz, data.staff_id)
+        tz = await business_tz(self.db, self.biz)
+        visits = await self._upcoming(recurrence.id, data.scope, data.from_date, tz)
+        new_time = time.fromisoformat(data.time) if data.time is not None else None
+
+        async def run(cmd: Command) -> RecurrenceChangeOut:
+            moved: list[str] = []
+            skipped: list[RecurrenceOccurrence] = []
+            for booking, slot in visits:
+                local = slot.starts_at.astimezone(tz)
+                day = local.date()
+                if data.weekday is not None:
+                    day += timedelta(days=data.weekday - day.weekday())
+                starts_at = datetime.combine(day, new_time or local.time(), tzinfo=tz).astimezone(
+                    UTC
+                )
+                ends_at = starts_at + (slot.ends_at - slot.starts_at)
+                staff_id = data.staff_id or slot.staff_id
+                item = await load_item(self.db, self.biz, slot.item_id, require_active=False)
+                await _lock_staff(self.db, self.biz, staff_id)
+                problem = (
+                    _verdict("past", _PAST)
+                    if starts_at < datetime.now(UTC)
+                    else await slot_problem(
+                        self.db,
+                        self.biz,
+                        item,
+                        staff_id,
+                        starts_at,
+                        ends_at,
+                        exclude=slot.id,
+                        resource_id=slot.resource_id,
+                    )
+                )
+                if problem is not None:
+                    skipped.append(
+                        RecurrenceOccurrence(
+                            starts_at=starts_at, booking_id=booking.id, skipped=problem.message
+                        )
+                    )
+                    continue
+                slot.starts_at, slot.ends_at, slot.staff_id = starts_at, ends_at, staff_id
+                if booking.staff_id != staff_id:
+                    booking.staff_id = staff_id
+                    await self.db.execute(
+                        scoped_update(Addon, self.biz)
+                        .where(Addon.booking_id == booking.id)
+                        .values(staff_id=staff_id)
+                    )
+                await self.db.flush()
+                moved.append(booking.id)
+            if data.scope != "one" and data.staff_id is not None:
+                recurrence.staff_id = data.staff_id
+            if data.scope != "one" and data.weekday is not None and recurrence.frequency == "week":
+                recurrence.byday = [_WEEKDAY_NAMES[data.weekday]]
+            await self.db.flush()
+            cmd.record("recurrence.change", entity_type="recurrence", entity_id=recurrence.id)
+            return RecurrenceChangeOut(id=recurrence.id, moved=moved, skipped=skipped)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="recurrence.change",
+            run=run,
+            response_model=RecurrenceChangeOut,
+        )
+
+    async def cancel(
+        self, recurrence_id: str, data: RecurrenceCancel, gateway: PaymentGateway
+    ) -> RecurrenceCancelOut:
+        """Cancel the visits from a date on and end the series there; paid deposits go back."""
+        recurrence = await self._recurrence(recurrence_id)
+        assert_can_act_as(self.principal, recurrence.staff_id)
+        if recurrence.status == "canceled":
+            raise Conflict("this series is already canceled")
+        tz = await business_tz(self.db, self.biz)
+        scope = "all" if data.from_date is None else "following"
+        visits = await self._upcoming(recurrence.id, scope, data.from_date, tz, strict=False)
+
+        async def run(cmd: Command) -> RecurrenceCancelOut:
+            refunded = 0
+            canceled: list[str] = []
+            now = datetime.now(UTC)
+            for booking, slot in visits:
+                if booking.deposit_status == "collected":
+                    refunded += await refund_deposit(self.db, gateway, booking)
+                elif booking.deposit_status == "pending":
+                    booking.deposit_status = "none"
+                booking.status = "canceled"
+                booking.canceled_at = now
+                await release_slot(self.db, slot)
+                canceled.append(booking.id)
+            remaining = await self._upcoming(recurrence.id, "all", None, tz, strict=False)
+            if remaining:
+                recurrence.status = "ended"
+                if data.from_date is not None:
+                    recurrence.until = data.from_date - timedelta(days=1)
+            else:
+                recurrence.status = "canceled"
+            await self.db.flush()
+            cmd.record("recurrence.cancel", entity_type="recurrence", entity_id=recurrence.id)
+            return RecurrenceCancelOut(
+                id=recurrence.id,
+                status=recurrence.status,
+                canceled=canceled,
+                refunded_cents=refunded,
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="recurrence.cancel",
+            run=run,
+            response_model=RecurrenceCancelOut,
+        )
+
+    async def _recurrence(self, recurrence_id: str) -> Recurrence:
+        row = (
+            await self.db.execute(
+                scoped(Recurrence, self.biz).where(Recurrence.id == recurrence_id)
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("series not found")
+        return row
+
+    async def _upcoming(
+        self,
+        recurrence_id: str,
+        scope: str,
+        from_date: date | None,
+        tz: ZoneInfo,
+        *,
+        strict: bool = True,
+    ) -> list[tuple[Booking, Slot]]:
+        """The series' live visits still ahead, narrowed to one date or from a date on."""
+        rows = (
+            await self.db.execute(
+                scoped(Booking, self.biz, soft_delete=True)
+                .add_columns(Slot)
+                .join(Slot, Slot.id == Booking.slot_id)
+                .where(
+                    Slot.recurrence_id == recurrence_id,
+                    Booking.status.in_(("pending", "confirmed")),
+                    Slot.starts_at >= datetime.now(UTC),
+                )
+                .order_by(Slot.starts_at)
+            )
+        ).all()
+        visits = [(row[0], row[1]) for row in rows]
+        if scope == "all":
+            return visits
+        if from_date is None:
+            raise Unprocessable("name the visit the change starts from")
+        if scope == "one":
+            visits = [v for v in visits if v[1].starts_at.astimezone(tz).date() == from_date]
+        else:
+            visits = [v for v in visits if v[1].starts_at.astimezone(tz).date() >= from_date]
+        if strict and not visits:
+            raise NotFound("no upcoming visit in this series on that date")
+        return visits
 
 
 async def open_windows(

@@ -123,6 +123,7 @@ class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("recurrences", "frequency", "day", "week", "month"),
         enum_check("recurrences", "status", "active", "ended", "canceled"),
+        enum_check("recurrences", "monthly_by", "date", "weekday"),
         Index("ix_recurrences_status", "business_id", "status"),
     )
 
@@ -132,6 +133,10 @@ class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
     frequency: Mapped[str] = mapped_column(String, nullable=False)
     interval: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     byday: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    # monthly series: the same date each month, or the same weekday (the 2nd Tuesday)
+    monthly_by: Mapped[str] = mapped_column(
+        String, default="date", server_default="date", nullable=False
+    )
     count: Mapped[int | None] = mapped_column(Integer)
     until: Mapped[date | None] = mapped_column(Date)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)

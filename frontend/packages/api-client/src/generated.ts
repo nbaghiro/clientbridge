@@ -800,6 +800,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/recurrences/{recurrence_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change Recurrence */
+        patch: operations["change_recurrence_v1_recurrences__recurrence_id__patch"];
+        trace?: never;
+    };
+    "/v1/recurrences/{recurrence_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Recurrence */
+        post: operations["cancel_recurrence_v1_recurrences__recurrence_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/time-off": {
         parameters: {
             query?: never;
@@ -3552,6 +3586,78 @@ export interface components {
             /** Title */
             title: string | null;
         };
+        /** RecurrenceCancel */
+        RecurrenceCancel: {
+            /**
+             * From
+             * @description Cancel visits on and after this date
+             */
+            from?: string | null;
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** RecurrenceCancelOut */
+        RecurrenceCancelOut: {
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+            /** Canceled */
+            canceled: string[];
+            /**
+             * Refunded Cents
+             * @description Deposits refunded for the canceled visits
+             */
+            refunded_cents: number;
+        };
+        /**
+         * RecurrenceChange
+         * @description Moves the upcoming visits of a series to another weekday, time or member.
+         */
+        RecurrenceChange: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "one" | "following" | "all";
+            /**
+             * From
+             * @description The visit a one or following change starts at
+             */
+            from?: string | null;
+            /**
+             * Weekday
+             * @description Monday is 0
+             */
+            weekday?: number | null;
+            /** Time */
+            time?: string | null;
+            /** Staff Id */
+            staff_id?: string | null;
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** RecurrenceChangeOut */
+        RecurrenceChangeOut: {
+            /** Id */
+            id: string;
+            /**
+             * Moved
+             * @description Bookings that moved
+             */
+            moved: string[];
+            /**
+             * Skipped
+             * @description Visits left in place, with why
+             */
+            skipped: components["schemas"]["RecurrenceOccurrence"][];
+        };
         /** RecurrenceCreate */
         RecurrenceCreate: {
             /** Client Id */
@@ -3582,6 +3688,13 @@ export interface components {
              */
             byday?: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[] | null;
             /**
+             * Monthly By
+             * @description Monthly on the same date, or the same weekday (2nd Tuesday)
+             * @default date
+             * @enum {string}
+             */
+            monthly_by: "date" | "weekday";
+            /**
              * Count
              * @description End after this many; set count or until
              */
@@ -3595,6 +3708,36 @@ export interface components {
             resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
+            /** Exceptions */
+            exceptions?: components["schemas"]["RecurrenceException"][];
+            /**
+             * Confirmation
+             * @description One message listing every date, one per visit, or none
+             * @default series
+             * @enum {string}
+             */
+            confirmation: "series" | "each" | "none";
+        };
+        /**
+         * RecurrenceException
+         * @description One date of a new series handled apart: left out, or booked at another time.
+         */
+        RecurrenceException: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "skip" | "shift";
+            /**
+             * Starts At
+             * @description The new start for a shift
+             */
+            starts_at?: string | null;
         };
         /** RecurrenceOccurrence */
         RecurrenceOccurrence: {
@@ -5856,6 +5999,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurrenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_recurrence_v1_recurrences__recurrence_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                recurrence_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurrenceChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurrenceChangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_recurrence_v1_recurrences__recurrence_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                recurrence_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurrenceCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurrenceCancelOut"];
                 };
             };
             /** @description Validation Error */

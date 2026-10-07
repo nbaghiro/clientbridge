@@ -472,6 +472,7 @@ const recurrences = new Table(
         frequency: column.text,
         interval: column.integer,
         byday: column.text,
+        monthly_by: column.text,
         count: column.integer,
         until: column.text,
         start_date: column.text,

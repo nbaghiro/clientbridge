@@ -221,7 +221,9 @@ state is derived from the ledger, and a deposit is due when `deposit_amount_cent
 exception is time off for one member, or a closure for everyone when `staff_id` is null, with
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `resources`
 (`category` room/equipment), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
-items use → expands to slots/bookings), `addons` (products a client added to a visit when booking; they join
+items use, and `monthly_by` date or weekday → expands to slots/bookings; dates can be skipped or shifted
+when booking, and `PATCH /v1/recurrences/{id}` moves one, the following or all upcoming visits while
+`/cancel` ends the series and refunds paid deposits), `addons` (products a client added to a visit when booking; they join
 the visit's invoice).
 
 **billing (4)** — `invoices` (per-business unique `number`, stored status draft/sent/void, document totals

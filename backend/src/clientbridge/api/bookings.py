@@ -18,6 +18,10 @@ from clientbridge.schemas.bookings import (
     BookingPatch,
     BookingProbe,
     DepositOut,
+    RecurrenceCancel,
+    RecurrenceCancelOut,
+    RecurrenceChange,
+    RecurrenceChangeOut,
     RecurrenceCreate,
     RecurrenceOut,
     TimeOffCreate,
@@ -124,9 +128,53 @@ async def create_recurrence(
     body: RecurrenceCreate,
     principal: CurrentPrincipal,
     db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RecurrenceOut:
-    return await RecurrenceService(db, principal).create(body, idempotency_key)
+    result = await RecurrenceService(db, principal).create(body, idempotency_key)
+    booked = [o.booking_id for o in result.occurrences if o.booking_id is not None]
+    notifier = Notifier(email, sms, push)
+    if body.confirmation == "series":
+        await notifier.on_series_booked(db, booked, "booked")
+    elif body.confirmation == "each":
+        for booking_id in booked:
+            await notifier.on_booking_confirmed(db, booking_id)
+    return result
+
+
+@recurrences_router.patch("/{recurrence_id}", response_model=RecurrenceChangeOut)
+async def change_recurrence(
+    recurrence_id: str,
+    body: RecurrenceChange,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> RecurrenceChangeOut:
+    result = await RecurrenceService(db, principal).change(recurrence_id, body)
+    if body.notify:
+        await Notifier(email, sms, push).on_series_booked(db, result.moved, "moved")
+    return result
+
+
+@recurrences_router.post("/{recurrence_id}/cancel", response_model=RecurrenceCancelOut)
+async def cancel_recurrence(
+    recurrence_id: str,
+    body: RecurrenceCancel,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> RecurrenceCancelOut:
+    result = await RecurrenceService(db, principal).cancel(recurrence_id, body, gateway)
+    if body.notify:
+        await Notifier(email, sms, push).on_series_booked(db, result.canceled, "canceled")
+    return result
 
 
 time_off_router = APIRouter(prefix="/time-off", tags=["time-off"])
