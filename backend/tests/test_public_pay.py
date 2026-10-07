@@ -1,3 +1,5 @@
+import json
+
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,9 +13,11 @@ from clientbridge.models.business import Business
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
+from tests.conftest import FakePaymentGateway
 from tests.helpers import client_id, sent_invoice
 
 BIZ = "bz_birchbark"
+GOOD = {"Stripe-Signature": "good"}
 
 
 async def _sent_invoice(db: AsyncSession, *, total: int = 8000) -> tuple[str, str]:
@@ -134,6 +138,76 @@ async def test_card_double_submit_is_idempotent(api: httpx.AsyncClient, db: Asyn
     assert first["client_secret"] == second["client_secret"]  # one intent, reused
     rows = (await db.execute(select(Payment).where(Payment.invoice_id == inv_id))).scalars().all()
     assert len(rows) == 1  # no duplicate pending row
+
+
+async def _card_rows(db: AsyncSession, inv_id: str) -> list[tuple[str, str | None, int]]:
+    rows = await db.execute(
+        select(Payment.status, Payment.provider_ref, Payment.tip_cents)
+        .where(Payment.invoice_id == inv_id, Payment.method == "card")
+        .order_by(Payment.created_at, Payment.id)
+    )
+    return [(s, ref, tip) for s, ref, tip in rows.all()]
+
+
+async def _card_ready_invoice(db: AsyncSession) -> tuple[str, str]:
+    await db.execute(
+        update(Business)
+        .where(Business.id == BIZ)
+        .values(stripe_account_id="acct_pub", stripe_charges_enabled=True)
+    )
+    return await _sent_invoice(db)
+
+
+def _intent_event(event_type: str, pi: str) -> str:
+    return json.dumps(
+        {"id": f"evt_{new_id('payment')}", "type": event_type, "data": {"object": {"id": pi}}}
+    )
+
+
+async def test_card_attempt_after_cancel_or_failure_opens_a_new_intent(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    secrets = [(await api.post(f"/pay/{token}/card")).json()["client_secret"]]
+    for event in ("payment_intent.canceled", "payment_intent.payment_failed"):
+        live = (await _card_rows(db, inv_id))[-1][1]
+        assert live is not None
+        res = await api.post("/webhooks/stripe", content=_intent_event(event, live), headers=GOOD)
+        assert res.status_code == 200
+        retry = await api.post(f"/pay/{token}/card")
+        assert retry.status_code == 200, retry.text
+        secrets.append(retry.json()["client_secret"])
+    assert len(set(secrets)) == 3
+    assert [s for s, _, _ in await _card_rows(db, inv_id)] == ["canceled", "failed", "pending"]
+
+
+async def test_card_tip_change_supersedes_the_live_attempt(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    plain = (await api.post(f"/pay/{token}/card")).json()["client_secret"]
+    tipped = await api.post(f"/pay/{token}/card", json={"tip_cents": 1200})
+    assert tipped.status_code == 200, tipped.text
+    retried = (await api.post(f"/pay/{token}/card", json={"tip_cents": 1200})).json()
+    assert retried["client_secret"] == tipped.json()["client_secret"] != plain
+    back = (await api.post(f"/pay/{token}/card")).json()["client_secret"]
+    assert back not in (plain, tipped.json()["client_secret"])  # a canceled intent never returns
+    rows = await _card_rows(db, inv_id)
+    assert [(s, tip) for s, _, tip in rows] == [("canceled", 0), ("canceled", 1200), ("pending", 0)]
+    assert gateway.canceled_intents == [rows[0][1], rows[1][1]]
+
+
+async def test_card_attempt_refused_while_the_payer_already_confirmed(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    inv_id, token = await _card_ready_invoice(db)
+    await api.post(f"/pay/{token}/card")
+    live = (await _card_rows(db, inv_id))[0][1]
+    assert live is not None
+    gateway.confirmed.add(live)
+    res = await api.post(f"/pay/{token}/card", json={"tip_cents": 500})
+    assert res.status_code == 409
+    assert [s for s, _, _ in await _card_rows(db, inv_id)] == ["pending"]
 
 
 async def test_interac_double_submit_reuses_reference(

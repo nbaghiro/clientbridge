@@ -1025,8 +1025,8 @@ class PublicPayService:
             client=client,
             amount=amount + tip.cents,
             fee_bps=get_settings().platform_fee_bps,
-            idempotency_key=f"tip{tip.cents}" if tip.cents else None,
             tip=tip,
+            supersede=True,
         )
         await self.db.commit()
         return PublicCardIntent(

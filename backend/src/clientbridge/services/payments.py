@@ -865,6 +865,7 @@ async def open_card_payment(
     payment_method: str | None = None,
     idempotency_key: str | None = None,
     tip: TipTerms | None = None,
+    supersede: bool = False,
 ) -> tuple[Payment, str]:
     """Open a card PaymentIntent and pending Payment for an invoice; the caller commits."""
     tip = tip or NO_TIP
@@ -872,6 +873,8 @@ async def open_card_payment(
     if payment_method is not None:
         # Reserve room before charging a saved card, so a concurrent partial can't also charge.
         await _assert_room(db, invoice, amount - tip.cents)
+    closed = await _closed_card_attempts(db, business_id, invoice.id, amount, tip.cents)
+    attempt = idempotency_key or f"{amount}_{tip.cents}_{closed}"
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
@@ -879,8 +882,8 @@ async def open_card_payment(
         customer_id=customer_id,
         application_fee_cents=amount * fee_bps // 10000,
         metadata={"invoice_id": invoice.id, "business_id": business_id},
-        # Keyed on the Idempotency-Key, so retries dedupe but distinct partials don't.
-        idempotency_key=f"payment_{invoice.id}_{idempotency_key or amount}",
+        # A failed or canceled attempt bumps the key, so only a live attempt is ever replayed.
+        idempotency_key=f"payment_{invoice.id}_{attempt}",
         payment_method=payment_method,
     )
     existing = (
@@ -888,6 +891,8 @@ async def open_card_payment(
     ).scalar_one_or_none()
     if existing is not None:  # a retry hit the same intent — don't mint a second pending row
         return existing, intent.client_secret
+    if supersede:
+        await _cancel_open_card_attempts(db, gateway, account_id, business_id, invoice.id)
     if (
         payment_method is None
     ):  # interactive: room is checked after the dedup (charge isn't yet made)
@@ -913,6 +918,44 @@ async def open_card_payment(
     except IntegrityError as exc:
         raise Conflict("payment is being set up — please retry") from exc
     return payment, intent.client_secret
+
+
+async def _closed_card_attempts(
+    db: AsyncSession, business_id: str, invoice_id: str, amount: int, tip: int
+) -> int:
+    rows = await db.execute(
+        scoped(Payment, business_id)
+        .where(
+            Payment.invoice_id == invoice_id,
+            Payment.method == "card",
+            Payment.amount_cents == amount,
+            Payment.tip_cents == tip,
+            Payment.status.in_(("failed", "canceled")),
+        )
+        .with_only_columns(func.count())
+    )
+    return int(rows.scalar_one())
+
+
+async def _cancel_open_card_attempts(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str, business_id: str, invoice_id: str
+) -> None:
+    """Cancel the invoice's other pending card intents, e.g. one opened before a tip change."""
+    await db.execute(select(Invoice.id).where(Invoice.id == invoice_id).with_for_update())
+    rows = await db.execute(
+        scoped(Payment, business_id).where(
+            Payment.invoice_id == invoice_id,
+            Payment.kind == "payment",
+            Payment.method == "card",
+            Payment.provider == "stripe",
+            Payment.status == "pending",
+        )
+    )
+    for payment in rows.scalars().all():
+        if payment.provider_ref is not None:
+            await gateway.cancel_payment_intent(account_id, payment_intent_id=payment.provider_ref)
+        payment.status = "canceled"
+    await db.flush()
 
 
 async def open_booking_deposit(

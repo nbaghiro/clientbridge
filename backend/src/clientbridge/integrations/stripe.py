@@ -9,7 +9,12 @@ from typing import Concatenate, Protocol
 import stripe
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.errors import CardDeclined, PaymentActionRequired, PaymentsNotConfigured
+from clientbridge.core.errors import (
+    CardDeclined,
+    Conflict,
+    PaymentActionRequired,
+    PaymentsNotConfigured,
+)
 
 # webhook payloads are parsed for this version; the Connect webhook endpoint must use it too
 STRIPE_API_VERSION = "2026-05-27.dahlia"
@@ -155,6 +160,10 @@ class PaymentGateway(Protocol):
         idempotency_key: str,
         payment_method: str | None = None,
     ) -> PaymentIntentResult: ...
+    async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
+        """Cancel an unconfirmed intent; Conflict when it already went through."""
+        ...
+
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult: ...
@@ -394,6 +403,15 @@ class StripeGateway:
                 raise PaymentActionRequired("this card requires authentication") from exc
             raise CardDeclined("the card was declined") from exc
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
+
+    @_keyed
+    async def cancel_payment_intent(  # pragma: no cover
+        self, account_id: str, *, payment_intent_id: str
+    ) -> None:
+        try:
+            await stripe.PaymentIntent.cancel_async(payment_intent_id, stripe_account=account_id)
+        except stripe.InvalidRequestError as exc:  # processing or succeeded: it can't be undone
+            raise Conflict("this invoice already has a payment in progress") from exc
 
     @_keyed
     async def refund(  # pragma: no cover

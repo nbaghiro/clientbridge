@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.db import engine, get_session
 from clientbridge.core.deps import get_interac_secret, get_sms_webhook_secret
-from clientbridge.core.errors import CardDeclined, PaymentActionRequired, Unauthorized
+from clientbridge.core.errors import CardDeclined, Conflict, PaymentActionRequired, Unauthorized
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import (
     public_booking_rate_limit,
@@ -166,6 +166,8 @@ class FakePaymentGateway:
         self.charges: dict[str, tuple[int, int]] = {}  # intent id -> (amount, application fee)
         self.balance_cents = 0  # get_balance_cents() result
         self.invoice_intents: dict[str, str] = {}  # Stripe invoice id -> the intent that paid it
+        self.canceled_intents: list[str] = []
+        self.confirmed: set[str] = set()  # intents the payer already confirmed, so uncancelable
 
     async def create_connected_account(
         self, *, business_name: str, email: str | None, url: str | None = None
@@ -293,6 +295,11 @@ class FakePaymentGateway:
         self._intents[idempotency_key] = result
         self.charges[pid] = (amount_cents, application_fee_cents)
         return result
+
+    async def cancel_payment_intent(self, account_id: str, *, payment_intent_id: str) -> None:
+        if payment_intent_id in self.confirmed:
+            raise Conflict("this invoice already has a payment in progress")
+        self.canceled_intents.append(payment_intent_id)
 
     async def refund(
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
