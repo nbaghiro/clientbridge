@@ -101,6 +101,50 @@ jobs:
         working-directory: frontend
       - run: make test-site
 
+  connect:
+    # Connect's client pages against the real API over a migrated, seeded Postgres.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clientbridge
+          POSTGRES_PASSWORD: clientbridge
+          POSTGRES_DB: clientbridge
+        ports: ["8702:5432"]
+        options: >-
+          --health-cmd "pg_isready -U clientbridge" --health-interval 5s
+          --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+      - run: uv sync
+        working-directory: backend
+      - run: make migrate seed
+      - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
+        working-directory: backend
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+        working-directory: frontend
+      - run: pnpm --filter connect exec playwright install --with-deps chromium
+        working-directory: frontend
+      - run: until curl -sf localhost:8701/health; do sleep 1; done
+        timeout-minutes: 2
+      - run: make test-connect
+      - if: failure()
+        run: cat /tmp/api.log
+
   playground:
     # Every shared component's story page on a fresh playground build, on web and in both phone frames.
     runs-on: ubuntu-latest

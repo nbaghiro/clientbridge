@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-playground lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "build-site       build the marketing site to static HTML in frontend/apps/site/dist"
 	@echo "test-site        build the site, then the browser pass (links, images, phone width, a11y)"
 	@echo "test-web         web smoke test: every page and dialog (needs the local stack + seed)"
+	@echo "test-connect     Connect e2e: booking, manage link, shop and every client page (needs the API + seed)"
 	@echo "test-playground  build the playground, then open every story on web, iPhone and Android"
 	@echo "lighthouse-site  Lighthouse budget against the site preview on :8710"
 	@echo "migrate          alembic upgrade head"
@@ -94,6 +95,10 @@ test-site:
 
 test-web:
 	cd frontend && pnpm --filter web e2e
+
+test-connect:
+	links="$$(cd backend && uv run python -m scripts.connect_links)" && \
+		cd frontend && CONNECT_LINKS="$$links" pnpm --filter connect e2e
 
 # Every story page and phone frame on a fresh build, failing on any console error.
 test-playground:
