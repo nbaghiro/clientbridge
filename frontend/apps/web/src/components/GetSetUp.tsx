@@ -2,7 +2,6 @@ import {
     BRAND_COLOURS,
     type BrandForm,
     bookingPageUrl,
-    PROVINCES,
     logoTarget,
     mediaUrl,
     strings,
@@ -217,8 +216,7 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
 /** The Setup home: what is left before bookings and payouts, the booking link, and the brand. */
 export function GetSetUp() {
     const brand = useBrandForm(api);
-    const province = PROVINCES.find((p) => p.code === brand.province)?.name ?? "";
-    const list = useSetupChecklist(api, config.bookUrl, province);
+    const list = useSetupChecklist(api, config.bookUrl);
     const open = useOpenLink();
     const brandRef = useRef<HTMLDivElement>(null);
     const pct = Math.round((list.done / list.total) * 100);
@@ -249,7 +247,7 @@ export function GetSetUp() {
         <div>
             <div className="flex items-start justify-between gap-4">
                 <p className="mt-1 text-sm text-muted">{o.body}</p>
-                {list.hidden ? null : (
+                {list.dismissed ? null : (
                     <Button
                         variant="quiet"
                         size="sm"
@@ -262,7 +260,7 @@ export function GetSetUp() {
                 )}
             </div>
             {list.hideError !== null ? <Notice tone="danger">{list.hideError}</Notice> : null}
-            {list.hidden ? (
+            {list.dismissed ? (
                 <div className="mt-6">
                     <Panel flush>
                         <Empty
@@ -305,18 +303,17 @@ export function GetSetUp() {
             )}
 
             <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
-                {list.hidden ? null : (
+                {list.dismissed ? null : (
                     <div className="self-start">
                         <Panel flush>
                             <div className="px-4">
                                 <Checklist
                                     label={o.title}
-                                    items={list.tasks.map((t) => ({
+                                    items={list.steps.map((t) => ({
                                         key: t.key,
                                         label: t.label,
                                         hint: t.hint,
                                         done: t.done,
-                                        attention: t.attention,
                                         action: {
                                             label: t.action,
                                             onPress: () => {

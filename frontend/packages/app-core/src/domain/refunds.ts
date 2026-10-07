@@ -107,7 +107,7 @@ export function methodLabel(method: string): string {
 
 type RefundState = "paid" | "partly_refunded" | "refunded";
 
-function refundState(p: RefundablePaymentRow): RefundState {
+export function refundState(p: RefundablePaymentRow): RefundState {
     if (p.refunded_cents <= 0) return "paid";
     return p.refunded_cents >= p.amount_cents ? "refunded" : "partly_refunded";
 }
@@ -207,7 +207,7 @@ interface RefundResult {
     credit_note: string | null;
 }
 
-function partLabel(part: RefundPart): string {
+export function partLabel(part: RefundPart): string {
     if (part.category === "tax") return s.part_tax(part.code);
     if (part.category === "deferred") return s.part_deferred;
     if (part.category === "gift_card") return s.part_gift_card;
@@ -495,7 +495,7 @@ function daysUntil(iso: string, now: Date): number {
     return Math.max(0, Math.round((a - b) / 86_400_000));
 }
 
-function disputeView(d: DisputeRow, now: Date): DisputeView {
+export function disputeView(d: DisputeRow, now: Date): DisputeView {
     const open = d.dispute_status === "needs_response" || d.dispute_status === "under_review";
     const reason = s.disputeReasons[d.dispute_reason ?? "general"] ?? d.dispute_reason ?? "";
     const subject = paymentSubject(d);

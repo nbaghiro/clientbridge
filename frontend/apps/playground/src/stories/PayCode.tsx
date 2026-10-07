@@ -15,7 +15,7 @@ export default story<PayCodeProps>({
             key: "default",
             title: "Pay link",
             props: () => ({
-                value: "https://book.clientbridge.app/pay/inv_1148",
+                value: "https://pay.clientbridge.ca/i/inv_1148",
                 label: "Scan to pay invoice 1148",
             }),
         },
@@ -23,7 +23,7 @@ export default story<PayCodeProps>({
             key: "small",
             title: "Small, on a printed page",
             props: () => ({
-                value: "https://book.clientbridge.app/pay/inv_1149",
+                value: "https://pay.clientbridge.ca/i/inv_1149",
                 size: 64,
                 label: "Scan to pay",
             }),
@@ -32,7 +32,7 @@ export default story<PayCodeProps>({
             key: "large",
             title: "Large, on a counter screen",
             props: () => ({
-                value: "https://book.clientbridge.app/pay/inv_1150",
+                value: "https://pay.clientbridge.ca/i/inv_1150",
                 size: 160,
                 label: "Scan to pay",
             }),

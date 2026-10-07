@@ -111,7 +111,7 @@ function OwnerTodayPage() {
     const today = useOwnerToday(api, viewer);
     const actions = useTodayActions(api);
     const openLink = useOpenLink();
-    const setup = useSetupProgress(config.bookUrl);
+    const setup = useSetupProgress();
     const bookingLink = setup.slug === null ? null : bookingPageUrl(config.bookUrl, setup.slug);
     const { load, view, money, moneyLoad } = today;
     const firstRun = load.hasData && view.agenda.length === 0 && !setup.complete;

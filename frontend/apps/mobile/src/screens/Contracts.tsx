@@ -35,7 +35,7 @@ import { api } from "../lib/api";
 import { bookUrl } from "../lib/config";
 
 const c = theme.colors;
-const s = strings.contracts.page;
+const s = strings.contracts;
 
 const shareText = (text: string): void => {
     Share.share({ message: text }).catch(() => undefined);

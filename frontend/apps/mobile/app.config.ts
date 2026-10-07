@@ -43,8 +43,6 @@ const config: ExpoConfig = {
         // Stripe publishable (platform) key — NOT a secret; left blank until configured per env.
         stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
         stripeMerchantId: STRIPE_MERCHANT_ID,
-        // Set from the Stripe dashboard for now; empty with simulated=true uses a test reader.
-        stripeTerminalLocationId: process.env.STRIPE_TERMINAL_LOCATION_ID ?? "",
         terminalSimulated: (process.env.STRIPE_TERMINAL_SIMULATED ?? "true") === "true",
     },
 };

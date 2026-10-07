@@ -36,7 +36,7 @@ import { SendToClientDialog } from "../components/SendToClient";
 import { config } from "../config";
 import { api } from "../lib/api";
 
-const s = strings.contracts.page;
+const s = strings.contracts;
 
 const copyText = (text: string): void => {
     navigator.clipboard.writeText(text).catch(() => undefined);

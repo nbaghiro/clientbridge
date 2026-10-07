@@ -84,8 +84,6 @@ function AppRoutes({
 
     return (
         <Routes>
-            {/* The customer surfaces (book/pay/form/contract/review) live in the Connect app. */}
-            {/* Public accept-invite page — the emailed token is the credential; success starts a session. */}
             <Route path="/accept-invite" element={<AcceptInvite onAuthed={onAuthed} />} />
             {authed ? (
                 businessId === null ? (

@@ -25,7 +25,6 @@ export function App() {
                 <Route path="/b/:slug" element={<PublicLanding />} />
                 <Route path="/book/:slug" element={<PublicBooking />} />
                 <Route path="/m/:token" element={<PublicManage />} />
-                <Route path="/pay/:token" element={<PublicPay />} />
                 <Route path="/i/:token" element={<PublicPay />} />
                 <Route path="/i/:token/etransfer" element={<PublicInterac />} />
                 <Route path="/e/:token" element={<PublicEstimate />} />

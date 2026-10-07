@@ -18,7 +18,7 @@ interface BusinessRow {
     billing_email: string | null;
     gst_hst_number: string | null;
     qst_number: string | null;
-    brand: string | null; // JSON text in the replica: {logo_file_id?, logo_url?, primary?, tagline?}
+    brand: string | null; // JSON text in the replica: {logo_file_id?, primary?, tagline?}
 }
 
 interface BusinessFields {
@@ -39,18 +39,17 @@ interface Brand {
 
 const NO_BRAND: Brand = { logo_file_id: "", primary: "", tagline: "" };
 
-function parseBrand(raw: string | null): Brand & { legacyLogoUrl: string | null } {
-    if (raw === null || raw === "") return { ...NO_BRAND, legacyLogoUrl: null };
+function parseBrand(raw: string | null): Brand {
+    if (raw === null || raw === "") return NO_BRAND;
     try {
         const b = JSON.parse(raw) as Record<string, unknown>;
         return {
             logo_file_id: typeof b.logo_file_id === "string" ? b.logo_file_id : "",
             primary: typeof b.primary === "string" ? b.primary : "",
             tagline: typeof b.tagline === "string" ? b.tagline : "",
-            legacyLogoUrl: typeof b.logo_url === "string" ? b.logo_url : null,
         };
     } catch {
-        return { ...NO_BRAND, legacyLogoUrl: null };
+        return NO_BRAND;
     }
 }
 
@@ -100,16 +99,11 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
     const [fields, setFields] = useState<BusinessFields | null>(null);
     const [saved, setSaved] = useState(false);
     const loadedBrand = useRef<Brand>(NO_BRAND);
-    const legacyLogoUrl = row === null ? null : parseBrand(row.brand).legacyLogoUrl;
 
     useEffect(() => {
         if (row !== null && fields === null) {
             const brand = parseBrand(row.brand);
-            loadedBrand.current = {
-                logo_file_id: brand.logo_file_id,
-                primary: brand.primary,
-                tagline: brand.tagline,
-            };
+            loadedBrand.current = brand;
             setFields({
                 name: row.name,
                 timezone: row.timezone,
@@ -138,12 +132,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
         const b = loadedBrand.current;
         const brandChanged =
             logo_file_id !== b.logo_file_id || primary !== b.primary || tagline !== b.tagline;
-        const brand = {
-            logo_file_id: logo_file_id || null,
-            logo_url: logo_file_id ? null : legacyLogoUrl,
-            primary,
-            tagline,
-        };
+        const brand = { logo_file_id: logo_file_id || null, primary, tagline };
         const body = brandChanged ? { ...text, brand } : text;
         run(() => api.patch("/v1/business", body), {
             onSuccess: () => {
@@ -157,7 +146,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
     const logoSrc = (apiBase: string): string | null =>
         fields !== null && fields.logo_file_id !== ""
             ? mediaUrl(apiBase, fields.logo_file_id)
-            : legacyLogoUrl;
+            : null;
 
     return { fields, businessId: row?.id ?? null, logoSrc, set, busy, error, saved, submit };
 }
@@ -295,10 +284,8 @@ export const SETUP_PROGRESS_SQL = `
 SELECT
     (SELECT COUNT(*) FROM items WHERE active = 1 AND kind IN ('service', 'class')) AS services,
     (SELECT COUNT(*) FROM hours WHERE basis = 'recurring' AND available = 1) AS hours,
-    (SELECT COUNT(*) FROM clients) AS clients,
     (SELECT COUNT(*) FROM staff) AS team,
     (SELECT COALESCE(MAX(stripe_charges_enabled), 0) FROM businesses) AS stripe,
-    (SELECT COUNT(*) FROM bookings WHERE source = 'online') AS online,
     (SELECT slug FROM businesses LIMIT 1) AS slug,
     (SELECT name FROM businesses LIMIT 1) AS name,
     (SELECT brand FROM businesses LIMIT 1) AS brand,
@@ -312,10 +299,8 @@ SELECT
 interface SetupCounts {
     services: number;
     hours: number;
-    clients: number;
     team: number;
     stripe: number;
-    online: number;
     slug: string | null;
     name: string | null;
     brand: string | null;
@@ -327,44 +312,87 @@ interface SetupCounts {
     invites: string | null;
 }
 
-type SetupStepKey = "service" | "hours" | "client" | "team" | "stripe" | "page";
+type SetupTaskKey = "business" | "services" | "hours" | "brand" | "stripe" | "team" | "tax";
 
-interface SetupStep {
-    key: SetupStepKey;
+interface SetupTask {
+    key: SetupTaskKey;
     label: string;
     hint: string;
+    action: string;
     done: boolean;
     target: ShellTarget;
+}
+
+/** What a business still has to do to take bookings and get paid, derived from synced rows. */
+export function setupTasks(c: SetupCounts): SetupTask[] {
+    const o = strings.business.getSetUp;
+    const brand = parseBrand(c.brand);
+    const province = PROVINCES.find((p) => p.code === c.province)?.name ?? null;
+    const invites = c.invites === null ? [] : c.invites.split(", ");
+    return [
+        {
+            key: "business",
+            ...o.tasks.business,
+            hint: [c.name, province].filter((x) => x !== null && x !== "").join(", "),
+            done: true,
+            target: "business",
+        },
+        {
+            key: "services",
+            ...o.tasks.services,
+            hint:
+                c.services > 0
+                    ? o.servicesHint(c.services - c.classes, c.classes)
+                    : o.fresh.services,
+            done: c.services > 0,
+            target: "catalog",
+        },
+        {
+            key: "hours",
+            ...o.tasks.hours,
+            hint: c.hours > 0 ? o.hoursSet : o.fresh.hours,
+            done: c.hours > 0,
+            target: "hours",
+        },
+        {
+            key: "brand",
+            ...o.tasks.brand,
+            done: brand.primary !== "" || brand.logo_file_id !== "",
+            target: "setup",
+        },
+        {
+            key: "stripe",
+            ...o.tasks.stripe,
+            hint: c.stripe === 1 ? o.stripeOn : o.fresh.stripe,
+            done: c.stripe === 1,
+            target: "gettingPaid",
+        },
+        {
+            key: "team",
+            ...o.tasks.team,
+            hint: o.teamHint(invites),
+            done: c.team > 1,
+            target: "team",
+        },
+        {
+            key: "tax",
+            ...o.tasks.tax,
+            hint: c.tax_registered === 1 ? o.taxHint(c.pst_number !== null) : o.fresh.tax,
+            done: c.tax_registered === 1,
+            target: "taxes",
+        },
+    ];
 }
 
 export interface SetupProgress {
     businessName: string;
     brandColor: string | null;
     slug: string | null;
-    steps: SetupStep[];
+    steps: SetupTask[];
     done: number;
     total: number;
     complete: boolean;
     dismissed: boolean;
-}
-
-/** What a new business still has to do before clients can book, derived from synced rows. */
-function setupSteps(c: SetupCounts, bookingLink: string): SetupStep[] {
-    const s = strings.business.setupSteps;
-    return [
-        { key: "service", ...s.service, done: c.services > 0, target: "catalog" },
-        { key: "hours", ...s.hours, done: c.hours > 0, target: "hours" },
-        { key: "client", ...s.client, done: c.clients > 0, target: "client" },
-        { key: "team", ...s.team, done: c.team > 1, target: "team" },
-        { key: "stripe", ...s.stripe, done: c.stripe === 1, target: "gettingPaid" },
-        {
-            key: "page",
-            label: s.page.label,
-            hint: bookingLink,
-            done: c.online > 0,
-            target: "onlineBooking",
-        },
-    ];
 }
 
 /** The public booking page for a business, on the Connect host the app is configured with. */
@@ -372,11 +400,9 @@ export function bookingPageUrl(base: string, slug: string): string {
     return `${base.replace(/\/+$/, "")}/book/${slug}`;
 }
 
-export function useSetupProgress(bookBase: string): SetupProgress {
-    const row = useQuery<SetupCounts>(SETUP_PROGRESS_SQL).data[0];
-    const counts: SetupCounts = row ?? NO_COUNTS;
-    const link = counts.slug === null ? "" : bookingPageUrl(bookBase, counts.slug);
-    const steps = setupSteps(counts, link.replace(/^https?:\/\//, ""));
+function progressOf(row: SetupCounts | undefined): SetupProgress {
+    const counts = row ?? NO_COUNTS;
+    const steps = setupTasks(counts);
     const done = steps.filter((x) => x.done).length;
     return {
         businessName: counts.name ?? "",
@@ -390,13 +416,15 @@ export function useSetupProgress(bookBase: string): SetupProgress {
     };
 }
 
+export function useSetupProgress(): SetupProgress {
+    return progressOf(useQuery<SetupCounts>(SETUP_PROGRESS_SQL).data[0]);
+}
+
 const NO_COUNTS: SetupCounts = {
     services: 0,
     hours: 0,
-    clients: 0,
     team: 0,
     stripe: 0,
-    online: 0,
     slug: null,
     name: null,
     brand: null,
@@ -408,108 +436,26 @@ const NO_COUNTS: SetupCounts = {
     invites: null,
 };
 
-type ChecklistKey = "business" | "services" | "hours" | "brand" | "stripe" | "team" | "tax";
-
-interface SetupTask {
-    key: ChecklistKey;
-    label: string;
-    hint: string;
-    action: string;
-    done: boolean;
-    attention: boolean;
-    target: ShellTarget;
-}
-
-interface SetupChecklist {
+interface SetupChecklist extends SetupProgress {
     load: Load;
-    tasks: SetupTask[];
-    done: number;
-    total: number;
     live: boolean;
     bookingUrl: string;
-    hidden: boolean;
     setHidden: (hidden: boolean) => void;
     hideError: string | null;
 }
 
-/** The Get set up list: what a business still has to do to take bookings and get paid. */
-export function useSetupChecklist(
-    api: ApiLike,
-    bookBase: string,
-    provinceName: string,
-): SetupChecklist {
+/** The Get set up list, the same steps and count the sidebar and Today show. */
+export function useSetupChecklist(api: ApiLike, bookBase: string): SetupChecklist {
     const query = useQuery<SetupCounts>(SETUP_PROGRESS_SQL);
     const c = query.data[0] ?? NO_COUNTS;
     const load = useReplicaLoad([query], false);
     const { error, run } = useAsyncAction();
-    const o = strings.business.getSetUp;
-    const brand = parseBrand(c.brand);
-    const branded = brand.primary !== "" || brand.logo_file_id !== "";
-    const servicesHint =
-        c.services > 0 ? o.servicesHint(c.services - c.classes, c.classes) : o.fresh.services;
-    const invites = c.invites === null ? [] : c.invites.split(", ");
-    const tasks: SetupTask[] = [
-        {
-            key: "business",
-            ...o.tasks.business,
-            hint: [c.name, provinceName].filter((x) => x !== null && x !== "").join(", "),
-            done: true,
-            attention: false,
-            target: "business",
-        },
-        {
-            key: "services",
-            ...o.tasks.services,
-            hint: servicesHint,
-            done: c.services > 0,
-            attention: false,
-            target: "catalog",
-        },
-        {
-            key: "hours",
-            ...o.tasks.hours,
-            hint: c.hours > 0 ? o.hoursSet : o.fresh.hours,
-            done: c.hours > 0,
-            attention: false,
-            target: "hours",
-        },
-        { key: "brand", ...o.tasks.brand, done: branded, attention: false, target: "setup" },
-        {
-            key: "stripe",
-            ...o.tasks.stripe,
-            hint: c.stripe === 1 ? o.stripeOn : o.fresh.stripe,
-            done: c.stripe === 1,
-            attention: false,
-            target: "gettingPaid",
-        },
-        {
-            key: "team",
-            ...o.tasks.team,
-            hint: o.teamHint(invites),
-            done: c.team > 1,
-            attention: false,
-            target: "team",
-        },
-        {
-            key: "tax",
-            ...o.tasks.tax,
-            hint: c.tax_registered === 1 ? o.taxHint(c.pst_number !== null) : o.fresh.tax,
-            done: c.tax_registered === 1,
-            attention: false,
-            target: "taxes",
-        },
-    ];
-    const done = tasks.filter((t) => t.done).length;
-    const link =
-        c.slug === null ? "" : bookingPageUrl(bookBase, c.slug).replace(/^https?:\/\//, "");
     return {
+        ...progressOf(query.data[0]),
         load,
-        tasks,
-        done,
-        total: tasks.length,
         live: c.services > 0 && c.hours > 0,
-        bookingUrl: link,
-        hidden: c.dismissed_at !== null,
+        bookingUrl:
+            c.slug === null ? "" : bookingPageUrl(bookBase, c.slug).replace(/^https?:\/\//, ""),
         setHidden: (hidden) => {
             run(() => api.patch("/v1/business", { setup_dismissed: hidden }), {
                 errorMessage: strings.business.saveError,
@@ -562,11 +508,7 @@ export function useBrandForm(api: ApiLike): BrandForm {
     const [draft, setDraft] = useState<Brand | null>(null);
     const [saved, setSaved] = useState(false);
     const { busy, error, run } = useAsyncAction();
-    const current = draft ?? {
-        logo_file_id: stored.logo_file_id,
-        primary: stored.primary,
-        tagline: stored.tagline,
-    };
+    const current = draft ?? stored;
     const edit = (patch: Partial<Brand>): void => {
         setDraft({ ...current, ...patch });
         setSaved(false);
@@ -598,7 +540,6 @@ export function useBrandForm(api: ApiLike): BrandForm {
                     api.patch("/v1/business", {
                         brand: {
                             logo_file_id: current.logo_file_id || null,
-                            logo_url: current.logo_file_id ? null : stored.legacyLogoUrl,
                             primary: current.primary || BRAND_COLOURS[1],
                             tagline: current.tagline,
                         },

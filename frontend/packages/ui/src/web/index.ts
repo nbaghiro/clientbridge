@@ -61,5 +61,4 @@ export { SwatchPicker } from "./SwatchPicker";
 export { SyncBanner } from "./SyncBanner";
 export { TagInput } from "./TagInput";
 export { TimeSlotPicker } from "./TimeSlotPicker";
-export { UsageBar } from "./UsageBar";
 export { WeeklyHoursEditor } from "./WeeklyHoursEditor";

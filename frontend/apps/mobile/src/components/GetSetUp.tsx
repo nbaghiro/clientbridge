@@ -2,7 +2,6 @@ import {
     BRAND_COLOURS,
     type BrandForm,
     bookingPageUrl,
-    PROVINCES,
     mediaUrl,
     strings,
     useBookingPreview,
@@ -159,8 +158,7 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
 /** The Setup home on a phone: the checklist, the booking link and the brand sheet. */
 export function GetSetUpScreen() {
     const brand = useBrandForm(api);
-    const province = PROVINCES.find((p) => p.code === brand.province)?.name ?? "";
-    const list = useSetupChecklist(api, bookUrl, province);
+    const list = useSetupChecklist(api, bookUrl);
     const open = useOpenLink();
     const [editing, setEditing] = useState(false);
     const pct = list.done / list.total;
@@ -193,7 +191,7 @@ export function GetSetUpScreen() {
             <ScrollView contentContainerStyle={styles.content}>
                 <Text style={styles.body}>{o.body}</Text>
                 {list.hideError !== null ? <Notice tone="danger">{list.hideError}</Notice> : null}
-                {list.hidden ? (
+                {list.dismissed ? (
                     <Empty
                         variant="card"
                         icon="checkCircle"
@@ -230,12 +228,11 @@ export function GetSetUpScreen() {
                         <View style={styles.card}>
                             <Checklist
                                 label={o.title}
-                                items={list.tasks.map((t) => ({
+                                items={list.steps.map((t) => ({
                                     key: t.key,
                                     label: t.label,
                                     hint: t.hint,
                                     done: t.done,
-                                    attention: t.attention,
                                     action: {
                                         label: t.action,
                                         onPress: () => {
@@ -273,7 +270,7 @@ export function GetSetUpScreen() {
                 >
                     {o.brandTitle}
                 </Button>
-                {list.hidden ? null : (
+                {list.dismissed ? null : (
                     <Button
                         variant="quiet"
                         onPress={() => {

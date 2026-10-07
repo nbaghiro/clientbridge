@@ -223,7 +223,10 @@ interface SlotGroup {
     slots: { key: string; label: string; hint?: string }[];
 }
 
-function groupSlots(slots: readonly OpenSlot[], staffName?: (id: string) => string): SlotGroup[] {
+export function groupSlots(
+    slots: readonly OpenSlot[],
+    staffName?: (id: string) => string,
+): SlotGroup[] {
     const parts: { label: string; test: (h: number) => boolean }[] = [
         { label: s.morning, test: (h) => h < 12 },
         { label: s.afternoon, test: (h) => h >= 12 && h < 17 },
@@ -253,7 +256,11 @@ interface StripDay {
     isToday: boolean;
 }
 
-function toStrip(days: readonly DayOpenings[] | null, from: string, today: string): StripDay[] {
+export function toStrip(
+    days: readonly DayOpenings[] | null,
+    from: string,
+    today: string,
+): StripDay[] {
     return Array.from({ length: 7 }, (_, i) => {
         const date = addDays(ymd(from), i);
         const key = dateKey(date);

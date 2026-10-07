@@ -90,7 +90,7 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
     const { load, view, money, moneyLoad } = useOwnerToday(api, viewer);
     const actions = useTodayActions(api);
     const openLink = useOpenLink();
-    const setup = useSetupProgress(bookUrl);
+    const setup = useSetupProgress();
     const bookingLink = setup.slug === null ? null : bookingPageUrl(bookUrl, setup.slug);
     const loading = load.state === "loading";
     const firstRun = load.hasData && view.agenda.length === 0 && !setup.complete;

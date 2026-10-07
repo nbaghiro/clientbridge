@@ -22,7 +22,6 @@ import {
     setStripeAccount,
 } from "@clientbridge/ui";
 
-import { config } from "../config";
 import { useViewer } from "../lib/auth";
 import { ShellContext, linkPath, useOpenLink } from "../lib/links";
 import { CommandPalette } from "./CommandPalette";
@@ -51,7 +50,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
     }, [stripeAccount]);
 
     const viewer = useViewer();
-    const nav = useShellNav(viewer, config.bookUrl);
+    const nav = useShellNav(viewer);
     const notifications = useNotifications(viewer);
     const sync = useSyncState();
     const [createOpen, setCreateOpen] = useState(false);

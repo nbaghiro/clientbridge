@@ -18,8 +18,7 @@ export default tseslint.config(
             "@typescript-eslint/no-explicit-any": "error",
             // Numbers in template strings are fine; objects and any are still banned.
             "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
-            // `allow` lists brand tokens that are legitimately inline, not catalog copy.
-            "local/no-inline-ui-string": ["error", { allow: ["Clientbridge", "PowerSync"] }],
+            "local/no-inline-ui-string": "error",
         },
     },
     {
@@ -109,7 +108,6 @@ export default tseslint.config(
             "**/dist/**",
             "**/public/**", // static assets served as-is (e.g. the vanilla embed loader)
             "node_modules/**",
-            "**/generated/**",
             "**/generated.ts", // the openapi-typescript output (packages/api-client/src/generated.ts)
             "**/*.cjs", // CommonJS build/codegen scripts (repo is ESM); not type-lintable
             "**/*.config.{js,ts,mjs,cjs}",

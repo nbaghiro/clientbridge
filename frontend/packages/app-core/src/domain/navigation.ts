@@ -30,7 +30,7 @@ export type PaymentsTabKey =
     | "payouts"
     | "reports";
 
-export const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
+const PAYMENTS_TABS: { key: PaymentsTabKey; label: string; managersOnly: boolean }[] = [
     { key: "invoices", label: strings.navigation.paymentsTabs.invoices, managersOnly: true },
     { key: "sales", label: strings.navigation.paymentsTabs.sales, managersOnly: false },
     { key: "giftCards", label: strings.navigation.paymentsTabs.giftCards, managersOnly: true },
@@ -69,7 +69,7 @@ export type SetupSectionKey =
     | "onlineBooking"
     | "reminders";
 
-export const SETUP_SECTIONS: {
+const SETUP_SECTIONS: {
     key: SetupSectionKey;
     label: string;
     webOnly: boolean;
@@ -287,7 +287,7 @@ interface ShellNav {
 }
 
 /** Everything the sidebar or tab bar shows beside the destinations, for the signed-in member. */
-export function useShellNav(viewer: Viewer | null, bookBase: string): ShellNav {
+export function useShellNav(viewer: Viewer | null): ShellNav {
     const role = viewer?.role ?? null;
     const manager = canManagePayments(role);
     const me = useQuery<{
@@ -299,7 +299,7 @@ export function useShellNav(viewer: Viewer | null, bookBase: string): ShellNav {
     const unread = useQuery<{ n: number }>(UNREAD_MESSAGES_SQL).data[0]?.n ?? 0;
     const overdue = useQuery<{ n: number }>(OVERDUE_INVOICES_SQL).data[0]?.n ?? 0;
     const recent = useQuery<{ id: string; name: string }>(RECENT_CLIENTS_SQL).data;
-    const setup = useSetupProgress(bookBase);
+    const setup = useSetupProgress();
     return {
         name: me === undefined ? "" : staffName(me),
         color: me?.color ?? null,

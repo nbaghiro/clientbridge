@@ -192,7 +192,7 @@ export function useLetterhead(): Letterhead {
     };
 }
 
-// ---- tax on the device, the same rule as services/tax.py: per line, per code, half up
+// Tax on the device follows services/tax.py: per line, per code, half up.
 
 type TaxClass = "standard" | "federal_only" | "exempt";
 
@@ -301,8 +301,6 @@ function rateNote(rates: readonly DocRate[]): string {
         : s.taxNote(rates.map((r) => s.taxRow(r.code, ratePct(r.code, r.rateBps))).join(", "));
 }
 
-// ---- statuses and dates
-
 type InvoiceStatus = "draft" | "sent" | "partial" | "overdue" | "paid" | "refunded" | "void";
 
 function invoiceIntent(status: string): Intent {
@@ -337,14 +335,14 @@ function estimateStatusIntent(status: string): Intent {
 }
 
 /** Days past due for an unpaid sent invoice; 0 when it isn't late. */
-function daysOverdue(row: InvoiceRow, now: Date = new Date()): number {
+export function daysOverdue(row: InvoiceRow, now: Date = new Date()): number {
     if (row.due_at === null || (row.balance_cents ?? 0) <= 0) return 0;
     if (!["sent", "partial", "overdue"].includes(row.status)) return 0;
     return Math.max(0, -daysUntil(new Date(row.due_at), now));
 }
 
 /** The status a person reads: a sent invoice past its due date is overdue the day after. */
-function invoiceStatus(row: InvoiceRow, now: Date = new Date()): InvoiceStatus {
+export function invoiceStatus(row: InvoiceRow, now: Date = new Date()): InvoiceStatus {
     const late = daysOverdue(row, now) > 0;
     if (row.status === "sent" && late) return "overdue";
     return (
@@ -371,8 +369,6 @@ function invoiceLabel(number: number | null): string {
 function estimateLabel(number: number | null): string {
     return number === null ? s.draftEstimate : s.estimateNo(number);
 }
-
-// ---- the desk
 
 export type InvoiceSegment = "all" | "open" | "overdue" | "draft" | "paid" | "void";
 const SEGMENTS: InvoiceSegment[] = ["all", "open", "overdue", "draft", "paid", "void"];
@@ -405,7 +401,7 @@ function inSegment(seg: InvoiceSegment, r: InvoiceListRow): boolean {
     }
 }
 
-function listRow(row: InvoiceRow, now: Date = new Date()): InvoiceListRow {
+export function listRow(row: InvoiceRow, now: Date = new Date()): InvoiceListRow {
     const status = invoiceStatus(row, now);
     return {
         row,
@@ -430,7 +426,10 @@ interface InvoiceStats {
     draftCount: number;
 }
 
-function invoiceStats(rows: readonly InvoiceListRow[], now: Date = new Date()): InvoiceStats {
+export function invoiceStats(
+    rows: readonly InvoiceListRow[],
+    now: Date = new Date(),
+): InvoiceStats {
     const open = rows.filter((r) => inSegment("open", r));
     const late = rows.filter((r) => r.late);
     const since = addDays(now, -30).toISOString();
@@ -518,8 +517,6 @@ export function useInvoiceDesk(initialSegment: InvoiceSegment = "all"): InvoiceD
     };
 }
 
-// ---- one invoice
-
 interface DocPaymentView {
     id: string;
     kind: string;
@@ -577,7 +574,7 @@ function lineDetail(line: PrintedDocLine): string {
     return parts.join(" · ");
 }
 
-function issuedTaxes(
+export function issuedTaxes(
     pricing: DocPricing,
     journal: readonly { code: string; cents: number }[],
 ): PrintedDocTax[] {
@@ -894,8 +891,6 @@ export function printedReceipt(
         fallbackColor,
     );
 }
-
-// ---- estimates
 
 export type EstimateSegment = "all" | "draft" | "sent" | "accepted" | "closed";
 const ESTIMATE_SEGMENTS: EstimateSegment[] = ["all", "draft", "sent", "accepted", "closed"];
@@ -1260,8 +1255,6 @@ export function printedEstimate(
     );
 }
 
-// ---- the composer, shared by invoices and estimates
-
 export type DocTerms = "receipt" | "d7" | "d14" | "d30";
 const TERM_DAYS: Record<DocTerms, number> = { receipt: 0, d7: 7, d14: 14, d30: 30 };
 const DOC_TERMS: DocTerms[] = ["receipt", "d7", "d14", "d30"];
@@ -1294,7 +1287,7 @@ export interface DocDraft {
     lines: DraftLine[];
 }
 
-function lineDiscount(l: LineRow): SaleDiscount | null {
+export function lineDiscount(l: LineRow): SaleDiscount | null {
     const kind = l.discount_kind;
     const value = l.discount_value ?? null;
     if ((kind !== "percent" && kind !== "amount") || value === null || value <= 0) return null;

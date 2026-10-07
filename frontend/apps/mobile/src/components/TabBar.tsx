@@ -13,7 +13,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActionMenu, Avatar, Icon } from "@clientbridge/ui";
 
 import { useViewer } from "../lib/auth";
-import { bookUrl } from "../lib/config";
 import { useOpenLink } from "../lib/links";
 
 const c = theme.colors;
@@ -38,7 +37,7 @@ const destination = (name: string): DestinationKey => TAB_DESTINATION[name] ?? "
 /** Four tabs around a centre Create button that opens the create sheet with clients to book again. */
 export function TabBar({ state, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
-    const nav = useShellNav(useViewer(), bookUrl);
+    const nav = useShellNav(useViewer());
     const openLink = useOpenLink();
     const [menu, setMenu] = useState(false);
     const close = (): void => {

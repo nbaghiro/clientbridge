@@ -8,7 +8,6 @@ const extra = (Constants.expoConfig?.extra ?? {}) as {
     bookUrl?: string;
     stripePublishableKey?: string;
     stripeMerchantId?: string;
-    stripeTerminalLocationId?: string;
     terminalSimulated?: boolean;
     eas?: { projectId?: string };
 };
@@ -17,7 +16,7 @@ export const apiUrl = extra.apiUrl ?? "http://localhost:8701";
 
 export const powersyncUrl = extra.powersyncUrl ?? "http://localhost:8704";
 
-/** Public-web origin used to build invoice pay links (see app.config.ts `extra.publicWebUrl`). */
+/** Web app origin used to build staff invite links. */
 export const publicWebUrl = extra.publicWebUrl ?? "https://app.clientbridge.ca";
 
 /** The one host every invoice pay link uses. */
@@ -30,9 +29,6 @@ export const bookUrl = extra.bookUrl ?? "https://book.clientbridge.ca";
 export const stripePublishableKey = extra.stripePublishableKey ?? "";
 
 export const stripeMerchantId = extra.stripeMerchantId ?? "merchant.ca.clientbridge.app";
-
-/** Blank until configured; with `terminalSimulated` the SDK uses a test reader. */
-export const stripeTerminalLocationId = extra.stripeTerminalLocationId ?? "";
 
 /** Discover a simulated Terminal reader (dev) vs a real Tap-to-Pay device. */
 export const terminalSimulated = extra.terminalSimulated ?? true;

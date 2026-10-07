@@ -19,10 +19,13 @@ import {
     Skeleton,
     StatusPill,
 } from "@clientbridge/ui";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { useOpenLink } from "../lib/links";
+import type { RootStackParamList } from "../navigation";
 
 const c = theme.colors;
 const t = strings.today;
@@ -39,6 +42,7 @@ export function TodayHeader({
     onSecretTap: () => void;
 }) {
     const openLink = useOpenLink();
+    const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
     return (
         <View style={styles.header}>
             <View style={styles.headerText}>
@@ -62,6 +66,13 @@ export function TodayHeader({
                 badge={bellCount}
                 onPress={() => {
                     openLink("notifications");
+                }}
+            />
+            <IconButton
+                icon="settings"
+                label={strings.navigation.setup}
+                onPress={() => {
+                    nav.navigate("Setup");
                 }}
             />
         </View>
@@ -376,13 +387,13 @@ export function AgendaRows({
 export function GettingStarted({ setup }: { setup: SetupProgress }) {
     const openLink = useOpenLink();
     return (
-        <Section title={strings.sync.gettingStarted}>
+        <Section title={strings.business.getSetUp.gettingStarted}>
             <View style={[styles.card, styles.pad]}>
                 <Text style={styles.stepsDone}>
-                    {strings.sync.stepsDone(setup.done, setup.total)}
+                    {strings.business.getSetUp.progress(setup.done, setup.total)}
                 </Text>
                 <Checklist
-                    label={strings.sync.gettingStarted}
+                    label={strings.business.getSetUp.gettingStarted}
                     items={setup.steps.map((x) => ({
                         key: x.key,
                         label: x.label,
@@ -391,7 +402,7 @@ export function GettingStarted({ setup }: { setup: SetupProgress }) {
                         action: x.done
                             ? undefined
                             : {
-                                  label: strings.sync.start,
+                                  label: strings.business.getSetUp.start,
                                   onPress: () => {
                                       openLink(x.target);
                                   },

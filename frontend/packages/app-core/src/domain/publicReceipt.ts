@@ -58,7 +58,7 @@ export function createPublicReceiptClient(baseUrl: string): PublicReceiptClient 
 }
 
 /** The receipt's money summary: discount, subtotal, tax per code, tip and what was paid. */
-function publicReceiptTotals(receipt: PublicReceipt): DocTotalLine[] {
+export function publicReceiptTotals(receipt: PublicReceipt): DocTotalLine[] {
     const r = strings.publicReceipt;
     const rows: DocTotalLine[] = [];
     if (receipt.discount_cents > 0)

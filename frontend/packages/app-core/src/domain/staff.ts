@@ -342,7 +342,7 @@ interface AcceptInviteInput {
 }
 
 /** Creates or links the user and returns a session in the business they joined. */
-export function acceptInvite(api: ApiLike, input: AcceptInviteInput): Promise<AuthTokens> {
+function acceptInvite(api: ApiLike, input: AcceptInviteInput): Promise<AuthTokens> {
     return api.post<AuthTokens>("/auth/accept-invite", {
         token: input.token,
         name: input.name?.trim() ?? null,

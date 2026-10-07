@@ -10,7 +10,7 @@ export default story<IconButtonProps>({
         label: { type: "text" },
         variant: { type: "select", options: ["quiet", "outline"] },
         size: { type: "select", options: ["sm", "md"] },
-        icon: { type: "select", options: ["settings", "filter", "more", "bell", "trash", "edit"] },
+        icon: { type: "select", options: ["settings", "tag", "more", "bell", "trash", "edit"] },
         pressed: { type: "boolean" },
         disabled: { type: "boolean" },
     },
@@ -23,7 +23,7 @@ export default story<IconButtonProps>({
         {
             key: "outline",
             title: "Outline",
-            props: () => ({ icon: "filter", label: "Filter", variant: "outline", onPress: noop }),
+            props: () => ({ icon: "tag", label: "Tags", variant: "outline", onPress: noop }),
         },
         {
             key: "small",
@@ -49,8 +49,8 @@ export default story<IconButtonProps>({
             key: "pressed",
             title: "Pressed",
             props: () => ({
-                icon: "panelLeft",
-                label: "Show sidebar",
+                icon: "pushpin",
+                label: "Pin note",
                 pressed: true,
                 onPress: noop,
             }),
@@ -68,14 +68,19 @@ export default story<IconButtonProps>({
                 onChange: "onPress",
                 reduce: (held: unknown) => held !== true,
             },
-            props: () => ({ icon: "filter", label: "Filters", variant: "outline", pressed: false }),
+            props: () => ({
+                icon: "pushpin",
+                label: "Pinned only",
+                variant: "outline",
+                pressed: false,
+            }),
         },
         {
             key: "outline-pressed",
             title: "Outline, pressed, with a count",
             props: () => ({
-                icon: "filter",
-                label: "Filters",
+                icon: "tag",
+                label: "Tags",
                 variant: "outline",
                 pressed: true,
                 badge: 3,

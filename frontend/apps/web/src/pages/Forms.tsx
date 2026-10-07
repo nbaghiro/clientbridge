@@ -34,7 +34,7 @@ import { Loaded } from "../components/Loaded";
 import { SendToClientDialog } from "../components/SendToClient";
 import { api } from "../lib/api";
 
-const s = strings.forms.page;
+const s = strings.forms;
 const f = strings.publicForm;
 
 export function Forms() {

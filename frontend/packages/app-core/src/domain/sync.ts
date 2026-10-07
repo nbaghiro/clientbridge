@@ -68,9 +68,6 @@ interface SyncState {
 
 const TABLE_LABEL: Record<string, string> = {
     hours: strings.sync.tables.hours,
-    forms: strings.sync.tables.forms,
-    fields: strings.sync.tables.fields,
-    contracts: strings.sync.tables.contracts,
 };
 
 /** A sentence for one change waiting in the upload queue ("Working hours changed"). */

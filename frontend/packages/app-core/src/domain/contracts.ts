@@ -61,7 +61,7 @@ export interface ContractSummary {
     waiting: number;
 }
 
-const p = strings.contracts.page;
+const p = strings.contracts;
 
 function stateOf(row: SignatureRow): SignatureRequest["state"] {
     if (row.status === "pending") return row.opened_at === null ? "pending" : "opened";

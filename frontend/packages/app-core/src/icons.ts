@@ -36,20 +36,16 @@ export type IconName =
     | "chevronLeft"
     | "lock"
     | "mail"
-    | "store"
     | "percent"
     | "bank"
     | "user"
-    | "help"
     | "arrowRight"
     | "clock"
     | "alert"
-    | "info"
     | "eye"
     | "copy"
     | "upload"
     | "image"
-    | "menu"
     | "more"
     | "receipt"
     | "link"
@@ -64,15 +60,10 @@ export type IconName =
     | "trash"
     | "edit"
     | "send"
-    | "panelLeft"
-    | "home"
     | "tag"
     | "building"
     | "dollar"
     | "phoneDevice"
-    | "key"
-    | "sparkle"
-    | "filter"
     | "history"
     | "globe"
     | "repeat"
@@ -84,12 +75,9 @@ export type IconName =
     | "pin"
     | "message"
     | "card"
-    | "minus"
     | "chevronRight"
     | "chevronUp"
-    | "sun"
     | "move"
-    | "cash"
     | "contactless"
     | "printer"
     | "pushpin";
@@ -141,28 +129,19 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     chevronLeft: [p("m15 18-6-6 6-6")],
     lock: [r(3, 11, 18, 11), p("M7 11V7a5 5 0 0 1 10 0v4")],
     mail: [r(2, 4, 20, 16), p("m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7")],
-    store: [
-        p("M3 9 4.5 4h15L21 9"),
-        p("M3 9h18a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0"),
-        p("M5 12v8h14v-8"),
-        p("M10 20v-5h4v5"),
-    ],
     percent: [p("M19 5 5 19"), o(6.5, 6.5, 2.5), o(17.5, 17.5, 2.5)],
     bank: [p("M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7"), p("M12 2l8 5H4z")],
     user: [o(12, 8, 4), p("M20 21a8 8 0 0 0-16 0")],
-    help: [o(12, 12, 10), p("M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"), p("M12 17h.01")],
     arrowRight: [p("M5 12h14M12 5l7 7-7 7")],
     clock: [o(12, 12, 10), p("M12 6v6l4 2")],
     alert: [
         p("m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"),
         p("M12 9v4M12 17h.01"),
     ],
-    info: [o(12, 12, 10), p("M12 16v-4M12 8h.01")],
     eye: [p("M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"), o(12, 12, 3)],
     copy: [r(8, 8, 14, 14), p("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2")],
     upload: [p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12")],
     image: [r(3, 3, 18, 18), o(9, 9, 2), p("m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21")],
-    menu: [p("M4 6h16M4 12h16M4 18h16")],
     more: [o(5, 12, 1), o(12, 12, 1), o(19, 12, 1)],
     receipt: [
         p("M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"),
@@ -213,8 +192,6 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     ],
     edit: [p("M12 20h9"), p("M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z")],
     send: [p("m22 2-7 20-4-9-9-4Z"), p("M22 2 11 13")],
-    panelLeft: [r(3, 3, 18, 18), p("M9 3v18")],
-    home: [p("m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"), p("M9 22V12h6v10")],
     tag: [p("M12 2H2v10l9.29 9.29a1 1 0 0 0 1.41 0l8.59-8.59a1 1 0 0 0 0-1.41z"), o(7, 7, 1.5)],
     building: [
         r(4, 2, 16, 20),
@@ -224,9 +201,6 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     ],
     dollar: [p("M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6")],
     phoneDevice: [r(5, 2, 14, 20), p("M12 18h.01")],
-    key: [o(7.5, 15.5, 5.5), p("m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3")],
-    sparkle: [p("M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z")],
-    filter: [p("M22 3H2l8 9.46V19l4 2v-8.54z")],
     history: [p("M3 12a9 9 0 1 0 3-6.7L3 8"), p("M3 3v5h5"), p("M12 7v5l4 2")],
     globe: [
         o(12, 12, 9),
@@ -255,17 +229,9 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     pin: [p("M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"), o(12, 10, 2.5)],
     message: [p("M4 5h16v11H8l-4 4z")],
     card: [r(3, 5, 18, 14), p("M3 10h18M7 15h3")],
-    minus: [p("M5 12h14")],
     chevronRight: [p("m9 18 6-6-6-6")],
     chevronUp: [p("m6 15 6-6 6 6")],
-    sun: [
-        o(12, 12, 4),
-        p(
-            "M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
-        ),
-    ],
     move: [p("M12 3v18M3 12h18"), p("m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3")],
-    cash: [r(2, 6, 20, 12), o(12, 12, 2.5), p("M6 12h.01M18 12h.01")],
     contactless: [
         p("M8.5 8.5a5 5 0 0 1 0 7"),
         p("M12 6a8.5 8.5 0 0 1 0 12"),

@@ -85,7 +85,7 @@ export interface ChannelConsent {
 }
 
 /** Mirrors the server's check: agreed, or implied consent that hasn't lapsed. */
-function consentOf(row: ConsentRow | undefined, now: Date = new Date()): ChannelConsent {
+export function consentOf(row: ConsentRow | undefined, now: Date = new Date()): ChannelConsent {
     if (row === undefined) return { state: "none", source: null, at: null, expiresAt: null };
     const base = { source: row.source, at: row.created_at, expiresAt: row.expires_at };
     if (row.status === "withdrawn") return { state: "opted_out", ...base };

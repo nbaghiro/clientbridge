@@ -6,7 +6,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { api } from "../lib/api";
 
 const c = theme.colors;
-const s = strings.forms.page;
+const s = strings.forms;
 
 /** Sends one form or contract link to a client picked from the client book. */
 export function SendToClientSheet({

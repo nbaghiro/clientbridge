@@ -267,14 +267,6 @@ function usePickupOrders(api: ApiLike): PickupQueue {
     };
 }
 
-/** The steps staff can take from here; the server only moves an order forward. */
-export function pickupActions(status: PickupStatus): { status: PickupStatus; label: string }[] {
-    const pickedUp = { status: "picked_up" as const, label: strings.pos.markPickedUp };
-    if (status === "unfulfilled")
-        return [{ status: "ready", label: strings.pos.markReady }, pickedUp];
-    return status === "ready" ? [pickedUp] : [];
-}
-
 const d = strings.pos.desk;
 
 type TipChoice =
@@ -329,7 +321,7 @@ export function discountLabel(discount: SaleDiscount): string {
 }
 
 /** A tip is worked out on the price before tax and never carries tax. */
-function tipCentsFor(tip: TipChoice, subtotalCents: number): number {
+export function tipCentsFor(tip: TipChoice, subtotalCents: number): number {
     if (tip.kind === "percent") return Math.round((subtotalCents * tip.pct) / 100);
     if (tip.kind === "custom") return Math.max(0, tip.cents);
     return 0;
@@ -483,7 +475,7 @@ export function previewDiscount(
 }
 
 /** Staff may take off up to the business's limit; `null` means the viewer needs no approval. */
-function overStaffLimit(t: SaleTotals, limitBps: number | null): boolean {
+export function overStaffLimit(t: SaleTotals, limitBps: number | null): boolean {
     return limitBps !== null && t.discountCents * 10000 > t.grossCents * limitBps;
 }
 
@@ -1620,7 +1612,7 @@ function saleStatusIntent(status: SaleStatus): Intent {
     }
 }
 
-function saleStatus(row: { status: string; refunded_cents: number }): SaleStatus {
+export function saleStatus(row: { status: string; refunded_cents: number }): SaleStatus {
     if (row.status === "paid" && row.refunded_cents > 0) return "partly_refunded";
     return row.status === "paid" || row.status === "refunded" || row.status === "void"
         ? row.status
@@ -1833,7 +1825,7 @@ interface SalePaymentRow {
     parent_payment_id: string | null;
 }
 
-function discountFrom(
+export function discountFrom(
     kind: string | null,
     value: number | null,
     reason: string | null,

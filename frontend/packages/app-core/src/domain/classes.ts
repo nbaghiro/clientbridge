@@ -121,7 +121,7 @@ const STATUS: Record<RosterStatus, { label: string; intent: Intent }> = {
     waitlist: { label: s.statusWaiting, intent: "neutral" },
 };
 
-function rosterStatus(r: RosterRow): RosterStatus {
+export function rosterStatus(r: RosterRow): RosterStatus {
     if (r.status === "waitlisted") return "waitlist";
     if (r.status === "no_show") return "no_show";
     return r.checked_in_at !== null ? "checked_in" : "confirmed";

@@ -1,4 +1,4 @@
-export interface PostOptions {
+interface PostOptions {
     idempotencyKey?: string;
 }
 

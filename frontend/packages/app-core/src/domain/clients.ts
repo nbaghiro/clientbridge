@@ -827,11 +827,7 @@ export interface PetCard {
 }
 
 /** A pet's card: who they are, what to watch for and their visits (bookings name the pet). */
-export function petCard(
-    pet: SubjectRow,
-    visits: readonly ClientVisit[],
-    now: Date = new Date(),
-): PetCard {
+function petCard(pet: SubjectRow, visits: readonly ClientVisit[], now: Date = new Date()): PetCard {
     const own = visits.filter((v) => v.subjectId === pet.id);
     const done = own.filter((v) => v.status === "completed");
     const ahead = own.filter((v) => isAhead(v, now)).sort((a, b) => +a.start - +b.start);

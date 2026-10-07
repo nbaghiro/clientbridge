@@ -84,7 +84,7 @@ function compareEventStart(a: CalendarEvent, b: CalendarEvent): number {
 }
 
 // Overlapping events chain into a group, then split into first-fit columns so none visually overlap.
-function layoutDay(events: CalendarEvent[], opts: LayoutOptions): PositionedEvent[] {
+export function layoutDay(events: CalendarEvent[], opts: LayoutOptions): PositionedEvent[] {
     const { dayStart, pxPerMin, minHeightPx = 18, gapPx = 1 } = opts;
     const dayEnd = addDays(dayStart, 1);
     const dayStartMs = dayStart.getTime();
@@ -413,7 +413,7 @@ export function useAvailability(start: Date, end: Date): Availability & { source
 
 type LoadSources = { isLoading: boolean; error?: Error | undefined }[];
 
-function buildAvailability(hours: HoursRow[], away: AwayRow[]): Availability {
+export function buildAvailability(hours: HoursRow[], away: AwayRow[]): Availability {
     const awayRows: ScheduleBlock[] = away.map((a) => ({
         id: a.id,
         staffId: a.staff_id,
@@ -729,7 +729,7 @@ export function useMoveEvent(api: ApiLike): MoveEvent {
     };
 }
 
-function applyPending(
+export function applyPending(
     events: ScheduleEvent[],
     pending: Record<string, PendingMove>,
 ): ScheduleEvent[] {
@@ -816,7 +816,7 @@ function weekStrip(
     });
 }
 
-function laneFor(
+export function laneFor(
     member: StaffRow,
     day: Date,
     events: ScheduleEvent[],
@@ -1534,7 +1534,7 @@ function openGroups(
     );
 }
 
-function depositOf(item: ItemRow | null): number {
+export function depositOf(item: ItemRow | null): number {
     if (item === null || item.deposit_type === "none" || item.deposit_value === null) return 0;
     return item.deposit_type === "fixed"
         ? item.deposit_value

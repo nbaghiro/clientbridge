@@ -37,7 +37,7 @@ import { SendToClientSheet } from "../components/SendToClient";
 import { api } from "../lib/api";
 
 const c = theme.colors;
-const s = strings.forms.page;
+const s = strings.forms;
 const f = strings.publicForm;
 
 type Tab = "questions" | "preview" | "settings";

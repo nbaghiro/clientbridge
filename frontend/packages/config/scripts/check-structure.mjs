@@ -6,15 +6,11 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
-const GENERATED = new Set([
-    "packages/api-client/src/generated.ts",
-    "packages/sync/src/schema.ts",
-    "packages/tokens/src/themes.ts",
-]);
+const GENERATED = new Set(["packages/api-client/src/generated.ts", "packages/sync/src/schema.ts"]);
 const ENTRY_FILES = new Set(["main.tsx", "entry-server.tsx", "routes.tsx"]);
 
 // Domain files that hold no copy of their own.
-const NO_STRINGS = new Set(["ledger", "notifications", "publicResource"]);
+const NO_STRINGS = new Set(["ledger", "publicResource"]);
 // Pages named by their nav label rather than the concept they render.
 const PAGE_CONCEPT = {
     invoices: "billing",
@@ -25,9 +21,7 @@ const PAGE_CONCEPT = {
     onboarding: "business",
 };
 // Screens that compose several concepts and so have no domain file or strings group of their own.
-const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "onlineBooking", "setup"]);
-// Shared components drawn on web only so far; every other one has a same-named mobile twin.
-const WEB_ONLY_UI = new Set([]);
+const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "setup"]);
 
 const files = execFileSync("git", ["ls-files", "apps", "packages"], { cwd: root, encoding: "utf8" })
     .split("\n")
@@ -97,20 +91,12 @@ for (const [dir, label] of [
     }
 }
 
-// App files whose own layout is the control: calendar grid, tile grids, line rows, nav chrome, debug tools.
+// App files whose own layout is the control: tile grids, line rows, nav chrome, debug tools.
 const HAND_STYLED_OK = new Set([
-    "apps/web/src/components/AppShell.tsx",
     "apps/web/src/components/DebugPanel.tsx",
-    "apps/web/src/components/DocEditor.tsx",
-    "apps/web/src/pages/Schedule.tsx",
     "apps/web/src/pages/Classes.tsx",
     "apps/web/src/pages/Hours.tsx",
-    "apps/web/src/pages/Inbox.tsx",
-    "apps/web/src/pages/POS.tsx",
-    "apps/mobile/src/components/DocEditor.tsx",
     "apps/mobile/src/components/TabBar.tsx",
-    "apps/mobile/src/screens/Schedule.tsx",
-    "apps/mobile/src/screens/POS.tsx",
     "apps/mobile/src/screens/Setup.tsx",
 ]);
 
@@ -173,7 +159,7 @@ for (const file of appFiles) {
 const webUi = new Set(stems("packages/ui/src/web/", ".tsx"));
 const mobileUi = new Set(stems("packages/ui/src/mobile/", ".tsx"));
 for (const name of webUi) {
-    if (!mobileUi.has(name) && !WEB_ONLY_UI.has(name)) {
+    if (!mobileUi.has(name)) {
         problems.push(
             `packages/ui/src/web/${name}.tsx has no packages/ui/src/mobile/${name}.tsx twin`,
         );

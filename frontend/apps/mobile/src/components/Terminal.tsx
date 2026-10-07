@@ -2,7 +2,7 @@ import { useStripeTerminalLocation } from "@clientbridge/app-core";
 import { StripeTerminalProvider, useStripeTerminal } from "@stripe/stripe-terminal-react-native";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { stripeTerminalLocationId, terminalSimulated } from "../lib/config";
+import { terminalSimulated } from "../lib/config";
 
 // Needs a dev build and a Tap to Pay device or `terminalSimulated`; it does not run in Expo Go.
 
@@ -42,8 +42,7 @@ export function useTerminalCheckout(): TerminalCheckout {
 
     const [phase, setPhase] = useState<TerminalPhase>("connecting");
     const [error, setError] = useState<string | null>(null);
-    // Prefer the backend-minted, synced location; fall back to config until it has synced.
-    const locationId = useStripeTerminalLocation() ?? stripeTerminalLocationId;
+    const locationId = useStripeTerminalLocation();
 
     // Initialize + start discovering a Tap-to-Pay reader on mount.
     useEffect(() => {
@@ -63,7 +62,7 @@ export function useTerminalCheckout(): TerminalCheckout {
     // Connect the first discovered reader once we know which location to connect it under.
     useEffect(() => {
         const reader = discoveredReaders[0];
-        if (connectedReader != null || reader === undefined || locationId === "") return;
+        if (connectedReader != null || reader === undefined || locationId === null) return;
         (async () => {
             const res = await connectReader({ discoveryMethod: "tapToPay", reader, locationId });
             if (res.error) {

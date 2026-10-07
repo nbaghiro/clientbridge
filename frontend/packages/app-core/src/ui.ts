@@ -350,7 +350,7 @@ export interface StatusPillProps {
     asWritten?: boolean | undefined;
 }
 
-// Bank (PAD) mandates are web only for now, so mobile ignores allowBank.
+// Bank (PAD) mandates are web only, so mobile ignores allowBank.
 export interface PaymentMethodFormProps {
     flow: AddPaymentMethod;
     allowBank: boolean;
@@ -944,23 +944,6 @@ export interface OccurrenceListProps {
     rows: readonly OccurrenceRow[];
     label: string;
     onAction?: ((rowKey: string, actionKey: string) => void) | undefined;
-}
-
-export interface UsageBarSegment {
-    key: string;
-    // Minutes from the start of the bar.
-    from: number;
-    to: number;
-    color?: string | null | undefined;
-    label: string;
-}
-
-export interface UsageBarProps {
-    segments: readonly UsageBarSegment[];
-    total: number;
-    now?: number | null | undefined;
-    ticks?: readonly { at: number; label: string }[] | undefined;
-    label: string;
 }
 
 export interface SkeletonProps {

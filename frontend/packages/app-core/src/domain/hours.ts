@@ -68,7 +68,7 @@ export const INSERT_RECURRING_HOURS_SQL =
     "INSERT INTO hours (id, business_id, staff_id, basis, weekday, start_time, end_time, available, note) VALUES (?, ?, ?, 'recurring', ?, ?, ?, ?, NULL)";
 
 /** Days with no rows default to weekdays 9 to 5 and weekends closed; split days keep their span. */
-function seedDays(rows: RecurringRow[]): DayHours[] {
+export function seedDays(rows: RecurringRow[]): DayHours[] {
     return WEEKDAYS.map(({ weekday }) => {
         const mine = rows.filter((r) => r.weekday === weekday);
         if (mine.length === 0) {
@@ -95,7 +95,7 @@ function formatHhmm(hhmm: string): string {
 }
 
 /** "9:00 a.m. – 5:00 p.m.", or "9–5" when `short`. */
-function shiftLabel(start: string, end: string, short = false): string {
+export function shiftLabel(start: string, end: string, short = false): string {
     if (!short) return `${formatHhmm(start)} – ${formatHhmm(end)}`;
     const fmt = (v: string): string => {
         const [h = 0, m = 0] = v.split(":").map(Number);
@@ -303,7 +303,7 @@ const isAllDay = (start: Date, end: Date): boolean =>
 
 const live = (e: ScheduleEvent): boolean => e.status === "confirmed" || e.status === "pending";
 
-function affectedBy(
+export function affectedBy(
     events: readonly ScheduleEvent[],
     staffId: string | null,
     start: Date,

@@ -61,7 +61,12 @@ interface Ctx {
 
 const nthWeekday = (d: Date): number => Math.ceil(d.getDate() / 7);
 
-function stepDate(from: Date, frequency: SeriesFrequency, interval: number, i: number): Date {
+export function stepDate(
+    from: Date,
+    frequency: SeriesFrequency,
+    interval: number,
+    i: number,
+): Date {
     if (frequency === "week") {
         return new Date(
             from.getFullYear(),
@@ -89,7 +94,7 @@ function stepDate(from: Date, frequency: SeriesFrequency, interval: number, i: n
 }
 
 /** Why a series visit can't go here, in the words the composer uses, or null. */
-function problemAt(
+export function problemAt(
     ctx: Ctx,
     staffId: string,
     start: Date,
@@ -122,7 +127,7 @@ function problemAt(
     }
 }
 
-function suggest(
+export function suggest(
     ctx: Ctx,
     staffId: string,
     start: Date,
@@ -150,7 +155,7 @@ interface PatternInput {
     ignore?: (eventId: string) => boolean;
 }
 
-function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] {
+export function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] {
     const ignore = p.ignore ?? (() => false);
     const limit = p.end === "count" ? Math.min(p.count, MAX_VISITS) : MAX_VISITS;
     const out: SeriesOccurrence[] = [];
@@ -175,7 +180,7 @@ function buildOccurrences(p: PatternInput, ctx: Ctx): SeriesOccurrence[] {
     return out;
 }
 
-function patternLabel(frequency: SeriesFrequency, interval: number, start: Date): string {
+export function patternLabel(frequency: SeriesFrequency, interval: number, start: Date): string {
     const day = start.toLocaleDateString("en-CA", { weekday: "long" });
     if (frequency === "month")
         return s.patternMonthly(interval, s.ordinal(nthWeekday(start)), day, formatTime(start));
@@ -496,7 +501,7 @@ interface SeriesSummary {
     status: string;
 }
 
-function datesOf(row: SeriesRow, visits: SeriesVisitRow[], ctx: Ctx): SeriesDate[] {
+export function datesOf(row: SeriesRow, visits: SeriesVisitRow[], ctx: Ctx): SeriesDate[] {
     const mine = visits.filter((v) => v.recurrence_id === row.id);
     const ids = new Set(mine.map((v) => v.booking_id ?? v.slot_id));
     return mine.map((v, i) => {
@@ -534,7 +539,7 @@ function datesOf(row: SeriesRow, visits: SeriesVisitRow[], ctx: Ctx): SeriesDate
     });
 }
 
-function summarize(
+export function summarize(
     row: SeriesRow,
     dates: SeriesDate[],
     staff: Map<string, StaffRow>,

@@ -64,7 +64,6 @@ const BOOKABLE_KINDS = ["service", "class"];
 // Packages, subscriptions and gift cards sell through their own checkout so the liability is created.
 const LINE_KINDS = ["service", "class", "product"];
 const ENTITLEMENT_KINDS = ["gift", "package", "subscription"] as const;
-type EntitlementKind = (typeof ENTITLEMENT_KINDS)[number];
 
 export const DEPOSIT_TYPES: { value: string; label: string }[] = [
     { value: "none", label: s.depositNone },
@@ -142,11 +141,6 @@ export function sellableItems(items: ItemRow[]): ItemRow[] {
     return items.filter(
         (i) => isActive(i) && i.price_cents !== null && LINE_KINDS.includes(i.kind),
     );
-}
-
-/** The entitlement kinds with at least one active item, in sale-tile order. */
-export function entitlementKindsOnSale(items: ItemRow[]): EntitlementKind[] {
-    return ENTITLEMENT_KINDS.filter((k) => items.some((i) => isActive(i) && i.kind === k));
 }
 
 export function subscriptionPlans(items: ItemRow[]): ItemRow[] {

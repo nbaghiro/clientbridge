@@ -86,7 +86,7 @@ const invoice: PrintedDoc = {
     headline: { label: "Balance due", cents: 14_741 },
     payment: null,
     stamp: null,
-    payUrl: "https://book.clientbridge.app/pay/inv_1148",
+    payUrl: "https://pay.clientbridge.ca/i/inv_1148",
     instructions: [
         "Pay online with the link or code.",
         "Or send an Interac e-Transfer to pay@birchbarkpets.ca with 1148 as the message.",

@@ -3,7 +3,7 @@ import { Button, Modal, Notice, Select } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
 
-const s = strings.forms.page;
+const s = strings.forms;
 
 /** Sends one form or contract link to a client picked from the client book. */
 export function SendToClientDialog({

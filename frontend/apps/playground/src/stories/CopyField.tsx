@@ -55,7 +55,7 @@ export default story<CopyFieldProps>({
             title: "Copied, held by the parent",
             props: () => ({
                 label: "Pay link",
-                value: "https://book.clientbridge.app/pay/x7Hq",
+                value: "https://pay.clientbridge.ca/i/x7Hq",
                 copied: true,
             }),
         },

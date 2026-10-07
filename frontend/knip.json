@@ -5,13 +5,12 @@
             "ignoreDependencies": ["@journeyapps/wa-sqlite"]
         },
         "apps/connect": {
-            "entry": ["src/embed.ts", "public/embed.js"]
+            "entry": ["public/embed.js"]
         },
         "apps/site": {
             "entry": ["src/entry-server.tsx", "scripts/*.ts"]
         },
         "apps/mobile": {
-            "entry": ["App.tsx"],
             "ignoreDependencies": ["@babel/core", "expo-updates"]
         },
         "packages/app-core": {
@@ -28,8 +27,7 @@
                 "src/stories/*.tsx",
                 "src/mobile/Frame.tsx",
                 "src/mobile/Inline.tsx",
-                "src/mobile/StripeStub.tsx",
-                "e2e/*.ts"
+                "src/mobile/StripeStub.tsx"
             ]
         }
     },

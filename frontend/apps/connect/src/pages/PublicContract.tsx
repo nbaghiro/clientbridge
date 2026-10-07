@@ -26,8 +26,7 @@ import { config } from "../config";
 import { useEmbedSuccess } from "../embed";
 
 const contracts = createPublicContractClient(config.apiUrl);
-const t = strings.publicContract;
-const s = t.page;
+const s = strings.publicContract;
 const SCRIPT = { fontFamily: '"Snell Roundhand", "Segoe Script", "Brush Script MT", cursive' };
 
 const stamp = (value: string): string => {
@@ -43,7 +42,7 @@ export function PublicContract() {
 
     if (signing.status === "loading") return <PublicStatus kind="loading" />;
     if (signing.status === "not-found")
-        return <PublicStatus kind="notFound" title={t.notFoundTitle} body={t.notFoundBody} />;
+        return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
     if (signing.status === "error" || doc === null)
         return (
             <PublicStatus

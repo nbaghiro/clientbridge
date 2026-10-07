@@ -410,11 +410,11 @@ export function GettingStarted({ setup }: { setup: SetupProgress }) {
     const openLink = useOpenLink();
     return (
         <Panel
-            title={strings.sync.gettingStarted}
-            subtitle={strings.sync.stepsDone(setup.done, setup.total)}
+            title={strings.business.getSetUp.gettingStarted}
+            subtitle={strings.business.getSetUp.progress(setup.done, setup.total)}
         >
             <Checklist
-                label={strings.sync.gettingStarted}
+                label={strings.business.getSetUp.gettingStarted}
                 items={setup.steps.map((x) => ({
                     key: x.key,
                     label: x.label,
@@ -423,7 +423,7 @@ export function GettingStarted({ setup }: { setup: SetupProgress }) {
                     action: x.done
                         ? undefined
                         : {
-                              label: strings.sync.start,
+                              label: strings.business.getSetUp.start,
                               onPress: () => {
                                   openLink(x.target);
                               },

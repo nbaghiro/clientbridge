@@ -18,7 +18,7 @@
 
     var TYPES = {
         "connect-booking": { path: "/book/", attr: "slug", title: "Book an appointment" },
-        "connect-pay": { path: "/pay/", attr: "token", title: "Pay" },
+        "connect-pay": { path: "/i/", attr: "token", title: "Pay" },
         "connect-form": { path: "/form/", attr: "token", title: "Complete form" },
         "connect-contract": { path: "/contract/", attr: "token", title: "Review & sign" },
         "connect-review": { path: "/review/", attr: "token", title: "Leave a review" },

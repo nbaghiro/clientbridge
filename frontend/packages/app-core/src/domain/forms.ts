@@ -75,7 +75,7 @@ export function useFormLibrary(): { load: Load; forms: FormSummary[] } {
 }
 
 export function formSendLabel(form: FormSummary): { label: string; intent: Intent } {
-    const p = strings.forms.page;
+    const p = strings.forms;
     if (form.active !== 1) return { label: p.draft, intent: "warning" };
     return form.send_on === "booking"
         ? { label: p.sendsOnBooking, intent: "success" }
@@ -408,7 +408,7 @@ export function useSendToClient(
         sentTo,
         send: () => {
             if (clientId === "") {
-                setError(strings.forms.page.pickClient);
+                setError(strings.forms.pickClient);
                 return;
             }
             const name = clients.find((c) => c.id === clientId)?.name ?? "";
@@ -423,7 +423,7 @@ export function useSendToClient(
                     onSuccess: () => {
                         setSentTo(name);
                     },
-                    errorMessage: strings.forms.page.sendFailed,
+                    errorMessage: strings.forms.sendFailed,
                 },
             );
         },

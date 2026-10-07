@@ -19,3 +19,5 @@ apps/web/test-results
 apps/web/playwright-report
 apps/playground/test-results
 apps/playground/playwright-report
+apps/connect/test-results
+apps/connect/playwright-report

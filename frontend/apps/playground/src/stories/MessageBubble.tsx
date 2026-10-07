@@ -73,7 +73,7 @@ export default story<MessageBubbleProps>({
             key: "link",
             title: "A long link",
             props: () => ({
-                body: "Pay here: https://book.clientbridge.app/pay/inv_1148_9f8e7d6c5b4a39281706f5e4d3c2b1a0",
+                body: "Pay here: https://pay.clientbridge.ca/i/inv_1148_9f8e7d6c5b4a39281706f5e4d3c2b1a0",
                 direction: "out",
                 meta: "9:20 a.m.",
             }),

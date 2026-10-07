@@ -93,7 +93,7 @@ export default story<ListRowProps>({
         {
             key: "static",
             title: "Not pressable",
-            props: () => ({ icon: "info", title: "Synced 2 minutes ago" }),
+            props: () => ({ icon: "refresh", title: "Synced 2 minutes ago" }),
         },
         {
             key: "success",
