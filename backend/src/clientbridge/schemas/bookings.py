@@ -30,6 +30,7 @@ class BookingOut(BaseModel):
     price_cents: int
     deposit_amount_cents: int
     deposit_status: str
+    checked_in_at: datetime | None
     starts_at: datetime
     ends_at: datetime
 

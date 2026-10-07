@@ -75,6 +75,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     # lifecycle only, set as the ledger books the deposit; the amounts live in the ledger
     deposit_status: Mapped[str] = mapped_column(String, default="none", nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # reminder sent

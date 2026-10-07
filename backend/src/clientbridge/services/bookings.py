@@ -67,6 +67,7 @@ async def _booking_out(db: AsyncSession, booking: Booking, slot: Slot) -> Bookin
         price_cents=booking.price_cents,
         deposit_amount_cents=booking.deposit_amount_cents,
         deposit_status=booking.deposit_status,
+        checked_in_at=booking.checked_in_at,
         starts_at=slot.starts_at,
         ends_at=slot.ends_at,
     )
@@ -424,6 +425,29 @@ class BookingService:
             self.db,
             self.principal,
             action="booking.patch",
+            run=run,
+            response_model=BookingOut,
+        )
+
+    async def check_in(self, booking_id: str) -> BookingOut:
+        """Record that the client has arrived; checking in again keeps the first arrival time."""
+        booking = await self._booking(booking_id)
+        self._assert_can_act_as(booking.staff_id)
+        if booking.status in _TERMINAL:
+            raise Conflict(f"a {booking.status} booking can't be checked in")
+        slot = await self._slot(booking.slot_id)
+
+        async def run(cmd: Command) -> BookingOut:
+            if booking.checked_in_at is None:
+                booking.checked_in_at = datetime.now(UTC)
+                await self.db.flush()
+                cmd.record("booking.check_in", entity_type="booking", entity_id=booking.id)
+            return await _booking_out(self.db, booking, slot)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="booking.check_in",
             run=run,
             response_model=BookingOut,
         )

@@ -13,6 +13,7 @@ const staff = new Table(
         rate_bps: column.integer,
         rate_cents: column.integer,
         retail_rate_bps: column.integer,
+        name: column.text,
         title: column.text,
         color: column.text,
         status: column.text,
@@ -345,6 +346,7 @@ const bookings = new Table(
         deposit_amount_cents: column.integer,
         deposit_status: column.text,
         confirmed_at: column.text,
+        checked_in_at: column.text,
         completed_at: column.text,
         canceled_at: column.text,
         reminded_at: column.text,
@@ -534,6 +536,8 @@ const orders = new Table(
         receipt_phone: column.text,
         source: column.text,
         pickup_status: column.text,
+        ready_at: column.text,
+        picked_up_at: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -658,6 +662,14 @@ const reviews = new Table(
     },
 );
 
+const device_prefs = new Table(
+    {
+        value: column.text,
+        updated_at: column.text,
+    },
+    { localOnly: true },
+);
+
 export const AppSchema = new Schema({
     staff,
     clients,
@@ -685,6 +697,7 @@ export const AppSchema = new Schema({
     payments,
     payment_methods,
     reviews,
+    device_prefs,
 });
 
 export type Database = (typeof AppSchema)["types"];

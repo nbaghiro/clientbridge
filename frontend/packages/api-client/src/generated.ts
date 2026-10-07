@@ -698,6 +698,23 @@ export interface paths {
         patch: operations["patch_booking_v1_bookings__booking_id__patch"];
         trace?: never;
     };
+    "/v1/bookings/{booking_id}/check-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check In Booking */
+        post: operations["check_in_booking_v1_bookings__booking_id__check_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}/deposit": {
         parameters: {
             query?: never;
@@ -1892,6 +1909,8 @@ export interface components {
             deposit_amount_cents: number;
             /** Deposit Status */
             deposit_status: string;
+            /** Checked In At */
+            checked_in_at: string | null;
             /**
              * Starts At
              * Format: date-time
@@ -2956,6 +2975,10 @@ export interface components {
             source: string;
             /** Pickup Status */
             pickup_status?: string | null;
+            /** Ready At */
+            ready_at?: string | null;
+            /** Picked Up At */
+            picked_up_at?: string | null;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
@@ -5417,6 +5440,40 @@ export interface operations {
                 "application/json": components["schemas"]["BookingPatch"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_in_booking_v1_bookings__booking_id__check_in_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

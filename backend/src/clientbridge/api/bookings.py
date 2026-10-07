@@ -60,6 +60,13 @@ async def patch_booking(
     return result
 
 
+@router.post("/{booking_id}/check-in", response_model=BookingOut)
+async def check_in_booking(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> BookingOut:
+    return await BookingService(db, principal, gateway).check_in(booking_id)
+
+
 @router.post("/{booking_id}/deposit", response_model=DepositOut)
 async def collect_deposit(
     booking_id: str,
