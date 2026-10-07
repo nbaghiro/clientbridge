@@ -124,11 +124,11 @@ with the subclass's HTTP status.
 | File | Responsibility |
 |---|---|
 | `command.py` | **The command wrapper.** `run_command(db, principal, *, action, run, response_model, idempotency_key)` — replays a stored response for a repeated key, stages `Command.record(...)` audit rows, then commits mutation + audit + idempotency key as **one atomic unit** (rollback on any error). Money/uniqueness/cross-tenant mutations go through it. |
-| `scoping.py` | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_page`/`scoped_count`/`scoped_update`/`scoped_delete` + the `Page[T]` envelope. Services **never** hand-write a `business_id` filter. |
+| `scoping.py` | **The one place the tenant filter lives.** `scoped(Model, business_id, soft_delete=…)` + `scoped_update`/`scoped_delete`. Services **never** hand-write a `business_id` filter. |
 | `deps.py` | DI hub — DB session, adapter aliases (`EmailDep`, `GatewayDep`, `StorageDep`…), the auth chain (`current_principal` re-derives business/role from the DB every request, honoring `X-Business-Id`), and role gates (`assert_role`, `is_manager`). |
 | `config.py` | Pydantic-settings. **Fails closed in prod:** refuses to boot if the JWT secret is still the dev default or the Stripe webhook secret is empty when `env != dev`. |
 | `security.py` | Argon2 password hashing · SHA-256 opaque-token hashing · HS256 access tokens · the PowerSync token (HS256 or RS256 + a JWKS endpoint for prod). |
-| `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`) — time-sortable, so `scoped_page` orders `id DESC` for newest-first. |
+| `ids.py` | Prefixed-ULID PKs (`bz_…`, `bk_…`), time-sortable. |
 | `errors.py` | `AppError` taxonomy → HTTP status (`NotFound` 404, `Conflict` 409, `CardDeclined` 402, `TooManyRequests` 429…). |
 | `ratelimit.py` | In-process fixed-window limiter for the five public surfaces (30/60s each). |
 | `db.py` | Async engine + `SessionLocal` + the `Base` metadata that `sync/upload.py` reflects over. |
@@ -220,7 +220,7 @@ state is derived from the ledger, and a deposit is due when `deposit_amount_cent
 `hours` (per-staff working hours: `basis` recurring weekday or one-off date, `available`; `basis`
 exception is time off for one member, or a closure for everyone when `staff_id` is null, with
 `starts_at`/`ends_at` and a `reason`, written only through `/v1/time-off`), `resources`
-(`category` room/station/equipment, `capacity`, and `active`, which keeps existing bookings but offers it for no new ones; managed at `/v1/resources`), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
+(`category` room/station/equipment, `capacity`, and `active`, which keeps existing bookings but offers it for no new ones), `recurrences` (recurrence rule with `frequency` day/week/month, the same words
 items use, and `monthly_by` date or weekday → expands to slots/bookings; dates can be skipped or shifted
 when booking, and `PATCH /v1/recurrences/{id}` moves one, the following or all upcoming visits while
 `/cancel` ends the series and refunds paid deposits), `addons` (products a client added to a visit when booking; they join
@@ -261,9 +261,9 @@ count, inbound messages not yet `read`, are read from `messages`), `messages` (d
 requested → opened → submitted → published/hidden; `channel` and the unique public-link `token` when a
 request was sent, `requested_at`/`submitted_at`; `rating` 1–5 and `body` stay null until submitted, with a
 CHECK that a submitted review has a rating; partial-unique one open request per booking; `sent_to_google`;
-the published average comes from `GET /v1/reviews/summary`). A review submitted on the public page is
-published straight away, so `submitted` (a review held for moderation) is reached today only by reviews
-that were `pending` before the merge.
+the apps compute the published average from the synced rows). A review submitted on the public page is
+published straight away unless its rating is at or below the business's `review_hold_at`, in which case it
+waits as `submitted` until the owner publishes or hides it.
 
 **platform (5)** — `files` (S3 key, `purpose` logo/image/photo/signature/attachment), `audits` (append-only
 activity feed; server-only), `webhooks` (inbound provider events, `event` = the provider's event name;
@@ -326,8 +326,9 @@ unauthenticated call mints a token for `dev_user_id` (HS256); prod requires a va
 `POWERSYNC_USE_RS256=true`, `powersync.yaml` `jwks_uri` → `/sync/keys`).
 
 ### The write path — `WRITE_POLICY` (`sync/upload.py`)
-The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → (min_tier,
-own_only)**. Only the tables the apps actually write offline are sync-writable:
+The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → own_only**
+(staff may write only their own rows; owners and admins write any row of their business). Only the
+tables the apps actually write offline are sync-writable:
 - **team-writable** (any active staff, own rows only): `hours`, except exception rows (time off and
   closures), which only their command writes (`COMMAND_ONLY_ROWS`).
 - **not sync-writable**: everything else. Clients, pets, notes, catalog items, resources, and forms,
@@ -338,8 +339,8 @@ own_only)**. Only the tables the apps actually write offline are sync-writable:
   `businesses`, `staff`, `reviews`, files, audit and webhook logs) are command-only by nature.
 
 Per op: resolve the actor's active `staff` rows → look up policy (unknown table → 403) → block cross-tenant
-`business_id` change → role + ownership authz → reject server-owned timestamps (`SYSTEM_FIELDS`) → apply
-(PUT = `on_conflict` upsert, PATCH = partial, DELETE = soft-delete where the column exists), coercing
+`business_id` change → ownership authz → reject server-owned timestamps (`SYSTEM_FIELDS`) → apply
+(PUT = `on_conflict` upsert, PATCH = partial, DELETE = delete), coercing
 SQLite types back to Postgres. The whole
 batch commits as one transaction; any auth failure rolls it all back.
 
@@ -453,7 +454,7 @@ What posts, and where:
 | Tax return filed | `POST /v1/payments/remittances` (`remittances`) | tax(code) + per code owed for the period / bank − ; the period is in the journal's `meta` |
 | Deposit forfeited | no-show in `bookings` (or settlement after it) | deposit + / revenue − ; a refund un-forfeits first |
 | Deposit applied | invoice sent with the booking on a line, or the deposit settling after that (`bookings.apply_deposit`) | deposit + / client receivable − ; a void or a refund of the deposit reverses it |
-| Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/{id}/approve`, `/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
+| Staff earning accrued / approved / paid | `earnings` (invoice fully paid, `/v1/earnings/approve`, `/v1/earnings/pay`) | staff cost + / payable(pending) − ; pending → approved ; approved → bank |
 
 Derived from the ledger rather than stored: an invoice's and order's balance and amount paid, gift card
 balances, package deferred revenue, client lifetime value, staff earnings and their status, tax payable per code, today's revenue, and Stripe
@@ -608,7 +609,7 @@ Props follow one vocabulary, so a caller can guess a prop without opening the fi
 | `DateStrip`, `TimeSlotPicker` | a week of dates with busy dots and closed days; open times grouped by part of the day |
 | `DetailView`, `DetailSection` | a right-side panel on web, a bottom sheet on mobile, with sections and an action row |
 | `DocTotals`, `PrintedDocument`, `PayCode` | a document's money summary; an invoice, estimate or receipt as the client gets it; a scannable code for a pay link |
-| `DurationBar`, `UsageBar` | how a booking blocks time with its buffers; a day of a room or station with its bookings |
+| `DurationBar` | how a booking blocks time with its buffers |
 | `Empty`, `Loading`, `Skeleton`, `SyncBanner` | empty and failed states with next steps, loading text, placeholders while data loads, and offline or sync status |
 | `Field`, `TextField`, `Select`, `Toggle`, `SearchField`, `TagInput` | labelled controls with hint and error; search with a clear button and result keys; tags with suggestions |
 | `FormQuestion` | one form question, shared by the builder preview and the client's form |

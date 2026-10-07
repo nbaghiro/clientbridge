@@ -47,7 +47,7 @@ a writable `UV_CACHE_DIR=/tmp/uv-cache` to work around a root-owned `~/.cache/uv
 
 ---
 
-## CI — five parallel jobs (`.github/workflows/ci.yml`)
+## CI — the parallel jobs (`.github/workflows/ci.yml`)
 
 Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 
@@ -56,6 +56,8 @@ Runs on every push to `main` + all PRs; concurrency-cancels stale runs.
 | **backend** | Postgres 16 service · Python 3.14 · `uv sync` → `make format-check-backend lint-backend` (ruff, mypy, structure check) → `make migrate seed` → `make test-backend` (pytest, 90% branch coverage) |
 | **frontend** | Node from `.nvmrc` · pnpm 9 · `pnpm install --frozen-lockfile` → `make format-check-frontend lint-frontend test-frontend` (prettier, eslint + `check-structure.mjs` + knip, tsc, the site copy rules, vitest for app-core and site) → **`make build`** (a broken bundle must fail CI, beyond `tsc --noEmit`) |
 | **site** | Node from `.nvmrc` · `make test-site`: a fresh build, then Playwright e2e on it (the copy rules and content tests run in the frontend job): every page returns 200 with its content in the HTML, no console errors, no broken images or internal links, no sideways scroll at 390 and 1440px, axe with no serious or critical issues, 404 page served with a 404 |
+| **connect** | Postgres 16 service · `make migrate seed` · the API on :8701 · `make test-connect`: Connect's Playwright walk (book a visit, cancel it from its manage link, shop, invoice and e-Transfer, estimate, receipt, review, form, contract, preferences, not found), failing on any console error |
+| **playground** | `make test-playground`: every story on web and both phone frames |
 | **contract** | stripe-mock service · real `StripeGateway` validated against Stripe's OpenAPI mock |
 | **codegen-drift** | `make codegen-check`: `make gen-api` + `make gen-sync-schema` + `make gen-themes`, then a diff check on the four generated artifacts (`api-client/src/generated.ts`, `sync/src/schema.ts`, `tokens/src/themes.css`, `tokens/src/themes.ts`) — the committed generated code can't drift from its source |
 
@@ -216,6 +218,7 @@ make dev-site              # marketing site from source on :8710
 make build-site            # static build in frontend/apps/site/dist (pnpm --filter site preview serves it on :8710)
 make test-site             # build + Playwright pass over every page (links, images, 390px, axe)
 make test-web              # web smoke test: sign in, every page and dialog, no console errors (needs the local stack + seed)
+make test-connect          # Connect e2e: book to the deposit step, manage link, shop and every client page (needs the API + seed)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
 make dev-playground        # every shared component on web, iPhone and Android on :8712 (no backend needed)
 make test-playground       # build + Playwright pass over every story page and phone frame, no console errors
