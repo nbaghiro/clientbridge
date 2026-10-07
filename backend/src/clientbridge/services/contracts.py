@@ -95,10 +95,10 @@ class ContractService:
         """New text is a new version; a signed copy keeps the text and version it was signed at."""
         self._assert_admin()
         contract = await self._contract(contract_id)
-        if data.body.strip() == contract.body.strip():
-            raise Conflict("the text hasn't changed")
 
         async def run(cmd: Command) -> ContractOut:
+            if data.body.strip() == contract.body.strip():
+                raise Conflict("the text hasn't changed")
             contract.body = data.body.strip()
             contract.version += 1
             await self.db.flush()
@@ -128,10 +128,10 @@ class ContractService:
         ).scalar_one_or_none()
         if signature is None:
             raise NotFound("signature request not found")
-        if signature.status != "pending":
-            raise Conflict("only a request still waiting for a signature can be resent")
 
         async def run(cmd: Command) -> SignatureOut:
+            if signature.status != "pending":
+                raise Conflict("only a request still waiting for a signature can be resent")
             cmd.record("contract.resend", entity_type="signature", entity_id=signature.id)
             await notify.on_contract_sent(self.db, signature.id)
             return _signature_out(signature)

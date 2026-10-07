@@ -535,12 +535,12 @@ class SubscriptionService:
         self._assert_admin()
         business = await self._business()
         sub = await self._subscription(subscription_id)
-        if sub.status == "canceled":
-            raise Conflict("subscription is already canceled")
         account_id = business.stripe_account_id
         provider_ref = sub.provider_ref
 
         async def run(cmd: Command) -> SubscriptionOut:
+            if sub.status == "canceled":
+                raise Conflict("subscription is already canceled")
             if provider_ref is not None and account_id is not None:
                 await self.gateway.cancel_subscription(account_id, subscription_id=provider_ref)
             sub.status = "canceled"
