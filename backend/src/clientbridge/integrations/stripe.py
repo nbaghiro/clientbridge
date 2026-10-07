@@ -1,14 +1,15 @@
 """Stripe Connect adapter: Custom connected accounts, direct charges with an application fee."""
 
 import json
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Concatenate, Protocol
 
 import stripe
 
 from clientbridge.core.config import get_settings
-from clientbridge.core.errors import CardDeclined, PaymentActionRequired
+from clientbridge.core.errors import CardDeclined, PaymentActionRequired, PaymentsNotConfigured
 
 # webhook payloads are parsed for this version; the Connect webhook endpoint must use it too
 STRIPE_API_VERSION = "2026-05-27.dahlia"
@@ -197,13 +198,26 @@ class PaymentGateway(Protocol):
         ...
 
 
+def _keyed[**P, R](
+    method: Callable[Concatenate["StripeGateway", P], Coroutine[object, object, R]],
+) -> Callable[Concatenate["StripeGateway", P], Coroutine[object, object, R]]:
+    async def call(self: "StripeGateway", /, *args: P.args, **kwargs: P.kwargs) -> R:
+        if not self.configured:
+            raise PaymentsNotConfigured("card payments are not set up on this server")
+        return await method(self, *args, **kwargs)
+
+    return call
+
+
 class StripeGateway:
     def __init__(self, secret_key: str, webhook_secret: str, country: str) -> None:
+        self.configured = bool(secret_key)
         stripe.api_key = secret_key
         stripe.api_version = STRIPE_API_VERSION
         self._webhook_secret = webhook_secret
         self._country = country
 
+    @_keyed
     async def create_connected_account(  # pragma: no cover - real Stripe, faked in tests
         self, *, business_name: str, email: str | None, url: str | None = None
     ) -> str:
@@ -225,6 +239,7 @@ class StripeGateway:
         )
         return str(account.id)
 
+    @_keyed
     async def create_account_link(  # pragma: no cover
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str:
@@ -236,6 +251,7 @@ class StripeGateway:
         )
         return str(link.url)
 
+    @_keyed
     async def get_account(self, account_id: str) -> ConnectAccount:  # pragma: no cover
         account = await stripe.Account.retrieve_async(account_id)
         req = account.requirements
@@ -252,6 +268,7 @@ class StripeGateway:
             current_deadline=req.current_deadline if req is not None else None,
         )
 
+    @_keyed
     async def create_customer(  # pragma: no cover
         self, account_id: str, *, name: str, email: str | None
     ) -> str:
@@ -262,6 +279,7 @@ class StripeGateway:
         )
         return str(customer.id)
 
+    @_keyed
     async def create_setup_intent(  # pragma: no cover
         self, account_id: str, *, customer_id: str
     ) -> SetupIntentResult:
@@ -270,6 +288,7 @@ class StripeGateway:
         )
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
+    @_keyed
     async def create_pad_setup_intent(  # pragma: no cover
         self, account_id: str, *, customer_id: str
     ) -> SetupIntentResult:
@@ -290,6 +309,7 @@ class StripeGateway:
         )
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
+    @_keyed
     async def create_price(  # pragma: no cover
         self,
         account_id: str,
@@ -308,6 +328,7 @@ class StripeGateway:
         )
         return str(price.id)
 
+    @_keyed
     async def create_subscription(  # pragma: no cover
         self,
         account_id: str,
@@ -331,11 +352,13 @@ class StripeGateway:
             current_period_end=datetime.fromtimestamp(_period_of(sub, "end"), tz=UTC),
         )
 
+    @_keyed
     async def cancel_subscription(  # pragma: no cover
         self, account_id: str, *, subscription_id: str
     ) -> None:
         await stripe.Subscription.cancel_async(subscription_id, stripe_account=account_id)
 
+    @_keyed
     async def create_payment_intent(  # pragma: no cover
         self,
         account_id: str,
@@ -372,6 +395,7 @@ class StripeGateway:
             raise CardDeclined("the card was declined") from exc
         return PaymentIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
 
+    @_keyed
     async def refund(  # pragma: no cover
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult:
@@ -383,11 +407,13 @@ class StripeGateway:
         )
         return RefundResult(id=str(refund.id), status=str(refund.status))
 
+    @_keyed
     async def detach_payment_method(  # pragma: no cover
         self, account_id: str, *, payment_method_id: str
     ) -> None:
         await stripe.PaymentMethod.detach_async(payment_method_id, stripe_account=account_id)
 
+    @_keyed
     async def get_payment_fees(  # pragma: no cover
         self, account_id: str, *, payment_intent_id: str
     ) -> ChargeFees:
@@ -413,6 +439,7 @@ class StripeGateway:
             available_at=datetime.fromtimestamp(int(txn.available_on), tz=UTC),
         )
 
+    @_keyed
     async def get_invoice_payment_intent(  # pragma: no cover
         self, account_id: str, *, invoice_id: str
     ) -> str | None:
@@ -425,6 +452,7 @@ class StripeGateway:
                 return intent if isinstance(intent, str) else str(intent.id)
         return None
 
+    @_keyed
     async def get_balance_cents(  # pragma: no cover
         self, account_id: str, *, currency: str
     ) -> int:
@@ -432,10 +460,12 @@ class StripeGateway:
         funds = [*balance["available"], *balance["pending"]]
         return sum(int(f["amount"]) for f in funds if str(f["currency"]) == currency.lower())
 
+    @_keyed
     async def create_connection_token(self, account_id: str) -> str:  # pragma: no cover
         token = await stripe.terminal.ConnectionToken.create_async(stripe_account=account_id)
         return str(token.secret)
 
+    @_keyed
     async def create_terminal_location(  # pragma: no cover
         self, account_id: str, *, display_name: str, country: str, state: str | None
     ) -> str:
@@ -453,6 +483,7 @@ class StripeGateway:
         )
         return str(location.id)
 
+    @_keyed
     async def create_terminal_payment_intent(  # pragma: no cover
         self,
         account_id: str,

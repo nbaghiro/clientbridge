@@ -2871,6 +2871,7 @@ export const strings = {
     },
     payments: {
         setupStartError: "Couldn't start payment setup. Please try again.",
+        notConfigured: "Card payments aren't set up on this server yet.",
         bankAccountNoun: "Bank account",
         cardNoun: "Card",
         interacNoun: "Interac e-Transfer",

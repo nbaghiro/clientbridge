@@ -5,6 +5,8 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.integrations.stripe import StripeGateway, get_payment_gateway
+from clientbridge.main import app
 from clientbridge.models.billing import Invoice
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
@@ -35,6 +37,24 @@ async def test_setup_intent_returns_client_secret(
         await db.execute(select(Client.stripe_customer_id).where(Client.id == cid))
     ).scalar_one()
     assert customer is not None and customer.startswith("cus_fake")
+
+
+async def test_setup_without_stripe_keys_is_a_clean_503_with_cors(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await enable_payments(db)
+    app.dependency_overrides[get_payment_gateway] = lambda: StripeGateway("", "", "CA")
+    cid = await client_id(db)
+    origin = {"Origin": "http://localhost:8700"}
+    for path in ("setup-intent", "pad-setup-intent"):
+        res = await as_owner.post(f"/v1/payments/{path}/{cid}", headers=origin)
+        assert res.status_code == 503, res.text
+        assert res.json()["error"] == "payments_not_configured"
+        assert res.headers["access-control-allow-origin"] == "http://localhost:8700"
+    customer = (
+        await db.execute(select(Client.stripe_customer_id).where(Client.id == cid))
+    ).scalar_one()
+    assert customer is None
 
 
 async def test_setup_requires_onboarding(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:

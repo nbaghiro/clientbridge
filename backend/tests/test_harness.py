@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.config import Settings
 from clientbridge.core.ids import new_id
 from clientbridge.integrations.postmark import Email
+from clientbridge.integrations.stripe import get_payment_gateway
 from clientbridge.main import app
 from clientbridge.models.clients import Client
 from tests.conftest import Factory, FakeEmailSender
@@ -93,3 +94,19 @@ def test_sync_token_dev() -> None:
     res = client.get("/sync/token")
     assert res.status_code == 200
     assert res.json()["token"]
+
+
+async def test_unhandled_error_still_carries_cors_headers(as_owner: httpx.AsyncClient) -> None:
+    def broken() -> None:
+        raise RuntimeError("boom")
+
+    app.dependency_overrides[get_payment_gateway] = broken
+    transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get(
+            "/v1/connect/status",
+            headers={**as_owner.headers, "Origin": "http://localhost:8700"},
+        )
+    assert res.status_code == 500
+    assert res.json()["error"] == "internal_error"
+    assert res.headers["access-control-allow-origin"] == "http://localhost:8700"

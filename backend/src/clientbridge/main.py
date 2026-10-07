@@ -17,7 +17,7 @@ from clientbridge.api.public import (
 from clientbridge.api.router import api_router
 from clientbridge.api.webhooks import router as webhooks_router
 from clientbridge.core.config import get_settings
-from clientbridge.core.errors import AppError, app_error_handler
+from clientbridge.core.errors import AppError, UnhandledErrors, app_error_handler
 from clientbridge.sync import router as sync_router
 
 
@@ -25,6 +25,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Clientbridge API", version="0.1.0")
     app.add_exception_handler(AppError, app_error_handler)
+    app.add_middleware(UnhandledErrors)  # added first, so it runs inside CORS
 
     # Dev allows any localhost origin; prod allows the configured ones, including Connect.
     extra_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]

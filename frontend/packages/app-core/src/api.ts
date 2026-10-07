@@ -12,6 +12,12 @@ export interface ApiLike {
     delete<T>(path: string): Promise<T>;
 }
 
+// The api client throws "POST /auth/login → 429"; the status decides which message to show.
+export function failedStatus(e: unknown): number | null {
+    const m = e instanceof Error ? /→ (\d{3})$/.exec(e.message) : null;
+    return m?.[1] === undefined ? null : Number(m[1]);
+}
+
 /** One key per write attempt, reused across its retries so the server dedups instead of double-charging. */
 export function newIdempotencyKey(): string {
     return crypto.randomUUID();

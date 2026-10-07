@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import { type ApiLike, newIdempotencyKey } from "../api";
+import { type ApiLike, failedStatus, newIdempotencyKey } from "../api";
 
 /** The payment-method choice that means "enter a new card" rather than charge a saved one. */
 export const NEW_CARD = "";
@@ -29,6 +29,11 @@ export interface Checkout {
     pay: (charge: (input: CheckoutCharge) => Promise<object>, errorMessage: string) => void;
     complete: () => void;
     cancel: () => void;
+}
+
+/** A server without Stripe keys answers 503; say so instead of asking the user to retry. */
+export function paymentErrorMessage(e: unknown, fallback: string): string {
+    return failedStatus(e) === 503 ? strings.payments.notConfigured : fallback;
 }
 
 /** One idempotency key per attempt, kept across retries so a double-submit can't double-charge. */
@@ -62,22 +67,25 @@ export function useCheckout(
         }
         keyRef.current ??= newIdempotencyKey();
         const idempotencyKey = keyRef.current;
-        run(
-            async () => {
-                const result = await charge(
+        run(async () => {
+            let result: object;
+            try {
+                result = await charge(
                     method === NEW_CARD
                         ? { idempotencyKey }
                         : { paymentMethodId: method, idempotencyKey },
                 );
-                const secret = "client_secret" in result ? result.client_secret : null;
-                if (method === NEW_CARD && typeof secret === "string") {
-                    setClientSecret(secret);
-                } else {
-                    finish();
-                }
-            },
-            { errorMessage },
-        );
+            } catch (e) {
+                setError(paymentErrorMessage(e, errorMessage));
+                return;
+            }
+            const secret = "client_secret" in result ? result.client_secret : null;
+            if (method === NEW_CARD && typeof secret === "string") {
+                setClientSecret(secret);
+            } else {
+                finish();
+            }
+        });
     };
 
     return {
@@ -161,16 +169,17 @@ export function useAddPaymentMethod(
             attemptRef.current = { kind: next, key: newIdempotencyKey() };
         }
         const { key } = attemptRef.current;
-        run(
-            async () => {
+        run(async () => {
+            try {
                 setIntent(
                     next === "card"
                         ? await startCardSetup(api, clientId, key)
                         : await startPadSetup(api, clientId, key),
                 );
-            },
-            { errorMessage: strings.payments.setupStartError },
-        );
+            } catch (e) {
+                setError(paymentErrorMessage(e, strings.payments.setupStartError));
+            }
+        });
     };
 
     return {

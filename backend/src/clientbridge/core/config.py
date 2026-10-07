@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     powersync_private_key_pem: str = ""  # prod RSA private key (PEM); empty → ephemeral (dev/test)
     google_client_id: str = ""
 
-    # Stripe Connect; empty keys in dev and test select the fake gateway.
+    # Stripe Connect; an empty secret key answers every Stripe call with payments_not_configured.
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_connect_country: str = "CA"

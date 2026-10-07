@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { ApiLike } from "../api";
+import { type ApiLike, failedStatus } from "../api";
 
 type AuthMode = "signin" | "signup" | "reset" | "sent";
 
@@ -17,12 +17,6 @@ export interface AuthTokens {
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_ATTEMPTS = 5;
 const RESEND_SECONDS = 30;
-
-// The api client throws "POST /auth/login → 429"; the status decides which message to show.
-function failedStatus(e: unknown): number | null {
-    const m = e instanceof Error ? /→ (\d{3})$/.exec(e.message) : null;
-    return m?.[1] === undefined ? null : Number(m[1]);
-}
 
 interface AuthFieldErrors {
     name?: string;
