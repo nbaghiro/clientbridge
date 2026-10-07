@@ -2908,7 +2908,7 @@ export interface components {
              * Input
              * @enum {string}
              */
-            input: "text" | "longtext" | "email" | "phone" | "number" | "date" | "select" | "multiselect" | "checkbox" | "file";
+            input: "text" | "longtext" | "number" | "currency" | "select" | "multiselect" | "checkbox" | "date" | "time" | "email" | "phone" | "address" | "file" | "image" | "signature" | "rating";
             /** Label */
             label: string;
             /** Help */

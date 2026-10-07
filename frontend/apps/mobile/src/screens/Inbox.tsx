@@ -48,6 +48,7 @@ import {
 import { api } from "../lib/api";
 import type { RootStackParamList } from "../navigation";
 import { useRole } from "../lib/auth";
+import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
 
 const c = theme.colors;
@@ -61,7 +62,7 @@ export function InboxScreen() {
             {segments.length > 1 ? (
                 <Tabs items={segments} active={segment} onSelect={setSegment} />
             ) : null}
-            {segment === "reviews" ? <Reviews /> : <Messages />}
+            {segment === "reviews" ? <Reviews /> : segment === "forms" ? <Forms /> : <Messages />}
         </View>
     );
 }

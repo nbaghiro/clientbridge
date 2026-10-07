@@ -81,10 +81,6 @@ export function createPublicFormClient(baseUrl: string): PublicFormClient {
     };
 }
 
-export function isFileField(input: string): boolean {
-    return input === "file" || input === "image" || input === "signature";
-}
-
 /** Mirrors the server's required-answer check. */
 function isAnswerMissing(value: FormAnswer | undefined): boolean {
     if (value === undefined) return true;
@@ -121,10 +117,16 @@ interface PublicFormFill {
     busy: boolean;
     error: string | null;
     setError: (message: string | null) => void;
+    retry: () => void;
 }
 
 export function usePublicFormFill(forms: PublicFormClient, token: string): PublicFormFill {
-    const { status: load, data: form, setData: setForm } = usePublicResource(forms.getForm, token);
+    const {
+        status: load,
+        data: form,
+        setData: setForm,
+        retry,
+    } = usePublicResource(forms.getForm, token);
     const [answers, setAnswers] = useState<Record<string, FormAnswer>>({});
     const { busy, error, setError, run } = useAsyncAction();
 
@@ -158,5 +160,41 @@ export function usePublicFormFill(forms: PublicFormClient, token: string): Publi
         );
     };
 
-    return { status, form, answers, setAnswer, uploadFor, submit, busy, error, setError };
+    return { status, form, answers, setAnswer, uploadFor, submit, busy, error, setError, retry };
+}
+
+const UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+const UPLOAD_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/heic"];
+
+/** Mirrors the server's upload limit so the client hears about it before the upload starts. */
+function uploadProblem(file: { size: number; type: string }): string | null {
+    if (!UPLOAD_TYPES.includes(file.type)) return strings.publicForm.uploadWrongType;
+    if (file.size > UPLOAD_MAX_BYTES) return strings.publicForm.uploadTooBig;
+    return null;
+}
+
+export function isAnswered(value: FormAnswer | undefined): boolean {
+    return !isAnswerMissing(value);
+}
+
+interface FormUploads {
+    fileNames: Record<string, string>;
+    upload: (fieldName: string, file: Blob, name: string) => void;
+}
+
+/** Checks the limit first and shows the problem instead of uploading. */
+export function useFormUploads(fill: PublicFormFill): FormUploads {
+    const [fileNames, setFileNames] = useState<Record<string, string>>({});
+    return {
+        fileNames,
+        upload: (fieldName, file, name) => {
+            const problem = uploadProblem(file);
+            if (problem !== null) {
+                fill.setError(problem);
+                return;
+            }
+            setFileNames((m) => ({ ...m, [fieldName]: name }));
+            fill.uploadFor(fieldName, file);
+        },
+    };
 }

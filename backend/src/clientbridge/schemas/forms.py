@@ -48,14 +48,20 @@ class PublicFormSubmit(BaseModel):
 EditorInput = Literal[
     "text",
     "longtext",
-    "email",
-    "phone",
     "number",
-    "date",
+    "currency",
     "select",
     "multiselect",
     "checkbox",
+    "date",
+    "time",
+    "email",
+    "phone",
+    "address",
     "file",
+    "image",
+    "signature",
+    "rating",
 ]
 
 

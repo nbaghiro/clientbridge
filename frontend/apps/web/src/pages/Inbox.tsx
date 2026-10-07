@@ -39,16 +39,19 @@ import {
 import { api } from "../lib/api";
 import { useLinkIntent } from "../lib/links";
 import { useRole } from "../lib/auth";
+import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
 
 type Panel = "none" | "new" | "broadcast";
 
 export function Inbox() {
     const segments = visibleInboxSegments(useRole());
-    const [params] = useSearchParams();
-    const [segment, setSegment] = useState<InboxSegmentKey>(
-        params.get("segment") === "reviews" ? "reviews" : "messages",
-    );
+    const [params, setParams] = useSearchParams();
+    const segment: InboxSegmentKey =
+        segments.find((x) => x.key === params.get("segment"))?.key ?? "messages";
+    const setSegment = (key: InboxSegmentKey): void => {
+        setParams(key === "messages" ? {} : { segment: key });
+    };
 
     return (
         <div className="flex h-full flex-col">
@@ -61,12 +64,12 @@ export function Inbox() {
                     )}
                 </PageHeader>
             </header>
-            {segment === "reviews" ? (
-                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-                    <Reviews />
-                </div>
-            ) : (
+            {segment === "messages" ? (
                 <Messages />
+            ) : (
+                <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+                    {segment === "reviews" ? <Reviews /> : <Forms />}
+                </div>
             )}
         </div>
     );

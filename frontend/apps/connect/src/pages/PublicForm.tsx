@@ -1,208 +1,107 @@
 import {
-    type FormAnswer,
-    type PublicBrand,
-    type PublicFormField,
     createPublicFormClient,
-    isFileField,
-    optionPair,
+    isAnswered,
     strings,
+    useFormUploads,
     usePublicFormFill,
 } from "@clientbridge/app-core/public";
-import type { SubmitEvent } from "react";
+import { Button, FormQuestion, Icon, Notice } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
-import { Button, Choice, Field, Notice, Select, Stars, TextField, Toggle } from "@clientbridge/ui";
 import { PublicFrame } from "../components/PublicFrame";
 import { PublicDone, PublicStatus } from "../components/PublicStatus";
-import { useEmbedSuccess } from "../embed";
 import { config } from "../config";
+import { useEmbedSuccess } from "../embed";
 
 const forms = createPublicFormClient(config.apiUrl);
+const s = strings.publicForm;
 
 export function PublicForm() {
     const { token = "" } = useParams<{ token: string }>();
     const fill = usePublicFormFill(forms, token);
+    const uploads = useFormUploads(fill);
     const form = fill.form;
-    const answers = fill.answers;
     useEmbedSuccess(fill.status === "done", "form");
 
     if (fill.status === "loading") return <PublicStatus kind="loading" />;
-
     if (fill.status === "not-found")
+        return <PublicStatus kind="notFound" title={s.notFoundTitle} body={s.notFoundBody} />;
+    if (fill.status === "error" || form === null)
         return (
             <PublicStatus
-                kind="notFound"
-                title={strings.publicForm.notFoundTitle}
-                body={strings.publicForm.notFoundBody}
+                kind="error"
+                title={s.errorTitle}
+                body={s.errorBody}
+                onRetry={fill.retry}
+            />
+        );
+    if (fill.status === "done")
+        return (
+            <PublicDone
+                brand={form.brand}
+                title={s.doneTitle}
+                body={s.allDone(form.business_name)}
             />
         );
 
-    if (fill.status === "error" || form === null) return <PublicStatus kind="error" />;
-
-    if (fill.status === "done")
-        return <DoneState businessName={form.business_name} brand={form.brand} />;
-
-    const submit = (e: SubmitEvent): void => {
-        e.preventDefault();
-        fill.submit();
-    };
+    const total = form.fields.length;
+    const answered = form.fields.filter((f) => isAnswered(fill.answers[f.name])).length;
+    const pct = Math.round((answered / Math.max(total, 1)) * 100);
 
     return (
         <PublicFrame size="xl" brand={form.brand}>
-            <p className="text-sm text-muted">{form.business_name}</p>
-            <h1 className="mt-1 font-display text-xl font-bold text-ink">{form.form_name}</h1>
-
-            <form onSubmit={submit} className="mt-6 space-y-5">
+            <h1 className="font-display text-2xl font-bold text-ink">{form.form_name}</h1>
+            <p className="mt-1.5 text-sm text-muted">{s.intro(form.business_name)}</p>
+            <div className="mt-5 flex items-center gap-3">
+                <div
+                    role="progressbar"
+                    aria-label={s.progress(answered, total)}
+                    aria-valuenow={pct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    className="h-1.5 flex-1 overflow-hidden rounded-full bg-bg"
+                >
+                    <div
+                        className="h-full rounded-full bg-accent transition-all"
+                        style={{ width: `${String(pct)}%` }}
+                    />
+                </div>
+                <span className="shrink-0 text-xs font-medium text-muted">
+                    {s.progress(answered, total)}
+                </span>
+            </div>
+            <div className="mt-7 space-y-6">
                 {form.fields.map((f) => (
-                    <FieldView
+                    <FormQuestion
                         key={f.id}
                         field={f}
-                        value={answers[f.name]}
+                        value={fill.answers[f.name]}
                         onChange={(v) => {
                             fill.setAnswer(f.name, v);
                         }}
-                        onUpload={(file) => {
-                            fill.uploadFor(f.name, file);
+                        onUpload={(file, name) => {
+                            uploads.upload(f.name, file, name);
                         }}
+                        fileName={uploads.fileNames[f.name] ?? null}
+                        chooseFileLabel={s.chooseFile}
+                        selectPlaceholder={s.selectPlaceholder}
                     />
                 ))}
-                {fill.error !== null ? <Notice tone="danger">{fill.error}</Notice> : null}
-                <Button submit size="lg" full busy={fill.busy}>
-                    {fill.busy ? strings.publicForm.submitting : strings.publicForm.submit}
-                </Button>
-            </form>
-        </PublicFrame>
-    );
-}
-
-function FieldView({
-    field: f,
-    value,
-    onChange,
-    onUpload,
-}: {
-    field: PublicFormField;
-    value: FormAnswer | undefined;
-    onChange: (v: FormAnswer) => void;
-    onUpload: (file: File) => void;
-}) {
-    const help = f.help ?? undefined;
-
-    if (isFileField(f.input)) {
-        const uploaded = typeof value === "string" && value.length > 0;
-        const accept = f.input === "image" || f.input === "signature" ? "image/*" : "*/*";
-        return (
-            <Field label={f.label} hint={help} required={f.required}>
-                <input
-                    type="file"
-                    accept={accept}
-                    aria-label={f.label}
-                    onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) onUpload(file);
-                    }}
-                    className="text-sm text-ink-soft file:mr-3 file:rounded-md file:border-0 file:bg-accent-weak file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-accent-strong"
-                />
-                {uploaded ? (
-                    <Notice tone="success">{strings.publicForm.fileAttached}</Notice>
+                {fill.error !== null ? (
+                    <Notice tone="danger" banner>
+                        {fill.error}
+                    </Notice>
                 ) : null}
-            </Field>
-        );
-    }
-
-    if (f.input === "checkbox") {
-        return <Toggle label={f.label} hint={help} value={value === true} onChange={onChange} />;
-    }
-
-    if (f.input === "select") {
-        return (
-            <Select
-                label={f.label}
-                hint={help}
-                value={typeof value === "string" ? value : ""}
-                options={[
-                    { key: "", label: strings.publicForm.selectPlaceholder },
-                    ...f.options.map((opt) => {
-                        const { value: v, label: l } = optionPair(opt);
-                        return { key: v, label: l };
-                    }),
-                ]}
-                onChange={onChange}
-            />
-        );
-    }
-
-    if (f.input === "multiselect") {
-        const list = Array.isArray(value) ? value : [];
-        return (
-            <Field label={f.label} hint={help} required={f.required}>
-                <Choice
-                    label={f.label}
-                    options={f.options.map((opt) => {
-                        const { value: v, label: l } = optionPair(opt);
-                        return { key: v, label: l };
-                    })}
-                    value={list}
-                    onChange={(v) => {
-                        onChange(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
-                    }}
-                />
-            </Field>
-        );
-    }
-
-    if (f.input === "rating") {
-        const current = typeof value === "string" ? Number(value) : 0;
-        return (
-            <Field label={f.label} hint={help} required={f.required}>
-                <Stars
-                    value={current}
-                    size="lg"
-                    onSelect={(n) => {
-                        onChange(String(n));
-                    }}
-                />
-            </Field>
-        );
-    }
-
-    return (
-        <TextField
-            label={f.label}
-            hint={help}
-            required={f.required}
-            multiline={f.input === "longtext" || f.input === "address"}
-            type={
-                f.input === "date"
-                    ? "date"
-                    : f.input === "time"
-                      ? "time"
-                      : f.input === "email"
-                        ? "email"
-                        : f.input === "phone"
-                          ? "tel"
-                          : f.input === "number" || f.input === "currency"
-                            ? "number"
-                            : "text"
-            }
-            value={typeof value === "string" ? value : ""}
-            onChange={onChange}
-        />
-    );
-}
-
-function DoneState({
-    businessName,
-    brand = null,
-}: {
-    businessName: string;
-    brand?: PublicBrand | null;
-}) {
-    return (
-        <PublicDone
-            brand={brand}
-            title={strings.publicForm.doneTitle}
-            body={strings.publicForm.doneBody(businessName)}
-        />
+                <div className="space-y-3 border-t border-line pt-5">
+                    <Button size="lg" full busy={fill.busy} onPress={fill.submit}>
+                        {fill.busy ? s.submitting : s.sendAnswers}
+                    </Button>
+                    <p className="flex items-center justify-center gap-1.5 text-xs text-muted">
+                        <Icon name="lock" size={13} />
+                        {s.privacy(form.business_name)}
+                    </p>
+                </div>
+            </div>
+        </PublicFrame>
     );
 }
