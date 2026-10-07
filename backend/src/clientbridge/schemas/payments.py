@@ -129,8 +129,10 @@ class PublicDocLine(BaseModel):
     description: str
     quantity: float
     unit_amount_cents: int
-    amount_cents: int
+    amount_cents: int = Field(description="After the line's own discount")
     tax_codes: list[str]
+    discount_cents: int = Field(default=0, description="The line's own discount")
+    discount_reason: str | None = None
 
 
 class PublicDocTax(BaseModel):
@@ -173,11 +175,22 @@ class PublicInvoice(BaseModel):
     gst_hst_number: str | None = None
     qst_number: str | None = None
     lines: list[PublicDocLine] = Field(default_factory=list)
+    discount_cents: int = Field(default=0, description="The discount off the whole invoice")
+    discount_reason: str | None = None
     taxes: list[PublicDocTax] = Field(default_factory=list)
     credits: list[PublicCredit] = Field(default_factory=list)
     interac: PublicInterac | None = Field(
         default=None, description="The e-Transfer request still waiting, if any"
     )
+
+
+class TipShareIn(BaseModel):
+    staff_id: str
+    cents: int = Field(gt=0)
+
+
+class PublicPayIn(BaseModel):
+    tip_cents: int = Field(default=0, ge=0, description="A tip for the staff, outside tax")
 
 
 class PublicCardIntent(BaseModel):

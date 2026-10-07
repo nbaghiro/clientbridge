@@ -17,7 +17,7 @@ from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
-from clientbridge.services.lines import fetch_lines
+from clientbridge.services.lines import allocate, fetch_lines
 from clientbridge.services.tax import TaxResult, tax_for_amount, tax_for_lines
 
 type AccountKey = tuple[str, str, str, str]
@@ -392,14 +392,35 @@ def invoice_paid_at_expr() -> ColumnElement[datetime | None]:
     return case((invoice_status_expr() == "paid", settled), else_=None)
 
 
+def _deposit_applied_expr(order_id: _Id) -> ColumnElement[int]:
+    """Visit deposits a sale's payment applied (their legs belong to the booking, not the sale)."""
+    return (
+        select(func.coalesce(func.sum(Entry.amount_cents), 0))
+        .join(Account, Account.id == Entry.account_id)
+        .join(Payment, Payment.id == Entry.source_id)
+        .where(
+            Entry.source_type == "payment",
+            Entry.event == "payment",
+            Account.category == "deposit",
+            Payment.order_id == order_id,
+        )
+        .scalar_subquery()
+    )
+
+
+async def order_deposit_applied(db: AsyncSession, order: Order) -> int:
+    return int((await db.execute(select(_deposit_applied_expr(order.id)))).scalar_one())
+
+
 def order_status_expr() -> ColumnElement[str]:
     """An order stores only open/void; whether it is paid or refunded comes from the ledger."""
     paid = _collected_expr("order", Order.id)
+    covered = paid + _deposit_applied_expr(Order.id)
     refunded = _refunded_expr("order", Order.id)
     return case(
         (Order.status == "void", "void"),
         (and_(paid <= 0, refunded), "refunded"),
-        (and_(paid > 0, or_(paid >= Order.total_cents, refunded)), "paid"),
+        (and_(covered > 0, or_(covered >= Order.total_cents, refunded)), "paid"),
         else_="open",
     )
 
@@ -475,17 +496,19 @@ async def post_payment(
         occurred_at=payment.paid_at,
         available_at=available_at,
     )
+    await post_tips(db, payment, tip_shares(payment), ref=f"tip:{payment.id}")
 
 
 async def _settlement(db: AsyncSession, payment: Payment) -> tuple[tuple[str, str], list[Leg]]:
     """What a settled payment pays for — the credit side of its journal."""
     biz, amount = payment.business_id, payment.amount_cents
+    tip = _tip_contra(payment)
     if payment.invoice_id is not None:
         payer = _payer(biz, payment.client_id)
-        return ("invoice", payment.invoice_id), [Leg(*payer, "receivable", -amount)]
+        net = amount - payment.tip_cents
+        return ("invoice", payment.invoice_id), [Leg(*payer, "receivable", -net), *tip]
     if payment.order_id is not None:
-        tax = await tax_for_lines(db, biz, await fetch_lines(db, biz, "order", payment.order_id))
-        return ("order", payment.order_id), _sale_legs(biz, amount, tax)
+        return ("order", payment.order_id), [*await _order_sale(db, payment), *tip]
     if payment.booking_id is not None:
         return ("booking", payment.booking_id), [Leg("business", biz, "deposit", -amount)]
     package = (
@@ -504,6 +527,93 @@ async def _settlement(db: AsyncSession, payment: Payment) -> tuple[tuple[str, st
     if card is not None:
         return ("gift_card", card.id), [Leg("gift_card", card.id, "gift_card", -amount)]
     return ("payment", payment.id), [Leg("business", biz, "revenue", -amount)]
+
+
+def _tip_contra(payment: Payment) -> list[Leg]:
+    """A tip is not the business's money: it passes through to the staff tip journals."""
+    if payment.tip_cents <= 0:
+        return []
+    return [Leg("business", payment.business_id, "staff_cost", -payment.tip_cents)]
+
+
+async def _order_sale(db: AsyncSession, payment: Payment) -> list[Leg]:
+    """A sale's revenue and tax, with any held visit deposit applied to it as part payment."""
+    biz = payment.business_id
+    assert payment.order_id is not None
+    lines = await fetch_lines(db, biz, "order", payment.order_id)
+    tax = await tax_for_lines(db, biz, lines)
+    order = await db.get(Order, payment.order_id)
+    paid = payment.amount_cents - payment.tip_cents
+    want = (order.total_cents if order is not None else paid) - paid
+    applied: list[Leg] = []
+    for booking_id in dict.fromkeys(ln.booking_id for ln in lines if ln.booking_id):
+        booking = await db.get(Booking, booking_id)
+        take = min(want, await deposit_held(db, booking)) if booking is not None else 0
+        if take > 0:
+            applied.append(Leg("business", biz, "deposit", take, subject=("booking", booking_id)))
+            want -= take
+    return [*applied, *_sale_legs(biz, paid + sum(leg.amount_cents for leg in applied), tax)]
+
+
+async def post_tips(
+    db: AsyncSession,
+    payment: Payment,
+    shares: list[tuple[str, int]],
+    *,
+    ref: str,
+    sign: int = 1,
+    occurred_at: datetime | None = None,
+    source_id: str | None = None,
+) -> None:
+    """One tip journal per staff member, owed to them like an earning (a negative one on refund)."""
+    subject, _ = await _settlement(db, payment)
+    for staff_id, cents in shares:
+        if cents <= 0:
+            continue
+        await post(
+            db,
+            payment.business_id,
+            event="tip",
+            ref=f"{ref}:{staff_id}",
+            legs=[
+                Leg("business", payment.business_id, "staff_cost", sign * cents),
+                Leg("staff", staff_id, "payable", -sign * cents, "pending"),
+            ],
+            currency=payment.currency,
+            source=("payment", source_id or payment.id),
+            subject=subject,
+            occurred_at=occurred_at or payment.paid_at,
+            meta={"basis": "tip"},
+        )
+
+
+def tip_shares(payment: Payment) -> list[tuple[str, int]]:
+    return [(str(s["staff_id"]), int(str(s["cents"]))) for s in payment.tip_split or []]
+
+
+async def tip_returned(db: AsyncSession, original: Payment, returned: int, refund_id: str) -> int:
+    """The tip's pro rata part of a refund; the last refund returns exactly what is left of it."""
+    if original.tip_cents <= 0:
+        return 0
+    earlier = (
+        scoped(Payment, original.business_id)
+        .with_only_columns(Payment.id)
+        .where(
+            Payment.kind == "refund",
+            Payment.parent_payment_id == original.id,
+            Payment.status == "succeeded",
+            Payment.id != refund_id,
+        )
+    )
+    rows = await _rows(
+        db,
+        original.business_id,
+        (Entry.event == "refund") & Entry.source_id.in_(earlier.scalar_subquery()),
+    )
+    prior_cash = -sum(e.amount_cents for e, a in rows if a.category in _CASH.values())
+    prior_tip = sum(e.amount_cents for e, a in rows if a.category == "staff_cost")
+    done = min(original.amount_cents, prior_cash + returned)
+    return original.tip_cents * done // original.amount_cents - prior_tip
 
 
 async def post_fees(db: AsyncSession, payment: Payment, fees: ChargeFees) -> None:
@@ -578,12 +688,14 @@ async def refund_legs(
     credits = [
         (entry, account)
         for entry, account in await _rows(db, biz, Entry.ref == basis)
-        if account.category in _UNWOUND
+        if account.category in _UNWOUND and entry.amount_cents < 0
     ]
+    tip = await tip_returned(db, original, returned, refund_id)
+    tip_legs = [Leg("business", biz, "staff_cost", tip)] if tip else []
     base = -sum(entry.amount_cents for entry, _ in credits)
     if base <= 0:
-        return [Leg("business", biz, "revenue", returned)]
-    return await _unwind(db, original, refund_id, credits, base, returned)
+        return [Leg("business", biz, "revenue", returned - tip), *tip_legs]
+    return [*await _unwind(db, original, refund_id, credits, base, returned - tip), *tip_legs]
 
 
 async def payment_fee(db: AsyncSession, payment: Payment) -> int:
@@ -609,6 +721,7 @@ async def post_refund(
     returned = refund.amount_cents if amount is None else amount
     legs = await refund_legs(db, original, returned, refund_id=refund.id)
     subject, _ = await _settlement(db, original)
+    tip = sum(leg.amount_cents for leg in legs if leg.category == "staff_cost")
     await post(
         db,
         biz,
@@ -620,6 +733,18 @@ async def post_refund(
         subject=subject,
         occurred_at=refund.paid_at,
     )
+    if tip > 0:
+        split = tip_shares(original)
+        back = allocate(tip, [cents for _, cents in split])
+        await post_tips(
+            db,
+            original,
+            [(staff_id, cents) for (staff_id, _), cents in zip(split, back, strict=True)],
+            ref=f"tip:{refund.id}",
+            sign=-1,
+            occurred_at=refund.paid_at,
+            source_id=refund.id,
+        )
 
 
 async def post_dispute(

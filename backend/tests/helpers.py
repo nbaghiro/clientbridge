@@ -26,7 +26,7 @@ from clientbridge.services.bookings import _booking_out
 from clientbridge.services.earnings import load_earning
 from clientbridge.services.lines import fetch_lines
 from clientbridge.services.messaging import unread_count
-from clientbridge.services.orders import _out as _order_out
+from clientbridge.services.orders import order_out as _order_out
 from tests.conftest import BIZ, book_invoice
 
 SLUG = "birchbark"

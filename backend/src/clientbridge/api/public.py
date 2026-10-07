@@ -21,7 +21,13 @@ from clientbridge.schemas.billing import (
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
-from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
+from clientbridge.schemas.orders import PublicReceipt
+from clientbridge.schemas.payments import (
+    InteracRequest,
+    PublicCardIntent,
+    PublicInvoice,
+    PublicPayIn,
+)
 from clientbridge.schemas.public import (
     PublicBookingCreate,
     PublicBookingPage,
@@ -40,6 +46,7 @@ from clientbridge.services.public import (
     PublicEstimateService,
     PublicFormService,
     PublicPayService,
+    PublicReceiptService,
     PublicReviewService,
     PublicShopService,
 )
@@ -62,9 +69,13 @@ async def public_invoice(
 
 @pay_router.post("/{token}/card", response_model=PublicCardIntent)
 async def public_pay_card(
-    token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
+    token: str,
+    db: DbSession,
+    gateway: GatewayDep,
+    _: RateLimited,
+    data: PublicPayIn | None = None,
 ) -> PublicCardIntent:
-    return await PublicPayService(db, gateway).pay_card(token)
+    return await PublicPayService(db, gateway).pay_card(token, data)
 
 
 @pay_router.post("/{token}/interac", response_model=InteracRequest)
@@ -72,6 +83,14 @@ async def public_pay_interac(
     token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
 ) -> InteracRequest:
     return await PublicPayService(db, gateway).pay_interac(token)
+
+
+receipt_router = APIRouter(prefix="/receipt", tags=["public-receipt"])
+
+
+@receipt_router.get("/{token}", response_model=PublicReceipt)
+async def public_receipt(token: str, db: DbSession, _: RateLimited) -> PublicReceipt:
+    return await PublicReceiptService(db).receipt(token)
 
 
 estimate_router = APIRouter(prefix="/estimate", tags=["public-estimate"])

@@ -216,6 +216,7 @@ async def test_approve_then_pay_moves_payable_to_bank(
         "order_id": None,
         "amount_cents": 6000,
         "status": "approved",
+        "kind": "earning",
     }
     assert await _payable(db, staff.id, "pending") == 0
     assert await _payable(db, staff.id, "approved") == -6000

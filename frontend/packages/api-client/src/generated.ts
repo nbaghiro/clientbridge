@@ -384,6 +384,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/receipt/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Receipt */
+        get: operations["public_receipt_receipt__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/review/{token}": {
         parameters: {
             query?: never;
@@ -1276,6 +1293,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/held": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Held Orders */
+        get: operations["held_orders_v1_orders_held_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders": {
         parameters: {
             query?: never;
@@ -1321,6 +1355,57 @@ export interface paths {
         put?: never;
         /** Checkout Order */
         post: operations["checkout_order_v1_orders__order_id__checkout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{order_id}/cash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay Order Cash */
+        post: operations["pay_order_cash_v1_orders__order_id__cash_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{order_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Order Receipt */
+        post: operations["send_order_receipt_v1_orders__order_id__receipt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/approval-pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Approval Pin */
+        post: operations["set_approval_pin_v1_orders_approval_pin_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2319,6 +2404,21 @@ export interface components {
              */
             platform: "ios" | "android" | "web";
         };
+        /** DiscountIn */
+        DiscountIn: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "percent" | "amount";
+            /**
+             * Value
+             * @description A whole percent (10) or an amount in cents (500)
+             */
+            value: number;
+            /** Reason */
+            reason?: string | null;
+        };
         /** EarningOut */
         EarningOut: {
             /** Id */
@@ -2333,9 +2433,16 @@ export interface components {
             amount_cents: number;
             /** Status */
             status: string;
+            /**
+             * Kind
+             * @default earning
+             */
+            kind: string;
         };
         /** EstimateCreate */
         EstimateCreate: {
+            /** @description Off the whole document */
+            discount?: components["schemas"]["DiscountIn"] | null;
             /** Client Id */
             client_id: string;
             /** Lines */
@@ -2388,11 +2495,19 @@ export interface components {
             decline_reason?: string | null;
             /** View Token */
             view_token?: string | null;
+            discount?: components["schemas"]["DiscountIn"] | null;
+            /**
+             * Discount Cents
+             * @default 0
+             */
+            discount_cents: number;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
         /** EstimateUpdate */
         EstimateUpdate: {
+            /** @description Off the whole document */
+            discount?: components["schemas"]["DiscountIn"] | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][] | null;
             /** Notes */
@@ -2652,6 +2767,8 @@ export interface components {
         };
         /** InvoiceCreate */
         InvoiceCreate: {
+            /** @description Off the whole document */
+            discount?: components["schemas"]["DiscountIn"] | null;
             /** Client Id */
             client_id: string;
             /** Lines */
@@ -2703,6 +2820,12 @@ export interface components {
             notes: string | null;
             /** Pay Token */
             pay_token: string | null;
+            discount?: components["schemas"]["DiscountIn"] | null;
+            /**
+             * Discount Cents
+             * @default 0
+             */
+            discount_cents: number;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
@@ -2761,6 +2884,8 @@ export interface components {
         };
         /** InvoiceUpdate */
         InvoiceUpdate: {
+            /** @description Off the whole document */
+            discount?: components["schemas"]["DiscountIn"] | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][] | null;
             /** Notes */
@@ -3097,6 +3222,12 @@ export interface components {
              * @default false
              */
             optional: boolean;
+            /**
+             * Staff Id
+             * @description Who did the work (tips, commission)
+             */
+            staff_id?: string | null;
+            discount?: components["schemas"]["DiscountIn"] | null;
         };
         /** LineOut */
         LineOut: {
@@ -3130,6 +3261,21 @@ export interface components {
              * @default false
              */
             selected: boolean;
+            /** Staff Id */
+            staff_id?: string | null;
+            discount?: components["schemas"]["DiscountIn"] | null;
+            /**
+             * Discount Cents
+             * @description The line's own discount
+             * @default 0
+             */
+            discount_cents: number;
+            /**
+             * Sale Discount Cents
+             * @description Its share of the document discount
+             * @default 0
+             */
+            sale_discount_cents: number;
         };
         /** LoginBody */
         LoginBody: {
@@ -3196,6 +3342,50 @@ export interface components {
             /** Charges Enabled */
             charges_enabled: boolean;
         };
+        /** OrderCashIn */
+        OrderCashIn: {
+            /**
+             * Tip Cents
+             * @description Outside tax, owed to the staff
+             * @default 0
+             */
+            tip_cents: number;
+            /**
+             * Tip Split
+             * @description Who gets the tip; by line value to each line's staff if omitted
+             */
+            tip_split?: components["schemas"]["TipShareIn"][] | null;
+            /**
+             * Tendered Cents
+             * @description Cash handed over
+             */
+            tendered_cents: number;
+        };
+        /** OrderCashOut */
+        OrderCashOut: {
+            /** Payment Id */
+            payment_id: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Tip Cents */
+            tip_cents: number;
+            /** Change Cents */
+            change_cents: number;
+        };
+        /** OrderCheckoutIn */
+        OrderCheckoutIn: {
+            /**
+             * Tip Cents
+             * @description Outside tax, owed to the staff
+             * @default 0
+             */
+            tip_cents: number;
+            /**
+             * Tip Split
+             * @description Who gets the tip; by line value to each line's staff if omitted
+             */
+            tip_split?: components["schemas"]["TipShareIn"][] | null;
+        };
         /** OrderCreate */
         OrderCreate: {
             /**
@@ -3205,6 +3395,18 @@ export interface components {
             client_id?: string | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][];
+            /** @description Off the whole sale */
+            discount?: components["schemas"]["DiscountIn"] | null;
+            /**
+             * Approval Pin
+             * @description An owner's or admin's PIN for an over-limit discount
+             */
+            approval_pin?: string | null;
+            /**
+             * Note
+             * @description Why the sale is held
+             */
+            note?: string | null;
             /** Receipt Email */
             receipt_email?: string | null;
             /** Receipt Phone */
@@ -3253,11 +3455,53 @@ export interface components {
             ready_at?: string | null;
             /** Picked Up At */
             picked_up_at?: string | null;
+            /** Note */
+            note?: string | null;
+            discount?: components["schemas"]["DiscountIn"] | null;
+            /**
+             * Discount Cents
+             * @default 0
+             */
+            discount_cents: number;
+            /** Approved By */
+            approved_by?: string | null;
+            /**
+             * Deposit Cents
+             * @description Visit deposits applied or still to apply
+             * @default 0
+             */
+            deposit_cents: number;
+            /**
+             * Due Cents
+             * @description What is left to charge, before any tip
+             * @default 0
+             */
+            due_cents: number;
+            /**
+             * Tip Cents
+             * @default 0
+             */
+            tip_cents: number;
+            /** Receipt Channel */
+            receipt_channel?: string | null;
+            /** Receipt Sent At */
+            receipt_sent_at?: string | null;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
         /** OrderPayIn */
         OrderPayIn: {
+            /**
+             * Tip Cents
+             * @description Outside tax, owed to the staff
+             * @default 0
+             */
+            tip_cents: number;
+            /**
+             * Tip Split
+             * @description Who gets the tip; by line value to each line's staff if omitted
+             */
+            tip_split?: components["schemas"]["TipShareIn"][] | null;
             /**
              * Payment Method Id
              * @description A saved card of the order's client, or 'default'
@@ -3272,6 +3516,19 @@ export interface components {
              */
             status: "ready" | "picked_up";
         };
+        /** OrderReceiptIn */
+        OrderReceiptIn: {
+            /**
+             * Channel
+             * @enum {string}
+             */
+            channel: "email" | "sms";
+            /**
+             * To
+             * @description An email address or phone number
+             */
+            to: string;
+        };
         /** OrderUpdate */
         OrderUpdate: {
             /**
@@ -3281,6 +3538,12 @@ export interface components {
             client_id?: string | null;
             /** Lines */
             lines?: components["schemas"]["LineInput"][] | null;
+            /** @description Off the whole sale */
+            discount?: components["schemas"]["DiscountIn"] | null;
+            /** Approval Pin */
+            approval_pin?: string | null;
+            /** Note */
+            note?: string | null;
             /** Receipt Email */
             receipt_email?: string | null;
             /** Receipt Phone */
@@ -3373,6 +3636,11 @@ export interface components {
             preferred: boolean;
             /** Status */
             status: string;
+        };
+        /** PinIn */
+        PinIn: {
+            /** Pin */
+            pin: string;
         };
         /** PublicAddon */
         PublicAddon: {
@@ -3515,10 +3783,21 @@ export interface components {
             quantity: number;
             /** Unit Amount Cents */
             unit_amount_cents: number;
-            /** Amount Cents */
+            /**
+             * Amount Cents
+             * @description After the line's own discount
+             */
             amount_cents: number;
             /** Tax Codes */
             tax_codes: string[];
+            /**
+             * Discount Cents
+             * @description The line's own discount
+             * @default 0
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason?: string | null;
         };
         /** PublicDocTax */
         PublicDocTax: {
@@ -3590,10 +3869,21 @@ export interface components {
             quantity: number;
             /** Unit Amount Cents */
             unit_amount_cents: number;
-            /** Amount Cents */
+            /**
+             * Amount Cents
+             * @description After the line's own discount
+             */
             amount_cents: number;
             /** Tax Codes */
             tax_codes: string[];
+            /**
+             * Discount Cents
+             * @description The line's own discount
+             * @default 0
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason?: string | null;
             /** Id */
             id: string;
             /** Optional */
@@ -3717,12 +4007,97 @@ export interface components {
             qst_number?: string | null;
             /** Lines */
             lines?: components["schemas"]["PublicDocLine"][];
+            /**
+             * Discount Cents
+             * @description The discount off the whole invoice
+             * @default 0
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason?: string | null;
             /** Taxes */
             taxes?: components["schemas"]["PublicDocTax"][];
             /** Credits */
             credits?: components["schemas"]["PublicCredit"][];
             /** @description The e-Transfer request still waiting, if any */
             interac?: components["schemas"]["PublicInterac"] | null;
+        };
+        /** PublicPayIn */
+        PublicPayIn: {
+            /**
+             * Tip Cents
+             * @description A tip for the staff, outside tax
+             * @default 0
+             */
+            tip_cents: number;
+        };
+        /** PublicReceipt */
+        PublicReceipt: {
+            /** Number */
+            number: number | null;
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            /** Gst Hst Number */
+            gst_hst_number?: string | null;
+            /** Qst Number */
+            qst_number?: string | null;
+            /** Client Name */
+            client_name?: string | null;
+            /** Served By */
+            served_by?: string[];
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Lines */
+            lines: components["schemas"]["PublicDocLine"][];
+            /**
+             * Discount Cents
+             * @default 0
+             */
+            discount_cents: number;
+            /** Discount Reason */
+            discount_reason?: string | null;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Taxes */
+            taxes: components["schemas"]["PublicDocTax"][];
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /**
+             * Tip Cents
+             * @default 0
+             */
+            tip_cents: number;
+            /** Payments */
+            payments: components["schemas"]["PublicReceiptPayment"][];
+        };
+        /** PublicReceiptPayment */
+        PublicReceiptPayment: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "payment" | "deposit" | "refund";
+            /** Method */
+            method: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /**
+             * Tip Cents
+             * @default 0
+             */
+            tip_cents: number;
+            /** At */
+            at: string | null;
         };
         /** PublicReviewContext */
         PublicReviewContext: {
@@ -4320,6 +4695,13 @@ export interface components {
             unread_count: number;
             /** Status */
             status: string;
+        };
+        /** TipShareIn */
+        TipShareIn: {
+            /** Staff Id */
+            staff_id: string;
+            /** Cents */
+            cents: number;
         };
         /** TokenPair */
         TokenPair: {
@@ -4924,7 +5306,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PublicPayIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5065,6 +5451,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicEstimate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_receipt_receipt__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicReceipt"];
                 };
             };
             /** @description Validation Error */
@@ -7186,6 +7603,38 @@ export interface operations {
             };
         };
     };
+    held_orders_v1_orders_held_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_order_v1_orders_post: {
         parameters: {
             query?: never;
@@ -7274,7 +7723,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderCheckoutIn"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -7284,6 +7737,117 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CheckoutOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_order_cash_v1_orders__order_id__cash_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderCashIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderCashOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_order_receipt_v1_orders__order_id__receipt_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderReceiptIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_approval_pin_v1_orders_approval_pin_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

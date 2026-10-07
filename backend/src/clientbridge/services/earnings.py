@@ -26,6 +26,7 @@ class Earning:
     subject_id: str | None
     amount_cents: int
     status: str
+    kind: str = "earning"  # earning (work, commission) or tip
 
     @property
     def booking_id(self) -> str | None:
@@ -45,6 +46,7 @@ class Earning:
             order_id=self.subject_id if self.subject_type == "order" else None,
             amount_cents=self.amount_cents,
             status=self.status,
+            kind=self.kind,
         )
 
 
@@ -142,7 +144,9 @@ async def load_earning(db: AsyncSession, business_id: str, journal_id: str) -> E
         .add_columns(Account)
         .join(Account, Account.id == Entry.account_id)
         .where(
-            Entry.journal_id == journal_id, Entry.event == "earning", Account.category == "payable"
+            Entry.journal_id == journal_id,
+            Entry.event.in_(("earning", "tip")),
+            Account.category == "payable",
         )
     )
     row = rows.tuples().first()
@@ -157,6 +161,7 @@ async def load_earning(db: AsyncSession, business_id: str, journal_id: str) -> E
         subject_id=entry.subject_id,
         amount_cents=-entry.amount_cents,
         status=await _status(db, business_id, journal_id),
+        kind=entry.event,
     )
 
 

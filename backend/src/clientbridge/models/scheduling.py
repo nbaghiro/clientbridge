@@ -76,6 +76,9 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     deposit_status: Mapped[str] = mapped_column(String, default="none", nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # the desk sale carrying this visit, and when it was paid (staff replicas have no ledger)
+    order_id: Mapped[str | None] = mapped_column(ForeignKey("orders.id"))
+    charged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # reminder sent

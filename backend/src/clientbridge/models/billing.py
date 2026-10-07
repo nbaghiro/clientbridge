@@ -20,10 +20,26 @@ from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
 
-class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
+class Discounted:
+    """A percent (whole number) or amount (cents) taken off, with the reason given."""
+
+    discount_kind: Mapped[str | None] = mapped_column(String)
+    discount_value: Mapped[int | None] = mapped_column(BigInteger)
+    discount_reason: Mapped[str | None] = mapped_column(String)
+
+
+def discount_check(table: str) -> CheckConstraint:
+    return CheckConstraint(
+        "discount_kind IS NULL OR discount_kind IN ('percent', 'amount')",
+        name=f"ck_{table}_discount_kind",
+    )
+
+
+class Invoice(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     __tablename__ = "invoices"
     __table_args__ = (
         UniqueConstraint("business_id", "number", name="uq_invoices_business_number"),
+        discount_check("invoices"),
         # partial/paid/refunded/overdue are read from the ledger, never stored
         enum_check("invoices", "status", "draft", "sent", "void"),
         Index("ix_invoices_client", "business_id", "client_id"),
@@ -45,10 +61,11 @@ class Invoice(PKMixin, BusinessScoped, TimestampMixin, Base):
     pay_token: Mapped[str | None] = mapped_column(String, unique=True)  # public pay-link key
 
 
-class Estimate(PKMixin, BusinessScoped, TimestampMixin, Base):
+class Estimate(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     __tablename__ = "estimates"
     __table_args__ = (
         UniqueConstraint("business_id", "number", name="uq_estimates_business_number"),
+        discount_check("estimates"),
         enum_check("estimates", "status", "draft", "sent", "accepted", "declined"),
         Index("ix_estimates_status", "business_id", "status"),
     )
@@ -68,7 +85,7 @@ class Estimate(PKMixin, BusinessScoped, TimestampMixin, Base):
     view_token: Mapped[str | None] = mapped_column(String, unique=True)  # public accept-link key
 
 
-class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
+class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     """A lightweight in-person POS sale, paid immediately via Stripe Terminal."""
 
     __tablename__ = "orders"
@@ -81,6 +98,11 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
         ),
         Index("ix_orders_status", "business_id", "status"),
         UniqueConstraint("business_id", "number", name="uq_orders_business_number"),
+        discount_check("orders"),
+        CheckConstraint(
+            "receipt_channel IS NULL OR receipt_channel IN ('email', 'sms')",
+            name="ck_orders_receipt_channel",
+        ),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))  # null = walk-in
@@ -97,9 +119,14 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
     pickup_status: Mapped[str | None] = mapped_column(String)  # online orders collected in person
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     picked_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    note: Mapped[str | None] = mapped_column(String)  # why a sale was held
+    approved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))  # over-limit discount
+    receipt_token: Mapped[str | None] = mapped_column(String, unique=True)  # public receipt key
+    receipt_channel: Mapped[str | None] = mapped_column(String)
+    receipt_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
+class Line(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     __tablename__ = "lines"
     __table_args__ = (
         CheckConstraint(
@@ -109,6 +136,7 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
         Index("ix_lines_estimate", "estimate_id"),
         Index("ix_lines_invoice", "invoice_id"),
         Index("ix_lines_order", "order_id"),
+        discount_check("lines"),
     )
 
     estimate_id: Mapped[str | None] = mapped_column(ForeignKey("estimates.id"))
@@ -123,6 +151,18 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
     tax_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_class: Mapped[str] = mapped_column(String, default="standard", nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))  # who did the work
+    # amount_cents is net of both: the line's own discount and its share of the document's
+    discount_cents: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0", nullable=False
+    )
+    sale_discount_cents: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0", nullable=False
+    )
+    # an online shop line, readable by staff for the pickup queue
+    for_pickup: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
     # an estimate add-on the client may tick; it counts toward totals only once selected
     optional: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=false(), nullable=False

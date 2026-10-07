@@ -1,12 +1,24 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from clientbridge.schemas.payments import PublicDocLine, PublicDocTax
 from clientbridge.schemas.public import PublicBrand
 
 TaxClass = Literal["standard", "federal_only", "exempt"]
+
+
+class DiscountIn(BaseModel):
+    kind: Literal["percent", "amount"]
+    value: int = Field(gt=0, description="A whole percent (10) or an amount in cents (500)")
+    reason: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _percent_at_most_100(self) -> "DiscountIn":
+        if self.kind == "percent" and self.value > 100:
+            raise ValueError("a percent discount is at most 100")
+        return self
 
 
 class LineInput(BaseModel):
@@ -21,6 +33,8 @@ class LineInput(BaseModel):
     optional: bool = Field(
         default=False, description="Estimates only: an add-on the client may tick when accepting"
     )
+    staff_id: str | None = Field(default=None, description="Who did the work (tips, commission)")
+    discount: DiscountIn | None = None
 
 
 class LineOut(BaseModel):
@@ -36,9 +50,14 @@ class LineOut(BaseModel):
     position: int
     optional: bool = False
     selected: bool = False
+    staff_id: str | None = None
+    discount: DiscountIn | None = None
+    discount_cents: int = Field(default=0, description="The line's own discount")
+    sale_discount_cents: int = Field(default=0, description="Its share of the document discount")
 
 
 class InvoiceCreate(BaseModel):
+    discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     client_id: str
     lines: list[LineInput] = Field(default_factory=list)
     notes: str | None = None
@@ -47,6 +66,7 @@ class InvoiceCreate(BaseModel):
 
 
 class InvoiceUpdate(BaseModel):
+    discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     lines: list[LineInput] | None = None
     notes: str | None = None
     due_at: datetime | None = None
@@ -70,10 +90,13 @@ class InvoiceOut(BaseModel):
     voided_at: datetime | None
     notes: str | None
     pay_token: str | None
+    discount: DiscountIn | None = None
+    discount_cents: int = 0
     lines: list[LineOut]
 
 
 class EstimateCreate(BaseModel):
+    discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     client_id: str
     lines: list[LineInput] = Field(default_factory=list)
     notes: str | None = None
@@ -82,6 +105,7 @@ class EstimateCreate(BaseModel):
 
 
 class EstimateUpdate(BaseModel):
+    discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     lines: list[LineInput] | None = None
     notes: str | None = None
     valid_until: date | None = None
@@ -103,6 +127,8 @@ class EstimateOut(BaseModel):
     notes: str | None
     decline_reason: str | None = None
     view_token: str | None = None
+    discount: DiscountIn | None = None
+    discount_cents: int = 0
     lines: list[LineOut]
 
 

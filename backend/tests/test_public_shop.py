@@ -90,7 +90,7 @@ async def test_order_is_online_for_pickup_and_taxed(
     body = res.json()
     order = await db.get(Order, body["order_id"])
     assert order is not None
-    assert (order.source, order.pickup_status, order.status) == ("online", "unfulfilled", "open")
+    assert (order.source, order.pickup_status, order.status) == ("online", None, "open")
     assert order.subtotal_cents == 5800
     assert order.total_cents == body["total_cents"] > 5800  # BC tax on goods
     assert body["client_secret"]
@@ -162,6 +162,7 @@ async def test_paid_order_notifies_owner_and_client_with_pickup(
     await _settle(api, db, body["order_id"], "evt_shop_paid")
     order = await db.get(Order, body["order_id"], populate_existing=True)
     assert order is not None and (await ledger.order_state(db, order))[0] == "paid"
+    assert order.pickup_status == "unfulfilled"
     to = {e.to: e for e in email.sent}
     assert "Online order paid" in to["o@x.ca"].subject
     assert "Collect your order" in to["shopper@example.com"].body

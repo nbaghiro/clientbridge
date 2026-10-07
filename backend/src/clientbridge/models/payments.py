@@ -10,6 +10,7 @@ from sqlalchemy import (
     String,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
@@ -80,6 +81,11 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     dispute_status: Mapped[str | None] = mapped_column(String)
     dispute_reason: Mapped[str | None] = mapped_column(String)
     dispute_respond_by: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    tip_cents: Mapped[int] = mapped_column(
+        BigInteger, default=0, server_default="0", nullable=False
+    )
+    # [{staff_id, cents}] until the payment settles; the ledger's tip journals hold it after
+    tip_split: Mapped[list[dict[str, object]] | None] = mapped_column(JSONB)
 
 
 class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):

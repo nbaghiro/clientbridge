@@ -15,6 +15,7 @@ from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
+from clientbridge.models.payments import Payment
 from clientbridge.models.platform import File, IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
 from clientbridge.models.scheduling import Addon, Booking
@@ -28,12 +29,14 @@ from clientbridge.schemas.billing import (
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormField, PublicFormSubmit
+from clientbridge.schemas.orders import PublicReceipt, PublicReceiptPayment
 from clientbridge.schemas.payments import (
     InteracRequest,
     PublicCardIntent,
     PublicDocLine,
     PublicDocTax,
     PublicInvoice,
+    PublicPayIn,
 )
 from clientbridge.schemas.public import (
     HEX_COLOR,
@@ -65,6 +68,7 @@ from clientbridge.services.lines import (
     fetch_lines,
     included,
     included_totals,
+    price_lines,
     replace_lines,
 )
 from clientbridge.services.orders import next_order_number
@@ -76,6 +80,7 @@ from clientbridge.services.payments import (
     open_card_payment,
     open_interac_payment,
     open_order_card_payment,
+    resolve_tip,
     waiting_interac,
 )
 from clientbridge.services.tax import LineTax, rates_for_business, tax_breakdown, tax_for_lines
@@ -528,12 +533,14 @@ class PublicPayService:
             gst_hst_number=business.gst_hst_number,
             qst_number=business.qst_number,
             lines=[line for line, _ in doc_lines],
+            discount_cents=sum(ln.sale_discount_cents for ln in lines),
+            discount_reason=invoice.discount_reason,
             taxes=taxes,
             credits=await invoice_credits(self.db, invoice),
             interac=await waiting_interac(self.db, invoice, business),
         )
 
-    async def pay_card(self, token: str) -> PublicCardIntent:
+    async def pay_card(self, token: str, data: PublicPayIn | None = None) -> PublicCardIntent:
         invoice, business = await self._resolve(token)
         amount = await assert_payable(self.db, invoice)
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
@@ -541,6 +548,17 @@ class PublicPayService:
         client = await self.db.get(Client, invoice.client_id)
         if client is None:
             raise NotFound("client not found")
+        tip_cents = data.tip_cents if data is not None else 0
+        if tip_cents > amount:
+            raise Unprocessable("a tip can't be more than the amount owed")
+        tip = await resolve_tip(
+            self.db,
+            business.id,
+            tip_cents,
+            None,
+            await fetch_lines(self.db, business.id, "invoice", invoice.id),
+            await owner_staff_id(self.db, business.id),
+        )
         _, client_secret = await open_card_payment(
             self.db,
             self.gateway,
@@ -548,8 +566,10 @@ class PublicPayService:
             business_id=business.id,
             invoice=invoice,
             client=client,
-            amount=amount,
+            amount=amount + tip.cents,
             fee_bps=get_settings().platform_fee_bps,
+            idempotency_key=f"tip{tip.cents}" if tip.cents else None,
+            tip=tip,
         )
         await self.db.commit()
         return PublicCardIntent(
@@ -588,8 +608,10 @@ async def public_doc_lines(
                 description=line.description,
                 quantity=float(line.quantity),
                 unit_amount_cents=line.unit_amount_cents,
-                amount_cents=line.amount_cents,
+                amount_cents=line.amount_cents + line.sale_discount_cents,
                 tax_codes=sorted(line_tax.by_jurisdiction),
+                discount_cents=line.discount_cents,
+                discount_reason=line.discount_reason,
             ),
             line_tax,
         )
@@ -626,6 +648,7 @@ class PublicEstimateService:
             raise Unprocessable("only an optional add-on can be ticked")
         for line in lines:
             line.selected = line.optional and line.id in data.line_ids
+        price_lines(lines, estimate)
         result = await tax_for_lines(self.db, estimate.business_id, lines)
         apply_totals(estimate, included_totals(lines, result))
         estimate.status = "accepted"
@@ -681,6 +704,95 @@ class PublicEstimateService:
                 for line, (doc, line_tax) in zip(lines, doc_lines, strict=True)
             ],
             taxes=taxes,
+        )
+
+
+async def owner_staff_id(db: AsyncSession, business_id: str) -> str:
+    """The business owner's staff row: who a sale or tip falls to when nobody else is named."""
+    staff_id = (
+        await db.execute(
+            scoped(Staff, business_id)
+            .with_only_columns(Staff.id)
+            .where(Staff.role == "owner", Staff.status == "active")
+            .order_by(Staff.created_at)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if staff_id is None:
+        raise NotFound("business not found")
+    return staff_id
+
+
+class PublicReceiptService:
+    """A desk sale's receipt; the receipt token is the only credential."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def receipt(self, token: str) -> PublicReceipt:
+        msg = "receipt not found"
+        order = await resolve_by_token(self.db, Order, Order.receipt_token == token, msg)
+        business = await business_or_404(self.db, order.business_id, msg)
+        lines = await fetch_lines(self.db, order.business_id, "order", order.id)
+        doc_lines, taxes = await public_doc_lines(self.db, order.business_id, lines)
+        client = await self.db.get(Client, order.client_id) if order.client_id else None
+        staff_ids = list(dict.fromkeys(ln.staff_id for ln in lines if ln.staff_id))
+        names = (
+            await self.db.execute(
+                scoped(Staff, order.business_id)
+                .with_only_columns(Staff.id, Staff.name)
+                .where(Staff.id.in_(staff_ids))
+            )
+            if staff_ids
+            else None
+        )
+        by_id = dict(names.tuples().all()) if names is not None else {}
+        payments = (
+            await self.db.execute(
+                scoped(Payment, order.business_id)
+                .where(Payment.order_id == order.id, Payment.status == "succeeded")
+                .order_by(Payment.paid_at)
+            )
+        ).scalars()
+        status, _ = await ledger.order_state(self.db, order)
+        rows = [
+            PublicReceiptPayment(
+                kind="refund" if p.kind == "refund" else "payment",
+                method=p.method,
+                amount_cents=p.amount_cents,
+                tip_cents=p.tip_cents,
+                at=p.paid_at,
+            )
+            for p in payments
+        ]
+        applied = await ledger.order_deposit_applied(self.db, order)
+        if applied > 0:
+            rows.insert(
+                0,
+                PublicReceiptPayment(
+                    kind="deposit", method="deposit", amount_cents=applied, at=None
+                ),
+            )
+        return PublicReceipt(
+            number=order.number,
+            business_name=business.name,
+            brand=public_brand(business),
+            gst_hst_number=business.gst_hst_number,
+            qst_number=business.qst_number,
+            client_name=client.name if client is not None else None,
+            served_by=[n for sid in staff_ids if (n := by_id.get(sid))],
+            status=status,
+            currency=order.currency,
+            created_at=order.created_at,
+            lines=[line for line, _ in doc_lines],
+            discount_cents=sum(ln.sale_discount_cents for ln in lines),
+            discount_reason=order.discount_reason,
+            subtotal_cents=order.subtotal_cents,
+            taxes=taxes,
+            tax_total_cents=order.tax_total_cents,
+            total_cents=order.total_cents,
+            tip_cents=sum(r.tip_cents for r in rows if r.kind == "payment"),
+            payments=rows,
         )
 
 
@@ -845,7 +957,6 @@ class PublicShopService:
             status="open",
             currency=wanted[0][0].currency,
             source="online",
-            pickup_status="unfulfilled",
         )
         self.db.add(order)
         await self.db.flush()
@@ -864,6 +975,8 @@ class PublicShopService:
                 for item, qty in wanted
             ],
         )
+        for line in lines:
+            line.for_pickup = True
         apply_totals(order, await tax_for_lines(self.db, business.id, lines))
         await self.db.flush()
         _, client_secret = await open_order_card_payment(
@@ -897,18 +1010,7 @@ class PublicShopService:
         return result
 
     async def _owner_staff(self, business_id: str) -> str:
-        staff_id = (
-            await self.db.execute(
-                scoped(Staff, business_id)
-                .with_only_columns(Staff.id)
-                .where(Staff.role == "owner", Staff.status == "active")
-                .order_by(Staff.created_at)
-                .limit(1)
-            )
-        ).scalar_one_or_none()
-        if staff_id is None:
-            raise NotFound("shop not found")
-        return staff_id
+        return await owner_staff_id(self.db, business_id)
 
     async def _business(self, slug: str) -> Business:
         business = (

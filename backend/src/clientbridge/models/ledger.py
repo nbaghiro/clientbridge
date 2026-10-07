@@ -43,6 +43,7 @@ ENTRY_EVENTS = (
     "staff_payment",
     "adjustment",
     "reversal",
+    "tip",
 )
 
 

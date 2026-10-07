@@ -48,6 +48,10 @@ class Business(PKMixin, TimestampMixin, Base):
         JSONB, default=dict, nullable=False
     )
     status: Mapped[str] = mapped_column(String, default="active", nullable=False)
+    # the most staff may take off a sale without an owner's or admin's PIN
+    staff_discount_limit_bps: Mapped[int] = mapped_column(
+        Integer, default=1500, server_default="1500", nullable=False
+    )
 
 
 class User(PKMixin, TimestampMixin, Base):
@@ -55,6 +59,7 @@ class User(PKMixin, TimestampMixin, Base):
 
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String)
+    pin_hash: Mapped[str | None] = mapped_column(String)  # approves a staff discount at the desk
     oauth: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     name: Mapped[str | None] = mapped_column(String)
     phone: Mapped[str | None] = mapped_column(String)

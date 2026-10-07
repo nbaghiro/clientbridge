@@ -21,7 +21,7 @@ from clientbridge.integrations.stripe import (
     period_timestamp,
 )
 from clientbridge.models.billing import Invoice, Line, Order
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
@@ -43,6 +43,7 @@ from clientbridge.schemas.payments import (
     RefundPart,
     RefundPreview,
     SetupIntentOut,
+    TipShareIn,
 )
 from clientbridge.services import ledger
 from clientbridge.services.business import apply_account_status, kyc_status
@@ -53,7 +54,7 @@ from clientbridge.services.earnings import (
     reverse_order_earning,
 )
 from clientbridge.services.inventory import sync_parent_stock
-from clientbridge.services.lines import apply_totals
+from clientbridge.services.lines import allocate, apply_totals
 from clientbridge.services.tax import tax_for_amount, tax_for_lines
 
 _INTERAC_DAYS = 14
@@ -758,12 +759,63 @@ async def assert_payable(db: AsyncSession, invoice: Invoice) -> int:
     return balance
 
 
+@dataclass(frozen=True)
+class TipTerms:
+    cents: int = 0
+    split: tuple[tuple[str, int], ...] = ()
+
+    def stored(self) -> list[dict[str, object]] | None:
+        if self.cents <= 0:
+            return None
+        return [{"staff_id": staff_id, "cents": cents} for staff_id, cents in self.split]
+
+
+NO_TIP = TipTerms()
+
+
+async def resolve_tip(
+    db: AsyncSession,
+    business_id: str,
+    cents: int,
+    split: list[TipShareIn] | None,
+    lines: list[Line],
+    fallback_staff_id: str,
+) -> TipTerms:
+    """Who a tip goes to: as given, else by line value to whoever did each line."""
+    if cents <= 0:
+        if split:
+            raise Unprocessable("a tip split needs a tip")
+        return NO_TIP
+    if split:
+        if sum(share.cents for share in split) != cents:
+            raise Unprocessable("the tip split must add up to the tip")
+        ids = {share.staff_id for share in split}
+        found = await db.execute(
+            scoped(Staff, business_id).with_only_columns(Staff.id).where(Staff.id.in_(ids))
+        )
+        if len(set(found.scalars().all())) != len(ids):
+            raise NotFound("staff member not found")
+        return TipTerms(cents, tuple((share.staff_id, share.cents) for share in split))
+    weights: dict[str, int] = {}
+    for line in lines:
+        staff_id = line.staff_id
+        if staff_id is None and line.booking_id is not None:
+            booking = await db.get(Booking, line.booking_id)
+            staff_id = booking.staff_id if booking is not None else None
+        if staff_id is not None and line.amount_cents > 0:
+            weights[staff_id] = weights.get(staff_id, 0) + line.amount_cents
+    if not weights:
+        return TipTerms(cents, ((fallback_staff_id, cents),))
+    parts = allocate(cents, list(weights.values()))
+    return TipTerms(cents, tuple(zip(weights.keys(), parts, strict=True)))
+
+
 async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
     """Reject a charge that would overpay the invoice given pending payments; locks the invoice."""
     await db.execute(select(Invoice.id).where(Invoice.id == invoice.id).with_for_update())
     pending = (
         await db.execute(
-            select(func.coalesce(func.sum(Payment.amount_cents), 0)).where(
+            select(func.coalesce(func.sum(Payment.amount_cents - Payment.tip_cents), 0)).where(
                 Payment.invoice_id == invoice.id,
                 Payment.status == "pending",
                 Payment.kind.in_(("payment", "deposit")),
@@ -774,19 +826,21 @@ async def _assert_room(db: AsyncSession, invoice: Invoice, amount: int) -> None:
         raise Conflict("this invoice already has a payment in progress")
 
 
-async def _assert_order_room(db: AsyncSession, order: Order, amount: int) -> None:
+async def _assert_order_room(
+    db: AsyncSession, order: Order, amount: int, due: int | None = None
+) -> None:
     """Reject a checkout while a payment is pending on the order; locks the order."""
     await db.execute(select(Order.id).where(Order.id == order.id).with_for_update())
     pending = (
         await db.execute(
-            select(func.coalesce(func.sum(Payment.amount_cents), 0)).where(
+            select(func.coalesce(func.sum(Payment.amount_cents - Payment.tip_cents), 0)).where(
                 Payment.order_id == order.id,
                 Payment.status == "pending",
                 Payment.kind.in_(("payment", "deposit")),
             )
         )
     ).scalar_one()
-    if amount > order.total_cents - int(pending):
+    if amount > (order.total_cents if due is None else due) - int(pending):
         raise Conflict("this order already has a checkout in progress")
 
 
@@ -851,12 +905,14 @@ async def open_card_payment(
     payment_method: str | None = None,
     kind: str = "payment",
     idempotency_key: str | None = None,
+    tip: TipTerms | None = None,
 ) -> tuple[Payment, str]:
     """Open a card PaymentIntent and pending Payment for an invoice; the caller commits."""
+    tip = tip or NO_TIP
     customer_id = await ensure_customer(db, gateway, account_id, client)
     if payment_method is not None:
         # Reserve room before charging a saved card, so a concurrent partial can't also charge.
-        await _assert_room(db, invoice, amount)
+        await _assert_room(db, invoice, amount - tip.cents)
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
@@ -876,7 +932,7 @@ async def open_card_payment(
     if (
         payment_method is None
     ):  # interactive: room is checked after the dedup (charge isn't yet made)
-        await _assert_room(db, invoice, amount)
+        await _assert_room(db, invoice, amount - tip.cents)
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -884,6 +940,8 @@ async def open_card_payment(
         kind=kind,
         invoice_id=invoice.id,
         amount_cents=amount,
+        tip_cents=tip.cents,
+        tip_split=tip.stored(),
         currency=invoice.currency,
         method="card",
         provider="stripe",
@@ -1014,11 +1072,14 @@ async def open_order_card_payment(
     fee_bps: int,
     payment_method: str | None = None,
     idempotency_key: str | None = None,
+    tip: TipTerms | None = None,
+    due: int | None = None,
 ) -> tuple[Payment, str]:
     """Open a card PaymentIntent for a sale; the caller commits."""
+    tip = tip or NO_TIP
     customer_id = await ensure_customer(db, gateway, account_id, client) if client else None
     if payment_method is not None:
-        await _assert_order_room(db, order, amount)
+        await _assert_order_room(db, order, amount - tip.cents, due)
     intent = await gateway.create_payment_intent(
         account_id,
         amount_cents=amount,
@@ -1035,7 +1096,7 @@ async def open_order_card_payment(
     if existing is not None:
         return existing, intent.client_secret
     if payment_method is None:
-        await _assert_order_room(db, order, amount)
+        await _assert_order_room(db, order, amount - tip.cents, due)
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -1043,6 +1104,8 @@ async def open_order_card_payment(
         kind="payment",
         order_id=order.id,
         amount_cents=amount,
+        tip_cents=tip.cents,
+        tip_split=tip.stored(),
         currency=order.currency,
         method="card",
         provider="stripe",
@@ -1067,8 +1130,11 @@ async def open_terminal_payment(
     amount: int,
     fee_bps: int,
     idempotency_key: str | None = None,
+    tip: TipTerms | None = None,
+    due: int | None = None,
 ) -> tuple[Payment, str]:
     """Open a Terminal PaymentIntent and pending Payment for a sale; the caller commits."""
+    tip = tip or NO_TIP
     intent = await gateway.create_terminal_payment_intent(
         account_id,
         amount_cents=amount,
@@ -1083,7 +1149,7 @@ async def open_terminal_payment(
     ).scalar_one_or_none()
     if existing is not None:  # a retry hit the same intent — don't mint a second pending row
         return existing, intent.client_secret
-    await _assert_order_room(db, order, amount)
+    await _assert_order_room(db, order, amount - tip.cents, due)
     payment = Payment(
         id=new_id("payment"),
         business_id=business_id,
@@ -1091,6 +1157,8 @@ async def open_terminal_payment(
         kind="payment",
         order_id=order.id,
         amount_cents=amount,
+        tip_cents=tip.cents,
+        tip_split=tip.stored(),
         currency=order.currency,
         method="card",
         provider="stripe",
@@ -1524,7 +1592,7 @@ async def _sync_parent(db: AsyncSession, payment: Payment) -> None:
     if payment.invoice_id is not None:
         await sync_invoice(db, payment.invoice_id)
     if payment.order_id is not None:
-        await _sync_order(db, payment.order_id)
+        await sync_order(db, payment.order_id)
 
 
 async def _settle_entitlement(db: AsyncSession, payment: Payment) -> str | None:
@@ -1584,16 +1652,39 @@ async def _reverse_entitlement(db: AsyncSession, payment: Payment) -> None:
     await entitlements.void_purchased_gift_card(db, payment.id)
 
 
-async def _sync_order(db: AsyncSession, order_id: str) -> None:
+async def sync_order(db: AsyncSession, order_id: str) -> None:
     order = await db.get(Order, order_id)
     if order is None:
         return
-    status, _ = await ledger.order_state(db, order)
+    status, paid_at = await ledger.order_state(db, order)
     await sync_parent_stock(db, order.business_id, "order", order.id, status)
     if status == "paid":
         await ensure_order_earning(db, order)
     else:
         await reverse_order_earning(db, order)
+    await _sync_visits(db, order, status, paid_at)
+    if order.source == "online":
+        if status == "paid" and order.pickup_status is None and order.picked_up_at is None:
+            order.pickup_status = "unfulfilled"
+        elif status in ("refunded", "void") and order.pickup_status != "picked_up":
+            order.pickup_status = None
+        await db.flush()
+
+
+async def _sync_visits(
+    db: AsyncSession, order: Order, status: str, paid_at: datetime | None
+) -> None:
+    """Visits on a paid sale read as charged (staff devices have no ledger to tell them)."""
+    rows = await db.execute(scoped(Booking, order.business_id).where(Booking.order_id == order.id))
+    for booking in rows.scalars().all():
+        booking.charged_at = (paid_at or datetime.now(UTC)) if status == "paid" else None
+        if (
+            status == "paid"
+            and booking.deposit_status == "collected"
+            and await ledger.deposit_held(db, booking) == 0
+        ):
+            booking.deposit_status = "applied"
+    await db.flush()
 
 
 def _assert_not_ours(intent: dict[str, object]) -> None:

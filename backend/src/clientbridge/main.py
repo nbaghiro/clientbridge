@@ -9,6 +9,7 @@ from clientbridge.api.public import (
     form_router,
     media_router,
     pay_router,
+    receipt_router,
     review_router,
 )
 from clientbridge.api.router import api_router
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(webhooks_router)
     app.include_router(pay_router)
     app.include_router(estimate_router)
+    app.include_router(receipt_router)
     app.include_router(review_router)
     app.include_router(form_router)
     app.include_router(contract_router)

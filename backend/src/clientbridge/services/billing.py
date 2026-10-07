@@ -31,11 +31,15 @@ from clientbridge.services.ledger import invoice_status_expr
 from clientbridge.services.lines import (
     LineParent,
     apply_totals,
+    discount_of,
+    discount_total,
     fetch_lines,
     included,
     included_totals,
     line_out,
+    price_lines,
     replace_lines,
+    set_discount,
 )
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import sync_invoice
@@ -65,9 +69,10 @@ class BillingService:
                 notes=data.notes,
                 due_at=data.due_at,
             )
+            set_discount(invoice, data.discount)
             self.db.add(invoice)
             await self.db.flush()
-            lines = await self._replace_lines("invoice", invoice.id, data.lines)
+            lines = await self._replace_lines("invoice", invoice, data.lines)
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
@@ -97,10 +102,12 @@ class BillingService:
                 invoice.notes = data.notes
             if data.due_at is not None:
                 invoice.due_at = data.due_at
+            if "discount" in data.model_fields_set:
+                set_discount(invoice, data.discount)
             lines = (
-                await self._replace_lines("invoice", invoice.id, data.lines)
+                await self._replace_lines("invoice", invoice, data.lines)
                 if data.lines is not None
-                else await self._lines("invoice", invoice.id)
+                else await self._repriced("invoice", invoice)
             )
             await self._apply_totals(invoice, lines)
             await self.db.flush()
@@ -208,9 +215,10 @@ class BillingService:
                 notes=data.notes,
                 valid_until=data.valid_until,
             )
+            set_discount(estimate, data.discount)
             self.db.add(estimate)
             await self.db.flush()
-            lines = await self._replace_lines("estimate", estimate.id, data.lines)
+            lines = await self._replace_lines("estimate", estimate, data.lines)
             await self._apply_totals(estimate, lines)
             await self.db.flush()
             cmd.record("estimate.create", entity_type="estimate", entity_id=estimate.id)
@@ -240,10 +248,12 @@ class BillingService:
                 estimate.notes = data.notes
             if data.valid_until is not None:
                 estimate.valid_until = data.valid_until
+            if "discount" in data.model_fields_set:
+                set_discount(estimate, data.discount)
             lines = (
-                await self._replace_lines("estimate", estimate.id, data.lines)
+                await self._replace_lines("estimate", estimate, data.lines)
                 if data.lines is not None
-                else await self._lines("estimate", estimate.id)
+                else await self._repriced("estimate", estimate)
             )
             await self._apply_totals(estimate, lines)
             await self.db.flush()
@@ -307,6 +317,9 @@ class BillingService:
                 status="draft",
                 currency="CAD",
                 notes=estimate.notes,
+                discount_kind=estimate.discount_kind,
+                discount_value=estimate.discount_value,
+                discount_reason=estimate.discount_reason,
             )
             self.db.add(invoice)
             await self.db.flush()
@@ -318,11 +331,13 @@ class BillingService:
                     item_id=ln.item_id,
                     booking_id=ln.booking_id,
                     tax_class=_tax_class(ln.tax_class),
+                    staff_id=ln.staff_id,
+                    discount=discount_of(ln),
                 )
                 for ln in await self._lines("estimate", estimate.id)
                 if included(ln)
             ]
-            lines = await self._replace_lines("invoice", invoice.id, inputs)
+            lines = await self._replace_lines("invoice", invoice, inputs)
             await self._apply_totals(invoice, lines)
             estimate.converted_invoice_id = invoice.id
             await self.db.flush()
@@ -419,7 +434,7 @@ class BillingService:
             )
             self.db.add(invoice)
             await self.db.flush()
-            lines = await self._replace_lines("invoice", invoice.id, inputs)
+            lines = await self._replace_lines("invoice", invoice, inputs)
             await self._apply_totals(invoice, lines)
             booking.invoice_id = invoice.id
             await self.db.flush()
@@ -454,9 +469,14 @@ class BillingService:
         apply_totals(parent, included_totals(lines, await tax_for_lines(self.db, self.biz, lines)))
 
     async def _replace_lines(
-        self, parent: LineParent, parent_id: str, inputs: list[LineInput]
+        self, parent: LineParent, document: Invoice | Estimate, inputs: list[LineInput]
     ) -> list[Line]:
-        return await replace_lines(self.db, self.biz, parent, parent_id, inputs)
+        return await replace_lines(self.db, self.biz, parent, document.id, inputs, document)
+
+    async def _repriced(self, parent: LineParent, document: Invoice | Estimate) -> list[Line]:
+        lines = await self._lines(parent, document.id)
+        price_lines(lines, document)
+        return lines
 
     async def _lines(self, parent: LineParent, parent_id: str) -> list[Line]:
         return await fetch_lines(self.db, self.biz, parent, parent_id)
@@ -528,6 +548,8 @@ async def _invoice_out(db: AsyncSession, invoice: Invoice, lines: list[Line]) ->
         voided_at=invoice.voided_at,
         notes=invoice.notes,
         pay_token=invoice.pay_token,
+        discount=discount_of(invoice),
+        discount_cents=discount_total(lines),
         lines=[line_out(ln) for ln in lines],
     )
 
@@ -549,6 +571,8 @@ def _estimate_out(estimate: Estimate, lines: list[Line]) -> EstimateOut:
         notes=estimate.notes,
         decline_reason=estimate.decline_reason,
         view_token=estimate.view_token,
+        discount=discount_of(estimate),
+        discount_cents=discount_total(lines),
         lines=[line_out(ln) for ln in lines],
     )
 

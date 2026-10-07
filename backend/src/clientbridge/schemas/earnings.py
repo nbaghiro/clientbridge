@@ -8,3 +8,4 @@ class EarningOut(BaseModel):
     order_id: str | None = None
     amount_cents: int
     status: str
+    kind: str = "earning"

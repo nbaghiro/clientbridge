@@ -40,6 +40,11 @@ def estimate_link(token: str) -> str:
     return f"{get_settings().pay_base_url}/e/{token}"
 
 
+def receipt_link(token: str) -> str:
+    """The client's itemised receipt for a desk sale, on the same host as pay links."""
+    return f"{get_settings().pay_base_url}/r/{token}"
+
+
 def _money(cents: int, currency: str) -> str:
     return f"${cents // 100}.{cents % 100:02d} {currency.upper()}"
 
@@ -62,6 +67,14 @@ def _online_order_alert(amount: str) -> tuple[str, str]:
     return (
         f"Online order paid: {amount}, for pickup",
         f"A client paid {amount} for an online order. It is waiting under Payments, Sales.",
+    )
+
+
+def _sale_receipt(business_name: str, number: int | None, link: str) -> tuple[str, str]:
+    sale = f" for sale S-{number}" if number is not None else ""
+    return (
+        f"Your receipt from {business_name}",
+        f"Thank you for visiting {business_name}. Your receipt{sale}: {link}",
     )
 
 
@@ -265,6 +278,22 @@ class Notifier:
             return
         subject, body = _order_ready(business.name)
         await self._to_client(db, order.client_id, subject, body)
+
+    async def on_order_receipt(self, db: AsyncSession, order_id: str) -> None:
+        """The receipt link, by the one channel the desk chose."""
+        order = await db.get(Order, order_id)
+        if order is None or order.receipt_token is None:
+            return
+        business = await db.get(Business, order.business_id)
+        if business is None:
+            return
+        subject, body = _sale_receipt(
+            business.name, order.number, receipt_link(order.receipt_token)
+        )
+        if order.receipt_channel == "email":
+            await self._to_contact(order.receipt_email, None, subject, body)
+        elif order.receipt_channel == "sms":
+            await self._to_contact(None, order.receipt_phone, subject, body)
 
     async def on_invoice_sent(self, db: AsyncSession, invoice_id: str) -> None:
         invoice = await db.get(Invoice, invoice_id)
