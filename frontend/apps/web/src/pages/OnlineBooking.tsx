@@ -26,11 +26,17 @@ import {
     Panel,
     Select,
     StatusPill,
+    Tabs,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
+import {
+    AddonOffers,
+    BookingPageSettings,
+    BookingPolicySettings,
+} from "../components/OnlineBookingSettings";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 
@@ -45,13 +51,39 @@ export function OnlineBooking() {
         );
     }
 
+    return <OnlineTabs />;
+}
+
+type OnlineTab = "page" | "addons" | "policy" | "forms";
+
+function OnlineTabs() {
+    const [tab, setTab] = useState<OnlineTab>("page");
+    const o = strings.onlineBooking;
     return (
-        <div className="max-w-3xl space-y-10">
-            <div>
-                <p className="mt-1 text-sm text-muted">{strings.forms.intro}</p>
-            </div>
-            <FormsSection />
-            <ContractsSection />
+        <div className="space-y-6">
+            <Tabs
+                label={o.title}
+                items={[
+                    { key: "page", label: o.tabPage },
+                    { key: "addons", label: o.tabAddons },
+                    { key: "policy", label: o.tabPolicy },
+                    { key: "forms", label: o.tabForms },
+                ]}
+                active={tab}
+                onSelect={setTab}
+            />
+            {tab === "page" ? <BookingPageSettings /> : null}
+            {tab === "addons" ? <AddonOffers /> : null}
+            {tab === "policy" ? <BookingPolicySettings /> : null}
+            {tab === "forms" ? (
+                <div className="max-w-3xl space-y-10">
+                    <div>
+                        <p className="mt-1 text-sm text-muted">{strings.forms.intro}</p>
+                    </div>
+                    <FormsSection />
+                    <ContractsSection />
+                </div>
+            ) : null}
         </div>
     );
 }
