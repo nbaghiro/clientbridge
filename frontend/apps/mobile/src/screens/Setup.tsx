@@ -15,7 +15,9 @@ import { Team } from "./Team";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const SECTION_SCREEN: Partial<Record<SetupSectionKey, keyof RootStackParamList>> = {
+const SECTION_SCREEN: Partial<
+    Record<SetupSectionKey, "Business" | "Services" | "Team" | "GettingPaid">
+> = {
     business: "Business",
     services: "Services",
     team: "Team",

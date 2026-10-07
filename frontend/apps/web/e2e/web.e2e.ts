@@ -78,6 +78,24 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await navigate(page, "/clients");
     await openAndClose(page, strings.clients.addClient);
     await openFirstRow(page);
+    await page.locator("main").getByRole("button", { name: strings.clients.tidy.select }).click();
+    await page.locator("main").getByRole("checkbox").nth(1).check();
+    await page.locator("main").getByRole("checkbox").nth(2).check();
+    await page.getByRole("button", { name: strings.clients.tidy.tag, exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: strings.clients.tidy.tag, exact: true }).click();
+    await page
+        .getByRole("button", { name: strings.clients.tidy.mergeSelected, exact: true })
+        .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    for (const view of ["history", "pets", "payment-methods"]) {
+        await navigate(page, `/clients/cl_amelie/${view}`);
+        await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
+    }
+    await navigate(page, "/clients/cl_marcus/pets");
+    await openAndClose(page, strings.clients.pets.addPet);
 
     for (const tab of PAYMENTS_TABS) await navigate(page, `/payments/${tab}`);
     await navigate(page, "/payments/invoices");

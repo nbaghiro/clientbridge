@@ -21,4 +21,7 @@ export type RootStackParamList = {
     Services: undefined;
     Team: undefined;
     GettingPaid: undefined;
+    ClientHistory: { clientId: string; name: string };
+    ClientPets: { clientId: string; name: string };
+    ClientWallet: { clientId: string; name: string };
 };

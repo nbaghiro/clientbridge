@@ -97,6 +97,7 @@ function AppRoutes({
                         <Route path="today" element={<Today />} />
                         <Route path="schedule" element={<Schedule />} />
                         <Route path="clients" element={<Clients />} />
+                        <Route path="clients/:clientId/:view" element={<Clients />} />
                         <Route path="payments/:tab?" element={<Payments />} />
                         <Route path="inbox" element={<Inbox />} />
                         <Route path="setup/:section?" element={<Setup />} />

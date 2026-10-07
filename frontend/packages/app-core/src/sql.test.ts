@@ -1100,6 +1100,128 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("reads a client's record: pets, visits, notes, methods, plans and history", () => {
+        scoped("slots", [
+            {
+                id: "ss_future",
+                item_id: "it_cut",
+                staff_id: "st_owner",
+                starts_at: "2099-01-05T09:00:00Z",
+                ends_at: "2099-01-05T10:00:00Z",
+                capacity: 1,
+                status: "scheduled",
+            },
+        ]);
+        scoped("subjects", [
+            { id: "sj_rex", client_id: "cl_ann", kind: "pet", name: "Rex", attributes: "{}" },
+            {
+                id: "sj_gone",
+                client_id: "cl_ann",
+                kind: "pet",
+                name: "Old",
+                attributes: "{}",
+                deleted_at: TS,
+            },
+        ]);
+        scoped("bookings", [
+            {
+                id: "bk_future",
+                slot_id: "ss_future",
+                staff_id: "st_owner",
+                client_id: "cl_ann",
+                subject_id: "sj_rex",
+                status: "confirmed",
+                source: "manual",
+                price_cents: 10000,
+            },
+        ]);
+        scoped("notes", [
+            {
+                id: "nt_1",
+                parent_type: "client",
+                parent_id: "cl_ann",
+                body: "Likes mornings",
+                pinned: 1,
+                created_by: "us_owner",
+            },
+            { id: "nt_2", parent_type: "subject", parent_id: "sj_rex", body: "Muzzle", pinned: 0 },
+            { id: "nt_3", parent_type: "client", parent_id: "cl_ben", body: "Other", pinned: 0 },
+        ]);
+        scoped("consents", [
+            {
+                id: "cns_1",
+                client_id: "cl_ann",
+                channel: "sms",
+                status: "granted",
+                source: "in_person",
+                recorded_by: "us_owner",
+            },
+        ]);
+        db.run("UPDATE clients SET tags = ?, preferred_channel = 'email' WHERE id = 'cl_ann'", [
+            '["vip","regular"]',
+        ]);
+
+        const ann = run("CLIENT_SQL", ["cl_ann"])[0];
+        expect(
+            pick([ann ?? {}], "pet_names", "next_visit_at", "tags", "preferred_channel"),
+        ).toEqual([
+            {
+                pet_names: "Rex",
+                next_visit_at: "2099-01-05T09:00:00Z",
+                tags: '["vip","regular"]',
+                preferred_channel: "email",
+            },
+        ]);
+        expect(run("CLIENT_DIRECTORY_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
+        expect(run("CLIENT_VISITS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
+            "bk_future",
+            "bk_1",
+        ]);
+        expect(run("CLIENT_SUBJECTS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual(["sj_rex"]);
+        expect(
+            pick(
+                run("CLIENT_NOTES_SQL", ["cl_ann", "cl_ann"]),
+                "id",
+                "author_staff_id",
+                "subject_name",
+            ),
+        ).toEqual([
+            { id: "nt_1", author_staff_id: "st_owner", subject_name: null },
+            { id: "nt_2", author_staff_id: null, subject_name: "Rex" },
+        ]);
+        expect(run("CLIENT_CONSENT_SQL", ["cl_ann"])).toEqual([
+            { status: "granted", created_at: TS, recorded_by_name: null },
+        ]);
+        expect(run("CLIENT_METHODS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
+            "pm_main",
+            "pm_old",
+        ]);
+        expect(pick(run("CLIENT_PLANS_SQL", ["cl_ann", "cl_ann"]), "kind", "id")).toEqual([
+            { kind: "package", id: "pk_1" },
+            { kind: "subscription", id: "sub_1" },
+        ]);
+        expect(pick(run("CLIENT_INVOICES_SQL", ["cl_ann"]), "id", "status")).toEqual([
+            { id: "inv_1", status: "partial" },
+        ]);
+        expect(run("CLIENT_PAYMENTS_SQL", ["cl_ann"]).length).toBeGreaterThan(0);
+        expect(run("CLIENT_MESSAGES_SQL", ["cl_ann"]).every((r) => r.direction !== null)).toBe(
+            true,
+        );
+        expect(run("CLIENT_REVIEWS_SQL", ["cl_ann"]).every((r) => r.rating !== null)).toBe(true);
+        expect(
+            pick(
+                run("CLIENT_FOOTPRINT_SQL", ["cl_ann", "cl_ben"]),
+                "id",
+                "bookings",
+                "pet_count",
+                "notes",
+            ),
+        ).toEqual([
+            { id: "cl_ann", bookings: 2, pet_count: 1, notes: 1 },
+            { id: "cl_ben", bookings: 1, pet_count: 0, notes: 1 },
+        ]);
+    });
+
     it("keeps device preferences in a local table", () => {
         insert("device_prefs", [{ id: "search.recent", value: '["ann"]' }]);
         expect(run("DEVICE_PREF_SQL", ["search.recent"])).toEqual([{ value: '["ann"]' }]);

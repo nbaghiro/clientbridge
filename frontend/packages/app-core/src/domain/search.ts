@@ -40,7 +40,7 @@ interface SearchGroup {
 }
 
 export const SEARCH_CLIENTS_SQL =
-    "SELECT id, name, email, phone, status FROM clients ORDER BY name COLLATE NOCASE";
+    "SELECT id, name, email, phone, status FROM clients WHERE status = 'active' ORDER BY name COLLATE NOCASE";
 
 // Param: the start of today (ISO); earlier visits are found through the client.
 export const SEARCH_BOOKINGS_SQL = `
