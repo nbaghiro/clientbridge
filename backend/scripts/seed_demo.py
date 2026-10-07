@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
-from clientbridge.core.security import hash_password
+from clientbridge.core.security import hash_password, hash_token
 from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
@@ -201,7 +201,7 @@ def seed_identity() -> tuple[str, str]:
             role="staff",
             status="invited",
             invite_email="sam.newhire@example.com",
-            invite_token="inv_tok_sam",
+            invite_token=hash_token("inv_tok_sam"),
             title="Groomer (trial)",
             color="#6E757E",
         )
@@ -665,7 +665,6 @@ def seed_resources_hours() -> None:
             frequency="week",
             interval=1,
             byday=["SA"],
-            start_date=at(-30).date(),
             until=at(60).date(),
             status="active",
         )
@@ -735,6 +734,7 @@ def seed_appointments() -> None:
                 subject_id=pet,
                 status=status,
                 source="online" if i % 3 == 0 else "manual",
+                manage_token=f"manage_{bk}" if i % 3 == 0 else None,
                 price_cents=price,
                 deposit_amount_cents=2000 if price >= 10000 else 0,
                 deposit_status="pending"
@@ -1264,7 +1264,6 @@ def seed_messaging(owner: str) -> None:
                     sent_by=owner if m[0] == "out" else None,
                     body=m[1],
                     status=m[2],
-                    attachments=[],
                     provider_ref=f"sm_demo_{tid}_{j}",
                 )
             )
@@ -1338,7 +1337,6 @@ def seed_documents(owner: str) -> None:
             id="frm_intake",
             business_id=BIZ,
             name="New Pet Intake",
-            attach_to=["client", "booking"],
             require_signature=True,
             active=True,
         )
@@ -1368,7 +1366,6 @@ def seed_documents(owner: str) -> None:
             id="frm_satisfaction",
             business_id=BIZ,
             name="Grooming Satisfaction",
-            attach_to=["booking"],
             require_signature=False,
             active=True,
         )
@@ -1436,7 +1433,6 @@ def seed_documents(owner: str) -> None:
             business_id=BIZ,
             name="Grooming Services Agreement & Waiver",
             version=2,
-            always_require=True,
             active=True,
             body=(
                 "I authorize Birchbark Pet Studio to groom my pet. I understand that severely "
@@ -1466,7 +1462,6 @@ def seed_documents(owner: str) -> None:
                 parent_type="subject",
                 parent_id=pet,
                 signed_at=at(-45 + k * 3, 10),
-                signature_image_id=None,
                 signed_body="Grooming Services Agreement & Waiver (v2)",
                 ip=f"24.84.{k}.{100 + k}",
                 status="signed",
@@ -1795,6 +1790,7 @@ def seed_coverage() -> None:
                 subject_id=pet,
                 status="confirmed",
                 source="online",
+                manage_token=f"manage_bk_class_{j}",
                 price_cents=2800,
                 deposit_amount_cents=1400,
                 deposit_status="collected" if j == 0 else "pending",
@@ -2099,7 +2095,6 @@ def seed_coverage() -> None:
             channel="chat",
             body="Hi! Does Mochi need a bath before the puppy class?",
             status="read",
-            attachments=[],
         )
     )
 
@@ -2411,6 +2406,7 @@ def seed_calendar_filler() -> None:
                         subject_id=pet,
                         status=status,
                         source="online" if n % 3 == 0 else "manual",
+                        manage_token=f"manage_{bk}" if n % 3 == 0 else None,
                         price_cents=price,
                         deposit_amount_cents=0,
                         confirmed_at=start - timedelta(days=1) if status != "pending" else None,
