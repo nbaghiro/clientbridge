@@ -10,7 +10,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
 from clientbridge.integrations.stripe import PaymentGateway
-from clientbridge.models.billing import Invoice, Order
+from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.clients import Client
@@ -18,11 +18,23 @@ from clientbridge.models.documents import Contract, Form, FormField, FormRespons
 from clientbridge.models.platform import File, IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
 from clientbridge.models.scheduling import Addon, Booking
-from clientbridge.schemas.billing import LineInput
+from clientbridge.schemas.billing import (
+    LineInput,
+    PublicEstimate,
+    PublicEstimateAccept,
+    PublicEstimateDecline,
+    PublicEstimateLine,
+)
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormField, PublicFormSubmit
-from clientbridge.schemas.payments import InteracRequest, PublicCardIntent, PublicInvoice
+from clientbridge.schemas.payments import (
+    InteracRequest,
+    PublicCardIntent,
+    PublicDocLine,
+    PublicDocTax,
+    PublicInvoice,
+)
 from clientbridge.schemas.public import (
     HEX_COLOR,
     PublicAddon,
@@ -43,19 +55,27 @@ from clientbridge.schemas.public import (
 )
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services import ledger
+from clientbridge.services.billing import estimate_status
 from clientbridge.services.bookings import create_booking_core, open_slots
 from clientbridge.services.catalog import deposit_cents
 from clientbridge.services.clients import find_or_create_by_contact
 from clientbridge.services.files import item_images, media_url, mint_upload
-from clientbridge.services.lines import apply_totals, replace_lines
+from clientbridge.services.lines import (
+    apply_totals,
+    fetch_lines,
+    included,
+    included_totals,
+    replace_lines,
+)
 from clientbridge.services.payments import (
     assert_payable,
+    invoice_credits,
     open_booking_deposit,
     open_card_payment,
     open_interac_payment,
     open_order_card_payment,
 )
-from clientbridge.services.tax import tax_for_lines
+from clientbridge.services.tax import LineTax, rates_for_business, tax_breakdown, tax_for_lines
 
 
 def _account(business: Business) -> str | None:
@@ -483,16 +503,30 @@ class PublicPayService:
 
     async def invoice(self, token: str) -> PublicInvoice:
         invoice, business = await self._resolve(token)
+        client = await self.db.get(Client, invoice.client_id)
+        lines = await fetch_lines(self.db, invoice.business_id, "invoice", invoice.id)
+        doc_lines, taxes = await public_doc_lines(self.db, invoice.business_id, lines)
         return PublicInvoice(
             number=invoice.number,
             business_name=business.name,
             brand=public_brand(business),
             currency=invoice.currency,
+            subtotal_cents=invoice.subtotal_cents,
+            tax_total_cents=invoice.tax_total_cents,
             total_cents=invoice.total_cents,
             balance_cents=await ledger.invoice_balance(self.db, invoice),
             status=(await ledger.invoice_state(self.db, invoice))[0],
             accepts_card=business.stripe_charges_enabled,
             interac_email=business.billing_email,
+            client_name=client.name if client is not None else None,
+            issued_at=invoice.issued_at,
+            due_at=invoice.due_at,
+            notes=invoice.notes,
+            gst_hst_number=business.gst_hst_number,
+            qst_number=business.qst_number,
+            lines=[line for line, _ in doc_lines],
+            taxes=taxes,
+            credits=await invoice_credits(self.db, invoice),
         )
 
     async def pay_card(self, token: str) -> PublicCardIntent:
@@ -530,6 +564,124 @@ class PublicPayService:
             reference_code=payment.reference_code or "",
             send_to=business.billing_email,
             amount_cents=amount,
+        )
+
+
+async def public_doc_lines(
+    db: AsyncSession, business_id: str, lines: list[Line]
+) -> tuple[list[tuple[PublicDocLine, LineTax]], list[PublicDocTax]]:
+    """A document's lines with their tax codes, and its tax per code over included lines."""
+    result = await tax_breakdown(db, business_id, lines)
+    rates = {r.jurisdiction: r.rate_bps for r in await rates_for_business(db, business_id)}
+    taxes: dict[str, PublicDocTax] = {}
+    for line, line_tax in zip(lines, result.lines, strict=True):
+        if not included(line):
+            continue
+        for code, cents in line_tax.by_jurisdiction.items():
+            row = taxes.setdefault(
+                code, PublicDocTax(code=code, rate_bps=rates.get(code, 0), base_cents=0, cents=0)
+            )
+            row.base_cents += line.amount_cents
+            row.cents += cents
+    return [
+        (
+            PublicDocLine(
+                description=line.description,
+                quantity=float(line.quantity),
+                unit_amount_cents=line.unit_amount_cents,
+                amount_cents=line.amount_cents,
+                tax_codes=sorted(line_tax.by_jurisdiction),
+            ),
+            line_tax,
+        )
+        for line, line_tax in zip(lines, result.lines, strict=True)
+    ], [taxes[code] for code in sorted(taxes)]
+
+
+class PublicEstimateService:
+    """Public estimate links; the view token is the only credential."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def _resolve(self, token: str, *, lock: bool = False) -> tuple[Estimate, Business]:
+        msg = "estimate not found"
+        query = select(Estimate).where(Estimate.view_token == token)
+        estimate = (
+            await self.db.execute(query.with_for_update() if lock else query)
+        ).scalar_one_or_none()
+        if estimate is None:
+            raise NotFound(msg)
+        return estimate, await business_or_404(self.db, estimate.business_id, msg)
+
+    async def context(self, token: str) -> PublicEstimate:
+        estimate, business = await self._resolve(token)
+        return await self._context(estimate, business)
+
+    async def accept(self, token: str, data: PublicEstimateAccept) -> PublicEstimate:
+        estimate, business = await self._resolve(token, lock=True)
+        self._assert_open(estimate)
+        lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
+        offered = {ln.id for ln in lines if ln.optional}
+        if not set(data.line_ids) <= offered:
+            raise Unprocessable("only an optional add-on can be ticked")
+        for line in lines:
+            line.selected = line.optional and line.id in data.line_ids
+        result = await tax_for_lines(self.db, estimate.business_id, lines)
+        apply_totals(estimate, included_totals(lines, result))
+        estimate.status = "accepted"
+        estimate.accepted_at = datetime.now(UTC)
+        await self.db.commit()
+        return await self._context(estimate, business)
+
+    async def decline(self, token: str, data: PublicEstimateDecline) -> PublicEstimate:
+        estimate, business = await self._resolve(token, lock=True)
+        self._assert_open(estimate)
+        estimate.status = "declined"
+        estimate.declined_at = datetime.now(UTC)
+        estimate.decline_reason = (data.reason or "").strip() or None
+        await self.db.commit()
+        return await self._context(estimate, business)
+
+    @staticmethod
+    def _assert_open(estimate: Estimate) -> None:
+        status = estimate_status(estimate)
+        if status != "sent":
+            raise Conflict(f"this estimate is already {status}")
+
+    async def _context(self, estimate: Estimate, business: Business) -> PublicEstimate:
+        client = await self.db.get(Client, estimate.client_id)
+        lines = await fetch_lines(self.db, estimate.business_id, "estimate", estimate.id)
+        doc_lines, taxes = await public_doc_lines(self.db, estimate.business_id, lines)
+        return PublicEstimate(
+            number=estimate.number,
+            business_name=business.name,
+            brand=public_brand(business),
+            contact_email=business.billing_email,
+            gst_hst_number=business.gst_hst_number,
+            qst_number=business.qst_number,
+            client_name=client.name if client is not None else None,
+            status=estimate_status(estimate),
+            currency="CAD",
+            subtotal_cents=estimate.subtotal_cents,
+            tax_total_cents=estimate.tax_total_cents,
+            total_cents=estimate.total_cents,
+            issued_at=estimate.created_at,
+            valid_until=estimate.valid_until,
+            notes=estimate.notes,
+            decline_reason=estimate.decline_reason,
+            lines=[
+                PublicEstimateLine(
+                    **doc.model_dump(),
+                    id=line.id,
+                    optional=line.optional,
+                    selected=line.selected,
+                    tax_cents=line_tax.tax_cents,
+                    tax_by_code=line_tax.by_jurisdiction,
+                )
+                for line, (doc, line_tax) in zip(lines, doc_lines, strict=True)
+            ],
+            taxes=taxes,
         )
 
 

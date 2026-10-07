@@ -333,6 +333,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/estimate/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Estimate */
+        get: operations["public_estimate_estimate__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/estimate/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Estimate Accept */
+        post: operations["public_estimate_accept_estimate__token__accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/estimate/{token}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Estimate Decline */
+        post: operations["public_estimate_decline_estimate__token__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/review/{token}": {
         parameters: {
             query?: never;
@@ -845,6 +896,23 @@ export interface paths {
         put?: never;
         /** Void Invoice */
         post: operations["void_invoice_v1_invoices__invoice_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invoices/{invoice_id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Invoice Payment */
+        post: operations["record_invoice_payment_v1_invoices__invoice_id__payments_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2242,6 +2310,17 @@ export interface components {
             notes?: string | null;
             /** Valid Until */
             valid_until?: string | null;
+            /**
+             * Send
+             * @description Number and send it in the same command
+             * @default false
+             */
+            send: boolean;
+        };
+        /** EstimateDecline */
+        EstimateDecline: {
+            /** Reason */
+            reason?: string | null;
         };
         /** EstimateOut */
         EstimateOut: {
@@ -2271,6 +2350,10 @@ export interface components {
             converted_invoice_id: string | null;
             /** Notes */
             notes: string | null;
+            /** Decline Reason */
+            decline_reason?: string | null;
+            /** View Token */
+            view_token?: string | null;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
         };
@@ -2511,6 +2594,12 @@ export interface components {
             notes?: string | null;
             /** Due At */
             due_at?: string | null;
+            /**
+             * Send
+             * @description Issue and send it in the same command
+             * @default false
+             */
+            send: boolean;
         };
         /** InvoiceOut */
         InvoiceOut: {
@@ -2550,6 +2639,59 @@ export interface components {
             pay_token: string | null;
             /** Lines */
             lines: components["schemas"]["LineOut"][];
+        };
+        /** InvoicePaymentIn */
+        InvoicePaymentIn: {
+            /**
+             * Method
+             * @description cash, an e-Transfer already received, a cheque, or the client's saved card
+             * @enum {string}
+             */
+            method: "cash" | "interac" | "cheque" | "card";
+            /** Amount Cents */
+            amount_cents: number;
+            /**
+             * Tendered Cents
+             * @description Cash handed over; the change is what is above the amount
+             */
+            tendered_cents?: number | null;
+            /**
+             * Reference
+             * @description Cheque number or e-Transfer reference
+             */
+            reference?: string | null;
+            /**
+             * Received On
+             * @description When an e-Transfer or cheque arrived; today when omitted
+             */
+            received_on?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Payment Method Id
+             * @description Card only: a saved card of the invoice's client, or 'default'
+             */
+            payment_method_id?: string | null;
+            /**
+             * Send Receipt
+             * @default true
+             */
+            send_receipt: boolean;
+        };
+        /** InvoicePaymentOut */
+        InvoicePaymentOut: {
+            /** Payment Id */
+            payment_id: string;
+            /** Status */
+            status: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Change Cents */
+            change_cents: number;
+            /** Balance Cents */
+            balance_cents: number;
+            /** Client Secret */
+            client_secret?: string | null;
         };
         /** InvoiceUpdate */
         InvoiceUpdate: {
@@ -2883,6 +3025,12 @@ export interface components {
              * @description Defaults to the item's class, else standard
              */
             tax_class?: ("standard" | "federal_only" | "exempt") | null;
+            /**
+             * Optional
+             * @description Estimates only: an add-on the client may tick when accepting
+             * @default false
+             */
+            optional: boolean;
         };
         /** LineOut */
         LineOut: {
@@ -2906,6 +3054,16 @@ export interface components {
             booking_id: string | null;
             /** Position */
             position: number;
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
+            /**
+             * Selected
+             * @default false
+             */
+            selected: boolean;
         };
         /** LoginBody */
         LoginBody: {
@@ -3258,6 +3416,120 @@ export interface components {
             /** Typed Name */
             typed_name?: string | null;
         };
+        /** PublicCredit */
+        PublicCredit: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "payment" | "deposit";
+            /** Method */
+            method: string | null;
+            /** Amount Cents */
+            amount_cents: number;
+            /** At */
+            at: string | null;
+        };
+        /** PublicDocLine */
+        PublicDocLine: {
+            /** Description */
+            description: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Amount Cents */
+            unit_amount_cents: number;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Tax Codes */
+            tax_codes: string[];
+        };
+        /** PublicDocTax */
+        PublicDocTax: {
+            /** Code */
+            code: string;
+            /** Rate Bps */
+            rate_bps: number;
+            /** Base Cents */
+            base_cents: number;
+            /** Cents */
+            cents: number;
+        };
+        /** PublicEstimate */
+        PublicEstimate: {
+            /** Number */
+            number: number | null;
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            /** Contact Email */
+            contact_email: string | null;
+            /** Gst Hst Number */
+            gst_hst_number: string | null;
+            /** Qst Number */
+            qst_number: string | null;
+            /** Client Name */
+            client_name: string | null;
+            /** Status */
+            status: string;
+            /** Currency */
+            currency: string;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /** Issued At */
+            issued_at: string | null;
+            /** Valid Until */
+            valid_until: string | null;
+            /** Notes */
+            notes: string | null;
+            /** Decline Reason */
+            decline_reason: string | null;
+            /** Lines */
+            lines: components["schemas"]["PublicEstimateLine"][];
+            /** Taxes */
+            taxes: components["schemas"]["PublicDocTax"][];
+        };
+        /** PublicEstimateAccept */
+        PublicEstimateAccept: {
+            /**
+             * Line Ids
+             * @description The optional add-ons the client ticked
+             */
+            line_ids?: string[];
+        };
+        /** PublicEstimateDecline */
+        PublicEstimateDecline: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /** PublicEstimateLine */
+        PublicEstimateLine: {
+            /** Description */
+            description: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Amount Cents */
+            unit_amount_cents: number;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Tax Codes */
+            tax_codes: string[];
+            /** Id */
+            id: string;
+            /** Optional */
+            optional: boolean;
+            /** Selected */
+            selected: boolean;
+            /** Tax Cents */
+            tax_cents: number;
+            /** Tax By Code */
+            tax_by_code: {
+                [key: string]: number;
+            };
+        };
         /** PublicFileCreate */
         PublicFileCreate: {
             /** Content Type */
@@ -3323,6 +3595,16 @@ export interface components {
             brand: components["schemas"]["PublicBrand"];
             /** Currency */
             currency: string;
+            /**
+             * Subtotal Cents
+             * @default 0
+             */
+            subtotal_cents: number;
+            /**
+             * Tax Total Cents
+             * @default 0
+             */
+            tax_total_cents: number;
             /** Total Cents */
             total_cents: number;
             /** Balance Cents */
@@ -3333,6 +3615,24 @@ export interface components {
             accepts_card: boolean;
             /** Interac Email */
             interac_email: string | null;
+            /** Client Name */
+            client_name?: string | null;
+            /** Issued At */
+            issued_at?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Gst Hst Number */
+            gst_hst_number?: string | null;
+            /** Qst Number */
+            qst_number?: string | null;
+            /** Lines */
+            lines?: components["schemas"]["PublicDocLine"][];
+            /** Taxes */
+            taxes?: components["schemas"]["PublicDocTax"][];
+            /** Credits */
+            credits?: components["schemas"]["PublicCredit"][];
         };
         /** PublicReviewContext */
         PublicReviewContext: {
@@ -4504,6 +4804,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InteracRequest"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_estimate_estimate__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicEstimate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_estimate_accept_estimate__token__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicEstimateAccept"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicEstimate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_estimate_decline_estimate__token__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicEstimateDecline"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicEstimate"];
                 };
             };
             /** @description Validation Error */
@@ -5835,6 +6236,45 @@ export interface operations {
             };
         };
     };
+    record_invoice_payment_v1_invoices__invoice_id__payments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoicePaymentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicePaymentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_earning_v1_earnings__earning_id__approve_post: {
         parameters: {
             query?: never;
@@ -6060,7 +6500,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EstimateDecline"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

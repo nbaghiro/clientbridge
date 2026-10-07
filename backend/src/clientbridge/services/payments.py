@@ -1,6 +1,7 @@
 import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import AppError, Conflict, NotFound
+from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
 from clientbridge.integrations.stripe import (
@@ -23,6 +24,7 @@ from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.clients import Client
+from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking
@@ -30,9 +32,12 @@ from clientbridge.schemas.payments import (
     ConnectStatus,
     DetachResult,
     InteracRequest,
+    InvoicePaymentIn,
+    InvoicePaymentOut,
     OnboardingLink,
     PayIntentOut,
     PaymentMethodOut,
+    PublicCredit,
     RefundOut,
     SetupIntentOut,
 )
@@ -175,6 +180,122 @@ class PaymentService:
             action="payment.intent",
             run=run,
             response_model=PayIntentOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def record_invoice_payment(
+        self, invoice_id: str, data: InvoicePaymentIn, idempotency_key: str | None
+    ) -> InvoicePaymentOut:
+        """Record cash, a received e-Transfer or a cheque on an invoice, or charge a saved card."""
+        self._assert_admin()
+        business = await self._business()
+        invoice = await self._invoice(invoice_id)
+        balance = await assert_payable(self.db, invoice)
+        if data.amount_cents > balance:
+            raise Conflict("that is more than the invoice still owes")
+        if data.tendered_cents is not None and (
+            data.method != "cash" or data.tendered_cents < data.amount_cents
+        ):
+            raise Unprocessable("cash handed over must cover the amount")
+        if data.method == "card":
+            return await self._charge_saved_card(business, invoice, data, idempotency_key)
+        if data.payment_method_id is not None:
+            raise Unprocessable("only a card payment takes a saved card")
+        tz = ZoneInfo(business.timezone)
+        today = datetime.now(tz).date()
+        received = data.received_on or today
+        if received > today:
+            raise Unprocessable("a payment can't be received in the future")
+        paid_at = (
+            datetime.now(UTC)
+            if received == today
+            else datetime.combine(received, time(12), tzinfo=tz).astimezone(UTC)
+        )
+
+        async def run(cmd: Command) -> InvoicePaymentOut:
+            await _assert_room(self.db, invoice, data.amount_cents)
+            payment = Payment(
+                id=new_id("payment"),
+                business_id=self.biz,
+                client_id=invoice.client_id,
+                kind="payment",
+                invoice_id=invoice.id,
+                amount_cents=data.amount_cents,
+                currency=invoice.currency,
+                method=data.method,
+                provider="manual",
+                reference=_blank_to_none(data.reference),
+                note=_blank_to_none(data.note),
+                tendered_cents=data.tendered_cents,
+                status="succeeded",
+                paid_at=paid_at,
+            )
+            self.db.add(payment)
+            await self.db.flush()
+            await ledger.post_payment(self.db, payment)
+            await _sync_parent(self.db, payment)
+            cmd.record("payment.record", entity_type="payment", entity_id=payment.id)
+            return InvoicePaymentOut(
+                payment_id=payment.id,
+                status=payment.status,
+                amount_cents=payment.amount_cents,
+                change_cents=(data.tendered_cents or data.amount_cents) - data.amount_cents,
+                balance_cents=await ledger.invoice_balance(self.db, invoice),
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment.record",
+            run=run,
+            response_model=InvoicePaymentOut,
+            idempotency_key=idempotency_key,
+        )
+
+    async def _charge_saved_card(
+        self,
+        business: Business,
+        invoice: Invoice,
+        data: InvoicePaymentIn,
+        idempotency_key: str | None,
+    ) -> InvoicePaymentOut:
+        if data.payment_method_id is None:
+            raise Unprocessable("choose the saved card to charge")
+        if not business.stripe_charges_enabled or business.stripe_account_id is None:
+            raise Conflict("connect your Stripe account before taking payments")
+        account_id = business.stripe_account_id
+        client = await self._client(invoice.client_id)
+        pm_ref = await self._saved_method_ref(data.payment_method_id, invoice.client_id)
+
+        async def run(cmd: Command) -> InvoicePaymentOut:
+            payment, client_secret = await open_card_payment(
+                self.db,
+                self.gateway,
+                account_id=account_id,
+                business_id=self.biz,
+                invoice=invoice,
+                client=client,
+                amount=data.amount_cents,
+                fee_bps=get_settings().platform_fee_bps,
+                payment_method=pm_ref,
+                idempotency_key=idempotency_key,
+            )
+            cmd.record("payment.intent", entity_type="payment", entity_id=payment.id)
+            return InvoicePaymentOut(
+                payment_id=payment.id,
+                status=payment.status,
+                amount_cents=payment.amount_cents,
+                change_cents=0,
+                balance_cents=await ledger.invoice_balance(self.db, invoice),
+                client_secret=client_secret,
+            )
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="payment.record",
+            run=run,
+            response_model=InvoicePaymentOut,
             idempotency_key=idempotency_key,
         )
 
@@ -479,6 +600,37 @@ class PaymentService:
         if row is None:
             raise NotFound("saved card not found")
         return row
+
+
+def _blank_to_none(value: str | None) -> str | None:
+    return value.strip() or None if value is not None else None
+
+
+async def invoice_credits(db: AsyncSession, invoice: Invoice) -> list[PublicCredit]:
+    """What has paid the invoice down: each payment and applied deposit, oldest first."""
+    rows = await db.execute(
+        scoped(Entry, invoice.business_id)
+        .add_columns(Payment.method)
+        .join(Account, Account.id == Entry.account_id)
+        .outerjoin(Payment, (Entry.source_type == "payment") & (Payment.id == Entry.source_id))
+        .where(
+            Entry.subject_type == "invoice",
+            Entry.subject_id == invoice.id,
+            Account.category == "receivable",
+            Entry.amount_cents < 0,
+            Entry.event.in_(("payment", "application")),
+        )
+        .order_by(Entry.occurred_at, Entry.id)
+    )
+    return [
+        PublicCredit(
+            kind="deposit" if entry.event == "application" else "payment",
+            method=method,
+            amount_cents=-entry.amount_cents,
+            at=entry.occurred_at,
+        )
+        for entry, method in rows.tuples().all()
+    ]
 
 
 async def default_method_ref(db: AsyncSession, business_id: str, client_id: str) -> str | None:

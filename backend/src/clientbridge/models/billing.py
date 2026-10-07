@@ -2,6 +2,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -11,6 +12,7 @@ from sqlalchemy import (
     Numeric,
     String,
     UniqueConstraint,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -62,6 +64,8 @@ class Estimate(PKMixin, BusinessScoped, TimestampMixin, Base):
     declined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     converted_invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
     notes: Mapped[str | None] = mapped_column(String)
+    decline_reason: Mapped[str | None] = mapped_column(String)
+    view_token: Mapped[str | None] = mapped_column(String, unique=True)  # public accept-link key
 
 
 class Order(PKMixin, BusinessScoped, TimestampMixin, Base):
@@ -117,3 +121,10 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Base):
     tax_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_class: Mapped[str] = mapped_column(String, default="standard", nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # an estimate add-on the client may tick; it counts toward totals only once selected
+    optional: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    selected: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )

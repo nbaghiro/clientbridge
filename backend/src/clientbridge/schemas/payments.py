@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -86,18 +87,81 @@ class RemittanceOut(BaseModel):
     total_cents: int
 
 
+class PublicDocLine(BaseModel):
+    description: str
+    quantity: float
+    unit_amount_cents: int
+    amount_cents: int
+    tax_codes: list[str]
+
+
+class PublicDocTax(BaseModel):
+    code: str
+    rate_bps: int
+    base_cents: int
+    cents: int
+
+
+class PublicCredit(BaseModel):
+    kind: Literal["payment", "deposit"]
+    method: str | None
+    amount_cents: int
+    at: datetime | None
+
+
 class PublicInvoice(BaseModel):
     number: int | None
     business_name: str
     brand: PublicBrand
     currency: str
+    subtotal_cents: int = 0
+    tax_total_cents: int = 0
     total_cents: int
     balance_cents: int
     status: str
     accepts_card: bool
     interac_email: str | None
+    client_name: str | None = None
+    issued_at: datetime | None = None
+    due_at: datetime | None = None
+    notes: str | None = None
+    gst_hst_number: str | None = None
+    qst_number: str | None = None
+    lines: list[PublicDocLine] = Field(default_factory=list)
+    taxes: list[PublicDocTax] = Field(default_factory=list)
+    credits: list[PublicCredit] = Field(default_factory=list)
 
 
 class PublicCardIntent(BaseModel):
     client_secret: str
     stripe_account_id: str
+
+
+class InvoicePaymentIn(BaseModel):
+    method: Literal["cash", "interac", "cheque", "card"] = Field(
+        description="cash, an e-Transfer already received, a cheque, or the client's saved card"
+    )
+    amount_cents: int = Field(gt=0)
+    tendered_cents: int | None = Field(
+        default=None, gt=0, description="Cash handed over; the change is what is above the amount"
+    )
+    reference: str | None = Field(
+        default=None, max_length=80, description="Cheque number or e-Transfer reference"
+    )
+    received_on: date | None = Field(
+        default=None, description="When an e-Transfer or cheque arrived; today when omitted"
+    )
+    note: str | None = Field(default=None, max_length=500)
+    payment_method_id: str | None = Field(
+        default=None, description="Card only: a saved card of the invoice's client, or 'default'"
+    )
+    send_receipt: bool = True
+
+
+class InvoicePaymentOut(BaseModel):
+    payment_id: str
+    status: str
+    amount_cents: int
+    change_cents: int
+    balance_cents: int
+    client_secret: str | None = None

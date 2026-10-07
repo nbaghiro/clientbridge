@@ -35,6 +35,11 @@ def pay_link(token: str) -> str:
     return f"{get_settings().pay_base_url}/i/{token}"
 
 
+def estimate_link(token: str) -> str:
+    """The client's link to read and answer an estimate, on the same host as pay links."""
+    return f"{get_settings().pay_base_url}/e/{token}"
+
+
 def _money(cents: int, currency: str) -> str:
     return f"${cents // 100}.{cents % 100:02d} {currency.upper()}"
 
@@ -100,19 +105,24 @@ def _invoice_overdue(
     return f"Invoice #{number} overdue — {business_name}", body
 
 
-def _estimate_sent(number: int | None, amount: str, business_name: str) -> tuple[str, str]:
-    return (
-        f"Estimate #{number} from {business_name}",
-        f"Estimate #{number} for {amount} from {business_name}",
-    )
+def _estimate_sent(
+    number: int | None, amount: str, business_name: str, link: str
+) -> tuple[str, str]:
+    body = f"Estimate #{number} for {amount} from {business_name}"
+    if link:
+        body += f" — read and accept it at {link}"
+    return f"Estimate #{number} from {business_name}", body
 
 
 def _estimate_accepted(number: int | None) -> tuple[str, str]:
     return (f"Estimate #{number} accepted", f"Estimate #{number} was accepted.")
 
 
-def _estimate_declined(number: int | None) -> tuple[str, str]:
-    return (f"Estimate #{number} declined", f"Estimate #{number} was declined.")
+def _estimate_declined(number: int | None, reason: str | None = None) -> tuple[str, str]:
+    body = f"Estimate #{number} was declined."
+    if reason:
+        body += f" The client said: {reason}"
+    return (f"Estimate #{number} declined", body)
 
 
 def _interac_requested(amount: str, send_to: str, reference: str) -> tuple[str, str]:
@@ -283,7 +293,8 @@ class Notifier:
         if business is None:
             return
         amount = _money(estimate.total_cents, "CAD")
-        subject, body = _estimate_sent(estimate.number, amount, business.name)
+        link = estimate_link(estimate.view_token) if estimate.view_token else ""
+        subject, body = _estimate_sent(estimate.number, amount, business.name, link)
         await self._to_client(db, estimate.client_id, subject, body)
 
     async def on_estimate_accepted(self, db: AsyncSession, estimate_id: str) -> None:
@@ -307,10 +318,22 @@ class Notifier:
         business = await db.get(Business, estimate.business_id)
         if business is None or not business.billing_email:
             return
-        subject, body = _estimate_declined(estimate.number)
+        subject, body = _estimate_declined(estimate.number, estimate.decline_reason)
         await self._safe(
             self.email.send(Email(to=business.billing_email, subject=subject, body=body))
         )
+
+    async def on_estimate_answered(self, db: AsyncSession, view_token: str) -> None:
+        """Tell the provider a client accepted or declined an estimate from its public link."""
+        estimate = (
+            await db.execute(select(Estimate).where(Estimate.view_token == view_token))
+        ).scalar_one_or_none()
+        if estimate is None:
+            return
+        if estimate.status == "accepted":
+            await self.on_estimate_accepted(db, estimate.id)
+        elif estimate.status == "declined":
+            await self.on_estimate_declined(db, estimate.id)
 
     async def on_interac_requested(self, db: AsyncSession, payment_id: str) -> None:
         payment = await db.get(Payment, payment_id)

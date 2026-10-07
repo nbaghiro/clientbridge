@@ -27,6 +27,8 @@ async def replace_lines(
     db: AsyncSession, business_id: str, parent: LineParent, parent_id: str, inputs: list[LineInput]
 ) -> list[Line]:
     """Delete a parent's lines and rebuild them from `inputs` (amount = qty x unit, half-up)."""
+    if parent != "estimate" and any(inp.optional for inp in inputs):
+        raise Unprocessable("only an estimate can offer optional add-ons")
     await db.execute(scoped_delete(Line, business_id).where(parent_fk(parent) == parent_id))
     items = await _line_items(db, business_id, inputs)
     lines: list[Line] = []
@@ -49,6 +51,7 @@ async def replace_lines(
             amount_cents=int(amount),
             tax_class=inp.tax_class or (item.tax_class if item else "standard"),
             position=i,
+            optional=inp.optional,
         )
         db.add(line)
         lines.append(line)
@@ -96,7 +99,26 @@ def line_out(ln: Line) -> LineOut:
         item_id=ln.item_id,
         booking_id=ln.booking_id,
         position=ln.position,
+        optional=ln.optional,
+        selected=ln.selected,
     )
+
+
+def included(line: Line) -> bool:
+    """Every line counts toward its document except an add-on the client didn't pick."""
+    return not line.optional or line.selected
+
+
+def included_totals(lines: list[Line], result: TaxResult) -> TaxResult:
+    """The document's totals over its included lines, from a tax result computed for every line."""
+    kept = [lt for ln, lt in zip(lines, result.lines, strict=True) if included(ln)]
+    subtotal = sum(lt.base_cents for lt in kept)
+    tax = sum(lt.tax_cents for lt in kept)
+    by_code: dict[str, int] = {}
+    for lt in kept:
+        for code, cents in lt.by_jurisdiction.items():
+            by_code[code] = by_code.get(code, 0) + cents
+    return TaxResult(subtotal, tax, subtotal + tax, by_code, kept)
 
 
 def apply_totals(parent: Invoice | Estimate | Order, result: TaxResult) -> None:

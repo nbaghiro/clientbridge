@@ -5,6 +5,7 @@ from clientbridge.api import auth as auth_api
 from clientbridge.api.public import (
     booking_router,
     contract_router,
+    estimate_router,
     form_router,
     media_router,
     pay_router,
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     # Public surfaces: unauthenticated, checked by signature, token or slug instead.
     app.include_router(webhooks_router)
     app.include_router(pay_router)
+    app.include_router(estimate_router)
     app.include_router(review_router)
     app.include_router(form_router)
     app.include_router(contract_router)

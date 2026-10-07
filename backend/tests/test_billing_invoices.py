@@ -157,3 +157,41 @@ async def test_foreign_invoice_404_by_scoping(
     assert (await as_owner.post(f"/v1/invoices/{inv.id}/send")).status_code == 404
     after = await db.get(Invoice, inv.id, populate_existing=True)
     assert after is not None and after.status == "draft"
+
+
+async def test_create_and_send_in_one_call(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="client@example.ca")
+    res = await as_owner.post(
+        "/v1/invoices", json={"client_id": cid, "lines": [_line()], "send": True}
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["status"] == "sent"
+    assert body["number"] is not None and body["pay_token"]
+    assert body["balance_cents"] == 11200
+    assert any("/i/" in m.body for m in email.sent)
+
+
+async def test_create_and_send_needs_a_line(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    cid = await client_id(db)
+    res = await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [], "send": True})
+    assert res.status_code == 422
+
+
+async def test_invoice_lines_cannot_be_optional(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    line = {**_line(), "optional": True}
+    res = await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})
+    assert res.status_code == 422
+
+
+async def test_composer_tax_class_is_kept(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    cid = await client_id(db)
+    line = {**_line(), "tax_class": "federal_only"}
+    body = (await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": [line]})).json()
+    assert body["lines"][0]["tax_class"] == "federal_only"
+    assert body["tax_total_cents"] == 500  # GST only

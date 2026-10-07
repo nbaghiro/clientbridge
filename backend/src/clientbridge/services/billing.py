@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import Conflict, NotFound
+from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.billing import Estimate, Invoice, Line
@@ -23,6 +23,7 @@ from clientbridge.schemas.billing import (
     InvoiceOut,
     InvoiceUpdate,
     LineInput,
+    TaxClass,
 )
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, unapply_deposit
@@ -31,6 +32,8 @@ from clientbridge.services.lines import (
     LineParent,
     apply_totals,
     fetch_lines,
+    included,
+    included_totals,
     line_out,
     replace_lines,
 )
@@ -39,6 +42,7 @@ from clientbridge.services.payments import sync_invoice
 from clientbridge.services.tax import tax_for_lines
 
 _DUE_DAYS = 30
+_VALID_DAYS = 14
 
 
 class BillingService:
@@ -67,7 +71,11 @@ class BillingService:
             await self._apply_totals(invoice, lines)
             await self.db.flush()
             cmd.record("invoice.create", entity_type="invoice", entity_id=invoice.id)
-            return await _invoice_out(self.db, invoice, lines)
+            if data.send:
+                if not lines:
+                    raise Unprocessable("add a line before sending the invoice")
+                await self._issue_invoice(invoice, cmd)
+            return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db,
@@ -110,33 +118,35 @@ class BillingService:
             raise Conflict("a void invoice can't be sent")
 
         async def run(cmd: Command) -> InvoiceOut:
-            now = datetime.now(UTC)
             if invoice.status == "draft":
-                invoice.number = await self._next_number(Invoice)
-                invoice.status = "sent"
-                invoice.issued_at = now
-                invoice.pay_token = secrets.token_urlsafe(16)  # public pay-link key
-                if invoice.due_at is None:
-                    invoice.due_at = now + timedelta(days=_DUE_DAYS)
-                lines = await self._lines("invoice", invoice.id)
-                tax = await tax_for_lines(self.db, self.biz, lines)
-                apply_totals(invoice, tax)  # tax is fixed at issue; the document matches its entry
-                await ledger.post_invoice(self.db, invoice, tax)
-                await self._apply_deposits(invoice)
-                cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
+                await self._issue_invoice(invoice, cmd)
             else:
                 cmd.record("invoice.resend", entity_type="invoice", entity_id=invoice.id)
-            try:
-                await (
-                    self.db.flush()
-                )  # the unique (business_id, number) backstops a concurrent send
-            except IntegrityError as exc:
-                raise Conflict("that number was just assigned — please retry") from exc
             return await _invoice_out(self.db, invoice, await self._lines("invoice", invoice.id))
 
         return await run_command(
             self.db, self.principal, action="invoice.send", run=run, response_model=InvoiceOut
         )
+
+    async def _issue_invoice(self, invoice: Invoice, cmd: Command) -> None:
+        """Number, date and post a draft invoice; its tax is fixed here and matches its journal."""
+        now = datetime.now(UTC)
+        invoice.number = await self._next_number(Invoice)
+        invoice.status = "sent"
+        invoice.issued_at = now
+        invoice.pay_token = secrets.token_urlsafe(16)
+        if invoice.due_at is None:
+            invoice.due_at = now + timedelta(days=_DUE_DAYS)
+        lines = await self._lines("invoice", invoice.id)
+        tax = await tax_for_lines(self.db, self.biz, lines)
+        apply_totals(invoice, tax)
+        try:
+            await self.db.flush()  # the unique (business_id, number) backstops a concurrent send
+        except IntegrityError as exc:
+            raise Conflict("that number was just assigned — please retry") from exc
+        await ledger.post_invoice(self.db, invoice, tax)
+        await self._apply_deposits(invoice)
+        cmd.record("invoice.send", entity_type="invoice", entity_id=invoice.id)
 
     async def void_invoice(self, invoice_id: str) -> InvoiceOut:
         self._assert_admin()
@@ -204,6 +214,10 @@ class BillingService:
             await self._apply_totals(estimate, lines)
             await self.db.flush()
             cmd.record("estimate.create", entity_type="estimate", entity_id=estimate.id)
+            if data.send:
+                if not any(included(ln) for ln in lines):
+                    raise Unprocessable("add a line before sending the estimate")
+                await self._issue_estimate(estimate, cmd)
             return _estimate_out(estimate, lines)
 
         return await run_command(
@@ -249,28 +263,32 @@ class BillingService:
 
         async def run(cmd: Command) -> EstimateOut:
             if estimate.status == "draft":
-                estimate.number = await self._next_number(Estimate)
-                estimate.status = "sent"
-                cmd.record("estimate.send", entity_type="estimate", entity_id=estimate.id)
+                await self._issue_estimate(estimate, cmd)
             else:
                 cmd.record("estimate.resend", entity_type="estimate", entity_id=estimate.id)
-            try:
-                await (
-                    self.db.flush()
-                )  # the unique (business_id, number) backstops a concurrent send
-            except IntegrityError as exc:
-                raise Conflict("that number was just assigned — please retry") from exc
             return _estimate_out(estimate, await self._lines("estimate", estimate.id))
 
         return await run_command(
             self.db, self.principal, action="estimate.send", run=run, response_model=EstimateOut
         )
 
+    async def _issue_estimate(self, estimate: Estimate, cmd: Command) -> None:
+        estimate.number = await self._next_number(Estimate)
+        estimate.status = "sent"
+        estimate.view_token = secrets.token_urlsafe(16)
+        if estimate.valid_until is None:
+            estimate.valid_until = datetime.now(UTC).date() + timedelta(days=_VALID_DAYS)
+        try:
+            await self.db.flush()  # the unique (business_id, number) backstops a concurrent send
+        except IntegrityError as exc:
+            raise Conflict("that number was just assigned — please retry") from exc
+        cmd.record("estimate.send", entity_type="estimate", entity_id=estimate.id)
+
     async def accept_estimate(self, estimate_id: str) -> EstimateOut:
         return await self._set_estimate_status(estimate_id, "accepted")
 
-    async def decline_estimate(self, estimate_id: str) -> EstimateOut:
-        return await self._set_estimate_status(estimate_id, "declined")
+    async def decline_estimate(self, estimate_id: str, reason: str | None = None) -> EstimateOut:
+        return await self._set_estimate_status(estimate_id, "declined", reason)
 
     async def convert_estimate(self, estimate_id: str, idempotency_key: str | None) -> InvoiceOut:
         self._assert_admin()
@@ -299,8 +317,10 @@ class BillingService:
                     unit_amount_cents=ln.unit_amount_cents,
                     item_id=ln.item_id,
                     booking_id=ln.booking_id,
+                    tax_class=_tax_class(ln.tax_class),
                 )
                 for ln in await self._lines("estimate", estimate.id)
+                if included(ln)
             ]
             lines = await self._replace_lines("invoice", invoice.id, inputs)
             await self._apply_totals(invoice, lines)
@@ -319,7 +339,9 @@ class BillingService:
             idempotency_key=idempotency_key,
         )
 
-    async def _set_estimate_status(self, estimate_id: str, status: str) -> EstimateOut:
+    async def _set_estimate_status(
+        self, estimate_id: str, status: str, reason: str | None = None
+    ) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
         current = estimate_status(estimate)
@@ -332,6 +354,7 @@ class BillingService:
                 estimate.accepted_at = datetime.now(UTC)
             elif status == "declined":
                 estimate.declined_at = datetime.now(UTC)
+                estimate.decline_reason = reason
             await self.db.flush()
             cmd.record(f"estimate.{status}", entity_type="estimate", entity_id=estimate.id)
             return _estimate_out(estimate, await self._lines("estimate", estimate.id))
@@ -428,7 +451,7 @@ class BillingService:
         )
 
     async def _apply_totals(self, parent: Invoice | Estimate, lines: list[Line]) -> None:
-        apply_totals(parent, await tax_for_lines(self.db, self.biz, lines))
+        apply_totals(parent, included_totals(lines, await tax_for_lines(self.db, self.biz, lines)))
 
     async def _replace_lines(
         self, parent: LineParent, parent_id: str, inputs: list[LineInput]
@@ -468,6 +491,12 @@ class BillingService:
         if row is None:
             raise NotFound("estimate not found")
         return row
+
+
+def _tax_class(value: str) -> TaxClass:
+    return (
+        "federal_only" if value == "federal_only" else "exempt" if value == "exempt" else "standard"
+    )
 
 
 def estimate_status(estimate: Estimate, today: date | None = None) -> str:
@@ -518,6 +547,8 @@ def _estimate_out(estimate: Estimate, lines: list[Line]) -> EstimateOut:
         declined_at=estimate.declined_at,
         converted_invoice_id=estimate.converted_invoice_id,
         notes=estimate.notes,
+        decline_reason=estimate.decline_reason,
+        view_token=estimate.view_token,
         lines=[line_out(ln) for ln in lines],
     )
 

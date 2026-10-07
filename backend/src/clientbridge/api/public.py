@@ -13,6 +13,11 @@ from clientbridge.core.ratelimit import (
     public_pay_rate_limit,
     public_review_rate_limit,
 )
+from clientbridge.schemas.billing import (
+    PublicEstimate,
+    PublicEstimateAccept,
+    PublicEstimateDecline,
+)
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
 from clientbridge.schemas.forms import PublicFormContext, PublicFormSubmit
@@ -32,6 +37,7 @@ from clientbridge.services.notifications import Notifier
 from clientbridge.services.public import (
     PublicBookingService,
     PublicContractService,
+    PublicEstimateService,
     PublicFormService,
     PublicPayService,
     PublicReviewService,
@@ -66,6 +72,44 @@ async def public_pay_interac(
     token: str, db: DbSession, gateway: GatewayDep, _: RateLimited
 ) -> InteracRequest:
     return await PublicPayService(db, gateway).pay_interac(token)
+
+
+estimate_router = APIRouter(prefix="/estimate", tags=["public-estimate"])
+
+
+@estimate_router.get("/{token}", response_model=PublicEstimate)
+async def public_estimate(token: str, db: DbSession, _: RateLimited) -> PublicEstimate:
+    return await PublicEstimateService(db).context(token)
+
+
+@estimate_router.post("/{token}/accept", response_model=PublicEstimate)
+async def public_estimate_accept(
+    token: str,
+    data: PublicEstimateAccept,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    _: RateLimited,
+) -> PublicEstimate:
+    result = await PublicEstimateService(db).accept(token, data)
+    await Notifier(email, sms, push).on_estimate_answered(db, token)
+    return result
+
+
+@estimate_router.post("/{token}/decline", response_model=PublicEstimate)
+async def public_estimate_decline(
+    token: str,
+    data: PublicEstimateDecline,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+    _: RateLimited,
+) -> PublicEstimate:
+    result = await PublicEstimateService(db).decline(token, data)
+    await Notifier(email, sms, push).on_estimate_answered(db, token)
+    return result
 
 
 review_router = APIRouter(prefix="/review", tags=["public-review"])

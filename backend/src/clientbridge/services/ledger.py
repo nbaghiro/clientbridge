@@ -25,6 +25,8 @@ type _Id = InstrumentedAttribute[str] | str
 
 PLATFORM = "clientbridge"
 _CASH = {"stripe": "stripe", "interac": "bank", "manual": "cash"}
+# recorded by hand: cash sits in the till, a cheque or an e-Transfer already reached the bank
+_BANKED_BY_HAND = ("cheque", "interac", "bank_eft")
 # the credit-side kinds a refund unwinds pro rata (never the receivable: a refund is a credit note)
 _UNWOUND = ("revenue", "tax", "deposit", "deferred", "gift_card")
 
@@ -449,6 +451,13 @@ async def collected(
     return sum(e.amount_cents for e, _ in cash), any(e.event == "refund" for e, _ in cash)
 
 
+def cash_category(payment: Payment) -> str:
+    """The cash account a payment lands in."""
+    if payment.provider == "manual" and payment.method in _BANKED_BY_HAND:
+        return "bank"
+    return _CASH[payment.provider]
+
+
 async def post_payment(
     db: AsyncSession, payment: Payment, *, available_at: datetime | None = None
 ) -> None:
@@ -459,7 +468,7 @@ async def post_payment(
         biz,
         event="payment",
         ref=f"payment:{payment.id}",
-        legs=[Leg("business", biz, _CASH[payment.provider], payment.amount_cents), *credits],
+        legs=[Leg("business", biz, cash_category(payment), payment.amount_cents), *credits],
         currency=payment.currency,
         source=("payment", payment.id),
         subject=subject,
@@ -588,7 +597,7 @@ async def post_refund(
         biz,
         event="refund",
         ref=ref or f"refund:{refund.id}",
-        legs=[Leg("business", biz, _CASH[original.provider], -returned), *legs],
+        legs=[Leg("business", biz, cash_category(original), -returned), *legs],
         currency=refund.currency,
         source=("payment", refund.id),
         subject=subject,

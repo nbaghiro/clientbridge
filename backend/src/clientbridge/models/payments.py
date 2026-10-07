@@ -11,7 +11,7 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "payments"
     __table_args__ = (
         enum_check("payments", "kind", "payment", "deposit", "refund"),
-        enum_check("payments", "method", "card", "interac", "bank_eft", "cash", "other"),
+        enum_check("payments", "method", "card", "interac", "bank_eft", "cash", "cheque", "other"),
         # a refund has a parent; a payment settles at most one invoice or order (plus its booking)
         CheckConstraint(
             "(kind = 'refund') = (parent_payment_id IS NOT NULL)"
@@ -44,6 +44,9 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     provider: Mapped[str] = mapped_column(String, nullable=False)
     provider_ref: Mapped[str | None] = mapped_column(String)
     reference_code: Mapped[str | None] = mapped_column(String)  # Interac e-Transfer auto-match
+    reference: Mapped[str | None] = mapped_column(String)  # cheque number or e-Transfer reference
+    note: Mapped[str | None] = mapped_column(String)
+    tendered_cents: Mapped[int | None] = mapped_column(BigInteger)  # cash handed over
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

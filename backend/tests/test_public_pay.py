@@ -171,3 +171,34 @@ async def test_pay_link_get_is_rate_limited(api: httpx.AsyncClient, db: AsyncSes
     _, token = await _sent_invoice(db)
     assert (await api.get(f"/pay/{token}")).status_code == 200
     assert (await api.get(f"/pay/{token}")).status_code == 429
+
+
+async def test_public_invoice_carries_the_document(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    lines = [
+        {"description": "Bath & Tidy", "unit_amount_cents": 4500, "tax_class": "federal_only"},
+        {"description": "Shampoo", "unit_amount_cents": 2400},
+    ]
+    sent = (
+        await as_owner.post("/v1/invoices", json={"client_id": cid, "lines": lines, "send": True})
+    ).json()
+    paid = await as_owner.post(
+        f"/v1/invoices/{sent['id']}/payments",
+        json={"method": "interac", "amount_cents": 5000, "send_receipt": False},
+    )
+    assert paid.status_code == 201, paid.text
+    page = (await as_owner.get(f"/pay/{sent['pay_token']}")).json()
+    assert page["client_name"]
+    assert page["status"] == "partial"
+    assert [ln["tax_codes"] for ln in page["lines"]] == [["GST"], ["GST", "PST"]]
+    assert page["taxes"] == [
+        {"code": "GST", "rate_bps": 500, "base_cents": 6900, "cents": 345},
+        {"code": "PST", "rate_bps": 700, "base_cents": 2400, "cents": 168},
+    ]
+    assert page["total_cents"] == 7413
+    assert page["credits"][0]["kind"] == "payment"
+    assert page["credits"][0]["method"] == "interac"
+    assert page["credits"][0]["amount_cents"] == 5000
+    assert page["balance_cents"] == 2413

@@ -198,3 +198,74 @@ async def test_foreign_estimate_404_by_scoping(
         assert res.status_code == 404, action
     assert (await as_owner.patch(f"/v1/estimates/{est.id}", json={})).status_code == 404
     assert (await db.get(Estimate, est.id, populate_existing=True)) is not None
+
+
+def _addon(desc: str = "Nail trim", unit: int = 2000) -> dict[str, object]:
+    return {**_line(desc, 1.0, unit), "optional": True, "tax_class": "federal_only"}
+
+
+async def test_optional_lines_stay_out_of_the_total(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    res = await as_owner.post(
+        "/v1/estimates", json={"client_id": cid, "lines": [_line(), _addon()]}
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["total_cents"] == 11200  # the add-on starts unticked
+    addon = body["lines"][1]
+    assert addon["optional"] is True and addon["selected"] is False
+    assert addon["tax_amount_cents"] == 100  # its own GST, shown beside it
+
+
+async def test_create_and_send_estimate(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="client@example.ca")
+    res = await as_owner.post(
+        "/v1/estimates", json={"client_id": cid, "lines": [_line()], "send": True}
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["status"] == "sent" and body["number"] is not None
+    assert body["view_token"] and body["valid_until"] is not None
+    assert any(f"/e/{body['view_token']}" in m.body for m in email.sent)
+
+
+async def test_create_and_send_estimate_needs_an_included_line(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    cid = await client_id(db)
+    res = await as_owner.post(
+        "/v1/estimates", json={"client_id": cid, "lines": [_addon()], "send": True}
+    )
+    assert res.status_code == 422
+
+
+async def test_decline_keeps_the_reason(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="client@example.ca")
+    est = (await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [_line()]})).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    declined = await as_owner.post(
+        f"/v1/estimates/{est['id']}/decline", json={"reason": "Booked elsewhere"}
+    )
+    assert declined.status_code == 200
+    assert declined.json()["decline_reason"] == "Booked elsewhere"
+
+
+async def test_convert_keeps_tax_class_and_skips_unticked_addons(
+    as_owner: httpx.AsyncClient, db: AsyncSession, email: FakeEmailSender
+) -> None:
+    cid = await client_id(db, email="client@example.ca")
+    line = {**_line(), "tax_class": "federal_only"}
+    est = (
+        await as_owner.post("/v1/estimates", json={"client_id": cid, "lines": [line, _addon()]})
+    ).json()
+    await as_owner.post(f"/v1/estimates/{est['id']}/send")
+    invoice = (await as_owner.post(f"/v1/estimates/{est['id']}/convert")).json()
+    assert [ln["description"] for ln in invoice["lines"]] == ["Project quote"]
+    assert invoice["lines"][0]["tax_class"] == "federal_only"
+    assert invoice["total_cents"] == 10500
