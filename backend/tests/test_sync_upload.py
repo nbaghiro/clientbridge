@@ -12,22 +12,6 @@ async def _scalar(db: AsyncSession, sql: str) -> object:
     return (await db.execute(text(sql))).scalar()
 
 
-async def test_put_patch_delete_contract(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    def op(kind: str, data: dict[str, object] | None = None) -> dict[str, object]:
-        return {"ops": [{"op": kind, "type": "contracts", "id": "con_upload", "data": data}]}
-
-    put = op("PUT", {"business_id": BIZ, "name": "Policy", "body": "Terms"})
-    assert (await as_owner.post("/sync/upload", json=put)).status_code == 200
-    assert await _scalar(db, "SELECT name FROM contracts WHERE id='con_upload'") == "Policy"
-
-    patch = op("PATCH", {"name": "Policy v2"})
-    assert (await as_owner.post("/sync/upload", json=patch)).status_code == 200
-    assert await _scalar(db, "SELECT name FROM contracts WHERE id='con_upload'") == "Policy v2"
-
-    assert (await as_owner.post("/sync/upload", json=op("DELETE"))).status_code == 200
-    assert await _scalar(db, "SELECT count(*) FROM contracts WHERE id='con_upload'") == 0
-
-
 @pytest.mark.parametrize(
     ("table", "row_id"),
     [
@@ -37,6 +21,9 @@ async def test_put_patch_delete_contract(as_owner: httpx.AsyncClient, db: AsyncS
         ("messages", "msg_x"),
         ("items", "it_groom_sm"),
         ("resources", "rs_station_a"),
+        ("forms", "frm_satisfaction"),
+        ("fields", "fld_x"),
+        ("contracts", "con_x"),
     ],
 )
 async def test_tables_written_by_commands_are_refused(
@@ -118,28 +105,19 @@ async def test_rejects_foreign_business(as_owner: httpx.AsyncClient) -> None:
             "ops": [
                 {
                     "op": "PUT",
-                    "type": "forms",
-                    "id": "frm_x",
-                    "data": {"business_id": "bz_nope", "name": "x"},
+                    "type": "hours",
+                    "id": "av_x",
+                    "data": {
+                        "business_id": "bz_nope",
+                        "staff_id": "st_diego",
+                        "basis": "recurring",
+                        "weekday": 0,
+                        "available": 1,
+                    },
                 }
             ]
         },
     )
-    assert res.status_code == 403
-
-
-async def test_admin_table_ok_for_owner(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    form = {"business_id": BIZ, "name": "A"}
-    op = {"op": "PUT", "type": "forms", "id": "frm_upload", "data": form}
-    res = await as_owner.post("/sync/upload", json={"ops": [op]})
-    assert res.status_code == 200
-    assert await _scalar(db, "SELECT name FROM forms WHERE id='frm_upload'") == "A"
-
-
-async def test_admin_table_refused_for_staff(as_staff: httpx.AsyncClient) -> None:
-    form = {"business_id": BIZ, "name": "A"}
-    op = {"op": "PUT", "type": "forms", "id": "frm_upload", "data": form}
-    res = await as_staff.post("/sync/upload", json={"ops": [op]})
     assert res.status_code == 403
 
 
@@ -169,8 +147,8 @@ async def test_rejects_cross_tenant_move(as_owner: httpx.AsyncClient) -> None:
             "ops": [
                 {
                     "op": "PATCH",
-                    "type": "forms",
-                    "id": "frm_satisfaction",
+                    "type": "hours",
+                    "id": "av_st_diego_1",
                     "data": {"business_id": "bz_other"},
                 }
             ]
@@ -186,8 +164,8 @@ async def test_rejects_server_timestamps(as_owner: httpx.AsyncClient) -> None:
             "ops": [
                 {
                     "op": "PATCH",
-                    "type": "forms",
-                    "id": "frm_satisfaction",
+                    "type": "hours",
+                    "id": "av_st_diego_1",
                     "data": {"created_at": "2020-01-01T00:00:00+00:00"},
                 }
             ]

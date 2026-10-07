@@ -40,7 +40,7 @@ secrets, cross-tenant — must be a **command**, never a sync-write.
 | # | Surface | What it is | Auth | Examples |
 |---|---|---|---|---|
 | 1 | **Sync-read** | PowerSync streams each device its authorized rows into local SQLite | Sync Rules (buckets) | calendar, clients, invoices on-device |
-| 2 | **Sync-write** | `POST /sync/upload` applies simple CRUD the device queued | `WRITE_POLICY` | edit working hours, build a form, draft a contract |
+| 2 | **Sync-write** | `POST /sync/upload` applies simple CRUD the device queued | `WRITE_POLICY` | edit working hours |
 | 3 | **Command / RPC** | FastAPI `POST/PATCH/DELETE` under `/v1/*`, wrapped in `run_command` (atomic + audited + idempotent) → writes Postgres → flows back via sync | JWT + role | book a slot, issue an invoice, take a payment |
 | 4 | **Webhook / public** | inbound provider callbacks + unauthenticated public pages | signature / token / slug | Stripe/Interac/SMS webhooks; book/pay/form/contract/review |
 | 5 | **Job** | arq background work on Redis | system | reminders, reap-unpaid, broadcasts, overdue sweep |
@@ -330,8 +330,8 @@ The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mappi
 own_only)**. Only the tables the apps actually write offline are sync-writable:
 - **team-writable** (any active staff, own rows only): `hours`, except exception rows (time off and
   closures), which only their command writes (`COMMAND_ONLY_ROWS`).
-- **admin-writable** (owner/admin): `forms` · `fields` · `contracts`.
-- **not sync-writable**: everything else. Clients, pets, notes, catalog items and resources go through
+- **not sync-writable**: everything else. Clients, pets, notes, catalog items, resources, and forms,
+  fields and contracts (whose edits are versioned) go through
   their `/v1` commands so the service validation applies; money, capacity, secrets and uniqueness
   (`payments`, `accounts`/`entries`, `gift_cards`, `subscriptions`, `packages`, `slots`/`bookings`/
   `recurrences`, `invoices`/`estimates`/`orders`/`lines`, `threads`/`messages`, `broadcasts`,

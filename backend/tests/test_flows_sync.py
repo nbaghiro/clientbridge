@@ -22,13 +22,6 @@ def _writes() -> list[tuple[str, dict[str, object], dict[str, object]]]:
             },
             {"end_time": "13:00:00"},
         ),
-        ("forms", {"name": "Intake"}, {"name": "Intake v2"}),
-        (
-            "fields",
-            {"form_id": "frm_satisfaction", "input": "text", "name": "pet", "label": "Pet"},
-            {"label": "Pet name"},
-        ),
-        ("contracts", {"name": "Policy", "body": "Terms"}, {"body": "New terms"}),
     ]
 
 

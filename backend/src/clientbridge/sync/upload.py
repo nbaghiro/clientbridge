@@ -32,9 +32,6 @@ class UploadBody(BaseModel):
 # table -> (min tier, own_only); tables absent here are written only through commands.
 WRITE_POLICY: dict[str, tuple[str, bool]] = {
     "hours": ("team", True),
-    "forms": ("admin", False),
-    "fields": ("admin", False),
-    "contracts": ("admin", False),
 }
 
 # Rows inside a sync-writable table that only their command may write (column, value).
