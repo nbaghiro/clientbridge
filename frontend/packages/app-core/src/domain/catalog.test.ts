@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import { strings } from "../strings";
+
 import {
     type ItemFormValues,
     type ItemRow,
-    entitlementKindsOnSale,
     giftAmounts,
     groupByCategory,
     itemFormError,
     itemMeta,
     itemPayload,
+    itemPriceLabel,
+    itemStatus,
     matchesFilter,
     sellableItems,
     stockScale,
@@ -158,14 +161,13 @@ describe("catalog list", () => {
 });
 
 describe("what a sale can carry", () => {
-    it("keeps entitlements out of sale lines and offers them as their own tiles", () => {
+    it("keeps entitlements out of sale lines", () => {
         const rows = [
             base,
             { ...base, id: "gc", kind: "gift" },
             { ...base, id: "pk", kind: "package" },
         ];
         expect(sellableItems(rows).map((r) => r.id)).toEqual(["it_1"]);
-        expect(entitlementKindsOnSale(rows)).toEqual(["gift", "package"]);
     });
 });
 
@@ -222,5 +224,40 @@ describe("item editor", () => {
         expect(
             itemFormError({ ...values, kind: "product", trackStock: true, openingStock: "-1" }),
         ).not.toBeNull();
+    });
+});
+
+describe("item price and status", () => {
+    const c = strings.catalog;
+
+    it("prices an item, a plan per period and a gift card at any amount", () => {
+        expect(itemPriceLabel({ ...base, kind: "service", price_cents: 7500 })).toBe("$75.00");
+        expect(itemPriceLabel({ ...base, price_cents: null })).toBe("$0.00");
+        expect(
+            itemPriceLabel({ ...base, kind: "subscription", price_cents: 5000, frequency: "week" }),
+        ).toBe(c.perPeriod("$50.00", c.freqLabel.week ?? ""));
+        expect(
+            itemPriceLabel({ ...base, kind: "subscription", price_cents: 5000, frequency: null }),
+        ).toBe(c.perPeriod("$50.00", c.freqLabel.month ?? ""));
+        expect(itemPriceLabel({ ...base, kind: "gift", price_cents: 2500 })).toBe(c.anyAmount);
+    });
+
+    it("pills an archived item first, then low or out of stock, else nothing", () => {
+        expect(itemStatus({ ...base, active: 0, stock_on_hand: 0 })).toEqual({
+            label: c.archived,
+            intent: "neutral",
+        });
+        expect(itemStatus({ ...base, stock_on_hand: 2 })).toEqual({
+            label: c.stockLow(2),
+            intent: "warning",
+        });
+        expect(itemStatus({ ...base, stock_on_hand: 0 })).toEqual({
+            label: c.stockOut,
+            intent: "danger",
+        });
+        expect(itemStatus({ ...base, stock_on_hand: -3 })?.label).toBe(c.stockOut);
+        expect(itemStatus({ ...base, stock_on_hand: 3 })).toBeNull();
+        expect(itemStatus({ ...base, track_stock: 0, stock_on_hand: 0 })).toBeNull();
+        expect(itemStatus({ ...base, low_stock_at: null, stock_on_hand: 1 })).toBeNull();
     });
 });

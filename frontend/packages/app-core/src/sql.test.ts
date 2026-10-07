@@ -574,9 +574,7 @@ function seed(): void {
         { id: "ff_2", form_id: "frm_a", input: "text", name: "b", label: "B", position: 1 },
         { id: "ff_1", form_id: "frm_a", input: "rating", name: "a", label: "A", position: 0 },
     ]);
-    scoped("contracts", [
-        { id: "con_1", name: "Waiver", body: "I agree", version: 2, always_require: 1, active: 1 },
-    ]);
+    scoped("contracts", [{ id: "con_1", name: "Waiver", body: "I agree", version: 2, active: 1 }]);
     scoped("hours", [
         {
             id: "av_1",
@@ -900,6 +898,37 @@ describe("app-core SQL against the replica schema", () => {
                 client_name: null,
             },
         ]);
+        expect(
+            pick(
+                events,
+                "starts_at",
+                "ends_at",
+                "item_price",
+                "item_color",
+                "booking_price",
+                "capacity",
+                "addon_count",
+            ),
+        ).toEqual([
+            {
+                starts_at: "2026-06-26 10:00:00+00",
+                ends_at: "2026-06-26 11:00:00+00",
+                item_price: 10000,
+                item_color: "#123",
+                booking_price: 10000,
+                capacity: 1,
+                addon_count: 1,
+            },
+            {
+                starts_at: "2026-06-27T09:00:00Z",
+                ends_at: "2026-06-27T10:00:00Z",
+                item_price: 10000,
+                item_color: "#123",
+                booking_price: null,
+                capacity: 4,
+                addon_count: 0,
+            },
+        ]);
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
         expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([{ invoice_id: "inv_1" }]);
     });
@@ -1142,6 +1171,21 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(items[0]).toEqual({ id: "it_cut", image_file_id: "fl_new", stock_on_hand: null });
         expect(items[3]).toEqual({ id: "it_soap", image_file_id: null, stock_on_hand: 3 });
+        expect(
+            pick(run("ITEMS_SQL"), "id", "kind", "price_cents", "active", "track_stock"),
+        ).toEqual([
+            { id: "it_cut", kind: "service", price_cents: 10000, active: 1, track_stock: null },
+            { id: "it_pkg", kind: "package", price_cents: 45000, active: 1, track_stock: null },
+            {
+                id: "it_plan",
+                kind: "subscription",
+                price_cents: 5000,
+                active: 1,
+                track_stock: null,
+            },
+            { id: "it_soap", kind: "product", price_cents: 2400, active: 1, track_stock: 1 },
+            { id: "it_old", kind: "service", price_cents: 100, active: 0, track_stock: null },
+        ]);
     });
 
     it("reads forms, contracts and weekly hours", () => {
@@ -1225,19 +1269,8 @@ describe("app-core SQL against the replica schema", () => {
             { id: "cl_ann", name: "Ann" },
         ]);
         expect(
-            pick(
-                run("SETUP_PROGRESS_SQL"),
-                "services",
-                "hours",
-                "clients",
-                "team",
-                "stripe",
-                "online",
-                "slug",
-            ),
-        ).toEqual([
-            { services: 1, hours: 1, clients: 2, team: 3, stripe: 0, online: 1, slug: null },
-        ]);
+            pick(run("SETUP_PROGRESS_SQL"), "services", "hours", "team", "stripe", "slug"),
+        ).toEqual([{ services: 1, hours: 1, team: 3, stripe: 0, slug: null }]);
     });
 
     it("derives the bell from synced rows since a date", () => {
@@ -1423,7 +1456,17 @@ describe("app-core SQL against the replica schema", () => {
         expect(pick(run("CLIENT_INVOICES_SQL", ["cl_ann"]), "id", "status")).toEqual([
             { id: "inv_1", status: "partial" },
         ]);
-        expect(run("CLIENT_PAYMENTS_SQL", ["cl_ann"]).length).toBeGreaterThan(0);
+        const byId = (a: Row, b: Row) => String(a.id).localeCompare(String(b.id));
+        expect(run("CLIENT_PAYMENTS_SQL", ["cl_ann"]).sort(byId)).toEqual([
+            { id: "pay_1", kind: "payment", amount_cents: 5000, at: "2026-06-26T13:00:00Z" },
+            { id: "pay_dep", kind: "deposit", amount_cents: 2750, at: "2026-06-25T09:00:00Z" },
+            { id: "pay_r1", kind: "refund", amount_cents: 1000, at: "2026-06-26T14:00:00Z" },
+        ]);
+        expect(
+            run("CLIENT_PAYMENTS_SQL", ["cl_ben"])
+                .map((r) => r.id)
+                .sort(),
+        ).toEqual(["pay_3", "pay_web"]);
         expect(run("CLIENT_MESSAGES_SQL", ["cl_ann"]).every((r) => r.direction !== null)).toBe(
             true,
         );
@@ -1455,7 +1498,24 @@ describe("app-core SQL against the replica schema", () => {
                 filing_frequency: "quarterly",
             },
         ]);
-        expect(run("TAXABLE_ITEMS_SQL").every((r) => typeof r.name === "string")).toBe(true);
+        expect(run("TAXABLE_ITEMS_SQL")).toEqual([
+            {
+                id: "it_pkg",
+                name: "Five Cuts",
+                kind: "package",
+                price_cents: 45000,
+                tax_class: null,
+            },
+            { id: "it_soap", name: "Soap", kind: "product", price_cents: 2400, tax_class: null },
+            { id: "it_cut", name: "Cut", kind: "service", price_cents: 10000, tax_class: null },
+            {
+                id: "it_plan",
+                name: "Plan",
+                kind: "subscription",
+                price_cents: 5000,
+                tax_class: null,
+            },
+        ]);
         expect(pick(run("BRAND_SQL"), "id", "slug", "province")).toEqual([
             { id: BIZ, slug: "birch", province: "BC" },
         ]);
@@ -1750,24 +1810,73 @@ describe("app-core SQL against the replica schema", () => {
             { starts_at: "2027-01-05T17:00:00Z" },
         ]);
         expect(run("RECURRING_HOURS_SQL", ["st_cara"])).toHaveLength(2);
-        expect(pick(run("SERIES_SQL"), "id", "item_name", "client_name")).toEqual([
-            { id: "sch_1", item_name: "Cut", client_name: "Ann" },
+        expect(
+            pick(
+                run("SERIES_SQL"),
+                "id",
+                "item_name",
+                "client_name",
+                "frequency",
+                "interval",
+                "count",
+                "until",
+                "status",
+            ),
+        ).toEqual([
+            {
+                id: "sch_1",
+                item_name: "Cut",
+                client_name: "Ann",
+                frequency: "week",
+                interval: 2,
+                count: 3,
+                until: null,
+                status: "active",
+            },
         ]);
-        expect(run("SERIES_VISITS_SQL").map((r) => r.slot_id)).toEqual(["ss_c1", "ss_c2"]);
+        const visits = run("SERIES_VISITS_SQL");
+        expect(
+            pick(visits, "slot_id", "recurrence_id", "booking_id", "status", "pet_name"),
+        ).toEqual([
+            {
+                slot_id: "ss_c1",
+                recurrence_id: "sch_1",
+                booking_id: "bk_c1",
+                status: "confirmed",
+                pet_name: "Rex",
+            },
+            {
+                slot_id: "ss_c2",
+                recurrence_id: "sch_1",
+                booking_id: "bk_c2",
+                status: "completed",
+                pet_name: null,
+            },
+        ]);
+        expect(visits.filter((v) => v.status === "completed")).toHaveLength(1);
     });
 
     it("reads class rosters, stations, reminders and add-on offers", () => {
         expect(
-            run("CLASS_SESSIONS_SQL", ["2027-01-01T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]).map(
-                (r) => r.slot_id,
+            pick(
+                run("CLASS_SESSIONS_SQL", ["2027-01-01T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
+                "slot_id",
+                "capacity",
+                "room",
+                "item_name",
             ),
-        ).toEqual(["ss_k"]);
+        ).toEqual([{ slot_id: "ss_k", capacity: 2, room: "Room", item_name: "Cut" }]);
         expect(
-            pick(run("CLASS_ROSTER_SQL", ["2027-01-01T00:00:00.000Z"]), "booking_id", "pet_name"),
-        ).toEqual([
-            { booking_id: "bk_k1", pet_name: "Rex" },
-            { booking_id: "bk_k2", pet_name: null },
+            run("CLASS_SESSIONS_SQL", ["2027-01-07T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]),
+        ).toEqual([]);
+        const roster = run("CLASS_ROSTER_SQL", ["2027-01-01T00:00:00.000Z"]);
+        expect(pick(roster, "booking_id", "slot_id", "status", "pet_name")).toEqual([
+            { booking_id: "bk_k1", slot_id: "ss_k", status: "confirmed", pet_name: "Rex" },
+            { booking_id: "bk_k2", slot_id: "ss_k", status: "waitlisted", pet_name: null },
         ]);
+        expect(roster.filter((r) => r.status === "confirmed")).toHaveLength(1);
+        expect(roster.filter((r) => r.status === "waitlisted")).toHaveLength(1);
+        expect(run("CLASS_ROSTER_SQL", ["2027-01-07T00:00:00.000Z"])).toEqual([]);
         expect(pick(run("CLASS_CLIENTS_SQL"), "id", "pet_name")).toEqual([
             { id: "cl_ann", pet_name: "Rex" },
             { id: "cl_ben", pet_name: null },
@@ -1811,6 +1920,213 @@ describe("app-core SQL against the replica schema", () => {
         ]);
         expect(run("ONLINE_BOOKINGS_SQL", ["2026-01-01T00:00:00Z"])).toEqual([{ n: 2 }]);
         expect(run("ADDON_SERVICES_SQL").map((r) => r.id)).toEqual(["it_cut"]);
+    });
+
+    it("totals a sale with line and sale discounts, a tip and a partial refund", () => {
+        scoped("orders", [
+            {
+                id: "ord_disc",
+                number: 42,
+                client_id: "cl_ann",
+                staff_id: "st_amy",
+                status: "open",
+                currency: "CAD",
+                subtotal_cents: 14800,
+                tax_total_cents: 0,
+                total_cents: 12420,
+                source: "pos",
+                discount_kind: "percent",
+                discount_value: 1000,
+                discount_reason: "Loyalty",
+                created_at: "2026-06-26T15:00:00Z",
+            },
+        ]);
+        scoped("lines", [
+            {
+                id: "ln_d1",
+                order_id: "ord_disc",
+                description: "Cut",
+                item_id: "it_cut",
+                quantity: 1,
+                unit_amount_cents: 10000,
+                amount_cents: 10000,
+                discount_cents: 1000,
+                sale_discount_cents: 900,
+                discount_kind: "amount",
+                discount_value: 1000,
+                discount_reason: "Regular",
+                position: 0,
+            },
+            {
+                id: "ln_d2",
+                order_id: "ord_disc",
+                description: "Soap",
+                item_id: "it_soap",
+                quantity: 2,
+                unit_amount_cents: 2400,
+                amount_cents: 4800,
+                discount_cents: 0,
+                sale_discount_cents: 480,
+                position: 1,
+            },
+        ]);
+        scoped("payments", [
+            {
+                id: "pay_d",
+                client_id: "cl_ann",
+                kind: "payment",
+                order_id: "ord_disc",
+                amount_cents: 13920,
+                tip_cents: 1500,
+                currency: "CAD",
+                method: "card",
+                provider: "stripe",
+                status: "succeeded",
+                paid_at: "2026-06-26T15:05:00Z",
+            },
+            {
+                id: "pay_dr",
+                client_id: "cl_ann",
+                kind: "refund",
+                parent_payment_id: "pay_d",
+                order_id: "ord_disc",
+                amount_cents: 2000,
+                currency: "CAD",
+                method: "card",
+                provider: "stripe",
+                status: "succeeded",
+                paid_at: "2026-06-26T16:00:00Z",
+            },
+        ]);
+        const sale = { subject_type: "order", subject_id: "ord_disc" };
+        journal(
+            "j_d",
+            "payment",
+            "payment:pay_d",
+            [
+                ["a_stripe", 13920],
+                ["a_rev", -12420],
+                ["a_pay_amy", -1500],
+            ],
+            { ...sale, source_type: "payment", source_id: "pay_d" },
+        );
+        journal(
+            "j_dr",
+            "refund",
+            "refund:pay_dr",
+            [
+                ["a_stripe", -2000],
+                ["a_rev", 2000],
+            ],
+            { ...sale, source_type: "payment", source_id: "pay_dr" },
+        );
+
+        const row = run("SALES_SQL").find((r) => r.id === "ord_disc");
+        expect(
+            pick(
+                [row ?? {}],
+                "status",
+                "total_cents",
+                "tip_cents",
+                "discount_cents",
+                "refunded_cents",
+                "item_count",
+                "method",
+                "summary",
+                "client_name",
+            ),
+        ).toEqual([
+            {
+                status: "paid",
+                total_cents: 12420,
+                tip_cents: 1500,
+                discount_cents: 2380,
+                refunded_cents: 2000,
+                item_count: 3,
+                method: "card",
+                summary: "Cut, 2 × Soap",
+                client_name: "Ann",
+            },
+        ]);
+        expect(
+            pick(
+                run("SALE_RECORD_SQL", ["ord_disc"]),
+                "number",
+                "total_cents",
+                "discount_kind",
+                "discount_value",
+                "discount_reason",
+                "status",
+            ),
+        ).toEqual([
+            {
+                number: 42,
+                total_cents: 12420,
+                discount_kind: "percent",
+                discount_value: 1000,
+                discount_reason: "Loyalty",
+                status: "paid",
+            },
+        ]);
+        expect(
+            pick(
+                run("SALE_LINES_SQL", ["ord_disc"]),
+                "id",
+                "quantity",
+                "amount_cents",
+                "discount_kind",
+                "discount_value",
+                "item_kind",
+            ),
+        ).toEqual([
+            {
+                id: "ln_d1",
+                quantity: 1,
+                amount_cents: 10000,
+                discount_kind: "amount",
+                discount_value: 1000,
+                item_kind: "service",
+            },
+            {
+                id: "ln_d2",
+                quantity: 2,
+                amount_cents: 4800,
+                discount_kind: null,
+                discount_value: null,
+                item_kind: "product",
+            },
+        ]);
+        expect(
+            pick(
+                run("SALE_PAYMENTS_SQL", ["ord_disc"]),
+                "id",
+                "kind",
+                "amount_cents",
+                "tip_cents",
+                "parent_payment_id",
+            ),
+        ).toEqual([
+            {
+                id: "pay_d",
+                kind: "payment",
+                amount_cents: 13920,
+                tip_cents: 1500,
+                parent_payment_id: null,
+            },
+            {
+                id: "pay_dr",
+                kind: "refund",
+                amount_cents: 2000,
+                tip_cents: null,
+                parent_payment_id: "pay_d",
+            },
+        ]);
+
+        db.run("DELETE FROM entries WHERE journal_id IN ('j_d', 'j_dr')");
+        db.run("DELETE FROM payments WHERE id IN ('pay_d', 'pay_dr')");
+        db.run("DELETE FROM lines WHERE order_id = 'ord_disc'");
+        db.run("DELETE FROM orders WHERE id = 'ord_disc'");
+        expect(run("SALES_SQL").map((r) => r.id)).not.toContain("ord_disc");
     });
 
     it("covers every exported SQL constant", () => {

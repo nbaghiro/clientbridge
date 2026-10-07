@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+    addDays,
+    combineDayAndTime,
     dateKey,
     daysUntil,
+    formatRelativeTime,
     parseTimestamp,
     relativeDay,
     relativeDayTime,
+    sameDay,
     stampLabel,
+    startOfDay,
+    startOfMonth,
+    startOfWeek,
     weekdayDay,
 } from "./datetime";
+import { strings } from "./strings";
 
 describe("parseTimestamp", () => {
     it("parses PowerSync's bare-offset timestamptz as UTC", () => {
@@ -61,5 +69,74 @@ describe("relative days", () => {
     it("counts calendar days, not hours", () => {
         expect(daysUntil(new Date(2026, 9, 31, 1), now)).toBe(25);
         expect(daysUntil(new Date(2026, 8, 26, 23), now)).toBe(-10);
+    });
+});
+
+describe("day arithmetic", () => {
+    const wed = new Date(2026, 9, 7, 15, 30);
+
+    it("snaps to local midnight and the first of the month", () => {
+        expect(startOfDay(wed)).toEqual(new Date(2026, 9, 7));
+        expect(startOfDay(new Date(2026, 9, 7))).toEqual(new Date(2026, 9, 7));
+        expect(startOfMonth(wed)).toEqual(new Date(2026, 9, 1));
+        expect(startOfMonth(new Date(2027, 0, 31, 23, 59))).toEqual(new Date(2027, 0, 1));
+    });
+
+    it("adds calendar days across month and year ends, landing on midnight", () => {
+        expect(addDays(wed, 1)).toEqual(new Date(2026, 9, 8));
+        expect(addDays(wed, 0)).toEqual(new Date(2026, 9, 7));
+        expect(addDays(new Date(2026, 9, 31), 1)).toEqual(new Date(2026, 10, 1));
+        expect(addDays(new Date(2027, 0, 1), -1)).toEqual(new Date(2026, 11, 31));
+        expect(addDays(new Date(2028, 1, 28), 1)).toEqual(new Date(2028, 1, 29));
+        expect(addDays(new Date(2026, 1, 28), 1)).toEqual(new Date(2026, 2, 1));
+    });
+
+    it("starts the week on Monday unless told otherwise", () => {
+        expect(startOfWeek(wed)).toEqual(new Date(2026, 9, 5));
+        expect(startOfWeek(new Date(2026, 9, 5, 8))).toEqual(new Date(2026, 9, 5));
+        expect(startOfWeek(new Date(2026, 9, 11, 22))).toEqual(new Date(2026, 9, 5));
+        expect(startOfWeek(wed, 0)).toEqual(new Date(2026, 9, 4));
+        expect(startOfWeek(new Date(2027, 0, 1), 1)).toEqual(new Date(2026, 11, 28));
+    });
+
+    it("compares calendar days, not instants", () => {
+        expect(sameDay(new Date(2026, 9, 7, 0, 0), new Date(2026, 9, 7, 23, 59))).toBe(true);
+        expect(sameDay(new Date(2026, 9, 7, 23, 59), new Date(2026, 9, 8, 0, 0))).toBe(false);
+        expect(sameDay(new Date(2026, 9, 7), new Date(2026, 8, 7))).toBe(false);
+        expect(sameDay(new Date(2026, 9, 7), new Date(2027, 9, 7))).toBe(false);
+    });
+
+    it("puts a typed time on a day given as a date or a key", () => {
+        expect(combineDayAndTime("2026-10-07", "14:30")).toEqual(new Date(2026, 9, 7, 14, 30));
+        expect(combineDayAndTime(wed, "09:05")).toEqual(new Date(2026, 9, 7, 9, 5));
+        expect(combineDayAndTime("2026-12-31", "9")).toEqual(new Date(2026, 11, 31, 9, 0));
+        expect(combineDayAndTime("2026-10-07", "00:00")).toEqual(new Date(2026, 9, 7));
+    });
+});
+
+describe("formatRelativeTime", () => {
+    const now = new Date("2026-10-07T12:00:00Z");
+    const ago = (ms: number): string => new Date(now.getTime() - ms).toISOString();
+    const t = strings.common.relativeTime;
+    const MIN = 60_000;
+
+    it("steps from just now through minutes, hours and days", () => {
+        expect(formatRelativeTime(ago(0), now)).toBe(t.justNow);
+        expect(formatRelativeTime(ago(59_999), now)).toBe(t.justNow);
+        expect(formatRelativeTime(ago(-5 * MIN), now)).toBe(t.justNow);
+        expect(formatRelativeTime(ago(MIN), now)).toBe(t.minutes(1));
+        expect(formatRelativeTime(ago(59 * MIN), now)).toBe(t.minutes(59));
+        expect(formatRelativeTime(ago(60 * MIN), now)).toBe(t.hours(1));
+        expect(formatRelativeTime(ago(24 * 60 * MIN - 1), now)).toBe(t.hours(23));
+        expect(formatRelativeTime(ago(24 * 60 * MIN), now)).toBe(t.days(1));
+        expect(formatRelativeTime(ago(7 * 24 * 60 * MIN - 1), now)).toBe(t.days(6));
+    });
+
+    it("falls back to a short date after a week, reading the replica's timestamp form", () => {
+        const old = ago(8 * 24 * 60 * MIN);
+        expect(formatRelativeTime(old, now)).toBe(
+            new Date(old).toLocaleDateString("en-CA", { month: "short", day: "numeric" }),
+        );
+        expect(formatRelativeTime("2026-10-07 11:30:00+00", now)).toBe(t.minutes(30));
     });
 });

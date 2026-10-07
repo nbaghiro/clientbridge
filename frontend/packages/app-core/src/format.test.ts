@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { firstName, formatPhone, parseCents, phoneDigits } from "./format";
+import {
+    blankToNull,
+    firstName,
+    formatMoney,
+    formatMoneyWithCurrency,
+    formatPhone,
+    initials,
+    parseCents,
+    phoneDigits,
+} from "./format";
 
 describe("parseCents", () => {
     it("reads typed dollars as cents", () => {
@@ -34,5 +43,43 @@ describe("firstName", () => {
     it("takes the first word", () => {
         expect(firstName("Hannah Wong")).toBe("Hannah");
         expect(firstName("  Diego ")).toBe("Diego");
+    });
+});
+
+describe("money", () => {
+    it("shows cents as dollars with two decimals and thousands separators", () => {
+        expect(formatMoney(0)).toBe("$0.00");
+        expect(formatMoney(null)).toBe("$0.00");
+        expect(formatMoney(5)).toBe("$0.05");
+        expect(formatMoney(1050)).toBe("$10.50");
+        expect(formatMoney(123456)).toBe("$1,234.56");
+        expect(formatMoney(100000000)).toBe("$1,000,000.00");
+    });
+
+    it("puts the minus sign before the dollar sign", () => {
+        expect(formatMoney(-2500)).toBe("-$25.00");
+        expect(formatMoney(-1)).toBe("-$0.01");
+    });
+
+    it("adds the currency code in capitals", () => {
+        expect(formatMoneyWithCurrency(1250, "usd")).toBe("$12.50 USD");
+        expect(formatMoneyWithCurrency(-99, "CAD")).toBe("-$0.99 CAD");
+    });
+});
+
+describe("initials and blanks", () => {
+    it("takes up to two initials in capitals", () => {
+        expect(initials("Amy Lee")).toBe("AL");
+        expect(initials("mary jane watson")).toBe("MJ");
+        expect(initials("Ann")).toBe("A");
+        expect(initials("")).toBe("");
+    });
+
+    it("trims text and reads a blank as null", () => {
+        expect(blankToNull("  Ann ")).toBe("Ann");
+        expect(blankToNull("   ")).toBeNull();
+        expect(blankToNull("")).toBeNull();
+        expect(blankToNull(null)).toBeNull();
+        expect(blankToNull(undefined)).toBeNull();
     });
 });

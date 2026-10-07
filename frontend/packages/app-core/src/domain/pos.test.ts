@@ -2,26 +2,20 @@ import { describe, expect, it } from "vitest";
 
 import { allocate, discountCents } from "./billing";
 import {
+    discountFrom,
+    discountLabel,
     nextPickupStatus,
-    pickupActions,
+    overStaffLimit,
     pickupOrder,
     previewDiscount,
     priceSale,
     type SaleLine,
+    saleNumber,
+    saleStatus,
     saleTotalLines,
+    tipCentsFor,
     tipShares,
 } from "./pos";
-
-describe("pickupActions", () => {
-    it("offers ready or picked up for an order still to prepare", () => {
-        expect(pickupActions("unfulfilled").map((a) => a.status)).toEqual(["ready", "picked_up"]);
-    });
-
-    it("offers only picked up once ready, and nothing after", () => {
-        expect(pickupActions("ready").map((a) => a.status)).toEqual(["picked_up"]);
-        expect(pickupActions("picked_up")).toEqual([]);
-    });
-});
 
 describe("the pickup queue", () => {
     const now = new Date("2026-10-06T16:00:00Z");
@@ -206,5 +200,72 @@ describe("priceSale", () => {
             null,
         );
         expect(owner.overLimit).toBe(false);
+    });
+});
+
+describe("sale discounts, tips and status", () => {
+    it("reads a stored discount only when its kind and value make sense", () => {
+        expect(discountFrom("percent", 10, "Loyalty")).toEqual({
+            kind: "percent",
+            value: 10,
+            reason: "Loyalty",
+        });
+        expect(discountFrom("amount", 500, null)).toEqual({
+            kind: "amount",
+            value: 500,
+            reason: null,
+        });
+        expect(discountFrom("amount", 0, null)).toBeNull();
+        expect(discountFrom("amount", -100, null)).toBeNull();
+        expect(discountFrom("percent", null, null)).toBeNull();
+        expect(discountFrom("bogus", 10, null)).toBeNull();
+        expect(discountFrom(null, 10, null)).toBeNull();
+    });
+
+    it("labels a percent as a whole percentage and an amount as money", () => {
+        expect(discountLabel({ kind: "percent", value: 15, reason: null })).toBe("15%");
+        expect(discountLabel({ kind: "amount", value: 1250, reason: null })).toBe("$12.50");
+        expect(discountLabel({ kind: "amount", value: 5, reason: null })).toBe("$0.05");
+    });
+
+    it("works a tip out on the pre-tax subtotal, rounding half cents up", () => {
+        expect(tipCentsFor({ kind: "percent", pct: 15 }, 8650)).toBe(1298);
+        expect(tipCentsFor({ kind: "percent", pct: 18 }, 1000)).toBe(180);
+        expect(tipCentsFor({ kind: "percent", pct: 20 }, 0)).toBe(0);
+        expect(tipCentsFor({ kind: "custom", cents: 300 }, 8650)).toBe(300);
+        expect(tipCentsFor({ kind: "custom", cents: -50 }, 8650)).toBe(0);
+        expect(tipCentsFor({ kind: "none" }, 8650)).toBe(0);
+    });
+
+    it("flags a discount only when it goes past the staff limit", () => {
+        const totalsWith = (off: number) =>
+            priceSale(
+                [
+                    line("a", 10000, "exempt", {
+                        discount: { kind: "amount", value: off, reason: null },
+                    }),
+                ],
+                null,
+                RATES,
+                true,
+                { kind: "none" },
+            ).totals;
+        expect(overStaffLimit(totalsWith(1500), 1500)).toBe(false);
+        expect(overStaffLimit(totalsWith(1501), 1500)).toBe(true);
+        expect(overStaffLimit(totalsWith(1), 0)).toBe(true);
+        expect(overStaffLimit(totalsWith(0), 0)).toBe(false);
+        expect(overStaffLimit(totalsWith(9000), null)).toBe(false);
+    });
+
+    it("numbers a sale and reads its status off the ledger status and refunds", () => {
+        expect(saleNumber(42)).toBe("S-42");
+        expect(saleNumber(0)).toBe("S-0");
+        expect(saleNumber(null)).toBe("");
+        expect(saleStatus({ status: "paid", refunded_cents: 0 })).toBe("paid");
+        expect(saleStatus({ status: "paid", refunded_cents: 1 })).toBe("partly_refunded");
+        expect(saleStatus({ status: "refunded", refunded_cents: 4800 })).toBe("refunded");
+        expect(saleStatus({ status: "void", refunded_cents: 0 })).toBe("void");
+        expect(saleStatus({ status: "open", refunded_cents: 0 })).toBe("open");
+        expect(saleStatus({ status: "unknown", refunded_cents: 0 })).toBe("open");
     });
 });
