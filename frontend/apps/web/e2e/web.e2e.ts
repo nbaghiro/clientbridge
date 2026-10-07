@@ -90,6 +90,18 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     for (const section of SETUP_SECTIONS) await navigate(page, `/setup/${section}`);
     await navigate(page, "/setup/services");
     await openFirstRow(page);
+    const main = page.locator("main");
+    await main.getByRole("button", { name: strings.catalog.addItem }).click();
+    const picker = page.getByRole("dialog");
+    await picker.getByText(strings.catalog.kindPackage, { exact: true }).click();
+    await picker.getByRole("button", { name: strings.catalog.next }).click();
+    await expect(page.getByRole("dialog")).toContainText(strings.catalog.covers);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    await main.getByRole("tab", { name: strings.catalog.views.products }).click();
+    await openFirstRow(page);
+    await main.getByRole("tab", { name: strings.catalog.views.inventory }).click();
+    await expect(main.getByText(strings.catalog.inventorySubtitle)).toBeVisible();
 
     expect(errors).toEqual([]);
 });

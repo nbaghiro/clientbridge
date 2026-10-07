@@ -102,7 +102,6 @@ const HAND_STYLED_OK = new Set([
     "apps/web/src/components/AppShell.tsx",
     "apps/web/src/components/DebugPanel.tsx",
     "apps/web/src/components/DocEditor.tsx",
-    "apps/web/src/components/ItemImageUpload.tsx",
     "apps/web/src/pages/Schedule.tsx",
     "apps/web/src/pages/Inbox.tsx",
     "apps/web/src/pages/POS.tsx",

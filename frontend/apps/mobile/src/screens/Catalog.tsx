@@ -1,96 +1,212 @@
 import {
-    CATALOG_FILTERS,
-    catalogEmptyText,
-    type CatalogFilter,
-    DEPOSIT_TYPES,
-    FREQUENCIES,
-    ITEM_KINDS,
-    type ItemField,
-    type ItemForm,
     type ItemRow,
-    KIND_LABEL,
-    TAX_CLASSES,
-    canManageCatalog,
-    filterCatalog,
-    filterItems,
+    itemMeta,
+    itemPriceLabel,
+    itemStatus,
     mediaUrl,
-    stockIntent,
-    stockLabel,
-    stockState,
     strings,
-    useCatalogItems,
-    useItemForm,
-    useRestockForm,
-    useSearch,
+    useCatalogView,
+    useKindPicker,
+    useProductsView,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
 import {
     Button,
-    DetailSection,
-    DetailView,
+    Choice,
+    Empty,
     ItemImage,
-    ListPage,
-    Money,
-    Notice,
-    Select,
+    ItemTile,
+    ListRow,
+    Modal,
+    SearchField,
     StatusPill,
-    TextField,
-    Toggle,
+    Tabs,
 } from "@clientbridge/ui";
+import { useState } from "react";
+import { FlatList, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { api, apiBaseUrl } from "../lib/api";
-import { useRole } from "../lib/auth";
+import { ItemEditor } from "../components/ItemEditor";
+import { Inventory, Loaded } from "../components/Stock";
+import { apiBaseUrl } from "../lib/api";
 
+const s = strings.catalog;
 const c = theme.colors;
 
-export function CatalogScreen() {
-    const items = useCatalogItems();
-    const [filter, setFilter] = useState<CatalogFilter>("all");
-    const shown = useMemo(() => filterCatalog(items, filter), [items, filter]);
-    const { q, setQ, filtered } = useSearch(shown, filterItems);
-    const [open, setOpen] = useState<string | null>(null);
-    const editable = canManageCatalog(useRole());
-    const current = open === "new" ? "new" : items.find((i) => i.id === open);
+type View_ = "catalog" | "products" | "inventory";
 
+const VIEWS: { key: View_; label: string }[] = [
+    { key: "catalog", label: s.views.catalog },
+    { key: "products", label: s.views.products },
+    { key: "inventory", label: s.views.inventory },
+];
+
+export function CatalogScreen() {
+    const [view, setView] = useState<View_>("catalog");
     return (
         <View style={styles.screen}>
-            <ListPage
-                summary={strings.catalog.itemCount(items.length)}
-                action={
-                    editable
-                        ? {
-                              label: strings.catalog.addItem,
-                              onPress: () => {
-                                  setOpen("new");
-                              },
-                          }
-                        : undefined
-                }
-                segments={{ items: CATALOG_FILTERS, active: filter, onSelect: setFilter }}
-                search={{
-                    value: q,
-                    onChange: setQ,
-                    placeholder: strings.catalog.searchPlaceholder,
-                }}
-                rows={filtered}
-                rowKey={(i) => i.id}
-                onRowPress={
-                    editable
-                        ? (i) => {
-                              setOpen(i.id);
-                          }
-                        : undefined
-                }
-                empty={catalogEmptyText(q, filter)}
-                renderRow={(item) => <ItemRowView item={item} />}
-            />
+            <View style={styles.tabs}>
+                <Tabs
+                    variant="pill"
+                    items={VIEWS}
+                    active={view}
+                    onSelect={setView}
+                    label={s.viewsLabel}
+                />
+            </View>
+            {view === "catalog" ? <CatalogList /> : null}
+            {view === "products" ? <ProductGrid /> : null}
+            {view === "inventory" ? <Inventory /> : null}
+        </View>
+    );
+}
 
-            {current !== undefined ? (
-                <ItemDetail
-                    key={current === "new" ? "new" : current.id}
-                    item={current === "new" ? null : current}
+function CatalogRow({ item }: { item: ItemRow }) {
+    const status = itemStatus(item);
+    return (
+        <View style={[styles.row, item.active !== 1 && styles.dim]}>
+            <ItemImage
+                src={mediaUrl(apiBaseUrl, item.image_file_id)}
+                name={item.name}
+                color={item.color}
+                size={40}
+            />
+            <View style={styles.flex}>
+                <Text style={styles.name} numberOfLines={1}>
+                    {item.name}
+                </Text>
+                <Text style={styles.meta} numberOfLines={1}>
+                    {itemMeta(item)}
+                </Text>
+            </View>
+            <View style={styles.right}>
+                <Text style={styles.price}>{itemPriceLabel(item)}</Text>
+                {status !== null ? (
+                    <StatusPill status={status.label} intent={status.intent} asWritten />
+                ) : null}
+            </View>
+        </View>
+    );
+}
+
+function KindSheet({ onClose, onPick }: { onClose: () => void; onPick: (kind: string) => void }) {
+    const picker = useKindPicker();
+    return (
+        <Modal open onClose={onClose}>
+            <Text style={styles.sheetTitle}>{s.whatAdding}</Text>
+            <Text style={styles.summary}>{s.whatAddingHint}</Text>
+            <View style={styles.tiles}>
+                <Choice
+                    layout="tiles"
+                    columns={2}
+                    label={s.whatAdding}
+                    options={picker.options}
+                    value={picker.kind}
+                    onChange={picker.setKind}
+                />
+            </View>
+            <Button
+                size="lg"
+                full
+                disabled={picker.kind === null}
+                onPress={() => {
+                    if (picker.kind !== null) onPick(picker.kind);
+                }}
+            >
+                {s.next}
+            </Button>
+        </Modal>
+    );
+}
+
+function CatalogList() {
+    const view = useCatalogView();
+    const [choosing, setChoosing] = useState(false);
+    const [open, setOpen] = useState<{ item: ItemRow | null; kind: string } | null>(null);
+    const add = (
+        <Button
+            size="sm"
+            onPress={() => {
+                setChoosing(true);
+            }}
+        >
+            {s.addShort}
+        </Button>
+    );
+
+    return (
+        <View style={styles.flexFill}>
+            <View style={styles.head}>
+                <Text style={[styles.summary, styles.flex]}>{view.summary ?? ""}</Text>
+                {add}
+            </View>
+            <View style={styles.search}>
+                <SearchField
+                    value={view.q}
+                    onChange={view.setQ}
+                    placeholder={s.searchPlaceholder}
+                />
+            </View>
+            {view.load.ready ? (
+                <Tabs
+                    variant="pill"
+                    items={view.filters}
+                    active={view.filter}
+                    onSelect={view.setFilter}
+                />
+            ) : null}
+            <ScrollView contentContainerStyle={styles.body}>
+                {view.load.state === "empty" ? (
+                    <Empty
+                        variant="card"
+                        icon="tag"
+                        message={s.emptyCatalogTitle}
+                        body={s.emptyCatalogBody}
+                        actions={add}
+                    />
+                ) : (
+                    <Loaded load={view.load} label={s.loadingCatalog} error={s.loadErrorCatalog}>
+                        {view.sections.length === 0 ? <Empty message={view.empty} /> : null}
+                        {view.sections.map((sec) => (
+                            <View key={sec.key} style={styles.section}>
+                                <View style={styles.secHead}>
+                                    <Text style={styles.secTitle}>{sec.title}</Text>
+                                    <Text style={styles.count}>{s.countIn(sec.items.length)}</Text>
+                                </View>
+                                <View style={styles.card}>
+                                    {sec.items.map((i, n) => (
+                                        <View key={i.id} style={n > 0 && styles.divider}>
+                                            <ListRow
+                                                title={<CatalogRow item={i} />}
+                                                label={i.name}
+                                                onPress={() => {
+                                                    setOpen({ item: i, kind: i.kind });
+                                                }}
+                                            />
+                                        </View>
+                                    ))}
+                                </View>
+                            </View>
+                        ))}
+                    </Loaded>
+                )}
+            </ScrollView>
+            {choosing ? (
+                <KindSheet
+                    onClose={() => {
+                        setChoosing(false);
+                    }}
+                    onPick={(kind) => {
+                        setChoosing(false);
+                        setOpen({ item: null, kind });
+                    }}
+                />
+            ) : null}
+            {open !== null ? (
+                <ItemEditor
+                    key={open.item?.id ?? `new-${open.kind}`}
+                    item={open.item}
+                    kind={open.kind}
+                    items={view.items}
                     onClose={() => {
                         setOpen(null);
                     }}
@@ -100,344 +216,142 @@ export function CatalogScreen() {
     );
 }
 
-function ItemRowView({ item }: { item: ItemRow }) {
-    const state = stockState(item);
-    const sub = [KIND_LABEL[item.kind] ?? item.kind, item.sku].filter(Boolean).join(" · ");
-    return (
-        <View style={[styles.row, item.active === 1 ? null : styles.dim]}>
-            <ItemImage
-                src={mediaUrl(apiBaseUrl, item.image_file_id)}
-                name={item.name}
-                color={item.color}
-            />
-            <View style={styles.rowMain}>
-                <Text style={styles.rowName} numberOfLines={1}>
-                    {item.name}
-                </Text>
-                <Text style={styles.rowSub} numberOfLines={1}>
-                    {sub}
-                    {item.duration_min ? strings.catalog.durationSep(item.duration_min) : ""}
-                </Text>
-                {state !== "untracked" ? (
-                    <View style={styles.pill}>
-                        <StatusPill
-                            status={stockLabel(item)}
-                            intent={stockIntent(state)}
-                            asWritten
-                        />
-                    </View>
-                ) : null}
-            </View>
-            <Money cents={item.price_cents} strong />
-        </View>
-    );
-}
-
-function ItemDetail({ item, onClose }: { item: ItemRow | null; onClose: () => void }) {
-    const form = useItemForm(api, item, onClose);
-    const archived = item !== null && item.active !== 1;
-
-    return (
-        <DetailView
-            open
-            title={item?.name ?? strings.catalog.newItem}
-            subtitle={item === null ? undefined : (KIND_LABEL[item.kind] ?? item.kind)}
-            status={
-                archived ? { status: strings.catalog.archivedPill, intent: "neutral" } : undefined
-            }
-            onClose={onClose}
-            actions={
-                <>
-                    {item !== null ? (
-                        <Button
-                            variant="outline"
-                            onPress={archived ? form.restore : form.archive}
-                            disabled={form.busy}
-                        >
-                            {archived ? strings.catalog.restore : strings.catalog.archive}
-                        </Button>
-                    ) : null}
-                    <Button onPress={form.submit} busy={form.busy}>
-                        {item === null ? strings.catalog.addItem : strings.catalog.save}
-                    </Button>
-                </>
-            }
+function ProductGrid() {
+    const view = useProductsView();
+    const [open, setOpen] = useState<{ item: ItemRow | null } | null>(null);
+    const add = (
+        <Button
+            size="sm"
+            onPress={() => {
+                setOpen({ item: null });
+            }}
         >
-            <DetailSection>
-                <ItemFields form={form} />
-                {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-            </DetailSection>
-            {item !== null && item.track_stock === 1 ? <RestockSection item={item} /> : null}
-        </DetailView>
+            {s.addShort}
+        </Button>
     );
-}
-
-type TextName = Exclude<
-    ItemField,
-    | "kind"
-    | "onlineBookable"
-    | "trackStock"
-    | "sellOnline"
-    | "depositType"
-    | "frequency"
-    | "taxClass"
->;
-
-function Input({
-    form,
-    name,
-    label,
-    numeric = false,
-    multiline = false,
-}: {
-    form: ItemForm;
-    name: TextName;
-    label: string;
-    numeric?: boolean;
-    multiline?: boolean;
-}) {
     return (
-        <View style={styles.field}>
-            <TextField
-                label={label}
-                type={numeric ? "number" : "text"}
-                multiline={multiline}
-                rows={2}
-                value={form.values[name]}
-                onChange={(v) => {
-                    form.set(name, v);
-                }}
-            />
-        </View>
-    );
-}
-
-function options(list: readonly { value: string; label: string }[]) {
-    return list.map((o) => ({ key: o.value, label: o.label }));
-}
-
-function ItemFields({ form }: { form: ItemForm }) {
-    const v = form.values;
-    return (
-        <View>
-            {form.editing ? null : (
-                <Select
-                    label={strings.catalog.type}
-                    value={v.kind}
-                    options={ITEM_KINDS.map((k) => ({ key: k, label: KIND_LABEL[k] ?? k }))}
-                    onChange={(k) => {
-                        form.set("kind", k);
-                    }}
-                />
-            )}
-            <Input form={form} name="name" label={strings.catalog.name} />
-            <Input form={form} name="description" label={strings.catalog.description} multiline />
-            <View style={styles.twoCol}>
-                <Input form={form} name="price" label={strings.catalog.priceLabel} numeric />
-                <Input form={form} name="category" label={strings.catalog.category} />
+        <View style={styles.flexFill}>
+            <View style={styles.head}>
+                <Text style={[styles.summary, styles.flex]} numberOfLines={1}>
+                    {view.summary ?? ""}
+                </Text>
+                {add}
             </View>
-
-            {form.shows("duration") ? (
-                <>
-                    <Input
-                        form={form}
-                        name="duration"
-                        label={strings.catalog.durationLabel}
-                        numeric
-                    />
-                    <View style={styles.twoCol}>
-                        <Input
-                            form={form}
-                            name="bufferBefore"
-                            label={strings.catalog.bufferBefore}
-                            numeric
-                        />
-                        <Input
-                            form={form}
-                            name="bufferAfter"
-                            label={strings.catalog.bufferAfter}
-                            numeric
-                        />
-                    </View>
-                </>
-            ) : null}
-            {form.shows("capacity") ? (
-                <Input form={form} name="capacity" label={strings.catalog.capacity} numeric />
-            ) : null}
-            {form.shows("onlineBookable") ? (
-                <Toggle
-                    value={v.onlineBookable}
-                    label={strings.catalog.onlineBookable}
-                    onChange={(b) => {
-                        form.set("onlineBookable", b);
-                    }}
+            <View style={styles.search}>
+                <SearchField
+                    value={view.q}
+                    onChange={view.setQ}
+                    placeholder={s.searchPlaceholder}
                 />
-            ) : null}
-            {form.shows("depositType") ? (
-                <>
-                    <Select
-                        label={strings.catalog.depositType}
-                        value={v.depositType}
-                        options={options(DEPOSIT_TYPES)}
-                        onChange={(t) => {
-                            form.set("depositType", t);
-                        }}
-                    />
-                    {v.depositType !== "none" ? (
-                        <Input
-                            form={form}
-                            name="depositValue"
-                            label={
-                                v.depositType === "fixed"
-                                    ? strings.catalog.depositAmount
-                                    : strings.catalog.depositPercentLabel
-                            }
-                            numeric
-                        />
-                    ) : null}
-                </>
-            ) : null}
-
-            {form.shows("sessionCount") ? (
-                <View style={styles.twoCol}>
-                    <Input
-                        form={form}
-                        name="sessionCount"
-                        label={strings.catalog.sessionCount}
-                        numeric
-                    />
-                    <Input
-                        form={form}
-                        name="validityDays"
-                        label={strings.catalog.validityDays}
-                        numeric
+            </View>
+            <Tabs
+                variant="pill"
+                items={view.filters}
+                active={view.filter}
+                onSelect={view.setFilter}
+            />
+            {view.load.state === "empty" ? (
+                <View style={styles.gate}>
+                    <Empty
+                        variant="card"
+                        icon="bag"
+                        message={s.emptyProductsTitle}
+                        body={s.emptyProductsBody}
+                        actions={add}
                     />
                 </View>
-            ) : null}
-
-            {form.shows("interval") ? (
-                <>
-                    <Input
-                        form={form}
-                        name="interval"
-                        label={strings.catalog.intervalLabel}
-                        numeric
-                    />
-                    <Select
-                        label={strings.catalog.repeatsEvery}
-                        value={v.frequency}
-                        options={options(FREQUENCIES)}
-                        onChange={(f) => {
-                            form.set("frequency", f);
-                        }}
-                    />
-                </>
-            ) : null}
-
-            {form.shows("sku") ? (
-                <View style={styles.twoCol}>
-                    <Input form={form} name="sku" label={strings.catalog.sku} />
-                    <Input form={form} name="cost" label={strings.catalog.cost} numeric />
-                </View>
-            ) : null}
-            {form.shows("trackStock") ? (
-                <>
-                    <Toggle
-                        value={v.trackStock}
-                        label={strings.catalog.trackStock}
-                        onChange={(b) => {
-                            form.set("trackStock", b);
-                        }}
-                    />
-                    {v.trackStock ? (
-                        <View style={styles.twoCol}>
-                            {form.editing ? null : (
-                                <Input
-                                    form={form}
-                                    name="openingStock"
-                                    label={strings.catalog.openingStock}
-                                    numeric
-                                />
-                            )}
-                            <Input
-                                form={form}
-                                name="lowStockAt"
-                                label={strings.catalog.lowStockAt}
-                                numeric
+            ) : view.load.ready ? (
+                <FlatList
+                    data={view.rows}
+                    keyExtractor={(r) => r.item.id}
+                    numColumns={2}
+                    columnWrapperStyle={styles.gridRow}
+                    contentContainerStyle={styles.grid}
+                    ListEmptyComponent={<Empty message={view.empty} />}
+                    renderItem={({ item: r }) => (
+                        <View style={styles.flex}>
+                            <ItemTile
+                                variant="card"
+                                name={r.item.name}
+                                imageSrc={mediaUrl(apiBaseUrl, r.item.image_file_id)}
+                                color={r.item.color}
+                                cents={r.item.price_cents}
+                                meta={r.stock?.label ?? s.untracked}
+                                tag={
+                                    r.stock !== null && r.stock.intent !== "success"
+                                        ? { label: r.stock.label, intent: r.stock.intent }
+                                        : null
+                                }
+                                onPress={() => {
+                                    setOpen({ item: r.item });
+                                }}
                             />
                         </View>
-                    ) : null}
-                </>
-            ) : null}
-            {form.shows("sellOnline") ? (
-                <Toggle
-                    value={v.sellOnline}
-                    label={strings.catalog.sellOnline}
-                    onChange={(b) => {
-                        form.set("sellOnline", b);
+                    )}
+                />
+            ) : (
+                <View style={styles.gate}>
+                    <Loaded load={view.load} label={s.loadingProducts} error={s.loadErrorProducts}>
+                        {null}
+                    </Loaded>
+                </View>
+            )}
+            {open !== null ? (
+                <ItemEditor
+                    key={open.item?.id ?? "new"}
+                    item={open.item}
+                    kind="product"
+                    items={[]}
+                    onClose={() => {
+                        setOpen(null);
                     }}
                 />
             ) : null}
-
-            <Select
-                label={strings.catalog.taxClass}
-                hint={strings.catalog.taxNote}
-                value={v.taxClass}
-                options={options(TAX_CLASSES)}
-                onChange={(t) => {
-                    form.set("taxClass", t);
-                }}
-            />
         </View>
-    );
-}
-
-function RestockSection({ item }: { item: ItemRow }) {
-    const form = useRestockForm(api, item, () => undefined);
-    const state = stockState(item);
-    return (
-        <DetailSection
-            title={strings.catalog.stockHeading}
-            action={<StatusPill status={stockLabel(item)} intent={stockIntent(state)} asWritten />}
-        >
-            <View style={styles.twoCol}>
-                <View style={styles.field}>
-                    <TextField
-                        label={strings.catalog.restockQuantity}
-                        type="number"
-                        value={form.quantity}
-                        onChange={form.setQuantity}
-                    />
-                </View>
-                <View style={styles.field}>
-                    <TextField
-                        label={strings.catalog.restockNote}
-                        value={form.note}
-                        onChange={form.setNote}
-                    />
-                </View>
-            </View>
-            <Text style={styles.note}>{strings.catalog.restockQuantityHint}</Text>
-            {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-            <View style={styles.restock}>
-                <Button variant="outline" onPress={form.submit} busy={form.busy}>
-                    {form.busy ? strings.catalog.restocking : strings.catalog.restock}
-                </Button>
-            </View>
-        </DetailSection>
     );
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
+    flexFill: { flex: 1 },
+    flex: { flex: 1, minWidth: 0 },
+    tabs: { paddingTop: 10 },
+    head: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        paddingHorizontal: 16,
+        paddingTop: 10,
+    },
+    summary: { color: c.muted, fontSize: 13, marginTop: 2 },
+    search: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 },
+    body: { paddingHorizontal: 16, paddingBottom: 24, paddingTop: 4 },
+    section: { marginTop: 16 },
+    secHead: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        marginBottom: 6,
+    },
+    secTitle: { color: c.ink, fontSize: 15, fontWeight: "700" },
+    count: { color: c.muted, fontSize: 12.5 },
+    card: {
+        borderRadius: theme.radius + 2,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+        overflow: "hidden",
+    },
+    divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borderSoft },
     row: { flexDirection: "row", alignItems: "center", gap: 12 },
-    dim: { opacity: 0.5 },
-    rowMain: { flex: 1 },
-    rowName: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
-    pill: { flexDirection: "row", marginTop: 4 },
-    field: { flex: 1 },
-    twoCol: { flexDirection: "row", gap: 10 },
-    note: { color: c.muted, fontSize: 12, marginTop: 6, lineHeight: 17 },
-    restock: { marginTop: 10 },
+    dim: { opacity: 0.55 },
+    name: { color: c.ink, fontSize: 15.5, fontWeight: "600" },
+    meta: { color: c.muted, fontSize: 12.5, marginTop: 2 },
+    right: { alignItems: "flex-end", gap: 4 },
+    price: { color: c.ink, fontSize: 14.5, fontWeight: "700", fontVariant: ["tabular-nums"] },
+    sheetTitle: { color: c.ink, fontSize: 19, fontWeight: "700" },
+    tiles: { marginTop: 14, marginBottom: 16 },
+    grid: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+    gridRow: { gap: 10, marginBottom: 10 },
+    gate: { paddingHorizontal: 16, paddingTop: 8 },
 });

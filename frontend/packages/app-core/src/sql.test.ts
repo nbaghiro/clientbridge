@@ -1100,6 +1100,40 @@ describe("app-core SQL against the replica schema", () => {
         ]);
     });
 
+    it("counts units sold on paid sales since a cutoff", () => {
+        const cutoff = "2026-06-01T00:00:00.000Z";
+        expect(run("UNITS_SOLD_SQL", [cutoff, cutoff])).toEqual([{ item_id: "it_soap", units: 2 }]);
+        const later = "2026-07-01T00:00:00.000Z";
+        expect(run("UNITS_SOLD_SQL", [later, later])).toEqual([]);
+    });
+
+    it("lists stock changes newest first with their cause and who", () => {
+        scoped("inventory", [
+            {
+                id: "stk_1",
+                item_id: "it_soap",
+                reason: "restock",
+                quantity: 6,
+                note: "Coastal",
+                created_by: "us_amy",
+                created_at: "2026-06-20T09:00:00Z",
+            },
+            {
+                id: "stk_2",
+                item_id: "it_soap",
+                line_id: "ln_3",
+                reason: "sale",
+                quantity: -2,
+                created_at: "2026-06-24T09:00:00Z",
+            },
+        ]);
+        expect(pick(run("STOCK_MOVES_SQL"), "id", "item_name", "order_source", "by_name")).toEqual([
+            { id: "stk_2", item_name: "Soap", order_source: "online", by_name: "Owner" },
+            { id: "stk_1", item_name: "Soap", order_source: null, by_name: "Groomer" },
+        ]);
+        expect(run("TAX_REGISTERED_SQL")).toEqual([{ tax_registered: 1 }]);
+    });
+
     it("keeps device preferences in a local table", () => {
         insert("device_prefs", [{ id: "search.recent", value: '["ann"]' }]);
         expect(run("DEVICE_PREF_SQL", ["search.recent"])).toEqual([{ value: '["ann"]' }]);

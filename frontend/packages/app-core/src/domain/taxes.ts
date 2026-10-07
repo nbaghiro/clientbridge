@@ -1,8 +1,9 @@
+import { useQuery } from "@powersync/react";
 import { useEffect, useState } from "react";
 
 import type { ApiLike } from "../api";
 
-interface TaxRate {
+export interface TaxRate {
     id: string;
     jurisdiction: string;
     province: string;
@@ -20,4 +21,18 @@ export function useTaxRates(api: ApiLike): TaxRate[] | null {
             });
     }, [api]);
     return rates;
+}
+
+export const TAX_REGISTERED_SQL = "SELECT tax_registered FROM businesses LIMIT 1";
+
+interface TaxSetup {
+    rates: TaxRate[] | null;
+    registered: boolean;
+}
+
+/** The rates this business charges, and whether it collects tax at all (a small supplier doesn't). */
+export function useTaxSetup(api: ApiLike): TaxSetup {
+    const rates = useTaxRates(api);
+    const row = useQuery<{ tax_registered: number | null }>(TAX_REGISTERED_SQL).data[0];
+    return { rates, registered: row?.tax_registered !== 0 };
 }

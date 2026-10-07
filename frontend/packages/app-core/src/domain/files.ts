@@ -5,7 +5,7 @@ import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
 /** Where a file attaches. The server mints the row + s3 key; (parent_type, parent_id) own it. */
-export interface UploadTarget {
+interface UploadTarget {
     parentType: string;
     parentId: string;
     purpose?: string;
@@ -53,10 +53,6 @@ async function putToPresignedUrl(
 /** The stable public link for a business logo or item image (`GET /media/{id}` on the API). */
 export function mediaUrl(apiBase: string, fileId: string | null): string | null {
     return fileId === null ? null : `${apiBase.replace(/\/$/, "")}/media/${fileId}`;
-}
-
-export function itemImageTarget(itemId: string): UploadTarget {
-    return { parentType: "item", parentId: itemId, purpose: "image" };
 }
 
 export function logoTarget(businessId: string): UploadTarget {
