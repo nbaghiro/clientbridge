@@ -139,9 +139,8 @@ async def fan_out_broadcast(
         )
         db.add(message)
         await db.flush()
-        text = broadcast_text(
-            business_name, broadcast.channel, broadcast.body or "", prefs_url(client.id)
-        )
+        link = f"{prefs_url(client.id)}?unsubscribe=email"
+        text = broadcast_text(business_name, broadcast.channel, broadcast.body or "", link)
         ok = await dispatch_message(sms, email, broadcast.channel, to, broadcast.name, text)
         message.status = "sent" if ok else "failed"  # best-effort per recipient
     await db.flush()

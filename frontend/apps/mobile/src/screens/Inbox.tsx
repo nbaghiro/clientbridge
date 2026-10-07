@@ -48,6 +48,7 @@ import {
 import { api } from "../lib/api";
 import type { RootStackParamList } from "../navigation";
 import { useRole } from "../lib/auth";
+import { Broadcasts } from "./Broadcasts";
 import { Contracts } from "./Contracts";
 import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
@@ -65,6 +66,8 @@ export function InboxScreen() {
             ) : null}
             {segment === "reviews" ? (
                 <Reviews />
+            ) : segment === "broadcasts" ? (
+                <Broadcasts />
             ) : segment === "forms" ? (
                 <Forms />
             ) : segment === "contracts" ? (

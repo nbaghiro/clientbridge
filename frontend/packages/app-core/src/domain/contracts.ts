@@ -5,7 +5,7 @@ import { formatDate, formatTime, parseTimestamp } from "../datetime";
 import { type Load, useAsyncAction } from "../hooks";
 import type { ContractSignature, Intent, SignatureStrokes, TimelineEntry } from "../ui";
 import { useReplicaLoad } from "./sync";
-import { useBusinessId } from "./business";
+import { useBusinessId, useBusinessName } from "./business";
 import { strings } from "../strings";
 import { type ApiLike, newIdempotencyKey, newRowId } from "../api";
 
@@ -204,14 +204,12 @@ function stateOf(row: SignatureRow): SignatureRequest["state"] {
     return row.status === "signed" || row.status === "declined" ? row.status : "expired";
 }
 
-export const CONTRACT_ISSUER_SQL = "SELECT name FROM businesses LIMIT 1";
-
 export function useContractLibrary(): {
     load: Load;
     contracts: ContractSummary[];
     issuer: string;
 } {
-    const issuer = useQuery<{ name: string }>(CONTRACT_ISSUER_SQL).data[0]?.name ?? "";
+    const issuer = useBusinessName();
     const contracts = useQuery<LibraryRow>(CONTRACT_LIBRARY_SQL);
     const signatures = useQuery<SignatureRow>(SIGNATURES_SQL);
     const load = useReplicaLoad([contracts, signatures], contracts.data.length === 0);

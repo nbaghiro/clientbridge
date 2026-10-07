@@ -1023,7 +1023,7 @@ describe("app-core SQL against the replica schema", () => {
         expect(pick(run("CONTRACT_LIBRARY_SQL"), "id", "version")).toEqual([
             { id: "con_1", version: 2 },
         ]);
-        expect(run("CONTRACT_ISSUER_SQL")).toEqual([{ name: "Birch Studio" }]);
+        expect(run("BUSINESS_NAME_SQL")).toEqual([{ name: "Birch Studio" }]);
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
             { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
@@ -1318,6 +1318,65 @@ describe("app-core SQL against the replica schema", () => {
     it("keeps device preferences in a local table", () => {
         insert("device_prefs", [{ id: "search.recent", value: '["ann"]' }]);
         expect(run("DEVICE_PREF_SQL", ["search.recent"])).toEqual([{ value: '["ann"]' }]);
+    });
+
+    it("reads consent, the broadcast audience and broadcast results", () => {
+        scoped("consents", [
+            {
+                id: "cns_x1",
+                client_id: "cl_ben",
+                channel: "email",
+                status: "granted",
+                source: "form",
+                created_at: "2026-06-01T00:00:00Z",
+            },
+            {
+                id: "cns_x2",
+                client_id: "cl_ben",
+                channel: "email",
+                status: "withdrawn",
+                source: "unsubscribe",
+                created_at: "2026-06-26T10:15:00Z",
+            },
+        ]);
+        expect(
+            pick(
+                run("LATEST_CONSENTS_SQL").filter((r) => r.client_id === "cl_ben"),
+                "channel",
+                "status",
+            ),
+        ).toEqual([{ channel: "email", status: "withdrawn" }]);
+        expect(run("AUDIENCE_CLIENTS_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
+        scoped("broadcasts", [
+            {
+                id: "bc_1",
+                name: "Promo",
+                channel: "sms",
+                body: "Sale",
+                audience: '{"all":true}',
+                status: "sent",
+                recipient_count: 1,
+                excluded_count: 1,
+                created_at: "2026-06-26T09:30:00Z",
+            },
+        ]);
+        scoped("messages", [
+            {
+                id: "m_bc",
+                thread_id: "th_1",
+                direction: "out",
+                channel: "sms",
+                body: "Sale",
+                status: "sent",
+                broadcast_id: "bc_1",
+                created_at: "2026-06-26T09:30:00Z",
+            },
+        ]);
+        expect(
+            pick(run("BROADCASTS_SQL"), "id", "delivered_count", "reply_count", "opt_out_count"),
+        ).toEqual([{ id: "bc_1", delivered_count: 1, reply_count: 1, opt_out_count: 0 }]);
+        db.run("DELETE FROM messages WHERE id = 'm_bc'");
+        db.run("DELETE FROM consents WHERE id IN ('cns_x1', 'cns_x2')");
     });
 
     it("covers every exported SQL constant", () => {

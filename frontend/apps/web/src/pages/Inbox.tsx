@@ -39,6 +39,7 @@ import {
 import { api } from "../lib/api";
 import { useLinkIntent } from "../lib/links";
 import { useRole } from "../lib/auth";
+import { Broadcasts } from "./Broadcasts";
 import { Contracts } from "./Contracts";
 import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
@@ -71,6 +72,8 @@ export function Inbox() {
                 <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
                     {segment === "reviews" ? (
                         <Reviews />
+                    ) : segment === "broadcasts" ? (
+                        <Broadcasts />
                     ) : segment === "forms" ? (
                         <Forms />
                     ) : (

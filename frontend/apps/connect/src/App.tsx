@@ -8,6 +8,7 @@ import { PublicContract } from "./pages/PublicContract";
 import { PublicForm } from "./pages/PublicForm";
 import { PublicLanding } from "./pages/PublicLanding";
 import { PublicPay } from "./pages/PublicPay";
+import { PublicPreferences } from "./pages/PublicPreferences";
 import { PublicReview } from "./pages/PublicReview";
 import { PublicShop } from "./pages/PublicShop";
 
@@ -24,6 +25,7 @@ export function App() {
                 <Route path="/form/:token" element={<PublicForm />} />
                 <Route path="/contract/:token" element={<PublicContract />} />
                 <Route path="/review/:token" element={<PublicReview />} />
+                <Route path="/prefs/:token" element={<PublicPreferences />} />
                 <Route path="/shop/:slug" element={<PublicShop />} />
                 <Route path="*" element={<NotFound />} />
             </Routes>

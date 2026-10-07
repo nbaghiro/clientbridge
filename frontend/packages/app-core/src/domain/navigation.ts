@@ -34,11 +34,12 @@ export function visiblePaymentsTabs(role: string | null): typeof PAYMENTS_TABS {
     return PAYMENTS_TABS.filter((t) => !t.managersOnly || canManagePayments(role));
 }
 
-export type InboxSegmentKey = "messages" | "reviews" | "forms" | "contracts";
+export type InboxSegmentKey = "messages" | "reviews" | "broadcasts" | "forms" | "contracts";
 
 const INBOX_SEGMENTS: { key: InboxSegmentKey; label: string; managersOnly: boolean }[] = [
     { key: "messages", label: strings.navigation.inboxSegments.messages, managersOnly: false },
     { key: "reviews", label: strings.navigation.inboxSegments.reviews, managersOnly: true },
+    { key: "broadcasts", label: strings.navigation.inboxSegments.broadcasts, managersOnly: true },
     { key: "forms", label: strings.navigation.inboxSegments.forms, managersOnly: true },
     { key: "contracts", label: strings.navigation.inboxSegments.contracts, managersOnly: true },
 ];

@@ -164,6 +164,12 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
 export const BUSINESS_ID_SQL = "SELECT id FROM businesses LIMIT 1";
 
 /** `null` until the business row syncs; sync-write inserts need it for tenancy. */
+export const BUSINESS_NAME_SQL = "SELECT name FROM businesses LIMIT 1";
+
+export function useBusinessName(): string {
+    return useQuery<{ name: string }>(BUSINESS_NAME_SQL).data[0]?.name ?? "";
+}
+
 export function useBusinessId(): string | null {
     return useQuery<{ id: string }>(BUSINESS_ID_SQL).data[0]?.id ?? null;
 }
