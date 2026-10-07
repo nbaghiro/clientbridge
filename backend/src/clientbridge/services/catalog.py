@@ -3,12 +3,18 @@ from collections.abc import Sequence
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_count, scoped_page
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
-from clientbridge.schemas.catalog import ItemCreate, ItemUpdate
+from clientbridge.schemas.catalog import (
+    ItemCreate,
+    ItemUpdate,
+    TaxClassChange,
+    TaxClassResult,
+)
 
 
 class CatalogService:
@@ -27,6 +33,46 @@ class CatalogService:
     def _assert_admin(self) -> None:
         assert_role(
             self.principal, "owner", "admin", message="only an owner or admin can edit the catalog"
+        )
+
+    async def set_tax_class(
+        self, data: TaxClassChange, idempotency_key: str | None
+    ) -> TaxClassResult:
+        """One tax class for many items; issued documents keep the class copied onto their lines."""
+        self._assert_admin()
+        ids = set(data.item_ids)
+        items = (
+            (
+                await self.db.execute(
+                    scoped(Item, self.principal.business_id).where(Item.id.in_(ids))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if len(items) != len(ids):
+            raise NotFound("item not found")
+
+        async def run(cmd: Command) -> TaxClassResult:
+            for item in items:
+                if item.tax_class != data.tax_class:
+                    cmd.record(
+                        "item.tax_class",
+                        entity_type="item",
+                        entity_id=item.id,
+                        changes={"from": item.tax_class, "to": data.tax_class},
+                    )
+                    item.tax_class = data.tax_class
+            await self.db.flush()
+            return TaxClassResult(count=len(items))
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action="item.tax_class",
+            run=run,
+            response_model=TaxClassResult,
+            idempotency_key=idempotency_key,
         )
 
     async def create(self, data: ItemCreate) -> Item:

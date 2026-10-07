@@ -1,15 +1,7 @@
-import {
-    BUSINESS_TEXT_FIELDS,
-    LOCALES,
-    logoTarget,
-    strings,
-    useBusinessForm,
-    useFileUpload,
-} from "@clientbridge/app-core";
-import { type ChangeEvent, useRef } from "react";
+import { BUSINESS_TEXT_FIELDS, LOCALES, strings, useBusinessForm } from "@clientbridge/app-core";
 
-import { Button, Field, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
-import { api, apiBaseUrl } from "../lib/api";
+import { Button, Loading, Notice, Panel, Select, TextField } from "@clientbridge/ui";
+import { api } from "../lib/api";
 
 export function Business() {
     const form = useBusinessForm(api);
@@ -54,56 +46,6 @@ export function Business() {
                                     size="lg"
                                 />
                             ) : null}
-                            <div className="border-t border-line pt-4">
-                                <h2 className="font-display text-sm font-semibold text-ink">
-                                    {strings.business.brandTitle}
-                                </h2>
-                                <p className="mt-0.5 text-xs text-muted">
-                                    {strings.business.brandSubtitle}
-                                </p>
-                                <div className="mt-3 space-y-4">
-                                    {form.businessId !== null ? (
-                                        <LogoField
-                                            src={form.logoSrc(apiBaseUrl)}
-                                            businessId={form.businessId}
-                                            onUploaded={(id) => {
-                                                form.set("logo_file_id", id);
-                                            }}
-                                        />
-                                    ) : null}
-                                    <Field label={strings.business.primaryLabel}>
-                                        <div className="flex items-center gap-3">
-                                            <input
-                                                type="color"
-                                                value={fields.primary || "#3f5e80"}
-                                                onChange={(e) => {
-                                                    form.set("primary", e.target.value);
-                                                }}
-                                                aria-label={strings.business.primaryLabel}
-                                                className="h-10 w-14 shrink-0 rounded-md border border-line bg-bg"
-                                            />
-                                            <TextField
-                                                name={strings.business.primaryLabel}
-                                                value={fields.primary}
-                                                onChange={(v) => {
-                                                    form.set("primary", v);
-                                                }}
-                                                placeholder={strings.business.primaryPlaceholder}
-                                                size="lg"
-                                            />
-                                        </div>
-                                    </Field>
-                                    <TextField
-                                        label={strings.business.taglineLabel}
-                                        value={fields.tagline}
-                                        onChange={(v) => {
-                                            form.set("tagline", v);
-                                        }}
-                                        placeholder={strings.business.taglinePlaceholder}
-                                        size="lg"
-                                    />
-                                </div>
-                            </div>
                             {form.error !== null && <Notice tone="danger">{form.error}</Notice>}
                             {form.saved && <Notice tone="success">{strings.common.saved}</Notice>}
                             <Button submit busy={form.busy}>
@@ -114,55 +56,5 @@ export function Business() {
                 </Panel>
             </div>
         </div>
-    );
-}
-
-function LogoField({
-    src,
-    businessId,
-    onUploaded,
-}: {
-    src: string | null;
-    businessId: string;
-    onUploaded: (fileId: string) => void;
-}) {
-    const { busy, error, upload } = useFileUpload(api, onUploaded);
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    const onChange = (e: ChangeEvent<HTMLInputElement>): void => {
-        const file = e.target.files?.[0];
-        if (file === undefined) return;
-        upload(file, logoTarget(businessId), file.type !== "" ? file.type : "image/png", file.size);
-        e.target.value = "";
-    };
-
-    return (
-        <Field label={strings.files.logo} error={error}>
-            <div className="flex items-center gap-4">
-                {src !== null ? (
-                    <img src={src} alt="" className="h-12 max-w-48 rounded-md object-contain" />
-                ) : null}
-                <Button
-                    variant="outline"
-                    busy={busy}
-                    onPress={() => {
-                        inputRef.current?.click();
-                    }}
-                >
-                    {busy
-                        ? strings.files.uploading
-                        : src !== null
-                          ? strings.files.replaceLogo
-                          : strings.files.uploadLogo}
-                </Button>
-                <input
-                    ref={inputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    onChange={onChange}
-                    className="hidden"
-                />
-            </div>
-        </Field>
     );
 }

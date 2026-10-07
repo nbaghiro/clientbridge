@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { strings } from "./strings";
 
@@ -37,16 +37,6 @@ export function useAsyncAction(): AsyncAction {
     };
 
     return { busy, error, setError, run };
-}
-
-/** Shared list-search state: a query string + the memoized filtered rows. `filter` must be stable. */
-export function useSearch<T>(
-    rows: T[],
-    filter: (rows: T[], q: string) => T[],
-): { q: string; setQ: (q: string) => void; filtered: T[] } {
-    const [q, setQ] = useState("");
-    const filtered = useMemo(() => filter(rows, q), [rows, filter, q]);
-    return { q, setQ, filtered };
 }
 
 // A value a component owns until its parent passes `value`, like a native input.

@@ -10,6 +10,9 @@ bucket_definitions:
       WHERE user_id = request.user_id() AND status = 'active'
     data:
       - SELECT * FROM clients         WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM subjects        WHERE business_id = bucket.business_id AND deleted_at IS NULL
+      - SELECT * FROM notes           WHERE business_id = bucket.business_id
+      - SELECT * FROM consents        WHERE business_id = bucket.business_id
       - SELECT * FROM items           WHERE business_id = bucket.business_id
       - SELECT * FROM packages        WHERE business_id = bucket.business_id
       - SELECT * FROM subscriptions   WHERE business_id = bucket.business_id
@@ -29,8 +32,8 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'staff'
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'contractor'
     data:
-      - SELECT id, name, slug, timezone, locale, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered FROM businesses WHERE id = bucket.business_id
-      - SELECT id, business_id, user_id, role, name, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
+      - SELECT id, name, slug, timezone, locale, province, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at FROM businesses WHERE id = bucket.business_id
+      - SELECT id, business_id, user_id, role, name, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
       # The pickup queue: paid online orders (pickup_status is set only once paid) and what to pack, without prices.
       - SELECT id, business_id, number, client_id, source, pickup_status, ready_at, picked_up_at, created_at, updated_at FROM orders WHERE business_id = bucket.business_id AND pickup_status IS NOT NULL
       - SELECT id, business_id, order_id, item_id, description, quantity, position, for_pickup, created_at, updated_at FROM lines WHERE business_id = bucket.business_id AND for_pickup = true
@@ -58,8 +61,8 @@ bucket_definitions:
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'owner'
       - SELECT business_id FROM staff WHERE user_id = request.user_id() AND status = 'active' AND role = 'admin'
     data:
-      - SELECT id, name, slug, timezone, locale, billing_email, gst_hst_number, qst_number, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered FROM businesses WHERE id = bucket.business_id
-      - SELECT id, business_id, user_id, role, name, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
+      - SELECT id, name, slug, timezone, locale, province, billing_email, gst_hst_number, qst_number, pst_number, filing_frequency, review_hold_at, google_review_url, brand, stripe_account_id, stripe_terminal_location_id, stripe_charges_enabled, tax_registered, setup_dismissed_at FROM businesses WHERE id = bucket.business_id
+      - SELECT id, business_id, user_id, role, name, payee, rate_type, rate_bps, rate_cents, retail_rate_bps, title, color, status, invite_email, invited_at, created_at, updated_at FROM staff WHERE business_id = bucket.business_id
       - SELECT * FROM slots              WHERE business_id = bucket.business_id
       - SELECT * FROM bookings           WHERE business_id = bucket.business_id AND deleted_at IS NULL
       - SELECT * FROM addons             WHERE business_id = bucket.business_id
@@ -74,3 +77,6 @@ bucket_definitions:
       - SELECT * FROM accounts           WHERE business_id = bucket.business_id
       - SELECT * FROM entries            WHERE business_id = bucket.business_id
       - SELECT * FROM reviews            WHERE business_id = bucket.business_id
+      - SELECT * FROM broadcasts         WHERE business_id = bucket.business_id
+      - SELECT * FROM responses          WHERE business_id = bucket.business_id
+      - SELECT * FROM signatures         WHERE business_id = bucket.business_id

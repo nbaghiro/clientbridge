@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import AppError, NotFound
+from clientbridge.core.errors import AppError, Conflict, NotFound
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.postmark import Email, EmailSender
@@ -24,9 +24,22 @@ from clientbridge.schemas.messaging import (
     MessageSend,
     ThreadOut,
 )
+from clientbridge.services.consents import (
+    allows_marketing,
+    latest_consents,
+    prefs_url,
+    record_text_reply,
+    texts_stopped,
+)
+from clientbridge.services.notifications import broadcast_text
 
 _log = logging.getLogger(__name__)
 _BROADCAST_CAP = 500
+# Carrier opt-out keywords (CTIA), plus the French ones Canadian carriers honour.
+STOP_WORDS = frozenset(
+    {"STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "ARRET", "ARRÊT"}
+)
+START_WORDS = frozenset({"START", "UNSTOP"})
 
 
 async def unread_count(db: AsyncSession, thread: Thread) -> int:
@@ -84,24 +97,21 @@ async def dispatch_message(
 
 async def broadcast_recipients(
     db: AsyncSession, business_id: str, channel: str, audience: dict[str, object]
-) -> Sequence[tuple[Client, str]]:
-    """Active clients reachable on the channel, filtered by the broadcast audience."""
-    contact = Client.phone if channel == "sms" else Client.email
-    query = (
-        scoped(Client, business_id, soft_delete=True)
-        .where(Client.status == "active", contact.isnot(None), contact != "")
-        .limit(_BROADCAST_CAP)
-    )
+) -> tuple[Sequence[tuple[Client, str]], int]:
+    """The audience members who agreed to marketing on the channel, and how many were left out."""
+    query = scoped(Client, business_id, soft_delete=True).where(Client.status == "active")
     tags = audience.get("tags")
     if not audience.get("all") and isinstance(tags, list) and tags:
         query = query.where(Client.tags.overlap([str(tag) for tag in tags]))
-    rows = (await db.execute(query)).scalars().all()
+    clients = (await db.execute(query.order_by(Client.id))).scalars().all()
+    consents = await latest_consents(db, business_id, [c.id for c in clients], channel)
+    now = datetime.now(UTC)
     out: list[tuple[Client, str]] = []
-    for client in rows:
+    for client in clients:
         to = client.phone if channel == "sms" else client.email
-        if to:
+        if to and allows_marketing(consents.get(client.id), now):
             out.append((client, to))
-    return out
+    return out[:_BROADCAST_CAP], len(clients) - len(out[:_BROADCAST_CAP])
 
 
 async def fan_out_broadcast(
@@ -112,6 +122,8 @@ async def fan_out_broadcast(
     email: EmailSender,
 ) -> None:
     """Send one message per recipient on the broadcast's channel, recording each in its thread."""
+    business = await db.get(Business, broadcast.business_id)
+    business_name = business.name if business is not None else ""
     for client, to in recipients:
         thread = await open_thread(db, broadcast.business_id, client.id, broadcast.channel)
         message = Message(
@@ -127,9 +139,9 @@ async def fan_out_broadcast(
         )
         db.add(message)
         await db.flush()
-        ok = await dispatch_message(
-            sms, email, broadcast.channel, to, broadcast.name, broadcast.body or ""
-        )
+        link = f"{prefs_url(client.id)}?unsubscribe=email"
+        text = broadcast_text(business_name, broadcast.channel, broadcast.body or "", link)
+        ok = await dispatch_message(sms, email, broadcast.channel, to, broadcast.name, text)
         message.status = "sent" if ok else "failed"  # best-effort per recipient
     await db.flush()
 
@@ -152,6 +164,9 @@ async def process_inbound_sms(
     ).scalar_one_or_none()
     message_id: str | None = None
     if client is not None:
+        keyword = body.strip().upper()
+        if keyword in STOP_WORDS or keyword in START_WORDS:
+            await record_text_reply(db, client, stop=keyword in STOP_WORDS)
         thread = await open_thread(db, client.business_id, client.id, "sms")
         message = Message(
             id=new_id("message"),
@@ -204,10 +219,12 @@ async def run_due_broadcasts(
     for broadcast in broadcasts:
         broadcast.status = "sending"
         await db.flush()
-        recipients = await broadcast_recipients(
+        recipients, excluded = await broadcast_recipients(
             db, broadcast.business_id, broadcast.channel, broadcast.audience
         )
         await fan_out_broadcast(db, broadcast, recipients, sms, email)
+        broadcast.recipient_count = len(recipients)
+        broadcast.excluded_count = excluded
         broadcast.status = "sent"
     await db.commit()
     return len(broadcasts)
@@ -232,6 +249,8 @@ class MessageService:
         to = client.phone if data.channel == "sms" else client.email
         if not to:
             raise AppError(f"client has no {data.channel} contact", status_code=422)
+        if data.channel == "sms" and await texts_stopped(self.db, self.biz, client.id):
+            raise Conflict("this client replied STOP, so texts to them are blocked")
         subject = await self._business_name()
 
         async def run(cmd: Command) -> MessageOut:
@@ -270,7 +289,9 @@ class MessageService:
             self.principal, "owner", "admin", message="only an owner or admin can send broadcasts"
         )
         scheduled = data.scheduled_at is not None and data.scheduled_at > datetime.now(UTC)
-        recipients = await broadcast_recipients(self.db, self.biz, data.channel, data.audience)
+        recipients, excluded = await broadcast_recipients(
+            self.db, self.biz, data.channel, data.audience
+        )
 
         async def run(cmd: Command) -> BroadcastOut:
             broadcast = Broadcast(
@@ -283,6 +304,8 @@ class MessageService:
                 audience=data.audience,
                 status="scheduled" if scheduled else "sending",
                 scheduled_at=data.scheduled_at if scheduled else None,
+                recipient_count=len(recipients),
+                excluded_count=excluded,
             )
             self.db.add(broadcast)
             await self.db.flush()
@@ -290,13 +313,7 @@ class MessageService:
                 await fan_out_broadcast(self.db, broadcast, recipients, self.sms, self.email)
                 broadcast.status = "sent"
             cmd.record("broadcast.send", entity_type="broadcast", entity_id=broadcast.id)
-            return BroadcastOut(
-                id=broadcast.id,
-                name=broadcast.name,
-                channel=broadcast.channel,
-                status=broadcast.status,
-                recipient_count=len(recipients),
-            )
+            return _broadcast_out(broadcast)
 
         return await run_command(
             self.db,
@@ -305,6 +322,30 @@ class MessageService:
             run=run,
             response_model=BroadcastOut,
             idempotency_key=idempotency_key,
+        )
+
+    async def cancel_broadcast(self, broadcast_id: str) -> BroadcastOut:
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can cancel broadcasts"
+        )
+        broadcast = (
+            await self.db.execute(
+                scoped(Broadcast, self.biz).where(Broadcast.id == broadcast_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if broadcast is None:
+            raise NotFound("broadcast not found")
+        if broadcast.status != "scheduled":
+            raise Conflict("only a scheduled broadcast can be canceled")
+
+        async def run(cmd: Command) -> BroadcastOut:
+            broadcast.status = "canceled"
+            await self.db.flush()
+            cmd.record("broadcast.cancel", entity_type="broadcast", entity_id=broadcast.id)
+            return _broadcast_out(broadcast)
+
+        return await run_command(
+            self.db, self.principal, action="broadcast.cancel", run=run, response_model=BroadcastOut
         )
 
     async def mark_thread_read(self, thread_id: str) -> ThreadOut:
@@ -360,4 +401,15 @@ def _message_out(message: Message) -> MessageOut:
         channel=message.channel,
         body=message.body,
         status=message.status,
+    )
+
+
+def _broadcast_out(broadcast: Broadcast) -> BroadcastOut:
+    return BroadcastOut(
+        id=broadcast.id,
+        name=broadcast.name,
+        channel=broadcast.channel,
+        status=broadcast.status,
+        recipient_count=broadcast.recipient_count,
+        excluded_count=broadcast.excluded_count,
     )

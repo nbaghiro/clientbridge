@@ -39,6 +39,17 @@ async def send_broadcast(
     return await MessageService(db, principal, sms, email).send_broadcast(body, idempotency_key)
 
 
+@router.post("/broadcasts/{broadcast_id}/cancel", response_model=BroadcastOut)
+async def cancel_broadcast(
+    broadcast_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    sms: SmsDep,
+    email: EmailDep,
+) -> BroadcastOut:
+    return await MessageService(db, principal, sms, email).cancel_broadcast(broadcast_id)
+
+
 @router.post("/threads/{thread_id}/read", response_model=ThreadOut)
 async def mark_thread_read(
     thread_id: str,

@@ -952,11 +952,18 @@ describe("app-core SQL against the replica schema", () => {
             { id: "th_1", unread_count: 2, last_body: "See you soon", client_name: "Ann" },
             { id: "th_2", unread_count: 0, last_body: "Receipt", client_name: "ben" },
         ]);
-        expect(run("THREAD_MESSAGES_SQL", ["th_1"]).map((r) => r.id)).toEqual([
-            "m_1",
-            "m_2",
-            "m_3",
+        expect(run("CONVERSATION_SQL", ["th_1"]).map((r) => r.id)).toEqual(["m_1", "m_2", "m_3"]);
+        expect(pick(run("INBOX_SQL"), "id", "unread_count", "pet_names")).toEqual([
+            { id: "th_1", unread_count: 2, pet_names: null },
+            { id: "th_2", unread_count: 0, pet_names: null },
         ]);
+        expect(
+            pick(
+                run("INBOX_CLIENT_SQL", ["2026-01-01", "2026-01-01", "cl_ann"]),
+                "id",
+                "balance_cents",
+            ),
+        ).toEqual([{ id: "cl_ann", balance_cents: null }]);
     });
 
     it("shows a client's package, subscription, saved cards and invoice payments", () => {
@@ -1070,15 +1077,44 @@ describe("app-core SQL against the replica schema", () => {
     });
 
     it("lists reviews", () => {
-        expect(pick(run("REVIEWS_SQL"), "id", "rating", "client_name")).toEqual([
-            { id: "rv_1", rating: 5, client_name: "Ann" },
+        expect(pick(run("REVIEWS_SQL"), "id", "rating", "client_name", "visit_at")).toEqual([
+            { id: "rv_1", rating: 5, client_name: "Ann", visit_at: "2026-06-26 10:00:00+00" },
         ]);
-        expect(run("AWAITING_REVIEWS_SQL")).toEqual([{ n: 2 }]);
+        expect(run("REVIEWS_SQL")[0]?.service).toEqual(expect.any(String));
+        expect(
+            run("REVIEW_REQUESTS_SQL")
+                .map((r) => r.id)
+                .sort(),
+        ).toEqual(["rv_asked", "rv_seen"]);
+        expect(run("REVIEW_SETTINGS_SQL")).toEqual([
+            { review_hold_at: null, google_review_url: null },
+        ]);
+    });
+
+    it("suggests recent visits nobody has been asked about", () => {
+        scoped("bookings", [
+            {
+                id: "bk_done",
+                slot_id: "ss_3",
+                staff_id: "st_amy",
+                client_id: "cl_ben",
+                status: "completed",
+                source: "manual",
+                price_cents: 5000,
+                deposit_amount_cents: 0,
+                deposit_status: "none",
+                completed_at: "2026-06-27T10:00:00Z",
+            },
+        ]);
+        expect(pick(run("REVIEW_SUGGESTIONS_SQL", ["2026-06-25"]), "client_id")).toEqual([
+            { client_id: "cl_ben" },
+        ]);
+        expect(run("REVIEW_SUGGESTIONS_SQL", ["2026-06-28"])).toEqual([]);
+        db.run("DELETE FROM bookings WHERE id = 'bk_done'");
     });
 
     it("reads the team, the viewer and staff pay", () => {
         expect(run("STAFF_SQL").map((r) => r.id)).toEqual(["st_owner", "st_amy"]);
-        expect(run("PENDING_INVITES_SQL").map((r) => r.id)).toEqual(["st_new"]);
         expect(run("CURRENT_VIEWER_SQL", ["us_amy"])).toEqual([{ id: "st_amy", role: "staff" }]);
         expect(
             pick(run("STAFF_PAY_SQL"), "id", "payee", "rate_type", "rate_bps", "rate_cents"),
@@ -1113,9 +1149,35 @@ describe("app-core SQL against the replica schema", () => {
     it("reads and writes forms, contracts and weekly hours", () => {
         expect(run("FORMS_SQL").map((r) => r.id)).toEqual(["frm_a", "frm_b", "frm_z"]);
         expect(run("FORM_FIELDS_SQL", ["frm_a"]).map((r) => r.id)).toEqual(["ff_1", "ff_2"]);
+        scoped("responses", [
+            { id: "rs_1", form_id: "frm_a", status: "submitted", submitted_at: TS, answers: "{}" },
+            { id: "rs_2", form_id: "frm_a", status: "draft", answers: "{}" },
+        ]);
+        expect(pick(run("FORM_LIBRARY_SQL"), "id", "field_count", "submitted", "waiting")).toEqual([
+            { id: "frm_a", field_count: 2, submitted: 1, waiting: 1 },
+            { id: "frm_b", field_count: 0, submitted: 0, waiting: 0 },
+            { id: "frm_z", field_count: 0, submitted: 0, waiting: 0 },
+        ]);
+        expect(run("FORM_QUESTIONS_SQL", ["frm_a"]).map((r) => r.id)).toEqual(["ff_1", "ff_2"]);
         expect(run("CONTRACTS_SQL")).toEqual([
             { id: "con_1", name: "Waiver", version: 2, always_require: 1, active: 1 },
         ]);
+        scoped("signatures", [
+            {
+                id: "sig_1",
+                contract_id: "con_1",
+                client_id: "cl_ann",
+                status: "pending",
+                token: "t1",
+            },
+        ]);
+        expect(pick(run("SIGNATURES_SQL"), "id", "client_name", "status")).toEqual([
+            { id: "sig_1", client_name: "Ann", status: "pending" },
+        ]);
+        expect(pick(run("CONTRACT_LIBRARY_SQL"), "id", "version")).toEqual([
+            { id: "con_1", version: 2 },
+        ]);
+        expect(run("BUSINESS_NAME_SQL")).toEqual([{ name: "Birch Studio" }]);
         expect(run("RECURRING_HOURS_SQL", ["st_amy"])).toEqual([
             { weekday: 1, start_time: "09:00:00", end_time: "17:00:00", available: 1 },
         ]);
@@ -1281,9 +1343,228 @@ describe("app-core SQL against the replica schema", () => {
         expect(run("TAX_REGISTERED_SQL")).toEqual([{ tax_registered: 1 }]);
     });
 
+    it("reads a client's record: pets, visits, notes, methods, plans and history", () => {
+        scoped("slots", [
+            {
+                id: "ss_future",
+                item_id: "it_cut",
+                staff_id: "st_owner",
+                starts_at: "2099-01-05T09:00:00Z",
+                ends_at: "2099-01-05T10:00:00Z",
+                capacity: 1,
+                status: "scheduled",
+            },
+        ]);
+        scoped("subjects", [
+            { id: "sj_rex", client_id: "cl_ann", kind: "pet", name: "Rex", attributes: "{}" },
+            {
+                id: "sj_gone",
+                client_id: "cl_ann",
+                kind: "pet",
+                name: "Old",
+                attributes: "{}",
+                deleted_at: TS,
+            },
+        ]);
+        scoped("bookings", [
+            {
+                id: "bk_future",
+                slot_id: "ss_future",
+                staff_id: "st_owner",
+                client_id: "cl_ann",
+                subject_id: "sj_rex",
+                status: "confirmed",
+                source: "manual",
+                price_cents: 10000,
+            },
+        ]);
+        scoped("notes", [
+            {
+                id: "nt_1",
+                parent_type: "client",
+                parent_id: "cl_ann",
+                body: "Likes mornings",
+                pinned: 1,
+                created_by: "us_owner",
+            },
+            { id: "nt_2", parent_type: "subject", parent_id: "sj_rex", body: "Muzzle", pinned: 0 },
+            { id: "nt_3", parent_type: "client", parent_id: "cl_ben", body: "Other", pinned: 0 },
+        ]);
+        scoped("consents", [
+            {
+                id: "cns_1",
+                client_id: "cl_ann",
+                channel: "sms",
+                status: "granted",
+                source: "in_person",
+                recorded_by: "us_owner",
+            },
+        ]);
+        db.run("UPDATE clients SET tags = ?, preferred_channel = 'email' WHERE id = 'cl_ann'", [
+            '["vip","regular"]',
+        ]);
+
+        const ann = run("CLIENT_SQL", ["cl_ann"])[0];
+        expect(
+            pick([ann ?? {}], "pet_names", "next_visit_at", "tags", "preferred_channel"),
+        ).toEqual([
+            {
+                pet_names: "Rex",
+                next_visit_at: "2099-01-05T09:00:00Z",
+                tags: '["vip","regular"]',
+                preferred_channel: "email",
+            },
+        ]);
+        expect(run("CLIENT_DIRECTORY_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
+        expect(run("CLIENT_VISITS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
+            "bk_future",
+            "bk_1",
+        ]);
+        expect(run("CLIENT_SUBJECTS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual(["sj_rex"]);
+        expect(
+            pick(
+                run("CLIENT_NOTES_SQL", ["cl_ann", "cl_ann"]),
+                "id",
+                "author_staff_id",
+                "subject_name",
+            ),
+        ).toEqual([
+            { id: "nt_1", author_staff_id: "st_owner", subject_name: null },
+            { id: "nt_2", author_staff_id: null, subject_name: "Rex" },
+        ]);
+        expect(run("CLIENT_CONSENT_SQL", ["cl_ann"])).toEqual([
+            { status: "granted", created_at: TS, recorded_by_name: null },
+        ]);
+        expect(run("CLIENT_METHODS_SQL", ["cl_ann"]).map((r) => r.id)).toEqual([
+            "pm_main",
+            "pm_old",
+        ]);
+        expect(pick(run("CLIENT_PLANS_SQL", ["cl_ann", "cl_ann"]), "kind", "id")).toEqual([
+            { kind: "package", id: "pk_1" },
+            { kind: "subscription", id: "sub_1" },
+        ]);
+        expect(pick(run("CLIENT_INVOICES_SQL", ["cl_ann"]), "id", "status")).toEqual([
+            { id: "inv_1", status: "partial" },
+        ]);
+        expect(run("CLIENT_PAYMENTS_SQL", ["cl_ann"]).length).toBeGreaterThan(0);
+        expect(run("CLIENT_MESSAGES_SQL", ["cl_ann"]).every((r) => r.direction !== null)).toBe(
+            true,
+        );
+        expect(run("CLIENT_REVIEWS_SQL", ["cl_ann"]).every((r) => r.rating !== null)).toBe(true);
+        expect(
+            pick(
+                run("CLIENT_FOOTPRINT_SQL", ["cl_ann", "cl_ben"]),
+                "id",
+                "bookings",
+                "pet_count",
+                "notes",
+            ),
+        ).toEqual([
+            { id: "cl_ann", bookings: 2, pet_count: 1, notes: 1 },
+            { id: "cl_ben", bookings: 1, pet_count: 0, notes: 1 },
+        ]);
+    });
+
+    it("reads tax settings, item tax classes, brand, the booking preview and the team", () => {
+        db.run(
+            "UPDATE businesses SET province = 'BC', slug = 'birch', pst_number = 'PST12345678', filing_frequency = 'quarterly'",
+        );
+        expect(run("TAX_SETTINGS_SQL")).toEqual([
+            {
+                province: "BC",
+                tax_registered: 1,
+                gst_hst_number: "123456789RT0001",
+                pst_number: "PST12345678",
+                filing_frequency: "quarterly",
+            },
+        ]);
+        expect(run("TAXABLE_ITEMS_SQL").every((r) => typeof r.name === "string")).toBe(true);
+        expect(pick(run("BRAND_SQL"), "id", "slug", "province")).toEqual([
+            { id: BIZ, slug: "birch", province: "BC" },
+        ]);
+        db.run("UPDATE items SET online_bookable = 1 WHERE id = 'it_cut'");
+        expect(run("BOOKING_PREVIEW_SQL").map((r) => r.id)).toEqual(["it_cut"]);
+        expect(run("PREVIEW_RATING_SQL").length).toBe(1);
+        expect(pick(run("TEAM_SQL"), "id", "status")).toEqual([
+            { id: "st_owner", status: "active" },
+            { id: "st_amy", status: "active" },
+            { id: "st_new", status: "invited" },
+        ]);
+        expect(
+            pick(
+                run("SETUP_PROGRESS_SQL"),
+                "province",
+                "tax_registered",
+                "invites",
+                "dismissed_at",
+            ),
+        ).toEqual([
+            { province: "BC", tax_registered: 1, invites: "new@birch.test", dismissed_at: null },
+        ]);
+    });
+
     it("keeps device preferences in a local table", () => {
         insert("device_prefs", [{ id: "search.recent", value: '["ann"]' }]);
         expect(run("DEVICE_PREF_SQL", ["search.recent"])).toEqual([{ value: '["ann"]' }]);
+    });
+
+    it("reads consent, the broadcast audience and broadcast results", () => {
+        scoped("consents", [
+            {
+                id: "cns_x1",
+                client_id: "cl_ben",
+                channel: "email",
+                status: "granted",
+                source: "form",
+                created_at: "2026-06-01T00:00:00Z",
+            },
+            {
+                id: "cns_x2",
+                client_id: "cl_ben",
+                channel: "email",
+                status: "withdrawn",
+                source: "unsubscribe",
+                created_at: "2026-06-26T10:15:00Z",
+            },
+        ]);
+        expect(
+            pick(
+                run("LATEST_CONSENTS_SQL").filter((r) => r.client_id === "cl_ben"),
+                "channel",
+                "status",
+            ),
+        ).toEqual([{ channel: "email", status: "withdrawn" }]);
+        expect(run("AUDIENCE_CLIENTS_SQL").map((r) => r.id)).toEqual(["cl_ann", "cl_ben"]);
+        scoped("broadcasts", [
+            {
+                id: "bc_1",
+                name: "Promo",
+                channel: "sms",
+                body: "Sale",
+                audience: '{"all":true}',
+                status: "sent",
+                recipient_count: 1,
+                excluded_count: 1,
+                created_at: "2026-06-26T09:30:00Z",
+            },
+        ]);
+        scoped("messages", [
+            {
+                id: "m_bc",
+                thread_id: "th_1",
+                direction: "out",
+                channel: "sms",
+                body: "Sale",
+                status: "sent",
+                broadcast_id: "bc_1",
+                created_at: "2026-06-26T09:30:00Z",
+            },
+        ]);
+        expect(
+            pick(run("BROADCASTS_SQL"), "id", "delivered_count", "reply_count", "opt_out_count"),
+        ).toEqual([{ id: "bc_1", delivered_count: 1, reply_count: 1, opt_out_count: 0 }]);
+        db.run("DELETE FROM messages WHERE id = 'm_bc'");
+        db.run("DELETE FROM consents WHERE id IN ('cns_x1', 'cns_x2')");
     });
 
     it("covers every exported SQL constant", () => {

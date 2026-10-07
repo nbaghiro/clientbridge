@@ -8,6 +8,7 @@ from clientbridge.schemas.reviews import (
     ReviewOut,
     ReviewRequestCreate,
     ReviewRespond,
+    ReviewShareOut,
     ReviewSummary,
 )
 from clientbridge.services.notifications import Notifier
@@ -58,3 +59,10 @@ async def mark_sent_to_google(
     review_id: str, principal: CurrentPrincipal, db: DbSession
 ) -> ReviewOut:
     return await ReviewService(db, principal).mark_sent_to_google(review_id)
+
+
+@router.post("/{review_id}/share", response_model=ReviewShareOut)
+async def share_review(
+    review_id: str, principal: CurrentPrincipal, db: DbSession
+) -> ReviewShareOut:
+    return await ReviewService(db, principal).share(review_id)

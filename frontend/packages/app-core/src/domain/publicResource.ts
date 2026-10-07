@@ -6,6 +6,7 @@ interface PublicResource<T> {
     status: PublicLoadStatus;
     data: T | null;
     setData: (value: T) => void;
+    retry: () => void;
 }
 
 function statusOf(err: unknown): number | null {
@@ -25,10 +26,12 @@ export function usePublicResource<T>(
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [loadError, setLoadError] = useState(false);
+    const [attempt, setAttempt] = useState(0);
 
     useEffect(() => {
         let live = true;
         setLoading(true);
+        setLoadError(false);
         load(token)
             .then((d) => {
                 if (live) setData(d);
@@ -44,7 +47,7 @@ export function usePublicResource<T>(
         return () => {
             live = false;
         };
-    }, [load, token]);
+    }, [load, token, attempt]);
 
     const status: PublicLoadStatus = loading
         ? "loading"
@@ -53,7 +56,14 @@ export function usePublicResource<T>(
           : loadError || data === null
             ? "error"
             : "ready";
-    return { status, data, setData };
+    return {
+        status,
+        data,
+        setData,
+        retry: () => {
+            setAttempt((n) => n + 1);
+        },
+    };
 }
 
 /** Pre-validated by the server: `primary` is a hex colour and `logo_url` an http(s) URL. */

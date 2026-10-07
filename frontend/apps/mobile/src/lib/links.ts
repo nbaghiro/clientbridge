@@ -90,6 +90,12 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                 case "business":
                     nav.navigate("Business");
                     return;
+                case "setup":
+                    nav.navigate("GetSetUp");
+                    return;
+                case "taxes":
+                    nav.navigate("Taxes");
+                    return;
                 case "gettingPaid":
                     nav.navigate("GettingPaid");
                     return;

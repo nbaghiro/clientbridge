@@ -67,7 +67,7 @@ WHERE p.provider = 'stripe' AND p.kind IN ('payment', 'deposit')
   AND ${utcSql("COALESCE(p.paid_at, p.created_at)")} >= datetime(?)
 ORDER BY COALESCE(p.paid_at, p.created_at) DESC LIMIT 50`;
 
-export interface PayoutView {
+interface PayoutView {
     id: string;
     ref: string | null;
     amountCents: number;

@@ -4,6 +4,7 @@ import { NavLink, Navigate, useParams } from "react-router-dom";
 
 import { useRole } from "../lib/auth";
 
+import { GetSetUp } from "../components/GetSetUp";
 import { Business } from "./Business";
 import { OnlineBooking } from "./OnlineBooking";
 import { Catalog } from "./Catalog";
@@ -13,22 +14,23 @@ import { Taxes } from "./Taxes";
 import { Team } from "./Team";
 
 const SETUP_SLUGS: Record<SetupSectionKey, string> = {
+    start: "start",
     business: "business",
     services: "services",
     team: "team",
     gettingPaid: "getting-paid",
+    taxes: "taxes",
     onlineBooking: "online-booking",
 };
 
 function sectionBody(key: SetupSectionKey): ReactElement {
     switch (key) {
+        case "start":
+            return <GetSetUp />;
         case "business":
-            return (
-                <div className="space-y-10">
-                    <Business />
-                    <Taxes />
-                </div>
-            );
+            return <Business />;
+        case "taxes":
+            return <Taxes />;
         case "services":
             return <Catalog />;
         case "team":

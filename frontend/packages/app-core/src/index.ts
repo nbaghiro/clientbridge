@@ -29,6 +29,7 @@ export * from "./domain/reports";
 export * from "./domain/remittances";
 export * from "./domain/payouts";
 export * from "./domain/reviews";
+export * from "./domain/broadcasts";
 export * from "./domain/messaging";
 export * from "./domain/contracts";
 export * from "./domain/forms";

@@ -32,11 +32,38 @@ class RateLimiter:
             del self._hits[key]
 
 
+class LoginGuard:
+    """Pauses sign-in for an email after `limit` failed attempts inside `window_s`, in-process."""
+
+    def __init__(self, limit: int = 5, window_s: float = 15 * 60.0) -> None:
+        self.limit = limit
+        self.window_s = window_s
+        self._failures: dict[str, deque[float]] = defaultdict(deque)
+
+    def _recent(self, key: str, now: float) -> deque[float]:
+        failures = self._failures[key]
+        while failures and failures[0] <= now - self.window_s:
+            failures.popleft()
+        return failures
+
+    def locked(self, email: str, now: float) -> bool:
+        return len(self._recent(email.strip().lower(), now)) >= self.limit
+
+    def failed(self, email: str, now: float) -> None:
+        self._recent(email.strip().lower(), now).append(now)
+
+    def succeeded(self, email: str) -> None:
+        self._failures.pop(email.strip().lower(), None)
+
+
+login_guard = LoginGuard()
+
 _public_pay_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_review_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_form_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_contract_limiter = RateLimiter(limit=30, window_s=60.0)
 _public_booking_limiter = RateLimiter(limit=30, window_s=60.0)
+_public_prefs_limiter = RateLimiter(limit=30, window_s=60.0)
 
 
 def _client_ip(request: Request) -> str:
@@ -74,4 +101,10 @@ def public_contract_rate_limit(request: Request) -> None:
 def public_booking_rate_limit(request: Request) -> None:
     """Cap how fast one IP hits the unauthenticated booking endpoints."""
     if not _public_booking_limiter.check(_client_ip(request), time.monotonic()):
+        raise TooManyRequests("too many requests — please wait a moment")
+
+
+def public_prefs_rate_limit(request: Request) -> None:
+    """Cap how fast one IP hits the unauthenticated message preference endpoints."""
+    if not _public_prefs_limiter.check(_client_ip(request), time.monotonic()):
         raise TooManyRequests("too many requests — please wait a moment")

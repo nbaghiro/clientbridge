@@ -24,6 +24,7 @@ from clientbridge.models.platform import Device
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
+from clientbridge.services.consents import texts_stopped
 from clientbridge.services.lines import LineParent, fetch_lines
 from clientbridge.services.tax import tax_breakdown
 
@@ -232,6 +233,13 @@ def _review_requested(business_name: str, link: str) -> tuple[str, str]:
         f"How was your visit to {business_name}?",
         f"Thanks for choosing {business_name}! Leave a review: {link}",
     )
+
+
+def broadcast_text(business_name: str, channel: str, body: str, prefs_link: str) -> str:
+    """A broadcast as the client receives it, with the opt-out CASL requires."""
+    if channel == "sms":
+        return f"{business_name}: {body} Reply STOP to opt out."
+    return f"{body}\n\n{business_name}\nUnsubscribe or change what you get: {prefs_link}"
 
 
 class Notifier:
@@ -583,7 +591,11 @@ class Notifier:
             return
         if client.email and channel != "sms":
             await self._safe(self.email.send(Email(to=client.email, subject=subject, body=body)))
-        if client.phone and channel != "email":
+        if (
+            client.phone
+            and channel != "email"
+            and not await texts_stopped(db, client.business_id, client.id)
+        ):
             await self._safe(self.sms.send(Sms(to=client.phone, body=body)))
 
     async def _alert_staff(

@@ -1,11 +1,13 @@
 import { useQuery } from "@powersync/react";
 import { useEffect, useRef, useState } from "react";
 
-import { useAsyncAction } from "../hooks";
+import { formatMoney } from "../format";
+import { type Load, useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 import { mediaUrl } from "./files";
 import type { ShellTarget } from "./navigation";
+import { useReplicaLoad } from "./sync";
 
 interface BusinessRow {
     id: string;
@@ -23,8 +25,6 @@ interface BusinessFields {
     timezone: string;
     locale: string;
     billing_email: string;
-    gst_hst_number: string;
-    qst_number: string;
     logo_file_id: string;
     primary: string;
     tagline: string;
@@ -73,16 +73,6 @@ export const BUSINESS_TEXT_FIELDS: {
         label: strings.business.billingEmailLabel,
         placeholder: strings.business.billingEmailPlaceholder,
     },
-    {
-        key: "gst_hst_number",
-        label: strings.business.gstLabel,
-        placeholder: strings.business.gstPlaceholder,
-    },
-    {
-        key: "qst_number",
-        label: strings.business.qstLabel,
-        placeholder: strings.business.qstPlaceholder,
-    },
 ];
 
 export const LOCALES: { code: string; label: string }[] = [{ code: "en", label: "English" }];
@@ -124,8 +114,6 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
                 timezone: row.timezone,
                 locale: row.locale,
                 billing_email: row.billing_email ?? "",
-                gst_hst_number: row.gst_hst_number ?? "",
-                qst_number: row.qst_number ?? "",
                 logo_file_id: brand.logo_file_id,
                 primary: brand.primary,
                 tagline: brand.tagline,
@@ -144,7 +132,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
             setError(strings.business.nameRequired);
             return;
         }
-        // Send `brand` only when it changed, so mobile (no brand fields) doesn't blank it.
+        // Send `brand` only when it changed; the brand panel in Get set up owns it.
         const { logo_file_id, primary, tagline, ...text } = fields;
         const b = loadedBrand.current;
         const brandChanged =
@@ -176,6 +164,12 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
 export const BUSINESS_ID_SQL = "SELECT id FROM businesses LIMIT 1";
 
 /** `null` until the business row syncs; sync-write inserts need it for tenancy. */
+export const BUSINESS_NAME_SQL = "SELECT name FROM businesses LIMIT 1";
+
+export function useBusinessName(): string {
+    return useQuery<{ name: string }>(BUSINESS_NAME_SQL).data[0]?.name ?? "";
+}
+
 export function useBusinessId(): string | null {
     return useQuery<{ id: string }>(BUSINESS_ID_SQL).data[0]?.id ?? null;
 }
@@ -306,7 +300,13 @@ SELECT
     (SELECT COUNT(*) FROM bookings WHERE source = 'online') AS online,
     (SELECT slug FROM businesses LIMIT 1) AS slug,
     (SELECT name FROM businesses LIMIT 1) AS name,
-    (SELECT brand FROM businesses LIMIT 1) AS brand`;
+    (SELECT brand FROM businesses LIMIT 1) AS brand,
+    (SELECT province FROM businesses LIMIT 1) AS province,
+    (SELECT COALESCE(MAX(tax_registered), 0) FROM businesses) AS tax_registered,
+    (SELECT MAX(pst_number) FROM businesses) AS pst_number,
+    (SELECT MAX(setup_dismissed_at) FROM businesses) AS dismissed_at,
+    (SELECT COUNT(*) FROM items WHERE active = 1 AND kind = 'class') AS classes,
+    (SELECT group_concat(invite_email, ', ') FROM staff WHERE status = 'invited') AS invites`;
 
 interface SetupCounts {
     services: number;
@@ -318,6 +318,12 @@ interface SetupCounts {
     slug: string | null;
     name: string | null;
     brand: string | null;
+    province: string | null;
+    tax_registered: number;
+    pst_number: string | null;
+    dismissed_at: string | null;
+    classes: number;
+    invites: string | null;
 }
 
 type SetupStepKey = "service" | "hours" | "client" | "team" | "stripe" | "page";
@@ -338,6 +344,7 @@ export interface SetupProgress {
     done: number;
     total: number;
     complete: boolean;
+    dismissed: boolean;
 }
 
 /** What a new business still has to do before clients can book, derived from synced rows. */
@@ -366,17 +373,7 @@ export function bookingPageUrl(base: string, slug: string): string {
 
 export function useSetupProgress(bookBase: string): SetupProgress {
     const row = useQuery<SetupCounts>(SETUP_PROGRESS_SQL).data[0];
-    const counts: SetupCounts = row ?? {
-        services: 0,
-        hours: 0,
-        clients: 0,
-        team: 0,
-        stripe: 0,
-        online: 0,
-        slug: null,
-        name: null,
-        brand: null,
-    };
+    const counts: SetupCounts = row ?? NO_COUNTS;
     const link = counts.slug === null ? "" : bookingPageUrl(bookBase, counts.slug);
     const steps = setupSteps(counts, link.replace(/^https?:\/\//, ""));
     const done = steps.filter((x) => x.done).length;
@@ -388,5 +385,274 @@ export function useSetupProgress(bookBase: string): SetupProgress {
         done,
         total: steps.length,
         complete: row !== undefined && done === steps.length,
+        dismissed: counts.dismissed_at !== null,
+    };
+}
+
+const NO_COUNTS: SetupCounts = {
+    services: 0,
+    hours: 0,
+    clients: 0,
+    team: 0,
+    stripe: 0,
+    online: 0,
+    slug: null,
+    name: null,
+    brand: null,
+    province: null,
+    tax_registered: 0,
+    pst_number: null,
+    dismissed_at: null,
+    classes: 0,
+    invites: null,
+};
+
+type ChecklistKey = "business" | "services" | "hours" | "brand" | "stripe" | "team" | "tax";
+
+interface SetupTask {
+    key: ChecklistKey;
+    label: string;
+    hint: string;
+    action: string;
+    done: boolean;
+    attention: boolean;
+    target: ShellTarget;
+}
+
+interface SetupChecklist {
+    load: Load;
+    tasks: SetupTask[];
+    done: number;
+    total: number;
+    live: boolean;
+    bookingUrl: string;
+    hidden: boolean;
+    setHidden: (hidden: boolean) => void;
+    hideError: string | null;
+}
+
+/** The Get set up list: what a business still has to do to take bookings and get paid. */
+export function useSetupChecklist(
+    api: ApiLike,
+    bookBase: string,
+    provinceName: string,
+): SetupChecklist {
+    const query = useQuery<SetupCounts>(SETUP_PROGRESS_SQL);
+    const c = query.data[0] ?? NO_COUNTS;
+    const load = useReplicaLoad([query], false);
+    const { error, run } = useAsyncAction();
+    const o = strings.business.getSetUp;
+    const brand = parseBrand(c.brand);
+    const branded = brand.primary !== "" || brand.logo_file_id !== "";
+    const servicesHint =
+        c.services > 0 ? o.servicesHint(c.services - c.classes, c.classes) : o.fresh.services;
+    const invites = c.invites === null ? [] : c.invites.split(", ");
+    const tasks: SetupTask[] = [
+        {
+            key: "business",
+            ...o.tasks.business,
+            hint: [c.name, provinceName].filter((x) => x !== null && x !== "").join(", "),
+            done: true,
+            attention: false,
+            target: "business",
+        },
+        {
+            key: "services",
+            ...o.tasks.services,
+            hint: servicesHint,
+            done: c.services > 0,
+            attention: false,
+            target: "catalog",
+        },
+        {
+            key: "hours",
+            ...o.tasks.hours,
+            hint: c.hours > 0 ? o.hoursSet : o.fresh.hours,
+            done: c.hours > 0,
+            attention: false,
+            target: "hours",
+        },
+        { key: "brand", ...o.tasks.brand, done: branded, attention: false, target: "setup" },
+        {
+            key: "stripe",
+            ...o.tasks.stripe,
+            hint: c.stripe === 1 ? o.stripeOn : o.fresh.stripe,
+            done: c.stripe === 1,
+            attention: false,
+            target: "gettingPaid",
+        },
+        {
+            key: "team",
+            ...o.tasks.team,
+            hint: o.teamHint(invites),
+            done: c.team > 1,
+            attention: false,
+            target: "team",
+        },
+        {
+            key: "tax",
+            ...o.tasks.tax,
+            hint: c.tax_registered === 1 ? o.taxHint(c.pst_number !== null) : o.fresh.tax,
+            done: c.tax_registered === 1,
+            attention: false,
+            target: "taxes",
+        },
+    ];
+    const done = tasks.filter((t) => t.done).length;
+    const link =
+        c.slug === null ? "" : bookingPageUrl(bookBase, c.slug).replace(/^https?:\/\//, "");
+    return {
+        load,
+        tasks,
+        done,
+        total: tasks.length,
+        live: c.services > 0 && c.hours > 0,
+        bookingUrl: link,
+        hidden: c.dismissed_at !== null,
+        setHidden: (hidden) => {
+            run(() => api.patch("/v1/business", { setup_dismissed: hidden }), {
+                errorMessage: strings.business.saveError,
+            });
+        },
+        hideError: error,
+    };
+}
+
+export const BRAND_COLOURS = [
+    "#2E4A3F",
+    "#3F5E80",
+    "#2E6670",
+    "#7D5A82",
+    "#A95C43",
+    "#86621E",
+    "#3A4654",
+] as const;
+
+export interface BrandForm {
+    ready: boolean;
+    businessId: string | null;
+    name: string;
+    slug: string;
+    province: string | null;
+    logoFileId: string;
+    setLogoFileId: (id: string) => void;
+    colour: string;
+    setColour: (v: string) => void;
+    tagline: string;
+    setTagline: (v: string) => void;
+    busy: boolean;
+    error: string | null;
+    saved: boolean;
+    submit: () => void;
+}
+
+export const BRAND_SQL = "SELECT id, name, slug, province, brand FROM businesses LIMIT 1";
+
+/** Logo, colour and tagline for the booking page, saved to the business brand. */
+export function useBrandForm(api: ApiLike): BrandForm {
+    const row = useQuery<{
+        id: string;
+        name: string;
+        slug: string;
+        province: string | null;
+        brand: string | null;
+    }>(BRAND_SQL).data[0];
+    const stored = parseBrand(row?.brand ?? null);
+    const [draft, setDraft] = useState<Brand | null>(null);
+    const [saved, setSaved] = useState(false);
+    const { busy, error, run } = useAsyncAction();
+    const current = draft ?? {
+        logo_file_id: stored.logo_file_id,
+        primary: stored.primary,
+        tagline: stored.tagline,
+    };
+    const edit = (patch: Partial<Brand>): void => {
+        setDraft({ ...current, ...patch });
+        setSaved(false);
+    };
+    return {
+        ready: row !== undefined,
+        businessId: row?.id ?? null,
+        name: row?.name ?? "",
+        slug: row?.slug ?? "",
+        province: row?.province ?? null,
+        logoFileId: current.logo_file_id,
+        setLogoFileId: (id) => {
+            edit({ logo_file_id: id });
+        },
+        colour: current.primary || BRAND_COLOURS[1],
+        setColour: (v) => {
+            edit({ primary: v });
+        },
+        tagline: current.tagline,
+        setTagline: (v) => {
+            edit({ tagline: v });
+        },
+        busy,
+        error,
+        saved,
+        submit: () => {
+            run(
+                () =>
+                    api.patch("/v1/business", {
+                        brand: {
+                            logo_file_id: current.logo_file_id || null,
+                            logo_url: current.logo_file_id ? null : stored.legacyLogoUrl,
+                            primary: current.primary || BRAND_COLOURS[1],
+                            tagline: current.tagline,
+                        },
+                    }),
+                {
+                    errorMessage: strings.business.saveError,
+                    onSuccess: () => {
+                        setSaved(true);
+                        setDraft(null);
+                    },
+                },
+            );
+        },
+    };
+}
+
+export const BOOKING_PREVIEW_SQL = `
+SELECT id, name, duration_min, price_cents, color FROM items
+WHERE active = 1 AND online_bookable = 1 AND kind IN ('service', 'class')
+ORDER BY name COLLATE NOCASE`;
+
+export const PREVIEW_RATING_SQL = `
+SELECT AVG(rating) AS average, COUNT(*) AS n FROM reviews WHERE status = 'published'`;
+
+export interface BookingPreview {
+    services: { id: string; name: string; meta: string; color: string | null }[];
+    rating: string | null;
+}
+
+/** What the booking page shows: the bookable services and the published rating. */
+export function useBookingPreview(limit: number): BookingPreview {
+    const items = useQuery<{
+        id: string;
+        name: string;
+        duration_min: number | null;
+        price_cents: number;
+        color: string | null;
+    }>(BOOKING_PREVIEW_SQL).data;
+    const rating = useQuery<{ average: number | null; n: number }>(PREVIEW_RATING_SQL).data[0];
+    const o = strings.business.getSetUp;
+    return {
+        services: items.slice(0, limit).map((i) => ({
+            id: i.id,
+            name: i.name,
+            meta: [
+                i.duration_min === null ? null : o.minutes(i.duration_min),
+                formatMoney(i.price_cents),
+            ]
+                .filter((x) => x !== null)
+                .join(" · "),
+            color: i.color,
+        })),
+        rating:
+            rating?.average === null || rating === undefined || rating.n === 0
+                ? null
+                : o.rating(rating.average.toFixed(1), rating.n),
     };
 }

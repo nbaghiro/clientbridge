@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -58,3 +58,9 @@ class Broadcast(PKMixin, BusinessScoped, TimestampMixin, Base):
     audience: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
     status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    recipient_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
+    excluded_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )

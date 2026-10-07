@@ -25,6 +25,7 @@ class ConnectAccount:
     eventually_due: list[str]
     past_due: list[str]
     pending_verification: list[str]
+    current_deadline: int | None = None  # unix time Stripe pauses payouts if currently_due stays
 
 
 def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAccount:
@@ -37,6 +38,7 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         return [str(x) for x in value] if isinstance(value, list) else []
 
     reason = req.get("disabled_reason")
+    deadline = req.get("current_deadline")
     return ConnectAccount(
         id=account_id,
         charges_enabled=bool(data.get("charges_enabled")),
@@ -47,6 +49,7 @@ def account_status_from(account_id: str, data: dict[str, object]) -> ConnectAcco
         eventually_due=_list("eventually_due"),
         past_due=_list("past_due"),
         pending_verification=_list("pending_verification"),
+        current_deadline=deadline if isinstance(deadline, int) else None,
     )
 
 
@@ -246,6 +249,7 @@ class StripeGateway:
             eventually_due=list(req.eventually_due or []) if req is not None else [],
             past_due=list(req.past_due or []) if req is not None else [],
             pending_verification=list(req.pending_verification or []) if req is not None else [],
+            current_deadline=req.current_deadline if req is not None else None,
         )
 
     async def create_customer(  # pragma: no cover

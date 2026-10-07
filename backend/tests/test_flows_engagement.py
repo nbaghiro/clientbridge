@@ -7,7 +7,7 @@ from tests.conftest import FakeEmailSender, FakeSmsSender
 from tests.helpers import TWILIO, ok, review_id, unread
 
 
-async def _client(api: httpx.AsyncClient, **contact: str | list[str]) -> str:
+async def _client(api: httpx.AsyncClient, **contact: str | list[str] | bool) -> str:
     created = ok(await api.post("/v1/clients", json={"name": "Engaged Client", **contact}), 201)
     return str(created.json()["id"])
 
@@ -52,11 +52,15 @@ async def test_contract_is_sent_and_signed(
     context = ok(await api.get(f"/contract/{sent['token']}")).json()
     assert context["status"] == "pending" and context["body"]
     signed = ok(
-        await api.post(f"/contract/{sent['token']}/sign", json={"typed_name": "Flow Signer"})
+        await api.post(
+            f"/contract/{sent['token']}/sign", json={"typed_name": "Flow Signer", "agreed": True}
+        )
     ).json()
     assert signed["status"] == "signed"
     assert ok(await api.get(f"/contract/{sent['token']}")).json()["status"] == "signed"
-    again = await api.post(f"/contract/{sent['token']}/sign", json={"typed_name": "Twice"})
+    again = await api.post(
+        f"/contract/{sent['token']}/sign", json={"typed_name": "Twice", "agreed": True}
+    )
     assert again.status_code == 409
 
 
@@ -92,7 +96,7 @@ async def test_messages_and_broadcasts(
     as_owner: httpx.AsyncClient, db: AsyncSession, sms: FakeSmsSender
 ) -> None:
     api = as_owner
-    cid = await _client(api, phone="+16045550199", tags=["flowvip"])
+    cid = await _client(api, phone="+16045550199", tags=["flowvip"], marketing_consent=True)
     sent = ok(
         await api.post("/v1/messages", json={"client_id": cid, "channel": "sms", "body": "Hi"})
     ).json()
@@ -124,4 +128,4 @@ async def test_messages_and_broadcasts(
         )
     ).json()
     assert (blast["status"], blast["recipient_count"]) == ("sent", 1)
-    assert sms.sent[-1].body == "Sale"
+    assert sms.sent[-1].body == "Birchbark Pet Studio: Sale Reply STOP to opt out."

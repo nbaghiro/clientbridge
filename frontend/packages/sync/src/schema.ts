@@ -19,6 +19,8 @@ const staff = new Table(
         status: column.text,
         invite_email: column.text,
         invite_token: column.text,
+        invited_at: column.text,
+        invited_by: column.text,
         created_at: column.text,
         updated_at: column.text,
     },
@@ -40,6 +42,8 @@ const clients = new Table(
         status: column.text,
         custom_fields: column.text,
         stripe_customer_id: column.text,
+        preferred_channel: column.text,
+        archived_at: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -50,6 +54,64 @@ const clients = new Table(
             clients_business_email: ["business_id", "email"],
             clients_business_id: ["business_id"],
             clients_business_phone: ["business_id", "phone"],
+        },
+    },
+);
+
+const subjects = new Table(
+    {
+        client_id: column.text,
+        kind: column.text,
+        name: column.text,
+        attributes: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+        deleted_at: column.text,
+    },
+    {
+        indexes: {
+            subjects_business_client: ["business_id", "client_id"],
+            subjects_business_id: ["business_id"],
+        },
+    },
+);
+
+const notes = new Table(
+    {
+        created_by: column.text,
+        parent_type: column.text,
+        parent_id: column.text,
+        body: column.text,
+        pinned: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            notes_business_id: ["business_id"],
+            notes_parent: ["business_id", "parent_type", "parent_id"],
+        },
+    },
+);
+
+const consents = new Table(
+    {
+        client_id: column.text,
+        channel: column.text,
+        status: column.text,
+        source: column.text,
+        recorded_by: column.text,
+        expires_at: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            consents_business_id: ["business_id"],
+            consents_client: ["business_id", "client_id", "channel", "created_at"],
         },
     },
 );
@@ -172,6 +234,7 @@ const forms = new Table(
         attach_to: column.text,
         require_signature: column.integer,
         active: column.integer,
+        send_on: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -294,6 +357,10 @@ const businesses = new Table(
         gst_hst_number: column.text,
         qst_number: column.text,
         tax_registered: column.integer,
+        pst_number: column.text,
+        setup_dismissed_at: column.text,
+        review_hold_at: column.integer,
+        google_review_url: column.text,
         brand: column.text,
         billing_email: column.text,
         stripe_account_id: column.text,
@@ -691,6 +758,10 @@ const payment_methods = new Table(
         preferred: column.integer,
         mandate_status: column.text,
         status: column.text,
+        exp_month: column.integer,
+        exp_year: column.integer,
+        holder_name: column.text,
+        bank_name: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
@@ -731,6 +802,83 @@ const reviews = new Table(
     },
 );
 
+const broadcasts = new Table(
+    {
+        created_by: column.text,
+        name: column.text,
+        channel: column.text,
+        body: column.text,
+        audience: column.text,
+        status: column.text,
+        scheduled_at: column.text,
+        recipient_count: column.integer,
+        excluded_count: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            broadcasts_business_id: ["business_id"],
+            broadcasts_status: ["business_id", "status"],
+        },
+    },
+);
+
+const responses = new Table(
+    {
+        form_id: column.text,
+        client_id: column.text,
+        parent_type: column.text,
+        parent_id: column.text,
+        token: column.text,
+        status: column.text,
+        submitted_at: column.text,
+        opened_at: column.text,
+        answers: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            responses_business_id: ["business_id"],
+            responses_form: ["business_id", "form_id"],
+            responses_parent: ["parent_type", "parent_id"],
+        },
+    },
+);
+
+const signatures = new Table(
+    {
+        contract_id: column.text,
+        client_id: column.text,
+        parent_type: column.text,
+        parent_id: column.text,
+        token: column.text,
+        signed_at: column.text,
+        signature_image_id: column.text,
+        signed_body: column.text,
+        ip: column.text,
+        status: column.text,
+        contract_version: column.integer,
+        opened_at: column.text,
+        method: column.text,
+        signer_name: column.text,
+        strokes: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            signatures_business_id: ["business_id"],
+            signatures_contract: ["business_id", "contract_id"],
+            signatures_parent: ["parent_type", "parent_id"],
+        },
+    },
+);
+
 const device_prefs = new Table(
     {
         value: column.text,
@@ -742,6 +890,9 @@ const device_prefs = new Table(
 export const AppSchema = new Schema({
     staff,
     clients,
+    subjects,
+    notes,
+    consents,
     items,
     packages,
     subscriptions,
@@ -767,6 +918,9 @@ export const AppSchema = new Schema({
     payments,
     payment_methods,
     reviews,
+    broadcasts,
+    responses,
+    signatures,
     device_prefs,
 });
 

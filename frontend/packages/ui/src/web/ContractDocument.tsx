@@ -33,10 +33,14 @@ export function ContractDocument({
             </header>
             {clauses.length > 0 ? (
                 <ol className={compact ? "mt-4 space-y-3" : "mt-6 space-y-4"}>
-                    {clauses.map((c) => (
-                        <li key={c.heading}>
-                            <h3 className="font-semibold text-ink">{c.heading}</h3>
-                            <p className="mt-0.5 text-ink-soft">{c.text}</p>
+                    {clauses.map((c, i) => (
+                        <li key={`${String(i)}:${c.heading}`}>
+                            {c.heading !== "" ? (
+                                <h3 className="font-semibold text-ink">{c.heading}</h3>
+                            ) : null}
+                            {c.text !== "" ? (
+                                <p className="mt-0.5 text-ink-soft">{c.text}</p>
+                            ) : null}
                         </li>
                     ))}
                 </ol>

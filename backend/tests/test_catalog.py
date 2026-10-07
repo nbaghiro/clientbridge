@@ -1,6 +1,7 @@
 """Catalog (items) endpoints + the business tax-rates list, against the seeded DB."""
 
 import httpx
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
@@ -118,3 +119,53 @@ async def test_negative_price_is_422(as_owner: httpx.AsyncClient) -> None:
 async def test_empty_name_is_422(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/items", json={"kind": "service", "name": "", "price_cents": 0})
     assert res.status_code == 422
+
+
+async def _item(api: httpx.AsyncClient, name: str) -> str:
+    res = await api.post("/v1/items", json={"kind": "service", "name": name, "price_cents": 1000})
+    return str(res.json()["id"])
+
+
+async def test_bulk_tax_class_is_audited_and_idempotent(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    ids = [await _item(as_owner, "A"), await _item(as_owner, "B")]
+    body = {"item_ids": ids, "tax_class": "federal_only"}
+    headers = {"Idempotency-Key": "tax-class-1"}
+    first = await as_owner.post("/v1/items/tax-class", json=body, headers=headers)
+    assert first.status_code == 200, first.text
+    assert first.json() == {"count": 2}
+    again = await as_owner.post("/v1/items/tax-class", json=body, headers=headers)
+    assert again.json() == {"count": 2}
+    classes = (
+        await db.execute(
+            text("SELECT DISTINCT tax_class FROM items WHERE id = ANY(:i)"), {"i": ids}
+        )
+    ).scalars()
+    assert list(classes) == ["federal_only"]
+    audits = await db.scalar(
+        text("SELECT count(*) FROM audits WHERE action = 'item.tax_class' AND entity_id = ANY(:i)"),
+        {"i": ids},
+    )
+    assert audits == 2
+
+
+async def test_bulk_tax_class_guards(
+    as_owner: httpx.AsyncClient, factory: Factory, db: AsyncSession
+) -> None:
+    other = await factory.business()
+    foreign = Item(id=new_id("item"), business_id=other.id, kind="service", name="Theirs")
+    db.add(foreign)
+    await db.flush()
+    for ids, status in (([foreign.id], 404), (["it_nope"], 404), ([], 422)):
+        res = await as_owner.post(
+            "/v1/items/tax-class", json={"item_ids": ids, "tax_class": "exempt"}
+        )
+        assert res.status_code == status, ids
+
+
+async def test_staff_cannot_bulk_change_tax_class_403(as_staff: httpx.AsyncClient) -> None:
+    res = await as_staff.post(
+        "/v1/items/tax-class", json={"item_ids": ["it_nope"], "tax_class": "exempt"}
+    )
+    assert res.status_code == 403

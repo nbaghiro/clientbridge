@@ -21,6 +21,13 @@ import type { RootStackParamList, TabParamList } from "./src/navigation";
 import { ScheduleScreen } from "./src/screens/Schedule";
 import { CatalogScreen } from "./src/screens/Catalog";
 import { ClientsScreen } from "./src/screens/Clients";
+import { GetSetUpScreen } from "./src/components/GetSetUp";
+import { TaxesScreen } from "./src/screens/Taxes";
+import {
+    ClientHistoryScreen,
+    ClientPetsScreen,
+    ClientWalletScreen,
+} from "./src/components/ClientScreens";
 import { InboxScreen } from "./src/screens/Inbox";
 import { NotificationsScreen } from "./src/screens/Notifications";
 import { SearchScreen } from "./src/screens/Search";
@@ -166,6 +173,16 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                 options={{ title: strings.navigation.setup }}
                             />
                             <RootStack.Screen
+                                name="GetSetUp"
+                                component={GetSetUpScreen}
+                                options={{ title: strings.navigation.setupSections.start }}
+                            />
+                            <RootStack.Screen
+                                name="Taxes"
+                                component={TaxesScreen}
+                                options={{ title: strings.navigation.setupSections.taxes }}
+                            />
+                            <RootStack.Screen
                                 name="Business"
                                 component={BusinessScreen}
                                 options={{ title: strings.navigation.setupSections.business }}
@@ -184,6 +201,21 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                 name="GettingPaid"
                                 component={GettingPaidScreen}
                                 options={{ title: strings.navigation.setupSections.gettingPaid }}
+                            />
+                            <RootStack.Screen
+                                name="ClientHistory"
+                                component={ClientHistoryScreen}
+                                options={({ route }) => ({ title: route.params.name })}
+                            />
+                            <RootStack.Screen
+                                name="ClientPets"
+                                component={ClientPetsScreen}
+                                options={{ title: strings.clients.pets.pets }}
+                            />
+                            <RootStack.Screen
+                                name="ClientWallet"
+                                component={ClientWalletScreen}
+                                options={{ title: strings.clients.wallet.title }}
                             />
                         </RootStack.Group>
                     </RootStack.Navigator>

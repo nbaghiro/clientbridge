@@ -136,7 +136,9 @@ async def test_public_upload_attaches_a_file_to_the_response(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     token = await _a_response(db)
-    up = await api.post(f"/form/{token}/upload", json={"content_type": "application/pdf"})
+    up = await api.post(
+        f"/form/{token}/upload", json={"content_type": "application/pdf", "size": 52000}
+    )
     assert up.status_code == 200, up.text
     assert up.json()["upload_url"]
     row = (await db.execute(select(File).where(File.id == up.json()["file_id"]))).scalar_one()

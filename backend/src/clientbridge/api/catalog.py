@@ -4,7 +4,14 @@ from fastapi import APIRouter, Header
 
 from clientbridge.core.deps import CurrentPrincipal, DbSession
 from clientbridge.core.scoping import Page, PageQuery
-from clientbridge.schemas.catalog import ItemCreate, ItemOut, ItemUpdate, RestockIn
+from clientbridge.schemas.catalog import (
+    ItemCreate,
+    ItemOut,
+    ItemUpdate,
+    RestockIn,
+    TaxClassChange,
+    TaxClassResult,
+)
 from clientbridge.services.catalog import CatalogService
 from clientbridge.services.inventory import StockService
 
@@ -26,6 +33,16 @@ async def list_items(principal: CurrentPrincipal, db: DbSession, page: PageQuery
 async def create_item(body: ItemCreate, principal: CurrentPrincipal, db: DbSession) -> ItemOut:
     item = await CatalogService(db, principal).create(body)
     return ItemOut.model_validate(item)
+
+
+@router.post("/tax-class", response_model=TaxClassResult)
+async def set_tax_class(
+    body: TaxClassChange,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> TaxClassResult:
+    return await CatalogService(db, principal).set_tax_class(body, idempotency_key)
 
 
 @router.get("/{item_id}", response_model=ItemOut)

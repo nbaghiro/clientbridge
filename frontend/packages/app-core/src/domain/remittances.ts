@@ -9,7 +9,7 @@ import type { Intent } from "../ui";
 
 export type TaxFamily = "federal" | "provincial";
 
-export interface FiledReturn {
+interface FiledReturn {
     id: string;
     family: TaxFamily | null;
     period_start: string;
@@ -48,7 +48,7 @@ interface TaxFilingsData {
     periods: FilingPeriodRow[];
 }
 
-export type FilingStatus = "open" | "due" | "filed";
+type FilingStatus = "open" | "due" | "filed";
 
 export interface FilingPeriod {
     key: string;

@@ -1,56 +1,56 @@
 import {
-    type BroadcastResult,
     type Channel,
-    MESSAGE_CHANNELS,
+    type Conversation,
+    INBOX_FILTERS,
     type InboxSegmentKey,
-    type MessageRow,
-    type ThreadRow,
+    type InboxThread,
     channelLabel,
-    formatRelativeTime,
-    formatTime,
-    messageStatusIntent,
-    parseTimestamp,
+    consentDetail,
+    consentLabel,
     strings,
-    useBroadcastForm,
-    useClients,
-    useComposeMessage,
+    useConversation,
+    useInbox,
     useMarkThreadRead,
-    useThreadMessages,
-    useThreads,
+    useNewMessage,
+    useThreadComposer,
     visibleInboxSegments,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { useEffect, useState } from "react";
-import { type RouteProp, useRoute } from "@react-navigation/native";
-import {
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
 import {
     Badge,
     Button,
     Choice,
+    ConversationRow,
     Empty,
-    Field,
-    ListPage,
+    KeyValueList,
+    MessageBubble,
     Modal,
+    Money,
     Notice,
-    StatusPill,
+    SearchField,
+    Select,
     Tabs,
     TextField,
 } from "@clientbridge/ui";
+import { type RouteProp, useRoute } from "@react-navigation/native";
+import { useEffect, useRef, useState } from "react";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { Loaded } from "../components/Loaded";
 import { api } from "../lib/api";
-import type { RootStackParamList } from "../navigation";
 import { useRole } from "../lib/auth";
+import { useOpenLink } from "../lib/links";
+import type { RootStackParamList } from "../navigation";
+import { Broadcasts } from "./Broadcasts";
+import { Contracts } from "./Contracts";
+import { Forms } from "./Forms";
 import { Reviews } from "./Reviews";
 
 const c = theme.colors;
+const s = strings.messaging;
+const CHANNELS: Channel[] = ["sms", "email"];
+const QUICK = s.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.label, text: q.text }));
+
 export function InboxScreen() {
     const segments = visibleInboxSegments(useRole());
     const params = useRoute<RouteProp<RootStackParamList, "Inbox">>().params;
@@ -61,378 +61,417 @@ export function InboxScreen() {
             {segments.length > 1 ? (
                 <Tabs items={segments} active={segment} onSelect={setSegment} />
             ) : null}
-            {segment === "reviews" ? <Reviews /> : <Messages />}
+            {segment === "reviews" ? (
+                <Reviews />
+            ) : segment === "broadcasts" ? (
+                <Broadcasts />
+            ) : segment === "forms" ? (
+                <Forms />
+            ) : segment === "contracts" ? (
+                <Contracts />
+            ) : (
+                <Messages />
+            )}
         </View>
     );
 }
 
 function Messages() {
-    const threads = useThreads();
+    const inbox = useInbox();
     const [openId, setOpenId] = useState<string | null>(null);
-    const [composing, setComposing] = useState(false);
-    const [broadcasting, setBroadcasting] = useState(false);
-    const open = threads.find((t) => t.id === openId) ?? null;
+    const [composing, setComposing] = useState<string | null>(null);
+    const [sentTo, setSentTo] = useState<string | null>(null);
     const params = useRoute<RouteProp<RootStackParamList, "Inbox">>().params;
     useEffect(() => {
-        if (params?.create !== undefined) setComposing(true);
+        if (params?.create !== undefined) setComposing("");
     }, [params?.create]);
-    const linked = threads.find((t) => t.client_id === params?.open);
+    const linked = inbox.threads.find((t) => t.client_id === params?.open);
     useEffect(() => {
         if (linked !== undefined) setOpenId(linked.id);
     }, [linked]);
+    const open = inbox.threads.find((t) => t.id === openId) ?? null;
 
-    return (
-        <View style={styles.screen}>
-            <ListPage
-                summary={strings.messaging.subtitle}
-                accessory={
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onPress={() => {
-                            setBroadcasting(true);
-                        }}
-                    >
-                        {strings.messaging.broadcast}
-                    </Button>
-                }
-                action={{
-                    label: strings.messaging.newShort,
-                    onPress: () => {
-                        setComposing(true);
-                    },
-                }}
-                rows={threads}
-                rowKey={(t) => t.id}
-                onRowPress={(t) => {
-                    setOpenId(t.id);
-                }}
-                empty={strings.messaging.noConversations}
-                renderRow={(t) => <ThreadRowView thread={t} />}
-            />
-
-            <ThreadModal
+    if (open !== null)
+        return (
+            <ThreadView
+                key={open.id}
                 thread={open}
-                onClose={() => {
+                onBack={() => {
                     setOpenId(null);
                 }}
             />
-            <ComposeModal
-                visible={composing}
-                onClose={() => {
-                    setComposing(false);
-                }}
-            />
-            <BroadcastModal
-                visible={broadcasting}
-                onClose={() => {
-                    setBroadcasting(false);
-                }}
-            />
-        </View>
-    );
-}
-
-function ThreadRowView({ thread }: { thread: ThreadRow }) {
-    return (
-        <View style={styles.row}>
-            <View style={styles.rowMain}>
-                <Text style={styles.rowName} numberOfLines={1}>
-                    {thread.client_name ?? strings.messaging.clientFallback}
-                </Text>
-                <Text style={styles.rowSub} numberOfLines={1}>
-                    {channelLabel(thread.channel)}
-                    {thread.last_body !== null ? ` · ${thread.last_body}` : ""}
-                </Text>
-            </View>
-            <View style={styles.rowRight}>
-                {thread.last_message_at !== null ? (
-                    <Text style={styles.time}>{formatRelativeTime(thread.last_message_at)}</Text>
-                ) : null}
-                {thread.unread_count > 0 ? (
-                    <Badge variant="count" label={thread.unread_count} />
-                ) : null}
-            </View>
-        </View>
-    );
-}
-
-function ThreadModal({ thread, onClose }: { thread: ThreadRow | null; onClose: () => void }) {
-    return (
-        <Modal open={thread !== null} onClose={onClose} size="xl" framed={false}>
-            <View style={styles.sheet}>
-                {thread !== null ? <ThreadBody thread={thread} onClose={onClose} /> : null}
-            </View>
-        </Modal>
-    );
-}
-
-function ThreadBody({ thread, onClose }: { thread: ThreadRow; onClose: () => void }) {
-    const messages = useThreadMessages(thread.id);
-    const compose = useComposeMessage(api, () => undefined, {
-        clientId: thread.client_id,
-        channel: thread.channel as Channel,
-    });
-
-    useMarkThreadRead(api, thread);
+        );
 
     return (
-        <KeyboardAvoidingView
-            style={styles.threadFill}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-            <View style={styles.sheetHead}>
-                <Text style={styles.sheetTitle} numberOfLines={1}>
-                    {thread.client_name ?? strings.messaging.clientFallback}
-                </Text>
-                <Button variant="link" onPress={onClose}>
-                    {strings.common.close}
-                </Button>
-            </View>
-
-            <FlatList
-                data={messages}
-                keyExtractor={(m) => m.id}
-                contentContainerStyle={styles.messages}
-                renderItem={({ item }) => <Bubble message={item} />}
-                ListEmptyComponent={<Empty message={strings.messaging.noMessages} />}
-            />
-
-            <View style={styles.composer}>
-                {compose.error !== null ? <Notice tone="danger">{compose.error}</Notice> : null}
-                <View style={styles.composerRow}>
-                    <View style={styles.composerInput}>
-                        <TextField
-                            multiline
-                            rows={1}
-                            value={compose.body}
-                            onChange={compose.setBody}
-                            placeholder={strings.messaging.replyBy(
-                                channelLabel(thread.channel).toLowerCase(),
-                            )}
-                        />
-                    </View>
+        <View style={styles.screen}>
+            <View style={styles.header}>
+                <View style={styles.headRow}>
+                    <Text style={styles.meta}>{s.unreadCount(inbox.unread)}</Text>
                     <Button
-                        busy={compose.busy}
-                        disabled={compose.body.trim().length === 0}
-                        onPress={compose.submit}
+                        size="sm"
+                        icon="edit"
+                        onPress={() => {
+                            setSentTo(null);
+                            setComposing("");
+                        }}
                     >
-                        {strings.messaging.send}
+                        {s.newShort}
                     </Button>
                 </View>
+                <SearchField
+                    value={inbox.q}
+                    onChange={inbox.setQ}
+                    placeholder={s.searchPlaceholder}
+                />
             </View>
+            <Tabs
+                variant="pill"
+                items={INBOX_FILTERS}
+                active={inbox.filter}
+                onSelect={inbox.setFilter}
+            />
+            <ScrollView style={styles.flex} contentContainerStyle={styles.listContent}>
+                {sentTo !== null ? (
+                    <View style={styles.pad}>
+                        <Notice tone="success">{s.sentNew(sentTo)}</Notice>
+                    </View>
+                ) : null}
+                <Loaded load={inbox.load} loading={s.loading} failed={s.loadError} rows={6}>
+                    {inbox.filtered.length === 0 ? (
+                        <Empty
+                            message={inbox.threads.length === 0 ? s.noThreads : s.noThreadsFiltered}
+                        />
+                    ) : (
+                        inbox.filtered.map((t) => (
+                            <ConversationRow
+                                key={t.id}
+                                name={t.title}
+                                preview={t.last_body ?? ""}
+                                at={t.ago}
+                                unread={t.unread_count}
+                                channel={t.channelKind}
+                                channelLabel={channelLabel(t.channel)}
+                                tag={
+                                    t.textsOff
+                                        ? { label: s.textsOffShort, intent: "danger" }
+                                        : undefined
+                                }
+                                onPress={() => {
+                                    setOpenId(t.id);
+                                }}
+                            />
+                        ))
+                    )}
+                </Loaded>
+            </ScrollView>
+            {composing !== null ? (
+                <NewMessageSheet
+                    clientId={composing}
+                    onClose={() => {
+                        setComposing(null);
+                    }}
+                    onSent={(sent) => {
+                        setComposing(null);
+                        const thread = inbox.threads.find((t) => t.client_id === sent.clientId);
+                        if (thread === undefined) setSentTo(sent.name);
+                        else setOpenId(thread.id);
+                    }}
+                />
+            ) : null}
+        </View>
+    );
+}
+
+function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => void }) {
+    const conversation = useConversation(thread);
+    const composer = useThreadComposer(api, thread);
+    useMarkThreadRead(api, thread);
+    const [details, setDetails] = useState(false);
+    const scroll = useRef<ScrollView>(null);
+    return (
+        <KeyboardAvoidingView
+            style={styles.screen}
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+            <View style={styles.threadHead}>
+                <Button variant="link" icon="chevronLeft" onPress={onBack}>
+                    {s.back}
+                </Button>
+                <Text style={styles.threadTitle} numberOfLines={1}>
+                    {thread.title}
+                </Text>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onPress={() => {
+                        setDetails(true);
+                    }}
+                >
+                    {s.details}
+                </Button>
+            </View>
+            {thread.textsOff ? (
+                <View style={styles.pad}>
+                    <Notice tone="danger" banner>
+                        {`${s.textsOffTitle(thread.title.split(" ")[0] ?? "")} ${s.textsOffBody}`}
+                    </Notice>
+                </View>
+            ) : null}
+            <ScrollView
+                ref={scroll}
+                style={styles.flex}
+                contentContainerStyle={styles.messages}
+                onContentSizeChange={() => {
+                    scroll.current?.scrollToEnd({ animated: false });
+                }}
+            >
+                {conversation.days.map((day) => (
+                    <View key={day.label} style={styles.day}>
+                        <Text style={styles.dayLabel}>{day.label}</Text>
+                        {day.items.map((item) => (
+                            <MessageBubble
+                                key={item.id}
+                                body={item.body}
+                                direction={item.direction}
+                                meta={item.meta}
+                                failed={item.failed}
+                            />
+                        ))}
+                    </View>
+                ))}
+            </ScrollView>
+            <View style={styles.composer}>
+                <Choice
+                    label={s.quickReplies}
+                    options={QUICK}
+                    value={null}
+                    onChange={(k) => {
+                        composer.setBody(QUICK.find((q) => q.key === k)?.text ?? "");
+                    }}
+                />
+                <TextField
+                    multiline
+                    rows={2}
+                    name={s.replyPlaceholder(channelLabel(composer.channel))}
+                    value={composer.body}
+                    onChange={composer.setBody}
+                    placeholder={s.replyPlaceholder(channelLabel(composer.channel))}
+                    disabled={composer.smsBlocked}
+                />
+                {composer.error !== null ? <Notice tone="danger">{composer.error}</Notice> : null}
+                <View style={styles.headRow}>
+                    <Choice
+                        layout="segmented"
+                        label={s.channelLabel}
+                        options={CHANNELS.map((ch) => ({ key: ch, label: s.channels[ch] }))}
+                        value={composer.channel}
+                        onChange={composer.setChannel}
+                    />
+                    <Button
+                        icon="send"
+                        busy={composer.busy}
+                        disabled={!composer.canSend}
+                        onPress={composer.submit}
+                    >
+                        {s.send}
+                    </Button>
+                </View>
+                {composer.channel === "sms" && composer.body.length > 0 ? (
+                    <Text style={styles.meta}>
+                        {s.smsCount(composer.segments.chars, composer.segments.segments)}
+                    </Text>
+                ) : null}
+            </View>
+            {details ? (
+                <Modal
+                    open
+                    size="xl"
+                    onClose={() => {
+                        setDetails(false);
+                    }}
+                >
+                    <ScrollView>
+                        <ContextPanel thread={thread} conversation={conversation} />
+                    </ScrollView>
+                </Modal>
+            ) : null}
         </KeyboardAvoidingView>
     );
 }
 
-function Bubble({ message }: { message: MessageRow }) {
-    const outbound = message.direction === "out";
+function ContextPanel({
+    thread,
+    conversation,
+}: {
+    thread: InboxThread;
+    conversation: Conversation;
+}) {
+    const openLink = useOpenLink();
+    const client = conversation.client;
+    const balance = client?.balance_cents ?? 0;
     return (
-        <View style={[styles.bubbleRow, outbound ? styles.bubbleRight : styles.bubbleLeft]}>
-            <View style={[styles.bubble, outbound ? styles.bubbleOut : styles.bubbleIn]}>
-                <Text style={outbound ? styles.bubbleOutText : styles.bubbleInText}>
-                    {message.body ?? ""}
-                </Text>
+        <View style={styles.gap}>
+            <Text style={styles.threadTitle}>{thread.title}</Text>
+            {client?.email !== undefined && client.email !== null ? (
+                <Text style={styles.meta}>{client.email}</Text>
+            ) : null}
+            <View style={styles.headRow}>
+                <View style={styles.flex}>
+                    <Button
+                        full
+                        onPress={() => {
+                            openLink("booking");
+                        }}
+                    >
+                        {s.book}
+                    </Button>
+                </View>
+                <View style={styles.flex}>
+                    <Button
+                        full
+                        variant="outline"
+                        onPress={() => {
+                            openLink("client", thread.client_id);
+                        }}
+                    >
+                        {s.openRecord}
+                    </Button>
+                </View>
             </View>
-            <View style={[styles.bubbleMeta, outbound ? styles.metaRight : styles.metaLeft]}>
-                <Text style={styles.time}>{formatTime(parseTimestamp(message.created_at))}</Text>
-                {outbound ? (
-                    <StatusPill
-                        status={message.status}
-                        intent={messageStatusIntent(message.status)}
-                    />
-                ) : null}
-            </View>
+            <KeyValueList
+                rows={[
+                    { label: s.pets, value: client?.pet_names ?? "—" },
+                    {
+                        label: s.balance,
+                        value: balance > 0 ? <Money cents={balance} /> : s.settled,
+                        intent: balance > 0 ? "warning" : undefined,
+                    },
+                    { label: s.nextVisit, value: conversation.nextVisit ?? s.nothingBooked },
+                ]}
+            />
+            <Text style={styles.section}>{s.consentTitle}</Text>
+            {CHANNELS.map((ch) => {
+                const v = conversation.consent[ch];
+                const state = consentLabel(v);
+                const detail = consentDetail(v);
+                return (
+                    <View key={ch} style={styles.consentRow}>
+                        <View style={styles.flex}>
+                            <Text style={styles.rowName}>{s.consentChannel[ch]}</Text>
+                            {detail !== null ? <Text style={styles.meta}>{detail}</Text> : null}
+                        </View>
+                        <Badge label={state.label} intent={state.intent} />
+                    </View>
+                );
+            })}
         </View>
     );
 }
 
-function ChannelToggle({ value, onChange }: { value: Channel; onChange: (ch: Channel) => void }) {
+function NewMessageSheet({
+    clientId,
+    onClose,
+    onSent,
+}: {
+    clientId: string;
+    onClose: () => void;
+    onSent: (sent: { clientId: string; name: string }) => void;
+}) {
+    const msg = useNewMessage(api, onSent, clientId);
     return (
-        <Field label={strings.messaging.channelLabel}>
-            <Choice
-                layout="segmented"
-                options={MESSAGE_CHANNELS.map((ch) => ({ key: ch, label: channelLabel(ch) }))}
-                value={value}
-                onChange={onChange}
-            />
-        </Field>
-    );
-}
-
-function ComposeModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    const compose = useComposeMessage(api, onClose);
-    const clients = useClients();
-
-    return (
-        <Modal open={visible} onClose={onClose}>
-            <Text style={styles.sheetTitle}>{strings.messaging.newMessageTitle}</Text>
-            <ScrollView contentContainerStyle={styles.formBody}>
-                <Field label={strings.messaging.clientLabel}>
-                    {clients.length === 0 ? (
-                        <Text style={styles.muted}>{strings.messaging.addClientFirst}</Text>
-                    ) : (
-                        <Choice
-                            label={strings.messaging.clientLabel}
-                            options={clients.map((cl) => ({ key: cl.id, label: cl.name }))}
-                            value={compose.clientId}
-                            onChange={compose.setClientId}
-                        />
-                    )}
-                </Field>
-                <ChannelToggle value={compose.channel} onChange={compose.setChannel} />
+        <Modal open size="xl" onClose={onClose}>
+            <ScrollView contentContainerStyle={styles.gap} keyboardShouldPersistTaps="handled">
+                <Text style={styles.threadTitle}>{s.newMessageTitle}</Text>
+                <Select
+                    label={s.clientLabel}
+                    value={msg.clientId}
+                    options={[{ key: "", label: s.chooseClient }, ...msg.clients]}
+                    onChange={msg.setClientId}
+                />
+                <Choice
+                    layout="segmented"
+                    label={s.channelLabel}
+                    options={CHANNELS.map((ch) => ({ key: ch, label: s.channels[ch] }))}
+                    value={msg.channel}
+                    onChange={msg.setChannel}
+                />
+                {msg.smsBlocked ? <Notice tone="danger">{s.smsBlockedNew}</Notice> : null}
                 <TextField
-                    label={strings.messaging.messageLabel}
+                    label={s.newMessageTitle}
                     multiline
                     rows={4}
-                    value={compose.body}
-                    onChange={compose.setBody}
-                    placeholder={strings.messaging.messagePlaceholder}
+                    value={msg.body}
+                    onChange={msg.setBody}
+                    placeholder={s.newMessagePlaceholder}
+                    disabled={msg.smsBlocked}
                 />
-                {compose.error !== null ? <Notice tone="danger">{compose.error}</Notice> : null}
-            </ScrollView>
-            <ModalActions
-                busy={compose.busy}
-                onCancel={onClose}
-                onSubmit={compose.submit}
-                label={strings.messaging.send}
-            />
-        </Modal>
-    );
-}
-
-function BroadcastModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-    const [sent, setSent] = useState<BroadcastResult | null>(null);
-    const form = useBroadcastForm(api, setSent);
-
-    const close = (): void => {
-        setSent(null);
-        onClose();
-    };
-
-    return (
-        <Modal open={visible} onClose={close}>
-            {sent !== null ? (
-                <View style={styles.center}>
-                    <Text style={styles.sheetTitle}>
-                        {sent.status === "scheduled"
-                            ? strings.messaging.broadcastScheduled
-                            : strings.messaging.broadcastSent}
-                    </Text>
-                    <Text style={styles.muted}>
-                        {strings.messaging.broadcastRecipientsShort(
-                            sent.name,
-                            sent.recipient_count,
-                        )}
-                    </Text>
-                    <Button onPress={close}>{strings.common.done}</Button>
+                {msg.error !== null ? <Notice tone="danger">{msg.error}</Notice> : null}
+                <View style={styles.headRow}>
+                    <View style={styles.flex}>
+                        <Button full variant="outline" onPress={onClose}>
+                            {s.cancel}
+                        </Button>
+                    </View>
+                    <View style={styles.flex}>
+                        <Button full busy={msg.busy} disabled={msg.smsBlocked} onPress={msg.submit}>
+                            {s.sendMessage}
+                        </Button>
+                    </View>
                 </View>
-            ) : (
-                <>
-                    <Text style={styles.sheetTitle}>{strings.messaging.newBroadcastTitle}</Text>
-                    <ScrollView contentContainerStyle={styles.formBody}>
-                        <TextField
-                            label={strings.messaging.nameLabel}
-                            value={form.name}
-                            onChange={form.setName}
-                            placeholder={strings.messaging.namePlaceholder}
-                        />
-                        <ChannelToggle value={form.channel} onChange={form.setChannel} />
-                        <TextField
-                            label={strings.messaging.messageLabel}
-                            multiline
-                            rows={4}
-                            value={form.body}
-                            onChange={form.setBody}
-                            placeholder={strings.messaging.announcementPlaceholder}
-                        />
-                        <TextField
-                            label={strings.messaging.audienceTagsLabel}
-                            optional
-                            value={form.tags}
-                            onChange={form.setTags}
-                            placeholder={strings.messaging.tagsPlaceholderShort}
-                        />
-                        {form.error !== null ? <Notice tone="danger">{form.error}</Notice> : null}
-                    </ScrollView>
-                    <ModalActions
-                        busy={form.busy}
-                        onCancel={close}
-                        onSubmit={form.submit}
-                        label={strings.messaging.sendBroadcast}
-                    />
-                </>
-            )}
+            </ScrollView>
         </Modal>
-    );
-}
-
-function ModalActions({
-    busy,
-    onCancel,
-    onSubmit,
-    label,
-}: {
-    busy: boolean;
-    onCancel: () => void;
-    onSubmit: () => void;
-    label: string;
-}) {
-    return (
-        <View style={styles.actions}>
-            <Button variant="quiet" onPress={onCancel}>
-                {strings.common.cancel}
-            </Button>
-            <Button busy={busy} onPress={onSubmit}>
-                {busy ? strings.messaging.sending : label}
-            </Button>
-        </View>
     );
 }
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.bg },
-    row: { flexDirection: "row", alignItems: "center", gap: 12 },
-    rowMain: { flex: 1 },
-    rowName: { color: c.ink, fontSize: 15, fontWeight: "600" },
-    rowSub: { color: c.muted, fontSize: 13, marginTop: 1 },
-    rowRight: { alignItems: "flex-end", gap: 4 },
-    time: { color: c.muted, fontSize: 12 },
-    muted: { color: c.muted, fontSize: 14 },
-    sheet: { flex: 1, backgroundColor: c.surface },
-    threadFill: { flex: 1 },
-    sheetHead: {
+    flex: { flex: 1, minWidth: 0 },
+    header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 10 },
+    headRow: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingVertical: 14,
+        gap: 10,
+    },
+    meta: { color: c.muted, fontSize: 13, lineHeight: 18 },
+    pad: { paddingHorizontal: 16, paddingTop: 8 },
+    listContent: { paddingBottom: 24 },
+    threadHead: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
         borderBottomColor: c.border,
         borderBottomWidth: StyleSheet.hairlineWidth,
+        backgroundColor: c.surface,
     },
-    sheetTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
-    messages: { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
-    bubbleRow: { maxWidth: "82%" },
-    bubbleLeft: { alignSelf: "flex-start", alignItems: "flex-start" },
-    bubbleRight: { alignSelf: "flex-end", alignItems: "flex-end" },
-    bubble: { borderRadius: 16, paddingHorizontal: 13, paddingVertical: 9 },
-    bubbleIn: { backgroundColor: c.bg, borderColor: c.border, borderWidth: theme.borderWidth },
-    bubbleOut: { backgroundColor: c.accent },
-    bubbleInText: { color: c.ink, fontSize: 14, lineHeight: 19 },
-    bubbleOutText: { color: c.accentInk, fontSize: 14, lineHeight: 19 },
-    bubbleMeta: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
-    metaLeft: { justifyContent: "flex-start" },
-    metaRight: { justifyContent: "flex-end" },
+    threadTitle: { flex: 1, color: c.ink, fontSize: 17, fontWeight: "700" },
+    messages: { padding: 16, gap: 12 },
+    day: { gap: 10 },
+    dayLabel: {
+        color: c.muted,
+        fontSize: 11,
+        fontWeight: "600",
+        textAlign: "center",
+        textTransform: "uppercase",
+    },
     composer: {
-        paddingHorizontal: 14,
-        paddingVertical: 10,
+        gap: 8,
+        padding: 12,
         borderTopColor: c.border,
         borderTopWidth: StyleSheet.hairlineWidth,
         backgroundColor: c.surface,
     },
-    composerRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
-    composerInput: { flex: 1 },
-    formBody: { paddingVertical: 12, gap: 2 },
-    center: { alignItems: "center", gap: 12, paddingVertical: 20 },
-    actions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 8 },
+    gap: { gap: 12 },
+    section: {
+        color: c.muted,
+        fontSize: 11,
+        fontWeight: "600",
+        letterSpacing: 0.5,
+        textTransform: "uppercase",
+        marginTop: 6,
+    },
+    consentRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    rowName: { color: c.ink, fontSize: 14, fontWeight: "600" },
 });

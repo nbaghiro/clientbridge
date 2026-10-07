@@ -116,3 +116,12 @@ class RestockIn(BaseModel):
         if v == 0:
             raise ValueError("quantity can't be zero")
         return v
+
+
+class TaxClassChange(BaseModel):
+    item_ids: list[str] = Field(min_length=1, max_length=500)
+    tax_class: TaxClass
+
+
+class TaxClassResult(BaseModel):
+    count: int

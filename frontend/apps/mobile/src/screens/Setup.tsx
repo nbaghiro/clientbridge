@@ -10,16 +10,19 @@ import { useSignOut } from "../lib/session";
 import type { RootStackParamList } from "../navigation";
 import { Business } from "./Business";
 import { Hours } from "./Hours";
-import { Taxes } from "./Taxes";
 import { Team } from "./Team";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const SECTION_SCREEN: Partial<Record<SetupSectionKey, keyof RootStackParamList>> = {
+const SECTION_SCREEN: Partial<
+    Record<SetupSectionKey, "GetSetUp" | "Business" | "Services" | "Team" | "GettingPaid" | "Taxes">
+> = {
+    start: "GetSetUp",
     business: "Business",
     services: "Services",
     team: "Team",
     gettingPaid: "GettingPaid",
+    taxes: "Taxes",
 };
 
 export function SetupScreen() {
@@ -53,7 +56,7 @@ export function SetupScreen() {
 }
 
 export function BusinessScreen() {
-    return <Business footer={<Taxes />} />;
+    return <Business />;
 }
 
 export function TeamHoursScreen() {

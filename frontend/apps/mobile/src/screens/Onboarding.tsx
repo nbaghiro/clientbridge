@@ -1,4 +1,4 @@
-import { PROVINCES, strings, useOnboardingForm } from "@clientbridge/app-core";
+import { PROVINCES, strings, taxSummary, useOnboardingForm } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -75,6 +75,16 @@ export function OnboardingScreen({ onSignOut }: { onSignOut: () => void }) {
                             onChange={form.setProvince}
                         />
                     </Field>
+                    <View style={styles.tax}>
+                        <Text style={styles.taxTitle}>
+                            {strings.business.onboarding.taxTitle(
+                                PROVINCES.find((p) => p.code === form.province)?.name ?? "",
+                            )}
+                            {": "}
+                            {taxSummary(form.province)}
+                        </Text>
+                        <Text style={styles.taxNote}>{strings.business.onboarding.taxNone}</Text>
+                    </View>
 
                     {form.error ? <Notice tone="danger">{form.error}</Notice> : null}
 
@@ -105,5 +115,15 @@ const styles = StyleSheet.create({
     title: { color: c.ink, fontSize: 28, fontWeight: "700", letterSpacing: -0.5 },
     subtitle: { color: c.muted, fontSize: 14.5, marginTop: 5, marginBottom: 22 },
     submitGap: { marginTop: 22 },
+    tax: {
+        marginTop: 12,
+        padding: 12,
+        borderRadius: theme.radius,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
+    },
+    taxTitle: { color: c.ink, fontSize: 14, fontWeight: "600" },
+    taxNote: { color: c.muted, fontSize: 12, marginTop: 2 },
     signOut: { alignItems: "center", paddingTop: 20 },
 });

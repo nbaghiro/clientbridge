@@ -31,10 +31,12 @@ export function ContractDocument({
                 </Text>
                 <Text style={styles.meta}>{meta}</Text>
             </View>
-            {clauses.map((cl) => (
-                <View key={cl.heading} style={styles.clause}>
-                    <Text style={[body, styles.heading]}>{cl.heading}</Text>
-                    <Text style={[body, styles.text]}>{cl.text}</Text>
+            {clauses.map((cl, i) => (
+                <View key={`${String(i)}:${cl.heading}`} style={styles.clause}>
+                    {cl.heading !== "" ? (
+                        <Text style={[body, styles.heading]}>{cl.heading}</Text>
+                    ) : null}
+                    {cl.text !== "" ? <Text style={[body, styles.text]}>{cl.text}</Text> : null}
                 </View>
             ))}
             {signature ? (

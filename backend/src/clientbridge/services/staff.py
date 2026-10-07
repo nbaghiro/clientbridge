@@ -3,22 +3,37 @@
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role
-from clientbridge.core.errors import AppError, Conflict, NotFound, Unauthorized, Unprocessable
+from clientbridge.core.errors import (
+    AppError,
+    Conflict,
+    Forbidden,
+    NotFound,
+    Unauthorized,
+    Unprocessable,
+)
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.core.security import hash_token, verify_password
 from clientbridge.integrations.postmark import Email, EmailSender
+from clientbridge.models.auth import AuthSession
 from clientbridge.models.business import Staff, User
 from clientbridge.models.platform import Audit
-from clientbridge.schemas.staff import InviteOut, StaffPayOut, StaffPayUpdate
+from clientbridge.schemas.staff import (
+    InviteOut,
+    RoleUpdate,
+    StaffPayOut,
+    StaffPayUpdate,
+    TeamMember,
+    TeamOut,
+)
 from clientbridge.services.auth import build_user
 
-INVITE_TTL = timedelta(days=14)
+INVITE_TTL = timedelta(days=7)
 INVITABLE_ROLES = {"admin", "staff", "contractor"}  # never invite an owner
 
 
@@ -89,6 +104,8 @@ class StaffService:
                 status="invited",
                 invite_email=email,
                 invite_token=hash_token(raw),
+                invited_at=datetime.now(UTC),
+                invited_by=principal.user_id,
             )
             self.db.add(staff)
             await self.db.flush()
@@ -119,7 +136,7 @@ class StaffService:
             raise Unauthorized("invalid invite")
         if staff.status != "invited":
             raise Conflict("invite already accepted")
-        if staff.created_at + INVITE_TTL < datetime.now(UTC):
+        if (staff.invited_at or staff.created_at) + INVITE_TTL < datetime.now(UTC):
             raise Unauthorized("invite expired")
 
         user = None
@@ -150,6 +167,162 @@ class StaffService:
         )
         await self.db.commit()
         return user
+
+    async def team(self, principal: Principal) -> TeamOut:
+        """Everyone on the team with their sign-in email and last activity, then pending invites."""
+        rows = (
+            await self.db.execute(
+                scoped(Staff, principal.business_id)
+                .where(Staff.status.in_(("active", "invited")))
+                .order_by(Staff.created_at)
+            )
+        ).scalars()
+        staff = list(rows)
+        user_ids = {s.user_id for s in staff if s.user_id} | {
+            s.invited_by for s in staff if s.invited_by
+        }
+        users = {
+            u.id: u
+            for u in (await self.db.execute(select(User).where(User.id.in_(user_ids)))).scalars()
+        }
+        sessions = await self.db.execute(
+            select(AuthSession.user_id, func.max(AuthSession.created_at))
+            .where(AuthSession.user_id.in_(user_ids))
+            .group_by(AuthSession.user_id)
+        )
+        last = {user_id: at for user_id, at in sessions.all()}
+        managers = principal.role in ("owner", "admin")
+
+        def out(s: Staff) -> TeamMember:
+            user = users.get(s.user_id or "")
+            inviter = users.get(s.invited_by or "")
+            sent = s.invited_at or s.created_at
+            return TeamMember(
+                id=s.id,
+                name=s.name,
+                email=(user.email if user else s.invite_email) if managers else None,
+                role=s.role,
+                status=s.status,
+                last_active_at=last.get(s.user_id or "") if managers else None,
+                invited_at=sent if s.status == "invited" else None,
+                invited_by_name=inviter.name if inviter else None,
+                expires_at=sent + INVITE_TTL if s.status == "invited" else None,
+            )
+
+        return TeamOut(
+            members=[out(s) for s in staff if s.status == "active"],
+            invites=[out(s) for s in staff if s.status == "invited"] if managers else [],
+        )
+
+    async def _invite(self, principal: Principal, invite_id: str) -> Staff:
+        row = (
+            await self.db.execute(
+                scoped(Staff, principal.business_id).where(
+                    Staff.id == invite_id, Staff.status == "invited"
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            raise NotFound("invite not found")
+        return row
+
+    async def resend_invite(
+        self, principal: Principal, invite_id: str, *, email_sender: EmailSender
+    ) -> InviteOut:
+        """A new link with a fresh seven days; the old link stops working."""
+        assert_role(principal, "owner", "admin", message="only an owner or admin can invite")
+        staff = await self._invite(principal, invite_id)
+
+        async def run(cmd: Command) -> InviteOut:
+            raw = secrets.token_urlsafe(24)
+            staff.invite_token = hash_token(raw)
+            staff.invited_at = datetime.now(UTC)
+            staff.invited_by = principal.user_id
+            await self.db.flush()
+            await email_sender.send(
+                Email(
+                    to=staff.invite_email or "",
+                    subject="You're invited to Clientbridge",
+                    body=f"Invite code: {raw}",
+                )
+            )
+            cmd.record("staff.invite_resend", entity_type="staff", entity_id=staff.id)
+            return InviteOut(
+                id=staff.id,
+                email=staff.invite_email or "",
+                role=staff.role,
+                status=staff.status,
+                invite_token=raw,
+            )
+
+        return await run_command(
+            self.db, principal, action="staff.invite_resend", run=run, response_model=InviteOut
+        )
+
+    async def revoke_invite(self, principal: Principal, invite_id: str) -> None:
+        assert_role(principal, "owner", "admin", message="only an owner or admin can revoke")
+        staff = await self._invite(principal, invite_id)
+        self.db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=principal.business_id,
+                performed_by=principal.user_id,
+                action="staff.invite_revoke",
+                entity_type="staff",
+                entity_id=staff.id,
+                changes={"email": staff.invite_email},
+            )
+        )
+        await self.db.delete(staff)
+        await self.db.commit()
+
+    async def _member(self, principal: Principal, staff_id: str) -> Staff:
+        assert_role(principal, "owner", "admin", message="only an owner or admin can change roles")
+        if staff_id == principal.staff_id:
+            raise Forbidden("you can't change your own role or remove yourself")
+        member = await load_staff(self.db, principal.business_id, staff_id)
+        if member.role == "owner":
+            raise Forbidden("the owner's role can't be changed")
+        return member
+
+    async def change_role(self, principal: Principal, staff_id: str, data: RoleUpdate) -> None:
+        member = await self._member(principal, staff_id)
+        previous = member.role
+        member.role = data.role
+        self.db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=principal.business_id,
+                performed_by=principal.user_id,
+                action="staff.role",
+                entity_type="staff",
+                entity_id=member.id,
+                changes={"from": previous, "to": data.role},
+            )
+        )
+        await self.db.commit()
+
+    async def remove(self, principal: Principal, staff_id: str) -> None:
+        """The member loses access here and is signed out of every device; their history stays."""
+        member = await self._member(principal, staff_id)
+        member.status = "removed"
+        if member.user_id is not None:
+            await self.db.execute(
+                update(AuthSession)
+                .where(AuthSession.user_id == member.user_id, AuthSession.revoked_at.is_(None))
+                .values(revoked_at=datetime.now(UTC))
+            )
+        self.db.add(
+            Audit(
+                id=new_id("audit"),
+                business_id=principal.business_id,
+                performed_by=principal.user_id,
+                action="staff.remove",
+                entity_type="staff",
+                entity_id=member.id,
+            )
+        )
+        await self.db.commit()
 
 
 async def load_staff(db: AsyncSession, biz: str, staff_id: str) -> Staff:

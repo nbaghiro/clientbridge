@@ -11,12 +11,18 @@ from clientbridge.core.ratelimit import (
     public_contract_rate_limit,
     public_form_rate_limit,
     public_pay_rate_limit,
+    public_prefs_rate_limit,
     public_review_rate_limit,
 )
 from clientbridge.schemas.billing import (
     PublicEstimate,
     PublicEstimateAccept,
     PublicEstimateDecline,
+)
+from clientbridge.schemas.consents import (
+    PublicPreferences,
+    PublicPreferencesUpdate,
+    PublicUnsubscribe,
 )
 from clientbridge.schemas.contracts import PublicContractContext, PublicContractSign
 from clientbridge.schemas.files import PublicFileCreate, PublicFileUpload
@@ -46,6 +52,7 @@ from clientbridge.services.public import (
     PublicEstimateService,
     PublicFormService,
     PublicPayService,
+    PublicPreferencesService,
     PublicReceiptService,
     PublicReviewService,
     PublicShopService,
@@ -58,6 +65,7 @@ ReviewRateLimited = Annotated[None, Depends(public_review_rate_limit)]
 FormRateLimited = Annotated[None, Depends(public_form_rate_limit)]
 ContractRateLimited = Annotated[None, Depends(public_contract_rate_limit)]
 BookingRateLimited = Annotated[None, Depends(public_booking_rate_limit)]
+PrefsRateLimited = Annotated[None, Depends(public_prefs_rate_limit)]
 
 
 @pay_router.get("/{token}", response_model=PublicInvoice)
@@ -211,6 +219,28 @@ async def public_contract_decline(
     token: str, db: DbSession, _: ContractRateLimited
 ) -> PublicContractContext:
     return await PublicContractService(db).decline(token)
+
+
+prefs_router = APIRouter(prefix="/prefs", tags=["public-prefs"])
+
+
+@prefs_router.get("/{token}", response_model=PublicPreferences)
+async def public_preferences(token: str, db: DbSession, _: PrefsRateLimited) -> PublicPreferences:
+    return await PublicPreferencesService(db).context(token)
+
+
+@prefs_router.post("/{token}", response_model=PublicPreferences)
+async def public_preferences_save(
+    token: str, body: PublicPreferencesUpdate, db: DbSession, _: PrefsRateLimited
+) -> PublicPreferences:
+    return await PublicPreferencesService(db).save(token, body)
+
+
+@prefs_router.post("/{token}/unsubscribe", response_model=PublicPreferences)
+async def public_unsubscribe(
+    token: str, body: PublicUnsubscribe, db: DbSession, _: PrefsRateLimited
+) -> PublicPreferences:
+    return await PublicPreferencesService(db).unsubscribe(token, body.channel)
 
 
 booking_router = APIRouter(prefix="/book", tags=["public-booking"])

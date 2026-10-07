@@ -39,11 +39,24 @@ class ReviewSummary(BaseModel):
     count: int = Field(description="Number of published reviews")
 
 
+class ReviewShareOut(BaseModel):
+    review: ReviewOut
+    google_review_url: str
+
+
 class PublicReviewContext(BaseModel):
     business_name: str
     brand: PublicBrand
     completed: bool
     rating: int | None = None
+    first_name: str | None = None
+    pet: str | None = None
+    service: str | None = None
+    staff: str | None = None
+    google_review_url: str | None = Field(
+        default=None, description="Offered after a published review; null while it is held"
+    )
+    published: bool = False
 
 
 class PublicReviewSubmit(BaseModel):

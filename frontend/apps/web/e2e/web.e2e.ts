@@ -11,14 +11,22 @@ const PAYMENTS_TABS = [
     "payouts",
     "reports",
 ];
-const SETUP_SECTIONS = ["business", "services", "team", "getting-paid", "online-booking"];
+const SETUP_SECTIONS = [
+    "start",
+    "business",
+    "services",
+    "team",
+    "getting-paid",
+    "taxes",
+    "online-booking",
+];
 
 async function navigate(page: Page, path: string): Promise<void> {
     await page.evaluate((to) => {
         history.pushState({}, "", to);
         dispatchEvent(new PopStateEvent("popstate"));
     }, path);
-    await expect(page).toHaveURL(new RegExp(`${path}$`));
+    await expect(page).toHaveURL(new RegExp(`${path.replace(/[?]/g, "\\?")}$`));
     await page.waitForTimeout(500);
 }
 
@@ -87,6 +95,24 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await navigate(page, "/clients");
     await openAndClose(page, strings.clients.addClient);
     await openFirstRow(page);
+    await page.locator("main").getByRole("button", { name: strings.clients.tidy.select }).click();
+    await page.locator("main").getByRole("checkbox").nth(1).check();
+    await page.locator("main").getByRole("checkbox").nth(2).check();
+    await page.getByRole("button", { name: strings.clients.tidy.tag, exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: strings.clients.tidy.tag, exact: true }).click();
+    await page
+        .getByRole("button", { name: strings.clients.tidy.mergeSelected, exact: true })
+        .click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toBeHidden();
+    for (const view of ["history", "pets", "payment-methods"]) {
+        await navigate(page, `/clients/cl_amelie/${view}`);
+        await expect(page.getByRole("heading", { name: "Amélie Tremblay" })).toBeVisible();
+    }
+    await navigate(page, "/clients/cl_marcus/pets");
+    await openAndClose(page, strings.clients.pets.addPet);
 
     for (const tab of PAYMENTS_TABS) await navigate(page, `/payments/${tab}`);
     await navigate(page, "/payments/invoices");
@@ -165,8 +191,17 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await expect(money.getByText(strings.earnings.selectAll)).toBeVisible();
 
     await navigate(page, "/inbox");
-    await openAndClose(page, new RegExp(`^${strings.messaging.newMessage}$`));
-    await openAndClose(page, new RegExp(`^${strings.messaging.broadcast}$`));
+    await openAndClose(page, new RegExp(`^${strings.messaging.newShort}$`));
+    await navigate(page, "/inbox?segment=reviews");
+    await openAndClose(page, new RegExp(`^${strings.reviews.requestReview}$`));
+    await navigate(page, "/inbox?segment=broadcasts");
+    await page.getByRole("button", { name: strings.broadcasts.newBroadcast }).first().click();
+    await expect(page.getByText(strings.broadcasts.optOutNote)).toBeVisible();
+    await page.getByRole("button", { name: strings.broadcasts.back }).first().click();
+    await navigate(page, "/inbox?segment=forms");
+    await expect(page.getByText(strings.forms.page.preview)).toBeVisible();
+    await navigate(page, "/inbox?segment=contracts");
+    await openAndClose(page, strings.contracts.page.newContract);
 
     for (const section of SETUP_SECTIONS) await navigate(page, `/setup/${section}`);
     await navigate(page, "/setup/services");
@@ -183,6 +218,9 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await openFirstRow(page);
     await main.getByRole("tab", { name: strings.catalog.views.inventory }).click();
     await expect(main.getByText(strings.catalog.inventorySubtitle)).toBeVisible();
+    await navigate(page, "/setup/team");
+    await openAndClose(page, strings.staff.team.inviteMember);
+    await openFirstRow(page);
 
     expect(errors).toEqual([]);
 });
