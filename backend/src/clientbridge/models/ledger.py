@@ -23,6 +23,7 @@ ACCOUNT_CATEGORIES = (
     "processing_fee",
     "platform_fee",
     "staff_cost",
+    "itc",
 )
 ENTRY_EVENTS = (
     "invoice",

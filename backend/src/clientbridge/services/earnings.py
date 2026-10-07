@@ -12,7 +12,7 @@ from clientbridge.models.business import Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.scheduling import Booking, Slot
-from clientbridge.schemas.earnings import EarningOut
+from clientbridge.schemas.earnings import EarningOut, EarningsOut
 from clientbridge.services import ledger
 from clientbridge.services.ledger import Leg
 
@@ -65,6 +65,62 @@ class EarningService:
 
     async def pay(self, earning_id: str, idempotency_key: str | None = None) -> EarningOut:
         return await self._advance(earning_id, "approved", "paid", "earning.pay", idempotency_key)
+
+    async def approve_many(
+        self, earning_ids: list[str], idempotency_key: str | None = None
+    ) -> EarningsOut:
+        return await self._advance_many(
+            earning_ids, "pending", "approved", "earning.approve_many", idempotency_key
+        )
+
+    async def pay_many(
+        self, earning_ids: list[str], idempotency_key: str | None = None
+    ) -> EarningsOut:
+        return await self._advance_many(
+            earning_ids, "approved", "paid", "earning.pay_many", idempotency_key
+        )
+
+    async def _advance_many(
+        self,
+        earning_ids: list[str],
+        current: str,
+        target: str,
+        action: str,
+        idempotency_key: str | None,
+    ) -> EarningsOut:
+        """Advance several earnings in one command: all of them, or none if any is not ready."""
+        assert_role(
+            self.principal, "owner", "admin", message="only an owner or admin can manage earnings"
+        )
+        ids = list(dict.fromkeys(earning_ids))
+        for earning_id in ids:
+            if await load_earning(self.db, self.biz, earning_id) is None:
+                raise NotFound("earning not found")
+
+        async def run(cmd: Command) -> EarningsOut:
+            done: list[EarningOut] = []
+            for earning_id in ids:
+                earning = await load_earning(self.db, self.biz, earning_id)
+                assert earning is not None
+                await _lock_subject(self.db, earning.subject)
+                fresh = await load_earning(self.db, self.biz, earning_id)
+                if fresh is None or fresh.status != current:
+                    raise Conflict(f"only a {current} earning can be marked {target}")
+                await advance_earning(self.db, fresh, target)
+                cmd.record(action, entity_type="earning", entity_id=earning_id)
+                moved = await load_earning(self.db, self.biz, earning_id)
+                assert moved is not None
+                done.append(moved.out())
+            return EarningsOut(earnings=done)
+
+        return await run_command(
+            self.db,
+            self.principal,
+            action=action,
+            run=run,
+            response_model=EarningsOut,
+            idempotency_key=idempotency_key,
+        )
 
     async def _advance(
         self,

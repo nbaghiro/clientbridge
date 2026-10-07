@@ -113,16 +113,71 @@ class RemittanceSummary(BaseModel):
     tax_collected_cents: int = Field(description="Sales tax collected and not yet filed")
 
 
+TaxFamily = Literal["federal", "provincial"]
+
+
 class RemittanceIn(BaseModel):
     period_start: date
     period_end: date
+    family: TaxFamily | None = Field(
+        default=None,
+        description="federal files GST/HST, provincial files PST/QST; omitted files every code",
+    )
+    itc_cents: int = Field(
+        default=0, ge=0, description="Input tax credits claimed against GST/HST (federal only)"
+    )
+    confirmation: str | None = Field(default=None, max_length=80)
+    filed_on: date | None = Field(default=None, description="Defaults to today")
 
 
 class RemittanceOut(BaseModel):
     period_start: date
     period_end: date
+    family: TaxFamily | None
     by_code: dict[str, int]
-    total_cents: int
+    itc_cents: int
+    total_cents: int = Field(description="What was paid: the tax owed less input tax credits")
+    confirmation: str | None
+    filed_on: date
+
+
+class FiledReturn(BaseModel):
+    id: str
+    family: TaxFamily | None
+    period_start: date
+    period_end: date
+    by_code: dict[str, int]
+    itc_cents: int
+    paid_cents: int
+    confirmation: str | None
+    filed_on: date
+
+
+class FilingPeriod(BaseModel):
+    start: date
+    end: date
+    due: date
+    federal_cents: int = Field(description="GST/HST booked in the period, before credits")
+    provincial_cents: int = Field(description="PST/QST booked in the period")
+    taxable_cents: int = Field(description="Sales before tax booked in the period (line 101)")
+    provincial_taxable_cents: int = Field(description="Sales that carried PST/QST")
+    federal_status: Literal["open", "due", "filed"]
+    provincial_status: Literal["open", "due", "filed", "none"]
+    returns: list[FiledReturn]
+
+
+class TaxFilings(BaseModel):
+    frequency: str
+    registered: bool
+    federal_code: str | None = Field(description="GST or HST, from the province")
+    provincial_code: str | None = Field(description="PST or QST, when the province has one")
+    provincial_rate_bps: int | None
+    gst_hst_number: str | None
+    qst_number: str | None
+    federal_set_aside_cents: int = Field(description="GST/HST collected and not yet filed")
+    provincial_set_aside_cents: int = Field(description="PST/QST collected and not yet filed")
+    next_due: date | None
+    periods: list[FilingPeriod] = Field(description="Newest first")
 
 
 class PublicDocLine(BaseModel):

@@ -7,6 +7,8 @@ from clientbridge.schemas.reports import (
     DashboardSummary,
     GstHstReport,
     IncomeReport,
+    ReportExportIn,
+    ReportSummary,
     SalesByItemRow,
     T4ARow,
 )
@@ -85,3 +87,41 @@ async def sales_by_item_csv(
 ) -> Response:
     content = await ReportService(db, principal).sales_by_item_csv(start, end)
     return _csv_response(content, "sales-by-item.csv")
+
+
+@reports_router.get("/summary", response_model=ReportSummary)
+async def report_summary(
+    principal: CurrentPrincipal, db: DbSession, start: date, end: date
+) -> ReportSummary:
+    return await ReportService(db, principal).summary(start, end)
+
+
+@reports_router.get("/pst.csv")
+async def pst_csv(principal: CurrentPrincipal, db: DbSession, start: date, end: date) -> Response:
+    content = await ReportService(db, principal).pst_csv(start, end)
+    return _csv_response(content, "pst.csv")
+
+
+@reports_router.get("/payouts.csv")
+async def payouts_csv(
+    principal: CurrentPrincipal, db: DbSession, start: date, end: date
+) -> Response:
+    content = await ReportService(db, principal).payouts_csv(start, end)
+    return _csv_response(content, "payouts.csv")
+
+
+@reports_router.post(
+    "/export",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}, "description": "A ZIP of CSVs"}},
+)
+async def export_reports(
+    data: ReportExportIn, principal: CurrentPrincipal, db: DbSession
+) -> Response:
+    content = await ReportService(db, principal).export_zip(data.kinds, data.start, data.end)
+    name = f"bookkeeper-{data.start}-to-{data.end}.zip"
+    return Response(
+        content=content,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={name}"},
+    )

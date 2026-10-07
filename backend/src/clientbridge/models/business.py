@@ -17,6 +17,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import PKMixin, TimestampMixin, enum_check
 
+FILING_FREQUENCIES = ("monthly", "quarterly", "annual")
+
 
 class Business(PKMixin, TimestampMixin, Base):
     __tablename__ = "businesses"
@@ -24,6 +26,7 @@ class Business(PKMixin, TimestampMixin, Base):
         # webhooks resolve the business by connected account; unique = one business per account
         Index("ix_businesses_stripe_account", "stripe_account_id", unique=True),
         enum_check("businesses", "status", "active", "closed"),
+        enum_check("businesses", "filing_frequency", *FILING_FREQUENCIES),
     )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
@@ -51,6 +54,9 @@ class Business(PKMixin, TimestampMixin, Base):
     # the most staff may take off a sale without an owner's or admin's PIN
     staff_discount_limit_bps: Mapped[int] = mapped_column(
         Integer, default=1500, server_default="1500", nullable=False
+    )
+    filing_frequency: Mapped[str] = mapped_column(
+        String, default="quarterly", server_default="quarterly", nullable=False
     )
 
 

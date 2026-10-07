@@ -304,6 +304,7 @@ const businesses = new Table(
         stripe_requirements: column.text,
         status: column.text,
         staff_discount_limit_bps: column.integer,
+        filing_frequency: column.text,
         created_at: column.text,
         updated_at: column.text,
     },

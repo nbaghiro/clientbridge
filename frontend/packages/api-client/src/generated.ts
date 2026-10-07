@@ -953,6 +953,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/earnings/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve Earnings */
+        post: operations["approve_earnings_v1_earnings_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/earnings/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay Earnings */
+        post: operations["pay_earnings_v1_earnings_pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/earnings/{earning_id}/approve": {
         parameters: {
             query?: never;
@@ -1266,7 +1300,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Tax Filings */
+        get: operations["tax_filings_v1_payments_remittances_get"];
         put?: never;
         /** Record Remittance */
         post: operations["record_remittance_v1_payments_remittances_post"];
@@ -1820,6 +1855,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/reports/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report Summary */
+        get: operations["report_summary_v1_reports_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports/pst.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pst Csv */
+        get: operations["pst_csv_v1_reports_pst_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports/payouts.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Payouts Csv */
+        get: operations["payouts_csv_v1_reports_payouts_csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/reports/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Export Reports */
+        post: operations["export_reports_v1_reports_export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/reviews/request": {
         parameters: {
             query?: never;
@@ -2192,6 +2295,11 @@ export interface components {
             gst_hst_number: string | null;
             /** Qst Number */
             qst_number: string | null;
+            /**
+             * Filing Frequency
+             * @default quarterly
+             */
+            filing_frequency: string;
             /** Brand */
             brand: {
                 [key: string]: unknown;
@@ -2214,6 +2322,11 @@ export interface components {
             gst_hst_number?: string | null;
             /** Qst Number */
             qst_number?: string | null;
+            /**
+             * Filing Frequency
+             * @description How often the business files its sales-tax returns
+             */
+            filing_frequency?: ("monthly" | "quarterly" | "annual") | null;
             brand?: components["schemas"]["BrandInput"] | null;
         };
         /** CheckoutOut */
@@ -2371,7 +2484,7 @@ export interface components {
             gst_hst_set_aside_cents: number;
             /**
              * Gst Hst Filing Due
-             * @description Next quarterly GST/HST filing date; null unless tax-registered
+             * @description Next GST/HST return due date; null unless tax-registered
              */
             gst_hst_filing_due: string | null;
         };
@@ -2419,6 +2532,11 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /** EarningIdsIn */
+        EarningIdsIn: {
+            /** Ids */
+            ids: string[];
+        };
         /** EarningOut */
         EarningOut: {
             /** Id */
@@ -2438,6 +2556,11 @@ export interface components {
              * @default earning
              */
             kind: string;
+        };
+        /** EarningsOut */
+        EarningsOut: {
+            /** Earnings */
+            earnings: components["schemas"]["EarningOut"][];
         };
         /** EstimateCreate */
         EstimateCreate: {
@@ -2560,6 +2683,88 @@ export interface components {
             file: components["schemas"]["FileOut"];
             /** Upload Url */
             upload_url: string;
+        };
+        /** FiledReturn */
+        FiledReturn: {
+            /** Id */
+            id: string;
+            /** Family */
+            family: ("federal" | "provincial") | null;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** By Code */
+            by_code: {
+                [key: string]: number;
+            };
+            /** Itc Cents */
+            itc_cents: number;
+            /** Paid Cents */
+            paid_cents: number;
+            /** Confirmation */
+            confirmation: string | null;
+            /**
+             * Filed On
+             * Format: date
+             */
+            filed_on: string;
+        };
+        /** FilingPeriod */
+        FilingPeriod: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /**
+             * Due
+             * Format: date
+             */
+            due: string;
+            /**
+             * Federal Cents
+             * @description GST/HST booked in the period, before credits
+             */
+            federal_cents: number;
+            /**
+             * Provincial Cents
+             * @description PST/QST booked in the period
+             */
+            provincial_cents: number;
+            /**
+             * Taxable Cents
+             * @description Sales before tax booked in the period (line 101)
+             */
+            taxable_cents: number;
+            /**
+             * Provincial Taxable Cents
+             * @description Sales that carried PST/QST
+             */
+            provincial_taxable_cents: number;
+            /**
+             * Federal Status
+             * @enum {string}
+             */
+            federal_status: "open" | "due" | "filed";
+            /**
+             * Provincial Status
+             * @enum {string}
+             */
+            provincial_status: "open" | "due" | "filed" | "none";
+            /** Returns */
+            returns: components["schemas"]["FiledReturn"][];
         };
         /** ForgotPasswordBody */
         ForgotPasswordBody: {
@@ -2693,6 +2898,48 @@ export interface components {
             /**
              * By Method
              * @description Net received per payment method
+             */
+            by_method: {
+                [key: string]: number;
+            };
+        };
+        /** IncomeSummary */
+        IncomeSummary: {
+            /**
+             * Sales Cents
+             * @description Revenue booked in the period before tax and refunds
+             */
+            sales_cents: number;
+            /**
+             * Refunds Cents
+             * @description Revenue returned by refunds, before tax
+             */
+            refunds_cents: number;
+            /**
+             * Net Cents
+             * @description Sales minus refunds, before tax
+             */
+            net_cents: number;
+            /**
+             * Tax By Code
+             * @description Tax booked per code (GST, HST, PST, QST)
+             */
+            tax_by_code: {
+                [key: string]: number;
+            };
+            /**
+             * Tips Cents
+             * @description Tips owed to staff, kept apart from sales
+             */
+            tips_cents: number;
+            /**
+             * Received Cents
+             * @description Money received net of refunds, with tax and tips
+             */
+            received_cents: number;
+            /**
+             * By Method
+             * @description Money received per payment method
              */
             by_method: {
                 [key: string]: number;
@@ -3311,6 +3558,19 @@ export interface components {
             /** Body */
             body: string;
         };
+        /** MonthNet */
+        MonthNet: {
+            /**
+             * Month
+             * @description YYYY-MM in the business timezone
+             */
+            month: string;
+            /**
+             * Net Cents
+             * @description Revenue before tax, after refunds
+             */
+            net_cents: number;
+        };
         /** OAuthGoogleBody */
         OAuthGoogleBody: {
             /** Id Token */
@@ -3637,10 +3897,43 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** PayoutRow */
+        PayoutRow: {
+            /** Id */
+            id: string;
+            /** Amount Cents */
+            amount_cents: number;
+            /** Arrival At */
+            arrival_at: string | null;
+            /**
+             * Status
+             * @description paid, or failed when the bank returned it
+             */
+            status: string;
+        };
         /** PinIn */
         PinIn: {
             /** Pin */
             pin: string;
+        };
+        /** ProvincialReport */
+        ProvincialReport: {
+            /**
+             * Code
+             * @description PST or QST; null when the province has none
+             */
+            code: string | null;
+            /** Rate Bps */
+            rate_bps: number | null;
+            /**
+             * Taxable Cents
+             * @description Sales that carried the provincial tax
+             */
+            taxable_cents: number;
+            /** Collected Cents */
+            collected_cents: number;
+            /** Number */
+            number: string | null;
         };
         /** PublicAddon */
         PublicAddon: {
@@ -4421,6 +4714,24 @@ export interface components {
              * Format: date
              */
             period_end: string;
+            /**
+             * Family
+             * @description federal files GST/HST, provincial files PST/QST; omitted files every code
+             */
+            family?: ("federal" | "provincial") | null;
+            /**
+             * Itc Cents
+             * @description Input tax credits claimed against GST/HST (federal only)
+             * @default 0
+             */
+            itc_cents: number;
+            /** Confirmation */
+            confirmation?: string | null;
+            /**
+             * Filed On
+             * @description Defaults to today
+             */
+            filed_on?: string | null;
         };
         /** RemittanceOut */
         RemittanceOut: {
@@ -4434,12 +4745,26 @@ export interface components {
              * Format: date
              */
             period_end: string;
+            /** Family */
+            family: ("federal" | "provincial") | null;
             /** By Code */
             by_code: {
                 [key: string]: number;
             };
-            /** Total Cents */
+            /** Itc Cents */
+            itc_cents: number;
+            /**
+             * Total Cents
+             * @description What was paid: the tax owed less input tax credits
+             */
             total_cents: number;
+            /** Confirmation */
+            confirmation: string | null;
+            /**
+             * Filed On
+             * Format: date
+             */
+            filed_on: string;
         };
         /** RemittanceSummary */
         RemittanceSummary: {
@@ -4448,6 +4773,64 @@ export interface components {
              * @description Sales tax collected and not yet filed
              */
             tax_collected_cents: number;
+        };
+        /** ReportExportIn */
+        ReportExportIn: {
+            /** Kinds */
+            kinds: ("income" | "sales-by-item" | "gst-hst" | "pst" | "t4a" | "payouts")[];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+        };
+        /** ReportRate */
+        ReportRate: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Rate Bps */
+            rate_bps: number;
+        };
+        /** ReportSummary */
+        ReportSummary: {
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            income: components["schemas"]["IncomeSummary"];
+            /** Sales By Item */
+            sales_by_item: components["schemas"]["SalesByItemRow"][];
+            gst_hst: components["schemas"]["GstHstReport"];
+            provincial: components["schemas"]["ProvincialReport"];
+            /** T4A Year */
+            t4a_year: number;
+            /** T4A */
+            t4a: components["schemas"]["T4APayee"][];
+            /**
+             * Months
+             * @description Every month of the end date's year so far
+             */
+            months: components["schemas"]["MonthNet"][];
+            /**
+             * Payouts
+             * @description Bank deposits that arrived in the period
+             */
+            payouts: components["schemas"]["PayoutRow"][];
+            /** Rates */
+            rates: components["schemas"]["ReportRate"][];
         };
         /** ResetPasswordBody */
         ResetPasswordBody: {
@@ -4667,6 +5050,20 @@ export interface components {
             /** Current Period End */
             current_period_end: string | null;
         };
+        /** T4APayee */
+        T4APayee: {
+            /** Staff Id */
+            staff_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Payments
+             * @description Payments made to the staff member in the calendar year
+             */
+            payments: number;
+            /** Total Cents */
+            total_cents: number;
+        };
         /** T4ARow */
         T4ARow: {
             /** Staff Id */
@@ -4678,6 +5075,46 @@ export interface components {
              * @description Earnings paid to the staff member in the calendar year
              */
             total_cents: number;
+        };
+        /** TaxFilings */
+        TaxFilings: {
+            /** Frequency */
+            frequency: string;
+            /** Registered */
+            registered: boolean;
+            /**
+             * Federal Code
+             * @description GST or HST, from the province
+             */
+            federal_code: string | null;
+            /**
+             * Provincial Code
+             * @description PST or QST, when the province has one
+             */
+            provincial_code: string | null;
+            /** Provincial Rate Bps */
+            provincial_rate_bps: number | null;
+            /** Gst Hst Number */
+            gst_hst_number: string | null;
+            /** Qst Number */
+            qst_number: string | null;
+            /**
+             * Federal Set Aside Cents
+             * @description GST/HST collected and not yet filed
+             */
+            federal_set_aside_cents: number;
+            /**
+             * Provincial Set Aside Cents
+             * @description PST/QST collected and not yet filed
+             */
+            provincial_set_aside_cents: number;
+            /** Next Due */
+            next_due: string | null;
+            /**
+             * Periods
+             * @description Newest first
+             */
+            periods: components["schemas"]["FilingPeriod"][];
         };
         /** TaxRateOut */
         TaxRateOut: {
@@ -6896,6 +7333,80 @@ export interface operations {
             };
         };
     };
+    approve_earnings_v1_earnings_approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EarningIdsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_earnings_v1_earnings_pay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EarningIdsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EarningsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     approve_earning_v1_earnings__earning_id__approve_post: {
         parameters: {
             query?: never;
@@ -7520,6 +8031,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RemittanceSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tax_filings_v1_payments_remittances_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxFilings"];
                 };
             };
             /** @description Validation Error */
@@ -8701,6 +9244,147 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_summary_v1_reports_summary_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pst_csv_v1_reports_pst_csv_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    payouts_csv_v1_reports_payouts_csv_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_reports_v1_reports_export_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportExportIn"];
+            };
+        };
+        responses: {
+            /** @description A ZIP of CSVs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
                 };
             };
             /** @description Validation Error */

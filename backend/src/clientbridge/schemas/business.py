@@ -29,6 +29,7 @@ class BusinessOut(BaseModel):
     billing_email: str | None
     gst_hst_number: str | None
     qst_number: str | None
+    filing_frequency: str = "quarterly"
     brand: dict[str, object]
 
 
@@ -77,4 +78,7 @@ class BusinessSettingsUpdate(BaseModel):
     billing_email: str | None = None
     gst_hst_number: str | None = None
     qst_number: str | None = None
+    filing_frequency: Literal["monthly", "quarterly", "annual"] | None = Field(
+        default=None, description="How often the business files its sales-tax returns"
+    )
     brand: BrandInput | None = None

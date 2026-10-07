@@ -118,6 +118,8 @@ class BusinessService:
         if business is None:
             raise NotFound("business not found")
         for key, value in data.model_dump(exclude_unset=True, exclude={"brand"}).items():
+            if key == "filing_frequency" and value is None:
+                continue
             setattr(business, key, value)
         if data.brand is not None:
             if data.brand.logo_file_id is not None:

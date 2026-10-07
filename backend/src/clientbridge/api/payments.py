@@ -25,6 +25,7 @@ from clientbridge.schemas.payments import (
     RemittanceOut,
     RemittanceSummary,
     SetupIntentOut,
+    TaxFilings,
 )
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import OrderService
@@ -149,6 +150,11 @@ async def refund_preview(
 @payments_router.get("/remittance", response_model=RemittanceSummary)
 async def remittance(principal: CurrentPrincipal, db: DbSession) -> RemittanceSummary:
     return await ReportService(db, principal).remittance_summary()
+
+
+@payments_router.get("/remittances", response_model=TaxFilings)
+async def tax_filings(principal: CurrentPrincipal, db: DbSession) -> TaxFilings:
+    return await RemittanceService(db, principal).filings()
 
 
 @payments_router.post("/remittances", response_model=RemittanceOut, status_code=201)
