@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Awaitable
 from datetime import datetime, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -29,6 +30,8 @@ from clientbridge.services.lines import LineParent, fetch_lines
 from clientbridge.services.tax import tax_breakdown
 
 _log = logging.getLogger(__name__)
+
+SeriesNotice = Literal["booked", "moved", "canceled"]
 
 
 def pay_link(token: str) -> str:
@@ -186,18 +189,22 @@ def _gift_card_issued(business_name: str, amount: str, code: str) -> tuple[str, 
     )
 
 
-def _booking_reminder(business_name: str, when: str) -> tuple[str, str]:
+def _booking_reminder(business_name: str, when: str, link: str | None) -> tuple[str, str]:
     return (
         f"Appointment reminder — {business_name}",
-        f"Reminder: you have an appointment with {business_name} on {when}.",
+        f"Reminder: you have an appointment with {business_name} on {when}.{_manage_line(link)}",
     )
 
 
-def _booking_confirmed(business_name: str, when: str) -> tuple[str, str]:
+def _booking_confirmed(business_name: str, when: str, link: str | None) -> tuple[str, str]:
     return (
         f"Booking confirmed — {business_name}",
-        f"You're booked with {business_name} on {when}.",
+        f"You're booked with {business_name} on {when}.{_manage_line(link)}",
     )
+
+
+def _manage_line(link: str | None) -> str:
+    return f" Change or cancel: {link}" if link else ""
 
 
 def _booking_rescheduled(business_name: str, when: str) -> tuple[str, str]:
@@ -211,6 +218,27 @@ def _booking_canceled(business_name: str, when: str) -> tuple[str, str]:
     return (
         f"Appointment canceled — {business_name}",
         f"Your appointment with {business_name} on {when} was canceled.",
+    )
+
+
+def _series_confirmed(business_name: str, whens: list[str]) -> tuple[str, str]:
+    return (
+        f"Your visits are booked — {business_name}",
+        f"You're booked with {business_name} on: {'; '.join(whens)}.",
+    )
+
+
+def _series_moved(business_name: str, whens: list[str]) -> tuple[str, str]:
+    return (
+        f"Your visits were moved — {business_name}",
+        f"Your visits with {business_name} are now on: {'; '.join(whens)}.",
+    )
+
+
+def _series_canceled(business_name: str, whens: list[str]) -> tuple[str, str]:
+    return (
+        f"Your visits were canceled — {business_name}",
+        f"These visits with {business_name} were canceled: {'; '.join(whens)}.",
     )
 
 
@@ -240,6 +268,24 @@ def broadcast_text(business_name: str, channel: str, body: str, prefs_link: str)
     if channel == "sms":
         return f"{business_name}: {body} Reply STOP to opt out."
     return f"{body}\n\n{business_name}\nUnsubscribe or change what you get: {prefs_link}"
+
+
+async def reminder_message(db: AsyncSession, booking: Booking) -> tuple[str, str] | None:
+    """The reminder a visit gets, word for word, as the job would send it."""
+    slot = await db.get(Slot, booking.slot_id)
+    business = await db.get(Business, booking.business_id)
+    if slot is None or business is None:
+        return None
+    local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
+    when = f"{local:%Y-%m-%d at %H:%M}"
+    return _booking_reminder(business.name, when, _manage_link(business, booking))
+
+
+def _manage_link(business: Business, booking: Booking) -> str | None:
+    """The client's manage link, when the business lets clients change bookings online."""
+    if booking.manage_token is None or business.booking_policy.get("self_service") is False:
+        return None
+    return f"{get_settings().connect_base_url}/m/{booking.manage_token}"
 
 
 class Notifier:
@@ -465,13 +511,9 @@ class Notifier:
         booking = await db.get(Booking, booking_id)
         if booking is None:
             return
-        slot = await db.get(Slot, booking.slot_id)
-        business = await db.get(Business, booking.business_id)
-        if slot is None or business is None:
-            return
-        local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
-        subject, body = _booking_reminder(business.name, f"{local:%Y-%m-%d at %H:%M}")
-        await self._to_client(db, booking.client_id, subject, body)
+        message = await reminder_message(db, booking)
+        if message is not None:
+            await self._to_client(db, booking.client_id, *message)
 
     async def on_booking_confirmed(self, db: AsyncSession, booking_id: str) -> None:
         booking = await db.get(Booking, booking_id)
@@ -482,7 +524,8 @@ class Notifier:
         if slot is None or business is None:
             return
         local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
-        subject, body = _booking_confirmed(business.name, f"{local:%Y-%m-%d at %H:%M}")
+        when = f"{local:%Y-%m-%d at %H:%M}"
+        subject, body = _booking_confirmed(business.name, when, _manage_link(business, booking))
         await self._to_client(db, booking.client_id, subject, body)
 
     async def on_booking_rescheduled(self, db: AsyncSession, booking_id: str) -> None:
@@ -508,6 +551,36 @@ class Notifier:
         local = slot.starts_at.astimezone(ZoneInfo(business.timezone))
         subject, body = _booking_canceled(business.name, f"{local:%Y-%m-%d at %H:%M}")
         await self._to_client(db, booking.client_id, subject, body)
+
+    async def on_series_booked(
+        self, db: AsyncSession, booking_ids: list[str], kind: SeriesNotice
+    ) -> None:
+        """One message for many visits of a series, listing each date."""
+        if not booking_ids:
+            return
+        rows = (
+            await db.execute(
+                select(Booking, Slot)
+                .join(Slot, Slot.id == Booking.slot_id)
+                .where(Booking.id.in_(booking_ids))
+                .order_by(Slot.starts_at)
+            )
+        ).all()
+        if not rows:
+            return
+        first = rows[0][0]
+        business = await db.get(Business, first.business_id)
+        if business is None:
+            return
+        tz = ZoneInfo(business.timezone)
+        whens = [f"{slot.starts_at.astimezone(tz):%Y-%m-%d at %H:%M}" for _, slot in rows]
+        build = {
+            "booked": _series_confirmed,
+            "moved": _series_moved,
+            "canceled": _series_canceled,
+        }[kind]
+        subject, body = build(business.name, whens)
+        await self._to_client(db, first.client_id, subject, body)
 
     async def on_review_requested(self, db: AsyncSession, review_id: str) -> None:
         review = await db.get(Review, review_id)

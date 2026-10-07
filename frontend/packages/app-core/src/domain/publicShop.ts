@@ -1,11 +1,11 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { newIdempotencyKey } from "../api";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
-export interface PublicShopItem {
+interface PublicShopItem {
     id: string;
     name: string;
     description: string | null;
@@ -13,6 +13,9 @@ export interface PublicShopItem {
     currency: string;
     image_url: string | null;
     in_stock: boolean;
+    category: string | null;
+    // Null when the business doesn't track stock for it.
+    stock_left: number | null;
 }
 
 export interface PublicShop {
@@ -107,7 +110,7 @@ interface PublicShopForm {
 }
 
 /** One idempotency key per order attempt, kept across retries until it succeeds. */
-export function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
+function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
     const { status: load, data: shop } = usePublicResource(client.getShop, slug);
     const [cart, setCart] = useState<Record<string, number>>({});
     const [name, setName] = useState("");
@@ -196,3 +199,40 @@ export function usePublicShop(client: PublicShopClient, slug: string): PublicSho
         error,
     };
 }
+
+const MAX_EACH = 20;
+
+/** The shop page: the cart and checkout from usePublicShop, plus categories, cart lines and stock caps. */
+export function useShopFlow(client: PublicShopClient, slug: string) {
+    const base = usePublicShop(client, slug);
+    const [category, setCategory] = useState("all");
+    const items = useMemo(() => base.shop?.items ?? [], [base.shop]);
+    const cap = (item: PublicShopItem): number => Math.min(MAX_EACH, item.stock_left ?? MAX_EACH);
+    const lines = items
+        .filter((i) => (base.cart[i.id] ?? 0) > 0)
+        .map((i) => ({ item: i, quantity: base.cart[i.id] ?? 0, max: cap(i) }));
+    const cats = Array.from(
+        new Set(items.map((i) => i.category).filter((c): c is string => c !== null && c !== "")),
+    );
+    return {
+        ...base,
+        category,
+        setCategory,
+        categories: [
+            { key: "all", label: strings.publicShop.all },
+            ...cats.map((c) => ({ key: c, label: c })),
+        ],
+        visible: items.filter((i) => category === "all" || i.category === category),
+        lines,
+        count: lines.reduce((n, l) => n + l.quantity, 0),
+        addOne: (item: PublicShopItem) => {
+            base.setQuantity(item.id, Math.min(cap(item), (base.cart[item.id] ?? 0) + 1));
+        },
+        setLine: (item: PublicShopItem, quantity: number) => {
+            base.setQuantity(item.id, Math.min(cap(item), quantity));
+        },
+        orderNumber: base.order ? base.order.order_id.slice(-6).toUpperCase() : null,
+    };
+}
+
+export type ShopFlow = ReturnType<typeof useShopFlow>;

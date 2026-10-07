@@ -556,6 +556,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Booking Days */
+        get: operations["public_booking_days_book__slug__days_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/book/{slug}": {
         parameters: {
             query?: never;
@@ -601,6 +618,91 @@ export interface paths {
         put?: never;
         /** Public Shop Order */
         post: operations["public_shop_order_book__slug__shop_orders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manage/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manage View */
+        get: operations["manage_view_manage__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manage/{token}/days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manage Days */
+        get: operations["manage_days_manage__token__days_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manage/{token}/slots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Manage Slots */
+        get: operations["manage_slots_manage__token__slots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manage/{token}/reschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manage Reschedule */
+        post: operations["manage_reschedule_manage__token__reschedule_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manage/{token}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Manage Cancel */
+        post: operations["manage_cancel_manage__token__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -973,6 +1075,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/bookings/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe Booking */
+        post: operations["probe_booking_v1_bookings_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bookings/{booking_id}": {
         parameters: {
             query?: never;
@@ -988,6 +1107,40 @@ export interface paths {
         head?: never;
         /** Patch Booking */
         patch: operations["patch_booking_v1_bookings__booking_id__patch"];
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check Booking Move */
+        post: operations["check_booking_move_v1_bookings__booking_id__check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/bookings/{booking_id}/reminder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Booking Reminder */
+        get: operations["booking_reminder_v1_bookings__booking_id__reminder_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/bookings/{booking_id}/check-in": {
@@ -1056,6 +1209,194 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/recurrences/{recurrence_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change Recurrence */
+        patch: operations["change_recurrence_v1_recurrences__recurrence_id__patch"];
+        trace?: never;
+    };
+    "/v1/recurrences/{recurrence_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Recurrence */
+        post: operations["cancel_recurrence_v1_recurrences__recurrence_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Time Off */
+        post: operations["create_time_off_v1_time_off_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/time-off/{hours_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Time Off */
+        delete: operations["delete_time_off_v1_time_off__hours_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/classes/{slot_id}/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add To Class */
+        post: operations["add_to_class_v1_classes__slot_id__roster_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/classes/{slot_id}/roster/{booking_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Class Roster */
+        patch: operations["update_class_roster_v1_classes__slot_id__roster__booking_id__patch"];
+        trace?: never;
+    };
+    "/v1/classes/{slot_id}/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Message Class */
+        post: operations["message_class_v1_classes__slot_id__message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/online-booking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Online Booking */
+        get: operations["get_online_booking_v1_online_booking_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Online Booking */
+        patch: operations["update_online_booking_v1_online_booking_patch"];
+        trace?: never;
+    };
+    "/v1/online-booking/addons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Addon Offers */
+        patch: operations["update_addon_offers_v1_online_booking_addons_patch"];
+        trace?: never;
+    };
+    "/v1/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Resource */
+        post: operations["create_resource_v1_resources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resources/{resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Resource */
+        patch: operations["update_resource_v1_resources__resource_id__patch"];
         trace?: never;
     };
     "/v1/invoices": {
@@ -2569,6 +2910,42 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** AddonOffer */
+        AddonOffer: {
+            /** Id */
+            id: string;
+            /** Addon */
+            addon: boolean;
+            /** Addon For */
+            addon_for?: string[];
+        };
+        /** AddonOffersOut */
+        AddonOffersOut: {
+            /** Offers */
+            offers: components["schemas"]["AddonOffer"][];
+        };
+        /** AddonOffersPatch */
+        AddonOffersPatch: {
+            /** Offers */
+            offers: components["schemas"]["AddonOffer"][];
+        };
+        /**
+         * BookingCheck
+         * @description The server's verdict on a time before it is booked or moved; nothing is written.
+         */
+        BookingCheck: {
+            /** Ok */
+            ok: boolean;
+            /** Problem */
+            problem?: ("past" | "closed" | "time_off" | "off_hours" | "overlap" | "resource" | "class") | null;
+            /**
+             * Reason
+             * @description The closure or time-off reason
+             */
+            reason?: string | null;
+            /** Message */
+            message?: string | null;
+        };
         /** BookingCreate */
         BookingCreate: {
             /** Client Id */
@@ -2586,6 +2963,37 @@ export interface components {
             resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
+            /**
+             * Note
+             * @description Kept as a booking note
+             */
+            note?: string | null;
+            /**
+             * Notify
+             * @description Send the client a confirmation
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** BookingMove */
+        BookingMove: {
+            /** Starts At */
+            starts_at?: string | null;
+            /**
+             * Ends At
+             * @description A new end resizes the visit
+             */
+            ends_at?: string | null;
+            /**
+             * Staff Id
+             * @description Moves the visit to another member
+             */
+            staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Room or station; set to change it
+             */
+            resource_id?: string | null;
         };
         /** BookingOut */
         BookingOut: {
@@ -2628,8 +3036,117 @@ export interface components {
         BookingPatch: {
             /** Starts At */
             starts_at?: string | null;
+            /**
+             * Ends At
+             * @description A new end resizes the visit
+             */
+            ends_at?: string | null;
+            /**
+             * Staff Id
+             * @description Moves the visit to another member
+             */
+            staff_id?: string | null;
+            /**
+             * Resource Id
+             * @description Room or station; set to change it
+             */
+            resource_id?: string | null;
             /** Status */
             status?: ("confirmed" | "completed" | "canceled" | "no_show") | null;
+        };
+        /**
+         * BookingPolicy
+         * @description The online booking rules and the cancellation policy clients' manage links follow.
+         */
+        BookingPolicy: {
+            /**
+             * Lead Hours
+             * @description Earliest a visit can be booked
+             * @default 0
+             */
+            lead_hours: number;
+            /**
+             * Horizon Days
+             * @description Furthest ahead
+             * @default 365
+             */
+            horizon_days: number;
+            /**
+             * Step Min
+             * @description Start times every N minutes; none follows the service length
+             */
+            step_min?: (15 | 30 | 60) | null;
+            /**
+             * Approve New Clients
+             * @description A first booking waits as pending until staff confirm it
+             * @default false
+             */
+            approve_new_clients: boolean;
+            /**
+             * Self Service
+             * @description Clients may move or cancel online
+             * @default true
+             */
+            self_service: boolean;
+            /**
+             * Cancel Cutoff Hours
+             * @default 24
+             */
+            cancel_cutoff_hours: number;
+            /**
+             * Reschedule Cutoff Hours
+             * @default 24
+             */
+            reschedule_cutoff_hours: number;
+            /**
+             * Late Cancel Deposit
+             * @default keep
+             * @enum {string}
+             */
+            late_cancel_deposit: "keep" | "refund";
+            /**
+             * Max Reschedules
+             * @default 2
+             */
+            max_reschedules: number;
+        };
+        /** BookingPolicyPatch */
+        BookingPolicyPatch: {
+            /** Lead Hours */
+            lead_hours?: number | null;
+            /** Horizon Days */
+            horizon_days?: number | null;
+            /**
+             * Step Min
+             * @description 0 follows the service length again
+             */
+            step_min?: (15 | 30 | 60 | 0) | null;
+            /** Approve New Clients */
+            approve_new_clients?: boolean | null;
+            /** Self Service */
+            self_service?: boolean | null;
+            /** Cancel Cutoff Hours */
+            cancel_cutoff_hours?: number | null;
+            /** Reschedule Cutoff Hours */
+            reschedule_cutoff_hours?: number | null;
+            /** Late Cancel Deposit */
+            late_cancel_deposit?: ("keep" | "refund") | null;
+            /** Max Reschedules */
+            max_reschedules?: number | null;
+        };
+        /** BookingProbe */
+        BookingProbe: {
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Resource Id */
+            resource_id?: string | null;
         };
         /**
          * BrandInput
@@ -2788,6 +3305,19 @@ export interface components {
             client_secret: string;
             /** Payment Id */
             payment_id: string;
+        };
+        /** ClassMessage */
+        ClassMessage: {
+            /** Body */
+            body: string;
+        };
+        /** ClassMessageOut */
+        ClassMessageOut: {
+            /**
+             * Sent
+             * @description Clients the message went to
+             */
+            sent: number;
         };
         /** ClientCreate */
         ClientCreate: {
@@ -4152,6 +4682,85 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** ManageCancelResult */
+        ManageCancelResult: {
+            /**
+             * Deposit
+             * @enum {string}
+             */
+            deposit: "refunded" | "kept" | "none";
+            /** Refund Cents */
+            refund_cents: number;
+        };
+        /** ManageReschedule */
+        ManageReschedule: {
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
+        /** ManagedAddon */
+        ManagedAddon: {
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Cents */
+            unit_cents: number;
+        };
+        /**
+         * ManagedBooking
+         * @description A client's own booking, as their manage link shows it.
+         */
+        ManagedBooking: {
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            /** Slug */
+            slug: string;
+            /** Client Name */
+            client_name: string;
+            /** Pet Name */
+            pet_name: string | null;
+            service: components["schemas"]["PublicService"];
+            staff: components["schemas"]["PublicStaff"];
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Status */
+            status: string;
+            /** Deposit Cents */
+            deposit_cents: number;
+            /** Deposit Status */
+            deposit_status: string;
+            /** Addons */
+            addons: components["schemas"]["ManagedAddon"][];
+            /** Reschedules Used */
+            reschedules_used: number;
+            policy: components["schemas"]["PublicPolicy"];
+            /**
+             * Now
+             * Format: date-time
+             */
+            now: string;
+            /** Can Move */
+            can_move: boolean;
+            /** Can Cancel */
+            can_cancel: boolean;
+            /**
+             * Blocked
+             * @description Why a change is refused online
+             */
+            blocked?: string | null;
+        };
         /** MessageOut */
         MessageOut: {
             /** Id */
@@ -4273,6 +4882,80 @@ export interface components {
             url: string;
             /** Charges Enabled */
             charges_enabled: boolean;
+        };
+        /** OnlineBookingOut */
+        OnlineBookingOut: {
+            /** Slug */
+            slug: string;
+            /** Business Name */
+            business_name: string;
+            policy: components["schemas"]["BookingPolicy"];
+            /** Services */
+            services: components["schemas"]["OnlineService"][];
+            /** Staff */
+            staff: components["schemas"]["OnlineStaff"][];
+            /**
+             * Online 30D
+             * @description Bookings made online in the last 30 days
+             */
+            online_30d: number;
+            /**
+             * Deposits 30D Cents
+             * @description Deposits on those bookings
+             */
+            deposits_30d_cents: number;
+        };
+        /** OnlineBookingPatch */
+        OnlineBookingPatch: {
+            policy?: components["schemas"]["BookingPolicyPatch"] | null;
+            /**
+             * Services
+             * @description Service id: bookable
+             */
+            services?: {
+                [key: string]: boolean;
+            } | null;
+            /**
+             * Staff
+             * @description Member id: shown online
+             */
+            staff?: {
+                [key: string]: boolean;
+            } | null;
+        };
+        /** OnlineService */
+        OnlineService: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Duration Min */
+            duration_min: number | null;
+            /** Price Cents */
+            price_cents: number;
+            /** Color */
+            color: string | null;
+            /** Deposit Type */
+            deposit_type: string;
+            /** Deposit Cents */
+            deposit_cents: number;
+            /** Online Bookable */
+            online_bookable: boolean;
+        };
+        /** OnlineStaff */
+        OnlineStaff: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string | null;
+            /** Title */
+            title: string | null;
+            /** Color */
+            color: string | null;
+            /** Bookable Online */
+            bookable_online: boolean;
         };
         /** OrderCashIn */
         OrderCashIn: {
@@ -4619,6 +5302,18 @@ export interface components {
             currency: string;
             /** Image Url */
             image_url?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * In Stock
+             * @default true
+             */
+            in_stock: boolean;
+            /**
+             * Addon For
+             * @description Services it is offered with; empty means all
+             */
+            addon_for?: string[];
         };
         /** PublicAddonIn */
         PublicAddonIn: {
@@ -4653,6 +5348,10 @@ export interface components {
             client: components["schemas"]["PublicBookingClient"];
             /** Addons */
             addons?: components["schemas"]["PublicAddonIn"][];
+            /** Pet Name */
+            pet_name?: string | null;
+            /** Note */
+            note?: string | null;
         };
         /** PublicBookingPage */
         PublicBookingPage: {
@@ -4673,11 +5372,44 @@ export interface components {
              * @description Connected account for Stripe Elements, once onboarded
              */
             stripe_account_id?: string | null;
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+            /**
+             * Now
+             * @description The business's clock, in its zone
+             */
+            now?: string | null;
+            policy?: components["schemas"]["PublicPolicy"] | null;
+            /**
+             * Rating
+             * @description Average of published reviews
+             */
+            rating?: number | null;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
         };
         /** PublicBookingResult */
         PublicBookingResult: {
             /** Booking Id */
             booking_id: string;
+            /**
+             * Status
+             * @default confirmed
+             */
+            status: string;
+            /** Manage Token */
+            manage_token?: string | null;
+            /**
+             * Deposit Cents
+             * @default 0
+             */
+            deposit_cents: number;
             /** Deposit Client Secret */
             deposit_client_secret?: string | null;
             /**
@@ -4770,6 +5502,31 @@ export interface components {
             amount_cents: number;
             /** At */
             at: string | null;
+        };
+        /** PublicDay */
+        PublicDay: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Count
+             * @description Open start times that day
+             */
+            count: number;
+            /**
+             * Closed
+             * @description The business is closed all day
+             */
+            closed: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** PublicDays */
+        PublicDays: {
+            /** Days */
+            days: components["schemas"]["PublicDay"][];
         };
         /** PublicDocLine */
         PublicDocLine: {
@@ -5032,6 +5789,19 @@ export interface components {
              */
             tip_cents: number;
         };
+        /** PublicPolicy */
+        PublicPolicy: {
+            /** Self Service */
+            self_service: boolean;
+            /** Cancel Cutoff Hours */
+            cancel_cutoff_hours: number;
+            /** Reschedule Cutoff Hours */
+            reschedule_cutoff_hours: number;
+            /** Late Cancel Deposit */
+            late_cancel_deposit: string;
+            /** Max Reschedules */
+            max_reschedules: number;
+        };
         /** PublicPreferences */
         PublicPreferences: {
             /** Business Name */
@@ -5190,6 +5960,20 @@ export interface components {
             deposit_amount_cents: number;
             /** Image Url */
             image_url?: string | null;
+            /**
+             * Kind
+             * @default service
+             */
+            kind: string;
+            /** Category */
+            category?: string | null;
+            /** Color */
+            color?: string | null;
+            /**
+             * Staff Ids
+             * @description Who can be booked for it
+             */
+            staff_ids?: string[];
         };
         /** PublicShop */
         PublicShop: {
@@ -5220,6 +6004,13 @@ export interface components {
              * @default true
              */
             in_stock: boolean;
+            /** Category */
+            category?: string | null;
+            /**
+             * Stock Left
+             * @description Null when stock isn't tracked
+             */
+            stock_left?: number | null;
         };
         /** PublicShopLine */
         PublicShopLine: {
@@ -5259,6 +6050,11 @@ export interface components {
              * Format: date-time
              */
             ends_at: string;
+            /**
+             * Staff Id
+             * @description Who the time is with
+             */
+            staff_id?: string | null;
         };
         /** PublicSlots */
         PublicSlots: {
@@ -5273,6 +6069,8 @@ export interface components {
             name: string | null;
             /** Title */
             title: string | null;
+            /** Color */
+            color?: string | null;
         };
         /** PublicUnsubscribe */
         PublicUnsubscribe: {
@@ -5281,6 +6079,78 @@ export interface components {
              * @description One channel, or both when null
              */
             channel?: ("sms" | "email") | null;
+        };
+        /** RecurrenceCancel */
+        RecurrenceCancel: {
+            /**
+             * From
+             * @description Cancel visits on and after this date
+             */
+            from?: string | null;
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** RecurrenceCancelOut */
+        RecurrenceCancelOut: {
+            /** Id */
+            id: string;
+            /** Status */
+            status: string;
+            /** Canceled */
+            canceled: string[];
+            /**
+             * Refunded Cents
+             * @description Deposits refunded for the canceled visits
+             */
+            refunded_cents: number;
+        };
+        /**
+         * RecurrenceChange
+         * @description Moves the upcoming visits of a series to another weekday, time or member.
+         */
+        RecurrenceChange: {
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "one" | "following" | "all";
+            /**
+             * From
+             * @description The visit a one or following change starts at
+             */
+            from?: string | null;
+            /**
+             * Weekday
+             * @description Monday is 0
+             */
+            weekday?: number | null;
+            /** Time */
+            time?: string | null;
+            /** Staff Id */
+            staff_id?: string | null;
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+        };
+        /** RecurrenceChangeOut */
+        RecurrenceChangeOut: {
+            /** Id */
+            id: string;
+            /**
+             * Moved
+             * @description Bookings that moved
+             */
+            moved: string[];
+            /**
+             * Skipped
+             * @description Visits left in place, with why
+             */
+            skipped: components["schemas"]["RecurrenceOccurrence"][];
         };
         /** RecurrenceCreate */
         RecurrenceCreate: {
@@ -5312,6 +6182,13 @@ export interface components {
              */
             byday?: ("MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU")[] | null;
             /**
+             * Monthly By
+             * @description Monthly on the same date, or the same weekday (2nd Tuesday)
+             * @default date
+             * @enum {string}
+             */
+            monthly_by: "date" | "weekday";
+            /**
              * Count
              * @description End after this many; set count or until
              */
@@ -5325,6 +6202,36 @@ export interface components {
             resource_id?: string | null;
             /** Subject Id */
             subject_id?: string | null;
+            /** Exceptions */
+            exceptions?: components["schemas"]["RecurrenceException"][];
+            /**
+             * Confirmation
+             * @description One message listing every date, one per visit, or none
+             * @default series
+             * @enum {string}
+             */
+            confirmation: "series" | "each" | "none";
+        };
+        /**
+         * RecurrenceException
+         * @description One date of a new series handled apart: left out, or booked at another time.
+         */
+        RecurrenceException: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "skip" | "shift";
+            /**
+             * Starts At
+             * @description The new start for a shift
+             */
+            starts_at?: string | null;
         };
         /** RecurrenceOccurrence */
         RecurrenceOccurrence: {
@@ -5466,6 +6373,24 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /**
+         * ReminderPreview
+         * @description The reminder a visit gets, word for word, and when the job sends it.
+         */
+        ReminderPreview: {
+            /** Subject */
+            subject: string;
+            /** Body */
+            body: string;
+            /**
+             * Sends At
+             * Format: date-time
+             * @description 24 hours before the visit
+             */
+            sends_at: string;
+            /** Sent At */
+            sent_at: string | null;
+        };
         /** RemittanceIn */
         RemittanceIn: {
             /**
@@ -5603,6 +6528,61 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** ResourceCreate */
+        ResourceCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Category
+             * @default station
+             * @enum {string}
+             */
+            category: "room" | "station" | "equipment";
+            /**
+             * Capacity
+             * @default 1
+             */
+            capacity: number;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** ResourceOut */
+        ResourceOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Name */
+            name: string;
+            /** Category */
+            category: string;
+            /** Capacity */
+            capacity: number;
+            /** Active */
+            active: boolean;
+            /**
+             * Upcoming
+             * @description Upcoming visits that hold it
+             */
+            upcoming: number;
+        };
+        /** ResourcePatch */
+        ResourcePatch: {
+            /** Name */
+            name?: string | null;
+            /** Category */
+            category?: ("room" | "station" | "equipment") | null;
+            /** Capacity */
+            capacity?: number | null;
+            /**
+             * Active
+             * @description Off keeps existing bookings and hides it from new ones
+             */
+            active?: boolean | null;
+        };
         /** RestockIn */
         RestockIn: {
             /**
@@ -5719,6 +6699,41 @@ export interface components {
              * @enum {string}
              */
             role: "admin" | "staff" | "contractor";
+        };
+        /** RosterAction */
+        RosterAction: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "check_in" | "undo" | "no_show" | "promote";
+        };
+        /** RosterAdd */
+        RosterAdd: {
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id?: string | null;
+        };
+        /** RosterEntry */
+        RosterEntry: {
+            /** Booking Id */
+            booking_id: string;
+            /** Slot Id */
+            slot_id: string;
+            /** Client Id */
+            client_id: string;
+            /** Subject Id */
+            subject_id: string | null;
+            /** Status */
+            status: string;
+            /** Checked In At */
+            checked_in_at: string | null;
+            /**
+             * Waitlist Position
+             * @description 1 is offered the next free seat
+             */
+            waitlist_position: number | null;
         };
         /** SalesByItemRow */
         SalesByItemRow: {
@@ -6043,6 +7058,52 @@ export interface components {
             unread_count: number;
             /** Status */
             status: string;
+        };
+        /** TimeOffCreate */
+        TimeOffCreate: {
+            /**
+             * Staff Id
+             * @description Null closes the whole business
+             */
+            staff_id?: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Reason */
+            reason: string;
+        };
+        /** TimeOffOut */
+        TimeOffOut: {
+            /** Id */
+            id: string;
+            /** Business Id */
+            business_id: string;
+            /** Staff Id */
+            staff_id: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /** Reason */
+            reason: string;
+            /**
+             * Affected
+             * @description Live bookings inside the window, still to move
+             */
+            affected: string[];
         };
         /** TipShareIn */
         TipShareIn: {
@@ -7208,10 +8269,48 @@ export interface operations {
             };
         };
     };
+    public_booking_days_book__slug__days_get: {
+        parameters: {
+            query: {
+                item_id: string;
+                staff_id: string;
+                from: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDays"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     public_book_book__slug__post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 slug: string;
             };
@@ -7298,6 +8397,174 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicShopOrderResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_view_manage__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedBooking"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_days_manage__token__days_get: {
+        parameters: {
+            query: {
+                from: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDays"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_slots_manage__token__slots_get: {
+        parameters: {
+            query: {
+                date: string;
+            };
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicSlots"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_reschedule_manage__token__reschedule_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManageReschedule"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagedBooking"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    manage_cancel_manage__token__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManageCancelResult"];
                 };
             };
             /** @description Validation Error */
@@ -8367,6 +9634,42 @@ export interface operations {
             };
         };
     };
+    probe_booking_v1_bookings_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingProbe"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     patch_booking_v1_bookings__booking_id__patch: {
         parameters: {
             query?: never;
@@ -8392,6 +9695,78 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_booking_move_v1_bookings__booking_id__check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookingMove"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BookingCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    booking_reminder_v1_bookings__booking_id__reminder_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderPreview"];
                 };
             };
             /** @description Validation Error */
@@ -8535,6 +9910,447 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecurrenceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_recurrence_v1_recurrences__recurrence_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                recurrence_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurrenceChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurrenceChangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_recurrence_v1_recurrences__recurrence_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                recurrence_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecurrenceCancel"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecurrenceCancelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_time_off_v1_time_off_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeOffCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOffOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_time_off_v1_time_off__hours_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                hours_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOffOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_to_class_v1_classes__slot_id__roster_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                slot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_class_roster_v1_classes__slot_id__roster__booking_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                slot_id: string;
+                booking_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RosterAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RosterEntry"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    message_class_v1_classes__slot_id__message_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                slot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClassMessage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClassMessageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_online_booking_v1_online_booking_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnlineBookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_online_booking_v1_online_booking_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnlineBookingPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnlineBookingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_addon_offers_v1_online_booking_addons_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddonOffersPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddonOffersOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_resource_v1_resources_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_resource_v1_resources__resource_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourcePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceOut"];
                 };
             };
             /** @description Validation Error */

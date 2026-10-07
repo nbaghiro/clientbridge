@@ -298,11 +298,6 @@ export function useStaff(): StaffRow[] {
     return useQuery<StaffRow>(STAFF_SQL).data;
 }
 
-export function staffLabel(s: StaffRow): string {
-    const t = s.title ?? "";
-    return t.length > 0 ? t : s.role;
-}
-
 /** A member's name for the schedule and Today: their name, else their title, invite email or role. */
 export function staffName(s: {
     name: string | null;
@@ -313,14 +308,8 @@ export function staffName(s: {
     return s.name ?? s.title ?? s.invite_email ?? s.role;
 }
 
-function canManageStaff(role: string | null): boolean {
+export function canManageStaff(role: string | null): boolean {
     return role === "owner" || role === "admin";
-}
-
-/** Whose hours the viewer may edit: everyone for a manager, else only their own. */
-export function editableStaff(staff: StaffRow[], viewer: Viewer | null): StaffRow[] {
-    if (viewer === null) return [];
-    return canManageStaff(viewer.role) ? staff : staff.filter((s) => s.id === viewer.staffId);
 }
 
 type StaffRole = "admin" | "staff" | "contractor";

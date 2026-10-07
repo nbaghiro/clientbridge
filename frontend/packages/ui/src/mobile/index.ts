@@ -45,6 +45,7 @@ export { GoogleIcon, Icon } from "./Icon";
 export { IconButton } from "./IconButton";
 export { ImagePicker } from "./ImagePicker";
 export { ItemTile } from "./ItemTile";
+export { FactList } from "./FactList";
 export { KeyValueList } from "./KeyValueList";
 export { LineItem } from "./LineItem";
 export { ListRow } from "./ListRow";

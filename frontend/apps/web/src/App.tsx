@@ -13,6 +13,8 @@ import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
 import { AcceptInvite } from "./pages/AcceptInvite";
 import { Schedule } from "./pages/Schedule";
+import { Classes } from "./pages/Classes";
+import { Recurrences } from "./pages/Recurrences";
 import { Clients } from "./pages/Clients";
 import { Inbox } from "./pages/Inbox";
 import { Onboarding } from "./pages/Onboarding";
@@ -96,6 +98,8 @@ function AppRoutes({
                         <Route index element={<Navigate to="/today" replace />} />
                         <Route path="today" element={<Today />} />
                         <Route path="schedule" element={<Schedule />} />
+                        <Route path="schedule/classes" element={<Classes />} />
+                        <Route path="schedule/series" element={<Recurrences />} />
                         <Route path="clients" element={<Clients />} />
                         <Route path="clients/:clientId/:view" element={<Clients />} />
                         <Route path="payments/:tab?" element={<Payments />} />

@@ -42,7 +42,14 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __tablename__ = "bookings"
     __table_args__ = (
         enum_check(
-            "bookings", "status", "pending", "confirmed", "completed", "canceled", "no_show"
+            "bookings",
+            "status",
+            "pending",
+            "confirmed",
+            "completed",
+            "canceled",
+            "no_show",
+            "waitlisted",
         ),
         enum_check("bookings", "source", "online", "manual"),
         enum_check(
@@ -82,17 +89,29 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     canceled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     reminded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # reminder sent
+    # the client's link to view, move or cancel; the token is the only credential
+    manage_token: Mapped[str | None] = mapped_column(String, unique=True)
+    reschedule_count: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
 
 class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "hours"
     __table_args__ = (
-        enum_check("hours", "basis", "recurring", "date"),
+        enum_check("hours", "basis", "recurring", "date", "exception"),
+        CheckConstraint(
+            "basis != 'exception' OR (starts_at IS NOT NULL AND ends_at > starts_at)",
+            name="ck_hours_exception_window",
+        ),
+        CheckConstraint("basis = 'exception' OR staff_id IS NOT NULL", name="ck_hours_staff"),
         Index("ix_hours_staff", "business_id", "staff_id", "basis"),
+        Index("ix_hours_exception", "business_id", "basis", "starts_at"),
     )
 
-    staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
+    # null only on an exception: a closure of the whole business
+    staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
     basis: Mapped[str] = mapped_column(String, nullable=False)
     weekday: Mapped[int | None] = mapped_column(SmallInteger)  # 0..6 for recurring
     # explicit nullable: the attribute name `date` shadows the type and defeats inference
@@ -101,14 +120,25 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     end_time: Mapped[time | None] = mapped_column(Time)  # null = all-day
     available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     note: Mapped[str | None] = mapped_column(String)
+    starts_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # exception only
+    ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str | None] = mapped_column(String)
 
 
 class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "resources"
-    __table_args__ = (enum_check("resources", "category", "room", "equipment"),)
+    __table_args__ = (
+        enum_check("resources", "category", "room", "station", "equipment"),
+        CheckConstraint("capacity > 0", name="ck_resources_capacity"),
+    )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     category: Mapped[str] = mapped_column(String, nullable=False)
+    capacity: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    # an inactive room or station keeps its bookings and is offered for no new ones
+    active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
 
 
 class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
@@ -116,6 +146,7 @@ class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
     __table_args__ = (
         enum_check("recurrences", "frequency", "day", "week", "month"),
         enum_check("recurrences", "status", "active", "ended", "canceled"),
+        enum_check("recurrences", "monthly_by", "date", "weekday"),
         Index("ix_recurrences_status", "business_id", "status"),
     )
 
@@ -125,6 +156,10 @@ class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
     frequency: Mapped[str] = mapped_column(String, nullable=False)
     interval: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     byday: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    # monthly series: the same date each month, or the same weekday (the 2nd Tuesday)
+    monthly_by: Mapped[str] = mapped_column(
+        String, default="date", server_default="date", nullable=False
+    )
     count: Mapped[int | None] = mapped_column(Integer)
     until: Mapped[date | None] = mapped_column(Date)
     start_date: Mapped[date] = mapped_column(Date, nullable=False)

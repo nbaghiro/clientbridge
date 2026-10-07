@@ -100,7 +100,7 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
                     nav.navigate("GettingPaid");
                     return;
                 case "onlineBooking":
-                    nav.navigate("Setup");
+                    nav.navigate("OnlineBooking");
                     return;
                 case "search":
                     nav.navigate("Search");

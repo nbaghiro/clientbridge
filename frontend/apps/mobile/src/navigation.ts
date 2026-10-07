@@ -26,4 +26,8 @@ export type RootStackParamList = {
     ClientHistory: { clientId: string; name: string };
     ClientPets: { clientId: string; name: string };
     ClientWallet: { clientId: string; name: string };
+    Classes: undefined;
+    Recurrences: undefined;
+    Reminders: undefined;
+    OnlineBooking: undefined;
 };

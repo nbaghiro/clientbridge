@@ -878,7 +878,7 @@ describe("app-core SQL against the replica schema", () => {
                 "slot_id",
                 "booking_id",
                 "booked_count",
-                "deposit_required",
+                "deposit_amount_cents",
                 "deposit_status",
                 "client_name",
             ),
@@ -887,7 +887,7 @@ describe("app-core SQL against the replica schema", () => {
                 slot_id: "ss_1",
                 booking_id: "bk_1",
                 booked_count: 1,
-                deposit_required: 1,
+                deposit_amount_cents: 2750,
                 deposit_status: "collected",
                 client_name: "Ann",
             },
@@ -895,13 +895,11 @@ describe("app-core SQL against the replica schema", () => {
                 slot_id: "ss_3",
                 booking_id: null,
                 booked_count: 0,
-                deposit_required: null,
+                deposit_amount_cents: null,
                 deposit_status: null,
                 client_name: null,
             },
         ]);
-        const amy = run("EVENTS_BY_STAFF_SQL", [...range, "st_amy"]);
-        expect(amy.map((r) => r.slot_id)).toEqual(["ss_3"]);
         expect(run("ADDONS_SQL", ["bk_1"]).map((r) => r.id)).toEqual(["ba_1"]);
         expect(run("BOOKING_INVOICE_SQL", ["bk_1"])).toEqual([{ invoice_id: "inv_1" }]);
     });
@@ -1565,6 +1563,275 @@ describe("app-core SQL against the replica schema", () => {
         ).toEqual([{ id: "bc_1", delivered_count: 1, reply_count: 1, opt_out_count: 0 }]);
         db.run("DELETE FROM messages WHERE id = 'm_bc'");
         db.run("DELETE FROM consents WHERE id IN ('cns_x1', 'cns_x2')");
+    });
+
+    it("reads the schedule's people, pets, hours, time off and series", () => {
+        db.run("DELETE FROM subjects WHERE id IN ('sj_rex', 'sj_gone')");
+        db.run("DELETE FROM notes WHERE id IN ('nt_1', 'nt_2', 'nt_3')");
+        db.run("DELETE FROM bookings WHERE id = 'bk_future'");
+        db.run("DELETE FROM slots WHERE id = 'ss_future'");
+        scoped("staff", [{ id: "st_cara", role: "staff", status: "active", name: "Cara" }]);
+        scoped("subjects", [
+            {
+                id: "sj_rex",
+                client_id: "cl_ann",
+                kind: "pet",
+                name: "Rex",
+                attributes: '{"breed":"Lab"}',
+            },
+        ]);
+        scoped("resources", [
+            { id: "rs_tub", name: "Tub", category: "station", capacity: 1, active: 1 },
+            { id: "rs_room", name: "Room", category: "room", capacity: 6, active: 1 },
+        ]);
+        scoped("recurrences", [
+            {
+                id: "sch_1",
+                item_id: "it_cut",
+                staff_id: "st_cara",
+                client_id: "cl_ann",
+                frequency: "week",
+                interval: 2,
+                count: 3,
+                status: "active",
+            },
+        ]);
+        scoped("slots", [
+            {
+                id: "ss_c1",
+                item_id: "it_cut",
+                staff_id: "st_cara",
+                resource_id: "rs_tub",
+                recurrence_id: "sch_1",
+                starts_at: "2027-01-05T17:00:00Z",
+                ends_at: "2027-01-05T18:00:00Z",
+                capacity: 1,
+                status: "scheduled",
+            },
+            {
+                id: "ss_c2",
+                item_id: "it_cut",
+                staff_id: "st_cara",
+                recurrence_id: "sch_1",
+                starts_at: "2027-01-19T17:00:00Z",
+                ends_at: "2027-01-19T18:00:00Z",
+                capacity: 1,
+                status: "scheduled",
+            },
+            {
+                id: "ss_k",
+                item_id: "it_cut",
+                staff_id: "st_cara",
+                resource_id: "rs_room",
+                starts_at: "2027-01-06T17:00:00Z",
+                ends_at: "2027-01-06T18:00:00Z",
+                capacity: 2,
+                status: "scheduled",
+            },
+        ]);
+        scoped("bookings", [
+            {
+                id: "bk_c1",
+                slot_id: "ss_c1",
+                staff_id: "st_cara",
+                client_id: "cl_ann",
+                subject_id: "sj_rex",
+                status: "confirmed",
+                source: "online",
+                deposit_amount_cents: 0,
+                deposit_status: "none",
+                reminded_at: "2027-01-04T17:00:00Z",
+            },
+            {
+                id: "bk_c2",
+                slot_id: "ss_c2",
+                staff_id: "st_cara",
+                client_id: "cl_ann",
+                status: "completed",
+                source: "manual",
+                deposit_status: "none",
+            },
+            {
+                id: "bk_k1",
+                slot_id: "ss_k",
+                staff_id: "st_cara",
+                client_id: "cl_ann",
+                subject_id: "sj_rex",
+                status: "confirmed",
+                source: "manual",
+                deposit_status: "pending",
+            },
+            {
+                id: "bk_k2",
+                slot_id: "ss_k",
+                staff_id: "st_cara",
+                client_id: "cl_ben",
+                status: "waitlisted",
+                source: "manual",
+                deposit_status: "none",
+            },
+        ]);
+        scoped("notes", [
+            { id: "nt_b", parent_type: "booking", parent_id: "bk_c1", body: "Nervous" },
+            { id: "nt_c", parent_type: "client", parent_id: "cl_ann", body: "Likes mornings" },
+        ]);
+        scoped("hours", [
+            {
+                id: "av_c1",
+                staff_id: "st_cara",
+                basis: "recurring",
+                weekday: 1,
+                start_time: "09:00:00",
+                end_time: "12:00:00",
+                available: 1,
+            },
+            {
+                id: "av_c2",
+                staff_id: "st_cara",
+                basis: "recurring",
+                weekday: 1,
+                start_time: "13:00:00",
+                end_time: "17:00:00",
+                available: 1,
+            },
+            {
+                id: "av_off",
+                staff_id: "st_cara",
+                basis: "exception",
+                starts_at: "2027-01-12T08:00:00Z",
+                ends_at: "2027-01-13T08:00:00Z",
+                reason: "Vet",
+                available: 0,
+            },
+            {
+                id: "av_shut",
+                staff_id: null,
+                basis: "exception",
+                starts_at: "2027-01-01T08:00:00Z",
+                ends_at: "2027-01-02T08:00:00Z",
+                reason: "New Year",
+                available: 0,
+            },
+        ]);
+        const range = ["2027-01-07T00:00:00.000Z", "2027-01-05T00:00:00.000Z"];
+        expect(
+            pick(
+                run("EVENTS_SQL", range),
+                "slot_id",
+                "booking_id",
+                "pet_name",
+                "resource_name",
+                "recurrence_id",
+                "booked_count",
+                "note",
+            ),
+        ).toEqual([
+            {
+                slot_id: "ss_c1",
+                booking_id: "bk_c1",
+                pet_name: "Rex",
+                resource_name: "Tub",
+                recurrence_id: "sch_1",
+                booked_count: 1,
+                note: "Nervous",
+            },
+            {
+                slot_id: "ss_k",
+                booking_id: null,
+                pet_name: null,
+                resource_name: "Room",
+                recurrence_id: null,
+                booked_count: 1,
+                note: null,
+            },
+        ]);
+        expect(run("WORKING_HOURS_SQL").filter((r) => r.staff_id === "st_cara")).toHaveLength(2);
+        expect(
+            run("AWAY_SQL", ["2027-02-01T00:00:00.000Z", "2026-12-31T00:00:00.000Z"]).map(
+                (r) => r.id,
+            ),
+        ).toEqual(["av_shut", "av_off"]);
+        expect(run("DETAIL_CLIENT_SQL", ["cl_ann"]).map((r) => r.name)).toEqual(["Ann"]);
+        expect(run("DETAIL_PET_SQL", ["bk_c1"]).map((r) => r.name)).toEqual(["Rex"]);
+        expect(
+            run("DETAIL_NOTES_SQL", ["bk_c1", "cl_ann"])
+                .map((r) => r.id)
+                .sort(),
+        ).toEqual(["nt_b", "nt_c"]);
+        expect(pick(run("DETAIL_SERIES_SQL", ["ss_c2"]), "id", "position")).toEqual([
+            { id: "sch_1", position: 2 },
+        ]);
+        expect(pick(run("DETAIL_ROSTER_SQL", ["ss_k"]), "booking_id", "status")).toEqual([
+            { booking_id: "bk_k1", status: "confirmed" },
+            { booking_id: "bk_k2", status: "waitlisted" },
+        ]);
+        expect(pick(run("VISIT_STATS_SQL", ["cl_ann"]), "visits")).toEqual([{ visits: 2 }]);
+        expect(run("CLIENT_PETS_SQL").map((r) => r.id)).toEqual(["sj_rex"]);
+        expect(run("BOOKING_START_SQL", ["bk_c1"])).toEqual([
+            { starts_at: "2027-01-05T17:00:00Z" },
+        ]);
+        expect(run("RECURRING_HOURS_SQL", ["st_cara"])).toHaveLength(2);
+        expect(pick(run("SERIES_SQL"), "id", "item_name", "client_name")).toEqual([
+            { id: "sch_1", item_name: "Cut", client_name: "Ann" },
+        ]);
+        expect(run("SERIES_VISITS_SQL").map((r) => r.slot_id)).toEqual(["ss_c1", "ss_c2"]);
+    });
+
+    it("reads class rosters, stations, reminders and add-on offers", () => {
+        expect(
+            run("CLASS_SESSIONS_SQL", ["2027-01-01T00:00:00.000Z", "2027-02-01T00:00:00.000Z"]).map(
+                (r) => r.slot_id,
+            ),
+        ).toEqual(["ss_k"]);
+        expect(
+            pick(run("CLASS_ROSTER_SQL", ["2027-01-01T00:00:00.000Z"]), "booking_id", "pet_name"),
+        ).toEqual([
+            { booking_id: "bk_k1", pet_name: "Rex" },
+            { booking_id: "bk_k2", pet_name: null },
+        ]);
+        expect(pick(run("CLASS_CLIENTS_SQL"), "id", "pet_name")).toEqual([
+            { id: "cl_ann", pet_name: "Rex" },
+            { id: "cl_ben", pet_name: null },
+        ]);
+        expect(run("STATIONS_SQL").map((r) => r.id)).toEqual(["rs_room", "rs_tub"]);
+        expect(
+            run("STATIONS_HELD_SQL", ["2027-01-05T17:30:00.000Z", "2027-01-05T17:00:00.000Z"]).map(
+                (r) => r.resource_id,
+            ),
+        ).toEqual(["rs_tub"]);
+        expect(run("REMINDERS_SENT_SQL", ["2027-01-01T00:00:00.000Z"])).toEqual([{ sent: 1 }]);
+        insert("items", [
+            {
+                id: "it_brush",
+                business_id: BIZ,
+                kind: "product",
+                name: "Brush",
+                price_cents: 1500,
+                active: 1,
+                addon: 1,
+                addon_for: '["it_cut"]',
+                track_stock: 0,
+            },
+        ]);
+        insert("addons", [
+            {
+                id: "ba_c1",
+                business_id: BIZ,
+                booking_id: "bk_c1",
+                item_id: "it_brush",
+                description: "Brush",
+                quantity: 1,
+                unit_amount_cents: 1500,
+            },
+        ]);
+        expect(
+            pick(run("ADDON_PRODUCTS_SQL", ["2026-01-01T00:00:00Z"]), "id", "addon", "attached"),
+        ).toEqual([
+            { id: "it_brush", addon: 1, attached: 1 },
+            { id: "it_soap", addon: null, attached: 1 },
+        ]);
+        expect(run("ONLINE_BOOKINGS_SQL", ["2026-01-01T00:00:00Z"])).toEqual([{ n: 2 }]);
+        expect(run("ADDON_SERVICES_SQL").map((r) => r.id)).toEqual(["it_cut"]);
     });
 
     it("covers every exported SQL constant", () => {

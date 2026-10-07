@@ -19,6 +19,7 @@ const SETUP_SECTIONS = [
     "getting-paid",
     "taxes",
     "online-booking",
+    "reminders",
 ];
 
 async function navigate(page: Page, path: string): Promise<void> {
@@ -90,7 +91,10 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await expect(page).toHaveURL(/\/today$/);
 
     await navigate(page, "/schedule");
-    await openAndClose(page, strings.bookings.newBookingButton);
+    await openAndClose(page, strings.bookings.newBooking);
+    await navigate(page, "/schedule/classes");
+    await navigate(page, "/schedule/series");
+    await openAndClose(page, new RegExp(`^${strings.recurrences.newShort}$`));
 
     await navigate(page, "/clients");
     await openAndClose(page, strings.clients.addClient);

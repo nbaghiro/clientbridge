@@ -44,6 +44,7 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
         CheckConstraint(
             "sell_online = false OR kind = 'product'", name="ck_items_sell_online_kind"
         ),
+        CheckConstraint("addon = false OR kind = 'product'", name="ck_items_addon_kind"),
         Index("ix_items_business_kind_active", "business_id", "kind", "active"),
         Index(
             "ux_items_business_sku",
@@ -86,6 +87,13 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     stock_on_hand: Mapped[int | None] = mapped_column(Integer)  # cached from inventory
     low_stock_at: Mapped[int | None] = mapped_column(Integer)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # offered while booking online; addon_for lists the services it shows with (empty = all)
+    addon: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False
+    )
+    addon_for: Mapped[list[str]] = mapped_column(
+        ARRAY(String), default=list, server_default="{}", nullable=False
+    )
     custom_fields: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict, nullable=False)
 
 

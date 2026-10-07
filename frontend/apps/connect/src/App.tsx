@@ -9,6 +9,7 @@ import { PublicEstimate } from "./pages/PublicEstimate";
 import { PublicForm } from "./pages/PublicForm";
 import { PublicInterac } from "./pages/PublicInterac";
 import { PublicLanding } from "./pages/PublicLanding";
+import { PublicManage } from "./pages/PublicManage";
 import { PublicPay } from "./pages/PublicPay";
 import { PublicPreferences } from "./pages/PublicPreferences";
 import { PublicReceipt } from "./pages/PublicReceipt";
@@ -23,6 +24,7 @@ export function App() {
             <Routes>
                 <Route path="/b/:slug" element={<PublicLanding />} />
                 <Route path="/book/:slug" element={<PublicBooking />} />
+                <Route path="/m/:token" element={<PublicManage />} />
                 <Route path="/pay/:token" element={<PublicPay />} />
                 <Route path="/i/:token" element={<PublicPay />} />
                 <Route path="/i/:token/etransfer" element={<PublicInterac />} />

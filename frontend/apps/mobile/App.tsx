@@ -37,6 +37,10 @@ import { PaymentsScreen } from "./src/screens/Payments";
 import { GettingPaidScreen } from "./src/screens/GettingPaid";
 import { BusinessScreen, SetupScreen, TeamHoursScreen } from "./src/screens/Setup";
 import { TodayScreen } from "./src/screens/Today";
+import { ClassesScreen } from "./src/screens/Classes";
+import { OnlineBookingScreen } from "./src/screens/OnlineBooking";
+import { RecurrencesScreen } from "./src/screens/Recurrences";
+import { RemindersScreen } from "./src/screens/Reminders";
 
 configureStripe(stripePublishableKey);
 
@@ -216,6 +220,26 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                                 name="ClientWallet"
                                 component={ClientWalletScreen}
                                 options={{ title: strings.clients.wallet.title }}
+                            />
+                            <RootStack.Screen
+                                name="OnlineBooking"
+                                component={OnlineBookingScreen}
+                                options={{ title: strings.navigation.setupSections.onlineBooking }}
+                            />
+                            <RootStack.Screen
+                                name="Reminders"
+                                component={RemindersScreen}
+                                options={{ title: strings.navigation.setupSections.reminders }}
+                            />
+                            <RootStack.Screen
+                                name="Classes"
+                                component={ClassesScreen}
+                                options={{ title: strings.classes.title }}
+                            />
+                            <RootStack.Screen
+                                name="Recurrences"
+                                component={RecurrencesScreen}
+                                options={{ title: strings.recurrences.listTitle }}
                             />
                         </RootStack.Group>
                     </RootStack.Navigator>

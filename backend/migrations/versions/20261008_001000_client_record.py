@@ -1,7 +1,7 @@
 """Client record: preferred channel, archive date, pinned notes, removable pets, card details and consent.
 
 Revision ID: a1c3e5f70b21
-Revises: 9d4f6a8c2e31
+Revises: f1c7a9d3b246
 Create Date: 2026-10-08 00:10:00
 """
 

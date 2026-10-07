@@ -370,6 +370,7 @@ def seed_items(owner: str) -> None:
                 color=ITEM_COLORS[iid],
                 online_bookable=kind in {"service", "class"},
                 sell_online=iid in {"it_shampoo", "it_brush"},
+                addon=iid in {"it_shampoo", "it_brush"},
                 buffer_before_min=0,
                 buffer_after_min=10 if kind == "service" else 0,
                 deposit_type="percent" if kind == "service" and price >= 10000 else "none",
@@ -608,14 +609,10 @@ def seed_clients(owner: str) -> None:
 
 def seed_resources_hours() -> None:
     rows.append(
-        Resource(
-            id="rs_station_a", business_id=BIZ, name="Grooming Station A", category="equipment"
-        )
+        Resource(id="rs_station_a", business_id=BIZ, name="Grooming Station A", category="station")
     )
     rows.append(
-        Resource(
-            id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="equipment"
-        )
+        Resource(id="rs_station_b", business_id=BIZ, name="Grooming Station B", category="station")
     )
     rows.append(Resource(id="rs_bath", business_id=BIZ, name="Bath Bay", category="room"))
     # recurring weekly hours Tue–Sat 9–17 for both groomers

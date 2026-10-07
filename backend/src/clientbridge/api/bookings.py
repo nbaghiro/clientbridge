@@ -11,14 +11,39 @@ from clientbridge.core.deps import (
     SmsDep,
 )
 from clientbridge.schemas.bookings import (
+    AddonOffersOut,
+    AddonOffersPatch,
+    BookingCheck,
     BookingCreate,
+    BookingMove,
     BookingOut,
     BookingPatch,
+    BookingProbe,
+    ClassMessage,
+    ClassMessageOut,
     DepositOut,
+    OnlineBookingOut,
+    OnlineBookingPatch,
+    RecurrenceCancel,
+    RecurrenceCancelOut,
+    RecurrenceChange,
+    RecurrenceChangeOut,
     RecurrenceCreate,
     RecurrenceOut,
+    ReminderPreview,
+    RosterAction,
+    RosterAdd,
+    RosterEntry,
+    TimeOffCreate,
+    TimeOffOut,
 )
-from clientbridge.services.bookings import BookingService, RecurrenceService
+from clientbridge.services.bookings import (
+    BookingService,
+    ClassService,
+    OnlineBookingService,
+    RecurrenceService,
+    TimeOffService,
+)
 from clientbridge.services.notifications import Notifier
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
@@ -36,8 +61,16 @@ async def create_booking(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> BookingOut:
     result = await BookingService(db, principal, gateway).create(body, idempotency_key)
-    await Notifier(email, sms, push).on_booking_confirmed(db, result.id)
+    if body.notify:
+        await Notifier(email, sms, push).on_booking_confirmed(db, result.id)
     return result
+
+
+@router.post("/check", response_model=BookingCheck)
+async def probe_booking(
+    body: BookingProbe, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> BookingCheck:
+    return await BookingService(db, principal, gateway).probe(body)
 
 
 @router.patch("/{booking_id}", response_model=BookingOut)
@@ -58,6 +91,24 @@ async def patch_booking(
     elif body.starts_at is not None:
         await notifier.on_booking_rescheduled(db, result.id)
     return result
+
+
+@router.post("/{booking_id}/check", response_model=BookingCheck)
+async def check_booking_move(
+    booking_id: str,
+    body: BookingMove,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+) -> BookingCheck:
+    return await BookingService(db, principal, gateway).check(booking_id, body)
+
+
+@router.get("/{booking_id}/reminder", response_model=ReminderPreview)
+async def booking_reminder(
+    booking_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> ReminderPreview:
+    return await BookingService(db, principal, gateway).reminder(booking_id)
 
 
 @router.post("/{booking_id}/check-in", response_model=BookingOut)
@@ -100,6 +151,135 @@ async def create_recurrence(
     body: RecurrenceCreate,
     principal: CurrentPrincipal,
     db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RecurrenceOut:
-    return await RecurrenceService(db, principal).create(body, idempotency_key)
+    result = await RecurrenceService(db, principal).create(body, idempotency_key)
+    booked = [o.booking_id for o in result.occurrences if o.booking_id is not None]
+    notifier = Notifier(email, sms, push)
+    if body.confirmation == "series":
+        await notifier.on_series_booked(db, booked, "booked")
+    elif body.confirmation == "each":
+        for booking_id in booked:
+            await notifier.on_booking_confirmed(db, booking_id)
+    return result
+
+
+@recurrences_router.patch("/{recurrence_id}", response_model=RecurrenceChangeOut)
+async def change_recurrence(
+    recurrence_id: str,
+    body: RecurrenceChange,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> RecurrenceChangeOut:
+    result = await RecurrenceService(db, principal).change(recurrence_id, body)
+    if body.notify:
+        await Notifier(email, sms, push).on_series_booked(db, result.moved, "moved")
+    return result
+
+
+@recurrences_router.post("/{recurrence_id}/cancel", response_model=RecurrenceCancelOut)
+async def cancel_recurrence(
+    recurrence_id: str,
+    body: RecurrenceCancel,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> RecurrenceCancelOut:
+    result = await RecurrenceService(db, principal).cancel(recurrence_id, body, gateway)
+    if body.notify:
+        await Notifier(email, sms, push).on_series_booked(db, result.canceled, "canceled")
+    return result
+
+
+time_off_router = APIRouter(prefix="/time-off", tags=["time-off"])
+
+
+@time_off_router.post("", response_model=TimeOffOut, status_code=201)
+async def create_time_off(
+    body: TimeOffCreate,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> TimeOffOut:
+    return await TimeOffService(db, principal).create(body, idempotency_key)
+
+
+@time_off_router.delete("/{hours_id}", response_model=TimeOffOut)
+async def delete_time_off(hours_id: str, principal: CurrentPrincipal, db: DbSession) -> TimeOffOut:
+    return await TimeOffService(db, principal).delete(hours_id)
+
+
+classes_router = APIRouter(prefix="/classes", tags=["classes"])
+
+
+@classes_router.post("/{slot_id}/roster", response_model=RosterEntry, status_code=201)
+async def add_to_class(
+    slot_id: str,
+    body: RosterAdd,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+) -> RosterEntry:
+    return await ClassService(db, principal, gateway).add(slot_id, body)
+
+
+@classes_router.patch("/{slot_id}/roster/{booking_id}", response_model=RosterEntry)
+async def update_class_roster(
+    slot_id: str,
+    booking_id: str,
+    body: RosterAction,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+    push: PushDep,
+) -> RosterEntry:
+    result = await ClassService(db, principal, gateway).act(slot_id, booking_id, body)
+    if body.action == "promote":
+        await Notifier(email, sms, push).on_booking_confirmed(db, result.booking_id)
+    return result
+
+
+@classes_router.post("/{slot_id}/message", response_model=ClassMessageOut)
+async def message_class(
+    slot_id: str,
+    body: ClassMessage,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    email: EmailDep,
+    sms: SmsDep,
+) -> ClassMessageOut:
+    return await ClassService(db, principal, gateway).message(slot_id, body, sms, email)
+
+
+online_router = APIRouter(prefix="/online-booking", tags=["online-booking"])
+
+
+@online_router.get("", response_model=OnlineBookingOut)
+async def get_online_booking(principal: CurrentPrincipal, db: DbSession) -> OnlineBookingOut:
+    return await OnlineBookingService(db, principal).get()
+
+
+@online_router.patch("", response_model=OnlineBookingOut)
+async def update_online_booking(
+    body: OnlineBookingPatch, principal: CurrentPrincipal, db: DbSession
+) -> OnlineBookingOut:
+    return await OnlineBookingService(db, principal).update(body)
+
+
+@online_router.patch("/addons", response_model=AddonOffersOut)
+async def update_addon_offers(
+    body: AddonOffersPatch, principal: CurrentPrincipal, db: DbSession
+) -> AddonOffersOut:
+    return await OnlineBookingService(db, principal).set_addons(body)

@@ -36,14 +36,6 @@ export function sameDay(a: Date, b: Date): boolean {
     );
 }
 
-export function isSameMonth(a: Date, b: Date): boolean {
-    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-}
-
-export function minutesSinceMidnight(d: Date): number {
-    return d.getHours() * 60 + d.getMinutes();
-}
-
 export function dateKey(d: Date): string {
     const m = `${d.getMonth() + 1}`.padStart(2, "0");
     const day = `${d.getDate()}`.padStart(2, "0");

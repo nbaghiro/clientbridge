@@ -21,6 +21,7 @@ const staff = new Table(
         invite_token: column.text,
         invited_at: column.text,
         invited_by: column.text,
+        bookable_online: column.integer,
         created_at: column.text,
         updated_at: column.text,
     },
@@ -116,6 +117,49 @@ const consents = new Table(
     },
 );
 
+const resources = new Table(
+    {
+        name: column.text,
+        category: column.text,
+        capacity: column.integer,
+        active: column.integer,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            resources_business_id: ["business_id"],
+        },
+    },
+);
+
+const hours = new Table(
+    {
+        staff_id: column.text,
+        basis: column.text,
+        weekday: column.integer,
+        date: column.text,
+        start_time: column.text,
+        end_time: column.text,
+        available: column.integer,
+        note: column.text,
+        starts_at: column.text,
+        ends_at: column.text,
+        reason: column.text,
+        business_id: column.text,
+        created_at: column.text,
+        updated_at: column.text,
+    },
+    {
+        indexes: {
+            hours_business_id: ["business_id"],
+            hours_exception: ["business_id", "basis", "starts_at"],
+            hours_staff: ["business_id", "staff_id", "basis"],
+        },
+    },
+);
+
 const items = new Table(
     {
         created_by: column.text,
@@ -150,6 +194,8 @@ const items = new Table(
         stock_on_hand: column.integer,
         low_stock_at: column.integer,
         active: column.integer,
+        addon: column.integer,
+        addon_for: column.text,
         custom_fields: column.text,
         business_id: column.text,
         created_at: column.text,
@@ -369,6 +415,7 @@ const businesses = new Table(
         stripe_payouts_enabled: column.integer,
         stripe_details_submitted: column.integer,
         stripe_requirements: column.text,
+        booking_policy: column.text,
         status: column.text,
         staff_discount_limit_bps: column.integer,
         filing_frequency: column.text,
@@ -498,6 +545,8 @@ const bookings = new Table(
         completed_at: column.text,
         canceled_at: column.text,
         reminded_at: column.text,
+        manage_token: column.text,
+        reschedule_count: column.integer,
         custom_fields: column.text,
         business_id: column.text,
         created_at: column.text,
@@ -535,24 +584,27 @@ const addons = new Table(
     },
 );
 
-const hours = new Table(
+const recurrences = new Table(
     {
+        item_id: column.text,
         staff_id: column.text,
-        basis: column.text,
-        weekday: column.integer,
-        date: column.text,
-        start_time: column.text,
-        end_time: column.text,
-        available: column.integer,
-        note: column.text,
+        client_id: column.text,
+        frequency: column.text,
+        interval: column.integer,
+        byday: column.text,
+        monthly_by: column.text,
+        count: column.integer,
+        until: column.text,
+        start_date: column.text,
+        status: column.text,
         business_id: column.text,
         created_at: column.text,
         updated_at: column.text,
     },
     {
         indexes: {
-            hours_business_id: ["business_id"],
-            hours_staff: ["business_id", "staff_id", "basis"],
+            recurrences_business_id: ["business_id"],
+            recurrences_status: ["business_id", "status"],
         },
     },
 );
@@ -893,6 +945,8 @@ export const AppSchema = new Schema({
     subjects,
     notes,
     consents,
+    resources,
+    hours,
     items,
     packages,
     subscriptions,
@@ -909,7 +963,7 @@ export const AppSchema = new Schema({
     slots,
     bookings,
     addons,
-    hours,
+    recurrences,
     accounts,
     entries,
     invoices,

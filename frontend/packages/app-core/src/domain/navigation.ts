@@ -60,7 +60,14 @@ export function visibleInboxSegments(role: string | null): typeof INBOX_SEGMENTS
 }
 
 export type SetupSectionKey =
-    "start" | "business" | "services" | "team" | "gettingPaid" | "taxes" | "onlineBooking";
+    | "start"
+    | "business"
+    | "services"
+    | "team"
+    | "gettingPaid"
+    | "taxes"
+    | "onlineBooking"
+    | "reminders";
 
 export const SETUP_SECTIONS: {
     key: SetupSectionKey;
@@ -107,7 +114,13 @@ export const SETUP_SECTIONS: {
     {
         key: "onlineBooking",
         label: strings.navigation.setupSections.onlineBooking,
-        webOnly: true,
+        webOnly: false,
+        managersOnly: true,
+    },
+    {
+        key: "reminders",
+        label: strings.navigation.setupSections.reminders,
+        webOnly: false,
         managersOnly: true,
     },
 ];

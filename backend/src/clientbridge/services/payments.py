@@ -2057,3 +2057,57 @@ async def process_interac_event(
         await db.rollback()
         return None
     return matched_id
+
+
+async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Booking) -> int:
+    """Refund what is left of a visit's settled deposit, for a cancel the policy allows."""
+    business = await db.get(Business, booking.business_id)
+    if business is None or business.stripe_account_id is None:
+        return 0
+    deposits = (
+        (
+            await db.execute(
+                scoped(Payment, booking.business_id)
+                .where(
+                    Payment.booking_id == booking.id,
+                    Payment.kind == "deposit",
+                    Payment.status == "succeeded",
+                )
+                .with_for_update()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    total = 0
+    for payment in deposits:
+        refunded = await _refunded_cents(db, payment)
+        left = payment.amount_cents - refunded
+        if left <= 0 or payment.provider_ref is None:
+            continue
+        result = await gateway.refund(
+            business.stripe_account_id,
+            payment_intent_id=payment.provider_ref,
+            amount_cents=left,
+            idempotency_key=f"refund_{payment.id}_{refunded}",
+        )
+        refund = Payment(
+            id=new_id("payment"),
+            business_id=booking.business_id,
+            client_id=payment.client_id,
+            kind="refund",
+            parent_payment_id=payment.id,
+            booking_id=booking.id,
+            amount_cents=left,
+            currency=payment.currency,
+            method=payment.method,
+            provider="stripe",
+            provider_ref=result.id,
+            status="succeeded",
+            paid_at=datetime.now(UTC),
+        )
+        db.add(refund)
+        await db.flush()
+        await _apply_refund(db, refund, payment)
+        total += left
+    return total

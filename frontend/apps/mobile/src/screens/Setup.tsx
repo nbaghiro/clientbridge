@@ -15,7 +15,17 @@ import { Team } from "./Team";
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const SECTION_SCREEN: Partial<
-    Record<SetupSectionKey, "GetSetUp" | "Business" | "Services" | "Team" | "GettingPaid" | "Taxes">
+    Record<
+        SetupSectionKey,
+        | "GetSetUp"
+        | "Business"
+        | "Services"
+        | "Team"
+        | "GettingPaid"
+        | "Taxes"
+        | "OnlineBooking"
+        | "Reminders"
+    >
 > = {
     start: "GetSetUp",
     business: "Business",
@@ -23,6 +33,8 @@ const SECTION_SCREEN: Partial<
     team: "Team",
     gettingPaid: "GettingPaid",
     taxes: "Taxes",
+    onlineBooking: "OnlineBooking",
+    reminders: "Reminders",
 };
 
 export function SetupScreen() {
