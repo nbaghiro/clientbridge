@@ -91,7 +91,11 @@ test("an owner can open every page and dialog without errors", async ({ page }) 
     await expect(page).toHaveURL(/\/today$/);
 
     await navigate(page, "/schedule");
-    await openAndClose(page, strings.bookings.newBooking);
+    await page.locator("main").getByRole("button", { name: strings.bookings.newBooking }).click();
+    const composer = page.getByRole("form", { name: strings.bookings.newBooking });
+    await expect(composer).toBeVisible();
+    await composer.getByRole("button", { name: strings.common.close }).click();
+    await expect(composer).toBeHidden();
     await navigate(page, "/schedule/classes");
     await navigate(page, "/schedule/series");
     await openAndClose(page, new RegExp(`^${strings.recurrences.newShort}$`));
