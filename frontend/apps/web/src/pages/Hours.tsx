@@ -27,6 +27,7 @@ import {
     Skeleton,
     TextField,
     WeeklyHoursEditor,
+    DateField,
 } from "@clientbridge/ui";
 import { type SubmitEvent, useState } from "react";
 
@@ -446,16 +447,14 @@ function TimeOffModal({ staffId, onClose }: { staffId: string; onClose: () => vo
                     />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                    <TextField
+                    <DateField
                         label={form.length === "days" ? s.firstDay : s.date}
-                        type="date"
                         value={form.from}
                         onChange={form.setFrom}
                     />
                     {form.length === "days" ? (
-                        <TextField
+                        <DateField
                             label={s.lastDay}
-                            type="date"
                             value={form.to}
                             min={form.from}
                             onChange={form.setTo}

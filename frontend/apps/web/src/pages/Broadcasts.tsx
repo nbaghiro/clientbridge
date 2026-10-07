@@ -11,6 +11,7 @@ import {
     useBroadcastActions,
     useBroadcastDraft,
     useBroadcastsHome,
+    dateKey,
 } from "@clientbridge/app-core";
 import {
     Avatar,
@@ -30,6 +31,7 @@ import {
     StatusPill,
     TextField,
     confirm,
+    DateTimeField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
@@ -456,10 +458,10 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                                 />
                             </Field>
                             {draft.schedule === "later" ? (
-                                <TextField
+                                <DateTimeField
+                                    className="max-w-md"
                                     label={s.sendAtLabel}
-                                    type="datetime-local"
-                                    width="auto"
+                                    min={dateKey(new Date())}
                                     value={draft.sendAt}
                                     onChange={draft.setSendAt}
                                 />

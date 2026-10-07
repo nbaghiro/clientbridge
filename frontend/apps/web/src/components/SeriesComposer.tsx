@@ -16,8 +16,8 @@ import {
     Panel,
     Select,
     Stepper,
-    TextField,
     Toggle,
+    DateField,
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
@@ -65,9 +65,8 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                             onChange={f.setStaffId}
                         />
                         <div className="grid grid-cols-2 gap-3">
-                            <TextField
+                            <DateField
                                 label={s.firstVisit}
-                                type="date"
                                 value={f.firstDay}
                                 onChange={f.setFirstDay}
                             />
@@ -124,9 +123,8 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                                 </div>
                             ) : (
                                 <div className="max-w-xs pt-1">
-                                    <TextField
+                                    <DateField
                                         label={s.lastDate}
-                                        type="date"
                                         value={f.until}
                                         min={f.firstDay}
                                         onChange={f.setUntil}

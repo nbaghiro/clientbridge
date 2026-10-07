@@ -23,6 +23,7 @@ import {
     TagInput,
     TextField,
     Toggle,
+    DateField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -321,6 +322,19 @@ export function PetSheet({
                             />
                         </Field>
                     );
+                if (f.type === "date")
+                    return (
+                        <DateField
+                            key={f.key}
+                            label={f.label}
+                            optional
+                            value={value}
+                            onChange={(v) => {
+                                form.setValue(f.key, v);
+                            }}
+                            error={form.errors[f.key]}
+                        />
+                    );
                 return (
                     <TextField
                         key={f.key}
@@ -330,9 +344,7 @@ export function PetSheet({
                         multiline={f.type === "longtext"}
                         rows={2}
                         value={value}
-                        placeholder={
-                            f.placeholder ?? (f.type === "date" ? p.datePlaceholder : undefined)
-                        }
+                        placeholder={f.placeholder}
                         onChange={(v) => {
                             form.setValue(f.key, v);
                         }}

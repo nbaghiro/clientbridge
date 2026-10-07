@@ -26,6 +26,7 @@ import {
     StatusPill,
     TextField,
     ui,
+    DateField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -280,9 +281,8 @@ function RecordReturn({
                             value={form.confirmation}
                             onChange={form.setConfirmation}
                         />
-                        <TextField
+                        <DateField
                             label={s.filedOnField}
-                            type="date"
                             value={form.filedOn}
                             onChange={form.setFiledOn}
                         />

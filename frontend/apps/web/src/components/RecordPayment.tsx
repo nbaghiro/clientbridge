@@ -15,6 +15,7 @@ import {
     Modal,
     Notice,
     TextField,
+    DateField,
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
@@ -168,9 +169,8 @@ export function RecordPayment({ rec, onClose }: { rec: InvoiceRecord; onClose: (
                                 value={pay.reference}
                                 onChange={pay.setReference}
                             />
-                            <TextField
+                            <DateField
                                 label={r.receivedOn}
-                                type="date"
                                 value={pay.receivedOn}
                                 error={pay.dateError}
                                 onChange={pay.setReceivedOn}

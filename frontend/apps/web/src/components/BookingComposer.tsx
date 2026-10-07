@@ -24,6 +24,7 @@ import {
     TextField,
     TimeSlotPicker,
     Toggle,
+    DateField,
 } from "@clientbridge/ui";
 import type { SubmitEvent } from "react";
 
@@ -127,14 +128,13 @@ export function BookingComposer({
 
                 <Select
                     label={s.composerService}
+                    placeholder={s.composerServicePlaceholder}
                     value={form.item?.id ?? ""}
-                    options={[
-                        { key: "", label: s.composerService },
-                        ...form.services.map((i) => ({
-                            key: i.id,
-                            label: `${i.name} · ${String(i.duration_min ?? 60)} min · ${formatMoney(i.price_cents ?? 0)}`,
-                        })),
-                    ]}
+                    options={form.services.map((i) => ({
+                        key: i.id,
+                        label: i.name,
+                        detail: `${String(i.duration_min ?? 60)} min · ${formatMoney(i.price_cents ?? 0)}`,
+                    }))}
                     onChange={form.setItemId}
                 />
 
@@ -153,12 +153,7 @@ export function BookingComposer({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                    <TextField
-                        label={s.composerDate}
-                        type="date"
-                        value={form.day}
-                        onChange={form.setDay}
-                    />
+                    <DateField label={s.composerDate} value={form.day} onChange={form.setDay} />
                     <Select
                         label={s.composerTime}
                         value={form.time}

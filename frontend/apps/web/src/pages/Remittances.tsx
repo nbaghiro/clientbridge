@@ -25,6 +25,7 @@ import {
     Skeleton,
     StatusPill,
     TextField,
+    DateField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
@@ -372,12 +373,7 @@ function FilingFields({ form, t }: { form: FilingForm; t: TaxFilings }) {
                     value={form.confirmation}
                     onChange={form.setConfirmation}
                 />
-                <TextField
-                    label={s.filedOnField}
-                    type="date"
-                    value={form.filedOn}
-                    onChange={form.setFiledOn}
-                />
+                <DateField label={s.filedOnField} value={form.filedOn} onChange={form.setFiledOn} />
             </div>
             <DocTotals
                 density="compact"

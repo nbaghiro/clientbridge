@@ -142,8 +142,8 @@ export interface FieldProps {
     children: ReactNode;
 }
 
-export type TextFieldType =
-    "text" | "email" | "password" | "number" | "tel" | "url" | "date" | "time" | "datetime-local";
+// Dates and times have their own fields (DateField, TimeField, DateTimeField).
+export type TextFieldType = "text" | "email" | "password" | "number" | "tel" | "url";
 
 export interface TextFieldProps {
     // Without a label the placeholder (or `name`) names the input for screen readers.

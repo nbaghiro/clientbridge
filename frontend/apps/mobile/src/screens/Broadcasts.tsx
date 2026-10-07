@@ -11,6 +11,7 @@ import {
     useBroadcastActions,
     useBroadcastDraft,
     useBroadcastsHome,
+    dateKey,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
@@ -29,6 +30,7 @@ import {
     StatusPill,
     TextField,
     confirm,
+    DateTimeField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
@@ -350,11 +352,11 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
                         />
                     </Field>
                     {draft.schedule === "later" ? (
-                        <TextField
+                        <DateTimeField
                             label={s.sendAtLabel}
+                            min={dateKey(new Date())}
                             value={draft.sendAt}
                             onChange={draft.setSendAt}
-                            placeholder={s.sendAtPlaceholder}
                         />
                     ) : null}
                 </View>

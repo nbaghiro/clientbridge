@@ -24,8 +24,8 @@ import {
     SearchField,
     Skeleton,
     Stepper,
-    TextField,
     Toggle,
+    DateField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -411,12 +411,7 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                     value={f.staffId}
                     onChange={f.setStaffId}
                 />
-                <TextField
-                    label={s.firstVisit}
-                    type="date"
-                    value={f.firstDay}
-                    onChange={f.setFirstDay}
-                />
+                <DateField label={s.firstVisit} value={f.firstDay} onChange={f.setFirstDay} />
                 <Text style={styles.label}>{s.time}</Text>
                 <Choice
                     label={s.time}
@@ -467,10 +462,10 @@ function SeriesComposer({ onDone }: { onDone: () => void }) {
                         <Text style={styles.soft}>{s.endCountSuffix}</Text>
                     </View>
                 ) : (
-                    <TextField
+                    <DateField
                         label={s.lastDate}
-                        type="date"
                         value={f.until}
+                        min={f.firstDay}
                         onChange={f.setUntil}
                     />
                 )}

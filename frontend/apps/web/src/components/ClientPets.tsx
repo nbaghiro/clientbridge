@@ -22,6 +22,7 @@ import {
     Notice,
     Skeleton,
     TextField,
+    DateField,
 } from "@clientbridge/ui";
 import { useState } from "react";
 
@@ -61,14 +62,26 @@ function SubjectFields({ form }: { form: SubjectForm }) {
                             </Field>
                         </div>
                     );
+                if (f.type === "date")
+                    return (
+                        <div key={f.key} className={span}>
+                            <DateField
+                                label={f.label}
+                                optional
+                                value={value}
+                                onChange={(v) => {
+                                    form.setValue(f.key, v);
+                                }}
+                                error={form.errors[f.key]}
+                            />
+                        </div>
+                    );
                 return (
                     <div key={f.key} className={span}>
                         <TextField
                             label={f.unit === undefined ? f.label : `${f.label} (${f.unit})`}
                             optional
-                            type={
-                                f.type === "number" ? "number" : f.type === "date" ? "date" : "text"
-                            }
+                            type={f.type === "number" ? "number" : "text"}
                             multiline={f.type === "longtext"}
                             rows={2}
                             value={value}
