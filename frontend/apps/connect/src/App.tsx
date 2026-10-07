@@ -7,6 +7,7 @@ import { PublicBooking } from "./pages/PublicBooking";
 import { PublicContract } from "./pages/PublicContract";
 import { PublicForm } from "./pages/PublicForm";
 import { PublicLanding } from "./pages/PublicLanding";
+import { PublicManage } from "./pages/PublicManage";
 import { PublicPay } from "./pages/PublicPay";
 import { PublicReview } from "./pages/PublicReview";
 import { PublicShop } from "./pages/PublicShop";
@@ -19,6 +20,7 @@ export function App() {
             <Routes>
                 <Route path="/b/:slug" element={<PublicLanding />} />
                 <Route path="/book/:slug" element={<PublicBooking />} />
+                <Route path="/m/:token" element={<PublicManage />} />
                 <Route path="/pay/:token" element={<PublicPay />} />
                 <Route path="/i/:token" element={<PublicPay />} />
                 <Route path="/form/:token" element={<PublicForm />} />
