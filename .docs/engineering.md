@@ -217,7 +217,8 @@ make dev-api  dev-web  dev-connect  dev-mobile  worker
 make dev-site              # marketing site from source on :8710
 make build-site            # static build in frontend/apps/site/dist (pnpm --filter site preview serves it on :8710)
 make test-site             # build + Playwright pass over every page (links, images, 390px, axe)
-make test-web              # web smoke test: sign in, every page and dialog, no console errors (needs the local stack + seed)
+make test-web              # web smoke test: sign in, every page and dialog, no console errors (needs the local stack + seed;
+                           # scripts/web_fixtures.py first adds a client series, low stock and a dispute through the API if missing)
 make test-connect          # Connect e2e: book to the deposit step, manage link, shop and every client page (needs the API + seed)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
 make dev-playground        # every shared component on web, iPhone and Android on :8712 (no backend needed)

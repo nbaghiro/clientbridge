@@ -360,6 +360,26 @@ test("owner: schedule, booking panel, classes and repeat visits", async ({ page 
         await openAndClose(page, exactly(strings.recurrences.newShort));
     });
 
+    const rs = strings.recurrences;
+    await walk.step("repeat visits: a series record, its change and cancel dialogs", async () => {
+        const rows = main.locator("section").first().locator(":scope > div").getByRole("button");
+        await expect(rows.first()).toBeVisible();
+        const change = main.getByRole("button", { name: rs.changeSeries, exact: true });
+        // The fixtures guarantee one active series with visits ahead; earlier ones may have ended.
+        for (let i = 0, n = await rows.count(); i < n; i++) {
+            await rows.nth(i).click();
+            if (await change.isEnabled()) break;
+        }
+        await change.click();
+        await expect(page.getByRole("dialog")).toBeVisible();
+        await escapeDialog(page);
+        await main.getByRole("button", { name: rs.cancelSeries, exact: true }).click();
+        const ask = page.getByRole("dialog");
+        await expect(ask).toContainText(rs.cancelTitle);
+        await ask.getByRole("button", { name: rs.keepSeries }).click();
+        await expect(ask).toBeHidden();
+    });
+
     walk.expectNoErrors();
 });
 
@@ -534,6 +554,9 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
         );
         await main.getByRole("tab", { name: strings.refunds.tabs.notes }).click();
         await main.getByRole("tab", { name: startsWith(strings.refunds.tabs.disputes) }).click();
+        await expect(
+            main.getByRole("heading", { name: prefixOf(strings.refunds.disputeTitle) }),
+        ).toBeVisible();
     });
 
     await walk.step("gift cards: sell, redeem and a card's history", async () => {
@@ -707,6 +730,18 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
         await openFirstRow(page);
         await main.getByRole("tab", { name: strings.catalog.views.inventory }).click();
         await expect(main.getByText(strings.catalog.inventorySubtitle)).toBeVisible();
+    });
+
+    await walk.step("inventory: restock a low product", async () => {
+        const low = main
+            .locator("section")
+            .filter({ hasText: strings.catalog.needsRestock })
+            .getByRole("button", { name: strings.catalog.restock, exact: true });
+        await low.first().click();
+        const restock = page.getByRole("dialog");
+        await expect(restock).toContainText(strings.catalog.restockQuantity);
+        await restock.getByRole("button", { name: strings.catalog.cancel, exact: true }).click();
+        await expect(restock).toBeHidden();
     });
 
     const t = strings.staff.team;

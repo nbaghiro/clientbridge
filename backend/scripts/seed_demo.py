@@ -19,7 +19,7 @@ from clientbridge.core.security import hash_password, hash_token
 from clientbridge.integrations.stripe import ChargeFees
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
-from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
+from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
 from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.ledger import Account, Entry
@@ -351,6 +351,10 @@ ITEMS = [
 ]
 
 
+# tracked products: (on hand, low-stock line, unit cost); the brush sits under its line
+STOCK = {"it_shampoo": (24, 6, 1100), "it_brush": (2, 5, 1300)}
+
+
 def seed_items(owner: str) -> None:
     # the tax marker (item[6]) drives the line-tax math in seed_billing, not the item row itself
     for iid, kind, name, price, dur, cap, _tax, cat, desc in ITEMS:
@@ -379,9 +383,26 @@ def seed_items(owner: str) -> None:
                 frequency="month" if kind == "subscription" else None,
                 session_count=5 if iid == "it_pkg5" else None,
                 validity_days=365 if iid == "it_pkg5" else None,
+                cost_cents=STOCK[iid][2] if iid in STOCK else None,
+                track_stock=iid in STOCK,
+                stock_on_hand=STOCK[iid][0] if iid in STOCK else None,
+                low_stock_at=STOCK[iid][1] if iid in STOCK else None,
                 active=True,
             )
         )
+        if iid in STOCK:
+            rows.append(
+                StockMovement(
+                    id=f"mv_{iid}",
+                    business_id=BIZ,
+                    item_id=iid,
+                    reason="restock",
+                    quantity=STOCK[iid][0],
+                    unit_cost_cents=STOCK[iid][2],
+                    note="Opening count",
+                    created_by=owner,
+                )
+            )
         rows.append(
             File(
                 id=f"fl_img_{iid}",
@@ -2137,6 +2158,7 @@ INSERT_ORDER = [
     Staff,
     Client,
     Item,
+    StockMovement,
     Resource,
     Form,
     Contract,
@@ -2247,6 +2269,11 @@ async def seed_ledger(session: AsyncSession) -> None:
         await ledger.post_payment(session, payment, available_at=payment.paid_at)
         if payment.provider == "stripe":
             await ledger.post_fees(session, payment, _demo_fees(payment))
+    disputed = await session.get(Payment, DISPUTED)
+    assert disputed is not None
+    await ledger.post_dispute(
+        session, disputed, dispute_id=f"dp_demo_{DISPUTED}", amount=disputed.amount_cents, fee=1500
+    )
     refunds = (await session.execute(select(Payment).where(Payment.kind == "refund"))).scalars()
     for refund in refunds:
         original = await session.get(Payment, refund.parent_payment_id)
@@ -2417,6 +2444,87 @@ def seed_calendar_filler() -> None:
                     _invoice_for(n, client, bk, item_id, price, dur, tax, member, d, settled=True)
 
 
+SERIES_VISITS = 8
+DISPUTED = "pay_1006"
+
+
+def seed_client_series() -> None:
+    """Sophie's fortnightly groom booked as a series: past visits done and paid, the rest ahead."""
+    rows.append(
+        Recurrence(
+            id="sch_mochi",
+            business_id=BIZ,
+            item_id="it_groom_sm",
+            staff_id="st_owner",
+            client_id="cl_sophie",
+            frequency="week",
+            interval=2,
+            byday=["WE"],
+            count=SERIES_VISITS,
+            status="active",
+        )
+    )
+    item = next(x for x in ITEMS if x[0] == "it_groom_sm")
+    price, dur, tax = item[3], item[4] or 60, item[6]
+    busy = [
+        (r.staff_id, r.resource_id, r.starts_at, r.ends_at) for r in rows if isinstance(r, Slot)
+    ]
+    first = next(d for d in range(-21, -14) if at(d).astimezone(NOW.tzinfo).weekday() == 2)
+    for n in range(SERIES_VISITS):
+        d = first + 14 * n
+        start = at(d, 15)
+        end = start + timedelta(minutes=dur)
+        closed = _working_hours("st_owner", start.astimezone(NOW.tzinfo).date()) is None
+        if closed or any(
+            (staff == "st_owner" or res == "rs_station_a") and start < e and b < end
+            for staff, res, b, e in busy
+        ):
+            continue
+        done = end < NOW
+        ses, bk = f"ses_s{n}", f"bk_s{n}"
+        rows.append(
+            Slot(
+                id=ses,
+                business_id=BIZ,
+                item_id="it_groom_sm",
+                staff_id="st_owner",
+                resource_id="rs_station_a",
+                recurrence_id="sch_mochi",
+                starts_at=start,
+                ends_at=end,
+                capacity=1,
+                status="completed" if done else "scheduled",
+            )
+        )
+        rows.append(
+            Booking(
+                id=bk,
+                business_id=BIZ,
+                slot_id=ses,
+                staff_id="st_owner",
+                client_id="cl_sophie",
+                subject_id="sj_mochi",
+                status="completed" if done else "confirmed",
+                source="manual",
+                price_cents=price,
+                deposit_amount_cents=0,
+                confirmed_at=at(first - 1, 12),
+                completed_at=end if done else None,
+            )
+        )
+        if done:
+            _invoice_for(n, "cl_sophie", bk, "it_groom_sm", price, dur, tax, "st_owner", d, True)
+
+
+def seed_dispute() -> None:
+    """A card chargeback awaiting a response; seed_ledger books the pulled funds and fee."""
+    payment = next(r for r in rows if isinstance(r, Payment) and r.id == DISPUTED)
+    assert payment.method == "card"
+    payment.dispute_status = "needs_response"
+    payment.dispute_reason = "product_not_received"
+    payment.dispute_respond_by = at(6, 17)
+
+
 async def main() -> None:
     owner, _ = seed_identity()
     seed_items(owner)
@@ -2434,7 +2542,9 @@ async def main() -> None:
     seed_coverage()
     seed_open_sale()
     seed_online_shop()
+    seed_client_series()
     seed_calendar_filler()
+    seed_dispute()
 
     table_list = ", ".join(Base.metadata.tables)
     async with engine.begin() as conn:
