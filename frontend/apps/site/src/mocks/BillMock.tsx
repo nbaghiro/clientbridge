@@ -5,7 +5,9 @@ import { money, taxOn } from "../format";
 
 export function BillMock({ bill, brand }: { bill: Bill; brand: Brand }) {
     const subtotal = bill.lines.reduce((sum, [, cents]) => sum + cents, 0);
-    const taxes = bill.taxes.map(([label, rate]) => [label, taxOn(subtotal, rate)] as const);
+    const taxes = bill.taxes.map(
+        ([label, rate, taxableBase]) => [label, taxOn(taxableBase ?? subtotal, rate)] as const,
+    );
     const total = subtotal + taxes.reduce((sum, [, cents]) => sum + cents, 0);
     const retainer = bill.retainerPct ? Math.round(total * bill.retainerPct) : 0;
     const row = (label: string, cents: number, cls = "", sign = "") => (

@@ -49,7 +49,7 @@ import { DocumentPreview, type PreviewDoc } from "../components/DocumentPreview"
 import { InteracRequest } from "../components/InteracRequest";
 import { RecordPayment } from "../components/RecordPayment";
 import { config } from "../config";
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { useLinkIntent, useOpenLink } from "../lib/links";
 
@@ -306,7 +306,7 @@ function InvoicePanel({
     const rec = useInvoiceRecord(api, id, config.payUrl);
     const act = useInvoiceActions(api);
     const role = useRole();
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const estimates = useEstimates();
     const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
     const estimate = useEstimateRecord(api, estimateId, config.payUrl);
@@ -709,7 +709,7 @@ function EstimatePanel({
 }) {
     const rec = useEstimateRecord(api, id, config.payUrl);
     const act = useEstimateActions(api);
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const [previewing, setPreviewing] = useState(false);
     if (rec === null) return null;
 

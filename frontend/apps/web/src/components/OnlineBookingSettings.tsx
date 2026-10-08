@@ -294,9 +294,15 @@ function Preview({ st }: { st: Settings }) {
     return (
         <div className="overflow-hidden rounded-lg border border-line bg-bg">
             <div className="flex items-center gap-2 border-b border-line bg-surface px-3 py-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-accent-ink">
-                    {st.businessName.charAt(0)}
-                </span>
+                <Avatar
+                    name={st.businessName}
+                    size="sm"
+                    src={
+                        st.businessAvatarFileId
+                            ? mediaUrl(config.apiUrl, st.businessAvatarFileId)
+                            : null
+                    }
+                />
                 <span className="truncate text-xs font-semibold text-ink">{st.businessName}</span>
             </div>
             <div className="space-y-1.5 p-3">

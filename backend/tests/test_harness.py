@@ -89,11 +89,9 @@ def test_new_id_has_prefix() -> None:
     assert new_id("invoice").startswith("inv_")
 
 
-def test_sync_token_dev() -> None:
-    # Unauthenticated in dev → mints a PowerSync token for the dev user.
+def test_sync_token_requires_auth_even_in_dev() -> None:
     res = client.get("/sync/token")
-    assert res.status_code == 200
-    assert res.json()["token"]
+    assert res.status_code == 401
 
 
 async def test_unhandled_error_still_carries_cors_headers(as_owner: httpx.AsyncClient) -> None:

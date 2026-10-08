@@ -1,5 +1,5 @@
 import type { ShellTarget } from "@clientbridge/app-core";
-import { useNavigation } from "@react-navigation/native";
+import { StackActions, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback } from "react";
 
@@ -12,72 +12,94 @@ export function useOpenLink(): (target: ShellTarget, refId?: string | null) => v
     const nav = useNavigation<Nav>();
     return useCallback(
         (target, refId = null) => {
+            const openTabs = (params: RootStackParamList["Tabs"]): void => {
+                nav.dispatch(StackActions.popTo("Tabs", params));
+            };
             const only = refId === null ? {} : { open: refId };
             const ref = refId === null ? { create: Date.now() } : { open: refId };
             const tab = (screen: "Today" | "Schedule" | "Clients"): void => {
-                nav.navigate("Tabs", { screen, params: undefined });
+                openTabs({ screen, params: undefined });
             };
             switch (target) {
                 case "today":
                     tab("Today");
                     return;
                 case "schedule":
-                    nav.navigate("Tabs", { screen: "Schedule", params: only });
+                    openTabs({ screen: "Schedule", params: only });
                     return;
                 case "booking":
-                    nav.navigate("Tabs", { screen: "Schedule", params: ref });
+                    openTabs({ screen: "Schedule", params: ref });
                     return;
                 case "clients":
                     tab("Clients");
                     return;
                 case "client":
-                    nav.navigate("Tabs", { screen: "Clients", params: ref });
+                    openTabs({ screen: "Clients", params: ref });
                     return;
                 case "sale":
                 case "checkout":
                 case "orders":
-                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "sales", ...only } });
+                    nav.navigate("Payments", { tab: "sales", ...only });
                     return;
                 case "invoices":
                 case "payments":
-                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "invoices" } });
+                    nav.navigate("Payments", { tab: "invoices" });
                     return;
                 case "invoice":
                 case "estimate":
-                    nav.navigate("Tabs", {
-                        screen: "Payments",
-                        params: { tab: "invoices", ...ref },
-                    });
+                    nav.navigate("Payments", { tab: "invoices", ...ref });
                     return;
                 case "giftCards":
-                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "giftCards" } });
+                    nav.navigate("Payments", { tab: "giftCards" });
                     return;
                 case "refunds":
-                    nav.navigate("Tabs", {
-                        screen: "Payments",
-                        params: { tab: "refunds", ...only },
-                    });
+                    nav.navigate("Payments", { tab: "refunds", ...only });
                     return;
                 case "reports":
-                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "reports" } });
+                    nav.navigate("Payments", { tab: "reports" });
                     return;
                 case "staffPay":
-                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "staffPay" } });
+                    nav.navigate("Payments", { tab: "staffPay" });
                     return;
                 case "taxReturns":
-                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "taxReturns" } });
+                    nav.navigate("Payments", { tab: "taxReturns" });
                     return;
                 case "payouts":
-                    nav.navigate("Tabs", { screen: "Payments", params: { tab: "payouts" } });
+                    nav.navigate("Payments", { tab: "payouts" });
                     return;
                 case "inbox":
-                    nav.navigate("Inbox", undefined);
+                    openTabs({
+                        screen: "Inbox",
+                        params:
+                            refId === null
+                                ? undefined
+                                : {
+                                      segment: "messages",
+                                      create: undefined,
+                                      open: undefined,
+                                      threadId: refId,
+                                      request: Date.now(),
+                                  },
+                    });
                     return;
                 case "message":
-                    nav.navigate("Inbox", ref);
+                    openTabs({
+                        screen: "Inbox",
+                        params: {
+                            segment: "messages",
+                            create: undefined,
+                            open: undefined,
+                            threadId: undefined,
+                            ...ref,
+                            request: Date.now(),
+                        },
+                    });
                     return;
                 case "reviews":
-                    nav.navigate("Inbox", { segment: "reviews" });
+                    openTabs({
+                        screen: "Inbox",
+                        params: { segment: "reviews", request: Date.now() },
+                    });
                     return;
                 case "stock":
                 case "catalog":

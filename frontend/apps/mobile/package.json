@@ -6,6 +6,7 @@
         "start": "expo start",
         "android": "expo run:android",
         "ios": "expo run:ios",
+        "e2e": "maestro test e2e --test-output-dir test-results --format HTML --output test-results/index.html",
         "lint": "eslint .",
         "typecheck": "tsc --noEmit"
     },
@@ -39,6 +40,7 @@
         "react-native-screens": "4.26.2",
         "react-native-svg": "15.15.4",
         "react-native-url-polyfill": "^4.0.0",
+        "react-native-webview": "^13.16.1",
         "text-encoding": "^0.7.0",
         "web-streams-polyfill": "^4.3.0"
     },

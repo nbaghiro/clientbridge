@@ -373,7 +373,18 @@ export interface TabsProps<K extends string> {
     inset?: boolean | undefined;
 }
 
+export type PaymentAccountComponent = "onboarding" | "account" | "payments" | "payouts";
+
+export interface PaymentAccountProps {
+    component: PaymentAccountComponent;
+    scope: string;
+    fetchClientSecret: () => Promise<string>;
+    onClose: () => void;
+    preview?: boolean;
+}
+
 export interface CardFormProps {
+    returnUrl?: string | undefined;
     clientSecret: string;
     // The connected account; on mobile the StripeProvider already targets it.
     stripeAccount: string;
@@ -430,6 +441,7 @@ export interface PageHeaderProps {
 }
 
 export interface AvatarProps {
+    src?: string | null | undefined;
     name: string;
     size?: "sm" | "md" | "lg" | "xl" | undefined;
     // A staff or pet colour; defaults to the accent tint.
@@ -932,6 +944,7 @@ export interface PrintedDoc {
     business: {
         name: string;
         initials: string;
+        avatarUrl?: string | null;
         tagline: string;
         brandColor: string;
         address: readonly string[];
@@ -1042,4 +1055,60 @@ export interface MeterProps {
     marker?: number | null | undefined;
     labelPosition?: "above" | "below" | "beside" | "hidden" | undefined;
     size?: "sm" | "md" | undefined;
+}
+
+export interface ActionTileProps {
+    icon: IconName;
+    label: string;
+    hint?: string | undefined;
+    onPress?: (() => void) | undefined;
+    disabled?: boolean | undefined;
+    layout?: "tile" | "row" | undefined;
+    variant?: "plain" | "inverse" | undefined;
+}
+
+interface DayRailDay {
+    key: string;
+    weekday: string;
+    day: string;
+    hint?: string | undefined;
+    disabled?: boolean | undefined;
+}
+
+export interface DayRailProps {
+    days: readonly DayRailDay[];
+    defaultValue?: string | null | undefined;
+    value?: string | null | undefined;
+    onChange?: ((key: string) => void) | undefined;
+    label: string;
+    onPrev?: (() => void) | undefined;
+    onNext?: (() => void) | undefined;
+    prevLabel?: string | undefined;
+    nextLabel?: string | undefined;
+}
+
+export interface OptionCardProps {
+    title: string;
+    subtitle?: string | undefined;
+    detail?: string | undefined;
+    leading?: ReactNode | undefined;
+    trailing?: ReactNode | undefined;
+    footer?: ReactNode | undefined;
+    selected?: boolean | undefined;
+    onPress?: (() => void) | undefined;
+    disabled?: boolean | undefined;
+    layout?: "row" | "stack" | undefined;
+    size?: "sm" | "md" | "lg" | undefined;
+    label?: string | undefined;
+}
+
+export interface SlotChipsProps {
+    groups: readonly { label: string; slots: readonly TimeSlot[] }[];
+    defaultValue?: string | null | undefined;
+    value?: string | null | undefined;
+    onChange?: ((key: string) => void) | undefined;
+    label: string;
+    layout?: "grid" | "rail" | "stack" | undefined;
+    columns?: 2 | 3 | 4 | undefined;
+    size?: "md" | "lg" | undefined;
 }

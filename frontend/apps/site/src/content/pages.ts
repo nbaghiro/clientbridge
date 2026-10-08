@@ -6,7 +6,7 @@ export const contactEmail = "hello@clientbridge.ca";
 export const pricingMeta = {
     title: "Pricing | Clientbridge",
     description:
-        "One monthly plan with booking, invoices, payments, sales tax, staff pay and the iPhone and Android apps included. Card payments carry Stripe's processing fee; Interac e-Transfers do not.",
+        "One monthly plan with booking, invoices, payments, sales tax, staff pay and the iPhone and Android apps included. Card payments carry a card processing fee; Interac e-Transfers do not.",
 };
 
 export const pricingPage = {
@@ -57,7 +57,7 @@ export const pricingPage = {
         rows: [
             {
                 label: "Card online and Tap to Pay",
-                value: "Stripe's standard processing fee, taken from each payment. Clientbridge platform fee: to be confirmed.",
+                value: "A card processing fee, taken from each payment. Clientbridge platform fee: to be confirmed.",
             },
             {
                 label: "Interac e-Transfer",
@@ -65,7 +65,7 @@ export const pricingPage = {
             },
             {
                 label: "Setup",
-                value: "No setup fee. Connecting your Stripe account takes a few minutes inside the app.",
+                value: "No setup fee. Start setting up card payments in the app.",
             },
         ],
     },
@@ -77,7 +77,7 @@ export const pricingPage = {
         },
         {
             q: "How do I get paid?",
-            a: "Clientbridge uses Stripe Connect, so your business has its own Stripe account. Card payments land in that account and Stripe pays them out to your bank on a regular schedule. Clientbridge never holds your money.",
+            a: "Your business has its own payments account. Card payments are paid out to your bank on a regular schedule.",
         },
         {
             q: "What does an Interac e-Transfer cost?",
@@ -176,7 +176,7 @@ export const featuresPage = {
             items: [
                 "Tap to Pay on iPhone and Android",
                 "Interac e-Transfer matched by reference code",
-                "Stripe payouts to your bank",
+                "Payouts to your bank",
                 "Gift cards, packages and subscriptions",
             ],
             link: { label: "How payments work", href: "/#payments" },
@@ -263,11 +263,32 @@ export interface LegalPage {
     sections: string[];
     placeholder: string;
     contact: string;
+    paymentDisclosure: {
+        title: string;
+        body: string;
+        links: { label: string; href: string }[];
+    };
 }
 
 const legalPlaceholder = "Legal text to be provided.";
+const paymentDisclosure = {
+    title: "Payment services",
+    body: "Stripe provides payment processing for businesses using Clientbridge. Its Connected Account Agreement applies to those payment services. Stripe receives and processes personal data for payment services as described in its Privacy Policy. The links below provide the agreement, privacy information and acquiring-bank disclosures.",
+    links: [
+        {
+            label: "Stripe Connected Account Agreement",
+            href: "https://stripe.com/connect-account/legal/full",
+        },
+        { label: "Stripe Privacy Policy", href: "https://stripe.com/privacy" },
+        {
+            label: "Acquiring-bank disclosures",
+            href: "https://stripe.com/legal/acquirer-disclosure",
+        },
+    ],
+};
 
 export const privacyPage: LegalPage = {
+    paymentDisclosure,
     meta: {
         title: "Privacy | Clientbridge",
         description: "How Clientbridge collects, uses and protects personal information.",
@@ -278,7 +299,6 @@ export const privacyPage: LegalPage = {
     sections: [
         "Information we collect",
         "How we use information",
-        "Payments and Stripe",
         "Where information is stored",
         "How long we keep information",
         "Your choices and rights",
@@ -288,6 +308,7 @@ export const privacyPage: LegalPage = {
 };
 
 export const termsPage: LegalPage = {
+    paymentDisclosure,
     meta: {
         title: "Terms | Clientbridge",
         description: "The terms that apply to using Clientbridge.",

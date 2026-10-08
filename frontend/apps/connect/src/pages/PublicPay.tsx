@@ -2,7 +2,6 @@ import {
     createPublicPayClient,
     formatMoney,
     formatMoneyWithCurrency,
-    invoiceStatusIntent,
     printedPublicInvoice,
     publicDocLines,
     publicInvoiceTotals,
@@ -11,16 +10,7 @@ import {
     strings,
     usePublicPayForm,
 } from "@clientbridge/app-core/public";
-import {
-    Button,
-    CardForm,
-    Choice,
-    DocTotals,
-    Icon,
-    Notice,
-    StatusPill,
-    TextField,
-} from "@clientbridge/ui";
+import { Button, CardForm, Choice, DocTotals, Icon, Notice, TextField } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -68,7 +58,6 @@ export function PublicPay() {
         }
         form.payCard();
     };
-    const status = invoice.status === "sent" && isLate(invoice.due_at) ? "overdue" : invoice.status;
     const lines = publicDocLines(invoice.lines);
     const registration = registrationLine(invoice.gst_hst_number, invoice.qst_number);
     const doc = printedPublicInvoice(invoice, window.location.href, cssVar("accent"));
@@ -77,78 +66,103 @@ export function PublicPay() {
         <PublicDocument
             brand={invoice.brand}
             businessName={invoice.business_name}
-            contact={invoice.interac_email}
+            contact={null}
+            actions={
+                <Button
+                    variant="outline"
+                    size="sm"
+                    icon="printer"
+                    label={pp.downloadInvoice}
+                    onPress={() => {
+                        setPrinting(true);
+                    }}
+                >
+                    <span className="hidden sm:inline">{pp.downloadInvoice}</span>
+                </Button>
+            }
             footer={pp.poweredBy}
+            hero={
+                <div>
+                    <p className="text-sm font-medium text-ink-soft">
+                        {invoice.number !== null ? pp.invoiceNumber(invoice.number) : pp.invoice} ·{" "}
+                        {invoice.business_name}
+                    </p>
+                    <h1 className="mt-3 font-display text-5xl font-bold tracking-tight text-ink sm:text-6xl">
+                        <span className="sr-only">
+                            {invoice.number !== null
+                                ? pp.invoiceNumber(invoice.number)
+                                : pp.invoice}{" "}
+                        </span>
+                        {invoice.status === "paid"
+                            ? formatMoneyWithCurrency(invoice.total_cents, invoice.currency)
+                            : formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
+                    </h1>
+                    <p className="mt-3 text-sm text-ink-soft">
+                        {invoice.number !== null ? pp.invoiceNumber(invoice.number) : pp.invoice}
+                        {invoice.due_at !== null ? ` · ${pp.dueOn(shortDate(invoice.due_at))}` : ""}
+                    </p>
+                </div>
+            }
         >
-            <main className="mx-auto grid max-w-5xl gap-6 px-4 py-6 sm:px-5 sm:py-10 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
-                <article className="order-2 rounded-xl border border-line bg-surface shadow-card lg:order-1">
-                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-6 py-5">
-                        <div>
-                            <p className="text-sm text-muted">
-                                {pp.requesting(invoice.business_name)}
-                            </p>
-                            <h1 className="mt-0.5 font-display text-2xl font-bold text-ink">
+            <main className="mx-auto grid max-w-6xl gap-5 px-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+                <article className="order-2 space-y-5">
+                    <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+                        <div className="flex items-baseline justify-between gap-3 px-5 pt-5">
+                            <h2 className="font-display text-base font-bold text-ink">
+                                {pp.details}
+                            </h2>
+                            <span className="text-xs text-muted">
                                 {invoice.number !== null
                                     ? pp.invoiceNumber(invoice.number)
                                     : pp.invoice}
-                            </h1>
+                            </span>
                         </div>
-                        <StatusPill
-                            status={pp.statusLabel[status] ?? status}
-                            intent={invoiceStatusIntent(status)}
-                            asWritten
-                        />
-                    </div>
-                    <dl className="grid grid-cols-2 gap-4 border-b border-line-soft px-6 py-4 text-sm sm:grid-cols-3">
-                        <Fact label={pp.billedTo} value={invoice.client_name ?? ""} />
-                        <Fact label={pp.issued} value={shortDate(invoice.issued_at)} />
-                        <Fact label={pp.due} value={shortDate(invoice.due_at)} />
-                    </dl>
-                    <ul className="divide-y divide-line-soft px-6">
-                        {lines.map((l) => (
-                            <li
-                                key={l.id}
-                                className="flex items-start justify-between gap-4 py-3.5 text-sm"
-                            >
-                                <div className="min-w-0">
-                                    <p className="font-medium text-ink">{l.description}</p>
-                                    <p className="mt-0.5 text-xs text-muted">
-                                        {[
-                                            strings.billing.qtyTimes(
-                                                l.quantity,
-                                                formatMoney(l.unitCents),
-                                            ),
-                                            l.taxCodes.join(" + "),
-                                        ]
-                                            .filter(Boolean)
-                                            .join(" · ")}
-                                    </p>
-                                </div>
-                                <span className="font-medium tabular-nums text-ink">
-                                    {formatMoney(l.amountCents)}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                    <div className="mx-6 mb-5 mt-1 rounded-lg bg-bg px-4 py-3">
-                        <DocTotals lines={publicInvoiceTotals(invoice)} />
-                    </div>
-                    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-4 text-xs text-muted">
-                        <span>{registration}</span>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            icon="receipt"
-                            onPress={() => {
-                                setPrinting(true);
-                            }}
-                        >
-                            {pp.downloadInvoice}
-                        </Button>
-                    </footer>
+                        <ul className="divide-y divide-line-soft px-5">
+                            {lines.map((l) => (
+                                <li
+                                    key={l.id}
+                                    className="flex items-start justify-between gap-4 py-3.5 text-sm"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="font-medium text-ink">{l.description}</p>
+                                        <p className="mt-0.5 text-xs text-muted">
+                                            {[
+                                                strings.billing.qtyTimes(
+                                                    l.quantity,
+                                                    formatMoney(l.unitCents),
+                                                ),
+                                                l.taxCodes.join(" + "),
+                                            ]
+                                                .filter(Boolean)
+                                                .join(" · ")}
+                                        </p>
+                                    </div>
+                                    <span className="font-medium tabular-nums text-ink">
+                                        {formatMoney(l.amountCents)}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="mx-5 mb-5 mt-3 border-t border-line pt-3">
+                            <DocTotals lines={publicInvoiceTotals(invoice)} />
+                        </div>
+                        {registration !== "" ? (
+                            <p className="px-5 pb-5 text-xs text-muted">{registration}</p>
+                        ) : null}
+                    </section>
+                    {invoice.notes !== null ? (
+                        <section className="rounded-2xl bg-accent-weak p-5">
+                            <p className="text-xs font-semibold text-accent-strong">
+                                {strings.publicEstimate.note}
+                            </p>
+                            <p className="mt-1.5 text-sm leading-relaxed text-ink">
+                                {invoice.notes}
+                            </p>
+                        </section>
+                    ) : null}
                 </article>
 
-                <aside className="order-1 rounded-xl border border-line bg-surface p-6 shadow-card lg:sticky lg:top-6 lg:order-2">
+                <aside className="order-1 rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-7">
                     {invoice.status === "paid" ? (
                         <div className="flex flex-col items-center py-6 text-center">
                             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
@@ -163,49 +177,7 @@ export function PublicPay() {
                         </div>
                     ) : (
                         <>
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                                {pp.balanceDue}
-                            </p>
-                            <p className="mt-1 font-display text-4xl font-bold tabular-nums text-ink">
-                                {formatMoneyWithCurrency(invoice.balance_cents, invoice.currency)}
-                            </p>
-                            {invoice.due_at !== null ? (
-                                <p
-                                    className={`mt-1 text-sm ${status === "overdue" ? "font-medium text-danger" : "text-muted"}`}
-                                >
-                                    {pp.dueOn(shortDate(invoice.due_at))}
-                                </p>
-                            ) : null}
-                            {invoice.credits.length > 0 ? (
-                                <ul className="mt-4 space-y-1.5 border-t border-line-soft pt-3 text-sm">
-                                    <li className="flex justify-between gap-3 text-muted">
-                                        <span>{pp.total}</span>
-                                        <span className="tabular-nums">
-                                            {formatMoney(invoice.total_cents)}
-                                        </span>
-                                    </li>
-                                    {invoice.credits.map((c, i) => (
-                                        <li
-                                            key={String(i)}
-                                            className="flex justify-between gap-3 text-ok-fg"
-                                        >
-                                            <span className="flex items-center gap-1.5">
-                                                <Icon name="checkCircle" size={14} />
-                                                {c.kind === "deposit"
-                                                    ? pp.depositCredit
-                                                    : pp.credit(
-                                                          pp.method[c.method ?? "other"] ?? "",
-                                                          shortDate(c.at),
-                                                      )}
-                                            </span>
-                                            <span className="tabular-nums">
-                                                −{formatMoney(c.amount_cents)}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : null}
-                            <h2 className="mb-3 mt-6 text-sm font-semibold text-ink">
+                            <h2 className="mb-5 font-display text-xl font-bold text-ink">
                                 {pp.chooseHowToPay}
                             </h2>
                             <div className="space-y-4">
@@ -227,7 +199,9 @@ export function PublicPay() {
                                         form.setError(null);
                                     }}
                                 />
-                                {form.method === "card" && form.card === null ? (
+                                {form.method === "card" &&
+                                form.card === null &&
+                                form.tip.available ? (
                                     <section className="space-y-3 border-t border-line-soft pt-4">
                                         <div>
                                             <h3 className="text-sm font-semibold text-ink">
@@ -281,6 +255,7 @@ export function PublicPay() {
                                         )}
                                         busyLabel={strings.common.working}
                                         onDone={form.markPaid}
+                                        onCancel={form.cancelCard}
                                     />
                                 ) : (
                                     <Button size="lg" full onPress={runCard} busy={form.busy}>
@@ -312,18 +287,5 @@ export function PublicPay() {
                 />
             ) : null}
         </PublicDocument>
-    );
-}
-
-function isLate(due: string | null): boolean {
-    return due !== null && new Date(due).getTime() < Date.now() - 86_400_000;
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-    return (
-        <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-muted">{label}</dt>
-            <dd className="mt-1 font-medium text-ink">{value}</dd>
-        </div>
     );
 }

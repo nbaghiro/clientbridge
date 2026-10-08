@@ -14,6 +14,8 @@ import { PublicPay } from "./pages/PublicPay";
 import { PublicPreferences } from "./pages/PublicPreferences";
 import { PublicReceipt } from "./pages/PublicReceipt";
 import { PublicReview } from "./pages/PublicReview";
+import { PublicOrder } from "./pages/PublicOrder";
+import { PublicPaymentSetup } from "./pages/PublicPaymentSetup";
 import { PublicShop } from "./pages/PublicShop";
 
 // Connect: the public customer pages, where the URL token or slug is the only credential.
@@ -22,6 +24,7 @@ export function App() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/payment-method" element={<PublicPaymentSetup />} />
                 <Route path="/b/:slug" element={<PublicLanding />} />
                 <Route path="/book/:slug" element={<PublicBooking />} />
                 <Route path="/m/:token" element={<PublicManage />} />
@@ -33,7 +36,9 @@ export function App() {
                 <Route path="/contract/:token" element={<PublicContract />} />
                 <Route path="/review/:token" element={<PublicReview />} />
                 <Route path="/prefs/:token" element={<PublicPreferences />} />
+                <Route path="/order/:token" element={<PublicOrder />} />
                 <Route path="/shop/:slug" element={<PublicShop />} />
+                <Route path="/shop/:slug/checkout" element={<PublicShop />} />
                 <Route path="*" element={<NotFound />} />
             </Routes>
         </BrowserRouter>

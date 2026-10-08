@@ -5,6 +5,8 @@ import { noop, story } from "../story";
 const flow = (over: Partial<AddPaymentMethod>): AddPaymentMethod => ({
     kind: null,
     intent: null,
+    bankLink: null,
+    revokeBankLink: noop,
     busy: false,
     error: null,
     start: noop,
@@ -16,9 +18,25 @@ const flow = (over: Partial<AddPaymentMethod>): AddPaymentMethod => ({
 
 export default story<PaymentMethodFormProps>({
     component: "PaymentMethodForm",
-    summary: "Saves a card (and on web a bank account) for a client through a Stripe setup intent.",
+    summary:
+        "Saves a card (and on web a bank account) for a client through a secure payment setup.",
     controls: { allowBank: { type: "boolean" } },
     examples: [
+        {
+            key: "bank-link",
+            title: "Client authorization link",
+            props: () => ({
+                flow: flow({
+                    kind: "bank",
+                    bankLink: {
+                        id: "example",
+                        url: "https://example.test/payment-method#token=example",
+                        expires_at: "2026-10-10T12:00:00Z",
+                    },
+                }),
+                allowBank: true,
+            }),
+        },
         {
             key: "start",
             title: "Choose a method",
@@ -44,7 +62,7 @@ export default story<PaymentMethodFormProps>({
         },
         {
             key: "card-form",
-            title: "Card form (Stripe not configured in the preview)",
+            title: "Card form (payments not configured in the preview)",
             props: () => ({
                 flow: flow({
                     kind: "card",

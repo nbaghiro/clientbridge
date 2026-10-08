@@ -15,6 +15,8 @@ class ItemBase(BaseModel):
     kind: ItemKind = "service"
     name: str = Field(min_length=1)
     description: str | None = None
+    variant_parent_id: str | None = None
+    variant_label: str | None = Field(default=None, min_length=1, max_length=80)
     price_cents: int = Field(default=0, ge=0)
     currency: str = Field(default="CAD", pattern="^[A-Z]{3}$")
     duration_min: int | None = Field(default=None, ge=0)
@@ -64,6 +66,8 @@ class ItemUpdate(BaseModel):
     kind: ItemKind | None = None
     name: str | None = Field(default=None, min_length=1)
     description: str | None = None
+    variant_parent_id: str | None = None
+    variant_label: str | None = Field(default=None, min_length=1, max_length=80)
     price_cents: int | None = Field(default=None, ge=0)
     currency: str | None = Field(default=None, pattern="^[A-Z]{3}$")
     duration_min: int | None = Field(default=None, ge=0)

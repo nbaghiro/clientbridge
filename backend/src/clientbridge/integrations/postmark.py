@@ -26,7 +26,7 @@ class ConsoleEmailSender:
         return None
 
 
-class PostmarkEmailSender:  # pragma: no cover - real Postmark, faked in tests
+class PostmarkEmailSender:
     def __init__(self, server_token: str, from_address: str) -> None:
         self._token = server_token
         self._from = from_address
@@ -43,7 +43,8 @@ class PostmarkEmailSender:  # pragma: no cover - real Postmark, faked in tests
         }
         headers = {"X-Postmark-Server-Token": self._token, "Accept": "application/json"}
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(_POSTMARK_URL, json=payload, headers=headers)
+            response = await client.post(_POSTMARK_URL, json=payload, headers=headers)
+            response.raise_for_status()
 
 
 def get_email_sender() -> EmailSender:

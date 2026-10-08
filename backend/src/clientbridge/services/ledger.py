@@ -114,6 +114,7 @@ async def reverse(
     ref: str,
     event: str = "reversal",
     meta: dict[str, object] | None = None,
+    occurred_at: datetime | None = None,
 ) -> str | None:
     """Post the exact negation of a journal (the only way to correct the ledger)."""
     rows = await _rows(db, business_id, Entry.journal_id == journal_id)
@@ -142,6 +143,7 @@ async def reverse(
         currency=first.currency,
         source=("journal", journal_id),
         meta=meta,
+        occurred_at=occurred_at,
     )
 
 
@@ -516,7 +518,12 @@ async def _settlement(db: AsyncSession, payment: Payment) -> tuple[tuple[str, st
     ).scalar_one_or_none()
     if package is not None:
         item = await db.get(Item, package.item_id)
-        tax = await tax_for_amount(db, biz, item.price_cents if item is not None else amount)
+        tax = await tax_for_amount(
+            db,
+            biz,
+            item.price_cents if item is not None else amount,
+            tax_class=item.tax_class if item is not None else "standard",
+        )
         return ("package", package.id), [
             Leg("package", package.id, "deferred", -(amount - tax.tax_total_cents)),
             *_tax_legs(biz, tax),
@@ -748,7 +755,13 @@ async def post_refund(
 
 
 async def post_dispute(
-    db: AsyncSession, payment: Payment, *, dispute_id: str, amount: int, fee: int
+    db: AsyncSession,
+    payment: Payment,
+    *,
+    dispute_id: str,
+    amount: int,
+    fee: int,
+    occurred_at: datetime | None = None,
 ) -> None:
     """Stripe pulls the disputed funds (+ its fee); the payer owes them back until it's won."""
     biz = payment.business_id
@@ -765,6 +778,7 @@ async def post_dispute(
         currency=payment.currency,
         source=("payment", payment.id),
         subject=subject,
+        occurred_at=occurred_at,
     )
     await post(
         db,
@@ -778,6 +792,7 @@ async def post_dispute(
         currency=payment.currency,
         source=("payment", payment.id),
         subject=subject,
+        occurred_at=occurred_at,
     )
 
 
@@ -812,10 +827,14 @@ async def post_payout(
     )
 
 
-async def fail_payout(db: AsyncSession, business_id: str, payout_id: str) -> None:
+async def fail_payout(
+    db: AsyncSession, business_id: str, payout_id: str, *, occurred_at: datetime | None = None
+) -> None:
     journal = await journal_for(db, business_id, f"payout:{payout_id}")
     if journal is not None:
-        await reverse(db, business_id, journal, ref=f"payout:{payout_id}:failed")
+        await reverse(
+            db, business_id, journal, ref=f"payout:{payout_id}:failed", occurred_at=occurred_at
+        )
 
 
 async def gift_card_balance(db: AsyncSession, card: GiftCard) -> int:
@@ -889,8 +908,23 @@ async def sessions_used(db: AsyncSession, package: Package) -> int:
     return int(used.scalar_one())
 
 
-async def post_consumption(db: AsyncSession, package: Package) -> None:
+async def post_consumption(
+    db: AsyncSession,
+    package: Package,
+    *,
+    occurred_at: datetime | None = None,
+    booking_id: str | None = None,
+) -> None:
     """Recognize one used session's share of prepaid package revenue (the last takes the rest)."""
+    if booking_id is not None:
+        booking = await db.get(Booking, booking_id)
+        if booking is None or (
+            booking.business_id,
+            booking.client_id,
+            booking.package_id,
+            booking.status,
+        ) != (package.business_id, package.client_id, package.id, "completed"):
+            raise ValueError("package consumption needs its completed owned booking")
     biz = package.business_id
     used = await sessions_used(db, package) + 1
     remaining, currency = await _owned(db, biz, "package", package.id, "deferred")
@@ -909,7 +943,9 @@ async def post_consumption(db: AsyncSession, package: Package) -> None:
         db,
         biz,
         event="consumption",
-        ref=f"consumption:{package.id}:{used}",
+        ref=f"consumption:{package.id}:booking:{booking_id}"
+        if booking_id
+        else f"consumption:{package.id}:{used}",
         legs=[
             Leg("package", package.id, "deferred", share),
             Leg("business", biz, "revenue", -share),
@@ -917,6 +953,8 @@ async def post_consumption(db: AsyncSession, package: Package) -> None:
         currency=currency,
         subject=("package", package.id),
         keep_zero=True,
+        occurred_at=occurred_at,
+        source=("booking", booking_id) if booking_id else None,
     )
 
 

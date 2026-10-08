@@ -7,7 +7,7 @@ import { formatMoney, initials } from "../format";
 import { useAsyncAction, useLoad, useRemote } from "../hooks";
 import { strings } from "../strings";
 import type { Intent } from "../ui";
-import { bookingPageUrl } from "./business";
+import { bookingPageUrl, useSetupProgress } from "./business";
 import { useReplicaLoad } from "./sync";
 
 const s = strings.onlineBooking;
@@ -166,6 +166,7 @@ function useCopied(write?: (text: string) => void): {
 /** Everything on the Online booking page: link, embed, what and who is bookable, and the rules. */
 export function useOnlineBookingSettings(api: ApiLike, bookBase: string, links: PageLinks = {}) {
     const d = useOnlineDraft(api);
+    const business = useSetupProgress();
     const { copied, copy } = useCopied(links.copy);
     const out = d.remote.data;
     const link = out ? bookingPageUrl(bookBase, out.slug) : "";
@@ -242,6 +243,7 @@ export function useOnlineBookingSettings(api: ApiLike, bookBase: string, links: 
         previewServices: bookable.slice(0, 6),
         previewMore: Math.max(0, bookable.length - 6),
         businessName: out?.business_name ?? "",
+        businessAvatarFileId: business.avatarFileId,
         dirty: d.dirty,
         discard: d.discard,
         save: () => {

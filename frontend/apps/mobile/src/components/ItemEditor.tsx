@@ -23,6 +23,7 @@ import {
     DurationBar,
     ItemImage,
     Notice,
+    Select,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
@@ -308,6 +309,25 @@ function ProductFields({ ed, item }: { ed: ProductEditor; item: ItemRow | null }
                 {ed.sold30 > 0 ? <Text style={styles.hint}>{s.sold30(ed.sold30)}</Text> : null}
             </DetailSection>
             <DetailSection title={s.sectionShop}>
+                <Select
+                    label={s.variantParent}
+                    value={v.variantParentId ?? ""}
+                    options={ed.parentOptions}
+                    onChange={(value) => {
+                        set("variantParentId", value);
+                    }}
+                />
+                {v.variantParentId ? (
+                    <TextField
+                        label={s.variantLabel}
+                        hint={s.variantHint}
+                        value={v.variantLabel ?? ""}
+                        onChange={(value) => {
+                            set("variantLabel", value);
+                        }}
+                        maxLength={80}
+                    />
+                ) : null}
                 <Toggle
                     label={s.sellOnline}
                     hint={s.sellOnlineHint}

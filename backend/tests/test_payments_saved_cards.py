@@ -27,7 +27,7 @@ async def test_setup_intent_returns_client_secret(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db)
-    cid = await client_id(db)
+    cid = await new_client(db)
     res = await as_owner.post(f"/v1/payments/setup-intent/{cid}")
     assert res.status_code == 200, res.text
     body = res.json()
@@ -44,9 +44,10 @@ async def test_setup_without_stripe_keys_is_a_clean_503_with_cors(
 ) -> None:
     await enable_payments(db)
     app.dependency_overrides[get_payment_gateway] = lambda: StripeGateway("", "", "CA")
-    cid = await client_id(db)
+    cid = await new_client(db)
+    await db.commit()
     origin = {"Origin": "http://localhost:8700"}
-    for path in ("setup-intent", "pad-setup-intent"):
+    for path in ("setup-intent", "pad-links"):
         res = await as_owner.post(f"/v1/payments/{path}/{cid}", headers=origin)
         assert res.status_code == 503, res.text
         assert res.json()["error"] == "payments_not_configured"

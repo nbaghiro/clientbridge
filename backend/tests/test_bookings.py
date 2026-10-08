@@ -2,10 +2,11 @@ import json
 from datetime import UTC, date, datetime, time, timedelta
 
 import httpx
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment, PaymentMethod
@@ -485,7 +486,7 @@ async def _deposit_booking(
     )
     db.add(item)
     await db.flush()
-    # ST_PRIYA has no hours rows, so these tests don't depend on the business's working hours
+    await db.execute(delete(Hours).where(Hours.staff_id == ST_PRIYA))
     res = await api.post("/v1/bookings", json=_body(client_id, item.id, starts, ST_PRIYA))
     assert res.status_code == 201, res.text
     return str(res.json()["id"])
@@ -593,7 +594,12 @@ async def test_collect_deposit_idempotent_replays(
 async def test_collect_deposit_not_onboarded_409(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    bid = await _deposit_booking(as_owner, db, starts="2027-06-06T10:00:00Z")  # no _enable_payments
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_account_id = None
+    business.stripe_charges_enabled = False
+    await db.commit()
+    bid = await _deposit_booking(as_owner, db, starts="2027-06-06T10:00:00Z")
     res = await as_owner.post(f"/v1/bookings/{bid}/deposit")
     assert res.status_code == 409
 

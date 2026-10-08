@@ -8,12 +8,14 @@ import {
     useDisputes,
     useRefundComposer,
     useRefundDesk,
+    usePaymentAccount,
 } from "@clientbridge/app-core";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import {
     ActivityTimeline,
     Button,
+    PaymentAccount,
     Choice,
     DetailSection,
     DetailView,
@@ -44,12 +46,15 @@ export function Refunds({ openId }: { openId?: string | undefined }) {
     const [tab, setTab] = useState<Tab>("payments");
     const desk = useRefundDesk();
     const disputes = useDisputes();
+    const account = usePaymentAccount(api);
     const { select } = desk;
     useEffect(() => {
         if (openId === undefined) return;
         setTab("payments");
         select(openId);
     }, [openId, select]);
+
+    if (account.props !== null) return <PaymentAccount {...account.props} />;
 
     return (
         <View style={styles.screen}>
@@ -67,7 +72,21 @@ export function Refunds({ openId }: { openId?: string | undefined }) {
             <ScrollView contentContainerStyle={styles.page}>
                 {tab === "payments" ? <PaymentsList desk={desk} /> : null}
                 {tab === "notes" ? <CreditNotes refunds={desk.refunds} /> : null}
-                {tab === "disputes" ? <Disputes desk={disputes} /> : null}
+                {tab === "disputes" ? (
+                    <>
+                        <Button
+                            disabled={!account.ready}
+                            icon="shield"
+                            variant="outline"
+                            onPress={() => {
+                                account.open("payments");
+                            }}
+                        >
+                            {strings.paymentAccount.manageDisputes}
+                        </Button>
+                        <Disputes desk={disputes} />
+                    </>
+                ) : null}
             </ScrollView>
             {tab === "payments" && desk.selected !== null ? (
                 <Composer
@@ -304,7 +323,9 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                     </Notice>
                     <KeyValueList rows={sel.facts} />
                     <DocTotals lines={sel.held} density="compact" />
-                    {sel.open ? <Notice tone="info">{s.evidenceInStripe}</Notice> : null}
+                    {sel.open ? (
+                        <Notice tone="info">{strings.paymentAccount.disputeHelp}</Notice>
+                    ) : null}
                 </DetailView>
             ) : null}
         </>

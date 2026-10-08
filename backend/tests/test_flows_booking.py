@@ -145,7 +145,7 @@ async def test_no_show_forfeits_the_deposit(as_owner: httpx.AsyncClient, db: Asy
                 "client_id": AMELIE,
                 "item_id": item["id"],
                 "staff_id": "st_priya",
-                "starts_at": "2027-06-08T10:00:00Z",
+                "starts_at": "2027-06-08T18:00:00Z",
             },
         ),
         201,

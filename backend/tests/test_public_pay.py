@@ -89,7 +89,10 @@ async def test_public_pay_interac_creates_pending(api: httpx.AsyncClient, db: As
 async def test_public_pay_card_requires_charges_enabled(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    _, token = await _sent_invoice(db)  # seed business has no Stripe account
+    await db.execute(
+        update(Business).where(Business.id == BIZ).values(stripe_charges_enabled=False)
+    )
+    _, token = await _sent_invoice(db)
     assert (await api.post(f"/pay/{token}/card")).status_code == 409
 
 
@@ -155,7 +158,19 @@ async def _card_ready_invoice(db: AsyncSession) -> tuple[str, str]:
         .where(Business.id == BIZ)
         .values(stripe_account_id="acct_pub", stripe_charges_enabled=True)
     )
-    return await _sent_invoice(db)
+    invoice_id, token = await _sent_invoice(db)
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            invoice_id=invoice_id,
+            description="Groom",
+            unit_amount_cents=8000,
+            amount_cents=8000,
+        )
+    )
+    await db.flush()
+    return invoice_id, token
 
 
 def _intent_event(event_type: str, pi: str) -> str:
@@ -300,3 +315,15 @@ async def test_public_invoice_names_who_a_tip_goes_to(
         )
     ).json()
     assert (await as_owner.get(f"/pay/{plain['pay_token']}")).json()["tip_for"] == []
+
+
+async def test_retail_only_invoice_does_not_accept_tip(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    invoice_id, token = await _card_ready_invoice(db)
+    await db.execute(update(Line).where(Line.invoice_id == invoice_id).values(item_id="it_shampoo"))
+    response = await api.get(f"/pay/{token}")
+    assert response.json()["tip_base_cents"] == 0
+    response = await api.post(f"/pay/{token}/card", json={"tip_cents": 500})
+    assert response.status_code == 422
+    assert (await api.post(f"/pay/{token}/card")).status_code == 200

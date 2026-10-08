@@ -19,6 +19,7 @@ from clientbridge.services.forms import run_intake_forms
 from clientbridge.services.ledger import run_reconcile_ledger
 from clientbridge.services.messaging import run_due_broadcasts
 from clientbridge.services.notifications import Notifier, run_prune_devices
+from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_orders
 from clientbridge.services.reviews import run_review_requests
 
 Context = dict[str, object]
@@ -73,6 +74,16 @@ async def send_intake_forms(ctx: Context) -> int:
         return await run_intake_forms(db, _notifier(), datetime.now(UTC))
 
 
+async def send_pickup_reminders(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_pickup_reminders(db, _notifier(), datetime.now(UTC))
+
+
+async def reap_unpaid_orders(ctx: Context) -> int:
+    async with SessionLocal() as db:
+        return await run_reap_unpaid_orders(db, get_payment_gateway(), datetime.now(UTC))
+
+
 class WorkerSettings:
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     functions: ClassVar[list[object]] = []
@@ -85,5 +96,7 @@ class WorkerSettings:
         cron(prune_devices, hour=3, minute=30),
         cron(reconcile_ledger, hour=4, minute=0),
         cron(send_review_requests, hour=8, minute=0),
+        cron(send_pickup_reminders, hour=9, minute=0),
+        cron(reap_unpaid_orders, minute={5, 20, 35, 50}),
         cron(send_intake_forms, minute={10, 25, 40, 55}),
     ]

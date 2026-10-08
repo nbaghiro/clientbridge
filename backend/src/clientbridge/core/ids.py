@@ -27,6 +27,7 @@ PREFIXES: dict[str, str] = {
     "line": "ln",
     "payment": "pay",
     "payment_method": "pm",
+    "payment_setup_link": "psl",
     "account": "acc",
     "entry": "ent",
     "journal": "jrn",
@@ -46,6 +47,7 @@ PREFIXES: dict[str, str] = {
     "idempotency_key": "idk",
     "auth_session": "ase",
     "auth_token": "atk",
+    "returning_challenge": "rtc",
 }
 
 

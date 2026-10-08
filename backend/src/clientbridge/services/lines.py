@@ -12,6 +12,7 @@ from clientbridge.core.scoping import scoped, scoped_delete
 from clientbridge.models.billing import Discounted, Estimate, Invoice, Line, Order
 from clientbridge.models.business import Staff
 from clientbridge.models.catalog import ENTITLEMENT_KINDS, Item
+from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.billing import DiscountIn, LineInput, LineOut
 from clientbridge.services.tax import TaxResult
 
@@ -105,6 +106,7 @@ async def replace_lines(
     await db.execute(scoped_delete(Line, business_id).where(parent_fk(parent) == parent_id))
     items = await _line_items(db, business_id, inputs)
     await _assert_staff(db, business_id, {inp.staff_id for inp in inputs if inp.staff_id})
+    await _assert_bookings(db, business_id, {inp.booking_id for inp in inputs if inp.booking_id})
     lines: list[Line] = []
     for i, inp in enumerate(inputs):
         item = items.get(inp.item_id) if inp.item_id else None
@@ -141,6 +143,18 @@ async def _assert_staff(db: AsyncSession, business_id: str, ids: set[str]) -> No
     )
     if len(set(rows.scalars().all())) != len(ids):
         raise NotFound("staff member not found")
+
+
+async def _assert_bookings(db: AsyncSession, business_id: str, ids: set[str]) -> None:
+    if not ids:
+        return
+    rows = await db.execute(
+        scoped(Booking, business_id, soft_delete=True)
+        .with_only_columns(Booking.id)
+        .where(Booking.id.in_(ids))
+    )
+    if len(set(rows.scalars().all())) != len(ids):
+        raise NotFound("booking not found")
 
 
 async def _line_items(

@@ -1,3 +1,4 @@
+import { apiUrl as apiBaseUrl } from "../lib/config";
 import {
     type DocDraft,
     type DocTerms,
@@ -45,7 +46,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const form = useDocComposer(api, kind, draft);
     const [preview, setPreview] = useState(false);
     const [discounting, setDiscounting] = useState<string | null>(null);

@@ -28,11 +28,14 @@ from clientbridge.integrations.s3 import FileStorage, get_file_storage
 from clientbridge.integrations.stripe import (
     ChargeFees,
     ConnectAccount,
+    ConnectComponent,
     GatewayEvent,
+    MandateState,
     PaymentGateway,
     PaymentIntentResult,
     RefundResult,
     SetupIntentResult,
+    SetupIntentState,
     SubscriptionResult,
     WebhookVerificationError,
     get_payment_gateway,
@@ -150,13 +153,20 @@ class FakeOAuthVerifier:
 
 
 class FakePaymentGateway:
+    refund_status: str = "succeeded"
+
     def __init__(self) -> None:
+        self.account_sessions: list[tuple[str, ConnectComponent]] = []
         self.created_accounts: list[str] = []
         self.detached: list[str] = []
         self.created_prices: list[str] = []
         self.created_price_amounts: list[int] = []  # unit_amount per created Price
         self.created_subscriptions: list[str] = []
         self.canceled_subscriptions: list[str] = []
+        self.pad_enabled = True
+        self.pad_intents: dict[str, SetupIntentState] = {}
+        self.pad_keys: dict[str, str] = {}
+        self.mandates: dict[str, MandateState] = {}
         self._seq = 0
         self._intents: dict[str, PaymentIntentResult] = {}  # honor Stripe idempotency keys
         self._subs: dict[str, SubscriptionResult] = {}  # honor subscription idempotency keys
@@ -170,7 +180,12 @@ class FakePaymentGateway:
         self.confirmed: set[str] = set()  # intents the payer already confirmed, so uncancelable
 
     async def create_connected_account(
-        self, *, business_name: str, email: str | None, url: str | None = None
+        self,
+        *,
+        business_name: str,
+        email: str | None,
+        url: str | None = None,
+        idempotency_key: str | None = None,
     ) -> str:
         self._seq += 1
         acct = f"acct_fake{self._seq}"
@@ -181,6 +196,10 @@ class FakePaymentGateway:
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str:
         return f"https://connect.stripe.test/{account_id}"
+
+    async def create_account_session(self, account_id: str, component: ConnectComponent) -> str:
+        self.account_sessions.append((account_id, component))
+        return f"session_secret_{len(self.account_sessions)}"
 
     async def get_account(self, account_id: str) -> ConnectAccount:
         # a freshly-created account: nothing submitted, Stripe wants the hosted KYC details
@@ -218,11 +237,33 @@ class FakePaymentGateway:
         return SetupIntentResult(id=sid, client_secret=f"{sid}_secret")
 
     async def create_pad_setup_intent(
-        self, account_id: str, *, customer_id: str
+        self, account_id: str, *, customer_id: str, idempotency_key: str, email: str | None = None
     ) -> SetupIntentResult:
+        if idempotency_key in self.pad_keys:
+            state = self.pad_intents[self.pad_keys[idempotency_key]]
+            return SetupIntentResult(id=state.id, client_secret=state.client_secret)
         self._seq += 1
         sid = f"seti_pad_fake{self._seq}"
+        self.pad_keys[idempotency_key] = sid
+        self.pad_intents[sid] = SetupIntentState(
+            id=sid,
+            client_secret=f"{sid}_secret",
+            status="requires_payment_method",
+            customer_id=customer_id,
+            payment_method=None,
+            mandate_id=None,
+        )
         return SetupIntentResult(id=sid, client_secret=f"{sid}_secret")
+
+    async def ensure_pad_capability(self, account_id: str) -> None:
+        if not self.pad_enabled:
+            raise Conflict("complete Canadian pre-authorized debit setup")
+
+    async def get_setup_intent(self, account_id: str, setup_intent_id: str) -> SetupIntentState:
+        return self.pad_intents[setup_intent_id]
+
+    async def get_mandate(self, account_id: str, mandate_id: str) -> MandateState:
+        return self.mandates[mandate_id]
 
     async def create_price(
         self,
@@ -305,7 +346,7 @@ class FakePaymentGateway:
         self, account_id: str, *, payment_intent_id: str, amount_cents: int, idempotency_key: str
     ) -> RefundResult:
         self._seq += 1
-        return RefundResult(id=f"re_fake{self._seq}", status="succeeded")
+        return RefundResult(id=f"re_fake{self._seq}", status=self.refund_status)
 
     async def detach_payment_method(self, account_id: str, *, payment_method_id: str) -> None:
         self.detached.append(payment_method_id)
@@ -403,7 +444,7 @@ def _bearer(user_id: str) -> dict[str, str]:
 
 @pytest.fixture
 def as_owner(api: httpx.AsyncClient) -> httpx.AsyncClient:
-    api.headers.update(_bearer(OWNER_USER))
+    api.headers.update({**_bearer(OWNER_USER), "X-Business-Id": BIZ})
     return api
 
 

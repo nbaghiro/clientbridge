@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { App } from "./App";
 import { LINE_ICON_NAMES } from "./art/LineIcon";
 import { BRANDS } from "./content/brands";
-import { invoices, today } from "./content/demo";
+import { calendar, invoices, tapToPay, today } from "./content/demo";
+import { demoSnapshot } from "./content/demo-snapshot";
 import { PHOTOS } from "./content/photos";
 import { TRADES } from "./content/trades";
 import { NOT_FOUND, ROUTES, routeFor } from "./routes";
@@ -65,14 +66,65 @@ describe("pages", () => {
 });
 
 describe("demo figures", () => {
-    it("agree between the activity list and the invoice list", () => {
-        const totals = new Map<string, string[]>();
-        for (const inv of invoices)
-            totals.set(inv.client, [...(totals.get(inv.client) ?? []), inv.total]);
+    const money = (cents: number) =>
+        new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100);
+
+    it("uses a versioned snapshot with genuine payment amounts", () => {
+        expect(demoSnapshot.version).toMatch(/^\d{4}-\d{2}-\d{2}/);
+        expect(Number.isNaN(Date.parse(demoSnapshot.asOf))).toBe(false);
+        expect(invoices.length).toBeGreaterThan(0);
+        expect(new Set(invoices.map((invoice) => invoice.number)).size).toBe(invoices.length);
+        expect(today.activity.length).toBeGreaterThan(0);
         for (const row of today.activity) {
-            const mine = totals.get(row.who);
-            if (mine === undefined || row.what === "Deposit received") continue;
-            expect(mine, row.who).toContain(row.amount.replace(" CAD", ""));
+            expect(row.paymentId).toMatch(/^pay_/);
+            expect(row.amountCents).toBeGreaterThan(0);
+            expect(row.amount).toBe(`${money(row.amountCents)} CAD`);
+            expect(row.who.trim()).not.toBe("");
         }
+    });
+
+    it("places actual compatible bookings within the calendar viewport", () => {
+        expect(calendar.days).toHaveLength(5);
+        expect(calendar.hours).toHaveLength(6);
+        expect(calendar.events.length).toBeGreaterThan(0);
+        expect(new Set(calendar.events.map((event) => event.bookingId)).size).toBe(
+            calendar.events.length,
+        );
+        for (const event of calendar.events) {
+            expect(event.date).toBe(calendar.days.at(event.day)?.iso);
+            expect(event.top).toBe(Math.round(((event.startMinute - 540) * 44) / 60) + 4);
+            expect(event.height).toBe(Math.round((event.durationMinutes * 44) / 60) - 4);
+            expect(event.top).toBeGreaterThanOrEqual(0);
+            expect(event.top + event.height).toBeLessThanOrEqual(264);
+            if (["it_cat"].includes(event.itemId)) expect(event.species).toBe("cat");
+            if (["it_groom_sm", "it_groom_lg"].includes(event.itemId))
+                expect(event.species).toBe("dog");
+        }
+        for (const day of calendar.days) {
+            const weekday = new Date(`${day.iso}T12:00:00Z`)
+                .toLocaleDateString("en-CA", { weekday: "short", timeZone: "UTC" })
+                .toUpperCase();
+            expect(day.label).toBe(weekday);
+        }
+        for (let day = 0; day < calendar.days.length; day += 1) {
+            const events = calendar.events
+                .filter((event) => event.day === day)
+                .sort((a, b) => a.top - b.top);
+            for (let index = 1; index < events.length; index += 1) {
+                const previous = events[index - 1];
+                const current = events[index];
+                if (previous !== undefined && current !== undefined)
+                    expect(previous.top + previous.height).toBeLessThanOrEqual(current.top);
+            }
+        }
+    });
+
+    it("derives the tap amount and tax from the selected catalog service", () => {
+        expect(tapToPay.itemId).toBe("it_groom_sm");
+        expect(tapToPay.totalCents).toBe(tapToPay.subtotalCents + tapToPay.taxCents);
+        expect(tapToPay.amount).toBe(money(tapToPay.totalCents));
+        expect(tapToPay.tax).toContain(money(tapToPay.taxCents));
+        expect(tapToPay.tax).toContain("GST");
+        expect(tapToPay.tax).not.toContain("PST");
     });
 });

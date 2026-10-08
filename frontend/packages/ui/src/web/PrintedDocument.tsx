@@ -7,6 +7,7 @@ import {
     type PrintedDocTax,
 } from "@clientbridge/app-core/public";
 
+import { Avatar } from "./Avatar";
 import { DocTotals } from "./DocTotals";
 import { PayCode } from "./PayCode";
 import { type WebProps, cx } from "./props";
@@ -17,13 +18,7 @@ function BrandBlock({ doc, inverse = false }: { doc: Doc; inverse?: boolean }) {
     const b = doc.business;
     return (
         <div className="flex items-center gap-3">
-            <span
-                aria-hidden
-                style={inverse ? { color: b.brandColor } : { backgroundColor: b.brandColor }}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md font-display text-sm font-bold ${inverse ? "bg-surface" : "text-on-data"}`}
-            >
-                {b.initials}
-            </span>
+            <Avatar name={b.name} src={b.avatarUrl} color={b.brandColor} size="lg" />
             <div>
                 <p
                     className={`font-display text-[15px] font-bold leading-tight ${inverse ? "text-on-data" : "text-ink"}`}

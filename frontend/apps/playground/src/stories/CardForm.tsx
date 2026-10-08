@@ -5,7 +5,7 @@ import { noop, story } from "../story";
 export default story<CardFormProps>({
     component: "CardForm",
     summary:
-        "Card entry that confirms a charge or saves a card; Stripe isn't set up here, so it shows its fallback.",
+        "Card entry that confirms a charge or saves a card; payment processing isn't set up here, so it shows its fallback.",
     controls: {
         submitLabel: { type: "text" },
         mode: { type: "select", options: ["payment", "setup"] },

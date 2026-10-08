@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
@@ -180,7 +181,12 @@ async def test_purchase_by_item_uses_item_price(
     assert await ledger.gift_card_balance(db, card) == 0
 
 
-async def test_purchase_not_onboarded_409(as_owner: httpx.AsyncClient) -> None:
+async def test_purchase_not_onboarded_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_account_id = None
+    business.stripe_charges_enabled = False
+    await db.flush()
     res = await as_owner.post(
         "/v1/gift-cards", json={"amount_cents": 5000, "purchaser_client_id": PURCHASER}
     )

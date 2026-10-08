@@ -1,13 +1,13 @@
-import { strings, useBusinessId } from "@clientbridge/app-core";
+import { strings, useBusinessLoad } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { PowerSyncContext, useStatus } from "@powersync/react";
+import { PowerSyncContext } from "@powersync/react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { ConfirmHost, configureStripe, Loading } from "@clientbridge/ui";
+import { ConfirmHost, configureStripe, LoadFailed, Loading } from "@clientbridge/ui";
 
 import { StripeAppProvider } from "./src/components/Stripe";
 import { TabBar } from "./src/components/TabBar";
@@ -62,7 +62,7 @@ function Tabs() {
             <Tab.Screen name="Today" component={TodayScreen} />
             <Tab.Screen name="Schedule" component={ScheduleScreen} />
             <Tab.Screen name="Clients" component={ClientsScreen} />
-            <Tab.Screen name="Payments" component={PaymentsScreen} />
+            <Tab.Screen name="Inbox" component={InboxScreen} />
         </Tab.Navigator>
     );
 }
@@ -133,20 +133,19 @@ function Root() {
     );
 }
 
-/** Holds a fresh sign-up in onboarding until their business has synced. */
 function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
-    const hasSynced = useStatus().hasSynced ?? false;
-    const businessId = useBusinessId();
-
-    if (businessId === null) {
-        if (!hasSynced) {
-            return (
-                <View style={styles.boot}>
+    const business = useBusinessLoad();
+    if (!business.ready) {
+        if (business.state === "empty") return <OnboardingScreen onSignOut={onSignOut} />;
+        return (
+            <View style={styles.boot}>
+                {business.state === "error" ? (
+                    <LoadFailed onRetry={business.retry} retrying={business.retrying} />
+                ) : (
                     <Loading />
-                </View>
-            );
-        }
-        return <OnboardingScreen onSignOut={onSignOut} />;
+                )}
+            </View>
+        );
     }
 
     return (
@@ -167,9 +166,9 @@ function AuthedApp({ onSignOut }: { onSignOut: () => void }) {
                             }}
                         >
                             <RootStack.Screen
-                                name="Inbox"
-                                component={InboxScreen}
-                                options={{ title: strings.navigation.inbox }}
+                                name="Payments"
+                                component={PaymentsScreen}
+                                options={{ title: strings.navigation.payments }}
                             />
                             <RootStack.Screen
                                 name="Setup"

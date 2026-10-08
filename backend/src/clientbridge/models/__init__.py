@@ -11,6 +11,7 @@ from clientbridge.models import (
     messaging,
     payments,
     platform,
+    returning,
     reviews,
     scheduling,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "messaging",
     "payments",
     "platform",
+    "returning",
     "reviews",
     "scheduling",
 ]

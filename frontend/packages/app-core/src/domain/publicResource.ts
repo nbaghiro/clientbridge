@@ -68,6 +68,7 @@ export function usePublicResource<T>(
 
 /** Pre-validated by the server: `primary` is a hex colour and `logo_url` an http(s) URL. */
 export interface PublicBrand {
+    avatar_url?: string | null;
     logo_url: string | null;
     primary: string | null;
     tagline: string | null;

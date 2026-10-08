@@ -19,3 +19,7 @@ export function stripeAccount(): string {
 export function stripeConfigured(): boolean {
     return publishableKey !== "";
 }
+
+export function stripePublishableKey(): string {
+    return publishableKey;
+}

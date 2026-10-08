@@ -225,6 +225,7 @@ export function usePublicEstimatePage(
                 },
                 {
                     name: data.business_name,
+                    avatarUrl: data.brand.avatar_url ?? data.brand.logo_url,
                     tagline: data.brand.tagline,
                     brandColor: data.brand.primary,
                     email: data.contact_email,

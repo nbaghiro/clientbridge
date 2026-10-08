@@ -53,7 +53,8 @@ describe("the pickup queue", () => {
     ];
 
     it("moves an order forward only", () => {
-        expect(nextPickupStatus("unfulfilled")).toBe("ready");
+        expect(nextPickupStatus("unfulfilled")).toBe("preparing");
+        expect(nextPickupStatus("preparing")).toBe("ready");
         expect(nextPickupStatus("ready")).toBe("picked_up");
         expect(nextPickupStatus("picked_up")).toBeNull();
     });

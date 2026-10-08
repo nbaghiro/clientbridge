@@ -39,15 +39,20 @@ export function useConnectionToken(api: ApiLike): () => Promise<string> {
 }
 
 // A paid online order moves unfulfilled -> ready -> picked_up; cancelling is a refund, not a status.
-type PickupStatus = "unfulfilled" | "ready" | "picked_up";
+type PickupStatus = "unfulfilled" | "preparing" | "ready" | "picked_up";
 
-const PICKUP_FLOW: PickupStatus[] = ["unfulfilled", "ready", "picked_up"];
+const PICKUP_FLOW: PickupStatus[] = ["unfulfilled", "preparing", "ready", "picked_up"];
 
 const STATUS: Record<PickupStatus, { label: string; intent: Intent; empty: string }> = {
     unfulfilled: {
         label: strings.pos.pickup.toPack,
         intent: "warning",
         empty: strings.pos.pickup.emptyToPack,
+    },
+    preparing: {
+        label: strings.publicOrder.preparing,
+        intent: "accent",
+        empty: strings.publicOrder.emptyPreparing,
     },
     ready: {
         label: strings.pos.pickup.ready,
@@ -62,7 +67,13 @@ const STATUS: Record<PickupStatus, { label: string; intent: Intent; empty: strin
 };
 
 export function nextPickupStatus(s: PickupStatus): PickupStatus | null {
-    return s === "unfulfilled" ? "ready" : s === "ready" ? "picked_up" : null;
+    return s === "unfulfilled"
+        ? "preparing"
+        : s === "preparing"
+          ? "ready"
+          : s === "ready"
+            ? "picked_up"
+            : null;
 }
 
 /** The client is told when an order is ready; nothing is sent when it is picked up. */
@@ -76,7 +87,7 @@ function setPickupStatus(
 
 export const PICKUP_ORDERS_SQL = `
 SELECT o.id, o.number, o.client_id, c.name AS client_name, c.phone, c.email, o.pickup_status,
-       o.total_cents, o.created_at, o.ready_at, o.picked_up_at
+       o.total_cents, o.created_at, o.ready_at, o.picked_up_at, o.pickup_from, o.pickup_to, o.note, o.notify_sms
 FROM orders o LEFT JOIN clients c ON c.id = o.client_id
 WHERE o.source = 'online' AND o.pickup_status IS NOT NULL
 ORDER BY o.created_at DESC`;
@@ -89,6 +100,10 @@ WHERE o.source = 'online' AND o.pickup_status IS NOT NULL
 ORDER BY l.order_id, l.position`;
 
 interface PickupRow {
+    pickup_from?: string | null;
+    pickup_to?: string | null;
+    note?: string | null;
+    notify_sms?: number;
     id: string;
     number?: number | null;
     client_id: string | null;
@@ -122,6 +137,7 @@ interface PickupLine {
 }
 
 interface PickupOrder {
+    note: string | null;
     id: string;
     number: string;
     clientId: string | null;
@@ -153,6 +169,15 @@ export function pickupOrder(row: PickupRow, lines: PickupLineRow[], now: Date): 
         clientId: row.client_id,
         clientName: row.client_name ?? p.guest,
         status,
+        note:
+            [
+                row.pickup_from
+                    ? `${strings.publicShop.pickupWindow}: ${relativeDayTime(parseTimestamp(row.pickup_from), now)}`
+                    : null,
+                row.note,
+            ]
+                .filter(Boolean)
+                .join(" · ") || null,
         statusLabel: STATUS[status].label,
         intent: STATUS[status].intent,
         lines: mine.map((l) => ({
@@ -1478,7 +1503,8 @@ export function useFrontDeskBoard(
     const pickups: BoardCard[] = queue.all
         .filter((o) => o.status !== "picked_up")
         .map((o) => {
-            const column: BoardColumn = o.status === "unfulfilled" ? "prepare" : "ready";
+            const column: BoardColumn =
+                o.status === "unfulfilled" || o.status === "preparing" ? "prepare" : "ready";
             return {
                 id: o.id,
                 number: o.number,
@@ -1486,12 +1512,14 @@ export function useFrontDeskBoard(
                 lines: o.lines.map((l) => lineText(l.quantity, l.name)),
                 total: o.total,
                 since: o.when,
-                note: null,
+                note: o.note,
                 column,
                 action:
-                    column === "prepare"
-                        ? { label: d.markReady, tone: "primary" }
-                        : { label: d.markPickedUp, tone: "outline" },
+                    o.status === "unfulfilled"
+                        ? { label: strings.publicOrder.startPreparing, tone: "primary" }
+                        : column === "prepare"
+                          ? { label: d.markReady, tone: "primary" }
+                          : { label: d.markPickedUp, tone: "outline" },
             };
         });
     const cards = [...heldCards, ...pickups];
@@ -1526,9 +1554,11 @@ export function useFrontDeskBoard(
             if (card === undefined) return;
             queue.advance(id);
             setDone(
-                card.column === "prepare"
-                    ? d.markedReady(card.clientName)
-                    : d.markedPickedUp(card.clientName),
+                queue.all.find((order) => order.id === id)?.status === "unfulfilled"
+                    ? strings.publicOrder.preparingStarted
+                    : card.column === "prepare"
+                      ? d.markedReady(card.clientName)
+                      : d.markedPickedUp(card.clientName),
             );
         },
         busyId: queue.busyId,
@@ -1834,7 +1864,7 @@ export function discountFrom(
     return { kind, value, reason };
 }
 
-type SaleActionKey = "receipt" | "refund" | "void" | "resume" | "ready" | "pickedUp";
+type SaleActionKey = "preparing" | "receipt" | "refund" | "void" | "resume" | "ready" | "pickedUp";
 
 interface SaleDetail {
     id: string;
@@ -1930,6 +1960,12 @@ export function useSaleDetail(
         if (status === "open" && row.source !== "online")
             actions.push({ key: "resume", label: d.resumeSale, tone: "primary" });
         if (row.pickup_status === "unfulfilled")
+            actions.push({
+                key: "preparing",
+                label: strings.publicOrder.startPreparing,
+                tone: "primary",
+            });
+        if (row.pickup_status === "preparing")
             actions.push({ key: "ready", label: d.markReady, tone: "primary" });
         if (row.pickup_status === "ready")
             actions.push({ key: "pickedUp", label: d.markPickedUp, tone: "primary" });
@@ -2045,16 +2081,23 @@ export function useSaleActions(
                 onResume(detail.id);
                 return;
             }
-            if (key === "ready" || key === "pickedUp") {
+            if (key === "preparing" || key === "ready" || key === "pickedUp") {
                 go(
                     key,
                     () =>
                         api.post(`/v1/orders/${detail.id}/pickup`, {
-                            status: key === "ready" ? "ready" : "picked_up",
+                            status:
+                                key === "preparing"
+                                    ? "preparing"
+                                    : key === "ready"
+                                      ? "ready"
+                                      : "picked_up",
                         }),
-                    key === "ready"
-                        ? d.markedReady(detail.clientName)
-                        : d.markedPickedUp(detail.clientName),
+                    key === "preparing"
+                        ? strings.publicOrder.preparingStarted
+                        : key === "ready"
+                          ? d.markedReady(detail.clientName)
+                          : d.markedPickedUp(detail.clientName),
                 );
                 return;
             }

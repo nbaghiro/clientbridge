@@ -1,3 +1,4 @@
+import { apiUrl as apiBaseUrl } from "../lib/config";
 import {
     type InvoiceRow,
     strings,
@@ -27,7 +28,7 @@ const t = strings.payments.interac;
 
 /** Request an e-Transfer from an invoice, as a sheet: amount, channel, expiry and the message. */
 export function InteracRequest({ invoice, onClose }: { invoice: InvoiceRow; onClose: () => void }) {
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const form = useInteracRequestForm(
         api,
         invoice,

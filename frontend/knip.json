@@ -11,6 +11,7 @@
             "entry": ["src/entry-server.tsx", "scripts/*.ts"]
         },
         "apps/mobile": {
+            "ignoreBinaries": ["maestro"],
             "ignoreDependencies": ["@babel/core", "expo-updates"]
         },
         "packages/app-core": {

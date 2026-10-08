@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { parseTimestamp } from "../datetime";
-import { useAsyncAction } from "../hooks";
+import type { PaymentAccountComponent, PaymentAccountProps } from "../ui";
+import { useBusinessId } from "./business";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 
@@ -22,14 +23,21 @@ interface ConnectStatus {
 /** `null` while loading, `"error"` if the fetch failed; bump `reloadKey` to refetch. */
 function useConnectStatus(api: ApiLike, reloadKey = 0): ConnectStatus | "error" | null {
     const [status, setStatus] = useState<ConnectStatus | "error" | null>(null);
+    const businessId = useBusinessId();
     useEffect(() => {
         setStatus(null);
+        let active = true;
         api.get<ConnectStatus>("/v1/connect/status")
-            .then(setStatus)
+            .then((value) => {
+                if (active) setStatus(value);
+            })
             .catch(() => {
-                setStatus("error");
+                if (active) setStatus("error");
             });
-    }, [api, reloadKey]);
+        return () => {
+            active = false;
+        };
+    }, [api, reloadKey, businessId]);
     return status;
 }
 
@@ -84,11 +92,9 @@ export interface GettingPaidView {
     chargesEnabled: boolean;
     payoutsEnabled: boolean;
     availableCents: number | null;
-    busy: boolean;
     refreshing: boolean;
-    opened: boolean;
-    error: string | null;
     finish: () => void;
+    account: ReturnType<typeof usePaymentAccount>;
     refresh: () => void;
 }
 
@@ -113,15 +119,14 @@ const TITLES: Partial<Record<ConnectPhase, string>> = {
     disabled: g.titleDisabled,
 };
 
-/** What blocks payouts and by when, what is on, and the way to Stripe. `openUrl` is per platform. */
-export function useGettingPaid(api: ApiLike, openUrl: (url: string) => void): GettingPaidView {
+export function useGettingPaid(api: ApiLike): GettingPaidView {
     const [reloadKey, setReloadKey] = useState(0);
     const status = useConnectStatus(api, reloadKey);
-    const [opened, setOpened] = useState(false);
-    const { busy, error, run } = useAsyncAction();
+
     const refresh = useCallback(() => {
         setReloadKey((k) => k + 1);
     }, []);
+    const account = usePaymentAccount(api, refresh);
     const phase: ConnectPhase =
         status === null ? "loading" : status === "error" ? "error" : phaseOf(status);
     const s = status !== null && status !== "error" ? status : null;
@@ -160,20 +165,63 @@ export function useGettingPaid(api: ApiLike, openUrl: (url: string) => void): Ge
         chargesEnabled: s?.charges_enabled ?? false,
         payoutsEnabled: s?.payouts_enabled ?? false,
         availableCents: s?.available_cents ?? null,
-        busy,
         refreshing: status === null,
-        opened,
-        error,
         finish: () => {
-            run(
-                async () => {
-                    const { url } = await api.post<{ url: string }>("/v1/connect/onboard", {});
-                    openUrl(url);
-                    setOpened(true);
-                },
-                { errorMessage: g.onboardingStartError },
-            );
+            account.open("onboarding");
         },
+        account,
         refresh,
+    };
+}
+
+export function usePaymentAccount(api: ApiLike, onClose?: () => void) {
+    const businessId = useBusinessId();
+    const [selection, setSelection] = useState<{
+        component: PaymentAccountComponent;
+        businessId: string;
+        nonce: number;
+    } | null>(null);
+    const context = useMemo(() => ({ active: true }), [businessId, selection]);
+    useEffect(() => {
+        context.active = true;
+        return () => {
+            context.active = false;
+        };
+    }, [context]);
+    const fetchClientSecret = useCallback(async (): Promise<string> => {
+        if (!context.active || selection?.businessId !== businessId) {
+            throw new Error(strings.paymentAccount.expired);
+        }
+        const { client_secret: secret } = await api.post<{ client_secret: string }>(
+            "/v1/connect/session",
+            { component: selection.component },
+        );
+        const isActive = (): boolean => context.active;
+        if (!isActive()) throw new Error(strings.paymentAccount.expired);
+        return secret;
+    }, [api, context, selection, businessId]);
+    const close = useCallback(() => {
+        context.active = false;
+        setSelection(null);
+        onClose?.();
+    }, [context, onClose]);
+    const props: PaymentAccountProps | null =
+        selection !== null && selection.businessId === businessId
+            ? {
+                  component: selection.component,
+                  scope: `${selection.businessId}:${selection.component}:${String(selection.nonce)}`,
+                  fetchClientSecret,
+                  onClose: close,
+              }
+            : null;
+    return {
+        props,
+        ready: businessId !== null,
+        open: (component: PaymentAccountComponent): void => {
+            if (businessId === null) return;
+            context.active = false;
+            setSelection({ component, businessId, nonce: Date.now() });
+        },
+        close,
     };
 }

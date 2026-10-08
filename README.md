@@ -16,6 +16,8 @@ net-new product, built around a first-class configurable tax engine and modern p
 - **White space** — beauty/personal-care + multi-discipline wellness solos + cleaning, where Jane App
   (clinical health) and Jobber (home services) don't reach.
 
+For realistic local demo accounts and reusable demo checks, see the [demo guide](.docs/executions/demo-data/README.md).
+
 ## Architecture
 
 A **local-first**, polyglot monorepo. Every screen reads from an on-device SQLite replica (instant,
@@ -43,7 +45,7 @@ clientbridge/
 ├── Makefile · docker-compose.yml   root orchestration + local infra (87xx ports)
 ├── .github/workflows/ci.yml        CI: backend · contract · frontend · site · codegen-drift
 ├── .githooks/                      versioned git hooks (pre-commit = format-check + lint)
-├── .docs/                          architecture · engineering · launch-readiness · design/
+├── .docs/                          main docs · design/ · reviews/ · explorations/ · executions/
 ├── backend/                        FastAPI app — src/clientbridge/{api,services,models,core,sync,tasks,integrations}
 ├── frontend/                       pnpm+turbo workspace
 │   ├── apps/{web (Vite), mobile (Expo), connect (Vite), site (Vite, static)}
@@ -60,6 +62,8 @@ clientbridge/
 | `@clientbridge/api-client` | Typed REST client generated from the backend OpenAPI                    |
 | `@clientbridge/config`     | Shared ESLint + Prettier config                                         |
 
+See the [documentation index](.docs/README.md) for core references, reviews and execution progress.
+
 ## Getting started
 
 **Prerequisites:** Docker + Compose · [`uv`](https://docs.astral.sh/uv/) · Node 24+ & pnpm 9. Python
@@ -70,7 +74,7 @@ clientbridge/
 make hooks                    # install the pre-commit hook
 make install                  # backend (uv sync) + frontend (pnpm install) deps
 make up                       # local infra: postgres · powersync · redis · s3 (RustFS) (87xx ports)
-make migrate seed             # apply schema + load the "Birchbark" demo business
+make migrate                  # apply the development schema; use the demo guide for seeded accounts
 
 # run (separate terminals)
 make dev-api                  # FastAPI        → http://localhost:8701

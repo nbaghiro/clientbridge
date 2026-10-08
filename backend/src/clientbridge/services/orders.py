@@ -1,6 +1,6 @@
 import secrets
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,7 @@ from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
+from clientbridge.models.platform import Audit
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.orders import (
     CheckoutOut,
@@ -35,7 +36,10 @@ from clientbridge.schemas.orders import (
     PinIn,
     TipIn,
 )
+from clientbridge.schemas.public import PublicPickupWindow
 from clientbridge.services import ledger
+from clientbridge.services.bookings import blocking_exception, open_windows
+from clientbridge.services.business import business_tz
 from clientbridge.services.lines import (
     apply_totals,
     discount_of,
@@ -47,8 +51,10 @@ from clientbridge.services.lines import (
     replace_lines,
     set_discount,
 )
+from clientbridge.services.notifications import Notifier
 from clientbridge.services.payments import (
     TipTerms,
+    has_pending_order_refund,
     open_order_card_payment,
     open_terminal_payment,
     resolve_saved_method_ref,
@@ -57,7 +63,7 @@ from clientbridge.services.payments import (
 )
 from clientbridge.services.tax import tax_for_lines
 
-_PICKUP_STEPS = {"unfulfilled": 0, "ready": 1, "picked_up": 2}
+_PICKUP_STEPS = {"unfulfilled": 0, "preparing": 1, "ready": 2, "picked_up": 3}
 # a wrong PIN locks the desk out for a while, so four digits can't be guessed in a minute
 _pin_attempts = RateLimiter(limit=5, window_s=300.0)
 
@@ -349,9 +355,24 @@ class OrderService:
             raise Conflict(f"the order is already {order.pickup_status.replace('_', ' ')}")
 
         async def run(cmd: Command) -> OrderOut:
+            await self.db.execute(
+                scoped(Order, self.biz)
+                .where(Order.id == order.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if (
+                order.pickup_status is None
+                or _PICKUP_STEPS[data.status] <= _PICKUP_STEPS[order.pickup_status]
+            ):
+                raise Conflict("the order is no longer eligible for this pickup step")
+            if await has_pending_order_refund(self.db, order):
+                raise Conflict("wait for the pending refund before preparing this order")
             now = datetime.now(UTC)
             order.pickup_status = data.status
-            if data.status == "ready":
+            if data.status == "preparing":
+                order.preparing_at = now
+            elif data.status == "ready":
                 order.ready_at = now
             else:
                 order.picked_up_at = now
@@ -371,7 +392,7 @@ class OrderService:
             or not business.stripe_charges_enabled
             or business.stripe_account_id is None
         ):
-            raise Conflict("connect a Stripe account before taking payment")
+            raise Conflict("set up card payments in Setup before taking payment")
         return business.stripe_account_id
 
     async def connection_token(self) -> ConnectionTokenOut:
@@ -379,7 +400,7 @@ class OrderService:
             await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
         ).scalar_one_or_none()
         if business is None or business.stripe_account_id is None:
-            raise Conflict("connect a Stripe account first")
+            raise Conflict("set up card payments in Setup first")
         # The row lock serializes the first Terminal Location mint.
         if business.stripe_terminal_location_id is None:
             business.stripe_terminal_location_id = await self.gateway.create_terminal_location(
@@ -587,3 +608,173 @@ async def order_out(db: AsyncSession, order: Order, lines: list[Line]) -> OrderO
         receipt_sent_at=order.receipt_sent_at,
         lines=[line_out(ln) for ln in lines],
     )
+
+
+async def run_pickup_reminders(db: AsyncSession, notifier: Notifier, now: datetime) -> int:
+    businesses = (
+        (await db.execute(select(Business).where(Business.status == "active"))).scalars().all()
+    )
+    sent = 0
+    for business in businesses:
+        reminded = (
+            scoped(Audit, business.id)
+            .where(Audit.action == "order.pickup_reminder", Audit.entity_id == Order.id)
+            .exists()
+        )
+        orders = (
+            (
+                await db.execute(
+                    scoped(Order, business.id)
+                    .where(
+                        Order.source == "online",
+                        Order.pickup_status == "ready",
+                        Order.ready_at <= now - timedelta(days=1),
+                        ~reminded,
+                    )
+                    .with_for_update(skip_locked=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for order in orders:
+            await notifier.on_order_reminder(db, order.id)
+            db.add(
+                Audit(
+                    id=new_id("audit"),
+                    business_id=business.id,
+                    action="order.pickup_reminder",
+                    entity_type="order",
+                    entity_id=order.id,
+                    changes={},
+                )
+            )
+            sent += 1
+    await db.commit()
+    return sent
+
+
+def pickup_setting(business: Business, key: str, default: int) -> int:
+    value = business.brand.get(key)
+    return value if isinstance(value, int) and value >= 0 else default
+
+
+async def pickup_windows(db: AsyncSession, business: Business) -> list[PublicPickupWindow]:
+    tz = await business_tz(db, business.id)
+    now = datetime.now(tz)
+    earliest = now + timedelta(minutes=pickup_setting(business, "pickup_prep_minutes", 60))
+    staff = (
+        (await db.execute(scoped(Staff, business.id).where(Staff.status == "active")))
+        .scalars()
+        .all()
+    )
+    result: dict[datetime, PublicPickupWindow] = {}
+    for offset in range(7):
+        day = now.date() + timedelta(days=offset)
+        for member in staff:
+            windows = await open_windows(db, member.id, business.id, day)
+            for start_time, end_time in windows or []:
+                start = datetime.combine(day, start_time, tzinfo=tz)
+                end = datetime.combine(day, end_time, tzinfo=tz)
+                while start + timedelta(hours=1) <= end:
+                    finish = start + timedelta(hours=1)
+                    if (
+                        start >= earliest
+                        and start not in result
+                        and await blocking_exception(db, business.id, member.id, start, finish)
+                        is None
+                    ):
+                        count = await db.scalar(
+                            scoped(Order, business.id)
+                            .with_only_columns(func.count())
+                            .where(
+                                Order.source == "online",
+                                Order.status != "void",
+                                Order.pickup_from == start,
+                                (
+                                    Order.pickup_status.is_not(None)
+                                    | scoped(Payment, business.id)
+                                    .where(
+                                        Payment.order_id == Order.id,
+                                        Payment.kind == "payment",
+                                        Payment.status == "pending",
+                                    )
+                                    .exists()
+                                ),
+                            )
+                        )
+                        if (count or 0) < pickup_setting(business, "pickup_capacity", 10):
+                            result[start] = PublicPickupWindow(starts_at=start, ends_at=finish)
+                    start = finish
+    return sorted(result.values(), key=lambda value: value.starts_at)
+
+
+async def run_reap_unpaid_orders(db: AsyncSession, gateway: PaymentGateway, now: datetime) -> int:
+    businesses = (await db.execute(select(Business).where(Business.status == "active"))).scalars()
+    reaped = 0
+    for business in businesses:
+        if business.stripe_account_id is None:
+            continue
+        orders = (
+            (
+                await db.execute(
+                    scoped(Order, business.id)
+                    .where(
+                        Order.source == "online",
+                        Order.status == "open",
+                        Order.pickup_status.is_(None),
+                        Order.created_at <= now - timedelta(minutes=30),
+                    )
+                    .with_for_update(skip_locked=True)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for order in orders:
+            state, _ = await ledger.order_state(db, order)
+            if state != "open":
+                continue
+            payments = (
+                (
+                    await db.execute(
+                        scoped(Payment, business.id)
+                        .where(
+                            Payment.order_id == order.id,
+                            Payment.kind == "payment",
+                        )
+                        .with_for_update()
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            if any(payment.status == "succeeded" for payment in payments):
+                continue
+            try:
+                for payment in payments:
+                    if (
+                        payment.provider == "stripe"
+                        and payment.provider_ref is not None
+                        and payment.status == "pending"
+                    ):
+                        await gateway.cancel_payment_intent(
+                            business.stripe_account_id, payment_intent_id=payment.provider_ref
+                        )
+                        payment.status = "canceled"
+            except AppError:
+                continue
+            order.status = "void"
+            db.add(
+                Audit(
+                    id=new_id("audit"),
+                    business_id=business.id,
+                    action="order.expire",
+                    entity_type="order",
+                    entity_id=order.id,
+                    changes={},
+                )
+            )
+            reaped += 1
+    await db.commit()
+    return reaped

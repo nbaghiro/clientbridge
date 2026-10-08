@@ -35,17 +35,35 @@ export function PublicReceipt() {
             businessName={receipt.business_name}
             contact={null}
             footer={strings.publicPay.poweredBy}
+            width="narrow"
+            hero={
+                <>
+                    <StatusPill
+                        status={status}
+                        intent={receipt.status === "paid" ? "success" : "warning"}
+                        asWritten
+                    />
+                    <h1 className="mt-3 font-display text-3xl font-bold text-ink sm:text-4xl">
+                        {r.title(receipt.business_name)}
+                    </h1>
+                    <p className="mt-2 text-sm text-ink-soft">
+                        {[shortDate(receipt.created_at), receipt.client_name]
+                            .filter(Boolean)
+                            .join(" · ")}
+                    </p>
+                </>
+            }
         >
-            <main className="mx-auto max-w-lg px-4 py-6 sm:py-10">
-                <article className="overflow-hidden rounded-xl border border-line bg-surface shadow-card">
-                    <div className="px-6 py-5">
+            <main className="mx-auto max-w-3xl px-4 sm:px-6">
+                <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+                    <div className="border-b border-line-soft bg-accent-weak px-6 py-5">
                         <div className="flex items-center justify-between gap-3">
-                            <h1 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
                                 {r.title(receipt.business_name)}
                                 {receipt.number !== null
                                     ? ` · ${r.sale(`S-${String(receipt.number)}`)}`
                                     : ""}
-                            </h1>
+                            </h2>
                             <StatusPill
                                 status={status}
                                 intent={receipt.status === "paid" ? "success" : "warning"}

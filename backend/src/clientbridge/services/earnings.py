@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -131,7 +132,9 @@ async def _lock_subject(db: AsyncSession, subject: tuple[str, str] | None) -> No
         await db.execute(select(Order.id).where(Order.id == subject_id).with_for_update())
 
 
-async def advance_earning(db: AsyncSession, earning: Earning, target: str) -> None:
+async def advance_earning(
+    db: AsyncSession, earning: Earning, target: str, *, occurred_at: datetime | None = None
+) -> None:
     """Approve (pending → approved payable) or pay (approved payable → bank) one earning."""
     current = "pending" if target == "approved" else "approved"
     entry_type = "approval" if target == "approved" else "staff_payment"
@@ -148,6 +151,7 @@ async def advance_earning(db: AsyncSession, earning: Earning, target: str) -> No
         legs=[Leg("staff", earning.staff_id, "payable", earning.amount_cents, current), to],
         source=("journal", earning.id),
         subject=earning.subject,
+        occurred_at=occurred_at,
     )
 
 
@@ -234,7 +238,9 @@ async def _booking_lines(db: AsyncSession, invoice: Invoice) -> list[Line]:
     return list(rows.scalars().all())
 
 
-async def ensure_earnings(db: AsyncSession, invoice: Invoice) -> None:
+async def ensure_earnings(
+    db: AsyncSession, invoice: Invoice, *, occurred_at: datetime | None = None
+) -> None:
     """Accrue a pending earning per payee on a fully paid invoice's bookings, once each."""
     biz = invoice.business_id
     for line in await _booking_lines(db, invoice):
@@ -263,6 +269,7 @@ async def ensure_earnings(db: AsyncSession, invoice: Invoice) -> None:
             ],
             source=("line", line.id),
             subject=("booking", booking.id),
+            occurred_at=occurred_at,
             meta={"basis": basis, "rate": staff.rate_bps or staff.rate_cents},
         )
 

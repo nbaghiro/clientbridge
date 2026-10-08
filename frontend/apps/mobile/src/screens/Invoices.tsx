@@ -1,3 +1,4 @@
+import { apiUrl as apiBaseUrl } from "../lib/config";
 import {
     canManagePayments,
     type EstimateRecord,
@@ -283,7 +284,7 @@ function InvoicePanel({
 }) {
     const rec = useInvoiceRecord(api, id, payUrl);
     const act = useInvoiceActions(api);
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const estimates = useEstimates();
     const estimateId = estimates.find((e) => e.converted_invoice_id === id)?.id ?? null;
     const estimate = useEstimateRecord(api, estimateId, payUrl);
@@ -590,7 +591,7 @@ function EstimatePanel({
 }) {
     const rec = useEstimateRecord(api, id, payUrl);
     const act = useEstimateActions(api);
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const [overlay, setOverlay] = useState<"pdf" | "menu" | null>(null);
     if (rec === null) return null;
     if (overlay === "pdf")

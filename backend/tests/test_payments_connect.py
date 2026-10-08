@@ -3,11 +3,19 @@ from pathlib import Path
 from typing import cast
 
 import httpx
+import pytest
+import stripe
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.integrations.stripe import account_status_from
+from clientbridge.integrations.stripe import (
+    ConnectComponent,
+    StripeGateway,
+    account_status_from,
+    payment_descriptor,
+)
 from clientbridge.models.business import Business
+from clientbridge.models.platform import Audit, IdempotencyKey
 from clientbridge.services.business import derive_kyc_status, kyc_status
 from tests.conftest import FakePaymentGateway
 
@@ -167,3 +175,143 @@ async def test_status_without_the_balance_when_stripe_fails(
 
 async def test_staff_cannot_read_connect_status_403(as_staff: httpx.AsyncClient) -> None:
     assert (await as_staff.get("/v1/connect/status")).status_code == 403
+
+
+async def test_embedded_onboarding_creates_one_account_with_fresh_sessions(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _reset_account(db)
+    headers = {"Idempotency-Key": "must-not-cache-session"}
+    first = await as_owner.post(
+        "/v1/connect/session", json={"component": "onboarding"}, headers=headers
+    )
+    second = await as_owner.post(
+        "/v1/connect/session", json={"component": "onboarding"}, headers=headers
+    )
+    assert first.status_code == second.status_code == 200
+    assert first.json()["client_secret"] != second.json()["client_secret"]
+    assert first.headers["cache-control"] == "no-store"
+    assert len(gateway.created_accounts) == 1
+    assert gateway.account_sessions == [(gateway.created_accounts[0], "onboarding")] * 2
+    cached = (
+        (await db.execute(select(IdempotencyKey).where(IdempotencyKey.scope == "connect.session")))
+        .scalars()
+        .all()
+    )
+    audits = (
+        (await db.execute(select(Audit).where(Audit.action == "connect.session"))).scalars().all()
+    )
+    assert cached == []
+    assert len(audits) == 2
+    assert all(a.changes == {"component": "onboarding"} for a in audits)
+
+
+async def test_embedded_management_requires_an_account(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    await _reset_account(db)
+    for component in ("account", "payments", "payouts"):
+        response = await as_owner.post("/v1/connect/session", json={"component": component})
+        assert response.status_code == 409
+    assert gateway.account_sessions == []
+
+
+async def test_embedded_sessions_authorize_each_request(
+    as_staff: httpx.AsyncClient, gateway: FakePaymentGateway
+) -> None:
+    for component in ("onboarding", "account", "payments", "payouts"):
+        response = await as_staff.post("/v1/connect/session", json={"component": component})
+        assert response.status_code == 403
+    assert gateway.account_sessions == []
+
+
+async def test_embedded_sessions_derive_account_from_membership(
+    as_owner: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway
+) -> None:
+    own_account = (
+        await db.execute(select(Business.stripe_account_id).where(Business.id == BIZ))
+    ).scalar_one()
+    response = await as_owner.post("/v1/connect/session", json={"component": "payments"})
+    assert response.status_code == 200
+    assert gateway.account_sessions == [(own_account, "payments")]
+    denied = await as_owner.post(
+        "/v1/connect/session",
+        json={"component": "account"},
+        headers={"X-Business-Id": "bz_not_yours"},
+    )
+    assert denied.status_code == 403
+    assert len(gateway.account_sessions) == 1
+
+
+async def test_embedded_sessions_require_authentication(unauth: httpx.AsyncClient) -> None:
+    response = await unauth.post("/v1/connect/session", json={"component": "onboarding"})
+    assert response.status_code == 401
+
+
+async def test_embedded_sessions_reject_unlisted_components(as_owner: httpx.AsyncClient) -> None:
+    response = await as_owner.post("/v1/connect/session", json={"component": "transfers"})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("Birchbark Pet Studio", "BIRCHBARK PET STUDIO"),
+        ("Café <Studio>*", "CAFE STUDIO"),
+        ("A business name that is much longer", "A BUSINESS NAME THAT I"),
+        ("123456789", None),
+        ("猫美容院", None),
+        ("ABC", None),
+    ],
+)
+def test_payment_descriptor_is_recognizable_or_left_for_collection(
+    name: str, expected: str | None
+) -> None:
+    assert payment_descriptor(name) == expected
+
+
+@pytest.mark.parametrize("component", ["onboarding", "account", "payments", "payouts"])
+async def test_embedded_adapter_grants_only_requested_features(
+    monkeypatch: pytest.MonkeyPatch,
+    component: ConnectComponent,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def create(**params: object) -> stripe.AccountSession:
+        captured.update(params)
+        return stripe.AccountSession.construct_from(
+            {"client_secret": "single_use_secret"}, "sk_test_fake"
+        )
+
+    monkeypatch.setattr(stripe, "api_key", stripe.api_key)
+    monkeypatch.setattr(stripe, "api_version", stripe.api_version)
+    monkeypatch.setattr(stripe.AccountSession, "create_async", create)
+    gateway = StripeGateway("sk_test_fake", "whsec_fake", "CA")
+    assert await gateway.create_account_session("acct_own", component) == "single_use_secret"
+    assert captured["account"] == "acct_own"
+    components = cast(dict[str, dict[str, object]], captured["components"])
+    if component in ("onboarding", "account"):
+        assert set(components) == (
+            {"account_onboarding", "account_management"}
+            if component == "account"
+            else {"account_onboarding"}
+        )
+        for config in components.values():
+            features = cast(dict[str, object], config["features"])
+            assert features["disable_stripe_user_authentication"] is False
+            assert features["external_account_collection"] is True
+    elif component == "payments":
+        assert components == {
+            "payments": {
+                "enabled": True,
+                "features": {
+                    "dispute_management": True,
+                    "refund_management": False,
+                    "capture_payments": False,
+                },
+            }
+        }
+    else:
+        assert set(components) == {"payouts"}
+        features = cast(dict[str, object], components["payouts"]["features"])
+        assert not any(features.values())

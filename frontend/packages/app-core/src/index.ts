@@ -50,3 +50,7 @@ export * from "./domain/files";
 export * from "./domain/notifications";
 export * from "./domain/sync";
 export * from "./domain/search";
+
+export * from "./domain/publicLanding";
+
+export * from "./domain/publicReturning";

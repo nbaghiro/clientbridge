@@ -56,9 +56,6 @@ class Settings(BaseSettings):
     twilio_sms_from: str = ""
     expo_access_token: str = ""
 
-    # Dev only: an unauthenticated /sync/token call mints a token for this user.
-    dev_user_id: str = "us_dev"
-
     @model_validator(mode="after")
     def _require_prod_secrets(self) -> "Settings":
         """Refuse to boot outside dev without real JWT and Stripe webhook secrets."""

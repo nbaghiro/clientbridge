@@ -1,5 +1,7 @@
 // Marketing icon geometry (24x24, stroke). Kept as data so the component renders plain JSX.
 
+import { ICON_SPECS } from "@clientbridge/app-core/public";
+
 export type IconShape =
     | { kind: "path"; d: string }
     | { kind: "rect"; x: number; y: number; width: number; height: number; rx?: number }
@@ -80,12 +82,7 @@ export const ICONS = {
             d: "M14 2.5V8h5.5M8.5 13h7M8.5 17h7",
         },
     ],
-    inbox: [
-        {
-            kind: "path",
-            d: "M20.5 15a2 2 0 0 1-2 2h-11l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z",
-        },
-    ],
+    inbox: ICON_SPECS.inbox,
     settings: [
         {
             kind: "circle",

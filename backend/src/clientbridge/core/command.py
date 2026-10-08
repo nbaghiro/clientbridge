@@ -12,12 +12,18 @@ from clientbridge.core.ids import new_id
 from clientbridge.models.platform import Audit, IdempotencyKey
 
 
+@dataclass(frozen=True)
+class PublicPrincipal:
+    business_id: str
+    user_id: None = None
+
+
 @dataclass
 class Command:
     """The working context of one command: the session, the actor, and the audit trail it builds."""
 
     db: AsyncSession
-    principal: Principal
+    principal: Principal | PublicPrincipal
     audits: list[Audit] = field(default_factory=list)
 
     def record(
@@ -44,7 +50,7 @@ class Command:
 
 async def run_command[T: BaseModel](
     db: AsyncSession,
-    principal: Principal,
+    principal: Principal | PublicPrincipal,
     *,
     action: str,
     run: Callable[[Command], Awaitable[T]],

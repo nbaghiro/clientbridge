@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Awaitable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo
 
@@ -16,7 +16,7 @@ from clientbridge.integrations.expo import Push, PushSender
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.billing import Estimate, Invoice, Order
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
@@ -32,6 +32,15 @@ from clientbridge.services.tax import tax_breakdown
 _log = logging.getLogger(__name__)
 
 SeriesNotice = Literal["booked", "moved", "canceled"]
+
+
+def returning_code(business_name: str, code: str) -> tuple[str, str]:
+    return (
+        f"Your booking verification code for {business_name}",
+        f"Your verification code is {code}. It expires in 10 minutes. "
+        "Use it to find your previous visit and pets. "
+        "If you did not request it, ignore this email.",
+    )
 
 
 def pay_link(token: str) -> str:
@@ -101,7 +110,7 @@ def _receipt_details(
 
 def _dispute_alert(amount: str) -> str:
     """Staff push body when a charge is disputed — the owner must respond in Stripe."""
-    return f"Payment disputed: {amount} — respond in Stripe."
+    return f"Payment disputed: {amount}. Review the dispute details."
 
 
 def _invoice_sent(
@@ -310,6 +319,8 @@ class Notifier:
         online = order is not None and order.source == "online"
         if online:
             details.append(_pickup_line(business.name))
+            if order is not None and order.status_token:
+                details.append(f"{get_settings().pay_base_url}/order/{order.status_token}")
         subject, body, push_body = _receipt(business.name, amount, details)
         if online:
             push_body, owner_body = _online_order_alert(amount)
@@ -331,7 +342,29 @@ class Notifier:
         if business is None:
             return
         subject, body = _order_ready(business.name)
-        await self._to_client(db, order.client_id, subject, body)
+        if order.status_token:
+            body += f"\n{get_settings().pay_base_url}/order/{order.status_token}"
+        await self._to_client(
+            db, order.client_id, subject, body, channel=None if order.notify_sms else "email"
+        )
+
+    async def on_order_reminder(self, db: AsyncSession, order_id: str) -> None:
+        order = await db.get(Order, order_id)
+        if order is None or order.client_id is None:
+            return
+        business = await db.get(Business, order.business_id)
+        if business is None:
+            return
+        subject = f"Your order is waiting at {business.name}"
+        body = (
+            f"Your order is ready to collect from {business.name}. "
+            "Please contact the studio if you need more time."
+        )
+        if order.status_token:
+            body += f"\n{get_settings().pay_base_url}/order/{order.status_token}"
+        await self._to_client(
+            db, order.client_id, subject, body, channel=None if order.notify_sms else "email"
+        )
 
     async def on_order_receipt(self, db: AsyncSession, order_id: str) -> None:
         """The receipt link, by the one channel the desk chose."""
@@ -440,7 +473,7 @@ class Notifier:
 
     async def on_refund(self, db: AsyncSession, refund_payment_id: str) -> None:
         payment = await db.get(Payment, refund_payment_id)
-        if payment is None:
+        if payment is None or not payment.refund_notify or payment.status != "succeeded":
             return
         business = await db.get(Business, payment.business_id)
         if business is None:
@@ -674,7 +707,16 @@ class Notifier:
     async def _alert_staff(
         self, db: AsyncSession, business: Business, body: str, data: dict[str, str]
     ) -> None:
-        rows = (await db.execute(scoped(Device, business.id))).scalars().all()
+        members = (
+            scoped(Staff, business.id)
+            .with_only_columns(Staff.user_id)
+            .where(Staff.status == "active")
+        )
+        rows = (
+            (await db.execute(scoped(Device, business.id).where(Device.user_id.in_(members))))
+            .scalars()
+            .all()
+        )
         tokens = [r.token for r in rows]
         if tokens:
             await self._safe(
@@ -703,6 +745,7 @@ class DeviceService:
             existing.user_id = self.principal.user_id
             existing.business_id = self.principal.business_id
             existing.platform = platform
+            existing.updated_at = datetime.now(UTC)
         else:
             self.db.add(
                 Device(

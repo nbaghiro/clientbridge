@@ -1,0 +1,31 @@
+file,function,start_line,end_line,review,findings_or_result
+backend/scripts/seed_demo.py,at,60,66,source inspected,D01;D05;D06
+backend/scripts/seed_demo.py,face,69,70,source inspected,D22
+backend/scripts/seed_demo.py,seed_identity,90,225,source inspected,D15;D21;D22
+backend/scripts/seed_demo.py,seed_items,374,433,source inspected,D02;D07;D09;D13;D22
+backend/scripts/seed_demo.py,seed_clients,588,644,source inspected,D04;D22
+backend/scripts/seed_demo.py,seed_resources_hours,647,708,source inspected,D01;D06;D23
+backend/scripts/seed_demo.py,seed_appointments,739,787,source inspected,D01;D02;D05
+backend/scripts/seed_demo.py,_invoice_for,790,869,source inspected,D05;D07;D10;D26
+backend/scripts/seed_demo.py,seed_catalog_instances,872,943,source inspected,D12;D13;D14
+backend/scripts/seed_demo.py,seed_lapsed_entitlements,946,970,source inspected,D04;D13;D14
+backend/scripts/seed_demo.py,seed_online_shop,973,1031,source inspected,D09
+backend/scripts/seed_demo.py,seed_open_sale,1034,1067,source inspected,D23
+backend/scripts/seed_demo.py,seed_payment_methods,1070,1108,source inspected,D12;D15
+backend/scripts/seed_demo.py,seed_estimates,1111,1182,source inspected,D08
+backend/scripts/seed_demo.py,seed_messaging,1185,1342,source inspected,D16;D17
+backend/scripts/seed_demo.py,seed_documents,1371,1506,source inspected,D18;D19
+backend/scripts/seed_demo.py,seed_reviews,1563,1599,source inspected,D20
+backend/scripts/seed_demo.py,seed_platform,1602,1668,source inspected,D05;D26
+backend/scripts/seed_demo.py,seed_coverage,1671,2167,source inspected,D06;D08;D09;D12;D20;D23
+backend/scripts/seed_demo.py,_demo_fees,2210,2215,source inspected,D15
+backend/scripts/seed_demo.py,_purchase,2218,2238,source inspected,D07;D12;D13;D14;D15
+backend/scripts/seed_demo.py,seed_ledger,2241,2354,source inspected,D07;D10;D11;D13
+backend/scripts/seed_demo.py,_reload,2357,2360,source inspected,D10
+backend/scripts/seed_demo.py,_working_hours,2367,2377,source inspected,D01;D03
+backend/scripts/seed_demo.py,seed_calendar_filler,2380,2460,source inspected,D01;D02;D03;D04;D05
+backend/scripts/seed_demo.py,seed_client_series,2467,2532,source inspected,D04;D05;D06
+backend/scripts/seed_demo.py,seed_dispute,2535,2541,source inspected,D15
+backend/scripts/seed_demo.py,main,2544,2581,source inspected,D24
+backend/scripts/seed_demo.py,upload_demo_assets,2584,2606,source inspected,asset metadata passed;D24
+backend/scripts/seed_demo.py,refresh_demo_avatar,2609,2641,source inspected,asset metadata passed;D24

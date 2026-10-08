@@ -1,28 +1,31 @@
-"""Seed the Birchbark Pet Studio demo business, truncating every table first (`make seed`)."""
+"""Build and validate an isolated demo, replacing existing demo rows only with --reset-demo."""
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import random
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import boto3
+import httpx
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import BotoCoreError, ClientError
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, select, text, update
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base, SessionLocal, engine
 from clientbridge.core.security import hash_password, hash_token
-from clientbridge.integrations.stripe import ChargeFees
+from clientbridge.integrations.s3 import get_file_storage
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff, User
 from clientbridge.models.catalog import GiftCard, Item, Package, StockMovement, Subscription
-from clientbridge.models.clients import Client, Note, Subject
+from clientbridge.models.clients import Client, Consent, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
-from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.payments import Payment, PaymentMethod
 from clientbridge.models.platform import Audit, File, Webhook
@@ -35,21 +38,19 @@ from clientbridge.models.scheduling import (
     Resource,
     Slot,
 )
-from clientbridge.services import ledger
-from clientbridge.services.earnings import (
-    Earning,
-    advance_earning,
-    ensure_earnings,
-    load_earning,
-)
-from clientbridge.services.lines import fetch_lines
-from clientbridge.services.tax import tax_for_amount, tax_for_lines
-from scripts.stripe_demo_account import connect_demo_business
+from scripts.demo_calendar import build_calendar
+from scripts.demo_chronology import align_chronology, chronology_errors
+from scripts.demo_context import DEMO_VERSION, DemoContext
+from scripts.demo_engagement import build_engagement
+from scripts.demo_finance import add_finance_scenarios, prepare_finance, seed_finance
+from scripts.demo_identity import build_identity
+from scripts.demo_scenarios import add_scenarios
+from scripts.demo_validate import validate_database, validate_graph
 
-NOW = datetime.now().astimezone()  # local-tz aware, so demo hours land in the viewer's local day
+NOW = datetime.now(ZoneInfo("America/Vancouver"))
 BIZ = "bz_birchbark"
 DEMO_PASSWORD = "demo1234"  # every seeded user logs in with this
-rows: list[object] = []
+rows: list[Base] = []
 EARNING_STAGE: dict[str, str] = {}  # booking id -> how far its groomer's earning has gone
 PACKAGE_USED = {"pkg_marcus": 2, "pkg_grace": 5, "pkg_sophie": 4}
 
@@ -85,7 +86,7 @@ ITEM_COLORS = {
 
 
 def seed_identity() -> tuple[str, str]:
-    owner_id = get_settings().dev_user_id  # = us_dev → matches the dev sync token
+    owner_id = "us_dev"
     rows.append(
         Business(
             id=BIZ,
@@ -98,6 +99,7 @@ def seed_identity() -> tuple[str, str]:
             tax_registered=True,
             brand={
                 "logo_file_id": "fl_logo",
+                "avatar_file_id": "fl_logo_avatar",
                 "primary": "#2E4A3F",
                 "tagline": "Calm, careful grooming on Vancouver Island.",
             },
@@ -116,6 +118,18 @@ def seed_identity() -> tuple[str, str]:
             s3_key=f"{BIZ}/demo/logo.png",
             content_type="image/png",
             size=(ASSETS / "logo.png").stat().st_size,
+        )
+    )
+    rows.append(
+        File(
+            id="fl_logo_avatar",
+            business_id=BIZ,
+            parent_type="business",
+            parent_id=BIZ,
+            purpose="logo",
+            s3_key=f"{BIZ}/demo/logo-mark.png",
+            content_type="image/png",
+            size=(ASSETS / "logo-mark.png").stat().st_size,
         )
     )
     rows.append(
@@ -356,7 +370,6 @@ STOCK = {"it_shampoo": (24, 6, 1100), "it_brush": (2, 5, 1300)}
 
 
 def seed_items(owner: str) -> None:
-    # the tax marker (item[6]) drives the line-tax math in seed_billing, not the item row itself
     for iid, kind, name, price, dur, cap, _tax, cat, desc in ITEMS:
         rows.append(
             Item(
@@ -368,6 +381,11 @@ def seed_items(owner: str) -> None:
                 description=desc,
                 price_cents=price,
                 currency="CAD",
+                tax_class="standard"
+                if kind == "product"
+                else "exempt"
+                if kind == "gift"
+                else "federal_only",
                 duration_min=dur,
                 capacity=cap,
                 category=cat,
@@ -786,7 +804,7 @@ def _invoice_for(
     INV_SEQ[0] += 1
     num = INV_SEQ[0]
     inv = f"inv_{num}"
-    tax_amt = (price * 5 + 50) // 100 + (price * 7 + 50) // 100
+    tax_amt = (price * 5 + 50) // 100
     total = price + tax_amt
     # mix of paid / partial / overdue across history
     paid = settled or i % 5 != 4
@@ -1166,166 +1184,6 @@ def seed_estimates() -> None:
     )
 
 
-def seed_messaging(owner: str) -> None:
-    # each message = (direction, body, status, day_offset, hour, minute)
-    convos: list[tuple[str, str, str, list[tuple[str, str, str, int, int, int]]]] = [
-        (
-            "th_amelie",
-            "cl_amelie",
-            "sms",
-            [
-                (
-                    "out",
-                    "Hi Amélie! Bella's all set for tomorrow at 10am. Reply C to confirm 🐾",
-                    "delivered",
-                    -1,
-                    9,
-                    0,
-                ),
-                ("in", "C — thank you! Will she be done by noon?", "read", -1, 9, 14),
-                (
-                    "out",
-                    "Yep, around 11:30. We'll text when she's ready for pickup.",
-                    "delivered",
-                    -1,
-                    9,
-                    20,
-                ),
-            ],
-        ),
-        (
-            "th_marcus",
-            "cl_marcus",
-            "sms",
-            [
-                (
-                    "out",
-                    "Rex & Luna are looking sharp ✂️ Ready for pickup whenever!",
-                    "read",
-                    -26,
-                    13,
-                    0,
-                ),
-                ("in", "On my way, thanks Diego!", "read", -26, 13, 30),
-            ],
-        ),
-        (
-            "th_david",
-            "cl_david",
-            "sms",
-            [
-                (
-                    "out",
-                    "Zeus had a great daycare day — napped hard after fetch 😅",
-                    "delivered",
-                    -1,
-                    16,
-                    0,
-                ),
-            ],
-        ),
-        (
-            "th_sophie",
-            "cl_sophie",
-            "email",
-            [
-                (
-                    "in",
-                    "Hi! Do you have anything for Mochi (Shih Tzu) this week?",
-                    "read",
-                    -11,
-                    8,
-                    0,
-                ),
-                (
-                    "out",
-                    "We do! Thursday 10am works — I've pencilled Mochi in. Sound good?",
-                    "read",
-                    -11,
-                    9,
-                    0,
-                ),
-                ("in", "Perfect, see you then 🙂", "read", -11, 10, 0),
-            ],
-        ),
-        (
-            "th_olivia",
-            "cl_olivia",
-            "sms",
-            [
-                (
-                    "out",
-                    "Hi Olivia — we miss Bandit! Here's 15% off your next groom: BANDIT15",
-                    "sent",
-                    -1,
-                    11,
-                    0,
-                ),
-            ],
-        ),
-    ]
-    for tid, client, channel, msgs in convos:
-        rows.append(
-            Thread(
-                id=tid,
-                business_id=BIZ,
-                client_id=client,
-                channel=channel,
-                status="open",
-            )
-        )
-        for j, m in enumerate(msgs):
-            rows.append(
-                Message(
-                    id=f"msg_{tid}_{j}",
-                    business_id=BIZ,
-                    thread_id=tid,
-                    direction=m[0],
-                    channel=channel,
-                    sent_by=owner if m[0] == "out" else None,
-                    body=m[1],
-                    status=m[2],
-                    provider_ref=f"sm_demo_{tid}_{j}",
-                )
-            )
-    rows.append(
-        Broadcast(
-            id="bro_holiday",
-            business_id=BIZ,
-            created_by=owner,
-            name="Holiday hours 2025",
-            channel="email",
-            audience={"segment": "all_active"},
-            status="sent",
-            scheduled_at=at(-20, 9),
-        )
-    )
-    rows.append(
-        Broadcast(
-            id="bro_deshed",
-            business_id=BIZ,
-            created_by=owner,
-            name="Spring de-shedding — 15% off",
-            channel="sms",
-            audience={"tags": ["regular", "vip"]},
-            status="sent",
-            scheduled_at=at(-9, 10),
-        )
-    )
-    rows.append(
-        Broadcast(
-            id="bro_winback",
-            business_id=BIZ,
-            created_by=owner,
-            name="We miss you — win-back",
-            channel="sms",
-            audience={"tags": ["churn-risk"]},
-            status="scheduled",
-            scheduled_at=at(1, 11),
-        )
-    )
-
-
 INTAKE_FIELDS = [
     ("pet_name", "text", "Pet's name", True),
     ("species", "select", "Species", True),
@@ -1350,144 +1208,6 @@ INTAKE_FIELDS = [
         True,
     ),
 ]
-
-
-def seed_documents(owner: str) -> None:
-    rows.append(
-        Form(
-            id="frm_intake",
-            business_id=BIZ,
-            name="New Pet Intake",
-            require_signature=True,
-            active=True,
-        )
-    )
-    for pos, (fname, ftype, label, required) in enumerate(INTAKE_FIELDS):
-        opts: list[str] = []
-        if ftype == "select":
-            opts = ["Dog", "Cat", "Other"]
-        if ftype == "multiselect":
-            opts = ["Anxious", "Reactive to dryers", "Dislikes nails", "Food motivated", "Friendly"]
-        rows.append(
-            FormField(
-                id=f"ff_{fname}",
-                business_id=BIZ,
-                form_id="frm_intake",
-                input=ftype,
-                name=fname,
-                label=label,
-                required=required,
-                options=opts,
-                validation={},
-                position=pos,
-            )
-        )
-    rows.append(
-        Form(
-            id="frm_satisfaction",
-            business_id=BIZ,
-            name="Grooming Satisfaction",
-            require_signature=False,
-            active=True,
-        )
-    )
-    rows.append(
-        FormField(
-            id="ff_rating",
-            business_id=BIZ,
-            form_id="frm_satisfaction",
-            input="rating",
-            name="rating",
-            label="How did we do?",
-            required=True,
-            options=[],
-            validation={},
-            position=0,
-        )
-    )
-    rows.append(
-        FormField(
-            id="ff_comments",
-            business_id=BIZ,
-            form_id="frm_satisfaction",
-            input="longtext",
-            name="comments",
-            label="Anything we could do better?",
-            required=False,
-            options=[],
-            validation={},
-            position=1,
-        )
-    )
-    # a few intake responses
-    intakes = [
-        ("cl_amelie", "sj_bella", "Bella", "Goldendoodle"),
-        ("cl_sophie", "sj_mochi", "Mochi", "Shih Tzu"),
-        ("cl_david", "sj_zeus", "Zeus", "Rottweiler"),
-        ("cl_priscilla", "sj_kobe", "Kobe", "French Bulldog"),
-    ]
-    for k, (client, pet, pname, breed) in enumerate(intakes):
-        rows.append(
-            FormResponse(
-                id=f"fr_intake_{k}",
-                business_id=BIZ,
-                form_id="frm_intake",
-                client_id=client,
-                parent_type="subject",
-                parent_id=pet,
-                status="submitted",
-                submitted_at=at(-40 + k, 11),
-                answers={
-                    "pet_name": pname,
-                    "species": "Dog",
-                    "breed": breed,
-                    "vaccinated": True,
-                    "emergency_phone": "+12505550100",
-                    "behaviour": ["Friendly"],
-                },
-            )
-        )
-    # contract + signatures
-    rows.append(
-        Contract(
-            id="con_waiver",
-            business_id=BIZ,
-            name="Grooming Services Agreement & Waiver",
-            version=2,
-            active=True,
-            body=(
-                "I authorize Birchbark Pet Studio to groom my pet. I understand that severely "
-                "matted coats may require a humane shave-down, and that grooming can occasionally "
-                "expose pre-existing skin or health conditions. In an emergency I authorize "
-                "Birchbark to seek veterinary care at my expense. Cancellations within 24 hours "
-                "may incur a 50% fee."
-            ),
-        )
-    )
-    for k, (client, pet) in enumerate(
-        [
-            ("cl_amelie", "sj_bella"),
-            ("cl_marcus", "sj_rex"),
-            ("cl_david", "sj_zeus"),
-            ("cl_sophie", "sj_mochi"),
-            ("cl_priscilla", "sj_kobe"),
-            ("cl_liam", "sj_maple"),
-        ]
-    ):
-        rows.append(
-            Signature(
-                id=f"sig_{k}",
-                business_id=BIZ,
-                contract_id="con_waiver",
-                client_id=client,
-                parent_type="subject",
-                parent_id=pet,
-                signed_at=at(-45 + k * 3, 10),
-                signed_body="Grooming Services Agreement & Waiver (v2)",
-                ip=f"24.84.{k}.{100 + k}",
-                status="signed",
-            )
-        )
 
 
 REVIEWS = [
@@ -1544,45 +1264,6 @@ REVIEWS = [
 ]
 
 
-def seed_reviews(owner: str) -> None:
-    for k, (client, bk, rating, body, to_google) in enumerate(REVIEWS):
-        responded = rating <= 4
-        rows.append(
-            Review(
-                id=f"rv_{k}",
-                business_id=BIZ,
-                client_id=client,
-                booking_id=bk,
-                channel="sms",
-                token=f"rev_tok_{k}",
-                requested_at=at(-16 + k, 18),
-                submitted_at=at(-16 + k, 20),
-                rating=rating,
-                body=body,
-                response="Thank you so much — we'll look into the parking/wait!"
-                if responded
-                else None,
-                responded_at=at(-15 + k, 12) if responded else None,
-                sent_to_google=to_google,
-                status="published",
-            )
-        )
-    # a couple of requests not answered yet (standalone — not tied to a booking)
-    for k, client in enumerate(["cl_ethan", "cl_priscilla"]):
-        rows.append(
-            Review(
-                id=f"rv_p_{k}",
-                business_id=BIZ,
-                client_id=client,
-                booking_id=None,
-                channel="email",
-                token=f"rev_tok_p_{k}",
-                status="requested" if k == 0 else "opened",
-                requested_at=at(-4 + k, 18),
-            )
-        )
-
-
 def seed_platform(owner: str) -> None:
     rows.append(
         Audit(
@@ -1618,36 +1299,6 @@ def seed_platform(owner: str) -> None:
             entity_id="cl_sophie",
             changes={},
             created_at=at(-11, 9),
-        )
-    )
-    rows.append(
-        Webhook(
-            id="wh_0",
-            provider="stripe",
-            event="payment_intent.succeeded",
-            payload={"id": "pi_demo_1001", "amount": 7875},
-            status="processed",
-            processed_at=at(-28, 18),
-        )
-    )
-    rows.append(
-        Webhook(
-            id="wh_1",
-            provider="stripe",
-            event="payout.paid",
-            payload={"id": "po_demo_w1", "amount": 84200},
-            status="processed",
-            processed_at=at(-7, 1),
-        )
-    )
-    rows.append(
-        Webhook(
-            id="wh_2",
-            provider="twilio",
-            event="message.delivered",
-            payload={"sid": "sm_demo", "status": "delivered"},
-            status="processed",
-            processed_at=at(-1, 9),
         )
     )
 
@@ -2157,8 +1808,8 @@ INSERT_ORDER = [
     User,
     Staff,
     Client,
+    Consent,
     Item,
-    StockMovement,
     Resource,
     Form,
     Contract,
@@ -2183,165 +1834,13 @@ INSERT_ORDER = [
     Addon,
     Message,
     Line,
+    StockMovement,
     Payment,
     Review,
     File,
     Audit,
     Webhook,
 ]
-
-
-def _demo_fees(payment: Payment) -> ChargeFees:
-    return ChargeFees(
-        processing_fee_cents=(payment.amount_cents * 29 + 500) // 1000 + 30,
-        application_fee_cents=payment.amount_cents * get_settings().platform_fee_bps // 10000,
-        available_at=payment.paid_at,
-    )
-
-
-async def _purchase(
-    session: AsyncSession, target: Package | GiftCard, client_id: str, amount: int, day: float
-) -> Payment:
-    payment = Payment(
-        id=f"pay_{target.id}",
-        business_id=BIZ,
-        client_id=client_id,
-        kind="payment",
-        amount_cents=amount,
-        currency="CAD",
-        method="card",
-        provider="stripe",
-        provider_ref=f"pi_demo_{target.id}",
-        status="succeeded",
-        paid_at=at(day, 11),
-    )
-    session.add(payment)
-    await session.flush()
-    target.payment_id = payment.id
-    await session.flush()
-    return payment
-
-
-async def seed_ledger(session: AsyncSession) -> None:
-    """Replay the demo's money through the real posting rules, so the ledger matches production."""
-    invoices = (
-        await session.execute(
-            select(Invoice)
-            .where(Invoice.status.not_in(("draft", "void")))
-            .order_by(Invoice.issued_at)
-        )
-    ).scalars()
-    for invoice in invoices:
-        tax = await tax_for_lines(
-            session, BIZ, await fetch_lines(session, BIZ, "invoice", invoice.id)
-        )
-        if tax.total_cents != invoice.total_cents:
-            raise ValueError(f"{invoice.id} total drifts from the tax engine")
-        await ledger.post_invoice(session, invoice, tax)
-
-    for pkg_id, client_id, day in (
-        ("pkg_marcus", "cl_marcus", -60),
-        ("pkg_grace", "cl_grace", -90),
-        ("pkg_sophie", "cl_sophie", -50),
-    ):
-        package = await session.get(Package, pkg_id)
-        item = await session.get(Item, "it_pkg5")
-        assert package is not None and item is not None
-        total = (await tax_for_amount(session, BIZ, item.price_cents)).total_cents
-        await _purchase(session, package, client_id, total, day)
-    for card_id, client_id, day in (
-        ("gc_liam", "cl_liam", -30),
-        ("gc_used", "cl_david", -120),
-        ("gc_expired", "cl_ethan", -400),
-    ):
-        card = await session.get(GiftCard, card_id)
-        assert card is not None
-        await _purchase(session, card, client_id, card.initial_cents, day)
-
-    settled = (
-        await session.execute(
-            select(Payment)
-            .where(Payment.status == "succeeded", Payment.kind != "refund")
-            .order_by(Payment.paid_at)
-        )
-    ).scalars()
-    for payment in settled:
-        await ledger.post_payment(session, payment, available_at=payment.paid_at)
-        if payment.provider == "stripe":
-            await ledger.post_fees(session, payment, _demo_fees(payment))
-    disputed = await session.get(Payment, DISPUTED)
-    assert disputed is not None
-    await ledger.post_dispute(
-        session, disputed, dispute_id=f"dp_demo_{DISPUTED}", amount=disputed.amount_cents, fee=1500
-    )
-    refunds = (await session.execute(select(Payment).where(Payment.kind == "refund"))).scalars()
-    for refund in refunds:
-        original = await session.get(Payment, refund.parent_payment_id)
-        assert original is not None
-        await ledger.post_refund(session, refund, original)
-
-    used_card = await session.get(GiftCard, "gc_used")
-    assert used_card is not None
-    await ledger.post_redemption(session, used_card, used_card.initial_cents)
-    lapsed = await session.get(GiftCard, "gc_expired")
-    assert lapsed is not None
-    await ledger.post_redemption(session, lapsed, 2500)
-    await ledger.post_breakage(
-        session, BIZ, owner_type="gift_card", owner_id=lapsed.id, category="gift_card"
-    )
-    for pkg_id in ("pkg_marcus", "pkg_grace", "pkg_sophie"):
-        package = await session.get(Package, pkg_id)
-        assert package is not None
-        for _ in range(PACKAGE_USED[pkg_id]):
-            await ledger.post_consumption(session, package)
-
-    paid = (
-        await session.execute(select(Invoice).where(ledger.invoice_status_expr() == "paid"))
-    ).scalars()
-    for invoice in paid:
-        await ensure_earnings(session, invoice)
-    for booking_id, stage in EARNING_STAGE.items():
-        journal = await session.scalar(
-            select(Entry.journal_id).where(Entry.event == "earning", Entry.subject_id == booking_id)
-        )
-        earning = await load_earning(session, BIZ, journal) if journal else None
-        if earning is None or stage == "pending":
-            continue
-        await advance_earning(session, earning, "approved")
-        if stage == "paid":
-            await advance_earning(session, await _reload(session, earning.id), "paid")
-
-    swept = 0
-    for n, day in enumerate(range(-112, -6, 7)):
-        on_hand = await session.scalar(
-            select(func.coalesce(func.sum(Entry.amount_cents), 0))
-            .join(Account, Account.id == Entry.account_id)
-            .where(
-                Account.owner_type == "business",
-                Account.category == "stripe",
-                Entry.occurred_at < at(day, 0),
-            )
-        )
-        amount = int(on_hand or 0) - swept
-        if amount > 0:
-            await ledger.post_payout(
-                session,
-                BIZ,
-                payout_id=f"po_demo_w{n}",
-                amount=amount,
-                currency="CAD",
-                arrival_at=at(day, 0),
-            )
-            swept += amount
-            if day == -28:
-                await ledger.fail_payout(session, BIZ, f"po_demo_w{n}")
-                swept -= amount
-
-
-async def _reload(session: AsyncSession, journal_id: str) -> Earning:
-    earning = await load_earning(session, BIZ, journal_id)
-    assert earning is not None
-    return earning
 
 
 FILLER_ITEMS = ["it_groom_sm", "it_bath", "it_nails", "it_deshed", "it_cat"]
@@ -2466,20 +1965,11 @@ def seed_client_series() -> None:
     )
     item = next(x for x in ITEMS if x[0] == "it_groom_sm")
     price, dur, tax = item[3], item[4] or 60, item[6]
-    busy = [
-        (r.staff_id, r.resource_id, r.starts_at, r.ends_at) for r in rows if isinstance(r, Slot)
-    ]
     first = next(d for d in range(-21, -14) if at(d).astimezone(NOW.tzinfo).weekday() == 2)
     for n in range(SERIES_VISITS):
         d = first + 14 * n
         start = at(d, 15)
         end = start + timedelta(minutes=dur)
-        closed = _working_hours("st_owner", start.astimezone(NOW.tzinfo).date()) is None
-        if closed or any(
-            (staff == "st_owner" or res == "rs_station_a") and start < e and b < end
-            for staff, res, b, e in busy
-        ):
-            continue
         done = end < NOW
         ses, bk = f"ses_s{n}", f"bk_s{n}"
         rows.append(
@@ -2525,7 +2015,15 @@ def seed_dispute() -> None:
     payment.dispute_respond_by = at(6, 17)
 
 
-async def main() -> None:
+def build_demo(as_of: datetime | None = None) -> DemoContext:
+    global NOW, rows
+    if as_of is not None:
+        if as_of.tzinfo is None:
+            raise ValueError("--as-of must include a timezone offset")
+        NOW = as_of.astimezone(ZoneInfo("America/Vancouver"))
+    rows = []
+    EARNING_STAGE.clear()
+    INV_SEQ[0] = 1000
     owner, _ = seed_identity()
     seed_items(owner)
     seed_clients(owner)
@@ -2535,9 +2033,6 @@ async def main() -> None:
     seed_payment_methods()
     seed_appointments()
     seed_estimates()
-    seed_messaging(owner)
-    seed_documents(owner)
-    seed_reviews(owner)
     seed_platform(owner)
     seed_coverage()
     seed_open_sale()
@@ -2545,28 +2040,104 @@ async def main() -> None:
     seed_client_series()
     seed_calendar_filler()
     seed_dispute()
+    ctx = DemoContext(NOW, BIZ, owner, rows)
+    add_scenarios(ctx)
+    add_finance_scenarios(ctx)
+    build_calendar(ctx)
+    prepare_finance(ctx)
+    rows[:] = [r for r in rows if not isinstance(r, (Thread, Message, Review))]
+    build_identity(ctx)
+    build_engagement(ctx)
+    align_chronology(ctx)
 
-    table_list = ", ".join(Base.metadata.tables)
-    async with engine.begin() as conn:
-        await conn.execute(text(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE"))
+    ctx.add(
+        Audit(
+            id="aud_demo_seed",
+            business_id=BIZ,
+            performed_by=owner,
+            action="demo.seed",
+            entity_type="business",
+            entity_id=BIZ,
+            changes={
+                "version": DEMO_VERSION,
+                "as_of": NOW.isoformat(),
+            },
+            created_at=NOW,
+        )
+    )
+    errors = validate_graph(ctx) + chronology_errors(ctx)
+    if errors:
+        raise ValueError("Invalid demo graph: " + "; ".join(errors[:20]))
+    return ctx
+
+
+def validate_seed_target(reset_demo: bool) -> None:
+    settings = get_settings()
+    url = make_url(settings.database_url)
+    if settings.env != "dev" or url.host not in {"localhost", "127.0.0.1", "::1"}:
+        raise SystemExit("Demo seeding requires ENV=dev and a localhost database.")
+    if url.database != "clientbridge" and not (url.database or "").startswith("clientbridge_test"):
+        raise SystemExit(
+            "Seed the local clientbridge database or an isolated clientbridge_test database."
+        )
+
+
+async def replace_demo_rows(session: AsyncSession, ctx: DemoContext) -> None:
+    business_ids = [row.id for row in ctx.all(Business)]
+    user_ids = [row.id for row in ctx.all(User)]
+    shared_users = await session.scalar(
+        select(Staff.id).where(Staff.user_id.in_(user_ids), Staff.business_id.not_in(business_ids))
+    )
+    if shared_users is not None:
+        raise ValueError("Seeded users belong to another business; refusing to replace them")
+    await session.execute(
+        update(Payment).where(Payment.business_id.in_(business_ids)).values(booking_id=None)
+    )
+    # The table lock and trigger change last only through this local seed transaction.
+    await session.execute(text("ALTER TABLE entries DISABLE TRIGGER entries_append_only"))
+    for table in reversed(Base.metadata.sorted_tables):
+        if "business_id" in table.c:
+            condition = table.c.business_id.in_(business_ids)
+        elif table.name == "businesses":
+            condition = table.c.id.in_(business_ids)
+        elif table.name == "users":
+            condition = table.c.id.in_(user_ids)
+        elif table.name in {"sessions", "tokens"}:
+            condition = table.c.user_id.in_(user_ids)
+        else:
+            continue
+        await session.execute(delete(table).where(condition))
+    await session.execute(text("ALTER TABLE entries ENABLE TRIGGER entries_append_only"))
+
+
+async def main(*, reset_demo: bool = False, as_of: datetime | None = None) -> None:
+    validate_seed_target(reset_demo)
+    ctx = build_demo(as_of)
+    upload_demo_assets()
     async with SessionLocal() as session:
+        business_ids = [row.id for row in ctx.all(Business)]
+        exists = await session.scalar(select(Business.id).where(Business.id.in_(business_ids)))
+        if exists and not reset_demo:
+            print("Demo accounts already exist; use --reset-demo to refresh only those accounts.")
+            return
+        await replace_demo_rows(session, ctx)
         for cls in INSERT_ORDER:
             batch = [r for r in rows if type(r) is cls]
             if batch:
                 session.add_all(batch)
                 await session.flush()
-        await seed_ledger(session)
+        await seed_finance(session, ctx)
+        await session.flush()
+        report = await validate_database(session, as_of=ctx.now)
+        if not report["ok"]:
+            raise ValueError(f"Demo validation failed: {report['errors']}")
         await session.commit()
-        account_id = await connect_demo_business(session)
     await engine.dispose()
-    upload_demo_assets()
-    print(f"seeded {len(rows)} rows for 'Birchbark Pet Studio' (business {BIZ}, owner {owner})")
-    if account_id is not None:
-        print(f"connected to Stripe test account {account_id}")
+    print(f"Seeded {len(ctx.rows)} rows; demo {DEMO_VERSION}, as of {NOW.isoformat()}.")
 
 
 def upload_demo_assets() -> None:
-    """Upload the logo and images the File rows point at; skipped when no S3 store is running."""
+    """Upload and verify every demo asset before replacing any database rows."""
     s = get_settings()
     client = boto3.client(
         "s3",
@@ -2579,16 +2150,63 @@ def upload_demo_assets() -> None:
     try:
         if s.s3_bucket not in {b["Name"] for b in client.list_buckets().get("Buckets", [])}:
             client.create_bucket(Bucket=s.s3_bucket)
-        for path in sorted(ASSETS.glob("*.png")):
+        for asset in (r for r in rows if isinstance(r, File)):
+            path = ASSETS / Path(asset.s3_key).name
+            if not path.is_file() or path.stat().st_size != asset.size:
+                raise ValueError(f"Missing or mismatched demo asset: {asset.id}")
             client.upload_file(
                 str(path),
                 s.s3_bucket,
-                f"{BIZ}/demo/{path.name}",
-                ExtraArgs={"ContentType": "image/png"},
+                asset.s3_key,
+                ExtraArgs={"ContentType": asset.content_type},
             )
     except (BotoCoreError, ClientError) as exc:
-        print(f"skipped demo images: {exc}")
+        raise RuntimeError("Demo asset upload failed; database was not reset") from exc
+
+
+async def refresh_demo_avatar() -> None:
+    path = ASSETS / "logo-mark.png"
+    key = f"{BIZ}/demo/{path.name}"
+    async with SessionLocal() as db:
+        business = await db.get(Business, BIZ)
+        if business is None or business.brand.get("logo_file_id") != "fl_logo":
+            raise SystemExit("The original demo brand is not present; no changes made.")
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                get_file_storage().presign_upload(key, "image/png"),
+                content=path.read_bytes(),
+                headers={"Content-Type": "image/png"},
+            )
+            response.raise_for_status()
+        avatar = await db.get(File, "fl_logo_avatar")
+        if avatar is None:
+            db.add(
+                File(
+                    id="fl_logo_avatar",
+                    business_id=BIZ,
+                    parent_type="business",
+                    parent_id=BIZ,
+                    purpose="logo",
+                    s3_key=key,
+                    content_type="image/png",
+                    size=path.stat().st_size,
+                )
+            )
+            await db.flush()
+        business.brand = {**business.brand, "avatar_file_id": "fl_logo_avatar"}
+        await db.commit()
+    await engine.dispose()
+    print("Updated the demo avatar; all other demo data was preserved.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--refresh-demo-avatar", action="store_true")
+    parser.add_argument("--reset-demo", action="store_true")
+    parser.add_argument("--as-of", type=datetime.fromisoformat)
+    args = parser.parse_args()
+    asyncio.run(
+        refresh_demo_avatar()
+        if args.refresh_demo_avatar
+        else main(reset_demo=args.reset_demo, as_of=args.as_of)
+    )

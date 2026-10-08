@@ -1,0 +1,30 @@
+appId: ca.clientbridge.app
+name: Owner client record surfaces
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Search name, phone, email or pet"
+- inputText: "Olivia"
+- hideKeyboard
+- tapOn: ".*Olivia Martin.*"
+- assertVisible: "Book"
+- assertVisible: "Balance due"
+- takeScreenshot: client-record
+- tapOn: "History"
+- assertVisible: "Money.*"
+- takeScreenshot: client-history
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: ".*Olivia Martin.*"
+- scrollUntilVisible:
+      element: "Manage"
+      direction: DOWN
+- tapOn: "Manage"
+- assertVisible: "Payment methods"
+- takeScreenshot: client-wallet
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: ".*Olivia Martin.*"
+- tapOn:
+      text: "Pets"
+      below: "Edit Bandit"
+- assertVisible: "Add pet"
+- takeScreenshot: client-pets

@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from clientbridge.core.db import Base
 from clientbridge.core.deps import CurrentUserId, DbSession, is_manager
 from clientbridge.core.errors import Forbidden, Unprocessable
+from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Staff
 
 router = APIRouter(prefix="/sync", tags=["sync"])
@@ -80,13 +81,18 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
         if table is None or own_only is None:
             raise Forbidden(f"table '{op.type}' is not writable via sync")
         has_staff = "staff_id" in table.columns
-        data = op.data or {}
+        data = {k: v for k, v in (op.data or {}).items() if k != "id"}
 
         cols = [table.columns["business_id"]]
         if has_staff:
             cols.append(table.columns["staff_id"])
+        guard = COMMAND_ONLY_ROWS.get(op.type)
+        if guard is not None:
+            cols.append(table.columns[guard[0]])
         existing = (
-            (await db.execute(select(*cols).where(table.columns["id"] == op.id))).mappings().first()
+            (await db.execute(select(*cols).where(table.columns["id"] == op.id).with_for_update()))
+            .mappings()
+            .first()
         )
 
         if op.op == "PUT":
@@ -100,17 +106,13 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
             row_business = existing["business_id"]
             row_staff = existing["staff_id"] if has_staff else None
 
-        guard = COMMAND_ONLY_ROWS.get(op.type)
         if guard is not None:
             column, value = guard
-            current = (
-                await db.execute(select(table.columns[column]).where(table.columns["id"] == op.id))
-            ).scalar_one_or_none()
+            current = existing[column] if existing is not None else None
             if value in (current, data.get(column)):
                 raise Forbidden(f"{op.type} rows with {column} '{value}' are written by command")
 
-        new_business = data.get("business_id")
-        if isinstance(new_business, str) and new_business != row_business:
+        if "business_id" in data and data["business_id"] != row_business:
             raise Forbidden("cannot change business_id")
 
         staff = by_business.get(row_business) if isinstance(row_business, str) else None
@@ -118,6 +120,21 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
             raise Forbidden("not a member of that business")
         if own_only and not is_manager(staff.role) and row_staff != staff.id:
             raise Forbidden(f"staff may only modify their own {op.type}")
+
+        if has_staff and op.op in ("PUT", "PATCH"):
+            new_staff = data.get("staff_id", row_staff)
+            if own_only and not is_manager(staff.role) and new_staff != staff.id:
+                raise Forbidden(f"staff may only modify their own {op.type}")
+            if new_staff is not None and (
+                not isinstance(new_staff, str)
+                or await db.scalar(
+                    scoped(Staff, staff.business_id)
+                    .with_only_columns(Staff.id)
+                    .where(Staff.id == new_staff)
+                )
+                is None
+            ):
+                raise Forbidden("staff member is not in that business")
 
         if op.op in ("PUT", "PATCH"):
             _reject_owned_fields(op.type, data)
@@ -128,15 +145,25 @@ async def sync_upload(body: UploadBody, user_id: CurrentUserId, db: DbSession) -
                 values = {**_coerce(table, data), "id": op.id}
                 changed = {k: v for k, v in values.items() if k != "id"}
                 stmt = pg_insert(table).values(**values)
-                await db.execute(
-                    stmt.on_conflict_do_update(index_elements=["id"], set_=changed)
-                    if changed
-                    else stmt.on_conflict_do_nothing(index_elements=["id"])
+                allowed = table.columns["business_id"] == staff.business_id
+                if own_only and not is_manager(staff.role):
+                    allowed &= table.columns["staff_id"] == staff.id
+                if guard is not None:
+                    allowed &= table.columns[guard[0]] != guard[1]
+                saved = await db.scalar(
+                    stmt.on_conflict_do_update(
+                        index_elements=["id"], set_=changed or {"id": op.id}, where=allowed
+                    ).returning(table.columns["id"])
                 )
+                if saved is None:
+                    raise Forbidden("row ownership changed; upload refused")
             elif op.op == "PATCH":
-                await db.execute(
-                    update(table).where(table.columns["id"] == op.id).values(**_coerce(table, data))
-                )
+                if data:
+                    await db.execute(
+                        update(table)
+                        .where(table.columns["id"] == op.id)
+                        .values(**_coerce(table, data))
+                    )
             elif op.op == "DELETE":
                 await db.execute(delete(table).where(table.columns["id"] == op.id))
             else:

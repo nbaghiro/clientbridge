@@ -144,7 +144,7 @@ export default story<ChoiceProps<string>>({
                     {
                         key: "percent",
                         label: "Percentage",
-                        hint: "Needs Stripe to be verified first",
+                        hint: "Complete payment verification first",
                         disabled: true,
                     },
                 ],

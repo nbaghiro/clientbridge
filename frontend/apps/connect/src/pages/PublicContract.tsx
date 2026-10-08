@@ -20,8 +20,8 @@ import {
 } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
-import { PublicFrame } from "../components/PublicFrame";
-import { PublicDone, PublicStatus } from "../components/PublicStatus";
+import { DocumentLetter } from "../components/PublicDocument";
+import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
 import { useEmbedSuccess } from "../embed";
 
@@ -54,12 +54,16 @@ export function PublicContract() {
         );
     if (signing.status === "declined")
         return (
-            <PublicDone
+            <DocumentLetter
                 brand={doc.brand}
-                closed
+                businessName={doc.business_name}
                 title={s.declinedTitle}
-                body={s.declinedBody(doc.business_name)}
-            />
+                subtitle={s.declinedBody(doc.business_name)}
+            >
+                <div className="flex justify-center py-8 text-muted">
+                    <Icon name="minus" size={48} />
+                </div>
+            </DocumentLetter>
         );
     if (signing.status === "signed") return <Signed doc={doc} />;
 
@@ -68,11 +72,39 @@ export function PublicContract() {
         { key: "draw" as const, label: s.drawTab },
     ];
     return (
-        <PublicFrame brand={doc.brand} size="2xl">
-            <h1 className="font-display text-2xl font-bold text-ink">{doc.contract_name}</h1>
-            <p className="mt-1.5 text-sm text-muted">{s.intro(doc.business_name)}</p>
+        <DocumentLetter
+            brand={doc.brand}
+            businessName={doc.business_name}
+            title={doc.contract_name}
+            subtitle={s.intro(doc.business_name)}
+            facts={<p className="mt-3 text-xs text-muted">{s.version(doc.version)}</p>}
+            actions={
+                <>
+                    {signing.error !== null && signing.error !== "name-missing" ? (
+                        <Notice tone="danger">{s.errors[signing.error]}</Notice>
+                    ) : null}
+                    <Button size="lg" full busy={signing.busy} onPress={signing.sign}>
+                        {signing.busy ? s.signing : s.sign}
+                    </Button>
+                    <div className="flex items-center justify-between gap-3 text-xs text-muted">
+                        <span className="flex items-center gap-1.5">
+                            <Icon name="shield" size={13} />
+                            {s.recorded}
+                        </span>
+                        <Button
+                            variant="link"
+                            size="sm"
+                            onPress={signing.decline}
+                            disabled={signing.busy}
+                        >
+                            {s.decline}
+                        </Button>
+                    </div>
+                </>
+            }
+        >
             <div
-                className="mt-5 max-h-[22rem] overflow-y-auto rounded-md border border-line bg-bg p-1.5"
+                className="border-b border-line-soft -mx-6 -mt-6 px-3 py-3"
                 tabIndex={0}
                 aria-label={doc.contract_name}
             >
@@ -132,49 +164,34 @@ export function PublicContract() {
                         onChange={signing.setAgreed}
                     />
                 </div>
-                {signing.error !== null && signing.error !== "name-missing" ? (
-                    <Notice tone="danger">{s.errors[signing.error]}</Notice>
-                ) : null}
-                <Button size="lg" full busy={signing.busy} onPress={signing.sign}>
-                    {signing.busy ? s.signing : s.sign}
-                </Button>
-                <div className="flex items-center justify-between gap-3 text-xs text-muted">
-                    <span className="flex items-center gap-1.5">
-                        <Icon name="shield" size={13} />
-                        {s.recorded}
-                    </span>
-                    <Button
-                        variant="link"
-                        size="sm"
-                        onPress={signing.decline}
-                        disabled={signing.busy}
-                    >
-                        {s.decline}
-                    </Button>
-                </div>
             </div>
-        </PublicFrame>
+        </DocumentLetter>
     );
 }
 
 function Signed({ doc }: { doc: PublicContractData }) {
     return (
-        <PublicDone
+        <DocumentLetter
             brand={doc.brand}
+            businessName={doc.business_name}
             title={s.signedTitle}
-            body={s.signedBody(doc.contract_name, doc.business_name)}
+            subtitle={s.signedBody(doc.contract_name, doc.business_name)}
+            actions={
+                <>
+                    <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
+                        <Button
+                            variant="outline"
+                            icon="printer"
+                            onPress={() => {
+                                globalThis.print();
+                            }}
+                        >
+                            {s.print}
+                        </Button>
+                    </div>
+                </>
+            }
         >
-            <div className="mx-auto flex max-w-sm flex-col items-center gap-2">
-                <Button
-                    variant="outline"
-                    icon="printer"
-                    onPress={() => {
-                        globalThis.print();
-                    }}
-                >
-                    {s.print}
-                </Button>
-            </div>
             <div className="mt-6 text-left">
                 <ContractDocument
                     density="compact"
@@ -197,6 +214,6 @@ function Signed({ doc }: { doc: PublicContractData }) {
                     }}
                 />
             </div>
-        </PublicDone>
+        </DocumentLetter>
     );
 }

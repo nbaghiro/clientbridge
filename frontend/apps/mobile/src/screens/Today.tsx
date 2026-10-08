@@ -22,11 +22,11 @@ import {
     AgendaRows,
     AttentionList,
     GettingStarted,
-    KpiScroller,
-    KpiScrollerLoading,
+    KpiSummary,
+    KpiSummaryLoading,
     NextActions,
     NextCard,
-    NumbersFailed,
+    PaymentsSummary,
     QuietDay,
     RowsLoading,
     Section,
@@ -87,7 +87,8 @@ function Body({ children }: { children: ReactNode }) {
 
 function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => void }) {
     const viewer = useViewer();
-    const { load, view, money, moneyLoad } = useOwnerToday(api, viewer);
+    const owner = useOwnerToday(api, viewer);
+    const { load, view } = owner;
     const actions = useTodayActions(api);
     const openLink = useOpenLink();
     const setup = useSetupProgress();
@@ -116,12 +117,10 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             </Notice>
                         </View>
                     ) : null}
-                    {loading || moneyLoad.state === "loading" ? (
-                        <KpiScrollerLoading />
-                    ) : moneyLoad.state === "error" ? (
-                        <NumbersFailed onRetry={moneyLoad.retry} retrying={moneyLoad.retrying} />
+                    {loading ? (
+                        <KpiSummaryLoading />
                     ) : (
-                        <KpiScroller
+                        <KpiSummary
                             items={[
                                 {
                                     label: t.booked,
@@ -133,17 +132,6 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                                     value: formatMoney(view.expectedCents),
                                     hint: t.expectedHint,
                                 },
-                                {
-                                    label: t.collected,
-                                    value: formatMoney(money.collectedCents),
-                                    hint: t.collectedHint(money.paymentCount),
-                                    tone: "success",
-                                },
-                                {
-                                    label: t.awaiting,
-                                    value: formatMoney(money.awaitingCents),
-                                    hint: t.awaitingHint(money.awaitingCount),
-                                },
                             ]}
                         />
                     )}
@@ -154,6 +142,7 @@ function OwnerToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             </NextCard>
                         </Section>
                     )}
+                    <PaymentsSummary owner={owner} />
                     {firstRun ? <GettingStarted setup={setup} /> : null}
                     <Section title={t.needsYou}>
                         {loading ? (
@@ -244,6 +233,7 @@ function StaffToday({ bell, onSecretTap }: { bell: number; onSecretTap: () => vo
                             </NextCard>
                         )}
                     </Section>
+                    <PaymentsSummary />
                     <View style={styles.facts}>
                         <View style={styles.fact}>
                             <Text style={styles.factLabel}>{t.staff.earnings}</Text>

@@ -50,7 +50,7 @@ async def test_owner_updates_brand(as_owner: httpx.AsyncClient, db: AsyncSession
         },
     )
     assert res.status_code == 200, res.text
-    assert res.json()["brand"] == {
+    assert {k: res.json()["brand"][k] for k in ("logo_url", "primary", "tagline")} == {
         "logo_url": "https://cdn.example/logo.png",
         "primary": "#123abc",
         "tagline": "Best grooming in town",  # trimmed
@@ -68,15 +68,17 @@ async def test_brand_rejects_invalid_values(as_owner: httpx.AsyncClient) -> None
     ).status_code == 422
 
 
-async def test_brand_replaces_and_clears(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    # sending brand replaces it wholesale; emptied fields drop out, unrelated fields stay untouched
+async def test_brand_merges_and_clears(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    # Explicit clears remove values; selecting an external logo replaces the uploaded logo.
     res = await as_owner.patch(
         "/v1/business",
         json={"brand": {"primary": "#000000", "tagline": "", "logo_url": ""}},
     )
     assert res.status_code == 200
     biz = (await db.execute(select(Business).where(Business.id == BIZ))).scalar_one()
-    assert biz.brand == {"primary": "#000000"}
+    assert biz.brand["primary"] == "#000000"
+    assert "tagline" not in biz.brand and "logo_url" not in biz.brand
+    assert biz.brand["about"]
     assert biz.name == "Birchbark Pet Studio"  # a field not sent in this PATCH is left alone
 
 

@@ -17,17 +17,19 @@
         "typecheck": "tsc --noEmit -p src/web && tsc --noEmit -p src/mobile"
     },
     "dependencies": {
-        "@clientbridge/tokens": "workspace:*"
+        "@clientbridge/tokens": "workspace:*",
+        "@stripe/connect-js": "^3.4.6",
+        "@stripe/react-connect-js": "^3.4.4"
     },
     "peerDependencies": {
         "@clientbridge/app-core": "workspace:*",
         "@stripe/react-stripe-js": "^7.0.0",
         "@stripe/stripe-js": "^10.0.0",
-        "react": ">=19",
         "@stripe/stripe-react-native": "*",
+        "react": ">=19",
         "react-native": "*",
-        "react-native-svg": "*",
-        "react-native-safe-area-context": "*"
+        "react-native-safe-area-context": "*",
+        "react-native-svg": "*"
     },
     "peerDependenciesMeta": {
         "@stripe/react-stripe-js": {

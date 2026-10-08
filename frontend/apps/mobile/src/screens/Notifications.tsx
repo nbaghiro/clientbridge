@@ -88,7 +88,10 @@ export function NotificationsScreen() {
                                                 view.markRead(n.id);
                                                 openLink(
                                                     n.link,
-                                                    n.kind === "invoice_overdue" ? n.refId : null,
+                                                    n.kind === "invoice_overdue" ||
+                                                        n.kind === "message"
+                                                        ? n.refId
+                                                        : null,
                                                 );
                                             }}
                                         />

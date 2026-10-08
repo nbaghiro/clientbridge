@@ -75,6 +75,9 @@ class Payment(PKMixin, BusinessScoped, TimestampMixin, Base):
     tendered_cents: Mapped[int | None] = mapped_column(BigInteger)  # cash handed over
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    refund_notify: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     reason: Mapped[str | None] = mapped_column(String)  # why a refund was given
     credit_note: Mapped[str | None] = mapped_column(String)  # a refund's CN-<document>-<n>
     channel: Mapped[str | None] = mapped_column(String)  # how an Interac request went out
@@ -111,3 +114,24 @@ class PaymentMethod(PKMixin, BusinessScoped, TimestampMixin, Base):
     exp_year: Mapped[int | None] = mapped_column(SmallInteger)
     holder_name: Mapped[str | None] = mapped_column(String)
     bank_name: Mapped[str | None] = mapped_column(String)
+
+
+class PaymentSetupLink(PKMixin, BusinessScoped, TimestampMixin, Base):
+    __tablename__ = "payment_setup_links"
+    __table_args__ = (
+        enum_check("payment_setup_links", "purpose", "pad_setup"),
+        Index("uq_payment_setup_links_hash", "token_hash", unique=True),
+        Index("uq_payment_setup_links_intent", "setup_intent_id", unique=True),
+        Index("ix_payment_setup_links_client", "business_id", "client_id"),
+    )
+
+    client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
+    account_id: Mapped[str] = mapped_column(String, nullable=False)
+    customer_id: Mapped[str] = mapped_column(String, nullable=False)
+    purpose: Mapped[str] = mapped_column(String, default="pad_setup", nullable=False)
+    token_hash: Mapped[str] = mapped_column(String, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    setup_intent_id: Mapped[str | None] = mapped_column(String)
+    mandate_ref: Mapped[str | None] = mapped_column(String)
+    setup_status: Mapped[str] = mapped_column(String, default="not_started", nullable=False)

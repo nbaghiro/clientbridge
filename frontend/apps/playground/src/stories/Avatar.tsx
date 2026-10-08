@@ -4,9 +4,11 @@ import { story } from "../story";
 
 export default story<AvatarProps>({
     component: "Avatar",
-    summary: "A person's or pet's initials on a tint of the accent or their own colour.",
+    summary:
+        "A business logo or a person’s initials, with an initials fallback when the image is unavailable.",
     controls: {
         name: { type: "text" },
+        src: { type: "text" },
         size: { type: "select", options: ["sm", "md", "lg", "xl"] },
     },
     examples: [

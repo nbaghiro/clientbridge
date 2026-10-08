@@ -3,6 +3,7 @@ import { ON_DATA, SHADOW, tintHex } from "@clientbridge/tokens";
 import { theme } from "@clientbridge/tokens/native";
 import { StyleSheet, Text, View } from "react-native";
 
+import { Avatar } from "./Avatar";
 import { DocTotals } from "./DocTotals";
 import { PayCode } from "./PayCode";
 import type { NativeProps } from "./props";
@@ -14,11 +15,7 @@ function Brand({ doc, inverse = false }: { doc: Doc; inverse?: boolean }) {
     const b = doc.business;
     return (
         <View style={styles.brand}>
-            <View style={[styles.mark, { backgroundColor: inverse ? c.surface : b.brandColor }]}>
-                <Text style={[styles.markText, { color: inverse ? b.brandColor : ON_DATA }]}>
-                    {b.initials}
-                </Text>
-            </View>
+            <Avatar name={b.name} src={b.avatarUrl} color={b.brandColor} size="lg" />
             <View style={styles.flex}>
                 <Text style={[styles.bizName, inverse && styles.inverse]}>{b.name}</Text>
                 <Text style={[styles.small, inverse && styles.inverseSoft]}>{b.tagline}</Text>
@@ -206,14 +203,6 @@ const styles = StyleSheet.create({
     },
     flex: { flex: 1, minWidth: 0 },
     brand: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
-    mark: {
-        width: 28,
-        height: 28,
-        borderRadius: 6,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    markText: { fontSize: 11, fontWeight: "800" },
     bizName: { color: c.ink, fontSize: 12, fontWeight: "700" },
     inverse: { color: ON_DATA },
     inverseSoft: { color: tintHex(ON_DATA, 75) },

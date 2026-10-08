@@ -70,7 +70,7 @@ class PinIn(BaseModel):
 
 
 class OrderPickupIn(BaseModel):
-    status: Literal["ready", "picked_up"]
+    status: Literal["preparing", "ready", "picked_up"]
 
 
 class OrderOut(BaseModel):
@@ -150,3 +150,33 @@ class ConnectionTokenOut(BaseModel):
     location_id: str | None = Field(
         default=None, description="The business's Terminal location, for connectReader"
     )
+
+
+class PublicOrderStatus(BaseModel):
+    pickup_from: datetime | None = None
+    pickup_to: datetime | None = None
+    address: str | None = None
+    phone: str | None = None
+    number: int | None
+    business_name: str
+    brand: PublicBrand
+    status: str
+    pickup_status: str | None
+    created_at: datetime
+    preparing_at: datetime | None
+    ready_at: datetime | None
+    picked_up_at: datetime | None
+    notify_sms: bool
+    refund_pending: bool = False
+    can_cancel: bool
+    receipt_token: str | None
+    currency: str
+    subtotal_cents: int
+    tax_total_cents: int
+    total_cents: int
+    lines: list[PublicDocLine]
+    taxes: list[PublicDocTax]
+
+
+class PublicOrderAlerts(BaseModel):
+    notify_sms: bool

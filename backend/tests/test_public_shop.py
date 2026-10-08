@@ -56,7 +56,7 @@ async def test_shop_lists_online_products_without_cost_or_sku(
     res = await api.get(f"/book/{SLUG}/shop")
     assert res.status_code == 200, res.text
     items = res.json()["items"]
-    assert {i["id"] for i in items} == {SHAMPOO, BRUSH}
+    assert {SHAMPOO, BRUSH}.issubset({i["id"] for i in items})
     assert all("sku" not in i and "cost_cents" not in i for i in items)
 
 
@@ -69,7 +69,8 @@ async def test_shop_hides_inactive_and_shows_out_of_stock(
     )
     await db.flush()
     items = (await api.get(f"/book/{SLUG}/shop")).json()["items"]
-    assert [(i["id"], i["in_stock"]) for i in items] == [(SHAMPOO, False)]
+    assert not any(i["id"] == BRUSH for i in items)
+    assert next(i for i in items if i["id"] == SHAMPOO)["in_stock"] is False
 
 
 async def test_shop_unknown_slug_404(api: httpx.AsyncClient) -> None:
@@ -105,8 +106,10 @@ async def test_order_replay_returns_the_same_order(
     again = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=key)
     assert first.status_code == again.status_code == 200
     assert first.json()["order_id"] == again.json()["order_id"]
-    count = await db.scalar(select(func.count()).select_from(Order).where(Order.source == "online"))
-    assert count == 2  # the seeded online order + this one
+    count = await db.scalar(
+        select(func.count()).select_from(Order).where(Order.id == first.json()["order_id"])
+    )
+    assert count == 1
 
 
 async def test_order_needs_an_idempotency_key_422(api: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -145,7 +148,12 @@ async def test_order_blocks_more_than_in_stock_409(
     assert "only 1 left" in res.json()["message"]
 
 
-async def test_order_needs_card_payments_on_409(api: httpx.AsyncClient) -> None:
+async def test_order_needs_card_payments_on_409(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_account_id = None
+    business.stripe_charges_enabled = False
+    await db.flush()
     res = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
     assert res.status_code == 409
 
@@ -315,3 +323,61 @@ async def test_staff_cannot_remove_add_ons_from_another_members_visit(
     await db.commit()
     res = await as_staff.delete(f"/v1/bookings/{OWNER_BOOKING}/addons/bka_owner_visit")
     assert res.status_code == 403
+
+
+async def test_variants_use_their_own_price_and_cannot_be_bought_as_parent(
+    api: httpx.AsyncClient, as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await _enable(db)
+    variant = await as_owner.post(
+        "/v1/items",
+        json={
+            "kind": "product",
+            "name": "Shampoo 500ml",
+            "variant_parent_id": SHAMPOO,
+            "variant_label": "500ml",
+            "price_cents": 3900,
+            "sell_online": True,
+        },
+    )
+    assert variant.status_code == 201, variant.text
+    item_id = variant.json()["id"]
+    listed = (await api.get(f"/book/{SLUG}/shop")).json()["items"]
+    assert next(item for item in listed if item["id"] == item_id)["variant_parent_id"] == SHAMPOO
+    parent = await api.post(f"/book/{SLUG}/shop/orders", json=_order((SHAMPOO, 1)), headers=_key())
+    assert parent.status_code == 422
+    bought = await api.post(f"/book/{SLUG}/shop/orders", json=_order((item_id, 2)), headers=_key())
+    assert bought.status_code == 200, bought.text
+    order = await db.get(Order, bought.json()["order_id"])
+    assert order is not None and order.subtotal_cents == 7800
+    nested = await as_owner.post(
+        "/v1/items",
+        json={
+            "kind": "product",
+            "name": "Nested",
+            "variant_parent_id": item_id,
+            "variant_label": "Invalid",
+        },
+    )
+    assert nested.status_code == 422
+
+
+async def test_variant_parent_must_be_a_product_in_same_tenant(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    other = await Factory(db).business()
+    db.add(
+        Item(id="it_foreign_variant_parent", business_id=other.id, kind="product", name="Private")
+    )
+    await db.flush()
+    for parent, status in ((BATH, 422), ("it_foreign_variant_parent", 404)):
+        response = await as_owner.post(
+            "/v1/items",
+            json={
+                "kind": "product",
+                "name": "Variant",
+                "variant_parent_id": parent,
+                "variant_label": "Small",
+            },
+        )
+        assert response.status_code == status, response.text

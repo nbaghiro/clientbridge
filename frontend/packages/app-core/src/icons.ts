@@ -6,6 +6,10 @@ export type IconPrimitive =
     | { kind: "path"; d: string };
 
 const p = (d: string): IconPrimitive => ({ kind: "path", d });
+const chat: IconPrimitive[] = [
+    p("M7 4h10a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H8l-5 3V8a4 4 0 0 1 4-4z"),
+    p("M8 11h.01M12 11h.01M16 11h.01"),
+];
 const o = (cx: number, cy: number, r: number): IconPrimitive => ({ kind: "circle", cx, cy, r });
 const r = (x: number, y: number, width: number, height: number, rx = 2): IconPrimitive => ({
     kind: "rect",
@@ -103,7 +107,7 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
         { kind: "path", d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" },
         { kind: "path", d: "M14 2v6h6M16 13H8M16 17H8M10 9H8" },
     ],
-    inbox: [{ kind: "path", d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }],
+    inbox: chat,
     plus: [{ kind: "path", d: "M12 5v14M5 12h14" }],
     search: [
         { kind: "circle", cx: 11, cy: 11, r: 8 },
@@ -229,7 +233,7 @@ export const ICON_SPECS: Record<IconName, IconPrimitive[]> = {
     grip: [o(9, 6, 1), o(15, 6, 1), o(9, 12, 1), o(15, 12, 1), o(9, 18, 1), o(15, 18, 1)],
     moon: [p("M20 13.5A8 8 0 1 1 10.5 4a6.5 6.5 0 0 0 9.5 9.5z")],
     pin: [p("M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"), o(12, 10, 2.5)],
-    message: [p("M4 5h16v11H8l-4 4z")],
+    message: chat,
     card: [r(3, 5, 18, 14), p("M3 10h18M7 15h3")],
     chevronRight: [p("m9 18 6-6-6-6")],
     chevronUp: [p("m6 15 6-6 6 6")],

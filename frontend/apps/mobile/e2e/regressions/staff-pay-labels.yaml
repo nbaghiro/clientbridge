@@ -1,0 +1,15 @@
+appId: ca.clientbridge.app
+name: Staff pay totals retain their labels
+---
+- runFlow: ../helpers/owner.yaml
+- tapOn: "View payments"
+- swipe:
+      from:
+          text: "Refunds"
+      direction: LEFT
+- tapOn: "Staff pay"
+- assertVisible: "Staff earn a share of what they do, and tips. Approve them, then pay them."
+- takeScreenshot: staff-pay-labels
+- assertVisible: "To approve"
+- assertVisible: "Approved, to pay"
+- assertVisible: "Paid this year"

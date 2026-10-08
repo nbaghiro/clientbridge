@@ -443,7 +443,7 @@ export function ClientWalletScreen() {
                     }}
                 >
                     <Text style={styles.sheetTitle}>{w.addCard}</Text>
-                    <PaymentMethodForm flow={add} allowBank={false} />
+                    <PaymentMethodForm flow={add} allowBank />
                 </Modal>
             ) : null}
         </View>

@@ -163,7 +163,13 @@ async def test_staff_cannot_add_time_off_for_someone_else(
         "/v1/time-off", json=_away(ST_OWNER, "2027-03-02T20:00:00Z", "2027-03-02T22:00:00Z")
     )
     assert res.status_code == 403
-    rows = await db.execute(select(Hours.id).where(Hours.basis == "exception"))
+    rows = await db.execute(
+        select(Hours.id).where(
+            Hours.basis == "exception",
+            Hours.staff_id == ST_OWNER,
+            Hours.starts_at == datetime(2027, 3, 2, 20, tzinfo=UTC),
+        )
+    )
     assert rows.first() is None
 
 
@@ -265,7 +271,13 @@ async def test_time_off_replays_on_the_same_key(
     again = await as_owner.post("/v1/time-off", json=body, headers=headers)
     assert first.status_code == 201 and again.status_code == 201
     assert first.json()["id"] == again.json()["id"]
-    rows = await db.execute(select(Hours.id).where(Hours.basis == "exception"))
+    rows = await db.execute(
+        select(Hours.id).where(
+            Hours.basis == "exception",
+            Hours.staff_id == ST_OWNER,
+            Hours.starts_at == datetime(2027, 3, 2, 20, tzinfo=UTC),
+        )
+    )
     assert len(rows.scalars().all()) == 1
 
 

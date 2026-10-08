@@ -1,0 +1,40 @@
+appId: ca.clientbridge.app
+name: Owner inbox surfaces
+---
+- runFlow: helpers/owner.yaml
+- tapOn:
+      id: "tab-inbox"
+- assertVisible: "Search name, pet or message"
+- takeScreenshot: messages
+- tapOn: "New"
+- assertVisible: "New message"
+- assertVisible: "Send message"
+- takeScreenshot: message-composer
+- tapOn: "Cancel"
+- tapOn: "Reviews"
+- assertVisible: "Approve, reply to and share what clients say."
+- takeScreenshot: reviews
+- tapOn: "Broadcasts"
+- assertVisible: "Send news and offers to clients who agreed to hear from you."
+- takeScreenshot: broadcasts
+- tapOn: "Forms"
+- assertVisible: "Questions clients answer before they visit."
+- takeScreenshot: forms
+- tapOn: "New form"
+- assertVisible: "Untitled form"
+- assertVisible: "Questions"
+- takeScreenshot: form-editor
+- tapOn: "When it goes out"
+- assertVisible: "Form name"
+- takeScreenshot: form-settings
+- swipe:
+      from:
+          text: "Forms"
+      direction: LEFT
+- tapOn: "Contracts"
+- assertVisible: "Policies and agreements clients sign online."
+- takeScreenshot: contracts
+- tapOn: "New contract"
+- assertVisible: "Contract text"
+- takeScreenshot: contract-composer
+- tapOn: "Cancel"

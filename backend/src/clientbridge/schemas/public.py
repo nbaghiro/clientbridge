@@ -2,7 +2,7 @@ import re
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # `\Z` rather than `$`, so a trailing newline can't pass.
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
@@ -12,6 +12,7 @@ class PublicBrand(BaseModel):
     """A business's validated public brand; unset or malformed fields are None."""
 
     logo_url: str | None = None
+    avatar_url: str | None = None
     primary: str | None = None
     tagline: str | None = None
 
@@ -111,9 +112,12 @@ class ManagedAddon(BaseModel):
 
 
 class ManagedBooking(BaseModel):
+    refund_status: str | None = None
     """A client's own booking, as their manage link shows it."""
 
     booking_id: str
+    address: str | None = None
+    parking_note: str | None = None
     business_name: str
     brand: PublicBrand
     slug: str
@@ -140,7 +144,7 @@ class ManageReschedule(BaseModel):
 
 
 class ManageCancelResult(BaseModel):
-    deposit: Literal["refunded", "kept", "none"]
+    deposit: Literal["refunded", "kept", "none", "pending", "failed"]
     refund_cents: int
 
 
@@ -157,6 +161,8 @@ class PublicBookingClient(BaseModel):
 
 
 class PublicBookingCreate(BaseModel):
+    returning_token: str | None = Field(default=None, max_length=100)
+    subject_id: str | None = Field(default=None, max_length=100)
     item_id: str
     staff_id: str
     starts_at: datetime
@@ -178,6 +184,8 @@ class PublicBookingResult(BaseModel):
 
 
 class PublicShopItem(BaseModel):
+    variant_parent_id: str | None = None
+    variant_label: str | None = None
     id: str
     name: str
     description: str | None
@@ -201,14 +209,61 @@ class PublicShopLine(BaseModel):
     quantity: int = Field(ge=1, le=20)
 
 
+class PublicPickupWindow(BaseModel):
+    starts_at: datetime
+    ends_at: datetime
+
+
+class PublicPickupDays(BaseModel):
+    windows: list[PublicPickupWindow]
+    hold_days: int
+
+
 class PublicShopOrderCreate(BaseModel):
+    pickup_from: datetime | None = None
+    pickup_to: datetime | None = None
+    note: str | None = Field(default=None, max_length=1000)
+    notify_sms: bool = True
+
+    @model_validator(mode="after")
+    def _window(self) -> "PublicShopOrderCreate":
+        if (self.pickup_from is None) != (self.pickup_to is None):
+            raise ValueError("provide both pickup window boundaries")
+        if self.pickup_from is not None and (
+            self.pickup_from.tzinfo is None
+            or self.pickup_to is None
+            or self.pickup_to.tzinfo is None
+            or self.pickup_to <= self.pickup_from
+        ):
+            raise ValueError("pickup window must have time zones and end after it starts")
+        return self
+
     client: PublicBookingClient
     lines: list[PublicShopLine] = Field(min_length=1, max_length=20)
 
 
 class PublicShopOrderResult(BaseModel):
+    subtotal_cents: int | None = None
+    tax_total_cents: int | None = None
     order_id: str
+    order_token: str | None = None
     total_cents: int
     currency: str
     client_secret: str
     stripe_account_id: str
+
+
+class ManageMessage(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("body")
+    @classmethod
+    def _trim(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("message cannot be blank")
+        return value
+
+
+class ManageMessageResult(BaseModel):
+    id: str

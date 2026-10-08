@@ -1,12 +1,15 @@
 """Stripe Connect adapter: Custom connected accounts, direct charges with an application fee."""
 
 import json
+import re
+import unicodedata
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Concatenate, Protocol
+from typing import Concatenate, Literal, Protocol
 
 import stripe
+from stripe.params import AccountSessionCreateParamsComponents
 
 from clientbridge.core.config import get_settings
 from clientbridge.core.errors import (
@@ -18,6 +21,16 @@ from clientbridge.core.errors import (
 
 # webhook payloads are parsed for this version; the Connect webhook endpoint must use it too
 STRIPE_API_VERSION = "2026-05-27.dahlia"
+
+
+def payment_descriptor(name: str) -> str | None:
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    descriptor = re.sub(r"[<>\\'\"*]", "", ascii_name).upper()
+    descriptor = " ".join(descriptor.split())[:22].rstrip()
+    return descriptor if len(descriptor) >= 5 and re.search("[A-Z]", descriptor) else None
+
+
+type ConnectComponent = Literal["onboarding", "account", "payments", "payouts"]
 
 
 @dataclass(frozen=True)
@@ -80,6 +93,24 @@ class SetupIntentResult:
 
 
 @dataclass(frozen=True)
+class SetupIntentState:
+    id: str
+    client_secret: str
+    status: str
+    customer_id: str | None
+    payment_method: dict[str, object] | None
+    mandate_id: str | None
+    verification_url: str | None = None
+
+
+@dataclass(frozen=True)
+class MandateState:
+    id: str
+    status: str
+    payment_method_id: str
+
+
+@dataclass(frozen=True)
 class ChargeFees:
     processing_fee_cents: int
     application_fee_cents: int
@@ -106,11 +137,18 @@ class WebhookVerificationError(Exception):
 
 class PaymentGateway(Protocol):
     async def create_connected_account(
-        self, *, business_name: str, email: str | None, url: str | None = None
+        self,
+        *,
+        business_name: str,
+        email: str | None,
+        url: str | None = None,
+        idempotency_key: str | None = None,
     ) -> str: ...
     async def create_account_link(
         self, account_id: str, *, refresh_url: str, return_url: str
     ) -> str: ...
+    async def create_account_session(self, account_id: str, component: ConnectComponent) -> str: ...
+
     async def get_account(self, account_id: str) -> ConnectAccount: ...
     def verify_webhook(self, payload: bytes, signature: str) -> GatewayEvent: ...
 
@@ -120,10 +158,15 @@ class PaymentGateway(Protocol):
         ...
 
     async def create_pad_setup_intent(
-        self, account_id: str, *, customer_id: str
+        self, account_id: str, *, customer_id: str, idempotency_key: str, email: str | None = None
     ) -> SetupIntentResult:
         """Save a Canadian pre-authorized debit (ACSS) mandate for later off-session pulls."""
         ...
+
+    async def ensure_pad_capability(self, account_id: str) -> None: ...
+
+    async def get_setup_intent(self, account_id: str, setup_intent_id: str) -> SetupIntentState: ...
+    async def get_mandate(self, account_id: str, mandate_id: str) -> MandateState: ...
 
     async def create_price(
         self,
@@ -228,7 +271,12 @@ class StripeGateway:
 
     @_keyed
     async def create_connected_account(  # pragma: no cover - real Stripe, faked in tests
-        self, *, business_name: str, email: str | None, url: str | None = None
+        self,
+        *,
+        business_name: str,
+        email: str | None,
+        url: str | None = None,
+        idempotency_key: str | None = None,
     ) -> str:
         # Pre-fill everything we already have so Stripe's hosted KYC has less to collect.
         profile: dict[str, str] = {"name": business_name}
@@ -236,8 +284,17 @@ class StripeGateway:
             profile["support_email"] = email
         if url is not None:
             profile["url"] = url
+        descriptor = payment_descriptor(business_name)
+        settings: stripe.params.AccountCreateParamsSettings = {}
+        if descriptor is not None:
+            settings["payments"] = {"statement_descriptor": descriptor}
+            prefix = descriptor[:10].rstrip()
+            if re.search("[A-Z]", prefix):
+                settings["card_payments"] = {"statement_descriptor_prefix": prefix}
         account = await stripe.Account.create_async(
+            settings=settings,
             type="custom",
+            idempotency_key=idempotency_key,
             country=self._country,
             email=email,  # type: ignore[arg-type]  # Stripe email is optional; stub types it str
             business_profile=profile,  # type: ignore[arg-type]  # plain dict; stub types a TypedDict
@@ -259,6 +316,58 @@ class StripeGateway:
             type="account_onboarding",
         )
         return str(link.url)
+
+    @_keyed
+    async def create_account_session(
+        self, account_id: str, component: ConnectComponent
+    ) -> str:  # pragma: no cover
+        components: AccountSessionCreateParamsComponents = {}
+        if component == "onboarding":
+            components["account_onboarding"] = {
+                "enabled": True,
+                "features": {
+                    "external_account_collection": True,
+                    "disable_stripe_user_authentication": False,
+                },
+            }
+        elif component == "account":
+            components["account_management"] = {
+                "enabled": True,
+                "features": {
+                    "external_account_collection": True,
+                    "disable_stripe_user_authentication": False,
+                },
+            }
+            components["account_onboarding"] = {
+                "enabled": True,
+                "features": {
+                    "external_account_collection": True,
+                    "disable_stripe_user_authentication": False,
+                },
+            }
+        elif component == "payments":
+            components["payments"] = {
+                "enabled": True,
+                "features": {
+                    "dispute_management": True,
+                    "refund_management": False,
+                    "capture_payments": False,
+                },
+            }
+        else:
+            components["payouts"] = {
+                "enabled": True,
+                "features": {
+                    "edit_payout_schedule": False,
+                    "instant_payouts": False,
+                    "standard_payouts": False,
+                    "external_account_collection": False,
+                },
+            }
+        session = await stripe.AccountSession.create_async(
+            account=account_id, components=components
+        )
+        return str(session.client_secret)
 
     @_keyed
     async def get_account(self, account_id: str) -> ConnectAccount:  # pragma: no cover
@@ -299,8 +408,10 @@ class StripeGateway:
 
     @_keyed
     async def create_pad_setup_intent(  # pragma: no cover
-        self, account_id: str, *, customer_id: str
+        self, account_id: str, *, customer_id: str, idempotency_key: str, email: str | None = None
     ) -> SetupIntentResult:
+        if email is not None:
+            await stripe.Customer.modify_async(customer_id, email=email, stripe_account=account_id)
         intent = await stripe.SetupIntent.create_async(
             customer=customer_id,
             usage="off_session",
@@ -310,13 +421,79 @@ class StripeGateway:
                     "currency": "cad",
                     "mandate_options": {
                         "payment_schedule": "interval",
+                        "interval_description": (
+                            "When an invoice or a scheduled membership payment is due"
+                        ),
+                        "default_for": ["invoice", "subscription"],
                         "transaction_type": "personal",
                     },
                 }
             },
             stripe_account=account_id,
+            idempotency_key=idempotency_key,
         )
         return SetupIntentResult(id=str(intent.id), client_secret=str(intent.client_secret))
+
+    @_keyed
+    async def ensure_pad_capability(self, account_id: str) -> None:  # pragma: no cover
+        try:
+            capability = await stripe.Account.modify_capability_async(
+                account_id, "acss_debit_payments", requested=True
+            )
+        except stripe.InvalidRequestError as exc:
+            raise Conflict(
+                "enable Canadian pre-authorized debit on the platform "
+                "and complete the business's payments setup"
+            ) from exc
+        if capability.status != "active":
+            raise Conflict(
+                "complete the Canadian pre-authorized debit requirements in payments setup"
+            )
+
+    @_keyed
+    async def get_setup_intent(
+        self, account_id: str, setup_intent_id: str
+    ) -> SetupIntentState:  # pragma: no cover
+        intent = await stripe.SetupIntent.retrieve_async(
+            setup_intent_id, expand=["payment_method"], stripe_account=account_id
+        )
+        pm = intent.payment_method
+        mandate = intent.mandate
+        action = intent.next_action
+        verify = (
+            action.verify_with_microdeposits
+            if action is not None and action.type == "verify_with_microdeposits"
+            else None
+        )
+        return SetupIntentState(
+            id=str(intent.id),
+            client_secret=str(intent.client_secret),
+            status=str(intent.status),
+            customer_id=intent.customer if isinstance(intent.customer, str) else None,
+            payment_method={
+                "id": pm.id,
+                "type": pm.type,
+                "customer": pm.customer,
+                "acss_debit": {"last4": pm.acss_debit.last4, "bank_name": pm.acss_debit.bank_name}
+                if pm.acss_debit is not None
+                else {},
+            }
+            if isinstance(pm, stripe.PaymentMethod)
+            else None,
+            mandate_id=mandate if isinstance(mandate, str) else None,
+            verification_url=verify.hosted_verification_url if verify is not None else None,
+        )
+
+    @_keyed
+    async def get_mandate(
+        self, account_id: str, mandate_id: str
+    ) -> MandateState:  # pragma: no cover
+        mandate = await stripe.Mandate.retrieve_async(mandate_id, stripe_account=account_id)
+        return MandateState(
+            id=str(mandate.id),
+            status=str(mandate.status),
+            payment_method_id=str(mandate.payment_method),
+        )
 
     @_keyed
     async def create_price(  # pragma: no cover

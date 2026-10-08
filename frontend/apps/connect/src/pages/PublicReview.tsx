@@ -8,7 +8,7 @@ import { Button, Icon, Notice, Stars, TextField } from "@clientbridge/ui";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
-import { PublicFrame } from "../components/PublicFrame";
+import { DocumentLetter } from "../components/PublicDocument";
 import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
 import { useEmbedSuccess } from "../embed";
@@ -38,15 +38,21 @@ export function PublicReview() {
 
     const negative = page.rating > 0 && !page.positive;
     return (
-        <PublicFrame brand={ctx.brand}>
+        <DocumentLetter
+            brand={ctx.brand}
+            businessName={ctx.business_name}
+            title={ctx.pet !== null ? s.promptPet(ctx.pet) : s.prompt(ctx.business_name)}
+            subtitle={ctx.service !== null ? s.context(ctx.service, ctx.staff) : ""}
+            actions={
+                <>
+                    {page.error !== null ? <Notice tone="danger">{page.error}</Notice> : null}
+                    <Button full size="lg" busy={page.busy} onPress={page.submit}>
+                        {page.busy ? s.submitting : s.submit}
+                    </Button>
+                </>
+            }
+        >
             <div className="text-center">
-                <p className="text-sm font-semibold text-ink-soft">{ctx.business_name}</p>
-                <h1 className="mt-2 font-display text-2xl font-bold text-ink">
-                    {ctx.pet !== null ? s.promptPet(ctx.pet) : s.prompt(ctx.business_name)}
-                </h1>
-                {ctx.service !== null ? (
-                    <p className="mt-1 text-sm text-muted">{s.context(ctx.service, ctx.staff)}</p>
-                ) : null}
                 <div className="mt-5 flex flex-col items-center gap-1.5" aria-label={s.ratingLabel}>
                     <Stars value={page.rating} onSelect={page.setRating} size="lg" />
                     <p className="h-5 text-sm font-medium text-ink-soft" aria-live="polite">
@@ -69,12 +75,8 @@ export function PublicReview() {
                         {s.privateNote(ctx.business_name)}
                     </p>
                 ) : null}
-                {page.error !== null ? <Notice tone="danger">{page.error}</Notice> : null}
-                <Button full size="lg" busy={page.busy} onPress={page.submit}>
-                    {page.busy ? s.submitting : s.submit}
-                </Button>
             </div>
-        </PublicFrame>
+        </DocumentLetter>
     );
 }
 
@@ -93,29 +95,13 @@ function ReviewThanks({ page }: { page: ReviewPage }) {
               : s.thanksGoogleLess(ctx.business_name);
 
     return (
-        <PublicFrame brand={ctx.brand}>
-            <div className="text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
-                    <Icon name={google !== null ? "star" : "check"} size={24} />
-                </span>
-                <h1 className="mt-4 font-display text-2xl font-bold text-ink">
-                    {s.thanksTitle(ctx.first_name)}
-                </h1>
-                <p className="mt-2 text-sm leading-relaxed text-ink-soft">{body}</p>
-            </div>
-            {google !== null && closed ? (
-                <p className="mt-5 text-center text-sm text-muted">{s.closePage}</p>
-            ) : null}
-            {google !== null && !closed ? (
-                <>
-                    <figure className="mt-5 rounded-lg border border-line bg-bg px-4 py-3">
-                        <Stars value={ctx.rating ?? page.rating} size="sm" />
-                        {text !== "" ? (
-                            <blockquote className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-                                {text}
-                            </blockquote>
-                        ) : null}
-                    </figure>
+        <DocumentLetter
+            brand={ctx.brand}
+            businessName={ctx.business_name}
+            title={s.thanksTitle(ctx.first_name)}
+            subtitle={body}
+            actions={
+                google !== null && !closed ? (
                     <div className="mt-5 space-y-2">
                         <Button
                             full
@@ -152,8 +138,29 @@ function ReviewThanks({ page }: { page: ReviewPage }) {
                             </Button>
                         </div>
                     </div>
+                ) : undefined
+            }
+        >
+            <div className="text-center">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
+                    <Icon name={google !== null ? "star" : "check"} size={24} />
+                </span>
+            </div>
+            {google !== null && closed ? (
+                <p className="mt-5 text-center text-sm text-muted">{s.closePage}</p>
+            ) : null}
+            {google !== null && !closed ? (
+                <>
+                    <figure className="mt-5 rounded-lg border border-line bg-bg px-4 py-3">
+                        <Stars value={ctx.rating ?? page.rating} size="sm" />
+                        {text !== "" ? (
+                            <blockquote className="mt-1.5 text-sm leading-relaxed text-ink-soft">
+                                {text}
+                            </blockquote>
+                        ) : null}
+                    </figure>
                 </>
             ) : null}
-        </PublicFrame>
+        </DocumentLetter>
     );
 }

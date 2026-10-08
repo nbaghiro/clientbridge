@@ -1,5 +1,6 @@
 import {
     BRAND_COLOURS,
+    PUBLIC_PROFILE_FIELDS,
     type BrandForm,
     bookingPageUrl,
     mediaUrl,
@@ -11,6 +12,7 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import {
     Badge,
+    Checkbox,
     Button,
     Checklist,
     Choice,
@@ -141,6 +143,44 @@ function BrandSheet({ brand, onClose }: { brand: BrandForm; onClose: () => void 
                 optional
                 surface="surface"
             />
+            <View style={{ gap: 12 }}>
+                <Text style={styles.sheetTitle}>{o.profileTitle}</Text>
+                <Text>{o.profileHint}</Text>
+                {PUBLIC_PROFILE_FIELDS.map((field) =>
+                    field.multiline ? (
+                        <TextField
+                            multiline
+                            key={field.key}
+                            label={field.label}
+                            value={brand.profile[field.key]}
+                            onChange={(value) => {
+                                brand.setProfile(field.key, value);
+                            }}
+                        />
+                    ) : (
+                        <TextField
+                            key={field.key}
+                            label={field.label}
+                            type={field.numeric ? "number" : "text"}
+                            value={brand.profile[field.key]}
+                            onChange={(value) => {
+                                brand.setProfile(field.key, value);
+                            }}
+                        />
+                    ),
+                )}
+                <Text>{o.publicTeamHint}</Text>
+                {brand.publicTeam.map((person) => (
+                    <Checkbox
+                        key={person.id}
+                        label={person.name}
+                        value={person.selected}
+                        onChange={(selected) => {
+                            brand.setPublicTeam(person.id, selected);
+                        }}
+                    />
+                ))}
+            </View>
             <View style={styles.gap}>
                 <BookingPreview brand={brand} logo={logo} />
             </View>

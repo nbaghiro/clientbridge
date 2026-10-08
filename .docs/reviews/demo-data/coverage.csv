@@ -1,0 +1,45 @@
+table,current_count,fresh_count,scope
+accounts,33,33,Birchbark tenant
+addons,18,1,Birchbark tenant
+audits,19,3,Birchbark tenant
+bookings,584,574,Birchbark tenant
+broadcasts,3,3,Birchbark tenant
+businesses,1,1,Birchbark tenant
+clients,13,12,Birchbark tenant
+commands,45,0,Birchbark tenant
+consents,0,0,Birchbark tenant
+contracts,1,1,Birchbark tenant
+devices,0,0,Birchbark tenant
+entries,5829,5861,Birchbark tenant
+estimates,5,4,Birchbark tenant
+fields,19,19,Birchbark tenant
+files,27,27,Birchbark tenant
+forms,2,2,Birchbark tenant
+gift_cards,3,3,Birchbark tenant
+hours,12,12,Birchbark tenant
+inventory,1,2,Birchbark tenant
+invoices,451,451,Birchbark tenant
+items,13,12,Birchbark tenant
+lines,463,462,Birchbark tenant
+messages,11,11,Birchbark tenant
+notes,9,9,Birchbark tenant
+orders,5,5,Birchbark tenant
+packages,3,3,Birchbark tenant
+payment_methods,8,8,Birchbark tenant
+payment_setup_links,0,0,Birchbark tenant
+payments,460,457,Birchbark tenant
+recurrences,2,2,Birchbark tenant
+resources,3,3,Birchbark tenant
+responses,5,4,Birchbark tenant
+returning_challenges,0,0,Birchbark tenant
+reviews,13,12,Birchbark tenant
+signatures,7,6,Birchbark tenant
+slots,582,572,Birchbark tenant
+staff,4,4,Birchbark tenant
+subjects,14,13,Birchbark tenant
+subscriptions,4,4,Birchbark tenant
+threads,6,6,Birchbark tenant
+users,3,3,Identities linked to Birchbark staff
+sessions,338,0,Identities linked to Birchbark staff
+tokens,0,0,Identities linked to Birchbark staff
+webhooks,3,3,"Only seeded global IDs wh_0, wh_1, wh_2"

@@ -1,0 +1,1366 @@
+{
+  "title": "Backend implementation task queue",
+  "status": "in_progress",
+  "generated_on": "2026-10-07",
+  "plan": "plan.md",
+  "findings": [
+    "../../reviews/backend/overview.md",
+    "../../reviews/backend/principles.md"
+  ],
+  "worker": {
+    "reasoning_effort": "low",
+    "model": "inherit",
+    "fork_turns": "none",
+    "max_active_workers": 1,
+    "auto_commit": false,
+    "auto_push": false,
+    "auto_deploy": false
+  },
+  "execution_order": [
+    "T00",
+    "T01",
+    "T02",
+    "T03",
+    "T04",
+    "T05",
+    "T06",
+    "T07",
+    "T10",
+    "T08",
+    "T09",
+    "T12",
+    "T11",
+    "T20",
+    "T43",
+    "T21",
+    "T22",
+    "T23",
+    "T24",
+    "T32",
+    "T25",
+    "T26",
+    "T27",
+    "T28",
+    "T29",
+    "T30",
+    "T31",
+    "T13",
+    "T14",
+    "T15",
+    "T16",
+    "T17",
+    "T18",
+    "T19",
+    "T33",
+    "T34",
+    "T35",
+    "T38",
+    "T36",
+    "T37",
+    "T39",
+    "T40",
+    "T41",
+    "T42",
+    "T44",
+    "T45"
+  ],
+  "tasks": [
+    {
+      "id": "T00",
+      "phase": "Foundation",
+      "title": "Freeze the execution baseline",
+      "status": "completed",
+      "reasoning_effort": "low",
+      "depends_on": [],
+      "covers": [
+        "B30",
+        "N11",
+        "N12"
+      ],
+      "scope": [
+        "CLAUDE.md",
+        ".docs/reviews/backend/overview.md",
+        "Makefile",
+        "backend/tests/conftest.py",
+        ".github/workflows/ci.yml"
+      ],
+      "implementation": "Record current HEAD and dirty-file hashes; preserve concurrent changes; create an isolated snapshot with a dedicated database; refresh endpoint/table/query inventories and re-evaluate findings against current feature work.",
+      "acceptance": "Reproduce the baseline gate without touching the shared database; record failures separately from new changes; retain the original audit regressions. No implementation ticket starts on an unidentified snapshot.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [],
+      "execution": {
+        "worker": "backend_t00",
+        "evidence_directory": ".scratchpad/backend-hardening",
+        "authorization": "User said go, then try now; one low-effort subagent.",
+        "result": "Identified immutable snapshot; isolated baseline reproduced with known failures recorded separately in progress.md and T00-summary.json. No source fixes."
+      }
+    },
+    {
+      "id": "T01",
+      "phase": "Foundation",
+      "title": "Define permission and invariant matrices",
+      "status": "in_progress",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T00"
+      ],
+      "covers": [
+        "B10",
+        "B17",
+        "N01",
+        "N02",
+        "N10"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models",
+        "backend/src/clientbridge/core/deps.py",
+        "backend/src/clientbridge/api",
+        "infra/powersync/sync-rules.yaml",
+        ".docs/architecture.md"
+      ],
+      "implementation": "Classify every table as tenant, identity, routing or operational; map each route/job to actor, tenant source, role, parent ownership and state; list all concrete and polymorphic relationships and public capability purposes.",
+      "acceptance": "Every registered model/router/job is assigned a policy and owner; unknown additions fail the inventory check; closed-business and public-token exceptions are explicit.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [],
+      "execution": {
+        "worker": "backend_t00",
+        "slice": "T01a completed and integrated after primary review; route/job/capability policies remain",
+        "scope_note": "Route/job/capability and relationship policy review remains before T01 completion.",
+        "validation": "17 targeted scoping/inventory tests passed on isolated database; changed-file Ruff/mypy and backend structure passed."
+      }
+    },
+    {
+      "id": "T02",
+      "phase": "Foundation",
+      "title": "Enforce runtime capabilities and work limits",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T00"
+      ],
+      "covers": [
+        "B07",
+        "N06",
+        "N08"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/config.py",
+        "backend/src/clientbridge/core/db.py",
+        "backend/src/clientbridge/main.py",
+        "backend/src/clientbridge/schemas",
+        "backend/src/clientbridge/sync/upload.py",
+        ".env.example"
+      ],
+      "implementation": "Validate production secrets, persistent signing keys and enabled adapters; add explicit database/provider/request budgets; inventory and bound strings, collections, JSON, numeric ranges and sync operations using the plan defaults; preserve existing valid payloads.",
+      "acceptance": "Production cannot start with a bypassing database identity or enabled no-op channel; oversized inputs return structured 413/422; dependency timeout and connection exhaustion fail within budget without leaking transactions.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T03",
+      "phase": "Identity",
+      "title": "Consume authentication tokens atomically",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T00"
+      ],
+      "covers": [
+        "B08"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/auth.py",
+        "backend/src/clientbridge/services/staff.py",
+        "backend/tests/test_auth*",
+        "backend/tests/test_staff*"
+      ],
+      "implementation": "Use locks or conditional consumption for refresh/reset/verify/invite acceptance; preserve committed reuse-family revocation; revoke sessions during shared client sign-out in a separate frontend slice.",
+      "acceptance": "Two independent connections cannot consume the same one-use token twice; parallel refresh has a defined result; reuse revocation persists after an error; logout revokes server session and clears local data.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T04",
+      "phase": "Identity",
+      "title": "Normalize identity and distribute abuse limits",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T03"
+      ],
+      "covers": [
+        "B09",
+        "N06"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/auth.py",
+        "backend/src/clientbridge/core/ratelimit.py",
+        "backend/src/clientbridge/models/auth.py",
+        "backend/src/clientbridge/models/business.py",
+        "backend/src/clientbridge/schemas/auth.py"
+      ],
+      "implementation": "Add bounded canonical identity fields with a collision report before uniqueness; bind OAuth subject explicitly; use Redis limits with expiry and trusted-proxy parsing; preserve current outward anti-enumeration behavior.",
+      "acceptance": "Case variants cannot create ambiguous login identities; collisions are reported rather than merged automatically; two API instances share limits; forged forwarded headers cannot bypass limits; buckets expire.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T05",
+      "phase": "Isolation",
+      "title": "Provision restricted database roles",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T01",
+        "T02"
+      ],
+      "covers": [
+        "B07",
+        "N01",
+        "N09"
+      ],
+      "scope": [
+        "infra/postgres/roles.sql",
+        "docker-compose.yml",
+        "Makefile",
+        "backend/src/clientbridge/core/config.py",
+        "backend/tests/conftest.py"
+      ],
+      "implementation": "Add owner/migrator, API, identity/bootstrap, public, dispatcher/worker, replication and storage role setup; restrict schema creation, truncation and role inheritance; separate runtime and migration DSNs; run application tests with runtime grants.",
+      "acceptance": "Runtime is neither owner, superuser, BYPASSRLS nor replication; it cannot SET ROLE to an elevated identity, create schema objects or TRUNCATE; migration/replication continue with their own credentials.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [
+        "infra/postgres/roles.sql"
+      ]
+    },
+    {
+      "id": "T06",
+      "phase": "Isolation",
+      "title": "Bind tenant context to every transaction",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T05"
+      ],
+      "covers": [
+        "N01",
+        "N08"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/tenancy.py",
+        "backend/src/clientbridge/core/db.py",
+        "backend/src/clientbridge/core/deps.py",
+        "backend/tests/test_scoping.py"
+      ],
+      "implementation": "Introduce validated immutable session context; apply transaction-local tenant/actor settings on every transaction begin, including after internal commits; separate identity lookup and tenant sessions; prohibit tenant switching on a populated session.",
+      "acceptance": "Missing context denies tenant access; commit, rollback, cancellation and pooled A-to-B reuse do not leak settings or identity-map objects; forged business headers fail before context binding.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [
+        "backend/src/clientbridge/core/tenancy.py"
+      ]
+    },
+    {
+      "id": "T07",
+      "phase": "Isolation",
+      "title": "Constrain public and background tenant resolution",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T06",
+        "T01"
+      ],
+      "covers": [
+        "B10",
+        "N01",
+        "N10"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/tenancy.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/src/clientbridge/services/public_orders.py",
+        "backend/src/clientbridge/services/returning.py",
+        "backend/src/clientbridge/api/webhooks.py",
+        "backend/src/clientbridge/tasks/worker.py",
+        "backend/migrations/versions"
+      ],
+      "implementation": "Add purpose-specific bootstrap functions/roles for membership, onboarding, public slugs/tokens and authenticated provider routes; create a fresh tenant context for each worker unit; hash new capability secrets and add revocation/lifecycle/cache policies via additive fields.",
+      "acceptance": "A public invoice token cannot resolve another resource or purpose; invalid/revoked tokens fail; no runtime endpoint obtains a bypass DSN; new business creation works; a worker failure cannot retain the previous tenant context; protected responses use private cache policy.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [
+        "backend/src/clientbridge/core/tenancy.py"
+      ]
+    },
+    {
+      "id": "T08",
+      "phase": "Isolation",
+      "title": "Enable RLS for core tenant domains",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T07",
+        "T10"
+      ],
+      "covers": [
+        "B10",
+        "N01",
+        "N11"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/business.py",
+        "backend/src/clientbridge/models/clients.py",
+        "backend/src/clientbridge/models/catalog.py",
+        "backend/src/clientbridge/models/scheduling.py",
+        "backend/migrations/versions",
+        "backend/tests/test_scoping.py"
+      ],
+      "implementation": "Install explicit USING and WITH CHECK policies for business, staff, client, catalog and scheduling tables; use FORCE RLS and the role/context matrix; keep role checks in services; forbid business_id mutation.",
+      "acceptance": "Raw SELECT/INSERT/UPDATE/DELETE/UPSERT under runtime roles cannot cross tenants without scoped(); no-context access fails; owner/migration paths are tested separately; public and onboarding paths still pass.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T09",
+      "phase": "Isolation",
+      "title": "Enable RLS for financial and engagement domains",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T08"
+      ],
+      "covers": [
+        "B10",
+        "N01",
+        "N11"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/billing.py",
+        "backend/src/clientbridge/models/payments.py",
+        "backend/src/clientbridge/models/ledger.py",
+        "backend/src/clientbridge/models/messaging.py",
+        "backend/src/clientbridge/models/documents.py",
+        "backend/src/clientbridge/models/reviews.py",
+        "backend/src/clientbridge/models/platform.py",
+        "backend/migrations/versions"
+      ],
+      "implementation": "Extend tested policies in one domain per worker assignment; classify globally routed webhook and identity tables separately; validate ledger trigger behavior, audit insertion, jobs and public child traversal.",
+      "acceptance": "Every tenant table is protected; aggregate/join queries cannot leak other tenants; deferred ledger checks still reject unbalanced journals; role changes do not widen public access; migration checks inspect policies, grants and triggers as well as model metadata.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T10",
+      "phase": "Isolation",
+      "title": "Enforce tenant and parent relationships",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T01",
+        "T05"
+      ],
+      "covers": [
+        "B10",
+        "N02"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models",
+        "backend/src/clientbridge/services/lines.py",
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/services/files.py",
+        "backend/migrations/versions",
+        "backend/tests/test_integrity.py"
+      ],
+      "implementation": "Produce a violation report; add referenced tenant/ID unique keys and composite FKs in domain batches; add same-client booking/subject and billing checks; validate polymorphic references; make tenant IDs immutable.",
+      "acceptance": "Direct SQL with a valid foreign-tenant ID fails; same-tenant wrong-client links fail where required; nullable/global-user references remain valid; historical rows are audited before NOT VALID constraints are validated.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T11",
+      "phase": "Isolation",
+      "title": "Align sync field and role policies",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T01",
+        "T12"
+      ],
+      "covers": [
+        "B17",
+        "N04",
+        "N10",
+        "N11"
+      ],
+      "scope": [
+        "infra/powersync/sync-rules.yaml",
+        "backend/scripts/gen_sync_schema.py",
+        "frontend/packages/sync/src/schema.ts",
+        "backend/tests/test_sync*",
+        "frontend/apps/web/e2e",
+        "frontend/apps/mobile/e2e"
+      ],
+      "implementation": "Replace sensitive wildcard projections with reviewed columns; preserve read/write role parity; separate server-only secrets and bearer capabilities; test membership removal/downgrade with real PowerSync and local cleanup.",
+      "acceptance": "Each matrix role receives only allowed rows and fields; forged subscription/tenant parameters cannot authorize data; previously synced rows disappear after online revocation; new schema fields do not automatically become replicated secrets.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T12",
+      "phase": "Clients",
+      "title": "Make selected business explicit everywhere",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T01",
+        "T03"
+      ],
+      "covers": [
+        "B15",
+        "N07"
+      ],
+      "scope": [
+        "frontend/packages/api-client/src/session.ts",
+        "frontend/packages/app-core/src/domain/business.ts",
+        "frontend/packages/app-core/src/domain/auth.ts",
+        "frontend/packages/app-core/src/domain",
+        "frontend/apps/web",
+        "frontend/apps/mobile"
+      ],
+      "implementation": "Persist validated selected business; send X-Business-Id on commands; scope every tenant-owned local query and cache key; replace business LIMIT 1 assumptions; add a shared chooser contract and web/native rendering.",
+      "acceptance": "A two-business user with different roles sees correct settings, lists, totals and actions after switching; queued edits retain their original tenant; removed membership cannot be selected; logout clears tenant-sensitive state.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T13",
+      "phase": "Pagination",
+      "title": "Build shared bounded query and list contracts",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T12"
+      ],
+      "covers": [
+        "N03",
+        "N04"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/hooks.ts",
+        "frontend/packages/app-core/src/pagination.ts",
+        "frontend/packages/app-core/src/ui.ts",
+        "frontend/packages/ui/src/web/ListPage.tsx",
+        "frontend/packages/ui/src/mobile/ListPage.tsx",
+        "frontend/packages/app-core/src/strings.ts",
+        "frontend/apps/playground/src/stories/ListPage.tsx"
+      ],
+      "implementation": "Implement query identity, keyset/window state, bounded page cache, cancellation/reset, hasMore/loadingMore/error and retry; add native end-reached and web sentinel/manual loading; keep row identity and focus/scroll anchors.",
+      "acceptance": "Stable data traverses 1001 rows with no duplicates or gaps; ties, deletion, changed sort keys, repeated load-more, filter/tenant reset and out-of-order results are covered; old rows survive next-page failure; keyboard/screen-reader/manual loading works.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [
+        "frontend/packages/app-core/src/pagination.ts"
+      ]
+    },
+    {
+      "id": "T14",
+      "phase": "Pagination",
+      "title": "Page directories catalog and global search",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T13"
+      ],
+      "covers": [
+        "N03",
+        "N04"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/clients.ts",
+        "frontend/packages/app-core/src/domain/catalog.ts",
+        "frontend/packages/app-core/src/domain/search.ts",
+        "frontend/packages/app-core/src/domain/pos.ts",
+        "backend/scripts/gen_sync_schema.py"
+      ],
+      "implementation": "Push filters/search into local SQL before limiting; normalized name plus ID ordering; scoped selectable-client/item lookup; per-kind global search continuation; independently computed counts; targeted SQLite indexes.",
+      "acceptance": "A matching row beyond the former first page and a booking beyond 300 are discoverable; exact selected IDs resolve outside loaded pages; accented names/ties and tenant switching behave correctly; web/native share query logic.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T15",
+      "phase": "Pagination",
+      "title": "Page money and client histories",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T13"
+      ],
+      "covers": [
+        "N03",
+        "N04"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/billing.ts",
+        "frontend/packages/app-core/src/domain/pos.ts",
+        "frontend/packages/app-core/src/domain/earnings.ts",
+        "frontend/packages/app-core/src/domain/refunds.ts",
+        "frontend/packages/app-core/src/domain/payouts.ts",
+        "frontend/packages/app-core/src/domain/entitlements.ts",
+        "frontend/packages/app-core/src/domain/clients.ts"
+      ],
+      "implementation": "Migrate one domain per assignment; remove terminal refund/payout/charge/stock caps; stable date/ID ordering; detail-by-ID queries; aggregate balances and counts independently from pages.",
+      "acceptance": "All records beyond 24/50/60/200 remain reachable; financial totals are unchanged by page size; reopening a historical detail works before its list page loads; nullable date ordering and tied timestamps are deterministic.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T16",
+      "phase": "Pagination",
+      "title": "Page messaging and engagement lists",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T13"
+      ],
+      "covers": [
+        "N03",
+        "N04"
+      ],
+      "scope": [
+        "frontend/packages/app-core/src/domain/messaging.ts",
+        "frontend/packages/app-core/src/domain/reviews.ts",
+        "frontend/packages/app-core/src/domain/contracts.ts",
+        "frontend/packages/app-core/src/domain/forms.ts",
+        "frontend/packages/app-core/src/domain/broadcasts.ts",
+        "frontend/packages/app-core/src/domain/clients.ts"
+      ],
+      "implementation": "Page threads, older messages, reviews/requests, signatures, broadcasts, notes and libraries; retain explicitly labeled previews; keep unread/summary queries independent; add supporting local indexes.",
+      "acceptance": "Loading older messages preserves the visible anchor while new messages arrive; no duplicate messages; page eviction/reload works offline; unread totals and pinned-note ordering are correct across pages.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T17",
+      "phase": "Pagination",
+      "title": "Bound HTTP collections and large exports",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T06",
+        "T02"
+      ],
+      "covers": [
+        "N03",
+        "N06"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/pagination.py",
+        "backend/src/clientbridge/schemas/reports.py",
+        "backend/src/clientbridge/api/reports.py",
+        "backend/src/clientbridge/services/reports.py",
+        "backend/src/clientbridge/services/public.py",
+        "frontend/packages/app-core/src/domain/publicShop.ts"
+      ],
+      "implementation": "Add versioned scoped keyset cursors and Page DTOs for actual HTTP collections; split report aggregates from paged detail; stream small CSVs and persist large export jobs; extend public catalog reads without breaking existing clients.",
+      "acceptance": "Cursor tampering/filter mismatch cannot expand access; all rows traverse with stable ties; 1/200/201 limits validate; reports remain complete; exports are bounded in memory, cancelable and tenant-authorized at download.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [
+        "backend/src/clientbridge/core/pagination.py"
+      ]
+    },
+    {
+      "id": "T18",
+      "phase": "Pagination",
+      "title": "Set replica and query budgets",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T11",
+        "T14",
+        "T15",
+        "T16",
+        "T17"
+      ],
+      "covers": [
+        "N04",
+        "N08",
+        "N11"
+      ],
+      "scope": [
+        "infra/powersync/sync-rules.yaml",
+        "frontend/packages/sync",
+        "backend/scripts/gen_sync_schema.py",
+        "frontend/packages/app-core/src/domain",
+        "backend/scripts"
+      ],
+      "implementation": "Benchmark representative large tenants, inspect PostgreSQL and SQLite plans, separate local index declarations where needed, and record sync/query/render budgets; prototype optional archive subscriptions behind a disabled rollout flag.",
+      "acceptance": "Record cold/warm timings, replica bytes, initial sync and WAL lag; no existing detail/report/balance becomes incomplete; on-demand history retains parent rows and states its offline limits; pinned server/SDK versions support any new syntax.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T19",
+      "phase": "Clients",
+      "title": "Recover permanent sync failures and preserve errors",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T12",
+        "T20"
+      ],
+      "covers": [
+        "B16",
+        "B31",
+        "N07"
+      ],
+      "scope": [
+        "backend/src/clientbridge/sync/upload.py",
+        "backend/src/clientbridge/core/errors.py",
+        "frontend/packages/sync",
+        "frontend/packages/api-client/src/index.ts",
+        "frontend/packages/api-client/src/session.ts",
+        "frontend/packages/app-core/src/domain/sync.ts"
+      ],
+      "implementation": "Version and validate hours payloads; normalize typed errors; separate retryable transport/5xx/429 from permanent rejection; persist rejected transaction details locally for repair/discard; keep batch atomicity and tenant identity.",
+      "acceptance": "A rejected old hours change no longer blocks a later valid transaction after explicit reconciliation; no silent dropped edit; malformed fields return 422 rather than 500; original idempotency key survives retries; web/native show useful error text.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T20",
+      "phase": "Money",
+      "title": "Claim commands atomically and bind replays",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T06",
+        "T01"
+      ],
+      "covers": [
+        "B02",
+        "N07",
+        "N08"
+      ],
+      "scope": [
+        "backend/src/clientbridge/core/command.py",
+        "backend/src/clientbridge/models/platform.py",
+        "backend/migrations/versions",
+        "backend/tests/test_command.py"
+      ],
+      "implementation": "Persist operation/resource/actor scope, normalized request fingerprint, status and response; serialize claim; replay before mutable-state preconditions while reauthorizing access; reject conflicting payload reuse; retain durable tombstones for financial identities.",
+      "acceptance": "Parallel identical commands execute one logical action; conflicting payload is 409; another actor/resource cannot steal a replay; crash rollback does not create a new external operation identity; business state and audit commit together.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T21",
+      "phase": "Money",
+      "title": "Persist external operation attempts",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T20",
+        "T43"
+      ],
+      "covers": [
+        "B02",
+        "N08"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/payments.py",
+        "backend/src/clientbridge/services/payments.py",
+        "backend/src/clientbridge/integrations/stripe.py",
+        "backend/migrations/versions"
+      ],
+      "implementation": "Create attempt rows and stable provider keys before sending; separate request, provider response and finalization transactions; record unknown outcomes; implement reconciliation with canonical provider lookup; avoid long database locks during network calls.",
+      "acceptance": "Provider success followed by timeout, process death or DB failure produces one charge after recovery; unknown status never becomes a new charge automatically; concurrent effects serialize at the resource; leases recover abandoned work.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T22",
+      "phase": "Money",
+      "title": "Make verified webhooks a durable inbox",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T07",
+        "T21"
+      ],
+      "covers": [
+        "B06"
+      ],
+      "scope": [
+        "backend/src/clientbridge/api/webhooks.py",
+        "backend/src/clientbridge/models/platform.py",
+        "backend/src/clientbridge/services/payments.py",
+        "backend/src/clientbridge/tasks/worker.py",
+        "backend/migrations/versions"
+      ],
+      "implementation": "Commit verified provider/account/event identity before processing; claim events with retry/dead-letter state; validate amount/currency/account; distinguish real duplicates from processing IntegrityError; reconcile fees and out-of-order subscription events.",
+      "acceptance": "Receipt survives processor crash; duplicate/out-of-order/unknown-object events converge; wrong monetary identity cannot settle; absent fee data remains reconcilable; a failing event cannot starve other tenants.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T23",
+      "phase": "Money",
+      "title": "Snapshot sale and tax facts",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T10",
+        "T20"
+      ],
+      "covers": [
+        "B05",
+        "B24",
+        "B25"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/billing.py",
+        "backend/src/clientbridge/models/catalog.py",
+        "backend/src/clientbridge/services/lines.py",
+        "backend/src/clientbridge/services/tax.py",
+        "backend/src/clientbridge/services/ledger.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/migrations/versions"
+      ],
+      "implementation": "Persist sale currency, taxable basis, component rates/amounts, jurisdiction and price/benefit version at commitment; render and settle from immutable snapshots; version provider prices; backfill only from reliable historical evidence.",
+      "acceptance": "Changing catalog/province/registration before webhook cannot change an issued total, receipt or journal; sum of components reconciles; unknown legacy snapshots are flagged rather than recalculated as if historically correct.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T24",
+      "phase": "Money",
+      "title": "Implement the refund lifecycle",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T21",
+        "T22",
+        "T23"
+      ],
+      "covers": [
+        "B01"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/payments.py",
+        "backend/src/clientbridge/services/ledger.py",
+        "backend/src/clientbridge/services/inventory.py",
+        "backend/src/clientbridge/services/public_orders.py",
+        "backend/src/clientbridge/schemas/payments.py",
+        "frontend/packages/app-core/src/domain/refunds.ts"
+      ],
+      "implementation": "Represent requested/pending/succeeded/failed/canceled and unknown outcomes; reserve refundable room; separate cancellation/credit decisions from cash settlement; finalize reversals only at the defined terminal transition; reconcile existing incorrect rows with corrective journals.",
+      "acceptance": "Pending-success, pending-failure, success-failure, partial/parallel refunds, duplicate events and public cancellation are tested; no over-refund or premature stock/entitlement reversal; clients display processing instead of refunded when appropriate.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T25",
+      "phase": "Money",
+      "title": "Coordinate booking deposits and late settlement",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T24",
+        "T32"
+      ],
+      "covers": [
+        "B12"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/services/payments.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/src/clientbridge/tasks/worker.py"
+      ],
+      "implementation": "Persist a serialized deposit attempt; cancel/reconcile the provider on cancellation or expiry; distinguish booking cancellation from payment status; define late-success remediation and failed-attempt retry.",
+      "acceptance": "Collect-collect and cancel-settle races cannot double-charge or resurrect a canceled booking; failed attempts leave the reaper/repair path reachable; late success creates visible reconciliation/refund work.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T26",
+      "phase": "Money",
+      "title": "Enforce saved-method and subscription lifecycles",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T21",
+        "T22",
+        "T23"
+      ],
+      "covers": [
+        "B05",
+        "B18"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/payments.py",
+        "backend/src/clientbridge/services/entitlements.py",
+        "backend/src/clientbridge/models/payments.py",
+        "backend/src/clientbridge/models/catalog.py",
+        "backend/src/clientbridge/integrations/stripe.py"
+      ],
+      "implementation": "Centralize chargeability and mandate checks; consume method/setup/mandate events; retire historical methods instead of unsafe deletion; require replacement for subscriptions; bind recurring invoices to provider and immutable price versions.",
+      "acceptance": "Inactive/expired/revoked/pending mandate cannot be charged; detach-in-use leaves provider/local state consistent; out-of-order events converge; changed item price does not silently diverge from recurring billing.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T27",
+      "phase": "Money",
+      "title": "Reserve online inventory",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T21",
+        "T22"
+      ],
+      "covers": [
+        "B19"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/catalog.py",
+        "backend/src/clientbridge/services/inventory.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/src/clientbridge/services/payments.py",
+        "backend/migrations/versions"
+      ],
+      "implementation": "Add atomic stock reservations per attempt with expiry; consume on settlement and release on cancel/failure; reconcile late success; include variants/add-ons; preserve documented POS oversell policy.",
+      "acceptance": "Two online buyers cannot reserve the last unit; duplicate settlement consumes once; expiry/cancel/late webhook is resolved explicitly; partial and full refund stock rules remain distinct from cash refund status.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T28",
+      "phase": "Delivery",
+      "title": "Record and process an outbox",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T06",
+        "T20"
+      ],
+      "covers": [
+        "B03"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/platform.py",
+        "backend/src/clientbridge/services/notifications.py",
+        "backend/src/clientbridge/services/messaging.py",
+        "backend/src/clientbridge/tasks/worker.py",
+        "backend/migrations/versions"
+      ],
+      "implementation": "Write versioned notification events with the business transaction; claim per-recipient/channel deliveries with attempts, provider IDs, leases and retry/dead-letter state; migrate callers in bounded domain slices.",
+      "acceptance": "Business rollback emits nothing; crash after commit retains work; worker restart resumes; permanent failure is visible; retry does not create duplicate logical deliveries; ambiguous provider acceptance is reconciled rather than blindly resent.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T29",
+      "phase": "Delivery",
+      "title": "Complete SMS routing and suppression",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T04",
+        "T07",
+        "T28"
+      ],
+      "covers": [
+        "B04",
+        "B20"
+      ],
+      "scope": [
+        "backend/pyproject.toml",
+        "backend/uv.lock",
+        "backend/src/clientbridge/integrations/twilio.py",
+        "backend/src/clientbridge/api/webhooks.py",
+        "backend/src/clientbridge/services/messaging.py",
+        "backend/src/clientbridge/services/consents.py",
+        "backend/src/clientbridge/models/messaging.py"
+      ],
+      "implementation": "Model business-owned destination/account routing; use a real async-compatible provider adapter and signature validation of original URL/body; separate transport suppression from marketing consent; centralize all SMS eligibility checks.",
+      "acceptance": "Same phone in two tenants routes by authenticated destination; tampered signatures fail; STOP survives preference edits and class fanout; START follows policy; returning-client codes have a defined permitted/suppressed path; no event-loop blocking send.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T30",
+      "phase": "Delivery",
+      "title": "Make scheduled work complete and fair",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T07",
+        "T28"
+      ],
+      "covers": [
+        "B27",
+        "N06",
+        "N08"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/messaging.py",
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/services/forms.py",
+        "backend/src/clientbridge/services/reviews.py",
+        "backend/src/clientbridge/services/orders.py",
+        "backend/src/clientbridge/tasks/worker.py"
+      ],
+      "implementation": "Replace broadcast truncation with frozen recipient work rows; add batch claims/checkpoints, per-tenant fairness and catch-up; isolate poison records; mark delivery progress from durable outbox state rather than swallowed errors.",
+      "acceptance": "At least 1201 recipients are processed exactly once logically across restarts; two workers do not double-claim; long outage catches up; one bad record does not fail the batch; cancellation stops unclaimed sends while preserving history.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T31",
+      "phase": "Delivery",
+      "title": "Reconcile push tickets and receipts",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T28"
+      ],
+      "covers": [
+        "B28"
+      ],
+      "scope": [
+        "backend/src/clientbridge/integrations/expo.py",
+        "backend/src/clientbridge/services/notifications.py",
+        "backend/src/clientbridge/models/platform.py",
+        "backend/src/clientbridge/tasks/worker.py"
+      ],
+      "implementation": "Chunk to provider limits, map each token to ticket/receipt, retry individual transient failures and retire invalid tokens; retain active membership checks before delivery.",
+      "acceptance": "An HTTP-200 mixed batch records partial errors correctly; accepted tokens are not resent merely because another token failed; receipt failure deactivates the right token; removed membership cannot receive a queued push.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T32",
+      "phase": "Scheduling",
+      "title": "Normalize dates and availability contracts",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T01"
+      ],
+      "covers": [
+        "B11",
+        "B14",
+        "N06"
+      ],
+      "scope": [
+        "backend/src/clientbridge/schemas/business.py",
+        "backend/src/clientbridge/schemas/bookings.py",
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/src/clientbridge/services/reports.py"
+      ],
+      "implementation": "Validate IANA zones and aware instants; use half-open local-day bounds; enforce recurrence/range limits; share public eligibility predicates with booking creation while keeping explicit staff override.",
+      "acceptance": "Direct POST cannot book a time excluded by public hours; DST spring/fall, exact midnight/end, invalid zone/naive time, zero/negative/over-limit recurrence and resource constraints have deterministic results.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T33",
+      "phase": "Scheduling",
+      "title": "Separate class session changes from transfers",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T32",
+        "T20",
+        "T25"
+      ],
+      "covers": [
+        "B13"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/schemas/bookings.py",
+        "backend/src/clientbridge/services/public.py",
+        "frontend/packages/app-core/src/domain/classes.ts",
+        "frontend/packages/app-core/src/domain/recurrences.ts"
+      ],
+      "implementation": "Define session-level move versus attendee transfer; lock source/target capacity in deterministic order; update all denormalized staff links for session changes; fan out durable notices to affected attendees.",
+      "acceptance": "Moving one attendee never moves peers; concurrent transfer cannot overfill; series edits preserve mixed rosters; all derived staff/sync visibility changes together; deposit/entitlement effects follow the chosen transfer policy.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T34",
+      "phase": "Concurrency",
+      "title": "Detect stale editor submissions",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T01",
+        "T12"
+      ],
+      "covers": [
+        "N05",
+        "N07"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/base.py",
+        "backend/src/clientbridge/schemas",
+        "backend/src/clientbridge/services/clients.py",
+        "backend/src/clientbridge/services/catalog.py",
+        "frontend/packages/app-core/src/hooks.ts",
+        "frontend/packages/app-core/src/domain"
+      ],
+      "implementation": "Add revision fields and conditional updates to mutable editor records by domain; require expected revision in new clients; return structured conflict with safe refresh/reapply behavior; make older-client transition additive and time-bounded.",
+      "acceptance": "Two devices editing the same revision cannot silently overwrite; compatible disjoint field behavior is deliberate; retrying an accepted command replays success rather than a stale conflict; old supported mobile contract remains valid during rollout.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T35",
+      "phase": "Concurrency",
+      "title": "Make client merges complete and recoverable",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T10",
+        "T20",
+        "T34"
+      ],
+      "covers": [
+        "B21"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/clients.py",
+        "backend/src/clientbridge/models/clients.py",
+        "backend/src/clientbridge/services/files.py",
+        "backend/src/clientbridge/services/payments.py",
+        "backend/tests/test_clients_merge.py"
+      ],
+      "implementation": "Build a full dependency and provider-identity merge plan; lock source/target in ID order; move concrete/polymorphic references, preserve an old-ID redirect/audit and reject unsupported financial identity combinations.",
+      "acceptance": "Every dependent table is accounted for; concurrent booking/message is serialized or resolves to the survivor; links/files/history remain readable; conflicting provider customers/subscriptions are surfaced without destructive automatic consolidation.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": [
+        "backend/tests/test_clients_merge.py"
+      ]
+    },
+    {
+      "id": "T36",
+      "phase": "Documents",
+      "title": "Version and validate form submissions",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T34",
+        "T38"
+      ],
+      "covers": [
+        "B22"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/documents.py",
+        "backend/src/clientbridge/schemas/forms.py",
+        "backend/src/clientbridge/services/forms.py",
+        "backend/src/clientbridge/services/public.py",
+        "frontend/packages/app-core/src/domain/forms.ts"
+      ],
+      "implementation": "Publish immutable form versions; bind response to version; validate declared types/options/ranges, required agreements and verified owned files; implement required signature semantics with explicit fields.",
+      "acceptance": "Editing the template cannot reinterpret old responses; stale/duplicate submission, missing required signature, invalid type/option and foreign/unverified attachment fail correctly; valid historical response renders unchanged.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T37",
+      "phase": "Documents",
+      "title": "Make signing an atomic versioned transition",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T34",
+        "T38",
+        "T28"
+      ],
+      "covers": [
+        "B22",
+        "B23"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/documents.py",
+        "backend/src/clientbridge/services/contracts.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/src/clientbridge/schemas/contracts.py",
+        "frontend/apps/connect/src/pages/PublicContract.tsx"
+      ],
+      "implementation": "Bind view/sign to an immutable document version; atomically sign or decline once; preserve body hash/signer evidence; queue immutable artifact generation and delivery with a scoped download contract.",
+      "acceptance": "Sign-sign/sign-decline races have one terminal outcome; edited text requires renewed consent; stale view cannot sign unseen terms; retry returns the same artifact identity; private PDF access is authorized.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T38",
+      "phase": "Documents",
+      "title": "Verify upload and download lifecycles",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T10",
+        "T06"
+      ],
+      "covers": [
+        "B23",
+        "N06",
+        "N10"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/platform.py",
+        "backend/src/clientbridge/services/files.py",
+        "backend/src/clientbridge/integrations/s3.py",
+        "backend/src/clientbridge/api/files.py",
+        "backend/src/clientbridge/services/public.py"
+      ],
+      "implementation": "Add pending/verified/rejected upload states, server HEAD/size/type verification, replacement protection, purpose policy, private downloads and orphan cleanup; separate public immutable image caching from private capabilities.",
+      "acceptance": "Missing/oversized/replaced/foreign uploads cannot be attached or served; finalized objects match expected ownership/purpose; expired URLs cannot be reused through an unauthorized resolver; cleanup respects document retention and references.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T39",
+      "phase": "Accounting",
+      "title": "Tie entitlement usage to a sale or visit",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T23",
+        "T24",
+        "T26",
+        "T27"
+      ],
+      "covers": [
+        "B24"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/entitlements.py",
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/services/orders.py",
+        "backend/src/clientbridge/services/ledger.py",
+        "backend/src/clientbridge/models/catalog.py"
+      ],
+      "implementation": "Store immutable entitlement terms, enforce coverage and benefits, bind each use/redemption to an eligible sale/visit, prevent double application and record reversals/expiry using the chosen accounting rules.",
+      "acceptance": "Purchase-to-use-to-refund/expiry works across clients; ineligible services cannot consume a package; gift tender settles a taxed sale exactly once; changed catalog benefits do not rewrite prior purchases.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T40",
+      "phase": "Accounting",
+      "title": "Make currency and tax filing scope explicit",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T23"
+      ],
+      "covers": [
+        "B25"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/tax.py",
+        "backend/src/clientbridge/services/remittances.py",
+        "backend/src/clientbridge/services/reports.py",
+        "backend/src/clientbridge/schemas",
+        "frontend/packages/app-core/src/domain/remittances.ts"
+      ],
+      "implementation": "Apply the recommended CAD-only policy to new unsupported flows, preserve historical currency dimensions, support nil/refund return bookkeeping and validate filing/payee rules; distinguish recording a payment from initiating it.",
+      "acceptance": "Mixed currencies never sum as one amount; unsupported new currency fails clearly; nil and credit returns are representable; historical data is not converted; filing/payment UI accurately states the action performed.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T41",
+      "phase": "Accounting",
+      "title": "Complete Interac event matching",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T21",
+        "T22",
+        "T23",
+        "T24"
+      ],
+      "covers": [
+        "B26"
+      ],
+      "scope": [
+        "backend/src/clientbridge/api/webhooks.py",
+        "backend/src/clientbridge/integrations",
+        "backend/src/clientbridge/services/payments.py",
+        "backend/src/clientbridge/models/payments.py",
+        "backend/src/clientbridge/services/ledger.py"
+      ],
+      "implementation": "Keep the stub visibly disabled until a provider contract exists; persist immutable transfer IDs separately from matching; model unmatched/partial/excess funds and reprocessing; use suspense/credit or return policy for surplus.",
+      "acceptance": "Duplicate transfer versus repeated reference is distinguished; delayed match and underpayment retry; every received cent is represented; provider signature/amount/currency validation is tested before enabling the integration.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T42",
+      "phase": "Reports",
+      "title": "Protect exports and measure query cost",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T17",
+        "T23",
+        "T40"
+      ],
+      "covers": [
+        "B31",
+        "N04",
+        "N06"
+      ],
+      "scope": [
+        "backend/src/clientbridge/services/reports.py",
+        "backend/src/clientbridge/services/consents.py",
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/src/clientbridge/models"
+      ],
+      "implementation": "Centralize spreadsheet-safe untrusted cells; replace proven N+1 queries with scoped batches/aggregates; add measured PostgreSQL and SQLite indexes with plan evidence; preserve financial snapshots and full exports.",
+      "acceptance": "Formula-like names stay text in every export; literal numeric money stays numeric; representative large-tenant query count/latency meets recorded budgets; totals match ledger and do not change with pagination.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T43",
+      "phase": "Operations",
+      "title": "Expose failures and enforce dependency budgets",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T02",
+        "T06"
+      ],
+      "covers": [
+        "B29",
+        "N08",
+        "N11"
+      ],
+      "scope": [
+        "backend/src/clientbridge/main.py",
+        "backend/src/clientbridge/core",
+        "backend/src/clientbridge/integrations",
+        "backend/src/clientbridge/tasks/worker.py",
+        "infra",
+        ".docs/engineering.md"
+      ],
+      "implementation": "Add request/command/attempt correlation, redacted structured logs, low-cardinality metrics, separate readiness/liveness, queue/WAL/provider lag alerts, graceful shutdown and explicit connection limits.",
+      "acceptance": "A simulated provider/DB/Redis outage produces bounded failures and visible diagnostics; no customer secret or raw capability enters logs; stale queue and replication lag alert; in-flight claims recover after shutdown.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T44",
+      "phase": "Operations",
+      "title": "Protect audits and govern retention",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T09",
+        "T28"
+      ],
+      "covers": [
+        "N09",
+        "N10",
+        "N12"
+      ],
+      "scope": [
+        "backend/src/clientbridge/models/platform.py",
+        "backend/src/clientbridge/core/command.py",
+        "backend/src/clientbridge/services/auth.py",
+        "backend/src/clientbridge/services/staff.py",
+        "backend/migrations/versions",
+        "backend/src/clientbridge/tasks/worker.py"
+      ],
+      "implementation": "Make runtime audit records append-only; cover auth/permission/public/financial events; document per-record retention and deletion exceptions; minimize raw webhook/outbox payload retention while keeping financial identities and legal evidence.",
+      "acceptance": "Runtime UPDATE/DELETE of audit fails; sensitive values are redacted; retention dry-run cannot erase ledger/document evidence or re-enable duplicate money operations; access/removal/role events retain actor and outcome.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    },
+    {
+      "id": "T45",
+      "phase": "Release",
+      "title": "Prove migration compatibility recovery and all clients",
+      "status": "planned",
+      "reasoning_effort": "low",
+      "depends_on": [
+        "T00",
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T05",
+        "T06",
+        "T07",
+        "T08",
+        "T09",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16",
+        "T17",
+        "T18",
+        "T19",
+        "T20",
+        "T21",
+        "T22",
+        "T23",
+        "T24",
+        "T25",
+        "T26",
+        "T27",
+        "T28",
+        "T29",
+        "T30",
+        "T31",
+        "T32",
+        "T33",
+        "T34",
+        "T35",
+        "T36",
+        "T37",
+        "T38",
+        "T39",
+        "T40",
+        "T41",
+        "T42",
+        "T43",
+        "T44"
+      ],
+      "covers": [
+        "B29",
+        "B30",
+        "N07",
+        "N11",
+        "N12"
+      ],
+      "scope": [
+        ".github/workflows/ci.yml",
+        "Makefile",
+        "docker-compose.yml",
+        "backend/scripts",
+        "backend/tests",
+        "frontend/apps/web/e2e",
+        "frontend/apps/connect/e2e",
+        "frontend/apps/mobile/e2e",
+        ".docs/engineering.md"
+      ],
+      "implementation": "Freeze dependencies/images, guard destructive scripts, add role/concurrency/provider-failure/sync/client-version CI tiers; rehearse expand/backfill/validate/contract rollout and restore database plus objects; publish runbooks and retained evidence.",
+      "acceptance": "Full combined gate passes on an identified snapshot; prior supported native build works; database/object restore reconciles ledger and sync; all B/N findings have evidence or an explicit affected-feature-disabled decision; no live release is implied by test completion.",
+      "execution_rule": "Delegate one bounded slice at a time after dependencies pass. Primary agent owns protocol decisions, migration order and review; split domain-wide scopes before dispatch.",
+      "proposed_new_paths": []
+    }
+  ],
+  "schema_version": 1
+}

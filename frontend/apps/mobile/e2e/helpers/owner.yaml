@@ -1,0 +1,33 @@
+appId: ca.clientbridge.app
+---
+- launchApp:
+      arguments:
+          RCT_jsLocation: '${typeof METRO_HOST === "undefined" ? "localhost:8707" : METRO_HOST}'
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Sign in"
+      commands:
+          - tapOn: "you@business.ca"
+          - inputText: "hannah@birchbarkpets.ca"
+          - tapOn: "••••••••"
+          - eraseText
+          - inputText: "demo1234"
+          - hideKeyboard
+          - tapOn:
+                text: "Sign in"
+                below: "Forgot password\\?"
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "!, Open debugger to view warnings."
+      commands:
+          - tapOn:
+                text: "!, Open debugger to view warnings."
+                point: "94%,50%"
+          - assertNotVisible: "!, Open debugger to view warnings."
+- assertVisible: "Good .*, Hannah"

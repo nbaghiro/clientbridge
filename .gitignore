@@ -23,6 +23,8 @@ dist/
 .expo/
 .eslintcache
 *.tsbuildinfo
+playwright-report/
+test-results/
 frontend/packages/api-client/openapi.json
 
 # Misc

@@ -1,16 +1,19 @@
 import { type GettingPaidView, formatDate, strings, useGettingPaid } from "@clientbridge/app-core";
 import {
     Button,
+    PaymentAccount,
     Empty,
     Icon,
     KeyValueList,
     LoadFailed,
     Money,
-    Notice,
     Panel,
     Skeleton,
     StatusPill,
 } from "@clientbridge/ui";
+
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { api } from "../lib/api";
 
@@ -35,25 +38,29 @@ function Hero({ paid }: { paid: GettingPaidView }) {
                         {paid.message}
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                            variant="outline"
+                            icon="bank"
+                            disabled={!paid.account.ready}
+                            onPress={() => {
+                                paid.account.open("account");
+                            }}
+                        >
+                            {strings.paymentAccount.manage}
+                        </Button>
                         {act ? (
-                            <Button onPress={paid.finish} busy={paid.busy} icon="external">
-                                {paid.busy ? g.opening : g.finish}
+                            <Button
+                                disabled={!paid.account.ready}
+                                onPress={paid.finish}
+                                icon="card"
+                            >
+                                {g.finish}
                             </Button>
                         ) : null}
                         <Button variant="outline" onPress={paid.refresh} busy={paid.refreshing}>
                             {paid.refreshing ? g.checking : g.refresh}
                         </Button>
                     </div>
-                    {paid.opened ? (
-                        <div className="mt-3">
-                            <Notice tone="info">{g.openedOnboarding}</Notice>
-                        </div>
-                    ) : null}
-                    {paid.error !== null ? (
-                        <div className="mt-3">
-                            <Notice tone="danger">{paid.error}</Notice>
-                        </div>
-                    ) : null}
                 </div>
             </div>
         </section>
@@ -156,9 +163,33 @@ function Body({ paid }: { paid: GettingPaidView }) {
 }
 
 export function GettingPaid() {
-    const paid = useGettingPaid(api, (url) => {
-        window.open(url, "_blank", "noopener");
-    });
+    const paid = useGettingPaid(api);
+    const [params, setParams] = useSearchParams();
+    const handled = useRef(false);
+    useEffect(() => {
+        if (params.get("manage") !== "account") {
+            handled.current = false;
+            return;
+        }
+        if (
+            handled.current ||
+            !paid.account.ready ||
+            paid.phase === "loading" ||
+            paid.phase === "error"
+        )
+            return;
+        handled.current = true;
+        paid.account.open(paid.phase === "not_connected" ? "onboarding" : "account");
+        setParams(
+            (current) => {
+                const next = new URLSearchParams(current);
+                next.delete("manage");
+                return next;
+            },
+            { replace: true },
+        );
+    }, [params, setParams, paid.phase, paid.account]);
+    if (paid.account.props !== null) return <PaymentAccount {...paid.account.props} />;
 
     return (
         <div>
@@ -188,21 +219,15 @@ export function GettingPaid() {
                             message={g.connectTitle}
                             body={paid.message}
                             actions={
-                                <Button busy={paid.busy} onPress={paid.finish} icon="external">
-                                    {paid.busy ? g.opening : g.connect}
+                                <Button
+                                    disabled={!paid.account.ready}
+                                    onPress={paid.finish}
+                                    icon="card"
+                                >
+                                    {g.connect}
                                 </Button>
                             }
                         />
-                        {paid.opened ? (
-                            <div className="px-6 pb-6">
-                                <Notice tone="info">{g.openedOnboarding}</Notice>
-                            </div>
-                        ) : null}
-                        {paid.error !== null ? (
-                            <div className="px-6 pb-6">
-                                <Notice tone="danger">{paid.error}</Notice>
-                            </div>
-                        ) : null}
                     </Panel>
                 ) : (
                     <Body paid={paid} />

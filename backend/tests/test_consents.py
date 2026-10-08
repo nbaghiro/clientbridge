@@ -12,14 +12,14 @@ from clientbridge.main import app
 from clientbridge.models.clients import Client, Consent
 from clientbridge.services.consents import prefs_token, record_consent
 from tests.conftest import Factory, FakeSmsSender
-from tests.helpers import TWILIO, client_id, ok
+from tests.helpers import TWILIO, new_client, ok
 
 BIZ = "bz_birchbark"
 PHONE = "+16045550177"
 
 
 async def _client(db: AsyncSession, *, name: str | None = None) -> str:
-    cid = await client_id(db, email="pat@example.ca")
+    cid = await new_client(db, email="pat@example.ca")
     values: dict[str, object] = {"phone": PHONE}
     if name is not None:
         values["name"] = name

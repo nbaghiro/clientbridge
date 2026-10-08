@@ -1,10 +1,17 @@
-import { type SetupSectionKey, setupSectionsFor, strings } from "@clientbridge/app-core";
+import {
+    type SetupSectionKey,
+    setupSectionsFor,
+    strings,
+    mediaUrl,
+    useSetupProgress,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Button, Icon } from "@clientbridge/ui";
+import { Avatar, Button, Icon } from "@clientbridge/ui";
 
+import { apiBaseUrl } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { useSignOut } from "../lib/session";
 import type { RootStackParamList } from "../navigation";
@@ -40,9 +47,19 @@ const SECTION_SCREEN: Partial<
 export function SetupScreen() {
     const nav = useNavigation<Nav>();
     const role = useRole();
+    const business = useSetupProgress();
     const signOut = useSignOut();
     return (
         <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+            <View style={styles.identity}>
+                <Avatar
+                    name={business.businessName}
+                    size="lg"
+                    color={business.brandColor}
+                    src={business.avatarFileId ? mediaUrl(apiBaseUrl, business.avatarFileId) : null}
+                />
+                <Text style={styles.rowLabel}>{business.businessName}</Text>
+            </View>
             <View style={styles.group}>
                 {setupSectionsFor("mobile", role).map((s, i) => (
                     <Pressable
@@ -76,6 +93,7 @@ export function TeamHoursScreen() {
 }
 
 const styles = StyleSheet.create({
+    identity: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
     screen: { flex: 1, backgroundColor: theme.colors.bg },
     content: { padding: 16 },
     group: {

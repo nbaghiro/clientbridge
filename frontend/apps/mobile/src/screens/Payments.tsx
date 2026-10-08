@@ -1,13 +1,13 @@
-import { type PaymentsTabKey, strings, visiblePaymentsTabs } from "@clientbridge/app-core";
+import { type PaymentsTabKey, visiblePaymentsTabs } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { type RouteProp, useRoute } from "@react-navigation/native";
 import { type ReactElement, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { PageHeader, Tabs } from "@clientbridge/ui";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Tabs } from "@clientbridge/ui";
 
 import { useRole } from "../lib/auth";
-import type { TabParamList } from "../navigation";
+import type { RootStackParamList } from "../navigation";
 import { GiftCards } from "./GiftCards";
 import { Invoices } from "./Invoices";
 import { Earnings } from "./Earnings";
@@ -18,8 +18,7 @@ import { Remittances } from "./Remittances";
 import { Reports } from "./Reports";
 
 export function PaymentsScreen() {
-    const insets = useSafeAreaInsets();
-    const params = useRoute<RouteProp<TabParamList, "Payments">>().params;
+    const params = useRoute<RouteProp<RootStackParamList, "Payments">>().params;
     const tabs = visiblePaymentsTabs(useRole());
     const [tab, setTab] = useState<PaymentsTabKey>(params?.tab ?? "invoices");
     useEffect(() => {
@@ -28,10 +27,7 @@ export function PaymentsScreen() {
     const current = tabs.find((t) => t.key === tab) ?? tabs[0];
 
     return (
-        <View style={[styles.screen, { paddingTop: insets.top }]}>
-            <View style={styles.title}>
-                <PageHeader title={strings.navigation.payments} />
-            </View>
+        <SafeAreaView style={styles.screen} edges={["bottom"]}>
             {current === undefined ? null : (
                 <>
                     <Tabs items={tabs} active={current.key} onSelect={setTab} />
@@ -44,7 +40,7 @@ export function PaymentsScreen() {
                     </View>
                 </>
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -75,6 +71,5 @@ function tabBody(
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: theme.colors.bg },
-    title: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 6 },
     body: { flex: 1, paddingTop: 8 },
 });

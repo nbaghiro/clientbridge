@@ -20,7 +20,7 @@ const payouts: ProgressStep[] = [
     {
         key: "identity",
         label: "Verify your identity",
-        hint: "Stripe needs a photo ID before payouts start.",
+        hint: "A photo ID is needed before payouts start.",
         state: "blocked",
     },
     {

@@ -189,10 +189,7 @@ function EmailStep({ auth }: { auth: Auth }) {
 }
 
 export function LoginScreen({ onSuccess }: { onSuccess: () => void }) {
-    const auth = useAuthForm(api, setTokens, onSuccess, {
-        defaultEmail: "hannah@birchbarkpets.ca",
-        defaultPassword: "demo1234",
-    });
+    const auth = useAuthForm(api, setTokens, onSuccess);
     const credentials = auth.mode === "signin" || auth.mode === "signup";
     const signup = auth.mode === "signup";
 

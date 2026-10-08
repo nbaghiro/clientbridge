@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+import { usePublicResource } from "./publicResource";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
 import { type ApiLike, failedStatus, newIdempotencyKey } from "../api";
@@ -80,7 +81,7 @@ export function useCheckout(
                 return;
             }
             const secret = "client_secret" in result ? result.client_secret : null;
-            if (method === NEW_CARD && typeof secret === "string") {
+            if (typeof secret === "string" && method === NEW_CARD) {
                 setClientSecret(secret);
             } else {
                 finish();
@@ -118,17 +119,10 @@ function startCardSetup(
     return api.post<SetupIntent>(`/v1/payments/setup-intent/${clientId}`, {}, { idempotencyKey });
 }
 
-/** Open a SetupIntent for an ACSS/PAD (pre-authorized debit) bank mandate. */
-function startPadSetup(
-    api: ApiLike,
-    clientId: string,
-    idempotencyKey: string,
-): Promise<SetupIntent> {
-    return api.post<SetupIntent>(
-        `/v1/payments/pad-setup-intent/${clientId}`,
-        {},
-        { idempotencyKey },
-    );
+interface BankSetupLink {
+    id: string;
+    url: string;
+    expires_at: string;
 }
 
 type SetupKind = "card" | "bank";
@@ -136,6 +130,8 @@ type SetupKind = "card" | "bank";
 export interface AddPaymentMethod {
     kind: SetupKind | null;
     intent: SetupIntent | null;
+    bankLink: BankSetupLink | null;
+    revokeBankLink: () => void;
     busy: boolean;
     error: string | null;
     start: (kind: SetupKind) => void;
@@ -152,6 +148,7 @@ export function useAddPaymentMethod(
 ): AddPaymentMethod {
     const [kind, setKind] = useState<SetupKind | null>(null);
     const [intent, setIntent] = useState<SetupIntent | null>(null);
+    const [bankLink, setBankLink] = useState<BankSetupLink | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
     const attemptRef = useRef<{ kind: SetupKind; key: string } | null>(null);
 
@@ -171,13 +168,17 @@ export function useAddPaymentMethod(
         const { key } = attemptRef.current;
         run(async () => {
             try {
-                setIntent(
-                    next === "card"
-                        ? await startCardSetup(api, clientId, key)
-                        : await startPadSetup(api, clientId, key),
-                );
+                if (next === "card") setIntent(await startCardSetup(api, clientId, key));
+                else
+                    setBankLink(
+                        await api.post<BankSetupLink>(`/v1/payments/pad-links/${clientId}`, {}),
+                    );
             } catch (e) {
-                setError(paymentErrorMessage(e, strings.payments.setupStartError));
+                setError(
+                    next === "bank" && failedStatus(e) === 409
+                        ? strings.checkout.bankLinkRequirements
+                        : paymentErrorMessage(e, strings.payments.setupStartError),
+                );
             }
         });
     };
@@ -185,6 +186,17 @@ export function useAddPaymentMethod(
     return {
         kind,
         intent,
+        bankLink,
+        revokeBankLink: () => {
+            if (bankLink === null) return;
+            run(
+                async () => {
+                    await api.delete(`/v1/payments/pad-links/${bankLink.id}`);
+                    setBankLink(null);
+                },
+                { errorMessage: strings.checkout.bankLinkError },
+            );
+        },
         busy,
         error,
         start,
@@ -194,5 +206,60 @@ export function useAddPaymentMethod(
             onDone();
         },
         setError,
+    };
+}
+
+interface PublicPaymentSetup {
+    business_name: string;
+    client_name: string;
+    expires_at: string;
+    status: string;
+    stripe_account_id: string;
+    client_secret: string | null;
+    verification_url: string | null;
+}
+
+interface PublicPaymentSetupClient {
+    get: (token: string) => Promise<PublicPaymentSetup>;
+    start: (token: string) => Promise<PublicPaymentSetup>;
+}
+
+export function createPublicPaymentSetupClient(baseUrl: string): PublicPaymentSetupClient {
+    const request = async (token: string, start = false): Promise<PublicPaymentSetup> => {
+        const response = await fetch(`${baseUrl}/payment-method${start ? "/start" : ""}`, {
+            method: start ? "POST" : "GET",
+            headers: { "X-Payment-Setup-Token": token },
+            cache: "no-store",
+        });
+        if (!response.ok)
+            throw Object.assign(new Error(response.statusText), { status: response.status });
+        return (await response.json()) as PublicPaymentSetup;
+    };
+    return { get: (token) => request(token), start: (token) => request(token, true) };
+}
+
+export function usePublicPaymentSetup(client: PublicPaymentSetupClient, token: string) {
+    const resource = usePublicResource(client.get, token);
+    const action = useAsyncAction();
+    return {
+        ...resource,
+        busy: action.busy,
+        error: action.error,
+        start: () => {
+            action.run(
+                async () => {
+                    resource.setData(await client.start(token));
+                },
+                { errorMessage: strings.checkout.bankLinkError },
+            );
+        },
+        refresh: () => {
+            action.run(
+                async () => {
+                    resource.setData(await client.get(token));
+                },
+                { errorMessage: strings.checkout.bankLinkError },
+            );
+        },
     };
 }

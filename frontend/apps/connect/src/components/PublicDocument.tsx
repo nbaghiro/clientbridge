@@ -1,12 +1,8 @@
-import {
-    type PrintedDoc,
-    type PublicBrand,
-    initials,
-    strings,
-} from "@clientbridge/app-core/public";
-import { Button, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
-import { cssVar } from "@clientbridge/tokens";
-import type { CSSProperties, ReactNode } from "react";
+import { type PrintedDoc, type PublicBrand, strings } from "@clientbridge/app-core/public";
+import { Avatar, Button, IconButton, Modal, PrintedDocument } from "@clientbridge/ui";
+import type { ReactNode } from "react";
+
+import { brandStyle, ON_BRAND } from "./PublicPage";
 
 /** The page around a client's invoice or estimate: the business's name and colour, then the document. */
 export function PublicDocument({
@@ -15,44 +11,110 @@ export function PublicDocument({
     contact,
     footer,
     children,
+    hero,
+    actions,
+    width = "wide",
 }: {
     brand: PublicBrand;
     businessName: string;
     contact: string | null;
     footer: string;
     children: ReactNode;
+    hero?: ReactNode;
+    actions?: ReactNode;
+    width?: "wide" | "narrow";
 }) {
-    const color = brand.primary ?? cssVar("accent");
-    const style =
-        brand.primary !== null ? ({ "--accent": brand.primary } as CSSProperties) : undefined;
+    const style = brandStyle(brand);
+    const max = width === "narrow" ? "max-w-3xl" : "max-w-6xl";
     return (
         <div style={style} className="min-h-screen bg-bg">
-            <header className="border-b border-line bg-surface">
-                <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                        {brand.logo_url !== null ? (
-                            <img src={brand.logo_url} alt="" className="h-9 w-auto" />
-                        ) : (
-                            <span
-                                aria-hidden
-                                style={{ backgroundColor: color }}
-                                className="flex h-9 w-9 items-center justify-center rounded-md font-display text-sm font-bold text-on-data"
-                            >
-                                {initials(businessName)}
-                            </span>
-                        )}
-                        <span className="font-display text-base font-bold text-ink">
-                            {businessName}
-                        </span>
+            <header
+                style={hero === undefined ? undefined : ON_BRAND}
+                className={
+                    hero === undefined ? "border-b border-line bg-surface" : "bg-accent text-ink"
+                }
+            >
+                <div
+                    className={`mx-auto flex ${max} items-center justify-between gap-4 px-4 py-4 sm:px-6`}
+                >
+                    <div className="flex min-w-0 items-center gap-3">
+                        <Avatar
+                            name={businessName}
+                            src={brand.avatar_url ?? brand.logo_url}
+                            size="lg"
+                            className="rounded-xl !bg-surface p-1 shadow-sm"
+                        />
+                        <div className="min-w-0">
+                            <p className="truncate font-display text-lg font-bold leading-tight text-ink">
+                                {businessName}
+                            </p>
+                            {brand.tagline !== null ? (
+                                <p className="truncate text-xs text-muted">{brand.tagline}</p>
+                            ) : null}
+                        </div>
                     </div>
-                    {contact !== null ? (
+                    {actions}
+                    {contact !== null && actions === undefined ? (
                         <span className="hidden text-sm text-muted sm:block">{contact}</span>
                     ) : null}
                 </div>
+                {hero !== undefined ? (
+                    <div className={`mx-auto ${max} px-4 pb-16 pt-3 sm:px-6`}>{hero}</div>
+                ) : null}
             </header>
-            {children}
-            <p className="pb-10 text-center text-xs text-muted">{footer}</p>
+            <div className={hero !== undefined ? "relative -mt-10" : undefined}>{children}</div>
+            <p className="py-8 text-center text-xs text-muted">{footer}</p>
         </div>
+    );
+}
+
+export function DocumentLetter({
+    brand,
+    businessName,
+    title,
+    subtitle,
+    actions,
+    facts,
+    children,
+}: {
+    brand: PublicBrand;
+    businessName: string;
+    title: string;
+    subtitle?: string;
+    actions?: ReactNode;
+    facts?: ReactNode;
+    children: ReactNode;
+}) {
+    return (
+        <PublicDocument
+            brand={brand}
+            businessName={businessName}
+            contact={null}
+            footer={strings.publicPay.poweredBy}
+            width="narrow"
+            hero={
+                <>
+                    <h1 className="font-display text-3xl font-bold leading-tight tracking-tight text-ink sm:text-4xl">
+                        {title}
+                    </h1>
+                    {facts}
+                    {subtitle ? (
+                        <p className="mt-2 max-w-xl text-base text-ink-soft">{subtitle}</p>
+                    ) : null}
+                </>
+            }
+        >
+            <main className="mx-auto max-w-3xl px-4 sm:px-6">
+                <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+                    <div className="p-6">{children}</div>
+                    {actions !== undefined ? (
+                        <footer className="space-y-3 border-t border-line bg-bg/70 px-6 py-6">
+                            {actions}
+                        </footer>
+                    ) : null}
+                </article>
+            </main>
+        </PublicDocument>
     );
 }
 

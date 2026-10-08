@@ -211,7 +211,7 @@ Container-internal ports stay conventional; only host mappings use 87xx.
 make hooks                 # once per clone — install the pre-commit gate
 make install               # uv sync + pnpm install (applies the two op-sqlite patches)
 make up                    # Postgres (logical WAL) + powersync publication + storage DB, then powersync/redis/s3
-make migrate seed          # alembic upgrade head, then the Birchbark demo
+make migrate               # main development schema; demo accounts use the same database
 # separate terminals:
 make dev-api  dev-web  dev-connect  dev-mobile  worker
 make dev-site              # marketing site from source on :8710
@@ -220,6 +220,7 @@ make test-site             # build + Playwright pass over every page (links, ima
 make test-web              # web smoke test: sign in, every page and dialog, no console errors (needs the local stack + seed;
                            # scripts/web_fixtures.py first adds a client series, low stock and a dispute through the API if missing)
 make test-connect          # Connect e2e: book to the deposit step, manage link, shop and every client page (needs the API + seed)
+make test-mobile           # Maestro native walkthroughs (development build + local stack + seed)
 make lighthouse-site       # Lighthouse budget (desktop >= 95 in every category) against the :8710 preview
 make dev-playground        # every shared component on web, iPhone and Android on :8712 (no backend needed)
 make test-playground       # build + Playwright pass over every story page and phone frame, no console errors
@@ -237,19 +238,6 @@ replication slot (Postgres PANICs on next start), remove `pg_replslot/powersync_
 
 ## The demo / QA account
 
-`make seed` loads **Birchbark Pet Studio** (Victoria, BC — pet grooming/daycare, **GST 5% + PST 7%**, about
-2,700 rows exercising every implemented surface; `backend/scripts/seed_demo.py`). It's the **committed baseline every integration test
-asserts against** — idempotent (TRUNCATE-then-insert, hand-ordered FK-safe because models declare no
-relationships). Owner = the dev user **`us_dev`** (Hannah), so the apps stream *this* business via the dev
-sync token.
+Demo accounts are normal tenants in the main local `clientbridge` database, using the standard servers and provider integrations. `make seed` adds them when absent; `make demo-reset` refreshes only the seeded accounts and preserves unrelated tenants. `make demo-check` validates their scenario and ledger. There is no demo runtime mode or separate presentation database.
 
-- **Demo logins:** `hannah@birchbarkpets.ca` (owner), `diego@birchbarkpets.ca` and `priya@birchbarkpets.ca`
-  (staff), all with the password `demo1234` (`DEMO_PASSWORD` in the seed).
-- **Readable IDs** for debugging: `bz_birchbark`, `us_dev`, `cl_amelie`, `sj_bella`, `inv_1001`. Dates are
-  anchored to *now*, so there's always recent + upcoming activity.
-- Bookings fill every day from four months back to a month out, inside each member's working hours.
-  Past ones are completed with paid invoices, so reports, staff pay and payouts have depth.
-- The logo, item images and pet avatars live in `backend/scripts/demo_assets/` and are uploaded to the
-  local S3 store by the seed (skipped with a note when no store is running, as in CI).
-- Structural integrity (FKs · CHECKs · uniqueness) is proven by a successful `make seed` — a bad row can't
-  insert; behavior is covered by the test suite that runs against this seed.
+See the [seeded account guide](executions/demo-data/README.md) for logins, data architecture, provider requirements and reset behavior. Integration tests use normal dependency-injected recording adapters and per-test rollback; CI databases use the `clientbridge_test*` prefix.

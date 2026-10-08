@@ -1,7 +1,16 @@
-import { formatMoney, payoutStatusIntent, strings, usePayouts } from "@clientbridge/app-core";
+import {
+    formatMoney,
+    payoutStatusIntent,
+    strings,
+    useAsyncAction,
+    usePayouts,
+    usePaymentAccount,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Badge,
+    Button,
+    PaymentAccount,
     DetailSection,
     DetailView,
     Empty,
@@ -16,19 +25,47 @@ import {
     ui,
 } from "@clientbridge/ui";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { api } from "../lib/api";
+import { publicWebUrl } from "../lib/config";
 
 const s = strings.payouts;
 const c = theme.colors;
 
 export function Payouts() {
     const p = usePayouts();
+    const account = usePaymentAccount(api);
+    const web = useAsyncAction();
+    const manageOnWeb = (): void => {
+        web.run(
+            () =>
+                Linking.openURL(
+                    `${publicWebUrl.replace(/\/$/, "")}/setup/getting-paid?manage=account`,
+                ),
+            { errorMessage: strings.paymentAccount.webError },
+        );
+    };
     const [open, setOpen] = useState(false);
     const sel = p.selected;
+    if (account.props !== null) return <PaymentAccount {...account.props} />;
 
     return (
         <View style={styles.screen}>
             <ScrollView contentContainerStyle={styles.page}>
+                <Button variant="outline" icon="external" busy={web.busy} onPress={manageOnWeb}>
+                    {strings.paymentAccount.manageOnWeb}
+                </Button>
+                {web.error !== null ? <Notice tone="danger">{web.error}</Notice> : null}
+                <Button
+                    disabled={!account.ready}
+                    variant="outline"
+                    onPress={() => {
+                        account.open("payouts");
+                    }}
+                >
+                    {strings.paymentAccount.viewPayouts}
+                </Button>
                 {p.load.state === "loading" ? (
                     <Skeleton variant="row" count={5} label={s.loading} />
                 ) : p.load.state === "error" ? (

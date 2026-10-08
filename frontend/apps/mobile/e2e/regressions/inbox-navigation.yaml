@@ -1,0 +1,86 @@
+appId: ca.clientbridge.app
+name: Inbox tabs and payment access
+---
+- launchApp:
+      arguments:
+          RCT_jsLocation: '${typeof METRO_HOST === "undefined" ? "localhost:8707" : METRO_HOST}'
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Sign in"
+      file: ../helpers/owner.yaml
+- tapOn:
+      id: tab-today
+- extendedWaitUntil:
+      visible: "Good .*, Hannah"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "!, Open debugger to view warnings."
+      commands:
+          - tapOn:
+                text: "!, Open debugger to view warnings."
+                point: "94%,50%"
+- assertVisible:
+      id: tab-inbox
+- assertNotVisible:
+      id: tab-payments
+- tapOn: "View payments"
+- assertVisible: "Search client or number"
+- tapOn: "Back|Go back|Navigate up"
+- assertVisible:
+      id: tab-today
+- tapOn: "Create"
+- tapOn: "View payments"
+- assertVisible: "Search client or number"
+- tapOn: "Back|Go back|Navigate up"
+- tapOn:
+      id: tab-inbox
+- assertVisible: "Search name, pet or message"
+- tapOn: "Amélie Tremblay.*"
+- assertVisible: "Client details"
+- tapOn:
+      id: tab-today
+- tapOn:
+      id: tab-inbox
+- assertVisible: "Client details"
+- tapOn: "Reviews"
+- assertVisible: "Approve, reply to and share what clients say."
+- tapOn:
+      id: tab-today
+- tapOn:
+      id: tab-inbox
+- assertVisible: "Approve, reply to and share what clients say."
+- tapOn: "Create"
+- tapOn: "Message"
+- assertVisible: "New message"
+- tapOn: "Cancel"
+- assertVisible: "Search name, pet or message"
+- tapOn: "Reviews"
+- tapOn: "Messages"
+- assertNotVisible: "New message"
+- tapOn:
+      id: tab-today
+- tapOn: "Search"
+- tapOn: "Search"
+- inputText: "Ethan"
+- tapOn: "Message Ethan Wright.*"
+- assertVisible: "New message"
+- assertVisible: "Ethan Wright"
+- tapOn: "Cancel"
+- assertVisible: "Search name, pet or message"
+- tapOn:
+      id: tab-today
+- tapOn: "Notifications.*"
+- scrollUntilVisible:
+      element:
+          text: ".*Message from Sophie Nguyen.*"
+      direction: DOWN
+      timeout: 180000
+      speed: 80
+- tapOn: ".*Message from Sophie Nguyen.*"
+- assertVisible: "Client details"
+- assertVisible: "Sophie Nguyen"
+- takeScreenshot: inbox-navigation

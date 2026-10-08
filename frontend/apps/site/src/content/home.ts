@@ -24,8 +24,8 @@ export const props: { icon: LineIconName; title: string; body: string }[] = [
     },
     {
         icon: "payout",
-        title: "Paid out to your bank by Stripe",
-        body: "Card, Tap to Pay and Interac e-Transfer all land in one place. Stripe pays your balance out to your bank on a regular schedule.",
+        title: "Paid out to your bank",
+        body: "Track card payments, Tap to Pay and Interac e-Transfers in one place. Card payments are paid out to your bank on a regular schedule.",
     },
     {
         icon: "tax",
@@ -115,7 +115,7 @@ export const features: Feature[] = [
 export const payments = {
     eyebrow: "How payments work",
     title: "The money goes to your bank, and the records keep themselves.",
-    lede: "Clientbridge uses Stripe Connect, so each business has its own Stripe account and its own payouts. We never hold your money.",
+    lede: "Each business has its own payments account and receives payouts directly to its bank account.",
     steps: [
         {
             title: "The client pays",
@@ -126,8 +126,8 @@ export const payments = {
             body: "Card payments mark the invoice paid straight away. An e-Transfer is matched by its reference code when it arrives.",
         },
         {
-            title: "Stripe pays you out",
-            body: "Your Stripe balance is paid out to your bank account. Each payout lists the payments, fees and refunds it covers.",
+            title: "Receive bank payouts",
+            body: "Your payments balance is paid out to your bank account. Each payout lists the payments, fees and refunds it covers.",
         },
         {
             title: "Tax is set aside",
@@ -227,7 +227,7 @@ export function testimonialPlaceholder(n: number): TestimonialCopy {
 export const pricing = {
     eyebrow: "Pricing",
     title: "One plan with everything in it.",
-    body: "Every feature on this page is included. Card payments carry Stripe's standard processing fee, and Interac e-Transfers go bank to bank and are not charged a card fee.",
+    body: "Every feature on this page is included. Card payments carry a card processing fee, and Interac e-Transfers go bank to bank and are not charged a card fee.",
     price: "$[price]",
     per: " / month",
     note: "Placeholder. Final pricing to be confirmed.",

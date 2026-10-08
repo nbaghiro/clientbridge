@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Response
 
 from clientbridge.core.deps import (
     CurrentPrincipal,
@@ -12,10 +12,13 @@ from clientbridge.core.deps import (
 )
 from clientbridge.schemas.orders import ConnectionTokenOut
 from clientbridge.schemas.payments import (
+    ConnectSessionIn,
+    ConnectSessionOut,
     ConnectStatus,
     DetachResult,
     OnboardingLink,
     PaymentMethodOut,
+    PaymentSetupLinkOut,
     RefundIn,
     RefundOut,
     RefundPreview,
@@ -40,6 +43,18 @@ async def onboard(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> OnboardingLink:
     return await PaymentService(db, principal, gateway).start_onboarding(idempotency_key)
+
+
+@connect_router.post("/session", response_model=ConnectSessionOut)
+async def account_session(
+    body: ConnectSessionIn,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    response: Response,
+) -> ConnectSessionOut:
+    response.headers["Cache-Control"] = "no-store"
+    return await PaymentService(db, principal, gateway).account_session(body.component)
 
 
 @connect_router.get("/status", response_model=ConnectStatus)
@@ -72,6 +87,25 @@ async def setup_pad(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> SetupIntentOut:
     return await PaymentService(db, principal, gateway).start_pad_setup(client_id, idempotency_key)
+
+
+@payments_router.post("/pad-links/{client_id}", response_model=PaymentSetupLinkOut)
+async def create_pad_link(
+    client_id: str,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    gateway: GatewayDep,
+    response: Response,
+) -> PaymentSetupLinkOut:
+    response.headers["Cache-Control"] = "no-store"
+    return await PaymentService(db, principal, gateway).create_pad_link(client_id)
+
+
+@payments_router.delete("/pad-links/{link_id}", status_code=204)
+async def revoke_pad_link(
+    link_id: str, principal: CurrentPrincipal, db: DbSession, gateway: GatewayDep
+) -> None:
+    await PaymentService(db, principal, gateway).revoke_pad_link(link_id)
 
 
 @payments_router.delete("/methods/{payment_method_id}", response_model=DetachResult)
@@ -107,9 +141,9 @@ async def refund_payment(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> RefundOut:
     out = await PaymentService(db, principal, gateway).refund_payment(
-        payment_id, body.amount_cents, idempotency_key, body.reason
+        payment_id, body.amount_cents, idempotency_key, body.reason, body.notify
     )
-    if body.notify:
+    if body.notify and out.status == "succeeded":
         await Notifier(email, sms, push).on_refund(db, out.refund_id)
     return out
 

@@ -312,14 +312,20 @@ export function useRefundComposer(
                 const out = await api.post<RefundResult>(`/v1/payments/${p.id}/refund`, body, {
                     idempotencyKey: key,
                 });
-                setIssued(s.refundedDone(formatMoney(cents), out.credit_note ?? nextNote));
+                keyRef.current = null;
+                if (out.status === "failed" || out.status === "canceled") {
+                    setError(s.refundFailed);
+                    return;
+                }
+                setAmountState("");
+                setModeState("full");
+                setIssued(
+                    out.status === "succeeded"
+                        ? s.refundedDone(formatMoney(cents), out.credit_note ?? nextNote)
+                        : s.refundPending,
+                );
             },
             {
-                onSuccess: () => {
-                    keyRef.current = null;
-                    setAmountState("");
-                    setModeState("full");
-                },
                 errorMessage: s.refundError,
             },
         );

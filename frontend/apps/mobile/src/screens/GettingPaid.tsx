@@ -1,10 +1,17 @@
-import { formatDate, formatMoney, strings, useGettingPaid } from "@clientbridge/app-core";
+import {
+    formatDate,
+    formatMoney,
+    strings,
+    useAsyncAction,
+    useGettingPaid,
+} from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback } from "react";
 import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
     Button,
+    PaymentAccount,
     Empty,
     Icon,
     KeyValueList,
@@ -15,14 +22,23 @@ import {
 } from "@clientbridge/ui";
 
 import { api } from "../lib/api";
+import { publicWebUrl } from "../lib/config";
 
 const c = theme.colors;
 const g = strings.gettingPaid;
 
 export function GettingPaidScreen() {
-    const paid = useGettingPaid(api, (url) => {
-        Linking.openURL(url).catch(() => undefined);
-    });
+    const paid = useGettingPaid(api);
+    const web = useAsyncAction();
+    const manageOnWeb = (): void => {
+        web.run(
+            () =>
+                Linking.openURL(
+                    `${publicWebUrl.replace(/\/$/, "")}/setup/getting-paid?manage=account`,
+                ),
+            { errorMessage: strings.paymentAccount.webError },
+        );
+    };
     const { refresh } = paid;
     useFocusEffect(
         useCallback(() => {
@@ -33,6 +49,7 @@ export function GettingPaidScreen() {
     const act = paid.phase === "restricted" || paid.phase === "in_progress";
     const deadline = paid.deadline === null ? "" : formatDate(paid.deadline);
 
+    if (paid.account.props !== null) return <PaymentAccount {...paid.account.props} />;
     if (paid.phase === "loading") {
         return (
             <View style={styles.screen}>
@@ -67,12 +84,11 @@ export function GettingPaidScreen() {
                         message={g.connectTitle}
                         body={paid.message}
                         actions={
-                            <Button busy={paid.busy} onPress={paid.finish}>
-                                {paid.busy ? g.opening : g.connect}
+                            <Button disabled={!paid.account.ready} onPress={paid.finish}>
+                                {g.connect}
                             </Button>
                         }
                     />
-                    {paid.error !== null ? <Notice tone="danger">{paid.error}</Notice> : null}
                 </View>
             </View>
         );
@@ -89,8 +105,10 @@ export function GettingPaidScreen() {
                     <Text style={styles.heroTitle}>{paid.title}</Text>
                     <Text style={styles.heroBody}>{paid.message}</Text>
                 </View>
-                {paid.opened ? <Notice tone="info">{g.openedOnboarding}</Notice> : null}
-                {paid.error !== null ? <Notice tone="danger">{paid.error}</Notice> : null}
+                <Button variant="outline" icon="external" busy={web.busy} onPress={manageOnWeb}>
+                    {strings.paymentAccount.manageOnWeb}
+                </Button>
+                {web.error !== null ? <Notice tone="danger">{web.error}</Notice> : null}
 
                 <Text style={styles.section}>{g.whatsNeeded}</Text>
                 <View style={styles.card}>
@@ -174,8 +192,8 @@ export function GettingPaidScreen() {
                 </View>
                 {act ? (
                     <View style={styles.flex}>
-                        <Button size="lg" full busy={paid.busy} onPress={paid.finish}>
-                            {paid.busy ? g.opening : g.finish}
+                        <Button size="lg" full disabled={!paid.account.ready} onPress={paid.finish}>
+                            {g.finish}
                         </Button>
                     </View>
                 ) : null}

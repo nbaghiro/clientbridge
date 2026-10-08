@@ -113,6 +113,13 @@ async def main() -> None:
                 .order_by(Order.number.desc(), Order.id),
                 "receipt_token",
             ),
+            "order": await _minted(
+                db,
+                select(Order)
+                .where(Order.business_id == BIZ, Order.source == "online")
+                .order_by(Order.created_at.desc()),
+                "status_token",
+            ),
             "review": await _minted(
                 db,
                 select(Review).where(

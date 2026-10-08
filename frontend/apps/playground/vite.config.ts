@@ -49,7 +49,8 @@ export default defineConfig({
         ],
         dedupe: ["react", "react-dom"],
     },
-    define: { __DEV__: "false", "process.env.EXPO_OS": '"web"' },
+    // React Native Web's animation cleanup still uses the native global alias.
+    define: { global: "globalThis", __DEV__: "false", "process.env.EXPO_OS": '"web"' },
     optimizeDeps: {
         include: ["react-native-web", "react-native-svg", "react-native-safe-area-context"],
         exclude: ["@journeyapps/wa-sqlite", "@powersync/web"],

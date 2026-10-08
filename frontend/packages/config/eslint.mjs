@@ -106,6 +106,8 @@ export default tseslint.config(
     {
         ignores: [
             "**/dist/**",
+            "**/playwright-report/**",
+            "**/test-results/**",
             "**/public/**", // static assets served as-is (e.g. the vanilla embed loader)
             "node_modules/**",
             "**/generated.ts", // the openapi-typescript output (packages/api-client/src/generated.ts)

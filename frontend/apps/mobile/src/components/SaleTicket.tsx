@@ -536,9 +536,26 @@ function Reader({ sale }: { sale: SaleTicket }) {
     }, [phase, sale]);
     return (
         <View style={styles.stack}>
-            <Text style={styles.title}>{d.tapReady}</Text>
-            <Text style={styles.soft}>{phase === "collecting" ? d.tapWaiting : d.tapHold}</Text>
+            <Text style={styles.title}>
+                {phase === "error"
+                    ? strings.terminal.failed
+                    : phase === "connecting"
+                      ? strings.terminal.connecting
+                      : d.tapReady}
+            </Text>
+            <Text style={styles.soft}>
+                {phase === "connecting"
+                    ? strings.terminal.setup
+                    : phase === "collecting"
+                      ? d.tapWaiting
+                      : d.tapHold}
+            </Text>
             {terminal.error !== null ? <Notice tone="danger">{terminal.error}</Notice> : null}
+            {phase === "error" && terminal.retry !== null ? (
+                <Button variant="outline" onPress={terminal.retry}>
+                    {strings.terminal.retry}
+                </Button>
+            ) : null}
         </View>
     );
 }

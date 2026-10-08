@@ -7,16 +7,16 @@ const PASSWORD = "demo1234";
 // A seeded visit with a $20 deposit; opening it by link puts its day on the board.
 const DEPOSIT_BOOKING = "bk_015";
 
-const PAYMENTS_TABS = [
-    "invoices",
-    "sales",
-    "gift-cards",
-    "refunds",
-    "staff-pay",
-    "tax",
-    "payouts",
-    "reports",
-];
+const PAYMENTS_TABS = {
+    invoices: strings.billing.newInvoice,
+    sales: strings.pos.desk.todaysVisits,
+    "gift-cards": strings.entitlements.walletTitle,
+    refunds: strings.refunds.paymentsTitle,
+    "staff-pay": strings.earnings.selectAll,
+    tax: strings.remittances.recordFiled,
+    payouts: strings.payouts.chargesTitle,
+    reports: strings.reports.monthlyNet,
+};
 const SETUP_SECTIONS = [
     "start",
     "business",
@@ -73,7 +73,22 @@ class Walk {
 
     async step(name: string, body: () => Promise<void>): Promise<void> {
         this.current = name;
-        await test.step(name, body);
+        await test.step(name, async () => {
+            await body();
+            if (process.env.E2E_CAPTURE_SURFACES === "1") {
+                await expect(this.main).not.toHaveText("");
+                await expect(this.page.locator('[aria-busy="true"]')).toHaveCount(0);
+                await expect(
+                    this.page
+                        .getByRole("status")
+                        .filter({ hasText: exactly(strings.common.loading) }),
+                ).toHaveCount(0);
+                await test.info().attach(name, {
+                    body: await this.page.screenshot({ fullPage: true }),
+                    contentType: "image/png",
+                });
+            }
+        });
     }
 
     expectNoErrors(): void {
@@ -86,12 +101,9 @@ async function signIn(page: Page, email: string): Promise<Walk> {
     await page.goto("/");
     await page.fill('input[type="email"]', email);
     await page.fill('input[type="password"]', PASSWORD);
-    // The local API reloads on code changes, so a sign-in that lands mid-reload is retried.
-    await expect(async () => {
-        if (!page.url().endsWith("/today")) await page.click('button[type="submit"]');
-        await page.waitForURL("**/today", { timeout: 10_000 });
-    }).toPass({ timeout: 60_000 });
-    await expect(walk.main.getByRole("heading", { level: 1 })).toBeVisible();
+    await page.getByRole("button", { name: strings.auth.signIn, exact: true }).click();
+    await expect(walk.main.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 60_000 });
+    await expect(page).toHaveURL(/\/today$/);
     // The replica needs a moment to sync before the pages have rows to open.
     await page.waitForTimeout(6000);
     return walk;
@@ -485,7 +497,12 @@ test("owner: payments desk, records and their dialogs", async ({ page }) => {
     const s = strings.billing;
 
     await walk.step("payments tabs", async () => {
-        for (const tab of PAYMENTS_TABS) await navigate(page, `/payments/${tab}`);
+        for (const [tab, landmark] of Object.entries(PAYMENTS_TABS)) {
+            await walk.step(`payments: ${tab}`, async () => {
+                await navigate(page, `/payments/${tab}`);
+                await expect(main.getByText(landmark, { exact: true }).first()).toBeVisible();
+            });
+        }
     });
 
     await walk.step("invoices: segments and new invoice", async () => {
@@ -714,7 +731,19 @@ test("owner: setup sections and their dialogs", async ({ page }) => {
     const { main } = walk;
 
     await walk.step("setup sections", async () => {
-        for (const section of SETUP_SECTIONS) await navigate(page, `/setup/${section}`);
+        for (const section of SETUP_SECTIONS) {
+            await walk.step(`setup: ${section}`, async () => {
+                await navigate(page, `/setup/${section}`);
+                const active = main.getByRole("link").and(page.locator('[aria-current="page"]'));
+                await expect(active).toBeVisible();
+                await expect(
+                    main.getByRole("heading", {
+                        name: (await active.innerText()).trim(),
+                        level: 2,
+                    }),
+                ).toBeVisible();
+            });
+        }
     });
 
     await walk.step("services: items, packages, products and inventory", async () => {
@@ -916,7 +945,7 @@ test("staff: payments, inbox and setup show only what staff can use", async ({ p
     });
 
     await walk.step("payments: owner-only links land on sales", async () => {
-        for (const tab of PAYMENTS_TABS.filter((x) => x !== "sales")) {
+        for (const tab of Object.keys(PAYMENTS_TABS).filter((x) => x !== "sales")) {
             await navigate(page, `/payments/${tab}`, "/payments/sales");
             await expect(main.getByText(d.todaysVisits)).toBeVisible();
         }

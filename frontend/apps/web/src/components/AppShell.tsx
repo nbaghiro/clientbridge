@@ -1,5 +1,6 @@
 import {
     DESTINATIONS,
+    mediaUrl,
     DESTINATION_TARGET,
     type DestinationKey,
     type IconName,
@@ -22,6 +23,7 @@ import {
     setStripeAccount,
 } from "@clientbridge/ui";
 
+import { apiBaseUrl } from "../lib/api";
 import { useViewer } from "../lib/auth";
 import { ShellContext, linkPath, useOpenLink } from "../lib/links";
 import { CommandPalette } from "./CommandPalette";
@@ -179,7 +181,16 @@ function ShellBody({
                         aria-label={n.businessMenu}
                         className="flex min-w-0 items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-bg"
                     >
-                        <Avatar name={nav.setup.businessName} size="sm" color={nav.brandColor} />
+                        <Avatar
+                            name={nav.setup.businessName}
+                            size="sm"
+                            color={nav.brandColor}
+                            src={
+                                nav.setup.avatarFileId
+                                    ? mediaUrl(apiBaseUrl, nav.setup.avatarFileId)
+                                    : null
+                            }
+                        />
                         <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
                             {nav.setup.businessName}
                         </span>

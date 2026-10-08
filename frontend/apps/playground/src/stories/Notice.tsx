@@ -60,7 +60,7 @@ export default story<NoticeProps>({
                 tone: "danger",
                 banner: true,
                 children:
-                    "Stripe needs more information before payouts can resume: a photo of government ID for Hannah Lee, the business number for Birchbark Pet Studio, and a bank statement dated in the last three months. Payouts are paused until then.",
+                    "More information is needed before payouts can resume: a photo of government ID for Hannah Lee, the business number for Birchbark Pet Studio, and a bank statement dated in the last three months. Payouts are paused until then.",
             }),
         },
         {

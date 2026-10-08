@@ -321,9 +321,7 @@ build + permanent maintenance.)
   creation is backend/webhook-only, so it never originates as an offline client write.
 
 ### `/sync/token` + JWKS (`sync/auth.py`)
-Exchanges the app JWT for a short-lived PowerSync token; serves the RS256 JWKS at `/sync/keys`. In dev an
-unauthenticated call mints a token for `dev_user_id` (HS256); prod requires a valid JWT (RS256 +
-`POWERSYNC_USE_RS256=true`, `powersync.yaml` `jwks_uri` → `/sync/keys`).
+Exchanges an authenticated app JWT for a short-lived PowerSync token in every environment; serves the RS256 JWKS at `/sync/keys`. Development uses HS256. Production uses RS256 with `POWERSYNC_USE_RS256=true` and `powersync.yaml` `jwks_uri` pointing to `/sync/keys`.
 
 ### The write path — `WRITE_POLICY` (`sync/upload.py`)
 The server-authoritative write choke point. `WRITE_POLICY` is an allowlist mapping **table → own_only**

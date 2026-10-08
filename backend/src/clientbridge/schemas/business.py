@@ -1,6 +1,7 @@
 import re
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -53,8 +54,52 @@ class BrandInput(BaseModel):
     logo_file_id: str | None = Field(
         default=None, description="An uploaded logo; used instead of logo_url on public pages"
     )
+    avatar_file_id: str | None = None
     primary: str | None = None
     tagline: str | None = None
+    cover_url: str | None = Field(default=None, max_length=2048)
+    about: str | None = Field(default=None, max_length=3000)
+    address: str | None = Field(default=None, max_length=300)
+    phone: str | None = Field(default=None, max_length=40)
+    email: str | None = Field(default=None, max_length=254)
+    website: str | None = Field(default=None, max_length=2048)
+    neighbourhood: str | None = Field(default=None, max_length=100)
+    gallery_urls: list[str] = Field(default_factory=list, max_length=12)
+    pickup_prep_minutes: int = Field(default=60, ge=0, le=10080)
+    pickup_hold_days: int = Field(default=3, ge=1, le=30)
+    pickup_capacity: int = Field(default=10, ge=1, le=100)
+    public_staff_ids: list[str] = Field(default_factory=list, max_length=100)
+
+    @field_validator("cover_url", "website")
+    @classmethod
+    def _check_public_url(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        if not value:
+            return None
+        if len(value) > 2048:
+            raise ValueError("URL must be at most 2048 characters")
+        parsed = urlparse(value)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc or parsed.username:
+            raise ValueError("URL must be an http or https address")
+        return value
+
+    @field_validator("gallery_urls")
+    @classmethod
+    def _check_gallery(cls, values: list[str]) -> list[str]:
+        return [url for value in values if (url := cls._check_public_url(value))]
+
+    @field_validator("about", "address", "phone", "neighbourhood")
+    @classmethod
+    def _trim_public_text(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
+
+    @field_validator("email")
+    @classmethod
+    def _check_public_email(cls, value: str | None) -> str | None:
+        value = (value or "").strip()
+        if value and ("@" not in value or any(c.isspace() for c in value)):
+            raise ValueError("email must be a valid email address")
+        return value or None
 
     @field_validator("logo_url")
     @classmethod

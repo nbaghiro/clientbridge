@@ -10,10 +10,13 @@ from clientbridge.api.public import (
     manage_router,
     media_router,
     pay_router,
+    payment_setup_router,
     prefs_router,
     receipt_router,
     review_router,
 )
+from clientbridge.api.public_orders import router as public_orders_router
+from clientbridge.api.returning import router as returning_router
 from clientbridge.api.router import api_router
 from clientbridge.api.webhooks import router as webhooks_router
 from clientbridge.core.config import get_settings
@@ -46,12 +49,15 @@ def create_app() -> FastAPI:
     # Public surfaces: unauthenticated, checked by signature, token or slug instead.
     app.include_router(webhooks_router)
     app.include_router(pay_router)
+    app.include_router(payment_setup_router)
     app.include_router(estimate_router)
     app.include_router(receipt_router)
+    app.include_router(public_orders_router)
     app.include_router(review_router)
     app.include_router(form_router)
     app.include_router(contract_router)
     app.include_router(booking_router)
+    app.include_router(returning_router)
     app.include_router(manage_router)
     app.include_router(media_router)
     app.include_router(prefs_router)

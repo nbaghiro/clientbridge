@@ -63,7 +63,7 @@ async def test_report_totals_follow_a_paid_visit(
     assert (
         gst_after["tax_collected_cents"] - gst_before["tax_collected_cents"] == subtotal * 5 // 100
     )
-    assert gst_after["pst_cents"] - gst_before["pst_cents"] == subtotal * 7 // 100
+    assert gst_after["pst_cents"] - gst_before["pst_cents"] == 0
     assert gst_after["taxable_sales_cents"] - gst_before["taxable_sales_cents"] == subtotal
 
     t4a_before, t4a_after = before["t4a"], after["t4a"]

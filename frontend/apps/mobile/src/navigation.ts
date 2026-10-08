@@ -7,13 +7,21 @@ export type TabParamList = {
     Today: undefined;
     Schedule: { create?: number; open?: string } | undefined;
     Clients: { create?: number; open?: string } | undefined;
-    Payments: { tab?: PaymentsTabKey; create?: number; open?: string } | undefined;
+    Inbox:
+        | {
+              segment?: InboxSegmentKey;
+              create?: number | undefined;
+              open?: string | undefined;
+              threadId?: string | undefined;
+              request?: number | undefined;
+          }
+        | undefined;
 };
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type RootStackParamList = {
     Tabs: NavigatorScreenParams<TabParamList> | undefined;
-    Inbox: { segment?: InboxSegmentKey; create?: number; open?: string } | undefined;
+    Payments: { tab?: PaymentsTabKey; create?: number; open?: string } | undefined;
     Search: undefined;
     Notifications: undefined;
     Setup: undefined;

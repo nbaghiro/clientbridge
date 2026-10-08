@@ -10,7 +10,7 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionMenu, Avatar, Icon } from "@clientbridge/ui";
+import { ActionMenu, Avatar, Button, Icon } from "@clientbridge/ui";
 
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -21,7 +21,7 @@ const TAB_DESTINATION: Record<string, DestinationKey> = {
     Today: "today",
     Schedule: "schedule",
     Clients: "clients",
-    Payments: "payments",
+    Inbox: "inbox",
 };
 
 const TAB_ICON: Record<DestinationKey, IconName> = {
@@ -58,6 +58,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                 const tab = (
                     <Pressable
                         key={route.key}
+                        testID={`tab-${key}`}
                         style={styles.tab}
                         accessibilityRole="tab"
                         accessibilityState={{ selected: focused }}
@@ -115,34 +116,44 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     openLink(action.target);
                 }}
                 footer={
-                    nav.recentClients.length === 0 ? undefined : (
-                        <>
+                    <>
+                        <Button
+                            variant="outline"
+                            icon="invoices"
+                            onPress={() => {
+                                close();
+                                openLink("payments");
+                            }}
+                        >
+                            {strings.navigation.viewPayments}
+                        </Button>
+                        {nav.recentClients.length > 0 ? (
                             <Text style={styles.footTitle}>{strings.navigation.recentClients}</Text>
-                            <ScrollView
-                                horizontal
-                                showsHorizontalScrollIndicator={false}
-                                contentContainerStyle={styles.chips}
-                            >
-                                {nav.recentClients.map((r) => (
-                                    <Pressable
-                                        key={r.id}
-                                        style={styles.chip}
-                                        accessibilityRole="button"
-                                        accessibilityLabel={strings.navigation.bookAgain(r.name)}
-                                        onPress={() => {
-                                            close();
-                                            openLink("booking");
-                                        }}
-                                    >
-                                        <Avatar name={r.name} size="sm" />
-                                        <Text style={styles.chipText} numberOfLines={1}>
-                                            {r.name.split(" ")[0]}
-                                        </Text>
-                                    </Pressable>
-                                ))}
-                            </ScrollView>
-                        </>
-                    )
+                        ) : null}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.chips}
+                        >
+                            {nav.recentClients.map((r) => (
+                                <Pressable
+                                    key={r.id}
+                                    style={styles.chip}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={strings.navigation.bookAgain(r.name)}
+                                    onPress={() => {
+                                        close();
+                                        openLink("booking");
+                                    }}
+                                >
+                                    <Avatar name={r.name} size="sm" />
+                                    <Text style={styles.chipText} numberOfLines={1}>
+                                        {r.name.split(" ")[0]}
+                                    </Text>
+                                </Pressable>
+                            ))}
+                        </ScrollView>
+                    </>
                 }
             />
         </View>

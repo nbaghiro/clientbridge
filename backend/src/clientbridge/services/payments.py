@@ -1,6 +1,8 @@
+import hashlib
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
@@ -13,8 +15,10 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import AppError, Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped, scoped_update
+from clientbridge.core.security import hash_token
 from clientbridge.integrations.stripe import (
     ChargeFees,
+    ConnectComponent,
     GatewayEvent,
     PaymentGateway,
     account_status_from,
@@ -25,10 +29,11 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.payments import Payment, PaymentMethod
+from clientbridge.models.payments import Payment, PaymentMethod, PaymentSetupLink
 from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.payments import (
+    ConnectSessionOut,
     ConnectStatus,
     DetachResult,
     InteracRequest,
@@ -36,8 +41,10 @@ from clientbridge.schemas.payments import (
     InvoicePaymentOut,
     OnboardingLink,
     PaymentMethodOut,
+    PaymentSetupLinkOut,
     PublicCredit,
     PublicInterac,
+    PublicPaymentSetup,
     RefundOut,
     RefundPart,
     RefundPreview,
@@ -93,6 +100,7 @@ class PaymentService:
                     business_name=business.name,
                     email=business.billing_email,
                     url=f"{settings.connect_base_url}/book/{business.slug}",
+                    idempotency_key=f"connect-account:{business.id}",
                 )
                 business.stripe_account_id = account_id
                 await self.db.flush()
@@ -115,6 +123,43 @@ class PaymentService:
             response_model=OnboardingLink,
             idempotency_key=idempotency_key,
         )
+
+    async def account_session(self, component: ConnectComponent) -> ConnectSessionOut:
+        self._assert_admin()
+        business = (
+            await self.db.execute(select(Business).where(Business.id == self.biz).with_for_update())
+        ).scalar_one_or_none()
+        if business is None:
+            raise NotFound("business not found")
+        if business.stripe_account_id is None:
+            if component != "onboarding":
+                raise Conflict("set up payments before managing your payment account")
+            business.stripe_account_id = await self.gateway.create_connected_account(
+                business_name=business.name,
+                email=business.billing_email,
+                url=f"{get_settings().connect_base_url}/book/{business.slug}",
+                idempotency_key=f"connect-account:{business.id}",
+            )
+            apply_account_status(
+                business, await self.gateway.get_account(business.stripe_account_id)
+            )
+            cmd = Command(self.db, self.principal)
+            cmd.record("connect.account_created", entity_type="business", entity_id=business.id)
+            self.db.add_all(cmd.audits)
+            await self.db.commit()
+        account_id = business.stripe_account_id
+        secret = await self.gateway.create_account_session(account_id, component)
+        cmd = Command(self.db, self.principal)
+        cmd.record(
+            "connect.session",
+            entity_type="business",
+            entity_id=business.id,
+            changes={"component": component},
+        )
+        self.db.add_all(cmd.audits)
+        # Single-use credentials must never enter command response storage.
+        await self.db.commit()
+        return ConnectSessionOut(client_secret=secret)
 
     async def status(self) -> ConnectStatus:
         self._assert_admin()
@@ -230,7 +275,7 @@ class PaymentService:
         if data.payment_method_id is None:
             raise Unprocessable("choose the saved card to charge")
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before taking payments")
+            raise Conflict("set up card payments in Setup before taking payments")
         account_id = business.stripe_account_id
         client = await self._client(invoice.client_id)
         pm_ref = await self._saved_method_ref(data.payment_method_id, invoice.client_id)
@@ -274,7 +319,7 @@ class PaymentService:
         self._assert_admin()
         business = await self._business()
         if business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before saving cards")
+            raise Conflict("set up card payments in Setup before saving cards")
         account_id = business.stripe_account_id
         client = await self._client(client_id)
 
@@ -296,28 +341,77 @@ class PaymentService:
     async def start_pad_setup(
         self, client_id: str, idempotency_key: str | None = None
     ) -> SetupIntentOut:
-        """A SetupIntent to save a client's ACSS pre-authorized-debit mandate (no charge now)."""
+        self._assert_admin()
+        await self._client(client_id)
+        raise Conflict("create a bank authorization link and ask the client to complete it")
+
+    async def create_pad_link(self, client_id: str) -> PaymentSetupLinkOut:
         self._assert_admin()
         business = await self._business()
-        if business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before saving bank accounts")
-        account_id = business.stripe_account_id
         client = await self._client(client_id)
+        if business.stripe_account_id is None:
+            raise Conflict("set up payments before requesting bank authorization")
+        if not client.email:
+            raise Conflict("add the client's email so they can receive bank verification notices")
+        account_id = business.stripe_account_id
+        await self.gateway.ensure_pad_capability(account_id)
 
-        async def run(cmd: Command) -> SetupIntentOut:
+        async def run(cmd: Command) -> PaymentSetupLinkOut:
+            await self.db.execute(
+                scoped(Client, self.biz).where(Client.id == client.id).with_for_update()
+            )
             customer_id = await ensure_customer(self.db, self.gateway, account_id, client)
-            intent = await self.gateway.create_pad_setup_intent(account_id, customer_id=customer_id)
-            cmd.record("payment.pad_setup_intent", entity_type="client", entity_id=client.id)
-            return SetupIntentOut(client_secret=intent.client_secret, stripe_account_id=account_id)
+            now = datetime.now(UTC)
+            old = (
+                (
+                    await self.db.execute(
+                        scoped(PaymentSetupLink, self.biz).where(
+                            PaymentSetupLink.client_id == client.id,
+                            PaymentSetupLink.revoked_at.is_(None),
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            for link in old:
+                link.revoked_at = now
+            token = secrets.token_urlsafe(32)
+            link = PaymentSetupLink(
+                id=new_id("payment_setup_link"),
+                business_id=self.biz,
+                client_id=client.id,
+                account_id=account_id,
+                customer_id=customer_id,
+                purpose="pad_setup",
+                token_hash=hashlib.sha256(token.encode()).hexdigest(),
+                expires_at=now + timedelta(hours=24),
+            )
+            self.db.add(link)
+            await self.db.flush()
+            cmd.record("payment.pad_link", entity_type="client", entity_id=client.id)
+            url = f"{get_settings().connect_base_url.rstrip('/')}/payment-method#token={token}"
+            return PaymentSetupLinkOut(id=link.id, url=url, expires_at=link.expires_at)
 
         return await run_command(
             self.db,
             self.principal,
-            action="payment.pad_setup_intent",
+            action="payment.pad_link",
             run=run,
-            response_model=SetupIntentOut,
-            idempotency_key=idempotency_key,
+            response_model=PaymentSetupLinkOut,
         )
+
+    async def revoke_pad_link(self, link_id: str) -> None:
+        self._assert_admin()
+        link = (
+            await self.db.execute(
+                scoped(PaymentSetupLink, self.biz).where(PaymentSetupLink.id == link_id)
+            )
+        ).scalar_one_or_none()
+        if link is None:
+            raise NotFound("authorization link not found")
+        link.revoked_at = datetime.now(UTC)
+        await self.db.commit()
 
     async def _saved_method_ref(self, payment_method_id: str | None, client_id: str) -> str | None:
         return await resolve_saved_method_ref(self.db, self.biz, payment_method_id, client_id)
@@ -353,6 +447,11 @@ class PaymentService:
         self._assert_admin()
         pm = await self._payment_method(payment_method_id)
 
+        if pm.status != "active" or (pm.method == "bank_eft" and pm.mandate_status != "active"):
+            raise Conflict(
+                "complete client bank authorization before making this method the default"
+            )
+
         async def run(cmd: Command) -> PaymentMethodOut:
             await self.db.execute(
                 scoped_update(PaymentMethod, self.biz)
@@ -385,6 +484,7 @@ class PaymentService:
         amount_cents: int | None = None,
         idempotency_key: str | None = None,
         reason: str | None = None,
+        notify: bool = True,
     ) -> RefundOut:
         """Refund all or part of what's left on a payment, as a numbered credit note."""
         self._assert_admin()
@@ -404,6 +504,26 @@ class PaymentService:
             await self.db.execute(
                 scoped(Payment, self.biz).where(Payment.id == payment.id).with_for_update()
             )
+            pending = (
+                await self.db.execute(
+                    scoped(Payment, self.biz)
+                    .where(
+                        Payment.parent_payment_id == payment.id,
+                        Payment.kind == "refund",
+                        Payment.status == "pending",
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if pending is not None:
+                raise Conflict("a refund is still processing for this payment")
+            attempts = (
+                await self.db.execute(
+                    scoped(Payment, self.biz)
+                    .with_only_columns(func.count())
+                    .where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
+                )
+            ).scalar_one()
             whole_only = await self._whole_refund_only(payment)
             refunded = await _refunded_cents(self.db, payment)
             left = payment.amount_cents - refunded
@@ -417,13 +537,14 @@ class PaymentService:
             status, provider, ref = "succeeded", "manual", None
             if not by_hand:
                 assert account_id is not None and provider_ref is not None
+                attempt_key = hash_token(idempotency_key) if idempotency_key else str(attempts)
                 result = await self.gateway.refund(
                     account_id,
                     payment_intent_id=provider_ref,
                     amount_cents=amount,
-                    idempotency_key=f"refund_{payment.id}_{refunded}",
+                    idempotency_key=f"refund_{payment.id}_{attempt_key}",
                 )
-                status, provider, ref = result.status, "stripe", result.id
+                status, provider, ref = refund_status(result.status), "stripe", result.id
             refund = Payment(
                 id=new_id("payment"),
                 business_id=self.biz,
@@ -438,17 +559,21 @@ class PaymentService:
                 method=payment.method,
                 provider=provider,
                 provider_ref=ref,
-                status="succeeded",
-                paid_at=datetime.now(UTC),
+                status=status,
+                paid_at=datetime.now(UTC) if status == "succeeded" else None,
                 reason=reason,
-                credit_note=await next_credit_note(self.db, payment),
+                refund_notify=notify,
+                credit_note=await next_credit_note(self.db, payment)
+                if status == "succeeded"
+                else None,
             )
             self.db.add(refund)
             try:
                 await self.db.flush()
             except IntegrityError as exc:
                 raise Conflict("another refund on this document is saving, please retry") from exc
-            await _apply_refund(self.db, refund, payment)
+            if status == "succeeded":
+                await _apply_refund(self.db, refund, payment)
             cmd.record("payment.refund", entity_type="payment", entity_id=refund.id)
             return RefundOut(refund_id=refund.id, status=status, credit_note=refund.credit_note)
 
@@ -676,6 +801,7 @@ async def default_method_ref(db: AsyncSession, business_id: str, client_id: str)
                 PaymentMethod.client_id == client_id,
                 PaymentMethod.preferred.is_(True),
                 PaymentMethod.status == "active",
+                (PaymentMethod.method != "bank_eft") | (PaymentMethod.mandate_status == "active"),
             )
             .limit(1)
         )
@@ -701,8 +827,12 @@ async def resolve_saved_method_ref(
             )
         )
     ).scalar_one_or_none()
-    if pm is None or pm.provider_ref is None:
+    if pm is None or pm.provider_ref is None or pm.status != "active":
         raise NotFound("saved card not found")
+    if pm.method == "bank_eft" and pm.mandate_status != "active":
+        raise Conflict(
+            "the client must complete bank authorization before this account can be charged"
+        )
     return pm.provider_ref
 
 
@@ -1366,44 +1496,64 @@ async def _update_payment_method(
     await db.flush()
 
 
+def refund_status(status: object) -> str:
+    return str(status) if status in ("succeeded", "failed", "canceled") else "pending"
+
+
 async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | None:
-    """Record a refund made on Stripe's side; our own refunds already have their row."""
     refund_id, intent, amount = data.get("id"), data.get("payment_intent"), data.get("amount")
     if not isinstance(refund_id, str) or not isinstance(intent, str):
         return None
-    if not isinstance(amount, int) or amount <= 0 or data.get("status") in ("failed", "canceled"):
-        return None
-    seen = (
-        await db.execute(select(Payment.id).where(Payment.provider_ref == refund_id))
-    ).scalar_one_or_none()
-    if seen is not None:
+    if not isinstance(amount, int) or amount <= 0:
         return None
     payment = (
         await db.execute(
-            select(Payment).where(Payment.provider_ref == intent, Payment.kind != "refund")
+            select(Payment)
+            .where(Payment.provider_ref == intent, Payment.kind != "refund")
+            .with_for_update()
         )
     ).scalar_one_or_none()
     if payment is None or payment.status != "succeeded":
         return None
-    refund = Payment(
-        id=new_id("payment"),
-        business_id=payment.business_id,
-        client_id=payment.client_id,
-        kind="refund",
-        parent_payment_id=payment.id,
-        invoice_id=payment.invoice_id,
-        order_id=payment.order_id,
-        booking_id=payment.booking_id,
-        amount_cents=amount,
-        currency=payment.currency,
-        method=payment.method,
-        provider="stripe",
-        provider_ref=refund_id,
-        status="succeeded",
-        paid_at=datetime.now(UTC),
-        credit_note=await next_credit_note(db, payment),
-    )
-    db.add(refund)
+    status = refund_status(data.get("status"))
+    refund = (
+        await db.execute(
+            scoped(Payment, payment.business_id)
+            .where(Payment.provider_ref == refund_id, Payment.kind == "refund")
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if refund is not None:
+        if refund.parent_payment_id != payment.id or refund.amount_cents != amount:
+            raise Conflict("refund does not match the original payment")
+        if refund.status == "succeeded" or (
+            refund.status in ("failed", "canceled") and status == "pending"
+        ):
+            return None
+        refund.status = status
+    else:
+        refund = Payment(
+            id=new_id("payment"),
+            business_id=payment.business_id,
+            client_id=payment.client_id,
+            kind="refund",
+            parent_payment_id=payment.id,
+            invoice_id=payment.invoice_id,
+            order_id=payment.order_id,
+            booking_id=payment.booking_id,
+            amount_cents=amount,
+            currency=payment.currency,
+            method=payment.method,
+            provider="stripe",
+            provider_ref=refund_id,
+            status=status,
+        )
+        db.add(refund)
+    if status != "succeeded":
+        await db.flush()
+        return None
+    refund.paid_at = datetime.now(UTC)
+    refund.credit_note = await next_credit_note(db, payment)
     await db.flush()
     await _apply_refund(db, refund, payment)
     return refund.id
@@ -1507,6 +1657,10 @@ async def _dispatch(
         await _record_payout(db, event.account, event.data)
     elif event.type == "payout.failed":
         await _fail_payout(db, event.account, event.data)
+    elif event.type == "setup_intent.succeeded":
+        await _reconcile_pad_setup(db, gateway, event.account, str(event.data.get("id")))
+    elif event.type == "mandate.updated":
+        await _reconcile_pad_mandate(db, gateway, event.account, str(event.data.get("id")))
     elif event.type == "payment_method.attached":
         await _record_payment_method(db, event.account, event.data)
     elif event.type == "payment_method.automatically_updated":
@@ -1786,7 +1940,7 @@ async def _record_payment_method(
     ).scalar_one_or_none()
     pm_type = data.get("type")
     if pm_type in ("acss_debit", "us_bank_account"):  # a PAD / bank mandate, not a card
-        kind, mandate = "bank_eft", "active"
+        kind, mandate = "bank_eft", "pending"
         detail = data.get(pm_type)
     else:
         kind, mandate = "card", "none"
@@ -2051,7 +2205,7 @@ async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Boo
     """Refund what is left of a visit's settled deposit, for a cancel the policy allows."""
     business = await db.get(Business, booking.business_id)
     if business is None or business.stripe_account_id is None:
-        return 0
+        raise Conflict("contact the business to refund this deposit")
     deposits = (
         (
             await db.execute(
@@ -2067,17 +2221,26 @@ async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Boo
         .scalars()
         .all()
     )
+    if await booking_refund_status(db, booking) == "pending":
+        return 0
+    if any(payment.provider != "stripe" or payment.provider_ref is None for payment in deposits):
+        raise Conflict("contact the business to refund this deposit")
     total = 0
     for payment in deposits:
         refunded = await _refunded_cents(db, payment)
         left = payment.amount_cents - refunded
         if left <= 0 or payment.provider_ref is None:
             continue
+        attempts = await db.scalar(
+            scoped(Payment, booking.business_id)
+            .with_only_columns(func.count())
+            .where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
+        )
         result = await gateway.refund(
             business.stripe_account_id,
             payment_intent_id=payment.provider_ref,
             amount_cents=left,
-            idempotency_key=f"refund_{payment.id}_{refunded}",
+            idempotency_key=f"refund_{payment.id}_{attempts or 0}",
         )
         refund = Payment(
             id=new_id("payment"),
@@ -2091,11 +2254,292 @@ async def refund_deposit(db: AsyncSession, gateway: PaymentGateway, booking: Boo
             method=payment.method,
             provider="stripe",
             provider_ref=result.id,
-            status="succeeded",
-            paid_at=datetime.now(UTC),
+            status=refund_status(result.status),
+            paid_at=datetime.now(UTC) if result.status == "succeeded" else None,
         )
         db.add(refund)
         await db.flush()
-        await _apply_refund(db, refund, payment)
-        total += left
+        if refund.status == "succeeded":
+            await _apply_refund(db, refund, payment)
+            total += left
     return total
+
+
+async def refund_online_order(db: AsyncSession, gateway: PaymentGateway, order: Order) -> int:
+    business = await db.get(Business, order.business_id)
+    if business is None or business.stripe_account_id is None:
+        raise Conflict("this order cannot be refunded online")
+    payments = (
+        (
+            await db.execute(
+                scoped(Payment, order.business_id)
+                .where(
+                    Payment.order_id == order.id,
+                    Payment.kind == "payment",
+                    Payment.status == "succeeded",
+                )
+                .with_for_update()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if await has_pending_order_refund(db, order):
+        raise Conflict("a refund is already being processed")
+    if any(payment.provider_ref is None or payment.provider != "stripe" for payment in payments):
+        raise Conflict("contact the business to refund this payment")
+    total = 0
+    for payment in payments:
+        refunded = await _refunded_cents(db, payment)
+        left = payment.amount_cents - refunded
+        if left <= 0:
+            continue
+        if payment.provider_ref is None or payment.provider != "stripe":
+            raise Conflict("contact the business to refund this payment")
+        attempts = await db.scalar(
+            scoped(Payment, order.business_id)
+            .with_only_columns(func.count())
+            .where(Payment.parent_payment_id == payment.id, Payment.kind == "refund")
+        )
+        result = await gateway.refund(
+            business.stripe_account_id,
+            payment_intent_id=payment.provider_ref,
+            amount_cents=left,
+            idempotency_key=f"refund_{payment.id}_{attempts or 0}",
+        )
+        refund = Payment(
+            id=new_id("payment"),
+            business_id=order.business_id,
+            client_id=payment.client_id,
+            kind="refund",
+            parent_payment_id=payment.id,
+            order_id=order.id,
+            amount_cents=left,
+            currency=payment.currency,
+            method=payment.method,
+            provider="stripe",
+            provider_ref=result.id,
+            status=refund_status(result.status),
+            paid_at=datetime.now(UTC) if result.status == "succeeded" else None,
+            credit_note=await next_credit_note(db, payment)
+            if result.status == "succeeded"
+            else None,
+        )
+        db.add(refund)
+        await db.flush()
+        if refund.status == "succeeded":
+            await _apply_refund(db, refund, payment)
+            total += left
+    return total
+
+
+async def has_pending_order_refund(db: AsyncSession, order: Order) -> bool:
+    return (
+        await db.execute(
+            scoped(Payment, order.business_id)
+            .where(
+                Payment.order_id == order.id, Payment.kind == "refund", Payment.status == "pending"
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none() is not None
+
+
+class PublicPaymentSetupService:
+    def __init__(self, db: AsyncSession, gateway: PaymentGateway) -> None:
+        self.db = db
+        self.gateway = gateway
+
+    async def resolve(self, token: str) -> PaymentSetupLink:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        link = (
+            await self.db.execute(
+                select(PaymentSetupLink)
+                .where(
+                    PaymentSetupLink.token_hash == token_hash,
+                    PaymentSetupLink.purpose == "pad_setup",
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one_or_none()
+        if link is None or link.revoked_at is not None or link.expires_at <= datetime.now(UTC):
+            raise NotFound("authorization link expired or unavailable; request a new link")
+        business = await self.db.get(Business, link.business_id)
+        client = (
+            await self.db.execute(
+                scoped(Client, link.business_id, soft_delete=True).where(
+                    Client.id == link.client_id
+                )
+            )
+        ).scalar_one_or_none()
+        if (
+            business is None
+            or client is None
+            or business.stripe_account_id != link.account_id
+            or client.stripe_customer_id != link.customer_id
+        ):
+            raise NotFound("authorization link unavailable; request a new link")
+        return link
+
+    async def view(self, token: str, *, start: bool = False) -> PublicPaymentSetup:
+        link = await self.resolve(token)
+        if start and link.setup_intent_id is None:
+            client = await self.db.get(Client, link.client_id)
+            if client is None or not client.email:
+                raise Conflict("ask the business to add your email for bank verification notices")
+            intent = await self.gateway.create_pad_setup_intent(
+                link.account_id,
+                customer_id=link.customer_id,
+                idempotency_key=f"pad_setup_{link.id}",
+                email=client.email,
+            )
+            link.setup_intent_id = intent.id
+            link.expires_at = datetime.now(UTC) + timedelta(days=10)
+            await self.db.flush()
+        secret: str | None = None
+        verify: str | None = None
+        if link.setup_intent_id is not None:
+            state = await self.gateway.get_setup_intent(link.account_id, link.setup_intent_id)
+            if state.id != link.setup_intent_id or state.customer_id != link.customer_id:
+                raise Conflict("bank setup does not match this client")
+            link.setup_status = state.status
+            if state.status == "succeeded":
+                await _reconcile_pad_setup(self.db, self.gateway, link.account_id, state.id)
+            elif start and state.status not in ("canceled", "processing"):
+                secret = state.client_secret
+            if state.verification_url and state.verification_url.startswith("https://"):
+                verify = state.verification_url
+        business = await self.db.get(Business, link.business_id)
+        client = await self.db.get(Client, link.client_id)
+        assert business is not None and client is not None
+        result = PublicPaymentSetup(
+            business_name=business.name,
+            client_name=client.name,
+            expires_at=link.expires_at,
+            status=link.setup_status,
+            stripe_account_id=link.account_id,
+            client_secret=secret,
+            verification_url=verify,
+        )
+        await self.db.commit()
+        return result
+
+
+async def _reconcile_pad_setup(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str | None, intent_id: str
+) -> None:
+    if account_id is None:
+        return
+    link = (
+        await db.execute(
+            select(PaymentSetupLink)
+            .where(
+                PaymentSetupLink.account_id == account_id,
+                PaymentSetupLink.setup_intent_id == intent_id,
+            )
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
+    if link is None:
+        return
+    business = await db.get(Business, link.business_id)
+    client = (
+        await db.execute(
+            scoped(Client, link.business_id, soft_delete=True).where(Client.id == link.client_id)
+        )
+    ).scalar_one_or_none()
+    if (
+        business is None
+        or client is None
+        or business.stripe_account_id != account_id
+        or client.stripe_customer_id != link.customer_id
+    ):
+        return
+    state = await gateway.get_setup_intent(account_id, intent_id)
+    if state.customer_id != link.customer_id or state.id != link.setup_intent_id:
+        return
+    link.setup_status = "processing" if state.status == "succeeded" else state.status
+    pm = state.payment_method
+    if (
+        state.status != "succeeded"
+        or pm is None
+        or pm.get("type") != "acss_debit"
+        or state.mandate_id is None
+        or pm.get("customer") != link.customer_id
+    ):
+        return
+    mandate = await gateway.get_mandate(account_id, state.mandate_id)
+    if mandate.payment_method_id != pm.get("id") or (
+        link.revoked_at is not None and mandate.status == "active"
+    ):
+        return
+    link.mandate_ref = mandate.id
+    await _record_payment_method(db, account_id, pm)
+    method = (
+        await db.execute(
+            scoped(PaymentMethod, link.business_id).where(
+                PaymentMethod.client_id == link.client_id,
+                PaymentMethod.provider_ref == mandate.payment_method_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if method is not None:
+        method.mandate_status = (
+            "active"
+            if mandate.status == "active"
+            else "revoked"
+            if mandate.status == "inactive"
+            else "pending"
+        )
+        link.setup_status = (
+            "succeeded"
+            if method.mandate_status == "active"
+            else "revoked"
+            if method.mandate_status == "revoked"
+            else "processing"
+        )
+        await db.flush()
+
+
+async def _reconcile_pad_mandate(
+    db: AsyncSession, gateway: PaymentGateway, account_id: str | None, mandate_id: str
+) -> None:
+    if account_id is None:
+        return
+    link = (
+        await db.execute(
+            select(PaymentSetupLink).where(
+                PaymentSetupLink.account_id == account_id,
+                PaymentSetupLink.mandate_ref == mandate_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if link is not None and link.setup_intent_id is not None:
+        await _reconcile_pad_setup(db, gateway, account_id, link.setup_intent_id)
+
+
+async def booking_refund_status(
+    db: AsyncSession, booking: Booking
+) -> Literal["pending", "failed"] | None:
+    statuses = (
+        (
+            await db.execute(
+                scoped(Payment, booking.business_id)
+                .with_only_columns(Payment.status)
+                .where(
+                    Payment.booking_id == booking.id,
+                    Payment.kind == "refund",
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if "pending" in statuses:
+        return "pending"
+    if booking.deposit_status != "refunded" and any(
+        status in ("failed", "canceled") for status in statuses
+    ):
+        return "failed"
+    return None

@@ -21,7 +21,7 @@ export function Tabs<K extends string>({
             }}
             className={cx(
                 "flex max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-                pill ? "gap-2 text-sm" : "-mb-px gap-6 pb-px text-sm font-medium",
+                pill ? "gap-2 text-sm" : "gap-6 pb-px text-sm font-medium",
                 className,
             )}
         >

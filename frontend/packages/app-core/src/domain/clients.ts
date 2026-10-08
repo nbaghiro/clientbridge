@@ -1410,7 +1410,7 @@ function walletMethod(row: MethodDbRow, now: Date): WalletMethod {
                     ? s.wallet.expiresSoon(mm, yy)
                     : s.wallet.expires(mm, yy),
         expiringSoon: left !== null && left < 45,
-        isDefault: row.preferred === 1,
+        isDefault: row.preferred === 1 && (!bank || row.mandate_status === "active"),
         canBeDefault: canBeDefault(row),
         pays: row.pays === null ? [] : row.pays.split(", ").filter((p) => p !== ""),
         added: s.wallet.added(formatDate(parseTimestamp(row.created_at))),

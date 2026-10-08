@@ -1,0 +1,57 @@
+appId: ca.clientbridge.app
+name: Owner payment surfaces
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "View payments"
+- assertVisible: "Search client or number"
+- takeScreenshot: invoices
+- tapOn: "New invoice"
+- assertVisible: "Client"
+- takeScreenshot: invoice-composer
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Estimates"
+- assertVisible: "New estimate"
+- takeScreenshot: estimates
+- tapOn: "New estimate"
+- assertVisible: "Client"
+- takeScreenshot: estimate-composer
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Sales"
+- assertVisible: "New sale"
+- takeScreenshot: register
+- tapOn: "Orders"
+- assertVisible: "To prepare.*"
+- takeScreenshot: orders
+- tapOn: "History"
+- assertVisible: "Search by client, item or sale number"
+- takeScreenshot: sales-history
+- tapOn: "Gift cards"
+- assertVisible: "Sell package, plan or gift card"
+- takeScreenshot: entitlements
+- tapOn: "Refunds"
+- assertVisible: "Search client, invoice or card"
+- takeScreenshot: refunds
+- tapOn: "Credit notes"
+- takeScreenshot: credit-notes
+- tapOn: "Disputes.*"
+- takeScreenshot: disputes
+- swipe:
+      from:
+          text: "Refunds"
+      direction: LEFT
+- tapOn: "Staff pay"
+- assertVisible: "Staff earn a share of what they do, and tips. Approve them, then pay them."
+- takeScreenshot: staff-pay
+- tapOn: "Tax returns"
+- assertVisible: "Owed to the CRA"
+- takeScreenshot: tax-returns
+- swipe:
+      from:
+          text: "Tax returns"
+      direction: LEFT
+- tapOn: "Payouts"
+- assertVisible: "Card payments are paid out to your bank automatically on your payout schedule."
+- takeScreenshot: payouts
+- tapOn: "Reports"
+- assertVisible: "Income, sales, tax and staff pay for any period. Download them for your bookkeeper."
+- takeScreenshot: reports

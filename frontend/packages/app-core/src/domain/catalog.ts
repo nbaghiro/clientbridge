@@ -16,6 +16,8 @@ import { type TaxRate, useTaxSetup } from "./taxes";
 const s = strings.catalog;
 
 export interface ItemRow {
+    variant_parent_id?: string | null;
+    variant_label?: string | null;
     id: string;
     kind: string;
     name: string;
@@ -78,7 +80,7 @@ export const FREQUENCIES: { value: string; label: string }[] = [
 ];
 
 export const ITEMS_SQL = `
-SELECT i.id, i.kind, i.name, i.description, i.category, i.price_cents, i.currency,
+SELECT i.variant_parent_id, i.variant_label, i.id, i.kind, i.name, i.description, i.category, i.price_cents, i.currency,
        i.duration_min, i.capacity, i.active, i.color, i.online_bookable,
        i.buffer_before_min, i.buffer_after_min, i.deposit_type, i.deposit_value,
        i.session_count, i.validity_days, i.interval, i.frequency, i.tax_class,
@@ -359,6 +361,8 @@ export function sellsOnline(i: ItemRow): boolean {
 }
 
 export interface ItemFormValues {
+    variantParentId?: string;
+    variantLabel?: string;
     kind: string;
     name: string;
     description: string;
@@ -415,6 +419,8 @@ function depositText(item: ItemRow | null): string {
 function initialValues(item: ItemRow | null, kind: string): ItemFormValues {
     return {
         kind: item?.kind ?? kind,
+        variantParentId: item?.variant_parent_id ?? "",
+        variantLabel: item?.variant_label ?? "",
         name: item?.name ?? "",
         description: item?.description ?? "",
         category: item?.category ?? "",
@@ -489,6 +495,10 @@ export function itemPayload(v: ItemFormValues, creating: boolean): Record<string
         tax_class: v.taxClass,
     };
     if (creating) body.kind = v.kind;
+    if (v.kind === "product") {
+        body.variant_parent_id = blankToNull(v.variantParentId ?? "");
+        body.variant_label = v.variantParentId ? blankToNull(v.variantLabel ?? "") : null;
+    }
     if (shown("duration")) body.duration_min = toInt(v.duration);
     if (shown("bufferBefore")) body.buffer_before_min = toInt(v.bufferBefore) ?? 0;
     if (shown("bufferAfter")) body.buffer_after_min = toInt(v.bufferAfter) ?? 0;
@@ -741,6 +751,7 @@ interface ProductPhoto {
 }
 
 export interface ProductEditor extends Taxed {
+    parentOptions: { key: string; label: string }[];
     margin: MarginFacts | null;
     photo: ProductPhoto;
     sold30: number;
@@ -753,11 +764,24 @@ export function useProductEditor(
     onDone: () => void,
 ): ProductEditor {
     const form = useItemForm(api, item, "product", onDone);
+    const products = useQuery<ItemRow>(ITEMS_SQL).data;
     const [fileId, setFileId] = useState<string | null>(item?.image_file_id ?? null);
     const files = useFileUpload(api, setFileId);
     const sold = useUnitsSold();
     return {
         ...useTaxed(api, form),
+        parentOptions: [
+            { key: "", label: s.standaloneProduct },
+            ...products
+                .filter(
+                    (product) =>
+                        product.kind === "product" &&
+                        product.active === 1 &&
+                        !product.variant_parent_id &&
+                        product.id !== item?.id,
+                )
+                .map((product) => ({ key: product.id, label: product.name })),
+        ],
         margin: marginFacts(form.values.price, form.values.cost),
         sold30: item === null ? 0 : (sold.get(item.id) ?? 0),
         photo: {

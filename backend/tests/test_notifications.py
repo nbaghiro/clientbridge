@@ -1,4 +1,5 @@
 import json
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -6,16 +7,56 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
-from clientbridge.models.business import Business
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import Device
+from clientbridge.services.notifications import run_prune_devices
 from tests.conftest import Factory, FakeEmailSender, FakePushSender, FakeSmsSender
 from tests.helpers import card_pay, enable_payments, sent_invoice
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
+
+
+async def test_reregistered_device_is_not_pruned(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    body = {"token": "ExpoHeartbeat", "platform": "ios"}
+    assert (await as_owner.post("/v1/devices/register", json=body)).status_code == 200
+    await db.execute(
+        update(Device)
+        .where(Device.token == body["token"])
+        .values(updated_at=datetime.now(UTC) - timedelta(days=61))
+    )
+    await db.flush()
+    assert (await as_owner.post("/v1/devices/register", json=body)).status_code == 200
+    await run_prune_devices(db, datetime.now(UTC))
+    assert await db.scalar(select(Device.id).where(Device.token == body["token"])) is not None
+
+
+async def test_removed_member_gets_no_payment_push(
+    as_owner: httpx.AsyncClient, db: AsyncSession, factory: Factory, push: FakePushSender
+) -> None:
+    await enable_payments(db)
+    other = await factory.business()
+    member = await db.get(Staff, "st_diego")
+    assert member is not None
+    member.status = "removed"
+    user = await factory.user()
+    member.user_id = user.id
+    await factory.staff(business=other, user=user)
+    for user_id, token in [("us_dev", "ActiveOwner"), (user.id, "RemovedMember")]:
+        db.add(
+            Device(
+                id=new_id("device"), business_id=BIZ, user_id=user_id, token=token, platform="ios"
+            )
+        )
+    await db.flush()
+    inv_id = await sent_invoice(db, number=9600)
+    await _pay_and_settle(as_owner, db, inv_id, "evt_removed_member")
+    assert len(push.sent) == 1 and push.sent[0].tokens == ["ActiveOwner"]
 
 
 async def _client_with_contact(db: AsyncSession, *, email: str | None, phone: str | None) -> str:

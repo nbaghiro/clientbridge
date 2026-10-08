@@ -287,17 +287,14 @@ async def test_cancel_cross_tenant_404(
     assert res.status_code == 404
 
 
-async def test_pad_setup_intent_returns_client_secret(
+async def test_staff_pad_setup_requires_client_link(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     await enable_payments(db)
     cid = await client_id(db)
     res = await as_owner.post(f"/v1/payments/pad-setup-intent/{cid}")
-    assert res.status_code == 200, res.text
-    body = res.json()
-    assert body["client_secret"].endswith("_secret")
-    assert "seti_pad_fake" in body["client_secret"]
-    assert body["stripe_account_id"] == "acct_test"
+    assert res.status_code == 409, res.text
+    assert "authorization link" in res.json()["message"]
 
 
 async def test_pad_setup_requires_onboarding(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
@@ -340,7 +337,7 @@ async def test_acss_debit_records_bank_eft_mandate(
         await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_acss"))
     ).scalar_one()
     assert pm.method == "bank_eft"
-    assert pm.mandate_status == "active"
+    assert pm.mandate_status == "pending"
     assert pm.brand == "TD Canada Trust" and pm.last4 == "0001"
 
 

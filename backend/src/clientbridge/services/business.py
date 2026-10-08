@@ -135,8 +135,43 @@ class BusinessService:
         if data.brand is not None:
             if data.brand.logo_file_id is not None:
                 await self._assert_logo(data.brand.logo_file_id)
-            # replace the whole brand with the (validated) values sent; cleared fields drop out
-            business.brand = {k: v for k, v in data.brand.model_dump().items() if v is not None}
+            if data.brand.avatar_file_id is not None:
+                await self._assert_logo(data.brand.avatar_file_id)
+            if data.brand.public_staff_ids:
+                staff = (
+                    (
+                        await self.db.execute(
+                            scoped(Staff, business.id).where(
+                                Staff.id.in_(data.brand.public_staff_ids), Staff.status == "active"
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+                if len({member.id for member in staff}) != len(set(data.brand.public_staff_ids)):
+                    raise NotFound("public team member not found")
+            merged = dict(business.brand or {})
+            logo_changed = any(
+                key in data.brand.model_fields_set
+                and (getattr(data.brand, key) != merged.get(key) or merged.get(other) is not None)
+                for key, other in (("logo_file_id", "logo_url"), ("logo_url", "logo_file_id"))
+            )
+            if logo_changed and "avatar_file_id" not in data.brand.model_fields_set:
+                merged.pop("avatar_file_id", None)
+            if (
+                "logo_url" in data.brand.model_fields_set
+                and "logo_file_id" not in data.brand.model_fields_set
+            ):
+                merged.pop("logo_file_id", None)
+            if "logo_file_id" in data.brand.model_fields_set:
+                merged.pop("logo_url", None)
+            for key, value in data.brand.model_dump(exclude_unset=True).items():
+                if value is None:
+                    merged.pop(key, None)
+                else:
+                    merged[key] = value
+            business.brand = merged
         await self.db.flush()
         await self.db.refresh(business)
         await self.db.commit()

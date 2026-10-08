@@ -40,6 +40,10 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
             "online_bookable = false OR kind IN ('service', 'class')",
             name="ck_items_online_bookable_kind",
         ),
+        CheckConstraint(
+            "variant_parent_id IS NULL OR (kind = 'product' AND variant_parent_id != id)",
+            name="ck_items_variant_kind",
+        ),
         CheckConstraint("track_stock = false OR kind = 'product'", name="ck_items_stock_kind"),
         CheckConstraint(
             "sell_online = false OR kind = 'product'", name="ck_items_sell_online_kind"
@@ -59,6 +63,8 @@ class Item(PKMixin, BusinessScoped, TimestampMixin, Base):
     kind: Mapped[str] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(String)
+    variant_parent_id: Mapped[str | None] = mapped_column(ForeignKey("items.id"))
+    variant_label: Mapped[str | None] = mapped_column(String)
     price_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     duration_min: Mapped[int | None] = mapped_column(Integer)

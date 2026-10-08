@@ -125,7 +125,7 @@ export function usePayouts(): Payouts {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const views = payouts.data.map((p) => ({
         id: p.id,
-        ref: p.payout_ref,
+        ref: p.id,
         amountCents: p.amount_cents,
         arrivalAt: p.arrival_at === null ? null : parseTimestamp(p.arrival_at),
         status: p.status,

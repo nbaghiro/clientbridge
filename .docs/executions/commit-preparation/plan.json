@@ -1,0 +1,2394 @@
+{
+  "created_at": "2026-10-08T14:43:54.327565+00:00",
+  "purpose": "Review and commit breakdown only; no files staged, no commits created, no push performed.",
+  "base_head": "9372caf405c987e94b3574a37e1c539686754fff",
+  "branch": "main",
+  "ahead_of_local_origin_main": 76,
+  "remote_status": "Based on existing local tracking ref; fetch and review divergence immediately before pushing.",
+  "review_scope": "Structural changeset and dependency review, including new files and tests; not a claim of exhaustive security review or completed full test gate.",
+  "file_count": 299,
+  "commits": [
+    {
+      "id": "01",
+      "title": "Enforce tenant ownership and reliable notification delivery",
+      "depends_on": [],
+      "scope": "Sync write locking and conflict ownership, booking/pet/resource and billing references, table-policy inventory, active-member push scoping, provider HTTP failure propagation.",
+      "validation_and_staging": "Run scoping, sync-upload, booking/billing reference and notification tests. TABLE_POLICIES is a declaration guard, not database RLS; do not describe it as completed backend hardening.",
+      "primary_files": [
+        "backend/src/clientbridge/core/policies.py",
+        "backend/src/clientbridge/integrations/expo.py",
+        "backend/src/clientbridge/integrations/postmark.py",
+        "backend/src/clientbridge/services/bookings.py",
+        "backend/src/clientbridge/services/lines.py",
+        "backend/src/clientbridge/sync/upload.py",
+        "backend/tests/test_billing_references.py",
+        "backend/tests/test_bookings_references.py",
+        "backend/tests/test_notifications.py",
+        "backend/tests/test_notifications_delivery.py",
+        "backend/tests/test_scoping.py",
+        "backend/tests/test_sync_upload.py"
+      ]
+    },
+    {
+      "id": "02",
+      "title": "Correct package taxes and historical ledger posting",
+      "depends_on": [],
+      "scope": "Package tax-class calculation, Nova Scotia rate fixture/expectation, dated ledger reversals, disputes, payouts, earnings and owned idempotent package consumption.",
+      "validation_and_staging": "Run tax, invoice, package, ledger and earnings tests. Extract finance regression tests that do not depend on the new seed; defer seed-dependent tests to 06.",
+      "primary_files": [
+        "backend/src/clientbridge/services/earnings.py",
+        "backend/src/clientbridge/services/ledger.py",
+        "backend/src/clientbridge/services/tax.py",
+        "backend/tests/test_billing_invoices.py",
+        "backend/tests/test_tax.py"
+      ]
+    },
+    {
+      "id": "03",
+      "title": "Add shared booking controls and improve component rendering",
+      "depends_on": [],
+      "scope": "ActionTile, DayRail, OptionCard and SlotChips twins/stories/contracts; avatar images, document branding primitives, modal accessibility and tab sizing.",
+      "validation_and_staging": "Run UI typechecks and playground tests. Pair exports, interfaces, copy and stories. Keep PaymentAccount and payment SDK changes for 05.",
+      "primary_files": [
+        "frontend/apps/playground/src/stories/ActionTile.tsx",
+        "frontend/apps/playground/src/stories/Avatar.tsx",
+        "frontend/apps/playground/src/stories/DayRail.tsx",
+        "frontend/apps/playground/src/stories/OptionCard.tsx",
+        "frontend/apps/playground/src/stories/SlotChips.tsx",
+        "frontend/packages/app-core/src/icons.ts",
+        "frontend/packages/app-core/src/ui.ts",
+        "frontend/packages/config/scripts/check-structure.mjs",
+        "frontend/packages/ui/src/mobile/ActionTile.tsx",
+        "frontend/packages/ui/src/mobile/Avatar.tsx",
+        "frontend/packages/ui/src/mobile/DayRail.tsx",
+        "frontend/packages/ui/src/mobile/Modal.tsx",
+        "frontend/packages/ui/src/mobile/OptionCard.tsx",
+        "frontend/packages/ui/src/mobile/PrintedDocument.tsx",
+        "frontend/packages/ui/src/mobile/SlotChips.tsx",
+        "frontend/packages/ui/src/mobile/index.ts",
+        "frontend/packages/ui/src/web/ActionTile.tsx",
+        "frontend/packages/ui/src/web/Avatar.tsx",
+        "frontend/packages/ui/src/web/DayRail.tsx",
+        "frontend/packages/ui/src/web/OptionCard.tsx",
+        "frontend/packages/ui/src/web/PrintedDocument.tsx",
+        "frontend/packages/ui/src/web/SlotChips.tsx",
+        "frontend/packages/ui/src/web/Tabs.tsx",
+        "frontend/packages/ui/src/web/index.ts"
+      ]
+    },
+    {
+      "id": "04",
+      "title": "Expand Connect profiles booking and order fulfillment",
+      "depends_on": [
+        "01",
+        "03"
+      ],
+      "scope": "Public profiles, returning-client verification, availability and manage messaging, variants, pickup windows/preparation/tracking/cancellation/reminders, public page redesign and embed behavior, business branding and letterheads.",
+      "validation_and_staging": "Include migrations cbconnect01 through cbconnect04 in order; models, server-only policies, API/sync generation, worker registration, tests and client consumers together. Include pending-refund helpers required by order cancellation, even though they share the payment service.",
+      "primary_files": [
+        "backend/migrations/versions/20261009_000100_connect_order_lifecycle.py",
+        "backend/migrations/versions/20261009_000200_returning_clients.py",
+        "backend/migrations/versions/20261009_000300_connect_variants.py",
+        "backend/migrations/versions/20261009_000400_connect_order_tokens.py",
+        "backend/scripts/connect_links.py",
+        "backend/src/clientbridge/api/public.py",
+        "backend/src/clientbridge/api/public_orders.py",
+        "backend/src/clientbridge/api/returning.py",
+        "backend/src/clientbridge/core/command.py",
+        "backend/src/clientbridge/core/ids.py",
+        "backend/src/clientbridge/main.py",
+        "backend/src/clientbridge/models/__init__.py",
+        "backend/src/clientbridge/models/billing.py",
+        "backend/src/clientbridge/models/catalog.py",
+        "backend/src/clientbridge/models/returning.py",
+        "backend/src/clientbridge/schemas/business.py",
+        "backend/src/clientbridge/schemas/catalog.py",
+        "backend/src/clientbridge/schemas/orders.py",
+        "backend/src/clientbridge/schemas/public.py",
+        "backend/src/clientbridge/schemas/public_profiles.py",
+        "backend/src/clientbridge/schemas/returning.py",
+        "backend/src/clientbridge/services/business.py",
+        "backend/src/clientbridge/services/catalog.py",
+        "backend/src/clientbridge/services/notifications.py",
+        "backend/src/clientbridge/services/orders.py",
+        "backend/src/clientbridge/services/public.py",
+        "backend/src/clientbridge/services/public_orders.py",
+        "backend/src/clientbridge/services/public_profiles.py",
+        "backend/src/clientbridge/services/returning.py",
+        "backend/src/clientbridge/tasks/worker.py",
+        "backend/tests/test_business.py",
+        "backend/tests/test_catalog_products.py",
+        "backend/tests/test_files_media.py",
+        "backend/tests/test_public_booking.py",
+        "backend/tests/test_public_brand.py",
+        "backend/tests/test_public_manage.py",
+        "backend/tests/test_public_orders.py",
+        "backend/tests/test_public_pay.py",
+        "backend/tests/test_public_profiles.py",
+        "backend/tests/test_public_shop.py",
+        "backend/tests/test_returning.py",
+        "frontend/apps/connect/public/embed.js",
+        "frontend/apps/connect/src/App.tsx",
+        "frontend/apps/connect/src/components/BookingSteps.tsx",
+        "frontend/apps/connect/src/components/PublicDocument.tsx",
+        "frontend/apps/connect/src/components/PublicPage.tsx",
+        "frontend/apps/connect/src/embed.ts",
+        "frontend/apps/connect/src/pages/PublicBooking.tsx",
+        "frontend/apps/connect/src/pages/PublicContract.tsx",
+        "frontend/apps/connect/src/pages/PublicEstimate.tsx",
+        "frontend/apps/connect/src/pages/PublicForm.tsx",
+        "frontend/apps/connect/src/pages/PublicLanding.tsx",
+        "frontend/apps/connect/src/pages/PublicManage.tsx",
+        "frontend/apps/connect/src/pages/PublicOrder.tsx",
+        "frontend/apps/connect/src/pages/PublicPay.tsx",
+        "frontend/apps/connect/src/pages/PublicPreferences.tsx",
+        "frontend/apps/connect/src/pages/PublicReceipt.tsx",
+        "frontend/apps/connect/src/pages/PublicReview.tsx",
+        "frontend/apps/connect/src/pages/PublicShop.tsx",
+        "frontend/apps/mobile/src/components/DocEditor.tsx",
+        "frontend/apps/mobile/src/components/GetSetUp.tsx",
+        "frontend/apps/mobile/src/components/InteracRequest.tsx",
+        "frontend/apps/mobile/src/components/ItemEditor.tsx",
+        "frontend/apps/mobile/src/screens/Invoices.tsx",
+        "frontend/apps/web/src/components/AppShell.tsx",
+        "frontend/apps/web/src/components/DocEditor.tsx",
+        "frontend/apps/web/src/components/GetSetUp.tsx",
+        "frontend/apps/web/src/components/InteracRequest.tsx",
+        "frontend/apps/web/src/components/ItemEditor.tsx",
+        "frontend/apps/web/src/components/OnlineBookingSettings.tsx",
+        "frontend/apps/web/src/pages/Invoices.tsx",
+        "frontend/packages/api-client/src/generated.ts",
+        "frontend/packages/app-core/src/domain/billing.ts",
+        "frontend/packages/app-core/src/domain/business.ts",
+        "frontend/packages/app-core/src/domain/catalog.ts",
+        "frontend/packages/app-core/src/domain/onlineBooking.ts",
+        "frontend/packages/app-core/src/domain/printing.ts",
+        "frontend/packages/app-core/src/domain/publicBooking.ts",
+        "frontend/packages/app-core/src/domain/publicEstimate.ts",
+        "frontend/packages/app-core/src/domain/publicLanding.ts",
+        "frontend/packages/app-core/src/domain/publicOrder.ts",
+        "frontend/packages/app-core/src/domain/publicPay.ts",
+        "frontend/packages/app-core/src/domain/publicResource.ts",
+        "frontend/packages/app-core/src/domain/publicReturning.ts",
+        "frontend/packages/app-core/src/domain/publicShop.ts",
+        "frontend/packages/app-core/src/index.ts",
+        "frontend/packages/app-core/src/public.ts",
+        "frontend/packages/app-core/src/strings.ts",
+        "frontend/packages/sync/src/schema.ts",
+        "infra/powersync/sync-rules.yaml"
+      ]
+    },
+    {
+      "id": "05",
+      "title": "Add embedded payment accounts and client bank authorization",
+      "depends_on": [
+        "04"
+      ],
+      "scope": "Embedded Connect accounts, safe account descriptors, bank setup links and mandate reconciliation, pending/failed refund semantics and notification opt-out, payment forms, payouts UI and terminal lifecycle.",
+      "validation_and_staging": "Include cbpayments01 then cbpayments02, provider protocol/fakes/contract tests, PaymentAccount twins/story, WebView/Connect dependencies and lockfile. Run payment/PAD/refund tests, payment-account browser test and native payment walkthroughs.",
+      "primary_files": [
+        "backend/migrations/versions/20261009_000500_payment_setup_links.py",
+        "backend/migrations/versions/20261009_000600_refund_notifications.py",
+        "backend/scripts/payment_accounts.py",
+        "backend/src/clientbridge/api/payments.py",
+        "backend/src/clientbridge/integrations/stripe.py",
+        "backend/src/clientbridge/models/payments.py",
+        "backend/src/clientbridge/schemas/payments.py",
+        "backend/src/clientbridge/services/entitlements.py",
+        "backend/src/clientbridge/services/payments.py",
+        "backend/tests/contract/test_stripe_contract.py",
+        "backend/tests/test_payments_accounts.py",
+        "backend/tests/test_payments_connect.py",
+        "backend/tests/test_payments_pad.py",
+        "backend/tests/test_payments_refunds.py",
+        "backend/tests/test_payments_saved_cards.py",
+        "frontend/apps/connect/src/pages/PublicPaymentSetup.tsx",
+        "frontend/apps/mobile/src/components/ClientScreens.tsx",
+        "frontend/apps/mobile/src/components/SaleTicket.tsx",
+        "frontend/apps/mobile/src/components/Terminal.tsx",
+        "frontend/apps/mobile/src/screens/GettingPaid.tsx",
+        "frontend/apps/mobile/src/screens/Payouts.tsx",
+        "frontend/apps/mobile/src/screens/Refunds.tsx",
+        "frontend/apps/playground/src/mobile/StripeStub.tsx",
+        "frontend/apps/playground/src/stories/CardForm.tsx",
+        "frontend/apps/playground/src/stories/Checklist.tsx",
+        "frontend/apps/playground/src/stories/Choice.tsx",
+        "frontend/apps/playground/src/stories/Empty.tsx",
+        "frontend/apps/playground/src/stories/Notice.tsx",
+        "frontend/apps/playground/src/stories/PaymentAccount.tsx",
+        "frontend/apps/playground/src/stories/PaymentMethodForm.tsx",
+        "frontend/apps/playground/src/stories/ProgressSteps.tsx",
+        "frontend/apps/playground/vite.config.ts",
+        "frontend/apps/web/src/pages/GettingPaid.tsx",
+        "frontend/apps/web/src/pages/Payouts.tsx",
+        "frontend/apps/web/src/pages/Refunds.tsx",
+        "frontend/packages/app-core/src/domain/checkout.ts",
+        "frontend/packages/app-core/src/domain/clients.ts",
+        "frontend/packages/app-core/src/domain/gettingPaid.ts",
+        "frontend/packages/app-core/src/domain/payouts.ts",
+        "frontend/packages/app-core/src/domain/pos.test.ts",
+        "frontend/packages/app-core/src/domain/pos.ts",
+        "frontend/packages/app-core/src/domain/refunds.ts",
+        "frontend/packages/ui/package.json",
+        "frontend/packages/ui/src/mobile/PaymentAccount.tsx",
+        "frontend/packages/ui/src/mobile/PaymentMethodForm.tsx",
+        "frontend/packages/ui/src/mobile/stripe.ts",
+        "frontend/packages/ui/src/web/CardForm.tsx",
+        "frontend/packages/ui/src/web/PaymentAccount.tsx",
+        "frontend/packages/ui/src/web/PaymentMethodForm.tsx",
+        "frontend/packages/ui/src/web/stripe.ts",
+        "frontend/pnpm-lock.yaml"
+      ]
+    },
+    {
+      "id": "06",
+      "title": "Seed realistic ordinary accounts in the main development database",
+      "depends_on": [
+        "02",
+        "04",
+        "05"
+      ],
+      "scope": "Modular seed with realistic schedules, finances, identity, engagement and assets; scoped reset and validation; main-database commands; CI object storage; fixture-dependent test adjustments.",
+      "validation_and_staging": "Run fresh migration/seed in a disposable test environment and demo-check, all seed tests and the backend suite. Keep integration fakes test-only. Do not include scratch databases, dumps or local secrets.",
+      "primary_files": [
+        ".env.example",
+        ".github/workflows/ci.yml",
+        "backend/scripts/demo_assets/consent-amelie.pdf",
+        "backend/scripts/demo_assets/consent-david.pdf",
+        "backend/scripts/demo_assets/consent-priscilla.pdf",
+        "backend/scripts/demo_assets/consent-sophie.pdf",
+        "backend/scripts/demo_assets/signed-waiver-amelie.txt",
+        "backend/scripts/demo_calendar.py",
+        "backend/scripts/demo_chronology.py",
+        "backend/scripts/demo_context.py",
+        "backend/scripts/demo_engagement.py",
+        "backend/scripts/demo_finance.py",
+        "backend/scripts/demo_identity.py",
+        "backend/scripts/demo_scenarios.py",
+        "backend/scripts/demo_snapshot.py",
+        "backend/scripts/demo_validate.py",
+        "backend/scripts/seed_demo.py",
+        "backend/tests/conftest.py",
+        "backend/tests/test_bookings.py",
+        "backend/tests/test_bookings_time_off.py",
+        "backend/tests/test_consents.py",
+        "backend/tests/test_entitlements_cash_sales.py",
+        "backend/tests/test_entitlements_gift_cards.py",
+        "backend/tests/test_entitlements_packages.py",
+        "backend/tests/test_entitlements_subscriptions.py",
+        "backend/tests/test_flows_booking.py",
+        "backend/tests/test_flows_demo_calendar.py",
+        "backend/tests/test_flows_demo_engagement.py",
+        "backend/tests/test_flows_demo_finance.py",
+        "backend/tests/test_flows_demo_validation.py",
+        "backend/tests/test_flows_reporting.py",
+        "backend/tests/test_flows_sales.py",
+        "backend/tests/test_messaging.py",
+        "backend/tests/test_orders_tips.py"
+      ]
+    },
+    {
+      "id": "07",
+      "title": "Require authenticated sync and handle business loading reliably",
+      "depends_on": [],
+      "scope": "Remove development sync-auth bypass and demo login hints; share business loading/error/empty state between web and mobile; authentication browser regression tests.",
+      "validation_and_staging": "Run sync-auth/harness and auth browser tests, including fresh signup, populated accounts and failed sync. Split useBusinessLoad and App.tsx changes from branding/navigation.",
+      "primary_files": [
+        "backend/src/clientbridge/core/config.py",
+        "backend/src/clientbridge/sync/auth.py",
+        "backend/tests/test_harness.py",
+        "backend/tests/test_sync_auth.py",
+        "frontend/apps/mobile/App.tsx",
+        "frontend/apps/mobile/src/screens/Login.tsx",
+        "frontend/apps/web/src/App.tsx",
+        "frontend/apps/web/src/pages/Login.tsx"
+      ]
+    },
+    {
+      "id": "08",
+      "title": "Make Inbox a primary mobile destination and repair navigation",
+      "depends_on": [
+        "03",
+        "04"
+      ],
+      "scope": "Inbox tab and attention targets, shared inbox resolver and tests, mobile Today actions, payment navigation, notification routing and related native regressions.",
+      "validation_and_staging": "Run messaging resolver tests and native inbox/navigation regressions on the existing iOS simulator and Android. Split App.tsx from 07 and payment-specific copy from 05.",
+      "primary_files": [
+        "frontend/apps/mobile/src/components/InboxButton.tsx",
+        "frontend/apps/mobile/src/components/TabBar.tsx",
+        "frontend/apps/mobile/src/components/TodayParts.tsx",
+        "frontend/apps/mobile/src/lib/links.ts",
+        "frontend/apps/mobile/src/navigation.ts",
+        "frontend/apps/mobile/src/screens/Clients.tsx",
+        "frontend/apps/mobile/src/screens/Inbox.tsx",
+        "frontend/apps/mobile/src/screens/Notifications.tsx",
+        "frontend/apps/mobile/src/screens/Payments.tsx",
+        "frontend/apps/mobile/src/screens/Setup.tsx",
+        "frontend/apps/mobile/src/screens/Today.tsx",
+        "frontend/packages/app-core/src/domain/messaging.test.ts",
+        "frontend/packages/app-core/src/domain/messaging.ts"
+      ]
+    },
+    {
+      "id": "09",
+      "title": "Add repeatable product-surface end-to-end coverage",
+      "depends_on": [
+        "04",
+        "05",
+        "06",
+        "07",
+        "08"
+      ],
+      "scope": "Web/Connect walkthroughs and runner artifacts, native Maestro suite and commands, development endpoint overrides, lint exclusions for generated test reports.",
+      "validation_and_staging": "Run web, Connect, playground and native suites against test fixtures. DEMO_E2E=1 is required for demo.e2e.ts; default execution skips it. Re-run documented native regressions rather than treating walkthrough success as full coverage.",
+      "primary_files": [
+        ".gitignore",
+        "Makefile",
+        "frontend/apps/connect/e2e/connect.e2e.ts",
+        "frontend/apps/connect/playwright.config.ts",
+        "frontend/apps/mobile/e2e/01-workday.yaml",
+        "frontend/apps/mobile/e2e/02-setup.yaml",
+        "frontend/apps/mobile/e2e/03-payments.yaml",
+        "frontend/apps/mobile/e2e/04-inbox.yaml",
+        "frontend/apps/mobile/e2e/05-client-record.yaml",
+        "frontend/apps/mobile/e2e/06-staff-and-auth.yaml",
+        "frontend/apps/mobile/e2e/README.md",
+        "frontend/apps/mobile/e2e/helpers/close-sheet.yaml",
+        "frontend/apps/mobile/e2e/helpers/owner.yaml",
+        "frontend/apps/mobile/e2e/helpers/restore-owner.yaml",
+        "frontend/apps/mobile/e2e/regressions/client-editor.yaml",
+        "frontend/apps/mobile/e2e/regressions/estimate-shortcut.yaml",
+        "frontend/apps/mobile/e2e/regressions/inbox-navigation.yaml",
+        "frontend/apps/mobile/e2e/regressions/staff-pay-labels.yaml",
+        "frontend/apps/mobile/package.json",
+        "frontend/apps/mobile/src/lib/config.ts",
+        "frontend/apps/web/e2e/auth.e2e.ts",
+        "frontend/apps/web/e2e/demo.e2e.ts",
+        "frontend/apps/web/e2e/paymentAccount.e2e.ts",
+        "frontend/apps/web/e2e/web.e2e.ts",
+        "frontend/apps/web/playwright.config.ts",
+        "frontend/knip.json",
+        "frontend/packages/config/eslint.mjs"
+      ]
+    },
+    {
+      "id": "10",
+      "title": "Align marketing examples and payment disclosures",
+      "depends_on": [
+        "06"
+      ],
+      "scope": "Generated marketing fixture snapshot, site examples/copy, payment disclosures and sitemap XML/lastmod correction.",
+      "validation_and_staging": "Run snapshot freshness verification, site content lint, site tests and production build. Legal/pricing placeholders still need separate launch completion; this commit does not constitute legal review.",
+      "primary_files": [
+        "frontend/apps/site/scripts/prerender.ts",
+        "frontend/apps/site/src/art/iconData.ts",
+        "frontend/apps/site/src/content/demo-snapshot.ts",
+        "frontend/apps/site/src/content/demo.ts",
+        "frontend/apps/site/src/content/home.ts",
+        "frontend/apps/site/src/content/pages.ts",
+        "frontend/apps/site/src/content/site.ts",
+        "frontend/apps/site/src/content/solutions.ts",
+        "frontend/apps/site/src/content/trades.ts",
+        "frontend/apps/site/src/mocks/BillMock.tsx",
+        "frontend/apps/site/src/pages/Legal.tsx",
+        "frontend/apps/site/src/site.test.tsx"
+      ]
+    },
+    {
+      "id": "11",
+      "title": "Organize engineering reviews and execution records",
+      "depends_on": [],
+      "scope": "Core documentation updates, review/execution/exploration directories and port-plan move, project workflow instructions and this commit inventory.",
+      "validation_and_staging": "Verify relative links, remove stale active-database instructions and distinguish historical evidence from current results. Retain incomplete backend tasks as incomplete; exclude ignored scratchpad artifacts.",
+      "primary_files": [
+        ".docs/README.md",
+        ".docs/architecture.md",
+        ".docs/engineering.md",
+        ".docs/executions/README.md",
+        ".docs/executions/backend-hardening/permissions.md",
+        ".docs/executions/backend-hardening/plan.md",
+        ".docs/executions/backend-hardening/progress.md",
+        ".docs/executions/backend-hardening/tasks.json",
+        ".docs/executions/demo-data/README.md",
+        ".docs/executions/product-port/plan.md",
+        ".docs/explorations/README.md",
+        ".docs/port-plan.md",
+        ".docs/reviews/README.md",
+        ".docs/reviews/backend/files.csv",
+        ".docs/reviews/backend/overview.md",
+        ".docs/reviews/backend/principles.md",
+        ".docs/reviews/demo-data/coverage.csv",
+        ".docs/reviews/demo-data/overview.md",
+        ".docs/reviews/demo-data/source-coverage.csv",
+        ".docs/reviews/product/mobile.md",
+        ".docs/reviews/product/web-and-connect.md",
+        "CLAUDE.md",
+        "README.md"
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": ".docs/README.md",
+      "primary_commit": "11",
+      "sha256": "7097e51aaaa281ff2b05542385acc8f4b0c178fd97c3b8ade066fc09fc44d7ac",
+      "state": "present"
+    },
+    {
+      "path": ".docs/architecture.md",
+      "primary_commit": "11",
+      "sha256": "b25d77e1df9c2d1a9ec73b0c16e5c257fc8f0dcfc72fb84b4f85503c537b142f",
+      "state": "present"
+    },
+    {
+      "path": ".docs/engineering.md",
+      "primary_commit": "11",
+      "sha256": "550c4708ddb47cdb9d23b5522972052d465a89ae6f2755078590bf23fcd9b7e0",
+      "state": "present"
+    },
+    {
+      "path": ".docs/executions/README.md",
+      "primary_commit": "11",
+      "sha256": "4399ea24fae3c9c873c6393f2a72807d01e83932b08b0c95e16d47c7fb7db8be",
+      "state": "present"
+    },
+    {
+      "path": ".docs/executions/backend-hardening/permissions.md",
+      "primary_commit": "11",
+      "sha256": "d717474b4b14c9d225cf184b472bf7fcbccc604ef6ce69186ca51bada80cacda",
+      "state": "present"
+    },
+    {
+      "path": ".docs/executions/backend-hardening/plan.md",
+      "primary_commit": "11",
+      "sha256": "f95e07acb92866e0dc5de25d3499317dfa92ee98af82b58bd33cf82e1454028f",
+      "state": "present"
+    },
+    {
+      "path": ".docs/executions/backend-hardening/progress.md",
+      "primary_commit": "11",
+      "sha256": "520154c482f0f9957646ec69798bd9ace5bc92e696a5b1a23120434f8b8f4845",
+      "state": "present"
+    },
+    {
+      "path": ".docs/executions/backend-hardening/tasks.json",
+      "primary_commit": "11",
+      "sha256": "b0bf7301fc9a5e38b69cd92bbb3ba53e4f6308d07f30dea708c2d035acf7b9f2",
+      "state": "present"
+    },
+    {
+      "path": ".docs/executions/demo-data/README.md",
+      "primary_commit": "11",
+      "sha256": "5bb0199fa11c559a24a15654c883836cef428bbe70fadcac9c8ff2014a38184d",
+      "state": "present"
+    },
+    {
+      "path": ".docs/executions/product-port/plan.md",
+      "primary_commit": "11",
+      "sha256": "0e5e8816ca2abc550c9024d2cc36835608302d178b8fe55adf9f95e3730083d6",
+      "state": "present"
+    },
+    {
+      "path": ".docs/explorations/README.md",
+      "primary_commit": "11",
+      "sha256": "f586b908377bc0d66d0a0ac48178a8809cf18e182db6bc2633050e59ff81bbfb",
+      "state": "present"
+    },
+    {
+      "path": ".docs/port-plan.md",
+      "primary_commit": "11",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": ".docs/reviews/README.md",
+      "primary_commit": "11",
+      "sha256": "c32825b2c57759c4590129986e8d6d38a2c18352b002e66da675bd5010af9f87",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/backend/files.csv",
+      "primary_commit": "11",
+      "sha256": "a2ee0835e14e4b1dc97849fe1b08d41054a7c2f668b332c971e19292a685dff7",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/backend/overview.md",
+      "primary_commit": "11",
+      "sha256": "863aee234c1947c610aa2680f2e5402933dc46a9247a86f8f4510a96b906337d",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/backend/principles.md",
+      "primary_commit": "11",
+      "sha256": "dad2a30bad675f168a77f6797e2b425815dc5ac1d6c943f8233c7a8c10cbba1d",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/demo-data/coverage.csv",
+      "primary_commit": "11",
+      "sha256": "6607b0e13097f0faa9a7394bfd49221ef46a07bc41d36f536ff65964e0b62ccf",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/demo-data/overview.md",
+      "primary_commit": "11",
+      "sha256": "4e9c7b2f503fd7ea5595c82002a31648433156b4a2b4ff7566039eee52990d2e",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/demo-data/source-coverage.csv",
+      "primary_commit": "11",
+      "sha256": "bb307b7e8891503aa2e01a8cd047fbe30ac6c1f0b43df579556f8d1dee201239",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/product/mobile.md",
+      "primary_commit": "11",
+      "sha256": "c94092cfc9475c22fb8541c06aedfd6c59e87ae0b4ace5427bdd20d5e1160e65",
+      "state": "present"
+    },
+    {
+      "path": ".docs/reviews/product/web-and-connect.md",
+      "primary_commit": "11",
+      "sha256": "b8ec8741f080ad21cb19563a52534c62fe5201576f25a89b44522eda5f2d82b8",
+      "state": "present"
+    },
+    {
+      "path": ".env.example",
+      "primary_commit": "06",
+      "sha256": "37734a0d76d52a09ba1ce4eac6709407581c7294eb1b894a0c54bc37da624e03",
+      "state": "present"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "primary_commit": "06",
+      "sha256": "c0559c5f19ccdc5dd05dca154135e73a680b393def03eb2d4dddcd27138f3e0f",
+      "state": "present"
+    },
+    {
+      "path": ".gitignore",
+      "primary_commit": "09",
+      "sha256": "7bad8ab9532d5d8dfd27b15e9d05819e339aae82ea62117137dd893fb7e9a063",
+      "state": "present"
+    },
+    {
+      "path": "CLAUDE.md",
+      "primary_commit": "11",
+      "sha256": "6657c2a6b38d782b6a7b07a18404f363a3faef8416c18d0f32b1bdba44bc3f70",
+      "state": "present"
+    },
+    {
+      "path": "Makefile",
+      "primary_commit": "09",
+      "sha256": "4e002cdbff44e539098939bb9c65ca7231ada30274630d049035829cbf544365",
+      "state": "present",
+      "staged_sections": {
+        "06": "Seed/check/reset/snapshot targets",
+        "09": "Native test target"
+      }
+    },
+    {
+      "path": "README.md",
+      "primary_commit": "11",
+      "sha256": "d9ae82f7810201c50a9cc25ea940e69503904a84d0661c4da81ace5326b90681",
+      "state": "present"
+    },
+    {
+      "path": "backend/migrations/versions/20261009_000100_connect_order_lifecycle.py",
+      "primary_commit": "04",
+      "sha256": "a65c7315c0970d3381c4e0569035100672da206e952bc000e3180347cba74183",
+      "state": "present"
+    },
+    {
+      "path": "backend/migrations/versions/20261009_000200_returning_clients.py",
+      "primary_commit": "04",
+      "sha256": "c6c32184e02e9cc6c30f2f7c3a29c2f7c53e103e144c729525c1f4bc3d63f684",
+      "state": "present"
+    },
+    {
+      "path": "backend/migrations/versions/20261009_000300_connect_variants.py",
+      "primary_commit": "04",
+      "sha256": "89cfdc0c6fd8af651f961d51d48ac29232d99692093b1ec6bfd1b374e085a28f",
+      "state": "present"
+    },
+    {
+      "path": "backend/migrations/versions/20261009_000400_connect_order_tokens.py",
+      "primary_commit": "04",
+      "sha256": "e01ae12712e153a2ea7a474e2f19cad5e496c0d3ebe58134d79d76c9295a444f",
+      "state": "present"
+    },
+    {
+      "path": "backend/migrations/versions/20261009_000500_payment_setup_links.py",
+      "primary_commit": "05",
+      "sha256": "46b67fdd4b21cdc20c28123f877d4672d0f21648698aac373fb2c5c09c8cddd2",
+      "state": "present"
+    },
+    {
+      "path": "backend/migrations/versions/20261009_000600_refund_notifications.py",
+      "primary_commit": "05",
+      "sha256": "7a05089a213d161250acf47579130572862a1d7abe21f3758f46f6e0639763ee",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/connect_links.py",
+      "primary_commit": "04",
+      "sha256": "b322d5f39642551aada724e8b79fa3ada8c9b74448b64984a85622ea7342cc89",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_assets/consent-amelie.pdf",
+      "primary_commit": "06",
+      "sha256": "636cafa330161793d140ea63f2eb054073f9aad8f86c3a092ad5f7c639e5e1c6",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_assets/consent-david.pdf",
+      "primary_commit": "06",
+      "sha256": "9005bcd1d8a92e8c55b45b90bf73580b1e7d0e8f89b0a4facbee40893ed48004",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_assets/consent-priscilla.pdf",
+      "primary_commit": "06",
+      "sha256": "c6c76e0dc93029d32f8755e8e6cc8fa0508e639463cb3ba14f22acdb3553d665",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_assets/consent-sophie.pdf",
+      "primary_commit": "06",
+      "sha256": "a89be83db4ce522f50663ca17d4cb3f58d7a20f6b671770b89247f5051442791",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_assets/signed-waiver-amelie.txt",
+      "primary_commit": "06",
+      "sha256": "5508cc25270c6107a560f76b408e6f2668d2b0638af9a9a5d174ebc33d5ca1f8",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_calendar.py",
+      "primary_commit": "06",
+      "sha256": "fbc682180fc0605dbcb8ecc4ac605cde1fdcb2de371e46cfe3a30b58a0408faf",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_chronology.py",
+      "primary_commit": "06",
+      "sha256": "80171d388190c9e91e08d0fe6252d960c3dc2ab1f0dec7452cca05b75fa8f0b3",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_context.py",
+      "primary_commit": "06",
+      "sha256": "f46ab2d495a0aaa8132638a028e2468b7c21bc5c596981d1481ea9283e0a436e",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_engagement.py",
+      "primary_commit": "06",
+      "sha256": "c14fe2976acaf6c1506418c2b84e9d5d0c9e1e1c4d114e92d1e563bd5dcd8280",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_finance.py",
+      "primary_commit": "06",
+      "sha256": "a2df9981d38084ddb9b3a9c1f8cd1549bf26dbd21d0b8bbd89123780946db048",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_identity.py",
+      "primary_commit": "06",
+      "sha256": "a57064789e42711108a036090c0b6fa02cd32c4afc05512bc0da370f6fee5568",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_scenarios.py",
+      "primary_commit": "06",
+      "sha256": "2f659a7f8e49cccbabb0b4a09d3246f48135b603d5c285780aa18abf9c4c4a3a",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_snapshot.py",
+      "primary_commit": "06",
+      "sha256": "456543e4cf5bb097254d48a4950504fe10204eadf102cdb1ec17843f4c42b14c",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/demo_validate.py",
+      "primary_commit": "06",
+      "sha256": "4878f54cc685fd879892d5bd0ee498863420e9c7482c758b2e60d3f257c9598a",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/payment_accounts.py",
+      "primary_commit": "05",
+      "sha256": "eb54b2cafb65ff4ae699aca3e740b77d9b337413233877e7374e420467b753ab",
+      "state": "present"
+    },
+    {
+      "path": "backend/scripts/seed_demo.py",
+      "primary_commit": "06",
+      "sha256": "38b5adb5a2e02e20fead3fae087d1017e3761830f66f65a53f1887a2ff68f2f9",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/api/payments.py",
+      "primary_commit": "05",
+      "sha256": "89e08b20bfa26f94e5086baa0aa15ee5e1a6c57eb791f070567e36ef604ee7d4",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/api/public.py",
+      "primary_commit": "04",
+      "sha256": "0dc38f339a8508b618373bd7707e5808fa2661b94eb0beafa705d406b13afa8d",
+      "state": "present",
+      "staged_sections": {
+        "04": "Profile/openings/shop/manage routes",
+        "05": "Public payment setup routes"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/api/public_orders.py",
+      "primary_commit": "04",
+      "sha256": "302377be35bdfcdaa305175c603b48aa5dd67cc39b08de2e41fbb1cdf15d2408",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/api/returning.py",
+      "primary_commit": "04",
+      "sha256": "40cbc71db80bc4bc02fda9ae24056098b5ad5502c10b1a91fc1909d3c85d5bee",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/core/command.py",
+      "primary_commit": "04",
+      "sha256": "144baef479c5695c6f7e0f971f21ef2dac9484ad3453380a59c2bd3c33eb3304",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/core/config.py",
+      "primary_commit": "07",
+      "sha256": "1aaf27746aef3cf62a66dcb78ef0cca77b40479d694a842dca9890c05b4b2146",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/core/ids.py",
+      "primary_commit": "04",
+      "sha256": "4f446d7f337897ee5e441dd5191181027af1f740f8c98f85a963da00a700c7e7",
+      "state": "present",
+      "staged_sections": {
+        "04": "returning_challenge prefix",
+        "05": "payment_setup_link prefix"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/core/policies.py",
+      "primary_commit": "01",
+      "sha256": "4b43baf94a0ac1247bec3df46fd2521c0adabb40dc15e561887fc559dd2d62f6",
+      "state": "present",
+      "staged_sections": {
+        "01": "Existing table inventory only",
+        "04": "returning_challenges policy when model lands",
+        "05": "payment_setup_links policy when model lands"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/integrations/expo.py",
+      "primary_commit": "01",
+      "sha256": "a6dda9c5c9b051ee06ec4de528494fbcf0669c07e6fa70f4f117d0d535e86792",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/integrations/postmark.py",
+      "primary_commit": "01",
+      "sha256": "a6328fa790551e5e2e7db729f56579ea7e42ed67ba12cd1a022ea8902632cd36",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/integrations/stripe.py",
+      "primary_commit": "05",
+      "sha256": "7aa9c50964c447e04a41f0db47401f5c9ed63ed84a8410a7b6fec9066f5bb92e",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/main.py",
+      "primary_commit": "04",
+      "sha256": "03afc5806d9fe249bef4d7762cfd5a40474de57086528f7fb9d43dfa74ab40c4",
+      "state": "present",
+      "staged_sections": {
+        "04": "Returning and public-order routers",
+        "05": "Payment setup router"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/models/__init__.py",
+      "primary_commit": "04",
+      "sha256": "bb984aa9c138909aacef4f1e7fdfe8ef02abc2cd9cc4a4f291c9a1276a03ff54",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/models/billing.py",
+      "primary_commit": "04",
+      "sha256": "06576863ea17c48f5b13d637f267b62011afb25d1d0693713df57c6d6bcda383",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/models/catalog.py",
+      "primary_commit": "04",
+      "sha256": "4d3194f2e4ee04c8239f7bf17931a6dc00a30fdfb9849d02202d465ed20ed15b",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/models/payments.py",
+      "primary_commit": "05",
+      "sha256": "54cdc56d1a067fc71c3ac0e7e1e017c7b6827ddf76d2471aaab7f6c899152ff5",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/models/returning.py",
+      "primary_commit": "04",
+      "sha256": "31dbb2a2bb32e723e9ab373c2760c029f49ff0c72789bfc7a08ec243671c8243",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/schemas/business.py",
+      "primary_commit": "04",
+      "sha256": "fcceaea85677e51d130a409a2caabf24f8887359e7501cc3affd1368eab5aad6",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/schemas/catalog.py",
+      "primary_commit": "04",
+      "sha256": "584a232e1df10c605c10075b05de88c43ea434df87bd00a341a38732791620f6",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/schemas/orders.py",
+      "primary_commit": "04",
+      "sha256": "0071fb45d18f17020465fcdfc7a6a43e0203d308a40e277065e02d058e16d733",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/schemas/payments.py",
+      "primary_commit": "05",
+      "sha256": "6c9fcd8af0f6bb976025a1b6711eabca3ba8b821d3711b6244687f6ea1140405",
+      "state": "present",
+      "staged_sections": {
+        "04": "Fields consumed by public payment pages if needed",
+        "05": "Embedded sessions and payment setup DTOs"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/schemas/public.py",
+      "primary_commit": "04",
+      "sha256": "74abb462607fbd0236fd3f784ba24366173050e90e7d9831b3e6aaa77de6757c",
+      "state": "present",
+      "staged_sections": {
+        "04": "Brand/booking/shop/manage schema",
+        "05": "Refund fields if deferred from 04"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/schemas/public_profiles.py",
+      "primary_commit": "04",
+      "sha256": "15baf90389e90cfa65e7adab23448a707d25808cbdeae5405c87a088069db6ad",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/schemas/returning.py",
+      "primary_commit": "04",
+      "sha256": "2b942151a043c99d9f55c4f524828c7e81ad4cbaf391c9caabba5d43d29ff205",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/bookings.py",
+      "primary_commit": "01",
+      "sha256": "3b2517d3a05e5375d53fe520b4b5f9ee89236c9b3cd076b571dd705a90718c50",
+      "state": "present",
+      "staged_sections": {
+        "01": "Subject/resource ownership validation",
+        "05": "Payment setup wording"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/services/business.py",
+      "primary_commit": "04",
+      "sha256": "ed49cbeb5d7c253d38eb282a29587e199e226f1f8acc37482bd17d17c2892c1f",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/catalog.py",
+      "primary_commit": "04",
+      "sha256": "efa39af8ec822bf310647b4f184ff7426eb4d23c1fc1b9ef0a533e6c92fd2c48",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/earnings.py",
+      "primary_commit": "02",
+      "sha256": "95b96bb88bfb31e1cba387c76e7f930f57c50c239ee95b8073133cfadc878306",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/entitlements.py",
+      "primary_commit": "05",
+      "sha256": "f65d9a2fe56a6b5c642ed84db7fb1acf65d17014cec355e483cc27117dd2c681",
+      "state": "present",
+      "staged_sections": {
+        "02": "Package tax class",
+        "05": "Mandate gate and payment setup wording"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/services/ledger.py",
+      "primary_commit": "02",
+      "sha256": "b631204f7ed4c44270c20f6770221cb7da6f9f90bb3f46ce9e77c521895af309",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/lines.py",
+      "primary_commit": "01",
+      "sha256": "02fdf94029bfb32dcb3541cc62c89d101681cda67bda2438d8b87fb197709d20",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/notifications.py",
+      "primary_commit": "04",
+      "sha256": "59754708902e4149cd09898c3c5c9608f4f164d6aa017495cfd66957cbfd5208",
+      "state": "present",
+      "staged_sections": {
+        "01": "Active membership/device delivery guards",
+        "04": "Returning code, order links/reminders",
+        "05": "Refund notification status/opt-out"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/services/orders.py",
+      "primary_commit": "04",
+      "sha256": "6bd87810d630e91ba59d60252442dbca811ae57f3fbaa12889e5e599bbe95dbb",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/payments.py",
+      "primary_commit": "05",
+      "sha256": "5a162ff8216d96f615e1ae000c59f8656c671133d00efa6fc70e67669e34c9fc",
+      "state": "present",
+      "staged_sections": {
+        "04": "Order refund helpers and booking refund state needed by Connect",
+        "05": "Embedded sessions, PAD setup, remaining refund lifecycle"
+      }
+    },
+    {
+      "path": "backend/src/clientbridge/services/public.py",
+      "primary_commit": "04",
+      "sha256": "a70ac91df8ad3a20defd52626b85d3682dd425289ec6a5a073a9378d39a7dbae",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/public_orders.py",
+      "primary_commit": "04",
+      "sha256": "336c4d4b5b36242c6a41b5bd0f8f2abf70e1e49466318524605e3abdbe73d8cb",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/public_profiles.py",
+      "primary_commit": "04",
+      "sha256": "726184bdb11340ecec5a754bfa5cb6e71db12867fab100d51d83e28e7296ae20",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/returning.py",
+      "primary_commit": "04",
+      "sha256": "8bb3cd9ad28a8feab79c26c717fb4a49f97912347da80fb14c4e1ae2d5db338e",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/services/tax.py",
+      "primary_commit": "02",
+      "sha256": "6c910aa0a1b52172f13cac6de72bd05dee385a940d84ca1ed64864d741c992b3",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/sync/auth.py",
+      "primary_commit": "07",
+      "sha256": "02d046150887f565e7007f127ae20a1885085916f4bff1f160bd9aefe2ff5c25",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/sync/upload.py",
+      "primary_commit": "01",
+      "sha256": "d0665dd171ee39b68550a5f37fa0676d19e043ab6fb4c747b4fe4c768c34a705",
+      "state": "present"
+    },
+    {
+      "path": "backend/src/clientbridge/tasks/worker.py",
+      "primary_commit": "04",
+      "sha256": "2bea91ecbc13a18ff6b179a18984bc3dc08d6e0428b2687d3398a61c059d74f9",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/conftest.py",
+      "primary_commit": "06",
+      "sha256": "f4097bfcb83092a44a53457c68d094a826d1e91b861f9c52fa9ea3c8879f2429",
+      "state": "present",
+      "staged_sections": {
+        "04": "Fake refund status required by order lifecycle tests",
+        "05": "New provider protocol and PAD/account session fakes",
+        "06": "Explicit owner business header"
+      },
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/contract/test_stripe_contract.py",
+      "primary_commit": "05",
+      "sha256": "616e95e51e7e97f30d621cbf7f3b23b45c0f5d8b1d843ba8284675290bb031ff",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_billing_invoices.py",
+      "primary_commit": "02",
+      "sha256": "fdd756963a9f9439f2967106da62e6be4efa1323c473b71ea315a6ab7c22f9f5",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_billing_references.py",
+      "primary_commit": "01",
+      "sha256": "7a594253031288ae81eebf5adf72499001697a4a923e290478b03284860b852c",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_bookings.py",
+      "primary_commit": "06",
+      "sha256": "fb418f98ed217d8a851d920ff1dc68160f07eaa75ac7f1d31f73de3770aa08c6",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_bookings_references.py",
+      "primary_commit": "01",
+      "sha256": "4906bd564f916cf7fce164d2f4311916cbd79a3bd1267fefba38e51601b2206c",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_bookings_time_off.py",
+      "primary_commit": "06",
+      "sha256": "f0005eec2ee695bca1077c75477e1521cdfdc890aa251d5319f00b2524980797",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_business.py",
+      "primary_commit": "04",
+      "sha256": "dabf01dc0e5bee95b0828cde0ff094cb873494b782f5c19cb542321eea08dbf0",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_catalog_products.py",
+      "primary_commit": "04",
+      "sha256": "9443d48d8eaa7ca0ae48973fe4d08cfb88aa895cc1fa8029038a76e46ef58ab4",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_consents.py",
+      "primary_commit": "06",
+      "sha256": "12477405ff3a86bffc1df0993108e9bb46c14eec14bd7f5631655b6bc1981c95",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_entitlements_cash_sales.py",
+      "primary_commit": "06",
+      "sha256": "40a62e6174b711aac6496fa413026c0a5ad777292d141bf5f8705501bb8b902e",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_entitlements_gift_cards.py",
+      "primary_commit": "06",
+      "sha256": "ff04c35c4b2dcb0771d53344d2fb4842c0bd552a25ec960046f62049068e9e83",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_entitlements_packages.py",
+      "primary_commit": "06",
+      "sha256": "9d7d19456cd2709a326ed4eec1c29ebd05e753242d38e632e436e85117f4a6da",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_entitlements_subscriptions.py",
+      "primary_commit": "06",
+      "sha256": "edc0346f1d7794354c736f9c7f9a999e3b86182b66e5719d89fc0995a587a34f",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_files_media.py",
+      "primary_commit": "04",
+      "sha256": "3e153d9b2a5dfe87de7060de2e13eaa678745a1f6732a69f3c6fc1948b6f2f5b",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_flows_booking.py",
+      "primary_commit": "06",
+      "sha256": "3c6be7b28c5078e2252b7c6d7e6b274ba3881621ee86545a7a1a6f289bace661",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_flows_demo_calendar.py",
+      "primary_commit": "06",
+      "sha256": "7601bf8e8a1dce06633d0f965d4e718b931978c65d9b1e5692979778418696b3",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_flows_demo_engagement.py",
+      "primary_commit": "06",
+      "sha256": "98b4f799733043dd317011144c3671b3af2d07122ee1c672c1c7eb277fedbf1a",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_flows_demo_finance.py",
+      "primary_commit": "06",
+      "sha256": "ee5f6983b44ddc4a074bedfbeaf90f1a4e7a7eb27ea210ec9bcc5d4e90c8e886",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_flows_demo_validation.py",
+      "primary_commit": "06",
+      "sha256": "3d344e2c8587d1f39f95eae1eb54b722bfb4c4c4441809d55136e9faaac4c77e",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_flows_reporting.py",
+      "primary_commit": "06",
+      "sha256": "ed3c306163aa9c0160f442c36e64cf2417943e047856d4430cca3d03f10cdef9",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_flows_sales.py",
+      "primary_commit": "06",
+      "sha256": "bb5555354ebfdf8d839e8910ee11dd6f929e739a98451d7390e391d3660f0a53",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_harness.py",
+      "primary_commit": "07",
+      "sha256": "2391fcc0f18259f5bfb1e3dee30984680752a828cf17f0e0e4d4ad07137eaf21",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_messaging.py",
+      "primary_commit": "06",
+      "sha256": "a0878b999ec02a47bd392ce68668e56c6bfee4fcdef307916e894f4fcf722a61",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_notifications.py",
+      "primary_commit": "01",
+      "sha256": "c84dcd292fd5415838632fff162f141f2d989a170749a18058b2e956cb8f1cb9",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_notifications_delivery.py",
+      "primary_commit": "01",
+      "sha256": "e4dcf2f677cc59b525bba4872a68bbad82b3d033a66ac3202e53ddde4ba5136a",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_orders_tips.py",
+      "primary_commit": "06",
+      "sha256": "b64f9842b061542aed5485ea687b91e82250a54654289e3ee899f759ba902168",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_payments_accounts.py",
+      "primary_commit": "05",
+      "sha256": "07cc91a99a88efc1e1d569b9469475df97688e58443b2b8153562a48fa5169f1",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_payments_connect.py",
+      "primary_commit": "05",
+      "sha256": "42d9a5ef622a992c5aeccd97cbe5feb54a7b23fda1923782ccf0ee7ad3a4c537",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_payments_pad.py",
+      "primary_commit": "05",
+      "sha256": "caae57e1fe7c784606e1186611b0d337106620e06fe1a8bf33beddba30fd597e",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_payments_refunds.py",
+      "primary_commit": "05",
+      "sha256": "8dff4d9f582c46e831c6f652c0485cd6cac26de371ad9288ee4288d96ecec169",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_payments_saved_cards.py",
+      "primary_commit": "05",
+      "sha256": "89bbd98ab4b4c7d0bdc5cbdd94d5503c584d0ce215c6f23a65572f44dc34ea9d",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_public_booking.py",
+      "primary_commit": "04",
+      "sha256": "7cdff461b01cbeca672d7acbef7557eb11b0691ff155cdccfc5f4b7aa81ec6d8",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_public_brand.py",
+      "primary_commit": "04",
+      "sha256": "bf109c84e2b02cc5eec634672686c560437a6061ee597354f791acb2262ae7ca",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_public_manage.py",
+      "primary_commit": "04",
+      "sha256": "c465769cb2626380c839bd883df2ea9be2e8f5ce14e0656ed62c1324b4d10c85",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_public_orders.py",
+      "primary_commit": "04",
+      "sha256": "4213325878840990ef449d12d71681c8a5a985594e5b6d6f19e258d0b6795715",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_public_pay.py",
+      "primary_commit": "04",
+      "sha256": "26547c2822582d449daf2bf1f1958b772499ca14581a9b818ca24a1730da8eb5",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_public_profiles.py",
+      "primary_commit": "04",
+      "sha256": "7c9674fb2b4482f85614ff367c0beaa7c4cda56b698e8a39eea709e77b380802",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_public_shop.py",
+      "primary_commit": "04",
+      "sha256": "a43973753e8c6dc0624a40e7b308662899117a5583796e255e0abb6aeff744ed",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_returning.py",
+      "primary_commit": "04",
+      "sha256": "3012132cd3aa2639d0b4abf2867fd95b6e5c7350da89bb20f3a448a454f199d0",
+      "state": "present"
+    },
+    {
+      "path": "backend/tests/test_scoping.py",
+      "primary_commit": "01",
+      "sha256": "a30e1ad5eed044d4226038028c44688913b765200b441b289bf85b03eabb9b77",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_sync_auth.py",
+      "primary_commit": "07",
+      "sha256": "bdb72f37e9119e0476bbdb114d9a3e7b19ef560ec4951417693c89e4d471e79a",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_sync_upload.py",
+      "primary_commit": "01",
+      "sha256": "ff829e28879781cddb3b79d3eea1c5d1d09f9fe7a6554a7296a9650c3cca782a",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "backend/tests/test_tax.py",
+      "primary_commit": "02",
+      "sha256": "34ae3f6d96c0670a7d488fc29d022de2bfe1843ffb922f066dded1ef558c9b61",
+      "state": "present",
+      "fixture_note": "Inspect each hunk: feature assertions belong with their feature; seed IDs/taxes/dates/enablement adjustments belong in 06."
+    },
+    {
+      "path": "frontend/apps/connect/e2e/connect.e2e.ts",
+      "primary_commit": "09",
+      "sha256": "d5f15bb814530056b5aefde1e01028b193681d35a8b1ee261a5a4811c15aeb01",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/playwright.config.ts",
+      "primary_commit": "09",
+      "sha256": "c01b7087d5c727e96034f83de07e67542b952e730d021ec694dbe02046d80096",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/public/embed.js",
+      "primary_commit": "04",
+      "sha256": "fd41454b679c4ade5bbb5204d92b329da18843c1cedee13f18b2d0880d4fcb06",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/App.tsx",
+      "primary_commit": "04",
+      "sha256": "c447c1331b1de146a088a73515a5f3a9e578c95527c7a31b7650e466aaa2176f",
+      "state": "present",
+      "staged_sections": {
+        "04": "PublicOrder route",
+        "05": "PublicPaymentSetup route"
+      }
+    },
+    {
+      "path": "frontend/apps/connect/src/components/BookingSteps.tsx",
+      "primary_commit": "04",
+      "sha256": "2ac8e95cfce57ce2fb679af8f09fc99bd596958fd603cd8a59a1c829ff19f248",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/components/PublicDocument.tsx",
+      "primary_commit": "04",
+      "sha256": "96f84c0ea995bd5eec926bfbdc89e4545e974f4573c12d0ba58d605b9a7454d4",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/components/PublicPage.tsx",
+      "primary_commit": "04",
+      "sha256": "5338a3f4e71c5651966ffef0bb1c2953cfbeb1e9b9cb92a2e35883b9a0c68c54",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/embed.ts",
+      "primary_commit": "04",
+      "sha256": "71449c1429cac7a188fd5c96c7fda0d442b891a61a1ddf5154b11831332b789a",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicBooking.tsx",
+      "primary_commit": "04",
+      "sha256": "7269f8d8be141efc8b4a9a8b889b4756fc78cac071a59883366294aafb161360",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicContract.tsx",
+      "primary_commit": "04",
+      "sha256": "20e5c60f4ee927fd9ca60ef43bbb241a8b27a530636c815d5ff7a2e0a5fb0270",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicEstimate.tsx",
+      "primary_commit": "04",
+      "sha256": "d1ad0d2204628d579b8915ce1c75744ee5327c250d7312549405d4427a40fbaf",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicForm.tsx",
+      "primary_commit": "04",
+      "sha256": "28f646296d4ad081b84a96b004e20e1d5fa19a1d037a902aab09b94a5c04bca7",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicLanding.tsx",
+      "primary_commit": "04",
+      "sha256": "05ae109d9d448078a5aba306039f255c4163b5a8d9abf3d2f31f0bda867d69e1",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicManage.tsx",
+      "primary_commit": "04",
+      "sha256": "53afb8bece202bab6d636aade15542b40685ee1d6d0e085b40269b7ff161f9d4",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicOrder.tsx",
+      "primary_commit": "04",
+      "sha256": "65060e3471ec03a9575706f8b3e40544a130752f9747388ad2f7fb4d94b12f87",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicPay.tsx",
+      "primary_commit": "04",
+      "sha256": "5cd3a4ca487602c6ad230a71850808a2a79c32f8c7a2402b40f834db5d8156c0",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicPaymentSetup.tsx",
+      "primary_commit": "05",
+      "sha256": "a48dcbfbe63ac0830e0efe1ada5fcab6055f13700d7c4fccfd906e47bb7b7f01",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicPreferences.tsx",
+      "primary_commit": "04",
+      "sha256": "388377b76bad6281d3ce953a347d3732b32a00ea92e86c52031a07d81c122c55",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicReceipt.tsx",
+      "primary_commit": "04",
+      "sha256": "eb2af8bacf959dc3956bf2c447f75f9f83e17534daeb7e2976fb645c690d71c7",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicReview.tsx",
+      "primary_commit": "04",
+      "sha256": "f31e1b8078efe73db939a54c75f7d97aca8f5a47931944e57bb185cc696918c7",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/connect/src/pages/PublicShop.tsx",
+      "primary_commit": "04",
+      "sha256": "caea5cdddbc7b39059a5dd8d65b14f670e411648749734b24b562e1ea6d5c8b3",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/App.tsx",
+      "primary_commit": "07",
+      "sha256": "afa3647219313455036d073018f3f0a33c432e8a28420fd014310ead875aeec9",
+      "state": "present",
+      "staged_sections": {
+        "07": "Business boot state",
+        "08": "Inbox/Payments navigator move"
+      }
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/01-workday.yaml",
+      "primary_commit": "09",
+      "sha256": "01b152b5cc0684bf6178ad25ef7683a5fc9623a1a86c9de2a2b69433982bc988",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/02-setup.yaml",
+      "primary_commit": "09",
+      "sha256": "92c534e6aae15f76df406dd4208e2ab35f5f725b7ce6cb2fc471f82bdf5278f9",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/03-payments.yaml",
+      "primary_commit": "09",
+      "sha256": "c5864b75006859bc410a12856a8498b1b0fa3097defee7e3940e045b5ae8b04e",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/04-inbox.yaml",
+      "primary_commit": "09",
+      "sha256": "165326af34949334c94ebdc8e9e3ccf42ce52a0f53ff8d38f14e3fca369d3e7a",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/05-client-record.yaml",
+      "primary_commit": "09",
+      "sha256": "9bfca951f250bb3338b3a975f01b16ee3d0f5ff71550e1f12dfeacd260d06ac4",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/06-staff-and-auth.yaml",
+      "primary_commit": "09",
+      "sha256": "3e0c11b7429fe5b9a7e6b48102daab0d057343659485a1a16e5061a42fbfb281",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/README.md",
+      "primary_commit": "09",
+      "sha256": "bcb1f87f92f95028e4e4fb0826da0d6095340d27dd1b74b6514127c78a763899",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/helpers/close-sheet.yaml",
+      "primary_commit": "09",
+      "sha256": "cc40d70caac4ad4d4faa8b105cdd0d78bf73f5495eb60b7631f4da687b9412df",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/helpers/owner.yaml",
+      "primary_commit": "09",
+      "sha256": "4ee8bc04c0081216c6a065351e4e596750cf70267f36f2d1dcd7e441fb6fc651",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/helpers/restore-owner.yaml",
+      "primary_commit": "09",
+      "sha256": "c6c223765c6692af96f09b96d8f709706f4e0747112e06b10cb20983757e562f",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/regressions/client-editor.yaml",
+      "primary_commit": "09",
+      "sha256": "a571663ab737c2c318b912fbb3bfaeefddc3eb8d1a85c34223f890a09bf03012",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/regressions/estimate-shortcut.yaml",
+      "primary_commit": "09",
+      "sha256": "02a2b24fa798b66c771ab436cd9c7fc41d4348dc78a9d6d38e97ef09bdaa33b6",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/regressions/inbox-navigation.yaml",
+      "primary_commit": "09",
+      "sha256": "35241e8b64b49b75aee539867b05488bd1147b7e6adbd73f022be97ce0209ba0",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/e2e/regressions/staff-pay-labels.yaml",
+      "primary_commit": "09",
+      "sha256": "9159f8a1cdbc8468e953ba79351151e5b7a105eb954a79c435eef228269ee77a",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/package.json",
+      "primary_commit": "09",
+      "sha256": "cc4f26c22fe4c3036454971ea2f4ec4a6a09119247e0fc83ef6bc050f1aa6b53",
+      "state": "present",
+      "staged_sections": {
+        "05": "react-native-webview dependency",
+        "09": "Maestro script"
+      }
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/ClientScreens.tsx",
+      "primary_commit": "05",
+      "sha256": "3e2af5729eb6825dd5e8364c43ed9f6e0d3b5590947c84eb23ced7d6e9263446",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/DocEditor.tsx",
+      "primary_commit": "04",
+      "sha256": "42f91a30c18eec44ca10519637c9f72e0e1af9c15cfe9c7716084ce959f3ead3",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/GetSetUp.tsx",
+      "primary_commit": "04",
+      "sha256": "79104d84ead80a06e809013a1a5e931fb40fad63d776b3db5264477803ef6965",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/InboxButton.tsx",
+      "primary_commit": "08",
+      "sha256": null,
+      "state": "deleted"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/InteracRequest.tsx",
+      "primary_commit": "04",
+      "sha256": "ee499100a87310ff12f73015c6bdb43e8972683c0be7c55e9e445c85844e8da6",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/ItemEditor.tsx",
+      "primary_commit": "04",
+      "sha256": "ab8da28c4076dd0a5354b73b85f812b096f9f27f2f19ed3fd1c80170fbf12f91",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/SaleTicket.tsx",
+      "primary_commit": "05",
+      "sha256": "0330d91ba59e9cdc23a73838fa81642cf6c7cbaa8fd3f3179b57af26f4444c5c",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/TabBar.tsx",
+      "primary_commit": "08",
+      "sha256": "0d1b02c07be60fc08aaae44bf97b94a3c483948da84aab906861164817552d99",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/Terminal.tsx",
+      "primary_commit": "05",
+      "sha256": "802eba288323f0e4cc04ee08e2c5f7e010176942eb1df6d67cd869b112487e89",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/components/TodayParts.tsx",
+      "primary_commit": "08",
+      "sha256": "fd34f1093a155a7aa90ed374ea7d66b49a821704c95ce18814937bd6f4f82008",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/lib/config.ts",
+      "primary_commit": "09",
+      "sha256": "df771986eaf4d9178ca94d91bf57155de538334685c3dc20ddfce1b3af342561",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/lib/links.ts",
+      "primary_commit": "08",
+      "sha256": "fa4708910a56ac1b1594423f924252358485202d116242aa4db7a43ff3918e59",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/navigation.ts",
+      "primary_commit": "08",
+      "sha256": "3cacf89ea1fe040fa624d80094bb682ccb80eb91fa21f6179e14a6a647484b16",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Clients.tsx",
+      "primary_commit": "08",
+      "sha256": "26920bacd90f11d0fb4a33a2e595faeed71432e4e3ab9be72d78208ca463a232",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/GettingPaid.tsx",
+      "primary_commit": "05",
+      "sha256": "c5166bd9d2f9b3ce82dac6bd3b237a14058132605db0315c5a0faab435445d67",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Inbox.tsx",
+      "primary_commit": "08",
+      "sha256": "f5e588a50a7a69f8ce262af3ced1a8230e4fcd32946cd8c1d8c44b6f1e0fa6ed",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Invoices.tsx",
+      "primary_commit": "04",
+      "sha256": "ce2426f9e7b918d7cd0568e1a3917d351ae98a64d6360d4001bc1c747008300c",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Login.tsx",
+      "primary_commit": "07",
+      "sha256": "1c66602373524b3949d8cbd4cf8c2c5abec380ba16b46eca59e52bbc0bc69605",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Notifications.tsx",
+      "primary_commit": "08",
+      "sha256": "3ea0a0cd69d905dd0d86f7b5258d3971e560c0144a94fc7141fd7c41f51914dd",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Payments.tsx",
+      "primary_commit": "08",
+      "sha256": "8a68f1f6a241045f3560a2d7c5afdb3c4a450e65bf9d583cbd86e35cecd7ec1b",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Payouts.tsx",
+      "primary_commit": "05",
+      "sha256": "bc0756743681d71526e831bee2e7ed7d731e4ac607f56a8d5c834ae403efceff",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Refunds.tsx",
+      "primary_commit": "05",
+      "sha256": "88e6adb1fce29fdc7182904caccc29dcddec09985bfb35cb32a755f1208fe079",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Setup.tsx",
+      "primary_commit": "08",
+      "sha256": "03f54fe3554ca7e8e6bb21905c5792dd9cfe9ab3fcb486e264698f7e766334e1",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/mobile/src/screens/Today.tsx",
+      "primary_commit": "08",
+      "sha256": "5146b65b6414b0a416385e933261f5a457eb08d9f365e4a2e1806669c5b4e652",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/mobile/StripeStub.tsx",
+      "primary_commit": "05",
+      "sha256": "6b29c3f838905f12dfc3d473f8209423d425df3568ef1349eebc68544ac6bbee",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/ActionTile.tsx",
+      "primary_commit": "03",
+      "sha256": "58d5fa6dae7eaa3a00bc8d92ce8bbde410989003b5589f19b2d63267cde02a81",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/Avatar.tsx",
+      "primary_commit": "03",
+      "sha256": "51b8b9020b4ef809995e5be1a0a0e9cc81877d17ee2d397596805d60fc0086b3",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/CardForm.tsx",
+      "primary_commit": "05",
+      "sha256": "b5635c4c49d7cee40fb3a0023671525b69924055d3d43211dab398a0cfe5069e",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/Checklist.tsx",
+      "primary_commit": "05",
+      "sha256": "4f274fe3d2e29741d018f689b79c59e0268a797c320cebd47f37a0e0f512f76a",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/Choice.tsx",
+      "primary_commit": "05",
+      "sha256": "7690253d51134cbd3e173c7727635d60d1158d838e2176d8fcf0530421f73184",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/DayRail.tsx",
+      "primary_commit": "03",
+      "sha256": "1063cd109b0352a5a528b727d08fd8165c488a5cccd0a26cd13c934784dfafbf",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/Empty.tsx",
+      "primary_commit": "05",
+      "sha256": "9b8755bba9c222a1b242e30ed3926354e080b51f33e087e05bfe30ca5279f898",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/Notice.tsx",
+      "primary_commit": "05",
+      "sha256": "6693f5efc0e13d9737d8f6d2041ec1d2a6fa23a1d33d5a88fbafdc957d5456c6",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/OptionCard.tsx",
+      "primary_commit": "03",
+      "sha256": "eaaa8cb731315dc4f824a3315eab54f692ba6686d3224271b0ee3948370cbaa3",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/PaymentAccount.tsx",
+      "primary_commit": "05",
+      "sha256": "761600e12f860044c86bea26f23fa200147977790f01036f6083acae0b36d4f2",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/PaymentMethodForm.tsx",
+      "primary_commit": "05",
+      "sha256": "d358749cb8b5266eedb47948ad4f9c83f5fe2ab5b50906eee5a858c951cb2c8b",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/ProgressSteps.tsx",
+      "primary_commit": "05",
+      "sha256": "35e339d070df85737abc8a67e0a89a4f785d38d4ac2312d499c3be113c80c021",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/src/stories/SlotChips.tsx",
+      "primary_commit": "03",
+      "sha256": "5809346adfc420ea9a4dbf762d8bac3cc94c1c3fc18f7db008b966601710b662",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/playground/vite.config.ts",
+      "primary_commit": "05",
+      "sha256": "7cea5e6afad2c04f67fc3d6c67d930b5fc0ac789f36ef8fb9feadc27f424d9d9",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/scripts/prerender.ts",
+      "primary_commit": "10",
+      "sha256": "2afbb30ad9f18fbb587191acf23a2b671b915d73b281d81d5c328d4a461ffb13",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/art/iconData.ts",
+      "primary_commit": "10",
+      "sha256": "c27d50d844ac06d15ff121a031ae8095ce3c3f4910f898decee04f6a635e69e1",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/content/demo-snapshot.ts",
+      "primary_commit": "10",
+      "sha256": "d65cf7ddfb932a04abc9deff878db2418d1e5c56e6f5dd1785a4fe353d340ab8",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/content/demo.ts",
+      "primary_commit": "10",
+      "sha256": "33328d30979eb35df735bbdcba5736c50111979bc7ee29d8fc5b4fcd7b3576c9",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/content/home.ts",
+      "primary_commit": "10",
+      "sha256": "e586faa58c3f7a0a83992fdd2650c1746a1a022edb934e71bc68a7b9ed650793",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/content/pages.ts",
+      "primary_commit": "10",
+      "sha256": "478252ca545e2a318d9ba6daaf4b315ba421075652ae073c10d61fa57a786fa1",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/content/site.ts",
+      "primary_commit": "10",
+      "sha256": "4b02deca8b78391ce5492ef9a0537e2e548f0054c647e022f0b3d3cd7d30eefe",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/content/solutions.ts",
+      "primary_commit": "10",
+      "sha256": "15066c9cfcdf1dc4c0af3a96b68383aff11cf54e26da3da839712bf7a04e61e2",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/content/trades.ts",
+      "primary_commit": "10",
+      "sha256": "3d42a4e1db61cca1c55fff198eca0258b7e176a49e972941a789958e0f259272",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/mocks/BillMock.tsx",
+      "primary_commit": "10",
+      "sha256": "4e4b4d399ffdad37018e44682e98068710a520b70b2a1a52e27a226af1f33b57",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/pages/Legal.tsx",
+      "primary_commit": "10",
+      "sha256": "b04f3ca116c05cb94657455b9e65ddca622d298a7adab24e316a662244f5eff5",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/site/src/site.test.tsx",
+      "primary_commit": "10",
+      "sha256": "21465344b2d350b177ca5d3659eb64fdf30cbcae78fd7af521ff7ad93220e896",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/e2e/auth.e2e.ts",
+      "primary_commit": "09",
+      "sha256": "d53492b1c640c545cf6b0882a11ef68022455567125719eef5c69a8d686e2f1c",
+      "state": "present",
+      "staged_sections": {
+        "07": "Keep authentication regressions with bootstrap fix"
+      }
+    },
+    {
+      "path": "frontend/apps/web/e2e/demo.e2e.ts",
+      "primary_commit": "09",
+      "sha256": "f15b6eb3d6c25e43fe28101d18c61bc86fc13e561c979d9ec88ce62d6bbb085e",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/e2e/paymentAccount.e2e.ts",
+      "primary_commit": "09",
+      "sha256": "3e100955543c013e71f8f12a3d751e2375714f41817cdd9143dcaf7bf1cbb1fb",
+      "state": "present",
+      "staged_sections": {
+        "05": "Keep payment-account test with feature"
+      }
+    },
+    {
+      "path": "frontend/apps/web/e2e/web.e2e.ts",
+      "primary_commit": "09",
+      "sha256": "542dece4ad774a487254fa140d56e9e58c9a84295d6289484e1d6f3fc7b9a5ba",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/playwright.config.ts",
+      "primary_commit": "09",
+      "sha256": "16918ef74f6e8a4aaaf29789d3eee390d789a46757a4df697eab9286841171f5",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/App.tsx",
+      "primary_commit": "07",
+      "sha256": "e323ddddaf717e188faaab909e9cf48ceb7d4ac68ecd0dd539ce7629ec897745",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/components/AppShell.tsx",
+      "primary_commit": "04",
+      "sha256": "a7f918e60629a77323ccdeac22948cda19f6f47bf3d7b523cb2f9da61c60b49a",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/components/DocEditor.tsx",
+      "primary_commit": "04",
+      "sha256": "61a6de81cdd7a4893dcd0df46682b414e5222b8125d26777c3423786229ccb31",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/components/GetSetUp.tsx",
+      "primary_commit": "04",
+      "sha256": "13b60b9f575903e0ac1cb6fa8829be340ebb4aafbee5b53c292ab877c68ce8d0",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/components/InteracRequest.tsx",
+      "primary_commit": "04",
+      "sha256": "8e1d4976d4d33bd95c3d350a51e1dd2726f6ad0a329c1487402e2fe21bdfddd7",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/components/ItemEditor.tsx",
+      "primary_commit": "04",
+      "sha256": "2397b828fa3ded1de7d75764c643c4081646b85d2470e9abef2759e33ced9fa1",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/components/OnlineBookingSettings.tsx",
+      "primary_commit": "04",
+      "sha256": "7e6492c06aa51c4c1941fd483e40136176192d96337fb9ca4debe0960803cc61",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/pages/GettingPaid.tsx",
+      "primary_commit": "05",
+      "sha256": "902f9838bafbefa83bd7cda1bed3d8649bc573a20428c44b1dcdf6356177afc9",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/pages/Invoices.tsx",
+      "primary_commit": "04",
+      "sha256": "0b4eb4f4422a300a231547fe7135487a9a8d448792345cfd82551abd815e4340",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/pages/Login.tsx",
+      "primary_commit": "07",
+      "sha256": "0d7f091d46fa433a98e4d8d4321ce1dc665d21fc91cece4c250b72da34c02ebf",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/pages/Payouts.tsx",
+      "primary_commit": "05",
+      "sha256": "b6be93ef0c23ea18b48bc9733ddef7a4690927221d7bf3d6ab6a722bc4494c44",
+      "state": "present"
+    },
+    {
+      "path": "frontend/apps/web/src/pages/Refunds.tsx",
+      "primary_commit": "05",
+      "sha256": "c0462cb0006ce602ce1de9ae231e364178f99548d18b9d0ebcfb5371eff643e3",
+      "state": "present"
+    },
+    {
+      "path": "frontend/knip.json",
+      "primary_commit": "09",
+      "sha256": "7914c6cfc41da0c7852620c11f9b4f1fe8aebc2532437b5d04c29ac50aff4a89",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/api-client/src/generated.ts",
+      "primary_commit": "04",
+      "sha256": "094539eb56669bdb6381b8941bcfa6d60d1041ebd66b12d222b3be6790ed6491",
+      "state": "present",
+      "staged_sections": {
+        "04": "Regenerate for Connect APIs at this commit",
+        "05": "Regenerate for payment APIs at this commit"
+      }
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/billing.ts",
+      "primary_commit": "04",
+      "sha256": "4da1090642a1ce7f519d73975185ecf98161014273edabbc10da0bd85347b68c",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/business.ts",
+      "primary_commit": "04",
+      "sha256": "4cf9834fdd90765386e2f5f6cf19d72e08370df6291b872c40832d441515cb25",
+      "state": "present",
+      "staged_sections": {
+        "04": "Brand/profile and letterhead",
+        "07": "useBusinessLoad hook"
+      }
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/catalog.ts",
+      "primary_commit": "04",
+      "sha256": "14bfa156abef03257844f15d7f3a84db5f1370afbe843f4dcf65159418c21c9e",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/checkout.ts",
+      "primary_commit": "05",
+      "sha256": "6cf5c051a4a01d41fdd0880df0cfc98b2e7e7de6ccee5ca2891ecf6506550c83",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/clients.ts",
+      "primary_commit": "05",
+      "sha256": "2b0512f9df6ee7d9bf361719c02c8ba47611cedd940e43921f014426e7b1ba01",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/gettingPaid.ts",
+      "primary_commit": "05",
+      "sha256": "3ddf5b94977c8624b46a0fb6c910d793608d0aa260666f7a8c20710422d2a35d",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/messaging.test.ts",
+      "primary_commit": "08",
+      "sha256": "4ca372ea5cdc388f05fd313308bf9d190b16320db741184f46f5266ffc1d08f4",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/messaging.ts",
+      "primary_commit": "08",
+      "sha256": "8a8fc6e007bed9894a6fe1797bfa9e96660f7ca7b09a9250e3553fdb90eb1950",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/onlineBooking.ts",
+      "primary_commit": "04",
+      "sha256": "a9484778eb94e46c65a46933ca9f72bbf1445f620b1332c607aed6314da5cdee",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/payouts.ts",
+      "primary_commit": "05",
+      "sha256": "73e8023df0419f70e40fc89d4fe0f25c9cbf5ff5853a14ab3607c0caaeb4734e",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/pos.test.ts",
+      "primary_commit": "05",
+      "sha256": "21b0b0e7e6d8ffd8c03b4f9601abceba64261c881a1278fa31b1d2f634f8b795",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/pos.ts",
+      "primary_commit": "05",
+      "sha256": "cfc87d46edf5d868961607601161410e359f3e932dc1ee66d9fa9f2b2121e9af",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/printing.ts",
+      "primary_commit": "04",
+      "sha256": "1141693a7893e9086c2b5027dfdd2202bb146323aa319cb07e33673341bb13bf",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicBooking.ts",
+      "primary_commit": "04",
+      "sha256": "f8a0987a9c1798a992e9811c48cdef614d5fee7087baf0d3851c21c4b57ecd8f",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicEstimate.ts",
+      "primary_commit": "04",
+      "sha256": "d623f0186ef69d49f45e914e31f99dd4bb95be45a6b82bbc62a9f1c9a9ae3176",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicLanding.ts",
+      "primary_commit": "04",
+      "sha256": "25c4f2c2ff5ff44b4bb6f56982367fd01f273bdaab78f94ceb1563adf2d0a95d",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicOrder.ts",
+      "primary_commit": "04",
+      "sha256": "57d443139d06a2feed244627cd2f432ffe5d06005e016eed19550355c91b6c0b",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicPay.ts",
+      "primary_commit": "04",
+      "sha256": "3674b7eba5247ffbf80d92fb210d4bfb28c4e3d9418c560e759a710b56431377",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicResource.ts",
+      "primary_commit": "04",
+      "sha256": "b79a88c13a86e9d47f90a1d9e8cded2262625ab8c5908804703e2758ee202d3c",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicReturning.ts",
+      "primary_commit": "04",
+      "sha256": "c7aafeaeeb3197e7bdeea0b10d590e3c57fcc690d1c9161792e57a22cbeba761",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/publicShop.ts",
+      "primary_commit": "04",
+      "sha256": "a0b4e0193acb5cfc53e46ab68e30a002b0efa6fdd25ed5a29097f622b00235a6",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/domain/refunds.ts",
+      "primary_commit": "05",
+      "sha256": "c76a3f6024f3c670e6ee96a3a59fe5f7767301c1cf7d31df407911b9313a348b",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/icons.ts",
+      "primary_commit": "03",
+      "sha256": "ab9d9a037d4bf67f1d8b81b247ed9da85060b3108a44de191b9ea16957a709c5",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/index.ts",
+      "primary_commit": "04",
+      "sha256": "907bd310b26fc63ac72c05111d34a453479df25a3bebe7ef49c73e58a6a4f87c",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/app-core/src/public.ts",
+      "primary_commit": "04",
+      "sha256": "457b8b816fc89d28c923b4e3b7bd9b6eb75aeb38afb999fafeb668416f1f02d9",
+      "state": "present",
+      "staged_sections": {
+        "04": "Public booking/returning/order exports"
+      }
+    },
+    {
+      "path": "frontend/packages/app-core/src/strings.ts",
+      "primary_commit": "04",
+      "sha256": "5dd1f65316ccec90231b9b72076e0458f5bf14c63a5fbaceb9bfdcb0d4dfd602",
+      "state": "present",
+      "staged_sections": {
+        "03": "New component copy",
+        "04": "Connect/profile/brand/shop copy",
+        "05": "Payments/refunds/PAD/terminal copy",
+        "08": "Mobile navigation/Today copy"
+      }
+    },
+    {
+      "path": "frontend/packages/app-core/src/ui.ts",
+      "primary_commit": "03",
+      "sha256": "76d106eb3d1715c3d8fd31675467fae146e40796be2e218d39ee4917f9248aa1",
+      "state": "present",
+      "staged_sections": {
+        "03": "New booking controls, avatar and printed-doc props",
+        "05": "PaymentAccount and CardForm props"
+      }
+    },
+    {
+      "path": "frontend/packages/config/eslint.mjs",
+      "primary_commit": "09",
+      "sha256": "d49ea981399fcc69bfbe071f8b537627de44b91e4b53dcc6d29a74c3eeb04b5d",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/config/scripts/check-structure.mjs",
+      "primary_commit": "03",
+      "sha256": "de2dea3b9adf3bf5911bbd981c8596ef2bb2951729f49a47e510ac984131c960",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/sync/src/schema.ts",
+      "primary_commit": "04",
+      "sha256": "4a8dac51ea2595cde1c5fb09c3ebcb3b3bb27acf003bb9866ee2ffdc2346d014",
+      "state": "present",
+      "staged_sections": {
+        "04": "Regenerate for Connect models",
+        "05": "Regenerate for payment models"
+      }
+    },
+    {
+      "path": "frontend/packages/ui/package.json",
+      "primary_commit": "05",
+      "sha256": "35f013b8e2296b0c0b987a6f34e9c7eb65a5bf7f832c631b26ba6661f7b64f55",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/ActionTile.tsx",
+      "primary_commit": "03",
+      "sha256": "0481337ddff4884ae94d42ce91330bde89402a3a36b4e0bb36e0d40eca6e0a8f",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/Avatar.tsx",
+      "primary_commit": "03",
+      "sha256": "934f071d73fdf0346048e3609c79c9de5e380e1a804e1a74b1482f16d4f0db15",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/DayRail.tsx",
+      "primary_commit": "03",
+      "sha256": "07dc0ee878716225f5177707a2b3e950735627d6ea8ec036589ac51e1de6990e",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/Modal.tsx",
+      "primary_commit": "03",
+      "sha256": "c2621a18c5d4aef13eb012185fa9725d295b8b4661d20ec3571935b926b1d558",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/OptionCard.tsx",
+      "primary_commit": "03",
+      "sha256": "0a281946ade044701119fddb009466e97d9c4809109b93c8ef4aa5a04dfae7db",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/PaymentAccount.tsx",
+      "primary_commit": "05",
+      "sha256": "0941e619a4105052f47d7702c4fb771da9b2b5ecfa6b3363a693353cf30cd64d",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/PaymentMethodForm.tsx",
+      "primary_commit": "05",
+      "sha256": "aa9e39c5ffb51c92ebb3eb2464989c2ed21daec3de17a20717f987c03238fbee",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/PrintedDocument.tsx",
+      "primary_commit": "03",
+      "sha256": "9c070616ee93ff7947c581c28e3382e915f796e3eb0a738856a4422fb2754997",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/SlotChips.tsx",
+      "primary_commit": "03",
+      "sha256": "d5e63a50be8da02065946f323ab069a0e334c387c50f9c11715c185656374092",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/index.ts",
+      "primary_commit": "03",
+      "sha256": "240f738ec74a4d0e15e5b6c73ba4c08fdf325e90a0d4718c47dcdc1224a07a4f",
+      "state": "present",
+      "staged_sections": {
+        "03": "Booking controls exports",
+        "05": "PaymentAccount export"
+      }
+    },
+    {
+      "path": "frontend/packages/ui/src/mobile/stripe.ts",
+      "primary_commit": "05",
+      "sha256": "564fd4ac8147af1c1753d9efcee22472933431357555ec4908cf4a96f302d236",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/ActionTile.tsx",
+      "primary_commit": "03",
+      "sha256": "1a94edb8e257a0424b3208a80ec9e999bf6df5c42b7f7b9da33ea87d5ef1b080",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/Avatar.tsx",
+      "primary_commit": "03",
+      "sha256": "b8c701256419096c2159e2aaa8edf585a4ea2ea832171bd4ba72a2b528a6d3e9",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/CardForm.tsx",
+      "primary_commit": "05",
+      "sha256": "c397421e39d5ed002ebc033994858e0c4e78daa5ea5ee5124f5c620e424dcf33",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/DayRail.tsx",
+      "primary_commit": "03",
+      "sha256": "0183369bc73cea60d4dbdc86525831e00c722459bc10c56afd2f25bb98492518",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/OptionCard.tsx",
+      "primary_commit": "03",
+      "sha256": "9609f67198a0a4b717dd35f03b856a13a92d14fdeb4a30da896a18469cbec582",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/PaymentAccount.tsx",
+      "primary_commit": "05",
+      "sha256": "5d977f8e5530db68c4d685bb98e5b3964a973cf1b562b5e52c72fdd73a04f2ff",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/PaymentMethodForm.tsx",
+      "primary_commit": "05",
+      "sha256": "0d69985e27757333a259b1c900a828a4ebc161d0ae59ccddb96af2ca20635df3",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/PrintedDocument.tsx",
+      "primary_commit": "03",
+      "sha256": "ab3aab7ca2b4a83cd25a73a86b24055c97c79b059913e624ccdb1e6e799c6290",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/SlotChips.tsx",
+      "primary_commit": "03",
+      "sha256": "1ce84c544b93cd9084f77e5dfb7072ca338036be0827cdb9f49b24d48e07a5d0",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/Tabs.tsx",
+      "primary_commit": "03",
+      "sha256": "08c27e1bb8c04622065d07b58208563b346d8fa74b876fe5d201fe772a6302bb",
+      "state": "present"
+    },
+    {
+      "path": "frontend/packages/ui/src/web/index.ts",
+      "primary_commit": "03",
+      "sha256": "ce43d628338bd30fccffd556e0fe0770425a11c06b95e99a91309d921da4144f",
+      "state": "present",
+      "staged_sections": {
+        "03": "Booking controls exports",
+        "05": "PaymentAccount export"
+      }
+    },
+    {
+      "path": "frontend/packages/ui/src/web/stripe.ts",
+      "primary_commit": "05",
+      "sha256": "d0419dcdf2d78ad6f45cd8d7c705e087f0fcc7eb1d0a165b83970cc29f33a287",
+      "state": "present"
+    },
+    {
+      "path": "frontend/pnpm-lock.yaml",
+      "primary_commit": "05",
+      "sha256": "3893ac896c2cfe765c233d2d42f3600dba046fce632534a41b6617a9bae5fb3b",
+      "state": "present"
+    },
+    {
+      "path": "infra/powersync/sync-rules.yaml",
+      "primary_commit": "04",
+      "sha256": "852ac2b90b4b13abace00eeeca58334933c1bf3c4842c6b2af83537d8e071dc0",
+      "state": "present"
+    }
+  ],
+  "staging_rules": [
+    "Primary file lists are ownership inventories, not blanket git-add instructions. staged_sections and fixture_note override whole-file staging.",
+    "Keep all six migrations linear: cbconnect01 -> cbconnect02 -> cbconnect03 -> cbconnect04 -> cbpayments01 -> cbpayments02.",
+    "Regenerate API/sync artifacts against each staged feature state in a temporary checkout, not the final dirty tree; include results with that feature. Never postpone required types to a final generated-files commit.",
+    "Apply provider protocol and matching fake changes together. Stage exact dependency/lockfile changes with the payment SDK consumer.",
+    "Check every intermediate commit from a clean checkout with its own migrated/seeded test environment. If a boundary cannot pass without later hunks, move prerequisites earlier or merge commits; do not knowingly create broken intermediate commits.",
+    "No stash/reset of shared working tree. Recheck hashes before staging because another session is editing. Keep backups, test reports, local keys and database files ignored.",
+    "After the stack is assembled run the full gate and browser/native checks, fetch origin, and review both the existing 76 commits and new commits before a normal push. No history rewrite or force push is proposed."
+  ],
+  "checks": {
+    "git_diff_check": "passed",
+    "backend_format": "failed: scripts/demo_validate.py needs formatting",
+    "backend_lint_typing": "passed: Ruff, strict mypy (255 source files), structure check",
+    "frontend_lint": "passed: ESLint, structure check, Knip",
+    "frontend_types": "passed, 10 cached Turbo tasks",
+    "frontend_format": "passed",
+    "full_tests_build_codegen": "not run for this review; prior targeted tests do not certify this 298-file snapshot"
+  },
+  "pre_push_items": [
+    "Format backend/scripts/demo_validate.py and rerun backend format check.",
+    "Reconcile native e2e README known regressions (estimate shortcut, staff-pay labels, iOS client editor) against fresh runs. These are documented findings, not reproduced in this review.",
+    "The demo browser sweep is opt-in (DEMO_E2E=1); include an explicit run in release validation.",
+    "Update backend-hardening progress current-work language: its temporary database has been retired, and only baseline/policy groundwork is present; RLS/pagination plan completion must not be implied.",
+    "Run full make check, format checks, builds, site checks and intended E2E checks after staged commit boundaries are assembled. codegen-check compares generated files against the index; unstaged intentional generated changes are not proof of stale generation.",
+    "Existing legal and pricing placeholders remain launch limitations; payment disclosure additions do not complete that content."
+  ],
+  "plan_file_commit": "11; plan itself is excluded from snapshot hashes to avoid a self-referential checksum",
+  "shared_file_cautions": [
+    "Connect commit 04 is the largest cohesive slice (90 primary files). Its booking, returning-client and shop pages share public schemas, branded shells and migration dependencies. Split further only after validating intermediate staged states; the current whole-file diffs are not independent.",
+    "Include all imports/exports needed by partial-stage edits. For ui.ts, strings.ts, index barrels, generated.ts and schema.ts, never stage the entire final file early.",
+    "CardForm returnUrl and payment-method form behavior belong in 05 with PublicPaymentSetup. If a Connect page staged in 04 consumes a new prop, move the minimal prop implementation to 03 or defer that consuming hunk to 05.",
+    "For backend tests, seed fixture updates coexist with security and payment assertions. Assemble test changes against the seed version present at that commit instead of blindly staging entire changed test files."
+  ],
+  "files_changed_since_inventory": []
+}

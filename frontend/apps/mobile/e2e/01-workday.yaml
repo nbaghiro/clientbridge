@@ -1,0 +1,38 @@
+appId: ca.clientbridge.app
+name: Owner workday surfaces
+---
+- runFlow: helpers/owner.yaml
+- assertVisible: "Booked today.*"
+- takeScreenshot: today
+- tapOn: "Search"
+- assertVisible: "Search.*"
+- takeScreenshot: search
+- tapOn: "Cancel"
+- tapOn: "Notifications.*"
+- assertVisible: "Notifications"
+- takeScreenshot: notifications
+- tapOn: "Close"
+- tapOn: "Schedule"
+- assertVisible: "Classes"
+- assertVisible: "Repeat visits"
+- takeScreenshot: schedule
+- tapOn: "Classes"
+- assertVisible: "Who's coming, who's here, and who's waiting for a seat."
+- takeScreenshot: classes
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Repeat visits"
+- assertVisible: "Needs a decision.*"
+- takeScreenshot: repeat-visits
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "New"
+- assertVisible: "New booking"
+- assertVisible: "Client"
+- takeScreenshot: booking-composer
+- runFlow: helpers/close-sheet.yaml
+- tapOn: "Clients"
+- assertVisible: "Search name, phone, email or pet"
+- takeScreenshot: clients
+- tapOn: "Add"
+- assertVisible: "Add client"
+- takeScreenshot: client-composer
+- tapOn: "Cancel"

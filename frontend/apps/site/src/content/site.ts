@@ -56,7 +56,7 @@ export const footer = {
         },
     ] satisfies { title: string; links: NavLink[] }[],
     copyright: `© ${String(new Date().getFullYear())} Clientbridge`,
-    legal: "Payments are processed by Stripe. Interac is a registered trade-mark of Interac Corp.",
+    legal: "Interac is a registered trade-mark of Interac Corp.",
 };
 
 export const notFound = {

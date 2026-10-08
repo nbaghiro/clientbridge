@@ -1,6 +1,6 @@
 // Fails the gate on frontend structure drift: multi-line comments, file names and concept names.
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -23,10 +23,14 @@ const PAGE_CONCEPT = {
 // Screens that compose several concepts and so have no domain file or strings group of their own.
 const COMPOSITE_SCREENS = new Set(["acceptInvite", "login", "setup"]);
 
-const files = execFileSync("git", ["ls-files", "apps", "packages"], { cwd: root, encoding: "utf8" })
+const files = execFileSync(
+    "git",
+    ["ls-files", "--cached", "--others", "--exclude-standard", "apps", "packages"],
+    { cwd: root, encoding: "utf8" },
+)
     .split("\n")
     .filter((f) => /\.(ts|tsx|mjs|js|cjs)$/.test(f))
-    .filter((f) => !GENERATED.has(f));
+    .filter((f) => !GENERATED.has(f) && existsSync(join(root, f)));
 // The embed snippet is pasted into customers' sites, so it keeps a short usage header.
 const HEADER_LINES = new Map([["apps/connect/public/embed.js", 2]]);
 

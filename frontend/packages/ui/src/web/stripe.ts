@@ -29,3 +29,36 @@ export function stripeFor(account: string): Promise<Stripe | null> | null {
     }
     return promise;
 }
+
+export function stripePublishableKey(): string {
+    return publishableKey;
+}
+
+let connectScript: Promise<void> | null = null;
+
+export function prepareConnect(): Promise<void> {
+    if (connectScript !== null) return connectScript;
+    connectScript = new Promise<void>((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://connect-js.stripe.com/v1.0/connect.js";
+        script.async = true;
+        const timer = window.setTimeout(fail, 20_000);
+        function fail(): void {
+            window.clearTimeout(timer);
+            script.remove();
+            connectScript = null;
+            reject(new Error("connect_script_unavailable"));
+        }
+        script.addEventListener(
+            "load",
+            () => {
+                window.clearTimeout(timer);
+                resolve();
+            },
+            { once: true },
+        );
+        script.addEventListener("error", fail, { once: true });
+        document.head.appendChild(script);
+    });
+    return connectScript;
+}

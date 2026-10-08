@@ -11,7 +11,8 @@ import {
     Button,
     CardForm,
     Choice,
-    DateStrip,
+    DayRail,
+    OptionCard,
     Empty,
     FactList,
     Icon,
@@ -19,7 +20,7 @@ import {
     ItemImage,
     Skeleton,
     TextField,
-    TimeSlotPicker,
+    SlotChips,
 } from "@clientbridge/ui";
 
 const s = strings.publicBooking;
@@ -36,35 +37,40 @@ export function addToCalendar(entry: CalendarEntry | null): void {
 
 export function ServicePicker({ flow }: { flow: PublicBookingFlow }) {
     return (
-        <div className="space-y-6">
+        <div className="space-y-5">
             {flow.categories.map((c) => (
                 <section key={c.category}>
                     {c.category !== "" ? (
-                        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                        <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
                             {c.category}
                         </h3>
                     ) : null}
-                    <Choice
-                        layout="tiles"
-                        label={c.category || s.chooseService}
-                        columns={2}
-                        value={flow.service?.id ?? null}
-                        onChange={flow.setService}
-                        options={c.services.map((x) => ({
-                            key: x.id,
-                            label: x.name,
-                            hint: [
-                                x.duration_min !== null ? durationLabel(x.duration_min) : null,
-                                money(x.price_cents, x.currency),
-                                x.deposit_required
-                                    ? s.deposit(money(x.deposit_amount_cents, x.currency))
-                                    : null,
-                            ]
-                                .filter(Boolean)
-                                .join(" · "),
-                            detail: x.description ?? undefined,
-                        }))}
-                    />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {c.services.map((x) => (
+                            <OptionCard
+                                key={x.id}
+                                title={x.name}
+                                subtitle={[
+                                    x.duration_min !== null ? durationLabel(x.duration_min) : null,
+                                    x.deposit_required
+                                        ? s.deposit(money(x.deposit_amount_cents, x.currency))
+                                        : null,
+                                ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                leading={<ItemImage src={x.image_url} name={x.name} size={56} />}
+                                trailing={
+                                    <span className="font-mono text-sm font-semibold text-ink">
+                                        {money(x.price_cents, x.currency)}
+                                    </span>
+                                }
+                                selected={flow.service?.id === x.id}
+                                onPress={() => {
+                                    flow.setService(x.id);
+                                }}
+                            />
+                        ))}
+                    </div>
                 </section>
             ))}
         </div>
@@ -88,7 +94,7 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                 <p className="text-sm font-medium text-ink-soft first-letter:uppercase">
                     {flow.dateLabel}
                 </p>
-                <DateStrip
+                <DayRail
                     label={s.date}
                     days={flow.strip}
                     value={flow.date}
@@ -150,7 +156,7 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
                             }
                         />
                     ) : (
-                        <TimeSlotPicker
+                        <SlotChips
                             label={s.openTimes}
                             groups={flow.slotGroups}
                             value={flow.startsAt || null}
@@ -164,7 +170,7 @@ export function WhenPicker({ flow }: { flow: PublicBookingFlow }) {
     );
 }
 
-export function visitFacts(flow: PublicBookingFlow): Fact[] {
+function visitFacts(flow: PublicBookingFlow): Fact[] {
     const facts: Fact[] = [];
     if (flow.service !== null)
         facts.push({

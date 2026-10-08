@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import RedirectResponse
 
 from clientbridge.core.deps import DbSession, EmailDep, GatewayDep, PushDep, SmsDep, StorageDep
@@ -33,23 +33,29 @@ from clientbridge.schemas.payments import (
     PublicCardIntent,
     PublicInvoice,
     PublicPayIn,
+    PublicPaymentSetup,
 )
 from clientbridge.schemas.public import (
     ManageCancelResult,
     ManagedBooking,
+    ManageMessage,
+    ManageMessageResult,
     ManageReschedule,
     PublicBookingCreate,
     PublicBookingPage,
     PublicBookingResult,
     PublicDays,
+    PublicPickupDays,
     PublicShop,
     PublicShopOrderCreate,
     PublicShopOrderResult,
     PublicSlots,
 )
+from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicProfile
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services.files import public_media_location
 from clientbridge.services.notifications import Notifier
+from clientbridge.services.payments import PublicPaymentSetupService
 from clientbridge.services.public import (
     PublicBookingService,
     PublicContractService,
@@ -62,6 +68,7 @@ from clientbridge.services.public import (
     PublicReviewService,
     PublicShopService,
 )
+from clientbridge.services.public_profiles import PublicProfilesService
 
 pay_router = APIRouter(prefix="/pay", tags=["public-pay"])
 
@@ -247,6 +254,24 @@ async def public_booking_page(
     return await PublicBookingService(db, gateway).page(slug)
 
 
+@booking_router.get("/{slug}/profile", response_model=PublicProfile)
+async def public_profile(
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> PublicProfile:
+    return await PublicProfilesService(db, gateway).page(slug)
+
+
+@booking_router.get("/{slug}/next-openings", response_model=PublicNextOpenings)
+async def public_next_openings(
+    slug: str,
+    db: DbSession,
+    gateway: GatewayDep,
+    _: BookingRateLimited,
+    item_ids: Annotated[list[str], Query(min_length=1, max_length=12)],
+) -> PublicNextOpenings:
+    return await PublicBookingService(db, gateway).next_openings(slug, item_ids)
+
+
 @booking_router.get("/{slug}/slots", response_model=PublicSlots)
 async def public_booking_slots(
     slug: str,
@@ -386,3 +411,44 @@ media_router = APIRouter(prefix="/media", tags=["media"])
 async def public_media(file_id: str, db: DbSession, storage: StorageDep) -> RedirectResponse:
     location = await public_media_location(db, storage, file_id)
     return RedirectResponse(location, status_code=302, headers={"Cache-Control": "max-age=300"})
+
+
+@booking_router.get("/{slug}/shop/pickup-days", response_model=PublicPickupDays)
+async def public_pickup_days(
+    slug: str, db: DbSession, gateway: GatewayDep, _: BookingRateLimited
+) -> PublicPickupDays:
+    return await PublicShopService(db, gateway).pickup_days(slug)
+
+
+@manage_router.post("/{token}/message", response_model=ManageMessageResult)
+async def public_manage_message(
+    token: str,
+    data: ManageMessage,
+    db: DbSession,
+    gateway: GatewayDep,
+    _: BookingRateLimited,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key")],
+) -> ManageMessageResult:
+    return await PublicManageService(db, gateway).message(token, data, idempotency_key)
+
+
+payment_setup_router = APIRouter(prefix="/payment-method", tags=["public-payments"])
+SetupToken = Annotated[str, Header(alias="X-Payment-Setup-Token", pattern=r"^[A-Za-z0-9_-]{43}$")]
+
+
+@payment_setup_router.get("", response_model=PublicPaymentSetup)
+async def public_payment_setup(
+    token: SetupToken, db: DbSession, gateway: GatewayDep, response: Response, _: BookingRateLimited
+) -> PublicPaymentSetup:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return await PublicPaymentSetupService(db, gateway).view(token)
+
+
+@payment_setup_router.post("/start", response_model=PublicPaymentSetup)
+async def public_payment_setup_start(
+    token: SetupToken, db: DbSession, gateway: GatewayDep, response: Response, _: BookingRateLimited
+) -> PublicPaymentSetup:
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return await PublicPaymentSetupService(db, gateway).view(token, start=True)

@@ -366,6 +366,18 @@ async def load_resource(db: AsyncSession, business_id: str, resource_id: str) ->
     return row
 
 
+async def assert_subject(
+    db: AsyncSession, business_id: str, subject_id: str, client_id: str
+) -> None:
+    found = await db.scalar(
+        scoped(Subject, business_id, soft_delete=True)
+        .with_only_columns(Subject.id)
+        .where(Subject.id == subject_id, Subject.client_id == client_id)
+    )
+    if found is None:
+        raise NotFound("pet not found")
+
+
 async def release_slot(db: AsyncSession, slot: Slot) -> None:
     """Cancel the slot once its last live or waiting booking is gone."""
     await db.flush()
@@ -462,6 +474,8 @@ class BookingService:
             raise AppError("that service has no duration and can't be booked", status_code=422)
         await self._client(data.client_id)
         await self._staff(data.staff_id)
+        if data.subject_id is not None:
+            await assert_subject(self.db, self.biz, data.subject_id, data.client_id)
         if data.resource_id is not None:
             await load_resource(self.db, self.biz, data.resource_id)
 
@@ -672,7 +686,7 @@ class BookingService:
             raise Conflict("no deposit due")
         business = await self._business()
         if not business.stripe_charges_enabled or business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before taking payments")
+            raise Conflict("set up card payments in Setup before taking payments")
         account_id = business.stripe_account_id
         client = await self._client(booking.client_id)
         amount = booking.deposit_amount_cents
@@ -982,6 +996,11 @@ class RecurrenceService:
             raise AppError("that service has no duration and can't be booked", status_code=422)
         await load_client(self.db, self.biz, data.client_id)
         await load_staff(self.db, self.biz, data.staff_id)
+
+        if data.subject_id is not None:
+            await assert_subject(self.db, self.biz, data.subject_id, data.client_id)
+        if data.resource_id is not None:
+            await load_resource(self.db, self.biz, data.resource_id)
 
         base = data.starts_at
         # Re-localize the wall-clock time per date, so occurrences keep their time across DST.
@@ -1452,15 +1471,7 @@ class ClassService:
         return slot
 
     async def _subject(self, subject_id: str, client_id: str) -> None:
-        found = (
-            await self.db.execute(
-                scoped(Subject, self.biz).where(
-                    Subject.id == subject_id, Subject.client_id == client_id
-                )
-            )
-        ).scalar_one_or_none()
-        if found is None:
-            raise NotFound("pet not found")
+        await assert_subject(self.db, self.biz, subject_id, client_id)
 
     async def _entry(self, booking: Booking) -> RosterEntry:
         position = None

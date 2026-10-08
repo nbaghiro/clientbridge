@@ -50,7 +50,6 @@ import {
     PetSheet,
     TagSheet,
 } from "../components/ClientSheets";
-import { InboxButton } from "../components/InboxButton";
 import { api } from "../lib/api";
 import { useRole, useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -120,7 +119,6 @@ export function ClientsScreen() {
                                 {selecting ? strings.common.done : t.select}
                             </Button>
                         ) : null}
-                        <InboxButton />
                     </View>
                 }
                 action={

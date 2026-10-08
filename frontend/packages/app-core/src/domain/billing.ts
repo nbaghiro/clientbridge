@@ -16,6 +16,7 @@ import type {
 } from "../ui";
 import { invoiceStatusSql, subjectNetSql } from "./ledger";
 import { taxOptions } from "./catalog";
+import { mediaUrl } from "./files";
 import { type PaymentRow, payLinkUrl, useInvoicePayments } from "./payments";
 import { type Letterhead, longDate, printedDoc, ratePct, shortDate } from "./printing";
 import { useReplicaLoad } from "./sync";
@@ -180,10 +181,16 @@ function brandField(brand: string | null, key: string): string | null {
     }
 }
 
-export function useLetterhead(): Letterhead {
+export function useLetterhead(apiBaseUrl: string): Letterhead {
     const row = useQuery<LetterheadRow>(LETTERHEAD_SQL).data[0];
     return {
         name: row?.name ?? "",
+        avatarUrl:
+            mediaUrl(
+                apiBaseUrl,
+                brandField(row?.brand ?? null, "avatar_file_id") ??
+                    brandField(row?.brand ?? null, "logo_file_id"),
+            ) ?? brandField(row?.brand ?? null, "logo_url"),
         tagline: brandField(row?.brand ?? null, "tagline"),
         brandColor: brandField(row?.brand ?? null, "primary"),
         email: row?.billing_email ?? null,

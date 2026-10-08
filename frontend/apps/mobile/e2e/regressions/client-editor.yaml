@@ -1,0 +1,13 @@
+appId: ca.clientbridge.app
+name: Client record opens its editor
+---
+- runFlow: ../helpers/owner.yaml
+- tapOn: "Clients"
+- tapOn: "Search name, phone, email or pet"
+- inputText: "Olivia"
+- hideKeyboard
+- tapOn: ".*Olivia Martin.*"
+- assertVisible: "Book"
+- tapOn: "Edit"
+- assertVisible: "Edit client"
+- takeScreenshot: client-editor

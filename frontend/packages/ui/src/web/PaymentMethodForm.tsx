@@ -1,6 +1,7 @@
 import { type PaymentMethodFormProps, strings } from "@clientbridge/app-core/public";
 
 import { Button } from "./Button";
+import { CopyField } from "./CopyField";
 import { CardForm } from "./CardForm";
 import { Notice } from "./Notice";
 import type { WebProps } from "./props";
@@ -10,9 +11,8 @@ export function PaymentMethodForm({
     allowBank,
     className,
 }: WebProps<PaymentMethodFormProps>) {
-    if (flow.intent !== null && flow.kind !== null) {
-        const noun =
-            flow.kind === "bank" ? strings.clients.bankAccountNoun : strings.clients.cardNoun;
+    if (flow.intent !== null && flow.kind === "card") {
+        const noun = strings.clients.cardNoun;
         return (
             <CardForm
                 className={className}
@@ -56,6 +56,15 @@ export function PaymentMethodForm({
                     </Button>
                 ) : null}
             </div>
+            {flow.bankLink !== null ? (
+                <div className="mt-4 space-y-3">
+                    <Notice tone="info">{strings.checkout.bankLinkHelp}</Notice>
+                    <CopyField label={strings.checkout.bankLinkLabel} value={flow.bankLink.url} />
+                    <Button variant="quiet" busy={flow.busy} onPress={flow.revokeBankLink}>
+                        {strings.checkout.bankLinkRevoke}
+                    </Button>
+                </div>
+            ) : null}
             {flow.error !== null ? <Notice tone="danger">{flow.error}</Notice> : null}
         </div>
     );

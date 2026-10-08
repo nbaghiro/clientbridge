@@ -67,3 +67,17 @@ async def test_client_files_are_never_served_publicly(
     file_id = (await _image(as_owner, "subject", "sj_bella", "photo")).json()["file"]["id"]
     assert (await unauth.get(f"/media/{file_id}", follow_redirects=False)).status_code == 404
     assert (await unauth.get("/media/fl_nope", follow_redirects=False)).status_code == 404
+
+
+async def test_avatar_uses_an_owned_logo_and_keeps_wordmark(as_owner: httpx.AsyncClient) -> None:
+    avatar = (await _image(as_owner, "business", BIZ, "logo")).json()["file"]["id"]
+    response = await as_owner.patch("/v1/business", json={"brand": {"avatar_file_id": avatar}})
+    assert response.status_code == 200, response.text
+    brand = (await as_owner.get("/book/birchbark/services")).json()["brand"]
+    assert brand["avatar_url"].endswith(f"/media/{avatar}")
+    assert brand["logo_url"].endswith("/media/fl_logo")
+    private_file = (await _image(as_owner, "subject", "sj_bella", "photo")).json()["file"]["id"]
+    rejected = await as_owner.patch(
+        "/v1/business", json={"brand": {"avatar_file_id": private_file}}
+    )
+    assert rejected.status_code == 404

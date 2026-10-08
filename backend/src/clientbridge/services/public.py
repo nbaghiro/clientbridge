@@ -1,12 +1,14 @@
+import secrets
 from datetime import UTC, date, datetime, time, timedelta
 
 from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.command import Command, PublicPrincipal, run_command
 from clientbridge.core.config import get_settings
 from clientbridge.core.db import Base
-from clientbridge.core.errors import Conflict, NotFound, Unprocessable
+from clientbridge.core.errors import Conflict, NotFound, Unauthorized, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.integrations.s3 import FileStorage
@@ -16,6 +18,7 @@ from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
 from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
+from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
 from clientbridge.models.platform import IdempotencyKey
 from clientbridge.models.reviews import REVIEW_OPEN, Review
@@ -46,6 +49,8 @@ from clientbridge.schemas.public import (
     ManageCancelResult,
     ManagedAddon,
     ManagedBooking,
+    ManageMessage,
+    ManageMessageResult,
     ManageReschedule,
     PublicAddon,
     PublicBookingClient,
@@ -55,6 +60,7 @@ from clientbridge.schemas.public import (
     PublicBrand,
     PublicDay,
     PublicDays,
+    PublicPickupDays,
     PublicPolicy,
     PublicService,
     PublicShop,
@@ -66,6 +72,7 @@ from clientbridge.schemas.public import (
     PublicSlots,
     PublicStaff,
 )
+from clientbridge.schemas.public_profiles import PublicNextOpenings, PublicServiceOpening
 from clientbridge.schemas.reviews import PublicReviewContext, PublicReviewSubmit
 from clientbridge.services import ledger
 from clientbridge.services.billing import estimate_status
@@ -95,9 +102,11 @@ from clientbridge.services.lines import (
     price_lines,
     replace_lines,
 )
-from clientbridge.services.orders import next_order_number
+from clientbridge.services.messaging import open_thread
+from clientbridge.services.orders import next_order_number, pickup_setting, pickup_windows
 from clientbridge.services.payments import (
     assert_payable,
+    booking_refund_status,
     interac_out,
     invoice_credits,
     open_booking_deposit,
@@ -108,6 +117,7 @@ from clientbridge.services.payments import (
     resolve_tip,
     waiting_interac,
 )
+from clientbridge.services.returning import ReturningService
 from clientbridge.services.tax import LineTax, rates_for_business, tax_breakdown, tax_for_lines
 
 
@@ -195,6 +205,26 @@ class PublicBookingService:
             review_count=reviews,
         )
 
+    async def next_openings(self, slug: str, item_ids: list[str]) -> PublicNextOpenings:
+        business = await self._business(slug)
+        staff = await self._online_staff(business.id)
+        tz = await business_tz(self.db, business.id)
+        today = datetime.now(tz).date()
+        services: list[PublicServiceOpening] = []
+        for item_id in dict.fromkeys(item_ids):
+            item = await self._bookable_item(business.id, item_id)
+            found: list[PublicSlot] = []
+            for offset in range(7):
+                found.extend(
+                    await self._open(business, item, staff, today + timedelta(days=offset))
+                )
+                if len(found) >= 3:
+                    break
+            services.append(PublicServiceOpening(item_id=item_id, slots=found[:3]))
+        return PublicNextOpenings(
+            services=services, through=(today + timedelta(days=6)).isoformat()
+        )
+
     async def slots(self, slug: str, item_id: str, staff_id: str, on_date: date) -> PublicSlots:
         business = await self._business(slug)
         item = await self._bookable_item(business.id, item_id)
@@ -230,9 +260,20 @@ class PublicBookingService:
             item.id,
             [PublicShopLine(item_id=a.item_id, quantity=a.quantity) for a in data.addons],
         )
-        client = await self._find_or_create_client(business.id, data.client)
+        returning = ReturningService(self.db)
+        if data.subject_id is not None and data.returning_token is None:
+            raise Unauthorized("verify your email before choosing an existing pet")
+        client = (
+            await returning.resolve(business.id, data.returning_token)
+            if data.returning_token is not None
+            else await self._find_or_create_client(business.id, data.client)
+        )
         first_visit = not await _has_booked(self.db, business.id, client.id)
-        subject_id = await _pet(self.db, business.id, client.id, data.pet_name)
+        subject_id = (
+            await returning.subject(client, data.subject_id)
+            if data.subject_id is not None
+            else await _pet(self.db, business.id, client.id, data.pet_name)
+        )
         booking, _ = await create_booking_core(
             self.db,
             business.id,
@@ -600,6 +641,44 @@ class PublicManageService:
         await self.db.commit()
         return out
 
+    async def message(self, token: str, data: ManageMessage, key: str) -> ManageMessageResult:
+        booking, _, business = await self._resolve(token)
+        client = (
+            await self.db.execute(
+                scoped(Client, business.id, soft_delete=True).where(Client.id == booking.client_id)
+            )
+        ).scalar_one_or_none()
+        if client is None:
+            raise NotFound("client not found")
+
+        async def run(cmd: Command) -> ManageMessageResult:
+            thread = await open_thread(
+                self.db, business.id, client.id, "sms" if client.phone else "email"
+            )
+            thread.status = "open"
+            message = Message(
+                id=new_id("message"),
+                business_id=business.id,
+                thread_id=thread.id,
+                direction="in",
+                channel=thread.channel,
+                body=data.body,
+                status="delivered",
+            )
+            self.db.add(message)
+            await self.db.flush()
+            cmd.record("booking.message", entity_type="booking", entity_id=booking.id)
+            return ManageMessageResult(id=message.id)
+
+        return await run_command(
+            self.db,
+            PublicPrincipal(business.id),
+            action=f"booking.message.{booking.id}",
+            run=run,
+            response_model=ManageMessageResult,
+            idempotency_key=key,
+        )
+
     async def cancel(self, token: str, idempotency_key: str | None) -> ManageCancelResult:
         booking, slot, business = await self._resolve(token)
         key = f"{booking.id}:cancel:{idempotency_key}" if idempotency_key else None
@@ -619,7 +698,9 @@ class PublicManageService:
         booking.canceled_at = datetime.now(UTC)
         await release_slot(self.db, slot)
         result = ManageCancelResult(
-            deposit="refunded" if refunded > 0 else "none", refund_cents=refunded
+            deposit=(await booking_refund_status(self.db, booking))
+            or ("refunded" if refunded > 0 else "none"),
+            refund_cents=refunded,
         )
         if key is not None:
             _remember(self.db, business.id, _MANAGE_SCOPE, key, result.model_dump(mode="json"))
@@ -638,6 +719,8 @@ class PublicManageService:
             if hours_away < policy.cancel_cutoff_hours:
                 return f"it's less than {policy.cancel_cutoff_hours} hours away; call the studio"
             return None
+        if slot.capacity > 1:
+            return "class sessions are shared with other clients; call the studio to move"
         if booking.reschedule_count >= policy.max_reschedules:
             return "this visit has been moved as many times as the policy allows"
         if hours_away < policy.reschedule_cutoff_hours:
@@ -682,6 +765,13 @@ class PublicManageService:
         move = self._blocked(booking, slot, business, "move")
         cancel = self._blocked(booking, slot, business, "cancel")
         return ManagedBooking(
+            refund_status=await booking_refund_status(self.db, booking),
+            address=business.brand.get("address")
+            if isinstance(business.brand.get("address"), str)
+            else None,
+            parking_note=business.brand.get("parking_note")
+            if isinstance(business.brand.get("parking_note"), str)
+            else None,
             booking_id=booking.id,
             business_name=business.name,
             brand=public_brand(business),
@@ -733,10 +823,13 @@ def public_brand(business: Business) -> PublicBrand:
     brand = business.brand or {}
     logo_file_id = brand.get("logo_file_id")
     logo_url = media_url(logo_file_id) if isinstance(logo_file_id, str) else brand.get("logo_url")
+    avatar_file_id = brand.get("avatar_file_id")
+    avatar_url = media_url(avatar_file_id) if isinstance(avatar_file_id, str) else logo_url
     primary = brand.get("primary")
     tagline = brand.get("tagline")
     return PublicBrand(
         logo_url=logo_url if isinstance(logo_url, str) and _is_http(logo_url) else None,
+        avatar_url=avatar_url if isinstance(avatar_url, str) and _is_http(avatar_url) else None,
         primary=(
             primary if isinstance(primary, str) and HEX_COLOR.match(primary) is not None else None
         ),
@@ -972,6 +1065,9 @@ class PublicPayService:
         lines = await fetch_lines(self.db, invoice.business_id, "invoice", invoice.id)
         doc_lines, taxes = await public_doc_lines(self.db, invoice.business_id, lines)
         return PublicInvoice(
+            tip_base_cents=sum(
+                line.amount_cents for line in await tip_lines(self.db, invoice.business_id, lines)
+            ),
             number=invoice.number,
             business_name=business.name,
             brand=public_brand(business),
@@ -1009,12 +1105,17 @@ class PublicPayService:
         tip_cents = data.tip_cents if data is not None else 0
         if tip_cents > amount:
             raise Unprocessable("a tip can't be more than the amount owed")
+        eligible = await tip_lines(
+            self.db, business.id, await fetch_lines(self.db, business.id, "invoice", invoice.id)
+        )
+        if tip_cents > 0 and not any(line.amount_cents > 0 for line in eligible):
+            raise Unprocessable("this invoice has no services to tip on")
         tip = await resolve_tip(
             self.db,
             business.id,
             tip_cents,
             None,
-            await fetch_lines(self.db, business.id, "invoice", invoice.id),
+            eligible,
             await owner_staff_id(self.db, business.id),
         )
         _, client_secret = await open_card_payment(
@@ -1042,6 +1143,23 @@ class PublicPayService:
         )
         await self.db.commit()
         return interac_out(payment, business)
+
+
+async def tip_lines(db: AsyncSession, business_id: str, lines: list[Line]) -> list[Line]:
+    kinds = dict(
+        (
+            await db.execute(
+                scoped(Item, business_id)
+                .with_only_columns(Item.id, Item.kind)
+                .where(Item.id.in_([line.item_id for line in lines if line.item_id]))
+            )
+        )
+        .tuples()
+        .all()
+    )
+    return [
+        line for line in lines if line.item_id is None or kinds.get(line.item_id) in BOOKABLE_KINDS
+    ]
 
 
 async def _tip_names(db: AsyncSession, business_id: str, lines: list[Line]) -> list[str]:
@@ -1479,6 +1597,8 @@ async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]
     images = await item_images(db, business_id, [i.id for i in items])
     return [
         PublicShopItem(
+            variant_parent_id=i.variant_parent_id,
+            variant_label=i.variant_label,
             id=i.id,
             name=i.name,
             description=i.description,
@@ -1490,6 +1610,7 @@ async def shop_items(db: AsyncSession, business_id: str) -> list[PublicShopItem]
             stock_left=_stock_left(i),
         )
         for i in items
+        if i.variant_parent_id is None or i.variant_parent_id in {parent.id for parent in items}
     ]
 
 
@@ -1514,6 +1635,34 @@ async def online_items(
         .scalars()
         .all()
     )
+    for item in rows:
+        if item.variant_parent_id is not None:
+            parent = (
+                await db.execute(
+                    scoped(Item, business_id).where(
+                        Item.id == item.variant_parent_id,
+                        Item.active.is_(True),
+                        Item.sell_online.is_(True),
+                    )
+                )
+            ).scalar_one_or_none()
+            if parent is None:
+                raise NotFound("product not found")
+        children = (
+            (
+                await db.execute(
+                    scoped(Item, business_id).where(
+                        Item.variant_parent_id == item.id,
+                        Item.active.is_(True),
+                        Item.sell_online.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if children:
+            raise Unprocessable("choose a product variant")
     found = {i.id: i for i in rows}
     if set(found) != set(wanted):
         raise NotFound("product not found")
@@ -1536,6 +1685,13 @@ class PublicShopService:
             stripe_account_id=_account(business),
         )
 
+    async def pickup_days(self, slug: str) -> PublicPickupDays:
+        business = await self._business(slug)
+        return PublicPickupDays(
+            windows=await pickup_windows(self.db, business),
+            hold_days=pickup_setting(business, "pickup_hold_days", 3),
+        )
+
     async def order(
         self, slug: str, data: PublicShopOrderCreate, idempotency_key: str
     ) -> PublicShopOrderResult:
@@ -1553,6 +1709,17 @@ class PublicShopService:
         ).scalar_one_or_none()
         if prior is not None:
             return PublicShopOrderResult.model_validate(prior.response)
+        if data.pickup_from is not None:
+            await self.db.execute(
+                text("SELECT pg_advisory_xact_lock(hashtext(:scope))"),
+                {"scope": f"pickup:{business.id}"},
+            )
+            available = await pickup_windows(self.db, business)
+            if not any(
+                window.starts_at == data.pickup_from and window.ends_at == data.pickup_to
+                for window in available
+            ):
+                raise Conflict("that pickup window is no longer available")
         wanted = await online_items(self.db, business.id, data.lines)
         for item, qty in wanted:
             if item.track_stock and (item.stock_on_hand or 0) < qty:
@@ -1576,6 +1743,12 @@ class PublicShopService:
             status="open",
             currency=wanted[0][0].currency,
             source="online",
+            receipt_token=secrets.token_urlsafe(32),
+            status_token=secrets.token_urlsafe(32),
+            pickup_from=data.pickup_from,
+            pickup_to=data.pickup_to,
+            note=data.note,
+            notify_sms=data.notify_sms,
         )
         self.db.add(order)
         await self.db.flush()
@@ -1610,7 +1783,10 @@ class PublicShopService:
             idempotency_key=idempotency_key,
         )
         result = PublicShopOrderResult(
+            subtotal_cents=order.subtotal_cents,
+            tax_total_cents=order.tax_total_cents,
             order_id=order.id,
+            order_token=order.status_token,
             total_cents=order.total_cents,
             currency=order.currency,
             client_secret=client_secret,

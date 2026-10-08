@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { strings } from "@clientbridge/app-core";
 import { Text, View } from "react-native";
 
 import { theme } from "./nativeTheme";
@@ -36,3 +37,23 @@ export const useConfirmSetupIntent = () => ({
     confirmSetupIntent: () => Promise.resolve(done),
     loading: false,
 });
+
+export function loadConnectAndInitialize() {
+    return { update: () => undefined };
+}
+
+export function ConnectComponentsProvider({ children }: { children: ReactNode }) {
+    return <>{children}</>;
+}
+
+export function ConnectAccountOnboarding() {
+    return <Text>{strings.paymentAccount.preview}</Text>;
+}
+
+export function ConnectPayments() {
+    return <ConnectAccountOnboarding />;
+}
+
+export function ConnectPayouts() {
+    return <ConnectAccountOnboarding />;
+}

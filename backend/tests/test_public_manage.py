@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import pytest
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +12,34 @@ from tests.helpers import deposit_payment, enable_payments, key, settle
 
 SLUG = "birchbark"
 TEN_LOCAL = "2026-12-01T17:00:00Z"
+
+
+async def test_one_class_attendee_cannot_move_the_shared_session(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    token = await _book(api, item="it_puppy")
+    second = await api.post(
+        f"/book/{SLUG}",
+        json={
+            "item_id": "it_puppy",
+            "staff_id": "st_owner",
+            "starts_at": TEN_LOCAL,
+            "client": {"name": "Other Attendee", "email": "attendee@example.com"},
+        },
+    )
+    assert second.status_code == 200, second.text
+    other_token = second.json()["manage_token"]
+    original = await _slot(db, token)
+    original_start = original.starts_at
+    assert (await _slot(db, other_token)).id == original.id
+    moved = await api.post(
+        f"/manage/{token}/reschedule", json={"starts_at": "2026-12-02T17:00:00Z"}
+    )
+    assert moved.status_code == 409, moved.text
+    view = (await api.get(f"/manage/{token}")).json()
+    assert view["can_move"] is False and view["can_cancel"] is True
+    assert "class" in view["blocked"]
+    assert (await _slot(db, other_token)).starts_at == original_start
 
 
 async def _book(api: httpx.AsyncClient, starts: str = TEN_LOCAL, item: str = "it_groom_sm") -> str:
@@ -232,3 +261,67 @@ async def test_a_deleted_bookings_token_is_not_found(
     await db.flush()
     assert (await api.get(f"/manage/{token}")).status_code == 404
     assert (await api.post(f"/manage/{token}/cancel")).status_code == 404
+
+
+async def test_manage_message_is_token_scoped_and_idempotent(
+    api: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    from clientbridge.models.messaging import Message, Thread
+
+    token = await _book(api)
+    headers = key()
+    response = await api.post(
+        f"/manage/{token}/message", json={"body": "Running five minutes late"}, headers=headers
+    )
+    assert response.status_code == 200, response.text
+    again = await api.post(
+        f"/manage/{token}/message", json={"body": "Running five minutes late"}, headers=headers
+    )
+    assert again.json() == response.json()
+    message = await db.get(Message, response.json()["id"])
+    assert message is not None and message.direction == "in" and message.status == "delivered"
+    thread = await db.get(Thread, message.thread_id)
+    booking = (await db.execute(select(Booking).where(Booking.manage_token == token))).scalar_one()
+    assert (
+        thread is not None
+        and thread.client_id == booking.client_id
+        and thread.business_id == booking.business_id
+    )
+    assert (
+        await api.post("/manage/unknown/message", json={"body": "Hi"}, headers=key())
+    ).status_code == 404
+    assert (
+        await api.post(f"/manage/{token}/message", json={"body": "   "}, headers=key())
+    ).status_code == 422
+
+
+@pytest.mark.parametrize("refund_status", ["pending", "failed"])
+async def test_cancel_does_not_claim_an_unsettled_deposit_refund(
+    api: httpx.AsyncClient, db: AsyncSession, gateway: FakePaymentGateway, refund_status: str
+) -> None:
+    await enable_payments(db)
+    response = await api.post(
+        f"/book/{SLUG}",
+        json={
+            "item_id": "it_groom_lg",
+            "staff_id": "st_owner",
+            "starts_at": TEN_LOCAL,
+            "client": {"name": "Refund Client", "email": "refund@example.com"},
+        },
+    )
+    booking = response.json()
+    await settle(api, db, await deposit_payment(db, booking["booking_id"]))
+    gateway.refund_status = refund_status
+    headers = key()
+    url = f"/manage/{booking['manage_token']}"
+    response = await api.post(url + "/cancel", headers=headers)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"deposit": refund_status, "refund_cents": 0}
+    assert (await api.post(url + "/cancel", headers=headers)).json() == response.json()
+    view = (await api.get(url)).json()
+    assert view["status"] == "canceled"
+    assert view["deposit_status"] == "collected"
+    assert view["refund_status"] == refund_status
+    assert (
+        await api.post(url + "/message", headers=key(), json={"body": "Please check my refund."})
+    ).status_code == 200

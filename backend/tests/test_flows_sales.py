@@ -46,8 +46,9 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
     api = as_owner
     await enable_payments(db)
     ok(await api.patch(f"/v1/items/{SHAMPOO}", json={"track_stock": True}))
+    opening_stock = await _stock(db, SHAMPOO)
     restocked = ok(await api.post(f"/v1/items/{SHAMPOO}/restock", json={"quantity": 5})).json()
-    assert restocked["stock_on_hand"] == 5
+    assert restocked["stock_on_hand"] == opening_stock + 5
     ok(await api.patch("/v1/staff/st_owner/pay", json={"payee": True, "retail_rate_bps": 1000}))
 
     sale = ok(
@@ -68,20 +69,20 @@ async def test_pos_sale_moves_stock_pays_commission_and_refunds(
     paid = await order(db, sale["id"])
     assert (paid.status, paid.balance_cents) == ("paid", 0)
     assert paid.amount_paid_cents == sale["total_cents"] and paid.paid_at is not None
-    assert await _stock(db, SHAMPOO) == 3
+    assert await _stock(db, SHAMPOO) == opening_stock + 3
     [commission] = await earnings(db, "order", sale["id"])
     assert await earning_status(db, commission) == "pending"
     (receipt,) = [m for m in email.sent if m.to == "walkin-flow@example.ca"]
     assert "it_shampoo x2  $48.00 CAD" in receipt.body
 
     await settle(api, db, charge["payment_id"])  # a redelivered settlement changes nothing
-    assert await _stock(db, SHAMPOO) == 3
+    assert await _stock(db, SHAMPOO) == opening_stock + 3
     assert await earnings(db, "order", sale["id"]) == [commission]
 
     ok(await api.post(f"/v1/payments/{charge['payment_id']}/refund", json={}))
     refunded = await order(db, sale["id"])
     assert (refunded.status, refunded.amount_paid_cents) == ("refunded", 0)
-    assert await _stock(db, SHAMPOO) == 5
+    assert await _stock(db, SHAMPOO) == opening_stock + 5
     assert await earning_status(db, commission) == "reversed"
 
 

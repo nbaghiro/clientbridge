@@ -14,7 +14,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Booking
 from clientbridge.services import ledger
 from clientbridge.services.tax import TaxResult
-from tests.conftest import BIZ, Factory
+from tests.conftest import BIZ, Factory, FakeEmailSender, FakePaymentGateway
 from tests.helpers import card_pay, client_id, enable_payments
 
 GOOD = {"Stripe-Signature": "good"}
@@ -379,13 +379,17 @@ async def test_stripe_side_refunds_record_each_object_once(
     assert list(amounts) == [1000, 2000]
 
 
-async def test_failed_stripe_side_refund_records_nothing(
+async def test_failed_stripe_side_refund_retains_failure_without_posting(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
     payment = await _entitlement_payment(db, 5000)
     body = _refund_event("evt_fail", str(payment.provider_ref), "re_fail", 2000, status="failed")
     assert (await api.post("/webhooks/stripe", content=body, headers=GOOD)).status_code == 200
-    assert await _refunds(db, payment.id) == 0
+    assert await _refunds(db, payment.id) == 1
+    refund = (
+        await db.execute(select(Payment).where(Payment.provider_ref == "re_fail"))
+    ).scalar_one()
+    assert refund.status == "failed" and refund.credit_note is None and refund.paid_at is None
 
 
 async def test_stripe_side_refund_skips_one_we_already_recorded(
@@ -431,3 +435,82 @@ async def test_used_package_cannot_be_refunded(
     res = await as_owner.post(f"/v1/payments/{payment.id}/refund", json={})
     assert res.status_code == 409
     assert res.json()["message"] == "can't refund a package with sessions already used"
+
+
+async def test_pending_refund_posts_only_when_succeeded(
+    as_owner: httpx.AsyncClient,
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    invoice_id, payment_id = await _paid_invoice(as_owner, db)
+    gateway.refund_status = "pending"
+    url = f"/v1/payments/{payment_id}/refund"
+    response = await as_owner.post(url, json={"amount_cents": 2800})
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "pending"
+    assert response.json()["credit_note"] is None
+    assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (11200, False)
+    assert (await as_owner.post(url, json={"amount_cents": 1000})).status_code == 409
+    refund = await db.get(Payment, response.json()["refund_id"])
+    payment = await db.get(Payment, payment_id)
+    assert refund is not None and payment is not None
+    for event_id, status in [
+        ("evt_complete", "succeeded"),
+        ("evt_stale", "pending"),
+        ("evt_duplicate", "succeeded"),
+    ]:
+        body = _refund_event(
+            event_id, str(payment.provider_ref), str(refund.provider_ref), 2800, status=status
+        )
+        result = await api.post("/webhooks/stripe", content=body, headers=GOOD)
+        assert result.status_code == 200, result.text
+    await db.refresh(refund)
+    assert refund.status == "succeeded" and refund.credit_note is not None
+    assert await _refunds(db, payment_id) == 1
+    assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (8400, True)
+    assert await _invoice_net(db, invoice_id, "revenue") == -7500
+
+
+async def test_failed_refund_can_be_retried_without_reversing_money(
+    as_owner: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+) -> None:
+    invoice_id, payment_id = await _paid_invoice(as_owner, db)
+    gateway.refund_status = "failed"
+    url = f"/v1/payments/{payment_id}/refund"
+    failed = await as_owner.post(url, json={"amount_cents": 2800})
+    assert failed.status_code == 200 and failed.json()["status"] == "failed"
+    assert failed.json()["credit_note"] is None
+    assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (11200, False)
+    gateway.refund_status = "succeeded"
+    retry = await as_owner.post(url, json={"amount_cents": 2800})
+    assert retry.status_code == 200 and retry.json()["status"] == "succeeded"
+    assert retry.json()["refund_id"] != failed.json()["refund_id"]
+    assert await ledger.collected(db, BIZ, "invoice", invoice_id) == (8400, True)
+
+
+async def test_pending_refund_retains_notification_opt_out(
+    as_owner: httpx.AsyncClient,
+    api: httpx.AsyncClient,
+    db: AsyncSession,
+    gateway: FakePaymentGateway,
+    email: FakeEmailSender,
+) -> None:
+    _, payment_id = await _paid_invoice(as_owner, db)
+    gateway.refund_status = "pending"
+    response = await as_owner.post(
+        f"/v1/payments/{payment_id}/refund", json={"amount_cents": 2800, "notify": False}
+    )
+    assert response.status_code == 200
+    refund = await db.get(Payment, response.json()["refund_id"])
+    payment = await db.get(Payment, payment_id)
+    assert refund is not None and payment is not None and refund.refund_notify is False
+    email.sent.clear()
+    body = _refund_event("evt_no_email", str(payment.provider_ref), str(refund.provider_ref), 2800)
+    result = await api.post("/webhooks/stripe", content=body, headers=GOOD)
+    assert result.status_code == 200, result.text
+    assert email.sent == []
+    await db.refresh(refund)
+    assert refund.status == "succeeded"

@@ -77,6 +77,8 @@ class CatalogService:
             kind=data.kind,
             name=data.name,
             description=data.description,
+            variant_parent_id=data.variant_parent_id,
+            variant_label=data.variant_label,
             price_cents=data.price_cents,
             currency=data.currency,
             duration_min=data.duration_min,
@@ -107,6 +109,7 @@ class CatalogService:
         )
         _assert_shape(item)
         await self._assert_covers(item)
+        await self._assert_variant(item)
         self.db.add(item)
         await self._save(item)
         return item
@@ -123,8 +126,43 @@ class CatalogService:
             item.stock_on_hand = 0
         _assert_shape(item)
         await self._assert_covers(item)
+        await self._assert_variant(item)
         await self._save(item)
         return item
+
+    async def _assert_variant(self, item: Item) -> None:
+        if item.variant_parent_id is not None:
+            parent = await load_item(self.db, self.principal.business_id, item.variant_parent_id)
+            if (
+                item.kind != "product"
+                or parent.kind != "product"
+                or parent.id == item.id
+                or parent.variant_parent_id is not None
+            ):
+                raise Unprocessable("a product variant must belong to a standalone product")
+            if parent.currency != item.currency:
+                raise Unprocessable("a variant must use its product's currency")
+            if not item.variant_label:
+                raise Unprocessable("a variant needs a label")
+        children = (
+            (
+                await self.db.execute(
+                    scoped(Item, self.principal.business_id).where(
+                        Item.variant_parent_id == item.id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if children and (
+            item.kind != "product"
+            or item.variant_parent_id is not None
+            or any(child.currency != item.currency for child in children)
+        ):
+            raise Unprocessable(
+                "a product with variants must stay a standalone product in their currency"
+            )
 
     async def _assert_covers(self, item: Item) -> None:
         if item.covers_item_id is None:

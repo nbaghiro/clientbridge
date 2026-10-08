@@ -333,6 +333,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/payment-method": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Payment Setup */
+        get: operations["public_payment_setup_payment_method_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payment-method/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Payment Setup Start */
+        post: operations["public_payment_setup_start_payment_method_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/estimate/{token}": {
         parameters: {
             query?: never;
@@ -395,6 +429,57 @@ export interface paths {
         get: operations["public_receipt_receipt__token__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Order Status */
+        get: operations["order_status_order__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/order/{token}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Order Alerts */
+        patch: operations["order_alerts_order__token__alerts_patch"];
+        trace?: never;
+    };
+    "/order/{token}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Order */
+        post: operations["cancel_order_order__token__cancel_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -522,6 +607,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Profile */
+        get: operations["public_profile_book__slug__profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/book/{slug}/next-openings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Next Openings */
+        get: operations["public_next_openings_book__slug__next_openings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/book/{slug}/slots": {
         parameters: {
             query?: never;
@@ -607,6 +726,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/book/{slug}/shop/pickup-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Pickup Days */
+        get: operations["public_pickup_days_book__slug__shop_pickup_days_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/book/{slug}/returning/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Returning Code */
+        post: operations["request_returning_code_book__slug__returning_request_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/book/{slug}/returning/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Returning Code */
+        post: operations["verify_returning_code_book__slug__returning_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/manage/{token}": {
         parameters: {
             query?: never;
@@ -686,6 +856,23 @@ export interface paths {
         put?: never;
         /** Manage Cancel */
         post: operations["manage_cancel_manage__token__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/manage/{token}/message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Public Manage Message */
+        post: operations["public_manage_message_manage__token__message_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1597,6 +1784,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/connect/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Account Session */
+        post: operations["account_session_v1_connect_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/connect/status": {
         parameters: {
             query?: never;
@@ -1643,6 +1847,40 @@ export interface paths {
         /** Setup Pad */
         post: operations["setup_pad_v1_payments_pad_setup_intent__client_id__post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/pad-links/{client_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Pad Link */
+        post: operations["create_pad_link_v1_payments_pad_links__client_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/pad-links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Pad Link */
+        delete: operations["revoke_pad_link_v1_payments_pad_links__link_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2885,10 +3123,45 @@ export interface components {
              * @description An uploaded logo; used instead of logo_url on public pages
              */
             logo_file_id?: string | null;
+            /** Avatar File Id */
+            avatar_file_id?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
             tagline?: string | null;
+            /** Cover Url */
+            cover_url?: string | null;
+            /** About */
+            about?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Neighbourhood */
+            neighbourhood?: string | null;
+            /** Gallery Urls */
+            gallery_urls?: string[];
+            /**
+             * Pickup Prep Minutes
+             * @default 60
+             */
+            pickup_prep_minutes: number;
+            /**
+             * Pickup Hold Days
+             * @default 3
+             */
+            pickup_hold_days: number;
+            /**
+             * Pickup Capacity
+             * @default 10
+             */
+            pickup_capacity: number;
+            /** Public Staff Ids */
+            public_staff_ids?: string[];
         };
         /** BroadcastOut */
         BroadcastOut: {
@@ -3167,6 +3440,19 @@ export interface components {
             preferred_channel?: ("sms" | "email") | null;
             /** Marketing Consent */
             marketing_consent?: boolean | null;
+        };
+        /** ConnectSessionIn */
+        ConnectSessionIn: {
+            /**
+             * Component
+             * @enum {string}
+             */
+            component: "onboarding" | "account" | "payments" | "payouts";
+        };
+        /** ConnectSessionOut */
+        ConnectSessionOut: {
+            /** Client Secret */
+            client_secret: string;
         };
         /** ConnectStatus */
         ConnectStatus: {
@@ -3998,6 +4284,10 @@ export interface components {
             name: string;
             /** Description */
             description?: string | null;
+            /** Variant Parent Id */
+            variant_parent_id?: string | null;
+            /** Variant Label */
+            variant_label?: string | null;
             /**
              * Price Cents
              * @default 0
@@ -4111,6 +4401,10 @@ export interface components {
             name: string;
             /** Description */
             description?: string | null;
+            /** Variant Parent Id */
+            variant_parent_id?: string | null;
+            /** Variant Label */
+            variant_label?: string | null;
             /**
              * Price Cents
              * @default 0
@@ -4233,6 +4527,10 @@ export interface components {
             name?: string | null;
             /** Description */
             description?: string | null;
+            /** Variant Parent Id */
+            variant_parent_id?: string | null;
+            /** Variant Label */
+            variant_label?: string | null;
             /** Price Cents */
             price_cents?: number | null;
             /** Currency */
@@ -4383,9 +4681,19 @@ export interface components {
              * Deposit
              * @enum {string}
              */
-            deposit: "refunded" | "kept" | "none";
+            deposit: "refunded" | "kept" | "none" | "pending" | "failed";
             /** Refund Cents */
             refund_cents: number;
+        };
+        /** ManageMessage */
+        ManageMessage: {
+            /** Body */
+            body: string;
+        };
+        /** ManageMessageResult */
+        ManageMessageResult: {
+            /** Id */
+            id: string;
         };
         /** ManageReschedule */
         ManageReschedule: {
@@ -4404,13 +4712,16 @@ export interface components {
             /** Unit Cents */
             unit_cents: number;
         };
-        /**
-         * ManagedBooking
-         * @description A client's own booking, as their manage link shows it.
-         */
+        /** ManagedBooking */
         ManagedBooking: {
+            /** Refund Status */
+            refund_status?: string | null;
             /** Booking Id */
             booking_id: string;
+            /** Address */
+            address?: string | null;
+            /** Parking Note */
+            parking_note?: string | null;
             /** Business Name */
             business_name: string;
             brand: components["schemas"]["PublicBrand"];
@@ -4826,7 +5137,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "ready" | "picked_up";
+            status: "preparing" | "ready" | "picked_up";
         };
         /** OrderReceiptIn */
         OrderReceiptIn: {
@@ -4918,6 +5229,18 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** PaymentSetupLinkOut */
+        PaymentSetupLinkOut: {
+            /** Id */
+            id: string;
+            /** Url */
+            url: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
         /** PayoutRow */
         PayoutRow: {
             /** Id */
@@ -5002,6 +5325,10 @@ export interface components {
         };
         /** PublicBookingCreate */
         PublicBookingCreate: {
+            /** Returning Token */
+            returning_token?: string | null;
+            /** Subject Id */
+            subject_id?: string | null;
             /** Item Id */
             item_id: string;
             /** Staff Id */
@@ -5091,6 +5418,8 @@ export interface components {
         PublicBrand: {
             /** Logo Url */
             logo_url?: string | null;
+            /** Avatar Url */
+            avatar_url?: string | null;
             /** Primary */
             primary?: string | null;
             /** Tagline */
@@ -5383,6 +5712,12 @@ export interface components {
         };
         /** PublicInvoice */
         PublicInvoice: {
+            /**
+             * Tip Base Cents
+             * @description Service subtotal before tax; excludes retail and entitlements
+             * @default 0
+             */
+            tip_base_cents: number;
             /** Number */
             number: number | null;
             /** Business Name */
@@ -5444,6 +5779,72 @@ export interface components {
              */
             tip_for?: string[];
         };
+        /** PublicNextOpenings */
+        PublicNextOpenings: {
+            /** Services */
+            services: components["schemas"]["PublicServiceOpening"][];
+            /** Through */
+            through: string;
+        };
+        /** PublicOrderAlerts */
+        PublicOrderAlerts: {
+            /** Notify Sms */
+            notify_sms: boolean;
+        };
+        /** PublicOrderStatus */
+        PublicOrderStatus: {
+            /** Pickup From */
+            pickup_from?: string | null;
+            /** Pickup To */
+            pickup_to?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Number */
+            number: number | null;
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            /** Status */
+            status: string;
+            /** Pickup Status */
+            pickup_status: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Preparing At */
+            preparing_at: string | null;
+            /** Ready At */
+            ready_at: string | null;
+            /** Picked Up At */
+            picked_up_at: string | null;
+            /** Notify Sms */
+            notify_sms: boolean;
+            /**
+             * Refund Pending
+             * @default false
+             */
+            refund_pending: boolean;
+            /** Can Cancel */
+            can_cancel: boolean;
+            /** Receipt Token */
+            receipt_token: string | null;
+            /** Currency */
+            currency: string;
+            /** Subtotal Cents */
+            subtotal_cents: number;
+            /** Tax Total Cents */
+            tax_total_cents: number;
+            /** Total Cents */
+            total_cents: number;
+            /** Lines */
+            lines: components["schemas"]["PublicDocLine"][];
+            /** Taxes */
+            taxes: components["schemas"]["PublicDocTax"][];
+        };
         /** PublicPayIn */
         PublicPayIn: {
             /**
@@ -5452,6 +5853,46 @@ export interface components {
              * @default 0
              */
             tip_cents: number;
+        };
+        /** PublicPaymentSetup */
+        PublicPaymentSetup: {
+            /** Business Name */
+            business_name: string;
+            /** Client Name */
+            client_name: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Status */
+            status: string;
+            /** Stripe Account Id */
+            stripe_account_id: string;
+            /** Client Secret */
+            client_secret?: string | null;
+            /** Verification Url */
+            verification_url?: string | null;
+        };
+        /** PublicPickupDays */
+        PublicPickupDays: {
+            /** Windows */
+            windows: components["schemas"]["PublicPickupWindow"][];
+            /** Hold Days */
+            hold_days: number;
+        };
+        /** PublicPickupWindow */
+        PublicPickupWindow: {
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
         };
         /** PublicPolicy */
         PublicPolicy: {
@@ -5500,6 +5941,91 @@ export interface components {
             email: boolean;
             /** Sms */
             sms: boolean;
+        };
+        /** PublicProfile */
+        PublicProfile: {
+            /** Business Name */
+            business_name: string;
+            brand: components["schemas"]["PublicBrand"];
+            /** Services */
+            services: components["schemas"]["PublicService"][];
+            /** Staff */
+            staff: components["schemas"]["PublicStaff"][];
+            /**
+             * Addons
+             * @description Products a client can add to a visit
+             */
+            addons?: components["schemas"]["PublicAddon"][];
+            /**
+             * Stripe Account Id
+             * @description Connected account for Stripe Elements, once onboarded
+             */
+            stripe_account_id?: string | null;
+            /**
+             * Slug
+             * @default
+             */
+            slug: string;
+            /**
+             * Now
+             * @description The business's clock, in its zone
+             */
+            now?: string | null;
+            policy?: components["schemas"]["PublicPolicy"] | null;
+            /**
+             * Rating
+             * @description Average of published reviews
+             */
+            rating?: number | null;
+            /**
+             * Review Count
+             * @default 0
+             */
+            review_count: number;
+            /** Cover Url */
+            cover_url?: string | null;
+            /** About */
+            about?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Neighbourhood */
+            neighbourhood?: string | null;
+            /** Gallery Urls */
+            gallery_urls?: string[];
+            /** Reviews */
+            reviews?: components["schemas"]["PublicProfileReview"][];
+            /** Hours */
+            hours?: components["schemas"]["PublicProfileHours"][];
+            /** Timezone */
+            timezone: string;
+        };
+        /** PublicProfileHours */
+        PublicProfileHours: {
+            /** Weekday */
+            weekday: number;
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+        };
+        /** PublicProfileReview */
+        PublicProfileReview: {
+            /** Id */
+            id: string;
+            /** Rating */
+            rating: number;
+            /** Body */
+            body: string | null;
+            /** Response */
+            response: string | null;
+            /** Submitted At */
+            submitted_at: string | null;
         };
         /** PublicReceipt */
         PublicReceipt: {
@@ -5639,6 +6165,13 @@ export interface components {
              */
             staff_ids?: string[];
         };
+        /** PublicServiceOpening */
+        PublicServiceOpening: {
+            /** Item Id */
+            item_id: string;
+            /** Slots */
+            slots: components["schemas"]["PublicSlot"][];
+        };
         /** PublicShop */
         PublicShop: {
             /** Business Name */
@@ -5651,6 +6184,10 @@ export interface components {
         };
         /** PublicShopItem */
         PublicShopItem: {
+            /** Variant Parent Id */
+            variant_parent_id?: string | null;
+            /** Variant Label */
+            variant_label?: string | null;
             /** Id */
             id: string;
             /** Name */
@@ -5685,14 +6222,31 @@ export interface components {
         };
         /** PublicShopOrderCreate */
         PublicShopOrderCreate: {
+            /** Pickup From */
+            pickup_from?: string | null;
+            /** Pickup To */
+            pickup_to?: string | null;
+            /** Note */
+            note?: string | null;
+            /**
+             * Notify Sms
+             * @default true
+             */
+            notify_sms: boolean;
             client: components["schemas"]["PublicBookingClient"];
             /** Lines */
             lines: components["schemas"]["PublicShopLine"][];
         };
         /** PublicShopOrderResult */
         PublicShopOrderResult: {
+            /** Subtotal Cents */
+            subtotal_cents?: number | null;
+            /** Tax Total Cents */
+            tax_total_cents?: number | null;
             /** Order Id */
             order_id: string;
+            /** Order Token */
+            order_token?: string | null;
             /** Total Cents */
             total_cents: number;
             /** Currency */
@@ -6198,6 +6752,64 @@ export interface components {
              * @description What each unit cost; updates the product's cost
              */
             unit_cost_cents?: number | null;
+        };
+        /** ReturningChallengeOut */
+        ReturningChallengeOut: {
+            /** Challenge Id */
+            challenge_id: string;
+        };
+        /** ReturningPet */
+        ReturningPet: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ReturningProfile */
+        ReturningProfile: {
+            /** Name */
+            name: string;
+            /** Email */
+            email: string | null;
+            /** Phone */
+            phone: string | null;
+            /** Pets */
+            pets: components["schemas"]["ReturningPet"][];
+            last_visit: components["schemas"]["ReturningVisit"] | null;
+        };
+        /** ReturningRequest */
+        ReturningRequest: {
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+        };
+        /** ReturningVerified */
+        ReturningVerified: {
+            /** Token */
+            token: string | null;
+            profile: components["schemas"]["ReturningProfile"] | null;
+        };
+        /** ReturningVerify */
+        ReturningVerify: {
+            /** Challenge Id */
+            challenge_id: string;
+            /** Code */
+            code: string;
+        };
+        /** ReturningVisit */
+        ReturningVisit: {
+            /** Item Id */
+            item_id: string;
+            /** Staff Id */
+            staff_id: string;
+            /** Subject Id */
+            subject_id: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
         };
         /** ReviewLinkOut */
         ReviewLinkOut: {
@@ -7348,6 +7960,68 @@ export interface operations {
             };
         };
     };
+    public_payment_setup_payment_method_get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Payment-Setup-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPaymentSetup"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_payment_setup_start_payment_method_start_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Payment-Setup-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPaymentSetup"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     public_estimate_estimate__token__get: {
         parameters: {
             query?: never;
@@ -7467,6 +8141,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    order_status_order__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrderStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    order_alerts_order__token__alerts_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicOrderAlerts"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrderStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_order_order__token__cancel_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOrderStatus"];
                 };
             };
             /** @description Validation Error */
@@ -7775,6 +8548,70 @@ export interface operations {
             };
         };
     };
+    public_profile_book__slug__profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicProfile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_next_openings_book__slug__next_openings_get: {
+        parameters: {
+            query: {
+                item_ids: string[];
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicNextOpenings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     public_booking_slots_book__slug__slots_get: {
         parameters: {
             query: {
@@ -7951,6 +8788,107 @@ export interface operations {
             };
         };
     };
+    public_pickup_days_book__slug__shop_pickup_days_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPickupDays"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_returning_code_book__slug__returning_request_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturningChallengeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_returning_code_book__slug__returning_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturningVerify"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturningVerified"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     manage_view_manage__token__get: {
         parameters: {
             query?: never;
@@ -8106,6 +9044,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ManageCancelResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_manage_message_manage__token__message_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManageMessage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManageMessageResult"];
                 };
             };
             /** @description Validation Error */
@@ -10171,6 +11146,42 @@ export interface operations {
             };
         };
     };
+    account_session_v1_connect_session_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectSessionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectSessionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     connect_status_v1_connect_status_get: {
         parameters: {
             query?: never;
@@ -10261,6 +11272,72 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SetupIntentOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_pad_link_v1_payments_pad_links__client_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentSetupLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_pad_link_v1_payments_pad_links__link_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-business-id"?: string;
+                authorization?: string;
+            };
+            path: {
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

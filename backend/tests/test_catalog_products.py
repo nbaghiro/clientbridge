@@ -7,11 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.models.billing import Invoice, Line, Order
-from clientbridge.models.business import Staff
+from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import Item, Package, StockMovement
 from clientbridge.models.ledger import Entry
 from clientbridge.services import ledger
-from tests.conftest import Factory, FakePaymentGateway
+from tests.conftest import BIZ, Factory, FakePaymentGateway
 from tests.helpers import card_pay, enable_payments, settle
 
 GOOD = {"Stripe-Signature": "good"}
@@ -58,6 +58,23 @@ async def _track(db: AsyncSession, item_id: str, on_hand: int) -> None:
         update(Item).where(Item.id == item_id).values(track_stock=True, stock_on_hand=on_hand)
     )
     await db.flush()
+
+
+async def _fresh_product(api: httpx.AsyncClient, db: AsyncSession, stock: int | None) -> str:
+    result = await api.post(
+        "/v1/items",
+        json={
+            "kind": "product",
+            "name": "Stock test product",
+            "price_cents": 2400,
+            "track_stock": stock is not None,
+        },
+    )
+    assert result.status_code == 201, result.text
+    item_id = str(result.json()["id"])
+    if stock is not None:
+        await _track(db, item_id, stock)
+    return item_id
 
 
 async def test_new_items_are_bookable_online_by_kind(as_owner: httpx.AsyncClient) -> None:
@@ -120,7 +137,7 @@ async def test_line_keeps_the_class_it_was_sold_under(
     await db.execute(update(Item).where(Item.id == BATH).values(tax_class="exempt"))
     await db.flush()
     line = await db.get(Line, sale["lines"][0]["id"], populate_existing=True)
-    assert line is not None and line.tax_class == "standard"
+    assert line is not None and line.tax_class == "federal_only"
 
 
 @pytest.mark.parametrize("item_id", ["it_gift", "it_pkg5", "it_daycare"])
@@ -192,15 +209,15 @@ async def test_restock_adds_once_per_key(as_owner: httpx.AsyncClient, db: AsyncS
 async def test_restock_records_unit_cost_and_updates_the_cost(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _track(db, SHAMPOO, 2)
+    item_id = await _fresh_product(as_owner, db, 2)
     res = await as_owner.post(
-        f"/v1/items/{SHAMPOO}/restock",
+        f"/v1/items/{item_id}/restock",
         json={"quantity": 6, "unit_cost_cents": 1150, "note": "Coastal · INV-1"},
     )
     assert res.status_code == 200, res.text
     assert (res.json()["stock_on_hand"], res.json()["cost_cents"]) == (8, 1150)
     move = (
-        await db.execute(select(StockMovement).where(StockMovement.item_id == SHAMPOO))
+        await db.execute(select(StockMovement).where(StockMovement.item_id == item_id))
     ).scalar_one()
     assert (move.reason, move.unit_cost_cents, move.created_by) == ("restock", 1150, "us_dev")
 
@@ -208,26 +225,27 @@ async def test_restock_records_unit_cost_and_updates_the_cost(
 async def test_negative_restock_is_a_correction(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _track(db, SHAMPOO, 5)
+    item_id = await _fresh_product(as_owner, db, 5)
     res = await as_owner.post(
-        f"/v1/items/{SHAMPOO}/restock", json={"quantity": -1, "note": "Damaged bottle"}
+        f"/v1/items/{item_id}/restock", json={"quantity": -1, "note": "Damaged bottle"}
     )
     assert res.status_code == 200, res.text
     reason = (
-        await db.execute(select(StockMovement.reason).where(StockMovement.item_id == SHAMPOO))
+        await db.execute(select(StockMovement.reason).where(StockMovement.item_id == item_id))
     ).scalar_one()
     assert reason == "correction"
     costed = await as_owner.post(
-        f"/v1/items/{SHAMPOO}/restock", json={"quantity": -1, "unit_cost_cents": 100}
+        f"/v1/items/{item_id}/restock", json={"quantity": -1, "unit_cost_cents": 100}
     )
     assert costed.status_code == 422
-    assert await _stock(db, SHAMPOO) == 4
+    assert await _stock(db, item_id) == 4
 
 
 async def test_restock_errors(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
-    untracked = await as_owner.post(f"/v1/items/{SHAMPOO}/restock", json={"quantity": 2})
+    item_id = await _fresh_product(as_owner, db, None)
+    untracked = await as_owner.post(f"/v1/items/{item_id}/restock", json={"quantity": 2})
     assert untracked.status_code == 409
-    zero = await as_owner.post(f"/v1/items/{SHAMPOO}/restock", json={"quantity": 0})
+    zero = await as_owner.post(f"/v1/items/{item_id}/restock", json={"quantity": 0})
     assert zero.status_code == 422
     missing = await as_owner.post("/v1/items/it_nope/restock", json={"quantity": 2})
     assert missing.status_code == 404
@@ -243,17 +261,17 @@ async def test_staff_cannot_restock_403(as_staff: httpx.AsyncClient, db: AsyncSe
 async def test_paid_sale_moves_stock_once_and_full_refund_restores(
     as_owner: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    await _track(db, SHAMPOO, 5)
-    sale = await _paid_sale(as_owner, db, [await _line(SHAMPOO, 2400, quantity=2)], "evt_stk1")
-    assert await _stock(db, SHAMPOO) == 3
+    item_id = await _fresh_product(as_owner, db, 5)
+    sale = await _paid_sale(as_owner, db, [await _line(item_id, 2400, quantity=2)], "evt_stk1")
+    assert await _stock(db, item_id) == 3
     await settle(as_owner, db, str(sale["payment_id"]), "evt_stk1_again")
-    assert await _stock(db, SHAMPOO) == 3
+    assert await _stock(db, item_id) == 3
 
     refund = await as_owner.post(f"/v1/payments/{sale['payment_id']}/refund", json={})
     assert refund.status_code == 200, refund.text
-    assert await _stock(db, SHAMPOO) == 5
+    assert await _stock(db, item_id) == 5
     moves = (
-        await db.execute(select(StockMovement.reason).where(StockMovement.item_id == SHAMPOO))
+        await db.execute(select(StockMovement.reason).where(StockMovement.item_id == item_id))
     ).scalars()
     assert sorted(moves) == ["refund", "sale"]
 
@@ -369,6 +387,11 @@ async def test_client_sale_charges_a_saved_card(
 
 
 async def test_pay_errors(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_account_id = None
+    business.stripe_charges_enabled = False
+    await db.flush()
     sale = (await as_owner.post("/v1/orders", json={"lines": [await _line(SHAMPOO, 2400)]})).json()
     await db.commit()
     not_connected = await as_owner.post(f"/v1/orders/{sale['id']}/pay", json={})

@@ -1,5 +1,5 @@
-import { useBusinessId } from "@clientbridge/app-core";
-import { PowerSyncContext, useStatus } from "@powersync/react";
+import { useBusinessLoad } from "@clientbridge/app-core";
+import { PowerSyncContext } from "@powersync/react";
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
@@ -7,7 +7,7 @@ import { AppShell } from "./components/AppShell";
 import { DebugPanel } from "./components/DebugPanel";
 import { config } from "./config";
 import { Login } from "./pages/Login";
-import { ConfirmHost, Logo } from "@clientbridge/ui";
+import { ConfirmHost, LoadFailed, Loading, Logo } from "@clientbridge/ui";
 import { api, onSignedOut } from "./lib/api";
 import { clearTokens, isAuthenticated } from "./lib/auth";
 import { connectPowerSync, db, signOut } from "./lib/powersync";
@@ -69,7 +69,6 @@ export function App() {
     );
 }
 
-/** Holds a fresh sign-up in onboarding until their business has synced. */
 function AppRoutes({
     authed,
     onSignOut,
@@ -79,17 +78,24 @@ function AppRoutes({
     onSignOut: () => void;
     onAuthed: () => void;
 }) {
-    const hasSynced = useStatus().hasSynced ?? false;
-    const businessId = useBusinessId();
+    const business = useBusinessLoad();
 
     return (
         <Routes>
             <Route path="/accept-invite" element={<AcceptInvite onAuthed={onAuthed} />} />
             {authed ? (
-                businessId === null ? (
+                !business.ready ? (
                     <Route
                         path="*"
-                        element={hasSynced ? <Onboarding onSignOut={onSignOut} /> : <Splash />}
+                        element={
+                            business.state === "empty" ? (
+                                <Onboarding onSignOut={onSignOut} />
+                            ) : business.state === "error" ? (
+                                <LoadFailed onRetry={business.retry} retrying={business.retrying} />
+                            ) : (
+                                <Splash />
+                            )
+                        }
                     />
                 ) : (
                     <Route element={<AppShell onSignOut={onSignOut} />}>
@@ -115,8 +121,9 @@ function AppRoutes({
 
 function Splash() {
     return (
-        <div className="flex min-h-screen items-center justify-center bg-bg">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-bg">
             <Logo className="h-8 w-auto animate-pulse text-accent" />
+            <Loading />
         </div>
     );
 }

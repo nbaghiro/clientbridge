@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.ids import new_id
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item, Package
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
@@ -13,7 +14,7 @@ from tests.conftest import BIZ, Factory, FakePaymentGateway
 from tests.helpers import client_id, enable_payments, key, settle
 
 PKG_ITEM = "it_pkg5"  # seeded package item: price $200, session_count = 5, GST+PST taxable
-PKG_TAXED = 22400  # $200 + 12% (BC GST 5% + PST 7%)
+PKG_TAXED = 21000  # $200 + GST 5%; animal services are PST exempt
 CARD_CLIENT = "cl_marcus"  # seeded client with a default saved card (pm_demo_5454)
 
 
@@ -132,6 +133,11 @@ async def test_purchase_interactive_returns_client_secret(
 
 
 async def test_purchase_not_onboarded_409(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_account_id = None
+    business.stripe_charges_enabled = False
+    await db.flush()
     cid = await client_id(db)
     res = await as_owner.post("/v1/packages", json={"client_id": cid, "item_id": PKG_ITEM})
     assert res.status_code == 409

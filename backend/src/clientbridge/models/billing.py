@@ -93,7 +93,8 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         enum_check("orders", "status", "open", "void"),
         enum_check("orders", "source", "pos", "online"),
         CheckConstraint(
-            "pickup_status IS NULL OR pickup_status IN ('unfulfilled', 'ready', 'picked_up')",
+            "pickup_status IS NULL OR "
+            "pickup_status IN ('unfulfilled', 'preparing', 'ready', 'picked_up')",
             name="ck_orders_pickup_status",
         ),
         Index("ix_orders_status", "business_id", "status"),
@@ -117,10 +118,17 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     receipt_phone: Mapped[str | None] = mapped_column(String)
     source: Mapped[str] = mapped_column(String, default="pos", nullable=False)
     pickup_status: Mapped[str | None] = mapped_column(String)  # online orders collected in person
+    preparing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pickup_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pickup_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notify_sms: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
+    )
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     picked_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     note: Mapped[str | None] = mapped_column(String)  # why a sale was held
     approved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))  # over-limit discount
+    status_token: Mapped[str | None] = mapped_column(String, unique=True)
     receipt_token: Mapped[str | None] = mapped_column(String, unique=True)  # public receipt key
     receipt_channel: Mapped[str | None] = mapped_column(String)
     receipt_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

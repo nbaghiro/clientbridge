@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
@@ -6,6 +6,8 @@ import { newIdempotencyKey } from "../api";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
 interface PublicShopItem {
+    variant_parent_id?: string | null;
+    variant_label?: string | null;
     id: string;
     name: string;
     description: string | null;
@@ -26,7 +28,10 @@ export interface PublicShop {
 }
 
 interface PublicShopOrderResult {
+    subtotal_cents?: number | null;
+    tax_total_cents?: number | null;
     order_id: string;
+    order_token?: string | null;
     total_cents: number;
     currency: string;
     client_secret: string;
@@ -43,13 +48,27 @@ class PublicShopError extends Error {
     }
 }
 
+interface PickupWindow {
+    starts_at: string;
+    ends_at: string;
+}
+interface PickupDays {
+    windows: PickupWindow[];
+    hold_days: number;
+}
+
 interface PublicShopClient {
+    getPickup: (slug: string) => Promise<PickupDays>;
     getShop: (slug: string) => Promise<PublicShop>;
     placeOrder(
         slug: string,
         input: {
             client: { name: string; email: string | null; phone: string | null };
             lines: { itemId: string; quantity: number }[];
+            pickup_from: string | null;
+            pickup_to: string | null;
+            note: string | null;
+            notify_sms: boolean;
         },
         idempotencyKey: string,
     ): Promise<PublicShopOrderResult>;
@@ -65,13 +84,16 @@ export function createPublicShopClient(baseUrl: string): PublicShopClient {
         return (await res.json()) as T;
     };
     return {
+        getPickup: (slug) =>
+            request<PickupDays>(`/book/${encodeURIComponent(slug)}/shop/pickup-days`),
         getShop: (slug) => request<PublicShop>(`/book/${encodeURIComponent(slug)}/shop`),
-        placeOrder: (slug, { client, lines }, idempotencyKey) =>
+        placeOrder: (slug, { client, lines, ...pickup }, idempotencyKey) =>
             request<PublicShopOrderResult>(`/book/${encodeURIComponent(slug)}/shop/orders`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
                 body: JSON.stringify({
                     client,
+                    ...pickup,
                     lines: lines.map((l) => ({ item_id: l.itemId, quantity: l.quantity })),
                 }),
             }),
@@ -89,6 +111,13 @@ export function cartSubtotal(
 type PublicShopStatus = "loading" | "not-found" | "error" | "ready" | "paying" | "paid";
 
 interface PublicShopForm {
+    pickup: PickupDays | null;
+    pickupFrom: string;
+    setPickupFrom: (value: string) => void;
+    note: string;
+    setNote: (value: string) => void;
+    notifySms: boolean;
+    setNotifySms: (value: boolean) => void;
     status: PublicShopStatus;
     shop: PublicShop | null;
     cart: Record<string, number>;
@@ -110,16 +139,57 @@ interface PublicShopForm {
 }
 
 /** One idempotency key per order attempt, kept across retries until it succeeds. */
-function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
+interface ShopStorage {
+    getItem: (key: string) => string | null;
+    setItem: (key: string, value: string) => void;
+    removeItem: (key: string) => void;
+}
+
+function storedCart(storage: ShopStorage | undefined, slug: string): Record<string, number> {
+    try {
+        const raw: unknown = JSON.parse(storage?.getItem(`connect-cart:${slug}`) ?? "{}");
+        if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return {};
+        return Object.fromEntries(
+            Object.entries(raw).filter(
+                (entry): entry is [string, number] =>
+                    typeof entry[1] === "number" &&
+                    Number.isInteger(entry[1]) &&
+                    entry[1] > 0 &&
+                    entry[1] <= 20,
+            ),
+        );
+    } catch {
+        return {};
+    }
+}
+
+function usePublicShop(
+    client: PublicShopClient,
+    slug: string,
+    storage?: ShopStorage,
+): PublicShopForm {
     const { status: load, data: shop } = usePublicResource(client.getShop, slug);
-    const [cart, setCart] = useState<Record<string, number>>({});
+    const [cart, setCart] = useState<Record<string, number>>(() => storedCart(storage, slug));
     const [name, setName] = useState("");
+    const pickup = usePublicResource(client.getPickup, slug).data;
+    const [pickupFrom, setPickupFrom] = useState("");
+    const [note, setNote] = useState("");
+    const [notifySms, setNotifySms] = useState(true);
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [order, setOrder] = useState<PublicShopOrderResult | null>(null);
     const [paid, setPaid] = useState(false);
     const key = useRef<string | null>(null);
+    const attemptedInput = useRef("");
     const { busy, error, setError, run } = useAsyncAction();
+
+    useEffect(() => {
+        try {
+            storage?.setItem(`connect-cart:${slug}`, JSON.stringify(cart));
+        } catch {
+            /* Storage can be disabled by the host browser. */
+        }
+    }, [cart, slug, storage]);
 
     const setQuantity = (itemId: string, quantity: number): void => {
         key.current = null;
@@ -139,6 +209,19 @@ function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
             setError(strings.publicShop.incomplete);
             return;
         }
+        const fingerprint = JSON.stringify({
+            name: name.trim(),
+            email: email.trim(),
+            phone: phone.trim(),
+            lines,
+            pickupFrom,
+            note: note.trim(),
+            notifySms,
+        });
+        if (attemptedInput.current !== fingerprint) {
+            key.current = null;
+            attemptedInput.current = fingerprint;
+        }
         key.current ??= newIdempotencyKey();
         const attempt = key.current;
         run(
@@ -154,6 +237,13 @@ function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
                                     phone: phone.trim() || null,
                                 },
                                 lines,
+                                pickup_from: pickupFrom || null,
+                                pickup_to:
+                                    pickup?.windows.find(
+                                        (window) => window.starts_at === pickupFrom,
+                                    )?.ends_at ?? null,
+                                note: note.trim() || null,
+                                notify_sms: notifySms,
                             },
                             attempt,
                         ),
@@ -176,6 +266,13 @@ function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
     return {
         status,
         shop,
+        pickup,
+        pickupFrom,
+        setPickupFrom,
+        note,
+        setNote,
+        notifySms,
+        setNotifySms,
         cart,
         setQuantity,
         subtotalCents: cartSubtotal(shop?.items ?? [], cart),
@@ -191,6 +288,7 @@ function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
         markPaid: () => {
             key.current = null;
             setPaid(true);
+            setCart({});
         },
         cancelPayment: () => {
             setOrder(null);
@@ -203,9 +301,11 @@ function usePublicShop(client: PublicShopClient, slug: string): PublicShopForm {
 const MAX_EACH = 20;
 
 /** The shop page: the cart and checkout from usePublicShop, plus categories, cart lines and stock caps. */
-export function useShopFlow(client: PublicShopClient, slug: string) {
-    const base = usePublicShop(client, slug);
+export function useShopFlow(client: PublicShopClient, slug: string, storage?: ShopStorage) {
+    const base = usePublicShop(client, slug, storage);
+    const [search, setSearch] = useState("");
     const [category, setCategory] = useState("all");
+    const [pickupDay, setPickupDay] = useState("asap");
     const items = useMemo(() => base.shop?.items ?? [], [base.shop]);
     const cap = (item: PublicShopItem): number => Math.min(MAX_EACH, item.stock_left ?? MAX_EACH);
     const lines = items
@@ -218,11 +318,74 @@ export function useShopFlow(client: PublicShopClient, slug: string) {
         ...base,
         category,
         setCategory,
+        pickupDay,
+        pickupDays: [
+            { key: "asap", label: strings.publicShop.pickupAsap },
+            ...Array.from(
+                new Map(
+                    (base.pickup?.windows ?? []).map((window) => [
+                        window.starts_at.slice(0, 10),
+                        window,
+                    ]),
+                ).entries(),
+            ).map(([key, window]) => ({
+                key,
+                label: new Date(window.starts_at).toLocaleDateString(undefined, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                }),
+            })),
+        ],
+        pickupWindows: (base.pickup?.windows ?? [])
+            .filter((window) => window.starts_at.slice(0, 10) === pickupDay)
+            .map((window) => ({
+                key: window.starts_at,
+                label: new Date(window.starts_at).toLocaleTimeString(undefined, {
+                    hour: "numeric",
+                    minute: "2-digit",
+                }),
+                hint: new Date(window.ends_at).toLocaleTimeString(undefined, {
+                    hour: "numeric",
+                    minute: "2-digit",
+                }),
+            })),
+        setPickupDay: (day: string) => {
+            setPickupDay(day);
+            base.setPickupFrom(
+                base.pickup?.windows.find((window) => window.starts_at.slice(0, 10) === day)
+                    ?.starts_at ?? "",
+            );
+        },
         categories: [
             { key: "all", label: strings.publicShop.all },
             ...cats.map((c) => ({ key: c, label: c })),
         ],
-        visible: items.filter((i) => category === "all" || i.category === category),
+        search,
+        setSearch,
+        variants: (id: string) => items.filter((item) => item.variant_parent_id === id),
+        visible: items
+            .filter(
+                (i) =>
+                    !i.variant_parent_id &&
+                    (category === "all" || i.category === category) &&
+                    `${i.name} ${i.description ?? ""}`
+                        .toLocaleLowerCase()
+                        .includes(search.trim().toLocaleLowerCase()),
+            )
+            .map((item) => {
+                const variants = items.filter(
+                    (candidate) => candidate.variant_parent_id === item.id,
+                );
+                return variants.length
+                    ? {
+                          ...item,
+                          price_cents: Math.min(...variants.map((variant) => variant.price_cents)),
+                          in_stock: variants.some((variant) => variant.in_stock),
+                          stock_left: null,
+                      }
+                    : item;
+            }),
         lines,
         count: lines.reduce((n, l) => n + l.quantity, 0),
         addOne: (item: PublicShopItem) => {

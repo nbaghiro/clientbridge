@@ -11,6 +11,7 @@ from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.services.consents import record_consent
 from clientbridge.services.messaging import run_due_broadcasts, unread_count
 from tests.conftest import Factory, FakeEmailSender, FakeSmsSender
+from tests.helpers import new_client
 
 BIZ = "bz_birchbark"
 
@@ -46,12 +47,7 @@ async def _agree_to_texts(db: AsyncSession) -> None:
 async def _client_with_contact(
     db: AsyncSession, *, email: str | None = None, phone: str | None = None
 ) -> str:
-    cid = (
-        (await db.execute(select(Client.id).where(Client.business_id == BIZ).limit(1)))
-        .scalars()
-        .first()
-    )
-    assert cid
+    cid = await new_client(db, email=email)
     await db.execute(update(Client).where(Client.id == cid).values(email=email, phone=phone))
     await db.flush()
     return cid

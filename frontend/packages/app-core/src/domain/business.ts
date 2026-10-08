@@ -1,13 +1,14 @@
-import { useQuery } from "@powersync/react";
+import { usePowerSync, useQuery, useStatus } from "@powersync/react";
 import { useEffect, useRef, useState } from "react";
 
-import { type Load, useAsyncAction } from "../hooks";
+import { type Load, useAsyncAction, useLoad } from "../hooks";
 import { strings } from "../strings";
 import type { ApiLike } from "../api";
 import type { ChoiceOption, Fact } from "../ui";
 import { mediaUrl } from "./files";
 import { durationLabel, money } from "./publicBooking";
 import type { ShellTarget } from "./navigation";
+import { useStaff, staffName } from "./staff";
 import { useReplicaLoad } from "./sync";
 
 interface BusinessRow {
@@ -31,22 +32,84 @@ interface BusinessFields {
     tagline: string;
 }
 
+const PROFILE_KEYS = [
+    "cover_url",
+    "about",
+    "address",
+    "phone",
+    "email",
+    "website",
+    "neighbourhood",
+    "gallery_urls",
+    "pickup_prep_minutes",
+    "pickup_hold_days",
+    "pickup_capacity",
+] as const;
+type ProfileKey = (typeof PROFILE_KEYS)[number];
+type ProfileFields = Record<ProfileKey, string>;
+const EMPTY_PROFILE: ProfileFields = {
+    cover_url: "",
+    about: "",
+    address: "",
+    phone: "",
+    email: "",
+    website: "",
+    neighbourhood: "",
+    gallery_urls: "",
+    pickup_prep_minutes: "60",
+    pickup_hold_days: "3",
+    pickup_capacity: "10",
+};
+
+export const PUBLIC_PROFILE_FIELDS = PROFILE_KEYS.map((key) => ({
+    key,
+    label: strings.business.getSetUp.profile[key],
+    multiline: key === "about" || key === "gallery_urls",
+    numeric: key.startsWith("pickup_"),
+}));
+
 interface Brand {
+    avatar_file_id: string;
     logo_file_id: string;
     primary: string;
     tagline: string;
+    profile: ProfileFields;
+    public_staff_ids: string[];
 }
 
-const NO_BRAND: Brand = { logo_file_id: "", primary: "", tagline: "" };
+const NO_BRAND: Brand = {
+    avatar_file_id: "",
+    logo_file_id: "",
+    primary: "",
+    tagline: "",
+    profile: EMPTY_PROFILE,
+    public_staff_ids: [],
+};
 
 function parseBrand(raw: string | null): Brand {
     if (raw === null || raw === "") return NO_BRAND;
     try {
         const b = JSON.parse(raw) as Record<string, unknown>;
         return {
+            avatar_file_id: typeof b.avatar_file_id === "string" ? b.avatar_file_id : "",
             logo_file_id: typeof b.logo_file_id === "string" ? b.logo_file_id : "",
             primary: typeof b.primary === "string" ? b.primary : "",
             tagline: typeof b.tagline === "string" ? b.tagline : "",
+            profile: Object.fromEntries(
+                PROFILE_KEYS.map((key) => [
+                    key,
+                    key === "gallery_urls" && Array.isArray(b[key])
+                        ? b[key]
+                              .filter((value): value is string => typeof value === "string")
+                              .join("\n")
+                        : typeof b[key] === "string" || typeof b[key] === "number"
+                          ? String(b[key])
+                          : EMPTY_PROFILE[key],
+                ]),
+            ) as ProfileFields,
+            public_staff_ids: Array.isArray(b.public_staff_ids)
+                ? b.public_staff_ids.filter((id): id is string => typeof id === "string")
+                : [],
         };
     } catch {
         return NO_BRAND;
@@ -136,7 +199,7 @@ export function useBusinessForm(api: ApiLike): BusinessForm {
         const body = brandChanged ? { ...text, brand } : text;
         run(() => api.patch("/v1/business", body), {
             onSuccess: () => {
-                loadedBrand.current = { logo_file_id, primary, tagline }; // now what's on the server
+                loadedBrand.current = { ...b, logo_file_id, primary, tagline }; // now what's on the server
                 setSaved(true);
             },
             errorMessage: strings.business.saveError,
@@ -158,6 +221,48 @@ export const BUSINESS_NAME_SQL = "SELECT name FROM businesses LIMIT 1";
 
 export function useBusinessName(): string {
     return useQuery<{ name: string }>(BUSINESS_NAME_SQL).data[0]?.name ?? "";
+}
+
+export function useBusinessLoad(): Load {
+    const db = usePowerSync();
+    const business = useQuery<{ id: string }>(BUSINESS_ID_SQL);
+    const synced = useStatus().hasSynced ?? false;
+    const empty = business.data.length === 0;
+    const [confirmedEmpty, setConfirmedEmpty] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [attempt, setAttempt] = useState(0);
+    useEffect(() => {
+        let active = true;
+        setConfirmedEmpty(false);
+        setError(null);
+        if (synced && !business.isLoading && empty) {
+            // Sync status can arrive before the watched query observes the committed business row.
+            db.getOptional<{ id: string }>(BUSINESS_ID_SQL)
+                .then((row) => {
+                    if (active) setConfirmedEmpty(row === null);
+                })
+                .catch((reason: unknown) => {
+                    if (active)
+                        setError(reason instanceof Error ? reason : new Error(String(reason)));
+                });
+        }
+        return () => {
+            active = false;
+        };
+    }, [db, synced, business.isLoading, empty, attempt]);
+    return useLoad(
+        [
+            business,
+            {
+                isLoading: empty && (!synced || !confirmedEmpty),
+                error,
+                refresh: () => {
+                    setAttempt((value) => value + 1);
+                },
+            },
+        ],
+        empty,
+    );
 }
 
 export function useBusinessId(): string | null {
@@ -208,7 +313,7 @@ export interface Business {
     status: string;
 }
 
-export function onboard(api: ApiLike, input: OnboardInput): Promise<Business> {
+function onboard(api: ApiLike, input: OnboardInput): Promise<Business> {
     return api.post<Business>("/v1/onboarding", {
         name: input.name.trim(),
         slug: input.slug.trim(),
@@ -385,6 +490,7 @@ export function setupTasks(c: SetupCounts): SetupTask[] {
 }
 
 export interface SetupProgress {
+    avatarFileId: string | null;
     businessName: string;
     brandColor: string | null;
     slug: string | null;
@@ -406,6 +512,10 @@ function progressOf(row: SetupCounts | undefined): SetupProgress {
     const done = steps.filter((x) => x.done).length;
     return {
         businessName: counts.name ?? "",
+        avatarFileId:
+            parseBrand(counts.brand).avatar_file_id ||
+            parseBrand(counts.brand).logo_file_id ||
+            null,
         brandColor: parseBrand(counts.brand).primary || null,
         slug: counts.slug,
         steps,
@@ -487,6 +597,10 @@ export interface BrandForm {
     setColour: (v: string) => void;
     tagline: string;
     setTagline: (v: string) => void;
+    profile: ProfileFields;
+    setProfile: (key: ProfileKey, value: string) => void;
+    publicTeam: { id: string; name: string; selected: boolean }[];
+    setPublicTeam: (id: string, selected: boolean) => void;
     busy: boolean;
     error: string | null;
     saved: boolean;
@@ -497,6 +611,7 @@ export const BRAND_SQL = "SELECT id, name, slug, province, brand FROM businesses
 
 /** Logo, colour and tagline for the booking page, saved to the business brand. */
 export function useBrandForm(api: ApiLike): BrandForm {
+    const team = useStaff();
     const row = useQuery<{
         id: string;
         name: string;
@@ -531,6 +646,22 @@ export function useBrandForm(api: ApiLike): BrandForm {
         setTagline: (v) => {
             edit({ tagline: v });
         },
+        profile: current.profile,
+        setProfile: (key, value) => {
+            edit({ profile: { ...current.profile, [key]: value } });
+        },
+        publicTeam: team.map((person) => ({
+            id: person.id,
+            name: staffName(person),
+            selected: current.public_staff_ids.includes(person.id),
+        })),
+        setPublicTeam: (id, selected) => {
+            edit({
+                public_staff_ids: selected
+                    ? [...new Set([...current.public_staff_ids, id])]
+                    : current.public_staff_ids.filter((value) => value !== id),
+            });
+        },
         busy,
         error,
         saved,
@@ -539,6 +670,15 @@ export function useBrandForm(api: ApiLike): BrandForm {
                 () =>
                     api.patch("/v1/business", {
                         brand: {
+                            ...current.profile,
+                            gallery_urls: current.profile.gallery_urls
+                                .split("\n")
+                                .map((url) => url.trim())
+                                .filter(Boolean),
+                            pickup_prep_minutes: Number(current.profile.pickup_prep_minutes),
+                            pickup_hold_days: Number(current.profile.pickup_hold_days),
+                            pickup_capacity: Number(current.profile.pickup_capacity),
+                            public_staff_ids: current.public_staff_ids,
                             logo_file_id: current.logo_file_id || null,
                             primary: current.primary || BRAND_COLOURS[1],
                             tagline: current.tagline,

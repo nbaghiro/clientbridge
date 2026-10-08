@@ -1,4 +1,4 @@
-.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
+.PHONY: help up down logs-sync install stripe-listen dev-api worker dev-web dev-connect dev-site dev-playground dev-mobile build build-site test-site test-web test-connect test-playground test-mobile lighthouse-site migrate revision seed gen-api gen-sync-schema gen-themes codegen-check test test-backend test-frontend test-contract test-e2e stripe-mock lint lint-backend lint-frontend typecheck format format-check format-check-backend format-check-frontend precommit hooks check
 .DEFAULT_GOAL := help
 
 help:
@@ -19,6 +19,7 @@ help:
 	@echo "test-web         web smoke test: every page and dialog (needs the local stack + seed)"
 	@echo "test-connect     Connect e2e: booking, manage link, shop and every client page (needs the API + seed)"
 	@echo "test-playground  build the playground, then open every story on web, iPhone and Android"
+	@echo "test-mobile      Maestro native walkthroughs (needs a development build, local stack + seed)"
 	@echo "lighthouse-site  Lighthouse budget against the site preview on :8710"
 	@echo "migrate          alembic upgrade head"
 	@echo "revision         alembic autogenerate (name=...)"
@@ -113,6 +114,9 @@ lighthouse-site:
 dev-mobile:
 	cd frontend && pnpm --filter mobile start -- --port 8707
 
+test-mobile:
+	cd frontend && pnpm --filter mobile e2e
+
 migrate:
 	cd backend && uv run alembic upgrade head
 
@@ -195,3 +199,16 @@ hooks:
 	@echo "git hooks installed → .githooks (pre-commit = format-check + lint + codegen-check)"
 
 check: lint codegen-check test
+
+.PHONY: demo-seed demo-reset demo-check demo-snapshot
+
+demo-seed: seed
+
+demo-reset:
+	cd backend && uv run python -m scripts.seed_demo --reset-demo
+
+demo-check:
+	cd backend && uv run python -m scripts.demo_validate
+
+demo-snapshot:
+	cd backend && uv run python -m scripts.demo_snapshot

@@ -4,9 +4,12 @@ import {
     payoutStatusIntent,
     strings,
     usePayouts,
+    usePaymentAccount,
 } from "@clientbridge/app-core";
 import {
     Badge,
+    Button,
+    PaymentAccount,
     Empty,
     KeyValueList,
     ListRow,
@@ -18,11 +21,15 @@ import {
     StatusPill,
 } from "@clientbridge/ui";
 
+import { api } from "../lib/api";
+
 const s = strings.payouts;
 
 export function Payouts() {
     const p = usePayouts();
+    const account = usePaymentAccount(api);
     const sel = p.selected;
+    if (account.props !== null) return <PaymentAccount {...account.props} />;
 
     if (p.load.state === "loading")
         return (
@@ -41,10 +48,59 @@ export function Payouts() {
             />
         );
     if (p.load.state === "empty")
-        return <Empty variant="card" icon="bank" message={s.noPayouts} body={s.noPayoutsBody} />;
+        return (
+            <Empty
+                variant="card"
+                icon="bank"
+                message={s.noPayouts}
+                body={s.noPayoutsBody}
+                actions={
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            disabled={!account.ready}
+                            onPress={() => {
+                                account.open("account");
+                            }}
+                        >
+                            {strings.paymentAccount.manage}
+                        </Button>
+                        <Button
+                            disabled={!account.ready}
+                            variant="outline"
+                            onPress={() => {
+                                account.open("payouts");
+                            }}
+                        >
+                            {strings.paymentAccount.viewPayouts}
+                        </Button>
+                    </div>
+                }
+            />
+        );
 
     return (
         <div>
+            <div className="mb-5 flex flex-wrap gap-2">
+                <Button
+                    disabled={!account.ready}
+                    variant="outline"
+                    icon="bank"
+                    onPress={() => {
+                        account.open("account");
+                    }}
+                >
+                    {strings.paymentAccount.manage}
+                </Button>
+                <Button
+                    disabled={!account.ready}
+                    variant="outline"
+                    onPress={() => {
+                        account.open("payouts");
+                    }}
+                >
+                    {strings.paymentAccount.viewPayouts}
+                </Button>
+            </div>
             <p className="text-sm text-muted">{s.subtitle}</p>
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Stat label={s.inStripe} cents={p.balanceCents} hint={s.inStripeHint} />

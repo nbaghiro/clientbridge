@@ -1,16 +1,20 @@
 import { defineConfig } from "@playwright/test";
 
-const port = Number(process.env.CONNECT_E2E_PORT ?? "8722");
+const port = Number(process.env.CONNECT_E2E_PORT ?? "8723");
 
 // Needs the API on :8701 over a migrated, seeded Postgres: `make up migrate seed dev-api` first.
 export default defineConfig({
     testDir: "e2e",
     testMatch: "*.e2e.ts",
     timeout: 120_000,
-    reporter: process.env.CI ? "github" : "list",
+    expect: { timeout: 15_000 },
+    reporter: [[process.env.CI ? "github" : "list"], ["html", { open: "never" }]],
+    workers: 2,
     use: {
         baseURL: `http://localhost:${String(port)}`,
         viewport: { width: 1280, height: 900 },
+        trace: "retain-on-failure",
+        screenshot: "only-on-failure",
         ...(process.env.CI ? {} : { channel: "chrome" }),
     },
     webServer: {

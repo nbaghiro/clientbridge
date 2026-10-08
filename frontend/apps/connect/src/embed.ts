@@ -1,8 +1,16 @@
 import { useEffect, useRef } from "react";
+import { type PublicBrand, strings } from "@clientbridge/app-core/public";
 
 /** Messages the embedded widget posts up to the host page's loader (public/embed.js). */
 interface EmbedMessage {
-    type: "resize" | "success";
+    type: "resize" | "success" | "brand" | "dismiss";
+    brand?: {
+        name: string;
+        primary: string | null;
+        mark: string | null;
+        title: string;
+        footer: string;
+    };
     height?: number;
     widget?: string;
 }
@@ -22,7 +30,7 @@ export function isEmbedded(): boolean {
 
 function postToParent(message: EmbedMessage): void {
     if (typeof window === "undefined" || window.parent === window) return;
-    // "*" is safe: the payload is only a height and a success flag, and the loader checks `source`.
+    // Only public brand metadata, height and completion flags cross the frame boundary.
     window.parent.postMessage({ source: SOURCE, ...message }, "*");
 }
 
@@ -37,10 +45,20 @@ export function useEmbedResize(): void {
             });
         };
         post();
+        const dismiss = (event: KeyboardEvent): void => {
+            if (
+                event.key === "Escape" &&
+                !event.defaultPrevented &&
+                !document.querySelector('dialog[open], [role="dialog"]')
+            )
+                postToParent({ type: "dismiss" });
+        };
+        window.addEventListener("keydown", dismiss);
         const observer = new ResizeObserver(post);
         observer.observe(document.body);
         return () => {
             observer.disconnect();
+            window.removeEventListener("keydown", dismiss);
         };
     }, []);
 }
@@ -59,4 +77,45 @@ export function useEmbedSuccess(active: boolean, widget: string): void {
             postToParent({ type: "success", widget });
         }
     }, [active, widget]);
+}
+
+export function useEmbedBrand(page: { business_name: string; brand: PublicBrand } | null): void {
+    const name = page?.business_name;
+    const primary = page?.brand.primary;
+    const mark = page?.brand.avatar_url ?? page?.brand.logo_url;
+    useEffect(() => {
+        if (!isEmbedded() || name === undefined) return;
+        const send = (): void => {
+            postToParent({
+                type: "brand",
+                brand: {
+                    name,
+                    primary: primary ?? null,
+                    mark: mark ?? null,
+                    title: strings.publicBooking.title,
+                    footer: strings.publicBooking.poweredBy,
+                },
+            });
+        };
+        send();
+        const receive = (event: MessageEvent<unknown>): void => {
+            if (
+                event.source !== window.parent ||
+                typeof event.data !== "object" ||
+                event.data === null
+            )
+                return;
+            if (
+                "source" in event.data &&
+                event.data.source === "clientbridge-host" &&
+                "type" in event.data &&
+                event.data.type === "ready"
+            )
+                send();
+        };
+        window.addEventListener("message", receive);
+        return () => {
+            window.removeEventListener("message", receive);
+        };
+    }, [name, primary, mark]);
 }

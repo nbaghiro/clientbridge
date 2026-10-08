@@ -44,7 +44,7 @@ export interface Bill {
     meta: string;
     lines: readonly (readonly [string, number])[];
     /** Label and rate; each tax is rounded on the subtotal. */
-    taxes: readonly (readonly [string, number])[];
+    taxes: readonly (readonly [string, number, number?])[];
     deposit?: number;
     retainerPct?: number;
     status: Pill;
@@ -222,21 +222,21 @@ export const TRADES: readonly Trade[] = [
         ],
         pay: {
             title: "A groom, a nail grind and a shampoo, paid at pickup.",
-            body: "The owner paid a $20 deposit and added a bottle of shampoo when they booked online. At pickup the invoice includes the shampoo, applies the deposit, adds the tax, and the owner taps their card on your phone for the balance.",
+            body: "The owner paid a $27.50 deposit and added a bottle of shampoo when they booked online. At pickup the invoice includes the shampoo, applies the deposit, adds the tax, and the owner taps their card on your phone for the balance.",
         },
         bill: {
             kind: "invoice",
             meta: "Invoice 1541 · Noah Schmidt",
             lines: [
-                ["Full Groom (Luna)", 8000],
-                ["Nail grind (Luna)", 1800],
+                ["Full Groom - Large Dog (Cooper)", 11000],
+                ["Nail grind (Cooper)", 1800],
                 ["Oatmeal shampoo, 500 ml (add-on)", 2400],
             ],
             taxes: [
                 ["GST 5%", 0.05],
-                ["PST 7%", 0.07],
+                ["PST 7% (retail only)", 0.07, 2400],
             ],
-            deposit: 2000,
+            deposit: 2750,
             status: { tone: "ok", text: "Paid by Tap to Pay" },
         },
     },

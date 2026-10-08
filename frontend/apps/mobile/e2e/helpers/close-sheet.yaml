@@ -1,0 +1,6 @@
+appId: ca.clientbridge.app
+---
+- tapOn:
+      text: "Close"
+      index: 0
+      point: "90%,8%"

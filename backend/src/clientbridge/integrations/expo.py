@@ -27,7 +27,7 @@ class ConsolePushSender:
         return None
 
 
-class ExpoPushSender:  # pragma: no cover - real Expo push, faked in tests
+class ExpoPushSender:
     def __init__(self, access_token: str) -> None:
         self._token = access_token
 
@@ -40,7 +40,8 @@ class ExpoPushSender:  # pragma: no cover - real Expo push, faked in tests
         ]
         headers = {"Authorization": f"Bearer {self._token}"} if self._token else {}
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(_EXPO_PUSH_URL, json=messages, headers=headers)
+            response = await client.post(_EXPO_PUSH_URL, json=messages, headers=headers)
+            response.raise_for_status()
 
 
 def get_push_sender() -> PushSender:

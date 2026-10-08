@@ -13,6 +13,7 @@ export type PrintedKind = PrintedDoc["kind"];
 
 /** What a business prints at the top of its documents. */
 export interface Letterhead {
+    avatarUrl?: string | null;
     name: string;
     tagline: string | null;
     brandColor: string | null;
@@ -94,6 +95,7 @@ export function printedDoc(
         business: {
             name: letterhead.name,
             initials: initials(letterhead.name),
+            avatarUrl: letterhead.avatarUrl ?? null,
             tagline: letterhead.tagline ?? "",
             brandColor: letterhead.brandColor ?? fallbackColor,
             address: [],

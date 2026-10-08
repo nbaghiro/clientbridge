@@ -18,13 +18,13 @@ import {
 } from "@clientbridge/ui";
 
 import { config } from "../config";
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
 
 const t = strings.payments.interac;
 
 /** Request an e-Transfer from an invoice: amount, channel, expiry and the message the client gets. */
 export function InteracRequest({ invoice, onClose }: { invoice: InvoiceRow; onClose: () => void }) {
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const form = useInteracRequestForm(
         api,
         invoice,

@@ -11,6 +11,16 @@ from tests.helpers import client_id
 BIZ = "bz_birchbark"
 
 
+async def test_nova_scotia_invoice_uses_current_hst(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    await db.execute(update(Business).where(Business.id == BIZ).values(province="NS"))
+    res = await as_owner.post("/v1/invoices", json={"client_id": "cl_amelie", "lines": [_line()]})
+    assert res.status_code == 201, res.text
+    assert res.json()["tax_total_cents"] == 1400
+    assert res.json()["total_cents"] == 11400
+
+
 def _line(desc: str = "Consultation", qty: float = 1.0, unit: int = 10000) -> dict[str, object]:
     return {"description": desc, "quantity": qty, "unit_amount_cents": unit}
 

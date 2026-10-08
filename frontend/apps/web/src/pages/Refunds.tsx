@@ -8,10 +8,12 @@ import {
     useDisputes,
     useRefundComposer,
     useRefundDesk,
+    usePaymentAccount,
 } from "@clientbridge/app-core";
 import {
     ActivityTimeline,
     Button,
+    PaymentAccount,
     Choice,
     DetailSection,
     DocTotals,
@@ -54,6 +56,9 @@ export function Refunds() {
         },
     });
     const disputes = useDisputes();
+    const account = usePaymentAccount(api);
+
+    if (account.props !== null) return <PaymentAccount {...account.props} />;
 
     return (
         <div className="space-y-6">
@@ -74,7 +79,21 @@ export function Refunds() {
             />
             {tab === "payments" ? <PaymentsDesk desk={desk} /> : null}
             {tab === "notes" ? <CreditNotes refunds={desk.refunds} /> : null}
-            {tab === "disputes" ? <Disputes desk={disputes} /> : null}
+            {tab === "disputes" ? (
+                <>
+                    <Button
+                        disabled={!account.ready}
+                        icon="shield"
+                        variant="outline"
+                        onPress={() => {
+                            account.open("payments");
+                        }}
+                    >
+                        {strings.paymentAccount.manageDisputes}
+                    </Button>
+                    <Disputes desk={disputes} />
+                </>
+            ) : null}
         </div>
     );
 }
@@ -411,7 +430,9 @@ function Disputes({ desk }: { desk: DisputeDesk }) {
                                 <DocTotals lines={sel.held} density="compact" />
                             </div>
                         </div>
-                        {sel.open ? <Notice tone="info">{s.evidenceInStripe}</Notice> : null}
+                        {sel.open ? (
+                            <Notice tone="info">{strings.paymentAccount.disputeHelp}</Notice>
+                        ) : null}
                     </div>
                 </Panel>
             ) : null}

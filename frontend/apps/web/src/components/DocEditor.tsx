@@ -30,7 +30,7 @@ import {
 import { cssVar } from "@clientbridge/tokens";
 import { useMemo, useState } from "react";
 
-import { api } from "../lib/api";
+import { api, apiBaseUrl } from "../lib/api";
 import { DiscountForm } from "./SaleTicket";
 
 const s = strings.billing;
@@ -46,7 +46,7 @@ export function DocEditor({ kind, draft, onClose, onSent }: DocEditorProps) {
     const clients = useClients();
     const items = useCatalogItems();
     const catalog = useMemo(() => sellableItems(items), [items]);
-    const letterhead = useLetterhead();
+    const letterhead = useLetterhead(apiBaseUrl);
     const c = useDocComposer(api, kind, draft, onSent);
     const [showPreview, setShowPreview] = useState(false);
     const [discounting, setDiscounting] = useState<string | null>(null);

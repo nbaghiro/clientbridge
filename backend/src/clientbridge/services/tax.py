@@ -106,7 +106,7 @@ PROVINCE_TAX_RATES: dict[str, list[tuple[str, int, str]]] = {
     "ON": [("HST", 1300, "HST (ON) 13%")],
     "QC": [("GST", 500, "GST 5%"), ("QST", 998, "QST 9.975%")],
     "NB": [("HST", 1500, "HST 15%")],
-    "NS": [("HST", 1500, "HST 15%")],
+    "NS": [("HST", 1400, "HST 14%")],
     "NL": [("HST", 1500, "HST 15%")],
     "PE": [("HST", 1500, "HST 15%")],
     "YT": [("GST", 500, "GST 5%")],
@@ -144,9 +144,13 @@ async def rates_for_business(db: AsyncSession, business_id: str) -> Sequence[Pro
     return rates_for_province(await business_province(db, business_id))
 
 
-async def tax_for_amount(db: AsyncSession, business_id: str, amount_cents: int) -> TaxResult:
+async def tax_for_amount(
+    db: AsyncSession, business_id: str, amount_cents: int, *, tax_class: str = "standard"
+) -> TaxResult:
     """Tax for a single taxable amount, through the line engine."""
-    return await tax_for_lines(db, business_id, [Line(amount_cents=amount_cents)])
+    return await tax_for_lines(
+        db, business_id, [Line(amount_cents=amount_cents, tax_class=tax_class)]
+    )
 
 
 async def tax_breakdown(db: AsyncSession, business_id: str, lines: list[Line]) -> TaxResult:

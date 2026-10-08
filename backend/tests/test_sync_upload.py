@@ -1,15 +1,165 @@
 """The /sync/upload write path, run as the demo owner over the seeded DB."""
 
+import asyncio
+from datetime import UTC, datetime, timedelta
+
 import httpx
 import pytest
-from sqlalchemy import text
+from sqlalchemy import delete, insert, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from clientbridge.core.db import engine
+from clientbridge.core.ids import new_id
+from clientbridge.models.scheduling import Hours
+from tests.conftest import Factory
 
 BIZ = "bz_birchbark"
 
 
+@pytest.mark.parametrize("protected", ["other_staff", "exception"])
+async def test_concurrent_put_cannot_overwrite_a_protected_row(
+    as_staff: httpx.AsyncClient, db: AsyncSession, protected: str
+) -> None:
+    row_id = new_id("hours")
+    reader_pid = await db.scalar(text("SELECT pg_backend_pid()"))
+    now = datetime.now(UTC)
+    target_staff = "st_owner" if protected == "other_staff" else "st_diego"
+    basis = "recurring" if protected == "other_staff" else "exception"
+    async with engine.connect() as writer:
+        await writer.execute(
+            insert(Hours).values(
+                id=row_id,
+                business_id=BIZ,
+                staff_id=target_staff,
+                basis=basis,
+                starts_at=now,
+                ends_at=now + timedelta(hours=1),
+                available=False,
+            )
+        )
+        pending = asyncio.create_task(
+            as_staff.post(
+                "/sync/upload",
+                json={
+                    "ops": [
+                        {
+                            "op": "PUT",
+                            "type": "hours",
+                            "id": row_id,
+                            "data": {
+                                "business_id": BIZ,
+                                "staff_id": "st_diego",
+                                "basis": "recurring",
+                                "weekday": 1,
+                                "available": 1,
+                            },
+                        }
+                    ]
+                },
+            )
+        )
+        try:
+            async with asyncio.timeout(5):
+                while not await writer.scalar(
+                    text("SELECT pg_backend_pid() = ANY(pg_blocking_pids(:pid))"),
+                    {"pid": reader_pid},
+                ):
+                    if pending.done():
+                        raise AssertionError("upload did not wait for the concurrent insert")
+                    await asyncio.sleep(0.01)
+                await writer.commit()
+                response = await pending
+            assert response.status_code == 403, response.text
+            row = await db.get(Hours, row_id)
+            assert row is not None and row.staff_id == target_staff and row.basis == basis
+        finally:
+            pending.cancel()
+            await asyncio.gather(pending, return_exceptions=True)
+            await db.rollback()
+            await writer.rollback()
+            await writer.execute(delete(Hours).where(Hours.id == row_id))
+            await writer.commit()
+
+
+@pytest.mark.parametrize("operation", ["PUT", "PATCH"])
+async def test_staff_cannot_reassign_their_hours(
+    as_staff: httpx.AsyncClient, db: AsyncSession, operation: str
+) -> None:
+    data = {"staff_id": "st_owner"}
+    if operation == "PUT":
+        data |= {"business_id": BIZ, "basis": "recurring"}
+    res = await as_staff.post(
+        "/sync/upload",
+        json={"ops": [{"op": operation, "type": "hours", "id": "av_st_diego_1", "data": data}]},
+    )
+    assert res.status_code == 403, res.text
+    assert await _scalar(db, "SELECT staff_id FROM hours WHERE id='av_st_diego_1'") == "st_diego"
+
+
+@pytest.mark.parametrize("operation", ["PUT", "PATCH"])
+async def test_owner_cannot_reference_another_business_staff(
+    as_owner: httpx.AsyncClient, factory: Factory, operation: str
+) -> None:
+    other = await factory.business()
+    foreign = await factory.staff(business=other)
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": operation,
+                    "type": "hours",
+                    "id": "av_st_diego_1",
+                    "data": {"business_id": BIZ, "staff_id": foreign.id, "basis": "recurring"},
+                }
+            ]
+        },
+    )
+    assert res.status_code == 403, res.text
+
+
+async def test_patch_uses_the_operation_id(as_owner: httpx.AsyncClient, db: AsyncSession) -> None:
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PATCH",
+                    "type": "hours",
+                    "id": "av_st_diego_1",
+                    "data": {"id": "av_relocated", "note": "Updated hours"},
+                }
+            ]
+        },
+    )
+    assert res.status_code == 200, res.text
+    assert await _scalar(db, "SELECT note FROM hours WHERE id='av_st_diego_1'") == "Updated hours"
+    assert await _scalar(db, "SELECT id FROM hours WHERE id='av_relocated'") is None
+
+
 async def _scalar(db: AsyncSession, sql: str) -> object:
     return (await db.execute(text(sql))).scalar()
+
+
+async def test_patch_with_only_an_ignored_id_is_a_noop(
+    as_owner: httpx.AsyncClient, db: AsyncSession
+) -> None:
+    res = await as_owner.post(
+        "/sync/upload",
+        json={
+            "ops": [
+                {
+                    "op": "PATCH",
+                    "type": "hours",
+                    "id": "av_st_diego_1",
+                    "data": {"id": "av_relocated"},
+                }
+            ]
+        },
+    )
+    assert res.status_code == 200, res.text
+    assert await _scalar(db, "SELECT id FROM hours WHERE id='av_st_diego_1'") == "av_st_diego_1"
+    assert await _scalar(db, "SELECT id FROM hours WHERE id='av_relocated'") is None
 
 
 @pytest.mark.parametrize(

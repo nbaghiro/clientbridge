@@ -22,7 +22,7 @@ export default story<ChecklistProps>({
                     { key: "services", label: "Add your services", hint: "3 added", done: true },
                     {
                         key: "stripe",
-                        label: "Verify your identity with Stripe",
+                        label: "Verify your identity for payments",
                         hint: "Payouts are paused until this is done",
                         done: false,
                         attention: true,
@@ -46,7 +46,7 @@ export default story<ChecklistProps>({
                     {
                         key: "id",
                         label: "Upload a government-issued photo ID for Bartholomew Featherstonehaugh-Montgomery, the account representative",
-                        hint: "Stripe could not read the last upload; make sure all four corners are visible and nothing is covered",
+                        hint: "The last upload could not be read; make sure all four corners are visible and nothing is covered",
                         done: false,
                         attention: true,
                         action: { label: "Upload a new photo", onPress: noop },

@@ -2,13 +2,14 @@ from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clientbridge.core.errors import TooManyRequests
 from clientbridge.core.ids import new_id
 from clientbridge.core.ratelimit import RateLimiter, public_booking_rate_limit
 from clientbridge.main import app
+from clientbridge.models.business import Business
 from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
@@ -75,7 +76,11 @@ async def _seed_session(db: AsyncSession, *, item: str, staff: str, starts: date
 async def test_services_expose_connected_account_when_onboarded(
     api: httpx.AsyncClient, db: AsyncSession
 ) -> None:
-    # the public booking page needs the connected account to mount the deposit Elements
+    business = await db.get(Business, BIZ)
+    assert business is not None
+    business.stripe_account_id = None
+    business.stripe_charges_enabled = False
+    await db.flush()
     before = (await api.get(f"/book/{SLUG}/services")).json()
     assert before["stripe_account_id"] is None
     await enable_payments(db)
@@ -166,8 +171,8 @@ async def test_slots_fully_booked_day_is_empty(api: httpx.AsyncClient, db: Async
     assert (await api.get(f"/book/{SLUG}/slots", params=params)).json()["slots"] == []
 
 
-async def test_slots_unconfigured_day_is_empty(api: httpx.AsyncClient) -> None:
-    # st_priya has no hours on this date → unconfigured → no enumerable slots
+async def test_slots_unconfigured_day_is_empty(api: httpx.AsyncClient, db: AsyncSession) -> None:
+    await db.execute(delete(Hours).where(Hours.staff_id == ST_PRIYA))
     res = await api.get(
         f"/book/{SLUG}/slots",
         params={"item_id": GROOM_SM, "staff_id": ST_PRIYA, "date": "2027-03-02"},

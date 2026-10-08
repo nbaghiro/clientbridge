@@ -364,6 +364,25 @@ function ProductFields({ ed }: { ed: ProductEditor }) {
                 </div>
             </DetailSection>
             <DetailSection title={s.sectionShop}>
+                <Select
+                    label={s.variantParent}
+                    value={v.variantParentId ?? ""}
+                    options={ed.parentOptions}
+                    onChange={(value) => {
+                        set("variantParentId", value);
+                    }}
+                />
+                {v.variantParentId ? (
+                    <TextField
+                        label={s.variantLabel}
+                        hint={s.variantHint}
+                        value={v.variantLabel ?? ""}
+                        onChange={(value) => {
+                            set("variantLabel", value);
+                        }}
+                        maxLength={80}
+                    />
+                ) : null}
                 <Toggle
                     label={s.sellOnline}
                     hint={s.sellOnlineHint}

@@ -91,7 +91,7 @@ export const tradePage = {
     others: "Other solutions",
     closing: {
         title: "Set up your services and open your booking page today.",
-        lede: "Add your services, hours and staff, connect Stripe for payouts, and share your booking page. You can also open the demo business to look around first.",
+        lede: "Add your services, hours and staff, set up payments and payouts, and share your booking page. You can also open the demo business to look around first.",
         primary: "Start free",
         secondary: "Open the demo",
     },

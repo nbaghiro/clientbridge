@@ -34,12 +34,13 @@ export function Modal({
                 style={styles.fill}
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
             >
-                <Pressable
-                    style={styles.backdrop}
-                    onPress={onClose}
-                    accessibilityRole="button"
-                    accessibilityLabel={strings.common.close}
-                >
+                <View style={styles.backdrop} accessibilityViewIsModal>
+                    <Pressable
+                        style={StyleSheet.absoluteFill}
+                        onPress={onClose}
+                        accessibilityRole="button"
+                        accessibilityLabel={strings.common.close}
+                    />
                     <View
                         style={[
                             styles.sheet,
@@ -47,7 +48,6 @@ export function Modal({
                             framed && styles.surface,
                         ]}
                         onStartShouldSetResponder={() => true}
-                        accessibilityViewIsModal
                     >
                         {framed ? (
                             <ScrollView
@@ -61,7 +61,7 @@ export function Modal({
                             children
                         )}
                     </View>
-                </Pressable>
+                </View>
             </KeyboardAvoidingView>
         </NativeModal>
     );

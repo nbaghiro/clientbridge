@@ -1,0 +1,19 @@
+appId: ca.clientbridge.app
+---
+- launchApp:
+      arguments:
+          RCT_jsLocation: '${typeof METRO_HOST === "undefined" ? "localhost:8707" : METRO_HOST}'
+- extendedWaitUntil:
+      visible: "Today|Sign in"
+      timeout: 60000
+- runFlow:
+      when:
+          visible: "Today"
+      commands:
+          - tapOn: "Setup"
+          - tapOn: "Sign out"
+          - extendedWaitUntil:
+                visible: "Sign in"
+                timeout: 30000
+- runFlow: owner.yaml
+- assertVisible: "Booked today.*"

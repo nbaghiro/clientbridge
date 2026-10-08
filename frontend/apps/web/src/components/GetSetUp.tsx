@@ -1,5 +1,6 @@
 import {
     BRAND_COLOURS,
+    PUBLIC_PROFILE_FIELDS,
     type BrandForm,
     bookingPageUrl,
     logoTarget,
@@ -12,6 +13,7 @@ import {
 } from "@clientbridge/app-core";
 import {
     Badge,
+    Checkbox,
     Button,
     Checklist,
     Choice,
@@ -200,6 +202,44 @@ function BrandPanel({ brand }: { brand: BrandForm }) {
                     maxLength={60}
                     optional
                 />
+                <div className="space-y-4">
+                    <p className="font-semibold text-ink">{o.profileTitle}</p>
+                    <p>{o.profileHint}</p>
+                    {PUBLIC_PROFILE_FIELDS.map((field) =>
+                        field.multiline ? (
+                            <TextField
+                                multiline
+                                key={field.key}
+                                label={field.label}
+                                value={brand.profile[field.key]}
+                                onChange={(value) => {
+                                    brand.setProfile(field.key, value);
+                                }}
+                            />
+                        ) : (
+                            <TextField
+                                key={field.key}
+                                label={field.label}
+                                type={field.numeric ? "number" : "text"}
+                                value={brand.profile[field.key]}
+                                onChange={(value) => {
+                                    brand.setProfile(field.key, value);
+                                }}
+                            />
+                        ),
+                    )}
+                    <p>{o.publicTeamHint}</p>
+                    {brand.publicTeam.map((person) => (
+                        <Checkbox
+                            key={person.id}
+                            label={person.name}
+                            value={person.selected}
+                            onChange={(selected) => {
+                                brand.setPublicTeam(person.id, selected);
+                            }}
+                        />
+                    ))}
+                </div>
                 <BookingPreview brand={brand} logo={logo} />
                 {brand.error !== null ? <Notice tone="danger">{brand.error}</Notice> : null}
                 <div className="flex items-center gap-3">

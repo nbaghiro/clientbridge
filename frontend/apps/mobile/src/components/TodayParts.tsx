@@ -3,7 +3,10 @@ import {
     type AttentionItem,
     type SetupProgress,
     type TodayActions,
+    type OwnerToday,
+    formatMoney,
     strings,
+    useShellNav,
     visitAction,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
@@ -22,8 +25,9 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { ReactNode } from "react";
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 
+import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
 import type { RootStackParamList } from "../navigation";
 
@@ -79,6 +83,87 @@ export function TodayHeader({
     );
 }
 
+export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
+    const openLink = useOpenLink();
+    const nav = useShellNav(useViewer());
+    const overdue = nav.badges.payments ?? 0;
+    const openPayments = (): void => {
+        openLink("payments");
+    };
+    return (
+        <Section
+            title={strings.navigation.payments}
+            action={
+                <Button
+                    size="sm"
+                    variant="link"
+                    label={strings.navigation.viewPayments}
+                    onPress={openPayments}
+                >
+                    {t.viewAllPayments}
+                </Button>
+            }
+        >
+            {owner === undefined ? (
+                <View style={styles.card}>
+                    <ListRow
+                        icon="pos"
+                        title={strings.navigation.paymentsTabs.sales}
+                        meta={<Icon name="chevronRight" size={18} color={c.muted} />}
+                        onPress={openPayments}
+                    />
+                </View>
+            ) : owner.moneyLoad.state === "loading" ? (
+                <RowsLoading count={2} />
+            ) : owner.moneyLoad.state === "error" ? (
+                <NumbersFailed
+                    onRetry={owner.moneyLoad.retry}
+                    retrying={owner.moneyLoad.retrying}
+                />
+            ) : (
+                <View style={styles.card}>
+                    <View style={styles.paymentFigures}>
+                        <View style={styles.flex}>
+                            <Text style={styles.kpiLabel}>{t.collected}</Text>
+                            <Text style={styles.kpiValue}>
+                                {formatMoney(owner.money.collectedCents)}
+                            </Text>
+                            <Text style={styles.kpiHint}>
+                                {t.collectedHint(owner.money.paymentCount)}
+                            </Text>
+                        </View>
+                        <View style={styles.flex}>
+                            <Text style={styles.kpiLabel}>{t.awaiting}</Text>
+                            <Text style={styles.kpiValue}>
+                                {formatMoney(owner.money.awaitingCents)}
+                            </Text>
+                            <Text style={styles.kpiHint}>
+                                {t.awaitingHint(owner.money.awaitingCount)}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.paymentFooter}>
+                        <Text style={styles.paymentCount}>
+                            {overdue > 0
+                                ? strings.navigation.overduePayments(overdue)
+                                : t.noOverdueInvoices}
+                        </Text>
+                        <Button
+                            size="sm"
+                            variant="link"
+                            onPress={() => {
+                                openLink("invoices");
+                            }}
+                        >
+                            {strings.navigation.paymentsTabs.invoices}
+                        </Button>
+                    </View>
+                </View>
+            )}
+        </Section>
+    );
+}
+
 export interface MobileKpi {
     label: string;
     value: string;
@@ -86,17 +171,13 @@ export interface MobileKpi {
     tone?: "ink" | "success" | undefined;
 }
 
-export function KpiScroller({ items }: { items: MobileKpi[] }) {
+export function KpiSummary({ items }: { items: MobileKpi[] }) {
     return (
-        <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.kpis}
-        >
+        <View style={[styles.kpis, styles.paymentFiguresRow]}>
             {items.map((k) => (
                 <View
                     key={k.label}
-                    style={styles.kpi}
+                    style={[styles.kpi, styles.flex]}
                     accessible
                     accessibilityLabel={`${k.label}, ${k.value}, ${k.hint}`}
                 >
@@ -109,11 +190,11 @@ export function KpiScroller({ items }: { items: MobileKpi[] }) {
                     </Text>
                 </View>
             ))}
-        </ScrollView>
+        </View>
     );
 }
 
-export function KpiScrollerLoading() {
+export function KpiSummaryLoading() {
     return (
         <View style={styles.kpis}>
             <View style={[styles.card, styles.flex]}>
@@ -123,9 +204,9 @@ export function KpiScrollerLoading() {
     );
 }
 
-export function NumbersFailed({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
+function NumbersFailed({ onRetry, retrying }: { onRetry: () => void; retrying: boolean }) {
     return (
-        <View style={styles.section}>
+        <View>
             <LoadFailed
                 variant="card"
                 message={t.numbersError}
@@ -415,6 +496,17 @@ export function GettingStarted({ setup }: { setup: SetupProgress }) {
 }
 
 const styles = StyleSheet.create({
+    paymentFigures: { flexDirection: "row", gap: 16, padding: 16 },
+    paymentFooter: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        borderTopWidth: 1,
+        borderTopColor: c.border,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    paymentCount: { color: c.muted, fontSize: 12 },
     flex: { flex: 1, minWidth: 0 },
     header: {
         flexDirection: "row",
@@ -428,8 +520,8 @@ const styles = StyleSheet.create({
     date: { color: c.muted, fontSize: 13, fontWeight: "600" },
     greeting: { color: c.ink, fontSize: 24, fontWeight: "700", letterSpacing: -0.4, marginTop: 1 },
     kpis: { paddingHorizontal: 20, gap: 10, paddingBottom: 4 },
+    paymentFiguresRow: { flexDirection: "row" },
     kpi: {
-        width: 150,
         backgroundColor: c.surface,
         borderRadius: theme.radius,
         borderWidth: 1,

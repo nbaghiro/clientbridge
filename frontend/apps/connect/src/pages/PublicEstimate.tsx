@@ -6,7 +6,7 @@ import {
     strings,
     usePublicEstimatePage,
 } from "@clientbridge/app-core/public";
-import { Button, Checkbox, DocTotals, Icon, Notice, TextField } from "@clientbridge/ui";
+import { Button, Checkbox, DocTotals, Icon, Notice, StatusPill, TextField } from "@clientbridge/ui";
 import { cssVar } from "@clientbridge/tokens";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
@@ -41,61 +41,83 @@ export function PublicEstimate() {
             businessName={biz}
             contact={est.contact_email}
             footer={pe.poweredBy}
-        >
-            <main className="mx-auto max-w-3xl px-4 pb-36 pt-6 sm:px-5 sm:pt-10">
-                {page.status === "accepted" || page.status === "declined" ? (
-                    <section className="mb-6 flex flex-col items-center rounded-xl border border-line bg-surface px-6 py-10 text-center shadow-card">
-                        <span
-                            className={`flex h-14 w-14 items-center justify-center rounded-full ${page.status === "accepted" ? "bg-ok-bg text-ok-fg" : "bg-bg text-muted"}`}
-                        >
-                            <Icon name={page.status === "accepted" ? "check" : "x"} size={26} />
-                        </span>
-                        <h1 className="mt-4 font-display text-xl font-bold text-ink">
-                            {page.status === "accepted" ? pe.acceptedTitle : pe.declinedTitle}
-                        </h1>
-                        <p className="mt-1 max-w-sm text-sm text-ink-soft">
-                            {page.status === "accepted"
-                                ? pe.acceptedBody(biz)
-                                : pe.declinedBody(biz)}
+            width="narrow"
+            hero={
+                <>
+                    {open ? (
+                        <StatusPill
+                            status={pe.waiting}
+                            intent="neutral"
+                            asWritten
+                            className="border border-line !bg-transparent !text-ink"
+                        />
+                    ) : null}
+                    <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+                        {est.number !== null ? pe.estimateNumber(est.number) : pe.estimate}
+                    </h1>
+                    {est.client_name !== null ? (
+                        <p className="mt-2 text-base text-ink-soft">
+                            {pe.preparedFor(est.client_name)}
                         </p>
-                    </section>
-                ) : null}
-                {page.status === "expired" ? (
-                    <section className="mb-6 rounded-xl border border-line bg-surface px-6 py-6 text-center shadow-card">
-                        <h1 className="font-display text-xl font-bold text-ink">
-                            {pe.expiredTitle}
-                        </h1>
-                        <p className="mt-1 text-sm text-ink-soft">{pe.expiredBody(biz)}</p>
-                    </section>
-                ) : null}
-                <article className="rounded-xl border border-line bg-surface shadow-card">
-                    <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line px-6 py-6">
+                    ) : null}
+                    <dl className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
                         <div>
-                            <p className="text-sm text-muted">{pe.from(biz)}</p>
-                            <h1 className="mt-0.5 font-display text-2xl font-bold text-ink">
-                                {est.number !== null ? pe.estimateNumber(est.number) : pe.estimate}
-                            </h1>
-                            {est.client_name !== null ? (
-                                <p className="mt-1 text-sm text-ink-soft">
-                                    {pe.preparedFor(est.client_name)}
-                                </p>
-                            ) : null}
+                            <dt className="text-xs text-muted">{strings.printing.issued}</dt>
+                            <dd className="text-sm font-semibold">{longDate(est.issued_at)}</dd>
                         </div>
-                        <div className="sm:text-right">
-                            <p className="text-xs font-medium uppercase tracking-wide text-muted">
-                                {pe.estimateTotal}
+                        {est.valid_until !== null ? (
+                            <div>
+                                <dt className="text-xs text-muted">
+                                    {strings.printing.validUntil}
+                                </dt>
+                                <dd className="text-sm font-semibold">
+                                    {longDate(est.valid_until)}
+                                </dd>
+                            </div>
+                        ) : null}
+                    </dl>
+                </>
+            }
+        >
+            <main className="mx-auto max-w-3xl px-4 sm:px-6">
+                <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
+                    {page.status === "accepted" || page.status === "declined" ? (
+                        <section className="flex flex-col items-center border-b border-line-soft px-6 py-10 text-center">
+                            <span
+                                className={`flex h-14 w-14 items-center justify-center rounded-full ${page.status === "accepted" ? "bg-ok-bg text-ok-fg" : "bg-bg text-muted"}`}
+                            >
+                                <Icon name={page.status === "accepted" ? "check" : "x"} size={26} />
+                            </span>
+                            <h1 className="mt-4 font-display text-xl font-bold text-ink">
+                                {page.status === "accepted" ? pe.acceptedTitle : pe.declinedTitle}
+                            </h1>
+                            <p className="mt-1 max-w-sm text-sm text-ink-soft">
+                                {page.status === "accepted"
+                                    ? pe.acceptedBody(biz)
+                                    : pe.declinedBody(biz)}
                             </p>
-                            <p className="font-display text-3xl font-bold tabular-nums text-ink">
-                                {page.totalLabel}
-                            </p>
+                        </section>
+                    ) : null}
+                    {page.status === "expired" ? (
+                        <section className="border-b border-line-soft px-6 py-6 text-center">
+                            <h1 className="font-display text-xl font-bold text-ink">
+                                {pe.expiredTitle}
+                            </h1>
+                            <p className="mt-1 text-sm text-ink-soft">{pe.expiredBody(biz)}</p>
+                        </section>
+                    ) : null}
+                    <header className="flex items-end justify-between gap-4 border-b border-line-soft bg-accent-weak px-6 py-5">
+                        <div>
+                            <p className="text-sm text-ink-soft">{pe.estimateTotal}</p>
                             {est.valid_until !== null ? (
-                                <p
-                                    className={`text-xs ${page.status === "expired" ? "font-medium text-danger" : "text-muted"}`}
-                                >
+                                <p className="text-xs text-muted">
                                     {pe.validUntil(longDate(est.valid_until))}
                                 </p>
                             ) : null}
                         </div>
+                        <p className="font-display text-3xl font-bold text-ink">
+                            {page.totalLabel}
+                        </p>
                     </header>
                     {est.notes !== null ? (
                         <p className="border-b border-line-soft px-6 py-4 text-sm leading-relaxed text-ink-soft">
@@ -103,9 +125,7 @@ export function PublicEstimate() {
                         </p>
                     ) : null}
                     <div className="px-6 py-5">
-                        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                            {pe.lines}
-                        </h2>
+                        <h2 className="font-display text-base font-bold text-ink">{pe.lines}</h2>
                         <ul className="mt-2 divide-y divide-line-soft">
                             {est.lines
                                 .filter((l) => !l.optional || open || l.selected)
@@ -156,96 +176,107 @@ export function PublicEstimate() {
                                     </li>
                                 ))}
                         </ul>
-                        <div className="ml-auto mt-3 max-w-xs">
+                        <div className="-mx-6 mt-5 border-t border-line-soft px-6 pt-5">
                             <DocTotals lines={page.totals} />
                         </div>
                     </div>
-                    <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-4 text-xs text-muted">
-                        <span>{registrationLine(est.gst_hst_number, est.qst_number)}</span>
-                        {doc !== null ? (
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                icon="receipt"
-                                onPress={() => {
-                                    setPrinting(true);
-                                }}
-                            >
-                                {pe.downloadPdf}
-                            </Button>
-                        ) : null}
-                    </footer>
+                    {open ? (
+                        <div className="border-t border-line bg-bg/70">
+                            <div className="mx-auto max-w-3xl px-6 py-6">
+                                {page.declining ? (
+                                    <div className="space-y-3">
+                                        <TextField
+                                            label={pe.declineReason}
+                                            hint={pe.declineReasonHint}
+                                            multiline
+                                            rows={2}
+                                            maxLength={500}
+                                            value={page.reason}
+                                            onChange={page.setReason}
+                                            placeholder={pe.declinePlaceholder}
+                                            autoFocus
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <Button
+                                                variant="quiet"
+                                                onPress={() => {
+                                                    page.setDeclining(false);
+                                                }}
+                                            >
+                                                {pe.cancel}
+                                            </Button>
+                                            <Button
+                                                variant="danger"
+                                                busy={page.busy}
+                                                onPress={page.decline}
+                                            >
+                                                {pe.sendDecline}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <Button
+                                            full
+                                            size="lg"
+                                            busy={page.busy}
+                                            onPress={page.accept}
+                                            icon="check"
+                                        >
+                                            {page.busy
+                                                ? pe.accepting
+                                                : pe.acceptFor(page.totalLabel)}
+                                        </Button>
+                                        <div className="flex flex-wrap justify-center gap-2">
+                                            <Button
+                                                variant="outline"
+                                                onPress={() => {
+                                                    page.setDeclining(true);
+                                                }}
+                                            >
+                                                {pe.decline}
+                                            </Button>
+                                            {doc !== null ? (
+                                                <Button
+                                                    variant="outline"
+                                                    icon="printer"
+                                                    onPress={() => {
+                                                        setPrinting(true);
+                                                    }}
+                                                >
+                                                    {pe.downloadPdf}
+                                                </Button>
+                                            ) : null}
+                                        </div>
+                                        <p className="text-center text-xs text-muted">
+                                            {pe.acceptNote(biz)}
+                                        </p>
+                                    </div>
+                                )}
+                                {page.error !== null ? (
+                                    <Notice tone="danger">{page.error}</Notice>
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : (
+                        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-6 py-4 text-xs text-muted">
+                            <span>{registrationLine(est.gst_hst_number, est.qst_number)}</span>
+                            {doc !== null ? (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    icon="receipt"
+                                    onPress={() => {
+                                        setPrinting(true);
+                                    }}
+                                >
+                                    {pe.downloadPdf}
+                                </Button>
+                            ) : null}
+                        </footer>
+                    )}
                 </article>
             </main>
-
-            {open ? (
-                <div className="fixed inset-x-0 bottom-0 border-t border-line bg-surface/95 backdrop-blur">
-                    <div className="mx-auto max-w-3xl px-4 py-4 sm:px-5">
-                        {page.declining ? (
-                            <div className="space-y-3">
-                                <TextField
-                                    label={pe.declineReason}
-                                    hint={pe.declineReasonHint}
-                                    multiline
-                                    rows={2}
-                                    maxLength={500}
-                                    value={page.reason}
-                                    onChange={page.setReason}
-                                    placeholder={pe.declinePlaceholder}
-                                    autoFocus
-                                />
-                                <div className="flex justify-end gap-2">
-                                    <Button
-                                        variant="quiet"
-                                        onPress={() => {
-                                            page.setDeclining(false);
-                                        }}
-                                    >
-                                        {pe.cancel}
-                                    </Button>
-                                    <Button
-                                        variant="danger"
-                                        busy={page.busy}
-                                        onPress={page.decline}
-                                    >
-                                        {pe.sendDecline}
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-xs text-muted sm:max-w-sm">
-                                    {pe.acceptNote(biz)}
-                                </p>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        onPress={() => {
-                                            page.setDeclining(true);
-                                        }}
-                                    >
-                                        {pe.decline}
-                                    </Button>
-                                    <Button
-                                        grow
-                                        size="lg"
-                                        busy={page.busy}
-                                        onPress={page.accept}
-                                        icon="check"
-                                    >
-                                        {page.busy
-                                            ? pe.accepting
-                                            : page.picked.size > 0
-                                              ? pe.acceptFor(page.totalLabel)
-                                              : pe.accept}
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-                        {page.error !== null ? <Notice tone="danger">{page.error}</Notice> : null}
-                    </div>
-                </div>
-            ) : null}
             {printing && doc !== null ? (
                 <PrintModal
                     doc={doc}

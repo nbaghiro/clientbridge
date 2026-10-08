@@ -4,7 +4,7 @@ import { formatDate } from "../datetime";
 import { formatMoney, parseCents } from "../format";
 import { useAsyncAction } from "../hooks";
 import { strings } from "../strings";
-import type { DocTotalLine, Intent, PrintedDoc, PrintedDocLine, PrintedDocTax } from "../ui";
+import type { DocTotalLine, PrintedDoc, PrintedDocLine, PrintedDocTax } from "../ui";
 import { longDate, printedDoc, ratePct, shortDate } from "./printing";
 import { type PublicBrand, usePublicResource } from "./publicResource";
 
@@ -13,22 +13,6 @@ type PayMethod = "interac" | "card";
 /** Ranked pay methods for the public page: Interac first (no fee), card only when enabled. */
 function payMethods(invoice: { accepts_card: boolean }): PayMethod[] {
     return invoice.accepts_card ? ["interac", "card"] : ["interac"];
-}
-
-// The status → visual-intent decision is shared; each platform maps the intent to its own tokens.
-export function invoiceStatusIntent(status: string): Intent {
-    switch (status) {
-        case "paid":
-            return "success";
-        case "sent":
-            return "accent";
-        case "partial":
-            return "warning";
-        case "overdue":
-            return "danger";
-        default:
-            return "neutral"; // draft, void
-    }
 }
 
 export interface PublicDocLine {
@@ -80,6 +64,7 @@ interface PublicInvoice {
     credits: PublicCredit[];
     interac?: PublicInteracRequest | null;
     tip_for?: string[];
+    tip_base_cents?: number;
 }
 
 interface PublicInteracRequest {
@@ -188,6 +173,7 @@ export function printedPublicInvoice(
         },
         {
             name: invoice.business_name,
+            avatarUrl: invoice.brand.avatar_url ?? invoice.brand.logo_url,
             tagline: invoice.brand.tagline,
             brandColor: invoice.brand.primary,
             email: invoice.interac_email,
@@ -266,6 +252,7 @@ interface PublicPayForm {
     payCard: () => void;
     tip: PayLinkTip;
     markPaid: () => void;
+    cancelCard: () => void;
     busy: boolean;
     error: string | null;
     setError: (message: string | null) => void;
@@ -312,6 +299,9 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
         payInterac,
         payCard,
         tip,
+        cancelCard: () => {
+            setCard(null);
+        },
         markPaid: () => {
             setPaid(true);
         },
@@ -324,6 +314,7 @@ export function usePublicPayForm(pay: PublicPayClient, token: string): PublicPay
 const TIP_PERCENTS = [15, 18, 20] as const;
 
 interface PayLinkTip {
+    available: boolean;
     title: string;
     note: string;
     key: string;
@@ -341,7 +332,7 @@ function usePayLinkTip(invoice: PublicInvoice | null): PayLinkTip {
     const pp = strings.publicPay;
     const [key, setKey] = useState("none");
     const [custom, setCustom] = useState("");
-    const base = invoice?.subtotal_cents ?? 0;
+    const base = invoice?.tip_base_cents ?? invoice?.subtotal_cents ?? 0;
     const balance = invoice?.balance_cents ?? 0;
     const customCents = parseCents(custom);
     const pct = TIP_PERCENTS.find((n) => String(n) === key);
@@ -359,6 +350,7 @@ function usePayLinkTip(invoice: PublicInvoice | null): PayLinkTip {
               : null;
     const names = invoice?.tip_for ?? [];
     return {
+        available: base > 0,
         title: pp.tipTitle(names.length === 0 ? pp.tipTeam : names.join(" and ")),
         note: pp.tipBase(formatMoney(base)),
         key,

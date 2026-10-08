@@ -1,6 +1,6 @@
-import { useStripeTerminalLocation } from "@clientbridge/app-core";
+import { strings, useStripeTerminalLocation } from "@clientbridge/app-core";
 import { StripeTerminalProvider, useStripeTerminal } from "@stripe/stripe-terminal-react-native";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 
 import { terminalSimulated } from "../lib/config";
 
@@ -25,12 +25,14 @@ interface TerminalCheckout {
     error: string | null;
     ready: boolean;
     charge: (clientSecret: string) => void;
+    retry: (() => void) | null;
 }
 
 /** Tap to Pay: connect a reader, then collect and confirm the order's PaymentIntent. */
 export function useTerminalCheckout(): TerminalCheckout {
     const {
         initialize,
+        cancelDiscovering,
         discoverReaders,
         connectReader,
         retrievePaymentIntent,
@@ -44,69 +46,160 @@ export function useTerminalCheckout(): TerminalCheckout {
     const [error, setError] = useState<string | null>(null);
     const locationId = useStripeTerminalLocation();
 
-    // Initialize + start discovering a Tap-to-Pay reader on mount.
+    const [attempt, setAttempt] = useState(0);
+    const [canRetry, setCanRetry] = useState(true);
+    const active = useRef(true);
+    const connecting = useRef(false);
+    const charging = useRef(false);
+    const readerRef = useRef(connectedReader);
+    readerRef.current = connectedReader;
+    const t = strings.terminal;
     useEffect(() => {
+        active.current = true;
+        return () => {
+            active.current = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        let current = true;
+        const isCurrent = (): boolean => current;
+        setPhase("connecting");
+        setError(null);
+        setCanRetry(true);
         (async () => {
-            await initialize();
-            const res = await discoverReaders({
+            const initialized = await initialize();
+            if (!isCurrent()) return;
+            if (initialized.error) {
+                setError(t.unavailable);
+                setPhase("error");
+                return;
+            }
+            if (readerRef.current != null) {
+                setPhase("ready");
+                return;
+            }
+            const result = await discoverReaders({
                 discoveryMethod: "tapToPay",
                 simulated: terminalSimulated,
             });
-            if (res.error) {
-                setError(res.error.message);
+            if (isCurrent() && result.error) {
+                setError(t.discoveryError);
                 setPhase("error");
             }
-        })().catch(() => undefined);
-    }, [initialize, discoverReaders]);
+        })().catch(() => {
+            if (isCurrent()) {
+                setError(t.unavailable);
+                setPhase("error");
+            }
+        });
+        return () => {
+            current = false;
+            cancelDiscovering().catch(() => undefined);
+        };
+    }, [initialize, discoverReaders, cancelDiscovering, attempt, t]);
 
-    // Connect the first discovered reader once we know which location to connect it under.
     useEffect(() => {
         const reader = discoveredReaders[0];
-        if (connectedReader != null || reader === undefined || locationId === null) return;
+        if (
+            connectedReader != null ||
+            reader === undefined ||
+            locationId === null ||
+            connecting.current
+        )
+            return;
+        connecting.current = true;
         (async () => {
-            const res = await connectReader({ discoveryMethod: "tapToPay", reader, locationId });
-            if (res.error) {
-                setError(res.error.message);
+            const result = await connectReader({ discoveryMethod: "tapToPay", reader, locationId });
+            if (!active.current) return;
+            if (result.error) {
+                setError(t.connectionError);
                 setPhase("error");
             } else {
                 setError(null);
                 setPhase("ready");
             }
-        })().catch(() => undefined);
-    }, [discoveredReaders, connectedReader, connectReader, locationId]);
+        })()
+            .catch(() => {
+                if (active.current) {
+                    setError(t.connectionError);
+                    setPhase("error");
+                }
+            })
+            .finally(() => {
+                connecting.current = false;
+            });
+    }, [discoveredReaders, connectedReader, connectReader, locationId, t, attempt]);
+
+    useEffect(() => {
+        if (phase !== "connecting" || discoveredReaders.length === 0 || locationId !== null) return;
+        const timer = setTimeout(() => {
+            setError(t.locationMissing);
+            setPhase("error");
+        }, 30_000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [phase, discoveredReaders.length, locationId, t]);
 
     const charge = useCallback(
         (clientSecret: string): void => {
+            if (charging.current || !active.current) return;
+            charging.current = true;
+            const isActive = (): boolean => active.current;
+            setCanRetry(false);
             (async () => {
                 setPhase("collecting");
                 setError(null);
                 const retrieved = await retrievePaymentIntent(clientSecret);
+                if (!isActive()) return;
                 if (retrieved.error) {
-                    setError(retrieved.error.message);
+                    setError(t.paymentError);
                     setPhase("error");
                     return;
                 }
                 const collected = await collectPaymentMethod({
                     paymentIntent: retrieved.paymentIntent,
                 });
+                if (!isActive()) return;
                 if (collected.error) {
-                    setError(collected.error.message);
+                    setError(t.paymentError);
                     setPhase("error");
                     return;
                 }
                 const confirmed = await confirmPaymentIntent({
                     paymentIntent: collected.paymentIntent,
                 });
+                if (!isActive()) return;
                 if (confirmed.error) {
-                    setError(confirmed.error.message);
+                    setError(t.paymentError);
                     setPhase("error");
                     return;
                 }
                 setPhase("done");
-            })().catch(() => undefined);
+            })()
+                .catch(() => {
+                    if (active.current) {
+                        setError(t.paymentError);
+                        setPhase("error");
+                    }
+                })
+                .finally(() => {
+                    charging.current = false;
+                });
         },
-        [retrievePaymentIntent, collectPaymentMethod, confirmPaymentIntent],
+        [retrievePaymentIntent, collectPaymentMethod, confirmPaymentIntent, t],
     );
 
-    return { phase, error, ready: connectedReader != null, charge };
+    return {
+        phase,
+        error,
+        ready: connectedReader != null && phase === "ready",
+        charge,
+        retry: canRetry
+            ? () => {
+                  setAttempt((value) => value + 1);
+              }
+            : null,
+    };
 }

@@ -18,13 +18,26 @@ jobs:
         env:
           POSTGRES_USER: clientbridge
           POSTGRES_PASSWORD: clientbridge
-          POSTGRES_DB: clientbridge
+          POSTGRES_DB: clientbridge_test_ci
         ports: ["8702:5432"]
         options: >-
           --health-cmd "pg_isready -U clientbridge" --health-interval 5s
           --health-timeout 3s --health-retries 15
+      rustfs:
+        image: rustfs/rustfs:latest
+        env:
+          RUSTFS_ACCESS_KEY: minio
+          RUSTFS_SECRET_KEY: minio12345
+          RUSTFS_CONSOLE_ENABLE: "true"
+        ports: ["8705:9000"]
     env:
-      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge
+      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
+      ENV: dev
+      S3_ENDPOINT: http://localhost:8705
+      S3_BUCKET: clientbridge-demo-ci
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio12345
+      S3_REGION: us-east-1
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -33,6 +46,32 @@ jobs:
       - run: uv sync
         working-directory: backend
       - run: make format-check-backend lint-backend
+      - name: wait for local object storage
+        working-directory: backend
+        run: |
+          uv run python - <<'PYTHON'
+          import os
+          import time
+          import boto3
+          from botocore.config import Config
+          from botocore.exceptions import BotoCoreError, ClientError
+
+          storage = boto3.client(
+              "s3", endpoint_url=os.environ["S3_ENDPOINT"],
+              aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+              aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+              region_name=os.environ["S3_REGION"],
+              config=Config(connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}),
+          )
+          for attempt in range(30):
+              try:
+                  storage.list_buckets()
+                  break
+              except (BotoCoreError, ClientError):
+                  if attempt == 29:
+                      raise
+                  time.sleep(1)
+          PYTHON
       - run: make migrate seed  # tests act as the demo business's owner
       - run: make test-backend
 
@@ -110,13 +149,26 @@ jobs:
         env:
           POSTGRES_USER: clientbridge
           POSTGRES_PASSWORD: clientbridge
-          POSTGRES_DB: clientbridge
+          POSTGRES_DB: clientbridge_test_ci
         ports: ["8702:5432"]
         options: >-
           --health-cmd "pg_isready -U clientbridge" --health-interval 5s
           --health-timeout 3s --health-retries 15
+      rustfs:
+        image: rustfs/rustfs:latest
+        env:
+          RUSTFS_ACCESS_KEY: minio
+          RUSTFS_SECRET_KEY: minio12345
+          RUSTFS_CONSOLE_ENABLE: "true"
+        ports: ["8705:9000"]
     env:
-      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge
+      DATABASE_URL: postgresql+asyncpg://clientbridge:clientbridge@localhost:8702/clientbridge_test_ci
+      ENV: dev
+      S3_ENDPOINT: http://localhost:8705
+      S3_BUCKET: clientbridge-demo-ci
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio12345
+      S3_REGION: us-east-1
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -124,6 +176,32 @@ jobs:
           python-version: "3.14"
       - run: uv sync
         working-directory: backend
+      - name: wait for local object storage
+        working-directory: backend
+        run: |
+          uv run python - <<'PYTHON'
+          import os
+          import time
+          import boto3
+          from botocore.config import Config
+          from botocore.exceptions import BotoCoreError, ClientError
+
+          storage = boto3.client(
+              "s3", endpoint_url=os.environ["S3_ENDPOINT"],
+              aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+              aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+              region_name=os.environ["S3_REGION"],
+              config=Config(connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}),
+          )
+          for attempt in range(30):
+              try:
+                  storage.list_buckets()
+                  break
+              except (BotoCoreError, ClientError):
+                  if attempt == 29:
+                      raise
+                  time.sleep(1)
+          PYTHON
       - run: make migrate seed
       - run: uv run uvicorn clientbridge.main:app --port 8701 > /tmp/api.log 2>&1 &
         working-directory: backend

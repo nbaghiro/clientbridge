@@ -1,9 +1,19 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from clientbridge.schemas.public import PublicBrand
+
+
+class ConnectSessionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    component: Literal["onboarding", "account", "payments", "payouts"]
+
+
+class ConnectSessionOut(BaseModel):
+    client_secret: str
 
 
 class OnboardingLink(BaseModel):
@@ -208,6 +218,9 @@ class PublicInterac(BaseModel):
 
 
 class PublicInvoice(BaseModel):
+    tip_base_cents: int = Field(
+        default=0, description="Service subtotal before tax; excludes retail and entitlements"
+    )
     number: int | None
     business_name: str
     brand: PublicBrand
@@ -280,3 +293,19 @@ class InvoicePaymentOut(BaseModel):
     change_cents: int
     balance_cents: int
     client_secret: str | None = None
+
+
+class PaymentSetupLinkOut(BaseModel):
+    id: str
+    url: str
+    expires_at: datetime
+
+
+class PublicPaymentSetup(BaseModel):
+    business_name: str
+    client_name: str
+    expires_at: datetime
+    status: str
+    stripe_account_id: str
+    client_secret: str | None = None
+    verification_url: str | None = None

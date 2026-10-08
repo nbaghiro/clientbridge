@@ -1,8 +1,14 @@
 """Every StripeGateway call against stripe-mock, catching spec drift the fake can't."""
 
 import pytest
+import stripe
 
-from clientbridge.integrations.stripe import ChargeFees, ConnectAccount, StripeGateway
+from clientbridge.integrations.stripe import (
+    ChargeFees,
+    ConnectAccount,
+    ConnectComponent,
+    StripeGateway,
+)
 
 pytestmark = pytest.mark.contract
 
@@ -43,7 +49,9 @@ async def test_create_setup_intent(contract_gateway: StripeGateway) -> None:
 
 
 async def test_create_pad_setup_intent(contract_gateway: StripeGateway) -> None:
-    result = await contract_gateway.create_pad_setup_intent(ACCT, customer_id=CUS)
+    result = await contract_gateway.create_pad_setup_intent(
+        ACCT, customer_id=CUS, idempotency_key="contract-pad-1"
+    )
     assert result.id.startswith("seti_") and result.client_secret
 
 
@@ -121,3 +129,18 @@ async def test_get_payment_fees(contract_gateway: StripeGateway) -> None:
 
 async def test_get_balance_cents(contract_gateway: StripeGateway) -> None:
     assert isinstance(await contract_gateway.get_balance_cents(ACCT, currency="CAD"), int)
+
+
+@pytest.mark.parametrize("component", ["onboarding", "account", "payments", "payouts"])
+async def test_create_account_session(
+    contract_gateway: StripeGateway, component: ConnectComponent
+) -> None:
+    try:
+        secret = await contract_gateway.create_account_session(ACCT, component)
+    except stripe.InvalidRequestError as exc:
+        if "Unrecognized request URL (POST: /v1/account_sessions)" in str(exc):
+            pytest.skip(
+                "stripe-mock does not implement Account Sessions; test-mode verification required"
+            )
+        raise
+    assert isinstance(secret, str) and secret

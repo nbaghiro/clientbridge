@@ -49,12 +49,12 @@ async def test_sync_token_minted_from_session(api: httpx.AsyncClient, factory: F
     assert claims["sub"] == user.id
 
 
-async def test_sync_token_tolerates_empty_bearer(api: httpx.AsyncClient) -> None:
+async def test_sync_token_rejects_empty_bearer(api: httpx.AsyncClient) -> None:
     # the browser sends "Bearer " with an empty token, which the HTTP layer trims to "Bearer"
     for header in ("Bearer", "Bearer ", "bearer "):
         res = await api.get("/sync/token", headers={"Authorization": header})
-        assert res.status_code == 200, header
-        assert res.json()["token"]
+        assert res.status_code == 401, header
+        assert "token" not in res.json()
 
 
 async def test_sync_token_prod_requires_a_real_bearer(

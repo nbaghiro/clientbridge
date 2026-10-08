@@ -10,6 +10,7 @@ import {
     strings,
     useConversation,
     useInbox,
+    resolveInboxTarget,
     useMarkThreadRead,
     useNewMessage,
     useThreadComposer,
@@ -32,7 +33,8 @@ import {
     Tabs,
     TextField,
 } from "@clientbridge/ui";
-import { type RouteProp, useRoute } from "@react-navigation/native";
+import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { type RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -40,7 +42,9 @@ import { Loaded } from "../components/Loaded";
 import { api } from "../lib/api";
 import { useRole } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
-import type { RootStackParamList } from "../navigation";
+import type { TabParamList } from "../navigation";
+import { SafeAreaView } from "react-native-safe-area-context";
+
 import { Broadcasts } from "./Broadcasts";
 import { Contracts } from "./Contracts";
 import { Forms } from "./Forms";
@@ -53,42 +57,74 @@ const QUICK = s.quickReplyOptions.map((q, i) => ({ key: String(i), label: q.labe
 
 export function InboxScreen() {
     const segments = visibleInboxSegments(useRole());
-    const params = useRoute<RouteProp<RootStackParamList, "Inbox">>().params;
+    const params = useRoute<RouteProp<TabParamList, "Inbox">>().params;
     const [segment, setSegment] = useState<InboxSegmentKey>(params?.segment ?? "messages");
 
+    useEffect(() => {
+        if (params?.segment !== undefined) setSegment(params.segment);
+    }, [params?.segment, params?.request]);
+    const current = segments.some((item) => item.key === segment) ? segment : "messages";
+
     return (
-        <View style={styles.screen}>
+        <SafeAreaView style={styles.screen} edges={["top"]}>
+            <Text style={styles.inboxTitle} accessibilityRole="header">
+                {strings.navigation.inbox}
+            </Text>
             {segments.length > 1 ? (
-                <Tabs items={segments} active={segment} onSelect={setSegment} />
+                <Tabs items={segments} active={current} onSelect={setSegment} />
             ) : null}
-            {segment === "reviews" ? (
+            {current === "reviews" ? (
                 <Reviews />
-            ) : segment === "broadcasts" ? (
+            ) : current === "broadcasts" ? (
                 <Broadcasts />
-            ) : segment === "forms" ? (
+            ) : current === "forms" ? (
                 <Forms />
-            ) : segment === "contracts" ? (
+            ) : current === "contracts" ? (
                 <Contracts />
             ) : (
                 <Messages />
             )}
-        </View>
+        </SafeAreaView>
     );
 }
 
 function Messages() {
+    const nav = useNavigation<BottomTabNavigationProp<TabParamList, "Inbox">>();
     const inbox = useInbox();
     const [openId, setOpenId] = useState<string | null>(null);
     const [composing, setComposing] = useState<string | null>(null);
     const [sentTo, setSentTo] = useState<string | null>(null);
-    const params = useRoute<RouteProp<RootStackParamList, "Inbox">>().params;
+    const params = useRoute<RouteProp<TabParamList, "Inbox">>().params;
+    const handled = useRef<number | undefined>(undefined);
     useEffect(() => {
-        if (params?.create !== undefined) setComposing("");
-    }, [params?.create]);
-    const linked = inbox.threads.find((t) => t.client_id === params?.open);
-    useEffect(() => {
-        if (linked !== undefined) setOpenId(linked.id);
-    }, [linked]);
+        const request = params?.request;
+        if (
+            params?.segment !== "messages" ||
+            request === undefined ||
+            handled.current === request ||
+            !inbox.load.hasData
+        )
+            return;
+        handled.current = request;
+        nav.setParams({
+            request: undefined,
+            create: undefined,
+            open: undefined,
+            threadId: undefined,
+        });
+        setSentTo(null);
+        if (params.create !== undefined) {
+            setOpenId(null);
+            setComposing("");
+            return;
+        }
+        const target = resolveInboxTarget(inbox.threads, {
+            threadId: params.threadId,
+            clientId: params.open,
+        });
+        setOpenId(target.threadId);
+        setComposing(target.clientId);
+    }, [params, inbox.load.hasData, inbox.threads, nav]);
     const open = inbox.threads.find((t) => t.id === openId) ?? null;
 
     if (open !== null)
@@ -424,6 +460,13 @@ function NewMessageSheet({
 }
 
 const styles = StyleSheet.create({
+    inboxTitle: {
+        color: c.ink,
+        fontSize: 28,
+        fontWeight: "700",
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+    },
     screen: { flex: 1, backgroundColor: c.bg },
     flex: { flex: 1, minWidth: 0 },
     header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, gap: 10 },

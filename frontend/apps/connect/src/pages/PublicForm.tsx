@@ -8,8 +8,8 @@ import {
 import { Button, FormQuestion, Icon, Notice } from "@clientbridge/ui";
 import { useParams } from "react-router-dom";
 
-import { PublicFrame } from "../components/PublicFrame";
-import { PublicDone, PublicStatus } from "../components/PublicStatus";
+import { DocumentLetter } from "../components/PublicDocument";
+import { PublicStatus } from "../components/PublicStatus";
 import { config } from "../config";
 import { useEmbedSuccess } from "../embed";
 
@@ -37,11 +37,16 @@ export function PublicForm() {
         );
     if (fill.status === "done")
         return (
-            <PublicDone
+            <DocumentLetter
                 brand={form.brand}
+                businessName={form.business_name}
                 title={s.doneTitle}
-                body={s.allDone(form.business_name)}
-            />
+                subtitle={s.allDone(form.business_name)}
+            >
+                <div className="flex justify-center py-8 text-ok-fg">
+                    <Icon name="checkCircle" size={48} />
+                </div>
+            </DocumentLetter>
         );
 
     const total = form.fields.length;
@@ -49,9 +54,30 @@ export function PublicForm() {
     const pct = Math.round((answered / Math.max(total, 1)) * 100);
 
     return (
-        <PublicFrame size="xl" brand={form.brand}>
-            <h1 className="font-display text-2xl font-bold text-ink">{form.form_name}</h1>
-            <p className="mt-1.5 text-sm text-muted">{s.intro(form.business_name)}</p>
+        <DocumentLetter
+            brand={form.brand}
+            businessName={form.business_name}
+            title={form.form_name}
+            subtitle={s.intro(form.business_name)}
+            actions={
+                <>
+                    {fill.error !== null ? (
+                        <Notice tone="danger" banner>
+                            {fill.error}
+                        </Notice>
+                    ) : null}
+                    <div className="space-y-3 border-t border-line pt-5">
+                        <Button size="lg" full busy={fill.busy} onPress={fill.submit}>
+                            {fill.busy ? s.submitting : s.sendAnswers}
+                        </Button>
+                        <p className="flex items-center justify-center gap-1.5 text-xs text-muted">
+                            <Icon name="lock" size={13} />
+                            {s.privacy(form.business_name)}
+                        </p>
+                    </div>
+                </>
+            }
+        >
             <div className="mt-5 flex items-center gap-3">
                 <div
                     role="progressbar"
@@ -87,21 +113,7 @@ export function PublicForm() {
                         selectPlaceholder={s.selectPlaceholder}
                     />
                 ))}
-                {fill.error !== null ? (
-                    <Notice tone="danger" banner>
-                        {fill.error}
-                    </Notice>
-                ) : null}
-                <div className="space-y-3 border-t border-line pt-5">
-                    <Button size="lg" full busy={fill.busy} onPress={fill.submit}>
-                        {fill.busy ? s.submitting : s.sendAnswers}
-                    </Button>
-                    <p className="flex items-center justify-center gap-1.5 text-xs text-muted">
-                        <Icon name="lock" size={13} />
-                        {s.privacy(form.business_name)}
-                    </p>
-                </div>
             </div>
-        </PublicFrame>
+        </DocumentLetter>
     );
 }

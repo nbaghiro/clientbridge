@@ -1,0 +1,50 @@
+appId: ca.clientbridge.app
+name: Owner setup surfaces
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- assertVisible: "Get set up"
+- takeScreenshot: setup
+- tapOn: "Get set up"
+- assertVisible: "Everything you need to take bookings and get paid."
+- takeScreenshot: get-set-up
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Business"
+- assertVisible: "Your business profile. Sales tax numbers are in Sales tax."
+- takeScreenshot: business
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Services & products"
+- assertVisible: "Inventory"
+- takeScreenshot: catalog
+- tapOn: "Inventory"
+- assertVisible: "Products you track stock for."
+- takeScreenshot: inventory
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Team & hours"
+- assertVisible: "Members"
+- takeScreenshot: team
+- scrollUntilVisible:
+      element: "Regular hours"
+      direction: DOWN
+- takeScreenshot: hours
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Getting paid"
+- assertVisible: "Card payments"
+- takeScreenshot: getting-paid
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Sales tax"
+- assertVisible: "What you charge, and the numbers that go on invoices and receipts."
+- takeScreenshot: taxes
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Online booking"
+- assertVisible: "Add-ons"
+- takeScreenshot: online-booking
+- tapOn: "Add-ons"
+- takeScreenshot: booking-addons
+- tapOn: "Changes and cancellations"
+- assertVisible: "Let clients move or cancel from their confirmation link, within your rules."
+- takeScreenshot: booking-policy
+- tapOn: "Back|Go back|Navigate up"
+- tapOn: "Reminders"
+- assertVisible: "What clients hear before a visit, and closing visits when the day is over."
+- takeScreenshot: reminders

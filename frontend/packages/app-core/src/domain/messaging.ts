@@ -108,6 +108,23 @@ export interface InboxThread extends InboxRow {
     channelKind: "sms" | "email" | "chat";
 }
 
+export function resolveInboxTarget(
+    threads: readonly Pick<InboxThread, "id" | "client_id">[],
+    target: { threadId?: string | undefined; clientId?: string | undefined },
+): { threadId: string | null; clientId: string | null } {
+    const thread =
+        target.threadId !== undefined
+            ? threads.find((item) => item.id === target.threadId)
+            : threads.find((item) => item.client_id === target.clientId);
+    return {
+        threadId: thread?.id ?? null,
+        clientId:
+            thread === undefined && target.threadId === undefined
+                ? (target.clientId ?? null)
+                : null,
+    };
+}
+
 type InboxFilter = "all" | "unread" | "sms" | "email";
 
 export const INBOX_FILTERS: { key: InboxFilter; label: string }[] = [

@@ -58,7 +58,7 @@ export default story<EmptyProps>({
             key: "card-error",
             title: "Card, failed load with two actions",
             props: (k) => ({
-                message: "Couldn't reach Stripe",
+                message: "Couldn't reach the payment service",
                 body: "Payouts will show here again once the connection is back.",
                 icon: "alert",
                 intent: "danger",

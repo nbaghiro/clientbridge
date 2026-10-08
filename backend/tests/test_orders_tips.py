@@ -3,7 +3,8 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clientbridge.models.billing import Order
+from clientbridge.core.ids import new_id
+from clientbridge.models.billing import Line, Order
 from clientbridge.models.ledger import Account, Entry
 from clientbridge.models.payments import Payment
 from clientbridge.services import ledger
@@ -216,6 +217,18 @@ async def test_pay_link_takes_a_tip_for_the_invoice(
 ) -> None:
     await enable_payments(db)
     inv = await sent_invoice(db, total=10000, pay_token="tok_tip")
+    db.add(
+        Line(
+            id=new_id("line"),
+            business_id=BIZ,
+            invoice_id=inv,
+            item_id="it_groom_sm",
+            description="Full Groom",
+            unit_amount_cents=10000,
+            amount_cents=10000,
+        )
+    )
+    await db.flush()
     res = ok(await unauth.post("/pay/tok_tip/card", json={"tip_cents": 1500}))
     assert res.json()["client_secret"]
     pay = (

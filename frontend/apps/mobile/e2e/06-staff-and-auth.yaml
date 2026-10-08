@@ -1,0 +1,65 @@
+appId: ca.clientbridge.app
+name: Authentication and staff boundaries
+onFlowComplete:
+    - runFlow: helpers/restore-owner.yaml
+---
+- runFlow: helpers/owner.yaml
+- tapOn: "Setup"
+- tapOn: "Sign out"
+- extendedWaitUntil:
+      visible: "Sign in"
+      timeout: 30000
+- takeScreenshot: sign-in
+- tapOn: "Continue with Google"
+- assertVisible: "Google sign-in isn't set up yet. Use your email and password."
+- tapOn: "Create an account"
+- assertVisible: "Your name"
+- takeScreenshot: sign-up
+- tapOn: "Sign in"
+- tapOn: "Forgot password\\?"
+- assertVisible: "Reset your password"
+- takeScreenshot: password-reset
+- tapOn: "Back to sign in"
+- tapOn:
+      text: "hannah@birchbarkpets.ca"
+      point: "95%,50%"
+- eraseText
+- inputText: "diego@birchbarkpets.ca"
+- assertVisible: "diego@birchbarkpets.ca"
+- tapOn: "••••••••"
+- eraseText
+- inputText: "demo1234"
+- hideKeyboard
+- tapOn:
+      text: "Sign in"
+      below: "Forgot password\\?"
+- extendedWaitUntil:
+      visible: "Today"
+      timeout: 60000
+- assertVisible: "Good .*, Diego"
+- assertNotVisible: "Booked today.*"
+- takeScreenshot: staff-today
+- tapOn: "View payments"
+- assertVisible: "New sale"
+- assertNotVisible: "Invoices"
+- assertNotVisible: "Refunds"
+- assertNotVisible: "History"
+- takeScreenshot: staff-sales
+- tapOn: "Back|Go back|Navigate up"
+- tapOn:
+      id: "tab-inbox"
+- assertVisible: "Search name, pet or message"
+- assertNotVisible: "Reviews"
+- assertNotVisible: "Broadcasts"
+- takeScreenshot: staff-inbox
+- tapOn: "Today"
+- tapOn: "Setup"
+- assertVisible: "Team & hours"
+- assertNotVisible: "Business"
+- assertNotVisible: "Sales tax"
+- takeScreenshot: staff-setup
+- tapOn: "Team & hours"
+- scrollUntilVisible:
+      element: "Regular hours"
+      direction: DOWN
+- takeScreenshot: staff-hours

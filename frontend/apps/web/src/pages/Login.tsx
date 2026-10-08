@@ -215,8 +215,6 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
     const signupPath = window.location.pathname === "/signup";
     const auth = useAuthForm(api, setTokens, onSuccess, {
         initialMode: signupPath ? "signup" : "signin",
-        defaultEmail: signupPath ? "" : "hannah@birchbarkpets.ca",
-        defaultPassword: signupPath ? "" : "demo1234",
     });
     const credentials = auth.mode === "signin" || auth.mode === "signup";
 

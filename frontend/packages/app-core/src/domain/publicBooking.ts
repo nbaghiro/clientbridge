@@ -98,6 +98,8 @@ interface PublicBookingResult {
 }
 
 interface BookingInput {
+    returningToken?: string | null;
+    subjectId?: string | null;
     itemId: string;
     staffId: string;
     startsAt: string;
@@ -172,22 +174,13 @@ export function createPublicBookingClient(baseUrl: string): PublicBookingClient 
                     starts_at: input.startsAt,
                     client: input.client,
                     pet_name: input.petName || null,
+                    returning_token: input.returningToken ?? null,
+                    subject_id: input.subjectId ?? null,
                     note: input.note || null,
                     addons: input.addons.map((x) => ({ item_id: x.itemId, quantity: x.quantity })),
                 }),
             }),
     };
-}
-
-type PublicBusinessStatus = "loading" | "not-found" | "error" | "ready";
-
-/** Profile, brand and services only, from the booking-page endpoint. */
-export function usePublicBusiness(
-    booking: PublicBookingClient,
-    slug: string,
-): { status: PublicBusinessStatus; page: PublicBookingPage | null } {
-    const { status, data } = usePublicResource(booking.getServices, slug);
-    return { status, page: data };
 }
 
 const ANY_STAFF = "any";
@@ -311,17 +304,27 @@ export function icsFor(e: CalendarEntry): string {
     ].join("\r\n");
 }
 
-type BookingStep = "service" | "time" | "details" | "pay" | "done";
+type BookingStep = "service" | "time" | "extras" | "details" | "pay" | "done";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const firstOf = (name: string | null): string => (name ?? "").split(" ")[0] ?? "";
 
 /** The whole public booking flow: service, who and when, details with suggested extras, deposit. */
-export function usePublicBookingFlow(client: PublicBookingClient, slug: string) {
+export function usePublicBookingFlow(
+    client: PublicBookingClient,
+    slug: string,
+    initial?: {
+        itemId?: string | undefined;
+        staffId?: string | undefined;
+        startsAt?: string | undefined;
+    },
+) {
     const { status, data: page } = usePublicResource(client.getServices, slug);
     const today = page?.now ? page.now.slice(0, 10) : dateKey(new Date());
     const [step, setStep] = useState<BookingStep>("service");
+    const initialApplied = useRef(false);
+    const initialTime = useRef(initial?.startsAt ?? "");
     const [itemId, setItemId] = useState("");
     const [staffId, setStaffId] = useState<string>(ANY_STAFF);
     const [weekFrom, setWeekFrom] = useState<string | null>(null);
@@ -336,11 +339,23 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
     const [phone, setPhone] = useState("");
     const [email, setEmail] = useState("");
     const [petName, setPetName] = useState("");
+    const [returningToken, setReturningToken] = useState<string | null>(null);
+    const [subjectId, setSubjectId] = useState<string | null>(null);
     const [note, setNote] = useState("");
     const [touched, setTouched] = useState(false);
     const [result, setResult] = useState<PublicBookingResult | null>(null);
     const key = useRef<string | null>(null);
     const { busy, error, setError, run } = useAsyncAction();
+
+    const clearReturning = (): void => {
+        setReturningToken(null);
+        setSubjectId(null);
+        key.current = null;
+    };
+    useEffect(() => {
+        setReturningToken(null);
+        setSubjectId(null);
+    }, [slug]);
 
     const from = weekFrom ?? today;
     const day = date ?? days?.find((d) => d.count > 0)?.date ?? (days === null ? null : from);
@@ -349,6 +364,22 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
         page?.staff.filter((x) => service === null || service.staff_ids.includes(x.id)) ?? [];
     const staffFirst = (id: string): string =>
         firstOf(page?.staff.find((x) => x.id === id)?.name ?? null);
+
+    useEffect(() => {
+        if (initialApplied.current || page === null || status !== "ready") return;
+        initialApplied.current = true;
+        const selected = page.services.find((candidate) => candidate.id === initial?.itemId);
+        if (!selected) return;
+        setItemId(selected.id);
+        if (initial?.staffId && selected.staff_ids.includes(initial.staffId))
+            setStaffId(initial.staffId);
+        const starts = initial?.startsAt;
+        if (starts && Number.isFinite(Date.parse(starts)) && starts.slice(0, 10) >= today) {
+            setDate(starts.slice(0, 10));
+            setWeekFrom(starts.slice(0, 10));
+        }
+        setStep("time");
+    }, [page, status, initial?.itemId, initial?.staffId, initial?.startsAt, today]);
 
     useEffect(() => {
         if (itemId === "" || status !== "ready") return;
@@ -376,7 +407,20 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
         client
             .getSlots(slug, { itemId, staffId, date: day })
             .then((x) => {
-                if (live) setSlots(x);
+                if (live) {
+                    setSlots(x);
+                    if (initialTime.current) {
+                        const match = x.find(
+                            (slot) =>
+                                Date.parse(slot.starts_at) === Date.parse(initialTime.current),
+                        );
+                        if (match) {
+                            setStartsAt(match.starts_at);
+                            setStep("details");
+                        }
+                        initialTime.current = "";
+                    }
+                }
             })
             .catch(() => {
                 if (live) setSlotsError(true);
@@ -412,12 +456,14 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
     const order: BookingStep[] = [
         "service",
         "time",
+        ...(offered.length > 0 ? (["extras"] as const) : []),
         "details",
         ...(depositCents > 0 ? (["pay"] as const) : []),
     ];
     const labels: Record<BookingStep, string> = {
         service: s.stepService,
         time: s.stepTime,
+        extras: s.stepExtras,
         details: s.stepDetails,
         pay: s.stepPay,
         done: s.doneTitle,
@@ -433,9 +479,11 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
             ? service !== null
             : step === "time"
               ? slot !== null
-              : step === "details"
-                ? detailsOk
-                : false;
+              : step === "extras"
+                ? true
+                : step === "details"
+                  ? detailsOk
+                  : false;
 
     const book = (): void => {
         if (service === null || slot === null) return;
@@ -459,6 +507,8 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
                             phone: phone.trim() || null,
                         },
                         petName: petName.trim(),
+                        returningToken,
+                        subjectId,
                         note: note.trim(),
                         addons: addonLines.map((l) => ({
                             itemId: l.addon.id,
@@ -545,6 +595,7 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
         service,
         setService: (id: string) => {
             setItemId(id);
+            setStep("time");
             key.current = null;
             const svc = page?.services.find((x) => x.id === id);
             if (svc && staffId !== ANY_STAFF && !svc.staff_ids.includes(staffId))
@@ -607,15 +658,50 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
             });
         },
         addonLines,
+        returningToken,
+        subjectId,
+        setReturning: (identity: { token: string; subjectId: string | null } | null): void => {
+            setReturningToken(identity?.token ?? null);
+            setSubjectId(identity?.subjectId ?? null);
+            key.current = null;
+        },
+        selectUsual: (serviceId: string, previousStaffId: string): void => {
+            const selected = page?.services.find((candidate) => candidate.id === serviceId);
+            if (!selected) return;
+            setItemId(selected.id);
+            setStaffId(selected.staff_ids.includes(previousStaffId) ? previousStaffId : ANY_STAFF);
+            setStartsAt("");
+            setSlots(null);
+            setDays(null);
+            setDate(null);
+            setWeekFrom(null);
+            setAddons({});
+            key.current = null;
+            setError(null);
+            setStep("time");
+        },
         fields: {
             name,
-            setName,
+            setName: (value: string): void => {
+                setName(value);
+                clearReturning();
+            },
             phone,
-            setPhone,
+            setPhone: (value: string): void => {
+                setPhone(value);
+                clearReturning();
+            },
             email,
-            setEmail,
+            setEmail: (value: string): void => {
+                setEmail(value);
+                clearReturning();
+            },
             petName,
-            setPetName,
+            setPetName: (value: string): void => {
+                setPetName(value);
+                setSubjectId(null);
+                key.current = null;
+            },
             note,
             setNote,
         },
@@ -663,6 +749,8 @@ export function usePublicBookingFlow(client: PublicBookingClient, slug: string) 
 export type PublicBookingFlow = ReturnType<typeof usePublicBookingFlow>;
 
 interface ManagedBooking {
+    address?: string | null;
+    parking_note?: string | null;
     booking_id: string;
     business_name: string;
     brand: PublicBrand;
@@ -676,6 +764,7 @@ interface ManagedBooking {
     status: string;
     deposit_cents: number;
     deposit_status: string;
+    refund_status?: string | null;
     addons: { name: string; quantity: number; unit_cents: number }[];
     reschedules_used: number;
     policy: PublicPolicy;
@@ -686,11 +775,12 @@ interface ManagedBooking {
 }
 
 interface ManageCancelResult {
-    deposit: "refunded" | "kept" | "none";
+    deposit: "refunded" | "kept" | "none" | "pending" | "failed";
     refund_cents: number;
 }
 
 interface ManageBookingClient {
+    message: (token: string, body: string, key: string) => Promise<{ id: string }>;
     getBooking: (token: string) => Promise<ManagedBooking>;
     getDays: (token: string, q: { from: string; days: number }) => Promise<DayOpenings[]>;
     getSlots: (token: string, q: { date: string }) => Promise<OpenSlot[]>;
@@ -712,6 +802,7 @@ export function createManageBookingClient(baseUrl: string): ManageBookingClient 
         });
     return {
         getBooking: (token) => request<ManagedBooking>(at(token)),
+        message: (token, body, key) => post<{ id: string }>(`${at(token)}/message`, key, { body }),
         getDays: async (token, { from, days }) => {
             const q = new URLSearchParams({ from, days: String(days) });
             return (await request<{ days: DayOpenings[] }>(`${at(token)}/days?${q.toString()}`))
@@ -729,11 +820,14 @@ export function createManageBookingClient(baseUrl: string): ManageBookingClient 
     };
 }
 
-type ManageMode = "view" | "move" | "cancel" | "moved" | "canceled";
+type ManageMode = "view" | "move" | "cancel" | "moved" | "canceled" | "message";
 
 /** The manage-booking page: what's booked, and moving or cancelling within the business's cut-offs. */
 export function useManageBooking(client: ManageBookingClient, token: string) {
     const { status, data, setData } = usePublicResource(client.getBooking, token);
+    const [messageBody, setMessageBody] = useState("");
+    const [messageSent, setMessageSent] = useState(false);
+    const messageKey = useRef<string | null>(null);
     const [mode, setModeRaw] = useState<ManageMode>("view");
     const [from, setFrom] = useState<string | null>(null);
     const [date, setDate] = useState<string | null>(null);
@@ -793,6 +887,27 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
     return {
         status,
         booking: data,
+        messageBody,
+        setMessageBody: (value: string) => {
+            setMessageBody(value);
+            setMessageSent(false);
+            messageKey.current = null;
+        },
+        messageSent,
+        sendMessage: () => {
+            if (!messageBody.trim()) return;
+            messageKey.current ??= newIdempotencyKey();
+            const attempt = messageKey.current;
+            run(
+                async () => {
+                    await client.message(token, messageBody.trim(), attempt);
+                    setMessageSent(true);
+                    setMessageBody("");
+                    messageKey.current = null;
+                },
+                { errorMessage: m.messageError },
+            );
+        },
         today,
         mode,
         setMode: (x: ManageMode) => {
@@ -822,6 +937,43 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             live && data.blocked !== null
                 ? `${data.blocked.charAt(0).toUpperCase()}${data.blocked.slice(1)}.`
                 : null,
+        dateTile: {
+            month: start.toLocaleDateString(undefined, { month: "short" }),
+            day: String(start.getDate()),
+            weekday: start.toLocaleDateString(undefined, { weekday: "short" }),
+        },
+        windowMeter: (() => {
+            const span = Math.max(
+                72,
+                (policy?.cancel_cutoff_hours ?? 24) * 2,
+                (policy?.reschedule_cutoff_hours ?? 24) * 2,
+            );
+            const cut = 100 - ((policy?.cancel_cutoff_hours ?? 24) / span) * 100;
+            const move = 100 - ((policy?.reschedule_cutoff_hours ?? 24) / span) * 100;
+            return {
+                first: Math.min(cut, move),
+                second: Math.max(cut, move),
+                now: Math.min(98, Math.max(2, 100 - (hoursAway / span) * 100)),
+            };
+        })(),
+        cancelDeadline:
+            data && policy
+                ? whenLabel(
+                      new Date(
+                          start.getTime() - policy.cancel_cutoff_hours * 3_600_000,
+                      ).toISOString(),
+                      today,
+                  )
+                : "",
+        moveDeadline:
+            data && policy
+                ? whenLabel(
+                      new Date(
+                          start.getTime() - policy.reschedule_cutoff_hours * 3_600_000,
+                      ).toISOString(),
+                      today,
+                  )
+                : "",
         policyLine: policy
             ? policy.self_service
                 ? m.policyLine(policy.cancel_cutoff_hours, policy.reschedule_cutoff_hours)
@@ -871,6 +1023,7 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
                         setData({
                             ...data,
                             status: "canceled",
+                            refund_status: r.deposit,
                             can_move: false,
                             can_cancel: false,
                         });
@@ -880,6 +1033,12 @@ export function useManageBooking(client: ManageBookingClient, token: string) {
             );
         },
         refundLabel: refund !== null ? money(refund) : null,
+        refundMessage:
+            data?.refund_status === "pending"
+                ? m.refundPending
+                : data?.refund_status === "failed"
+                  ? m.refundFailed
+                  : null,
         busy,
         error,
     };

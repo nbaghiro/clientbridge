@@ -11,7 +11,7 @@ from tests.conftest import Factory
 from tests.helpers import business_balance, client_id, enable_payments, key, ok, owner_balance
 
 PKG_ITEM = "it_pkg5"
-PKG_TAXED = 22400
+PKG_TAXED = 21000
 
 
 async def test_cash_package_is_active_with_its_value_deferred(

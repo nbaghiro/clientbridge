@@ -35,3 +35,11 @@ def test_malformed_values_are_dropped() -> None:
 def test_empty_brand_is_all_none() -> None:
     out = public_brand(_business({}))
     assert out.logo_url is None and out.primary is None and out.tagline is None
+
+
+def test_avatar_keeps_square_mark_separate_from_letterhead() -> None:
+    out = public_brand(_business({"logo_file_id": "fl_wordmark", "avatar_file_id": "fl_square"}))
+    assert out.logo_url is not None and out.logo_url.endswith("/media/fl_wordmark")
+    assert out.avatar_url is not None and out.avatar_url.endswith("/media/fl_square")
+    fallback = public_brand(_business({"logo_url": "https://cdn/logo.png"}))
+    assert fallback.avatar_url == fallback.logo_url

@@ -51,7 +51,7 @@ def _charge_account(business: Business, data: GiftCardPurchase | PackagePurchase
             raise Unprocessable("a sale is paid in cash or by card, not both")
         return None
     if not business.stripe_charges_enabled or business.stripe_account_id is None:
-        raise Conflict("connect your Stripe account before taking payments")
+        raise Conflict("set up card payments in Setup before taking payments")
     return business.stripe_account_id
 
 
@@ -297,7 +297,9 @@ class PackageService:
             )
         sessions_total = item.session_count
         account_id = _charge_account(await self._business(), data)
-        amount = (await tax_for_amount(self.db, self.biz, item.price_cents)).total_cents
+        amount = (
+            await tax_for_amount(self.db, self.biz, item.price_cents, tax_class=item.tax_class)
+        ).total_cents
         fee_bps = get_settings().platform_fee_bps
         pm_ref = await resolve_saved_method_ref(
             self.db, self.biz, data.payment_method_id, data.client_id
@@ -466,7 +468,7 @@ class SubscriptionService:
         self._assert_admin()
         business = await self._business()
         if business.stripe_account_id is None:
-            raise Conflict("connect your Stripe account before creating subscriptions")
+            raise Conflict("set up card payments in Setup before creating subscriptions")
         account_id = business.stripe_account_id
         client = await self._client(data.client_id)
         item = await self._item(data.item_id)
@@ -599,6 +601,10 @@ class SubscriptionService:
         ).scalar_one_or_none()
         if row is None:
             raise NotFound("payment method not found")
+        if row.status != "active" or (row.method == "bank_eft" and row.mandate_status != "active"):
+            raise Conflict(
+                "the client must complete bank authorization before this account can be charged"
+            )
         return row
 
     async def _subscription(self, subscription_id: str) -> Subscription:
