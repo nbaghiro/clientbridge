@@ -1,12 +1,12 @@
-from typing import Literal
-
 from pydantic import BaseModel
 
-FileParent = Literal["business", "client", "subject", "item", "signature", "form_response"]
-FilePurpose = Literal["logo", "image", "photo", "signature", "attachment"]
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.platform import File, FileParent, FilePurpose
 
 
-class FileCreate(BaseModel):
+class FileCreate(Mirror):
+    mirrors = File
+
     parent_type: FileParent
     parent_id: str
     purpose: FilePurpose | None = None
@@ -14,12 +14,14 @@ class FileCreate(BaseModel):
     size: int | None = None
 
 
-class FileOut(BaseModel):
+class FileOut(Mirror):
+    mirrors = File
+
     id: str
     business_id: str
-    parent_type: str
+    parent_type: FileParent
     parent_id: str
-    purpose: str | None
+    purpose: FilePurpose | None
     s3_key: str
     content_type: str | None
     size: int | None
@@ -30,7 +32,9 @@ class FileUpload(BaseModel):
     upload_url: str
 
 
-class PublicFileCreate(BaseModel):
+class PublicFileCreate(Mirror):
+    mirrors = File
+
     content_type: str | None = None
     size: int | None = None
 

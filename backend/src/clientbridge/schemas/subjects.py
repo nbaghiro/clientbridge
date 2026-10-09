@@ -3,7 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-SubjectKind = Literal["pet", "vehicle", "child", "property"]
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.clients import Subject, SubjectKind
 
 
 class SubjectAttributes(BaseModel):
@@ -24,25 +25,30 @@ class SubjectAttributes(BaseModel):
     style: str | None = None
 
 
-class SubjectCreate(BaseModel):
+class SubjectCreate(Mirror):
+    mirrors = Subject
+
     client_id: str
     kind: SubjectKind = "pet"
     name: str = Field(min_length=1)
     attributes: SubjectAttributes = Field(default_factory=SubjectAttributes)
 
 
-class SubjectUpdate(BaseModel):
+class SubjectUpdate(Mirror):
+    mirrors = Subject
+
     name: str | None = Field(default=None, min_length=1)
     attributes: SubjectAttributes | None = None
 
 
-class SubjectOut(BaseModel):
+class SubjectOut(Mirror):
+    mirrors = Subject
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     business_id: str
     client_id: str
-    kind: str
+    kind: SubjectKind
     name: str
     attributes: dict[str, object]
     created_at: datetime

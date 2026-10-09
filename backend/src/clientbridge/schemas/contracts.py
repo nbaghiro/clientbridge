@@ -3,20 +3,26 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.documents import Contract, Signature, SignatureStatus
 from clientbridge.schemas.public import PublicBrand
 
 
-class ContractSend(BaseModel):
+class ContractSend(Mirror):
+    mirrors = Signature
+
     contract_id: str
     client_id: str
 
 
-class SignatureOut(BaseModel):
+class SignatureOut(Mirror):
+    mirrors = Signature
+
     id: str
     business_id: str
     contract_id: str
     client_id: str
-    status: str
+    status: SignatureStatus
     token: str
     signed_at: datetime | None
     contract_version: int | None
@@ -48,16 +54,22 @@ class PublicContractSign(BaseModel):
     agreed: bool = Field(description="The client agreed to sign electronically")
 
 
-class ContractCreate(BaseModel):
+class ContractCreate(Mirror):
+    mirrors = Contract
+
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
     body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40000)]
 
 
-class ContractVersionCreate(BaseModel):
+class ContractVersionCreate(Mirror):
+    mirrors = Contract
+
     body: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40000)]
 
 
-class ContractOut(BaseModel):
+class ContractOut(Mirror):
+    mirrors = Contract
+
     id: str
     name: str
     body: str

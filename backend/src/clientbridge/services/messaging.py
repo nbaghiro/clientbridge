@@ -14,7 +14,7 @@ from clientbridge.core.scoping import scoped
 from clientbridge.integrations.postmark import Email, EmailSender
 from clientbridge.integrations.twilio import Sms, SmsSender
 from clientbridge.models.business import Business
-from clientbridge.models.clients import Client
+from clientbridge.models.clients import Channel, Client
 from clientbridge.models.messaging import Broadcast, Message, Thread
 from clientbridge.models.platform import Webhook
 from clientbridge.schemas.messaging import (
@@ -96,7 +96,7 @@ async def dispatch_message(
 
 
 async def broadcast_recipients(
-    db: AsyncSession, business_id: str, channel: str, audience: dict[str, object]
+    db: AsyncSession, business_id: str, channel: Channel, audience: dict[str, object]
 ) -> tuple[Sequence[tuple[Client, str]], int]:
     """The audience members who agreed to marketing on the channel, and how many were left out."""
     query = scoped(Client, business_id, soft_delete=True).where(Client.status == "active")

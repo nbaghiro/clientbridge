@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
@@ -7,8 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
-DOCUMENT_PARENTS = ("client", "subject", "booking")
-FORM_FIELD_TYPES = (
+DocumentParent = Literal["client", "subject", "booking"]
+FieldInput = Literal[
     "text",
     "longtext",
     "number",
@@ -25,17 +26,21 @@ FORM_FIELD_TYPES = (
     "image",
     "signature",
     "rating",
-)
+]
+SendOn = Literal["booking", "manual"]
+ResponseStatus = Literal["draft", "submitted"]
+SignatureStatus = Literal["pending", "signed", "declined", "expired"]
+SignatureMethod = Literal["typed", "drawn"]
 
 
 class Form(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "forms"
-    __table_args__ = (enum_check("forms", "send_on", "booking", "manual"),)
+    __table_args__ = (enum_check("forms", "send_on", SendOn),)
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     require_signature: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    send_on: Mapped[str] = mapped_column(
+    send_on: Mapped[SendOn] = mapped_column(
         String, default="manual", server_default="manual", nullable=False
     )
 
@@ -43,12 +48,12 @@ class Form(PKMixin, BusinessScoped, TimestampMixin, Base):
 class FormField(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "fields"
     __table_args__ = (
-        enum_check("fields", "input", *FORM_FIELD_TYPES),
+        enum_check("fields", "input", FieldInput),
         Index("ix_fields_form", "form_id", "position"),
     )
 
     form_id: Mapped[str] = mapped_column(ForeignKey("forms.id"), nullable=False)
-    input: Mapped[str] = mapped_column(String, nullable=False)
+    input: Mapped[FieldInput] = mapped_column(String, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=False)
     label: Mapped[str] = mapped_column(String, nullable=False)
     help: Mapped[str | None] = mapped_column(String)
@@ -61,8 +66,8 @@ class FormField(PKMixin, BusinessScoped, TimestampMixin, Base):
 class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "responses"
     __table_args__ = (
-        enum_check("responses", "status", "draft", "submitted"),
-        enum_check("responses", "parent_type", *DOCUMENT_PARENTS),
+        enum_check("responses", "status", ResponseStatus),
+        enum_check("responses", "parent_type", DocumentParent),
         UniqueConstraint("token", name="uq_responses_token"),
         Index("ix_responses_form", "business_id", "form_id"),
         Index("ix_responses_parent", "parent_type", "parent_id"),
@@ -70,10 +75,10 @@ class FormResponse(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     form_id: Mapped[str] = mapped_column(ForeignKey("forms.id"), nullable=False)
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
-    parent_type: Mapped[str | None] = mapped_column(String)
+    parent_type: Mapped[DocumentParent | None] = mapped_column(String)
     parent_id: Mapped[str | None] = mapped_column(String)
     token: Mapped[str | None] = mapped_column(String)  # public submit-link key (server-minted)
-    status: Mapped[str] = mapped_column(String, default="submitted", nullable=False)
+    status: Mapped[ResponseStatus] = mapped_column(String, default="submitted", nullable=False)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     answers: Mapped[dict[str, object]] = mapped_column(
@@ -93,9 +98,9 @@ class Contract(PKMixin, BusinessScoped, TimestampMixin, Base):
 class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "signatures"
     __table_args__ = (
-        enum_check("signatures", "status", "pending", "signed", "declined", "expired"),
-        enum_check("signatures", "parent_type", *DOCUMENT_PARENTS),
-        enum_check("signatures", "method", "typed", "drawn"),
+        enum_check("signatures", "status", SignatureStatus),
+        enum_check("signatures", "parent_type", DocumentParent),
+        enum_check("signatures", "method", SignatureMethod),
         UniqueConstraint("token", name="uq_signatures_token"),
         Index("ix_signatures_contract", "business_id", "contract_id"),
         Index("ix_signatures_parent", "parent_type", "parent_id"),
@@ -103,15 +108,15 @@ class Signature(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     contract_id: Mapped[str] = mapped_column(ForeignKey("contracts.id"), nullable=False)
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
-    parent_type: Mapped[str | None] = mapped_column(String)
+    parent_type: Mapped[DocumentParent | None] = mapped_column(String)
     parent_id: Mapped[str | None] = mapped_column(String)
     token: Mapped[str | None] = mapped_column(String)  # public sign-link key (server-minted)
     signed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     signed_body: Mapped[str | None] = mapped_column(String)  # snapshot at signing
     ip: Mapped[str | None] = mapped_column(String)
-    status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
+    status: Mapped[SignatureStatus] = mapped_column(String, default="pending", nullable=False)
     contract_version: Mapped[int | None] = mapped_column(Integer)
     opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    method: Mapped[str | None] = mapped_column(String)
+    method: Mapped[SignatureMethod | None] = mapped_column(String)
     signer_name: Mapped[str | None] = mapped_column(String)
     strokes: Mapped[list[object] | None] = mapped_column(JSONB)

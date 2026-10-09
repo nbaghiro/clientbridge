@@ -2,10 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.reviews import Review
 from clientbridge.schemas.public import PublicBookingPage, PublicSlot
 
 
-class PublicProfileReview(BaseModel):
+class PublicProfileReview(Mirror):
+    mirrors = Review
+
     id: str
     rating: int
     body: str | None

@@ -21,7 +21,10 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   may be long if it is one concept; split by concept, never by size. Folders stay one level deep. Test
   files are `test_<concept>[_<aspect>].py` (`test_payments_refunds.py`); only cross-cutting suites
   (`test_flows_*`, `test_sync_*`, `test_derived`, `test_integrity`…) are exempt.
-- `models` = tables, `schemas` = API shapes; a column reaches the API only through a schema.
+- `models` = tables, `schemas` = API shapes; a column reaches the API only through a schema. Models are
+  the source of truth for column types: a schema that copies a table subclasses `core/mirrors.Mirror`
+  (`mirrors = Model`, plus `derived` for same-named computed fields) and takes vocabularies from the
+  model, and `test_integrity` fails when a mirrored field is wider than its column.
 - Flow: `api` (thin router + DTO, **never queries**) → `services` (logic, owns the
   transaction/commit) → `models`. Services own their queries and **always scope tenancy through
   `core/scoping.scoped(Model, business_id, soft_delete=…)`** — the one place the `business_id` (+ soft-delete) filter lives; never hand-write a
@@ -35,8 +38,9 @@ Polyglot monorepo: `backend/` (Python · uv · FastAPI) · `frontend/` (pnpm + t
   `assert_role(self.principal, …, message=…)` (`core/deps`), because jobs and public flows call services
   too. A router gates only when it has no service to call. Use `is_manager(role)` for a bare role
   string; never hand-write a role tuple check.
-- Data: prefixed-ULID PKs (`core/ids.py`) · integer cents + currency · text+CHECK enums (`enum_check`) ·
-  `business_id` on scoped rows · `created_at/updated_at` · soft-delete `deleted_at`.
+- Data: prefixed-ULID PKs (`core/ids.py`) · integer cents + currency · text+CHECK enums (a `Literal`
+  alias in the model file, rendered by `enum_check`) · `business_id` on scoped rows ·
+  `created_at/updated_at` · soft-delete `deleted_at`.
 - **Money balances live only in the ledger** (`services/ledger.py`): every money movement posts a
   balanced, append-only journal through `ledger.post` (idempotent on `ref`). Never add a stored balance /
   amount-paid / fee column; derive it from `accounts` + `entries`.

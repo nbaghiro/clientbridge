@@ -1,16 +1,16 @@
 from datetime import date, datetime
-from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.billing import DiscountKind, Estimate, Invoice, Line
+from clientbridge.models.catalog import TaxClass
 from clientbridge.schemas.payments import PublicDocLine, PublicDocTax
 from clientbridge.schemas.public import PublicBrand
 
-TaxClass = Literal["standard", "federal_only", "exempt"]
-
 
 class DiscountIn(BaseModel):
-    kind: Literal["percent", "amount"]
+    kind: DiscountKind
     value: int = Field(gt=0, description="A whole percent (10) or an amount in cents (500)")
     reason: str | None = Field(default=None, max_length=200)
 
@@ -21,7 +21,9 @@ class DiscountIn(BaseModel):
         return self
 
 
-class LineInput(BaseModel):
+class LineInput(Mirror):
+    mirrors = Line
+
     description: str
     quantity: float = Field(1.0, gt=0)
     unit_amount_cents: int = Field(0, ge=0)
@@ -37,14 +39,16 @@ class LineInput(BaseModel):
     discount: DiscountIn | None = None
 
 
-class LineOut(BaseModel):
+class LineOut(Mirror):
+    mirrors = Line
+
     id: str
     description: str
     quantity: float
     unit_amount_cents: int
     amount_cents: int
     tax_amount_cents: int
-    tax_class: str
+    tax_class: TaxClass
     item_id: str | None
     booking_id: str | None
     position: int
@@ -56,7 +60,9 @@ class LineOut(BaseModel):
     sale_discount_cents: int = Field(default=0, description="Its share of the document discount")
 
 
-class InvoiceCreate(BaseModel):
+class InvoiceCreate(Mirror):
+    mirrors = Invoice
+
     discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     client_id: str
     lines: list[LineInput] = Field(default_factory=list)
@@ -65,14 +71,19 @@ class InvoiceCreate(BaseModel):
     send: bool = Field(default=False, description="Issue and send it in the same command")
 
 
-class InvoiceUpdate(BaseModel):
+class InvoiceUpdate(Mirror):
+    mirrors = Invoice
+
     discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     lines: list[LineInput] | None = None
     notes: str | None = None
     due_at: datetime | None = None
 
 
-class InvoiceOut(BaseModel):
+class InvoiceOut(Mirror):
+    mirrors = Invoice
+    derived = frozenset({"status"})
+
     id: str
     business_id: str
     client_id: str
@@ -95,7 +106,9 @@ class InvoiceOut(BaseModel):
     lines: list[LineOut]
 
 
-class EstimateCreate(BaseModel):
+class EstimateCreate(Mirror):
+    mirrors = Estimate
+
     discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     client_id: str
     lines: list[LineInput] = Field(default_factory=list)
@@ -104,14 +117,19 @@ class EstimateCreate(BaseModel):
     send: bool = Field(default=False, description="Number and send it in the same command")
 
 
-class EstimateUpdate(BaseModel):
+class EstimateUpdate(Mirror):
+    mirrors = Estimate
+
     discount: DiscountIn | None = Field(default=None, description="Off the whole document")
     lines: list[LineInput] | None = None
     notes: str | None = None
     valid_until: date | None = None
 
 
-class EstimateOut(BaseModel):
+class EstimateOut(Mirror):
+    mirrors = Estimate
+    derived = frozenset({"status"})
+
     id: str
     business_id: str
     client_id: str

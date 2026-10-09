@@ -171,6 +171,13 @@ records every money movement and is the only place money balances are stored. Th
   logins; `staff` link a user↔business with a `role`.
 - **Money:** integer **cents** (`BigInteger`) + `currency char(3) default 'CAD'`. No floats.
 - **Enums:** `text` + a named `CHECK` constraint (via `enum_check`) — easy to evolve by drop+recreate.
+  Each vocabulary is a `Literal` alias in its model file; the column's `Mapped[...]`, the `CHECK` and the
+  API schemas all use that alias, so a value is added in one place.
+- **API shapes:** schemas that copy a table subclass `core/mirrors.Mirror` and name the model they mirror.
+  `mirror_errors()` (run by `test_integrity`) checks that every field named after a column carries the
+  column's type or a narrower one: a subset of its vocabulary, a dropped `None`, a structured model for
+  a JSON column, or an optional wrapper for partial input. Fields computed from the ledger under a
+  column's name (an invoice's `status`) are listed in `derived`.
 - **Timestamps:** `created_at`/`updated_at` (`timestamptz`, default `now()`); status + key lifecycle
   timestamps; `created_by` where used.
 - **Soft-delete:** `deleted_at` on **`clients`** and **`bookings`** only; everything else hard-deletes or

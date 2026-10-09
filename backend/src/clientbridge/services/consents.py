@@ -5,6 +5,7 @@ import hmac
 import io
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import get_args
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,7 +14,7 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import User
-from clientbridge.models.clients import Client, Consent
+from clientbridge.models.clients import Channel, Client, Consent, ConsentSource, ConsentStatus
 from clientbridge.schemas.consents import ConsentExport
 
 
@@ -22,9 +23,9 @@ async def record_consent(
     business_id: str,
     client_id: str,
     *,
-    channel: str,
-    status: str,
-    source: str,
+    channel: Channel,
+    status: ConsentStatus,
+    source: ConsentSource,
     recorded_by: str | None,
     expires_at: datetime | None = None,
 ) -> Consent:
@@ -44,7 +45,7 @@ async def record_consent(
 
 
 async def latest_consents(
-    db: AsyncSession, business_id: str, client_ids: Sequence[str], channel: str
+    db: AsyncSession, business_id: str, client_ids: Sequence[str], channel: Channel
 ) -> dict[str, Consent]:
     """The newest consent row per client on one channel (no row means never asked)."""
     rows = (
@@ -76,7 +77,7 @@ async def set_marketing_consent(
     db: AsyncSession, business_id: str, client_id: str, *, agreed: bool, recorded_by: str | None
 ) -> None:
     """Record an in-person yes or no on both channels, only where it changes the current state."""
-    for channel in ("sms", "email"):
+    for channel in get_args(Channel):
         current = (await latest_consents(db, business_id, [client_id], channel)).get(client_id)
         if allows_marketing(current) == agreed:
             continue
@@ -92,7 +93,7 @@ async def set_marketing_consent(
 
 
 async def set_channel_consent(
-    db: AsyncSession, client: Client, channel: str, *, agreed: bool, source: str
+    db: AsyncSession, client: Client, channel: Channel, *, agreed: bool, source: ConsentSource
 ) -> bool:
     """Record a yes or no on one channel when it changes the current state; True if it did."""
     current = (await latest_consents(db, client.business_id, [client.id], channel)).get(client.id)

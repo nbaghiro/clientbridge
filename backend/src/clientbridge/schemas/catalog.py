@@ -1,17 +1,24 @@
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from clientbridge.schemas.billing import TaxClass
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.catalog import (
+    DepositType,
+    Frequency,
+    Item,
+    ItemKind,
+    StockMovement,
+    TaxClass,
+)
 
-ItemKind = Literal["service", "class", "product", "package", "subscription", "gift"]
-DepositType = Literal["none", "fixed", "percent"]
 GiftAmount = Annotated[int, Field(gt=0)]
-Frequency = Literal["day", "week", "month", "year"]
 
 
-class ItemBase(BaseModel):
+class ItemBase(Mirror):
+    mirrors = Item
+
     kind: ItemKind = "service"
     name: str = Field(min_length=1)
     description: str | None = None
@@ -62,7 +69,9 @@ class ItemCreate(ItemBase):
     )
 
 
-class ItemUpdate(BaseModel):
+class ItemUpdate(Mirror):
+    mirrors = Item
+
     kind: ItemKind | None = None
     name: str | None = Field(default=None, min_length=1)
     description: str | None = None
@@ -107,7 +116,9 @@ class ItemOut(ItemBase):
     updated_at: datetime
 
 
-class RestockIn(BaseModel):
+class RestockIn(Mirror):
+    mirrors = StockMovement
+
     quantity: int = Field(description="Negative for a count correction; never zero")
     note: str | None = None
     unit_cost_cents: int | None = Field(
@@ -122,7 +133,9 @@ class RestockIn(BaseModel):
         return v
 
 
-class TaxClassChange(BaseModel):
+class TaxClassChange(Mirror):
+    mirrors = Item
+
     item_ids: list[str] = Field(min_length=1, max_length=500)
     tax_class: TaxClass
 

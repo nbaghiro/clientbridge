@@ -16,7 +16,7 @@ from clientbridge.services import ledger
 from clientbridge.services.business import kyc_status
 from clientbridge.services.messaging import unread_count
 from tests.conftest import FakePushSender
-from tests.helpers import client_id
+from tests.helpers import client_id, column
 
 BIZ = "bz_birchbark"
 GOOD = {"Stripe-Signature": "good"}
@@ -465,8 +465,7 @@ async def test_dispute_state_follows_the_case(api: httpx.AsyncClient, db: AsyncS
     assert payment.dispute_respond_by == datetime(2026, 10, 20, tzinfo=UTC)
     closed = _dispute_event("evt_case_3", "charge.dispute.closed", "pi_case", "won")
     assert (await api.post("/webhooks/stripe", content=closed, headers=GOOD)).status_code == 200
-    await db.refresh(payment)
-    assert payment.dispute_status == "won"
+    assert await column(db, "payments", payment.id, "dispute_status") == "won"
 
 
 async def test_update_for_an_unknown_dispute_changes_nothing(

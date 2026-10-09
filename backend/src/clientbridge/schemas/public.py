@@ -4,6 +4,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.business import Staff
+from clientbridge.models.catalog import Item, ItemKind
+from clientbridge.models.scheduling import Booking, BookingStatus, DepositStatus
+from clientbridge.schemas.bookings import LateCancelDeposit
+
 # `\Z` rather than `$`, so a trailing newline can't pass.
 HEX_COLOR = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\Z")
 
@@ -21,7 +27,9 @@ class PublicBrand(BaseModel):
     tagline: str | None = None
 
 
-class PublicService(BaseModel):
+class PublicService(Mirror):
+    mirrors = Item
+
     id: str
     name: str
     description: str | None
@@ -31,20 +39,24 @@ class PublicService(BaseModel):
     deposit_required: bool
     deposit_amount_cents: int
     image_url: str | None = None
-    kind: str = "service"
+    kind: ItemKind = "service"
     category: str | None = None
     color: str | None = None
     staff_ids: list[str] = Field(default_factory=list, description="Who can be booked for it")
 
 
-class PublicStaff(BaseModel):
+class PublicStaff(Mirror):
+    mirrors = Staff
+
     id: str
     name: str | None
     title: str | None
     color: str | None = None
 
 
-class PublicAddon(BaseModel):
+class PublicAddon(Mirror):
+    mirrors = Item
+
     id: str
     name: str
     price_cents: int
@@ -66,7 +78,7 @@ class PublicPolicy(BaseModel):
     self_service: bool
     cancel_cutoff_hours: int
     reschedule_cutoff_hours: int
-    late_cancel_deposit: str
+    late_cancel_deposit: LateCancelDeposit
     max_reschedules: int
 
 
@@ -115,7 +127,9 @@ class ManagedAddon(BaseModel):
     unit_cents: int
 
 
-class ManagedBooking(BaseModel):
+class ManagedBooking(Mirror):
+    mirrors = Booking
+
     refund_status: str | None = None
     """A client's own booking, as their manage link shows it."""
 
@@ -131,9 +145,9 @@ class ManagedBooking(BaseModel):
     staff: PublicStaff
     starts_at: datetime
     ends_at: datetime
-    status: str
+    status: BookingStatus
     deposit_cents: int
-    deposit_status: str
+    deposit_status: DepositStatus
     addons: list[ManagedAddon]
     reschedules_used: int
     policy: PublicPolicy
@@ -176,9 +190,11 @@ class PublicBookingCreate(BaseModel):
     note: str | None = Field(default=None, max_length=1000)
 
 
-class PublicBookingResult(BaseModel):
+class PublicBookingResult(Mirror):
+    mirrors = Booking
+
     booking_id: str
-    status: str = "confirmed"
+    status: BookingStatus = "confirmed"
     manage_token: str | None = None
     deposit_cents: int = 0
     deposit_client_secret: str | None = None
@@ -187,7 +203,9 @@ class PublicBookingResult(BaseModel):
     )
 
 
-class PublicShopItem(BaseModel):
+class PublicShopItem(Mirror):
+    mirrors = Item
+
     variant_parent_id: str | None = None
     variant_label: str | None = None
     id: str

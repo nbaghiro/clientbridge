@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import (
     BigInteger,
@@ -16,21 +17,24 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
 
-FILE_PARENTS = ("business", "client", "subject", "item", "signature", "form_response")
-FILE_PURPOSES = ("logo", "image", "photo", "signature", "attachment")
+FileParent = Literal["business", "client", "subject", "item", "signature", "form_response"]
+FilePurpose = Literal["logo", "image", "photo", "signature", "attachment"]
+WebhookProvider = Literal["stripe", "interac", "twilio", "sendgrid"]
+WebhookStatus = Literal["pending", "processed", "failed"]
+DevicePlatform = Literal["ios", "android", "web"]
 
 
 class File(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "files"
     __table_args__ = (
-        enum_check("files", "parent_type", *FILE_PARENTS),
-        enum_check("files", "purpose", *FILE_PURPOSES),
+        enum_check("files", "parent_type", FileParent),
+        enum_check("files", "purpose", FilePurpose),
         Index("ix_files_parent", "business_id", "parent_type", "parent_id"),
     )
 
-    parent_type: Mapped[str] = mapped_column(String, nullable=False)
+    parent_type: Mapped[FileParent] = mapped_column(String, nullable=False)
     parent_id: Mapped[str] = mapped_column(String, nullable=False)
-    purpose: Mapped[str | None] = mapped_column(String)
+    purpose: Mapped[FilePurpose | None] = mapped_column(String)
     s3_key: Mapped[str] = mapped_column(String, nullable=False)
     content_type: Mapped[str | None] = mapped_column(String)
     size: Mapped[int | None] = mapped_column(BigInteger)
@@ -60,15 +64,15 @@ class Webhook(PKMixin, TimestampMixin, Base):
 
     __tablename__ = "webhooks"
     __table_args__ = (
-        enum_check("webhooks", "provider", "stripe", "interac", "twilio", "sendgrid"),
-        enum_check("webhooks", "status", "pending", "processed", "failed"),
+        enum_check("webhooks", "provider", WebhookProvider),
+        enum_check("webhooks", "status", WebhookStatus),
         Index("ix_webhook_provider_status", "provider", "status"),
     )
 
-    provider: Mapped[str] = mapped_column(String, nullable=False)
+    provider: Mapped[WebhookProvider] = mapped_column(String, nullable=False)
     event: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
-    status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
+    status: Mapped[WebhookStatus] = mapped_column(String, default="pending", nullable=False)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -77,14 +81,14 @@ class Device(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     __tablename__ = "devices"
     __table_args__ = (
-        enum_check("devices", "platform", "ios", "android", "web"),
+        enum_check("devices", "platform", DevicePlatform),
         Index("ix_devices_token", "token", unique=True),
         Index("ix_devices_business", "business_id"),
     )
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
     token: Mapped[str] = mapped_column(String, nullable=False)
-    platform: Mapped[str] = mapped_column(String, nullable=False)
+    platform: Mapped[DevicePlatform] = mapped_column(String, nullable=False)
 
 
 class IdempotencyKey(PKMixin, BusinessScoped, TimestampMixin, Base):

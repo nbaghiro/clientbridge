@@ -1,4 +1,6 @@
+import datetime as dt
 from datetime import date, datetime, time
+from typing import Literal
 
 from sqlalchemy import (
     BigInteger,
@@ -19,11 +21,22 @@ from sqlalchemy.orm import Mapped, mapped_column
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, SoftDelete, TimestampMixin, enum_check
 
+SlotStatus = Literal["scheduled", "canceled", "completed"]
+BookingStatus = Literal["pending", "confirmed", "completed", "canceled", "no_show", "waitlisted"]
+BookingSource = Literal["online", "manual"]
+DepositStatus = Literal["none", "pending", "collected", "applied", "forfeited", "refunded"]
+HoursBasis = Literal["recurring", "date", "exception"]
+ResourceCategory = Literal["room", "station", "equipment"]
+RecurrenceFrequency = Literal["day", "week", "month"]
+RecurrenceStatus = Literal["active", "ended", "canceled"]
+MonthlyBy = Literal["date", "weekday"]
+Weekday = Literal["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+
 
 class Slot(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "slots"
     __table_args__ = (
-        enum_check("slots", "status", "scheduled", "canceled", "completed"),
+        enum_check("slots", "status", SlotStatus),
         Index("ix_slots_staff_start", "business_id", "staff_id", "starts_at"),
         Index("ix_slots_business_start", "business_id", "starts_at"),
     )
@@ -35,33 +48,15 @@ class Slot(PKMixin, BusinessScoped, TimestampMixin, Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    status: Mapped[str] = mapped_column(String, default="scheduled", nullable=False)
+    status: Mapped[SlotStatus] = mapped_column(String, default="scheduled", nullable=False)
 
 
 class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     __tablename__ = "bookings"
     __table_args__ = (
-        enum_check(
-            "bookings",
-            "status",
-            "pending",
-            "confirmed",
-            "completed",
-            "canceled",
-            "no_show",
-            "waitlisted",
-        ),
-        enum_check("bookings", "source", "online", "manual"),
-        enum_check(
-            "bookings",
-            "deposit_status",
-            "none",
-            "pending",
-            "collected",
-            "applied",
-            "forfeited",
-            "refunded",
-        ),
+        enum_check("bookings", "status", BookingStatus),
+        enum_check("bookings", "source", BookingSource),
+        enum_check("bookings", "deposit_status", DepositStatus),
         Index("ix_bookings_slot", "business_id", "slot_id"),
         Index("ix_bookings_client", "business_id", "client_id"),
         Index("ix_bookings_status", "business_id", "status"),
@@ -75,12 +70,12 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
     subject_id: Mapped[str | None] = mapped_column(ForeignKey("subjects.id"))
     package_id: Mapped[str | None] = mapped_column(ForeignKey("packages.id"))
     invoice_id: Mapped[str | None] = mapped_column(ForeignKey("invoices.id"))
-    status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
-    source: Mapped[str] = mapped_column(String, default="manual", nullable=False)
+    status: Mapped[BookingStatus] = mapped_column(String, default="pending", nullable=False)
+    source: Mapped[BookingSource] = mapped_column(String, default="manual", nullable=False)
     price_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     deposit_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     # lifecycle only, set as the ledger books the deposit; the amounts live in the ledger
-    deposit_status: Mapped[str] = mapped_column(String, default="none", nullable=False)
+    deposit_status: Mapped[DepositStatus] = mapped_column(String, default="none", nullable=False)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # the desk sale carrying this visit, and when it was paid (staff replicas have no ledger)
@@ -100,7 +95,7 @@ class Booking(PKMixin, BusinessScoped, TimestampMixin, SoftDelete, Base):
 class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "hours"
     __table_args__ = (
-        enum_check("hours", "basis", "recurring", "date", "exception"),
+        enum_check("hours", "basis", HoursBasis),
         CheckConstraint(
             "basis != 'exception' OR (starts_at IS NOT NULL AND ends_at > starts_at)",
             name="ck_hours_exception_window",
@@ -130,10 +125,9 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     # null only on an exception: a closure of the whole business
     staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
-    basis: Mapped[str] = mapped_column(String, nullable=False)
+    basis: Mapped[HoursBasis] = mapped_column(String, nullable=False)
     weekday: Mapped[int | None] = mapped_column(SmallInteger)  # 0..6 for recurring
-    # explicit nullable: the attribute name `date` shadows the type and defeats inference
-    date: Mapped[date | None] = mapped_column(Date, nullable=True)  # one-off
+    date: Mapped[dt.date | None] = mapped_column(Date)  # one-off
     start_time: Mapped[time | None] = mapped_column(Time)
     end_time: Mapped[time | None] = mapped_column(Time)  # null = all-day
     available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -146,12 +140,12 @@ class Hours(PKMixin, BusinessScoped, TimestampMixin, Base):
 class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "resources"
     __table_args__ = (
-        enum_check("resources", "category", "room", "station", "equipment"),
+        enum_check("resources", "category", ResourceCategory),
         CheckConstraint("capacity > 0", name="ck_resources_capacity"),
     )
 
     name: Mapped[str] = mapped_column(String, nullable=False)
-    category: Mapped[str] = mapped_column(String, nullable=False)
+    category: Mapped[ResourceCategory] = mapped_column(String, nullable=False)
     capacity: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     # an inactive room or station keeps its bookings and is offered for no new ones
     active: Mapped[bool] = mapped_column(
@@ -162,25 +156,25 @@ class Resource(PKMixin, BusinessScoped, TimestampMixin, Base):
 class Recurrence(PKMixin, BusinessScoped, TimestampMixin, Base):
     __tablename__ = "recurrences"
     __table_args__ = (
-        enum_check("recurrences", "frequency", "day", "week", "month"),
-        enum_check("recurrences", "status", "active", "ended", "canceled"),
-        enum_check("recurrences", "monthly_by", "date", "weekday"),
+        enum_check("recurrences", "frequency", RecurrenceFrequency),
+        enum_check("recurrences", "status", RecurrenceStatus),
+        enum_check("recurrences", "monthly_by", MonthlyBy),
         Index("ix_recurrences_status", "business_id", "status"),
     )
 
     item_id: Mapped[str] = mapped_column(ForeignKey("items.id"), nullable=False)
     staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))
-    frequency: Mapped[str] = mapped_column(String, nullable=False)
+    frequency: Mapped[RecurrenceFrequency] = mapped_column(String, nullable=False)
     interval: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    byday: Mapped[list[str] | None] = mapped_column(ARRAY(String))
+    byday: Mapped[list[Weekday] | None] = mapped_column(ARRAY(String))
     # monthly series: the same date each month, or the same weekday (the 2nd Tuesday)
-    monthly_by: Mapped[str] = mapped_column(
+    monthly_by: Mapped[MonthlyBy] = mapped_column(
         String, default="date", server_default="date", nullable=False
     )
     count: Mapped[int | None] = mapped_column(Integer)
     until: Mapped[date | None] = mapped_column(Date)
-    status: Mapped[str] = mapped_column(String, default="active", nullable=False)
+    status: Mapped[RecurrenceStatus] = mapped_column(String, default="active", nullable=False)
 
 
 class Addon(PKMixin, BusinessScoped, TimestampMixin, Base):

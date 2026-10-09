@@ -2,8 +2,19 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.catalog import (
+    GiftCard,
+    Package,
+    PackageStatus,
+    Subscription,
+    SubscriptionStatus,
+)
 
-class GiftCardPurchase(BaseModel):
+
+class GiftCardPurchase(Mirror):
+    mirrors = GiftCard
+
     item_id: str | None = None
     amount_cents: int | None = Field(default=None, gt=0)
     recipient: str | None = None
@@ -24,7 +35,10 @@ class GiftCardRedeem(BaseModel):
     amount_cents: int
 
 
-class GiftCardOut(BaseModel):
+class GiftCardOut(Mirror):
+    mirrors = GiftCard
+    derived = frozenset({"status"})
+
     id: str
     code: str
     initial_cents: int
@@ -32,7 +46,9 @@ class GiftCardOut(BaseModel):
     status: str
 
 
-class PackagePurchase(BaseModel):
+class PackagePurchase(Mirror):
+    mirrors = Package
+
     client_id: str = Field(min_length=1)
     item_id: str = Field(min_length=1)
     payment_method_id: str | None = None
@@ -45,25 +61,31 @@ class PackagePurchaseOut(BaseModel):
     client_secret: str | None = Field(description="Null when paid in cash")
 
 
-class PackageOut(BaseModel):
+class PackageOut(Mirror):
+    mirrors = Package
+
     id: str
     client_id: str
     item_id: str
     sessions_total: int
     sessions_used: int
-    status: str
+    status: PackageStatus
 
 
-class SubscriptionCreate(BaseModel):
+class SubscriptionCreate(Mirror):
+    mirrors = Subscription
+
     client_id: str = Field(min_length=1)
     item_id: str = Field(min_length=1)
     payment_method_id: str = Field(min_length=1)
 
 
-class SubscriptionOut(BaseModel):
+class SubscriptionOut(Mirror):
+    mirrors = Subscription
+
     id: str
     client_id: str
     item_id: str
-    status: str
+    status: SubscriptionStatus
     current_period_start: datetime | None
     current_period_end: datetime | None

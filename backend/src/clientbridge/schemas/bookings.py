@@ -3,8 +3,26 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.business import Staff
+from clientbridge.models.catalog import DepositType, Item, ItemKind
+from clientbridge.models.scheduling import (
+    Booking,
+    BookingSource,
+    BookingStatus,
+    DepositStatus,
+    Hours,
+    MonthlyBy,
+    Recurrence,
+    RecurrenceFrequency,
+    RecurrenceStatus,
+    Weekday,
+)
 
-class BookingCreate(BaseModel):
+
+class BookingCreate(Mirror):
+    mirrors = Booking
+
     client_id: str
     item_id: str
     staff_id: str
@@ -22,10 +40,13 @@ class BookingMove(BaseModel):
     resource_id: str | None = Field(default=None, description="Room or station; set to change it")
 
 
-class BookingPatch(BookingMove):
+class BookingPatch(BookingMove, Mirror):
+    mirrors = Booking
+
     status: Literal["confirmed", "completed", "canceled", "no_show"] | None = None
 
 
+LateCancelDeposit = Literal["keep", "refund"]
 Problem = Literal["past", "closed", "time_off", "off_hours", "overlap", "resource", "class"]
 
 
@@ -47,14 +68,18 @@ class ReminderPreview(BaseModel):
     sent_at: datetime | None
 
 
-class TimeOffCreate(BaseModel):
+class TimeOffCreate(Mirror):
+    mirrors = Hours
+
     staff_id: str | None = Field(default=None, description="Null closes the whole business")
     starts_at: datetime
     ends_at: datetime
     reason: str = Field(min_length=1, max_length=120)
 
 
-class TimeOffOut(BaseModel):
+class TimeOffOut(Mirror):
+    mirrors = Hours
+
     id: str
     business_id: str
     staff_id: str | None
@@ -64,18 +89,20 @@ class TimeOffOut(BaseModel):
     affected: list[str] = Field(description="Live bookings inside the window, still to move")
 
 
-class BookingOut(BaseModel):
+class BookingOut(Mirror):
+    mirrors = Booking
+
     id: str
     business_id: str
     slot_id: str
     client_id: str
     staff_id: str | None
     item_id: str
-    status: str
-    source: str
+    status: BookingStatus
+    source: BookingSource
     price_cents: int
     deposit_amount_cents: int
-    deposit_status: str
+    deposit_status: DepositStatus
     checked_in_at: datetime | None
     starts_at: datetime
     ends_at: datetime
@@ -107,17 +134,19 @@ class RecurrenceException(BaseModel):
         return self
 
 
-class RecurrenceCreate(BaseModel):
+class RecurrenceCreate(Mirror):
+    mirrors = Recurrence
+
     client_id: str
     item_id: str
     staff_id: str
     starts_at: datetime = Field(description="First occurrence; its local time repeats")
-    frequency: Literal["day", "week", "month"]
+    frequency: RecurrenceFrequency
     interval: int = Field(default=1, ge=1, le=52)
-    byday: list[Literal["MO", "TU", "WE", "TH", "FR", "SA", "SU"]] | None = Field(
+    byday: list[Weekday] | None = Field(
         default=None, description="Weekdays, for weekly series only"
     )
-    monthly_by: Literal["date", "weekday"] = Field(
+    monthly_by: MonthlyBy = Field(
         default="date", description="Monthly on the same date, or the same weekday (2nd Tuesday)"
     )
     count: int | None = Field(default=None, description="End after this many; set count or until")
@@ -160,22 +189,26 @@ class RecurrenceCancel(BaseModel):
     notify: bool = True
 
 
-class RecurrenceCancelOut(BaseModel):
+class RecurrenceCancelOut(Mirror):
+    mirrors = Recurrence
+
     id: str
-    status: str
+    status: RecurrenceStatus
     canceled: list[str]
     refunded_cents: int = Field(description="Deposits refunded for the canceled visits")
 
 
-class RecurrenceOut(BaseModel):
+class RecurrenceOut(Mirror):
+    mirrors = Recurrence
+
     id: str
     business_id: str
     item_id: str
     staff_id: str | None
     client_id: str | None
-    frequency: str
+    frequency: RecurrenceFrequency
     interval: int
-    status: str
+    status: RecurrenceStatus
     created: int = Field(description="Occurrences that became bookings")
     skipped: int = Field(description="Occurrences skipped for a clash or outside hours")
     occurrences: list[RecurrenceOccurrence]
@@ -190,12 +223,14 @@ class RosterAction(BaseModel):
     action: Literal["check_in", "undo", "no_show", "promote"]
 
 
-class RosterEntry(BaseModel):
+class RosterEntry(Mirror):
+    mirrors = Booking
+
     booking_id: str
     slot_id: str
     client_id: str
     subject_id: str | None
-    status: str
+    status: BookingStatus
     checked_in_at: datetime | None
     waitlist_position: int | None = Field(description="1 is offered the next free seat")
 
@@ -222,7 +257,7 @@ class BookingPolicy(BaseModel):
     self_service: bool = Field(default=True, description="Clients may move or cancel online")
     cancel_cutoff_hours: int = Field(default=24, ge=0, le=168)
     reschedule_cutoff_hours: int = Field(default=24, ge=0, le=168)
-    late_cancel_deposit: Literal["keep", "refund"] = "keep"
+    late_cancel_deposit: LateCancelDeposit = "keep"
     max_reschedules: int = Field(default=2, ge=1, le=99)
 
 
@@ -236,23 +271,27 @@ class BookingPolicyPatch(BaseModel):
     self_service: bool | None = None
     cancel_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
     reschedule_cutoff_hours: int | None = Field(default=None, ge=0, le=168)
-    late_cancel_deposit: Literal["keep", "refund"] | None = None
+    late_cancel_deposit: LateCancelDeposit | None = None
     max_reschedules: int | None = Field(default=None, ge=1, le=99)
 
 
-class OnlineService(BaseModel):
+class OnlineService(Mirror):
+    mirrors = Item
+
     id: str
     name: str
-    kind: str
+    kind: ItemKind
     duration_min: int | None
     price_cents: int
     color: str | None
-    deposit_type: str
+    deposit_type: DepositType
     deposit_cents: int
     online_bookable: bool
 
 
-class OnlineStaff(BaseModel):
+class OnlineStaff(Mirror):
+    mirrors = Staff
+
     id: str
     name: str | None
     title: str | None
@@ -276,7 +315,9 @@ class OnlineBookingPatch(BaseModel):
     staff: dict[str, bool] | None = Field(default=None, description="Member id: shown online")
 
 
-class AddonOffer(BaseModel):
+class AddonOffer(Mirror):
+    mirrors = Item
+
     id: str
     addon: bool
     addon_for: list[str] = Field(default_factory=list, max_length=100)

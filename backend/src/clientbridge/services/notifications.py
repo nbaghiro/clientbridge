@@ -21,7 +21,7 @@ from clientbridge.models.catalog import GiftCard, Subscription
 from clientbridge.models.clients import Client
 from clientbridge.models.documents import Contract, Form, FormResponse, Signature
 from clientbridge.models.payments import Payment
-from clientbridge.models.platform import Device
+from clientbridge.models.platform import Device, DevicePlatform
 from clientbridge.models.reviews import Review
 from clientbridge.models.scheduling import Booking, Slot
 from clientbridge.services import ledger
@@ -737,7 +737,7 @@ class DeviceService:
         self.db = db
         self.principal = principal
 
-    async def register(self, token: str, platform: str) -> None:
+    async def register(self, token: str, platform: DevicePlatform) -> None:
         existing = (
             await self.db.execute(select(Device).where(Device.token == token))
         ).scalar_one_or_none()

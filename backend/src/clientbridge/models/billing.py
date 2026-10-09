@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 
 from sqlalchemy import (
     BigInteger,
@@ -18,37 +19,39 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
+from clientbridge.models.catalog import TaxClass
+from clientbridge.models.clients import Channel
+
+DiscountKind = Literal["percent", "amount"]
+InvoiceStatus = Literal["draft", "sent", "void"]
+EstimateStatus = Literal["draft", "sent", "accepted", "declined"]
+OrderStatus = Literal["open", "void"]
+OrderSource = Literal["pos", "online"]
+PickupStatus = Literal["unfulfilled", "preparing", "ready", "picked_up"]
 
 
 class Discounted:
     """A percent (whole number) or amount (cents) taken off, with the reason given."""
 
-    discount_kind: Mapped[str | None] = mapped_column(String)
+    discount_kind: Mapped[DiscountKind | None] = mapped_column(String)
     discount_value: Mapped[int | None] = mapped_column(BigInteger)
     discount_reason: Mapped[str | None] = mapped_column(String)
-
-
-def discount_check(table: str) -> CheckConstraint:
-    return CheckConstraint(
-        "discount_kind IS NULL OR discount_kind IN ('percent', 'amount')",
-        name=f"ck_{table}_discount_kind",
-    )
 
 
 class Invoice(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     __tablename__ = "invoices"
     __table_args__ = (
         UniqueConstraint("business_id", "number", name="uq_invoices_business_number"),
-        discount_check("invoices"),
+        enum_check("invoices", "discount_kind", DiscountKind, nullable=True),
         # partial/paid/refunded/overdue are read from the ledger, never stored
-        enum_check("invoices", "status", "draft", "sent", "void"),
+        enum_check("invoices", "status", InvoiceStatus),
         Index("ix_invoices_client", "business_id", "client_id"),
         Index("ix_invoices_status", "business_id", "status"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     number: Mapped[int | None] = mapped_column(BigInteger)
-    status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
+    status: Mapped[InvoiceStatus] = mapped_column(String, default="draft", nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
@@ -65,14 +68,14 @@ class Estimate(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     __tablename__ = "estimates"
     __table_args__ = (
         UniqueConstraint("business_id", "number", name="uq_estimates_business_number"),
-        discount_check("estimates"),
-        enum_check("estimates", "status", "draft", "sent", "accepted", "declined"),
+        enum_check("estimates", "discount_kind", DiscountKind, nullable=True),
+        enum_check("estimates", "status", EstimateStatus),
         Index("ix_estimates_status", "business_id", "status"),
     )
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     number: Mapped[int | None] = mapped_column(BigInteger)
-    status: Mapped[str] = mapped_column(String, default="draft", nullable=False)
+    status: Mapped[EstimateStatus] = mapped_column(String, default="draft", nullable=False)
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
@@ -90,34 +93,29 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
 
     __tablename__ = "orders"
     __table_args__ = (
-        enum_check("orders", "status", "open", "void"),
-        enum_check("orders", "source", "pos", "online"),
-        CheckConstraint(
-            "pickup_status IS NULL OR "
-            "pickup_status IN ('unfulfilled', 'preparing', 'ready', 'picked_up')",
-            name="ck_orders_pickup_status",
-        ),
+        enum_check("orders", "status", OrderStatus),
+        enum_check("orders", "source", OrderSource),
+        enum_check("orders", "pickup_status", PickupStatus, nullable=True),
         Index("ix_orders_status", "business_id", "status"),
         UniqueConstraint("business_id", "number", name="uq_orders_business_number"),
-        discount_check("orders"),
-        CheckConstraint(
-            "receipt_channel IS NULL OR receipt_channel IN ('email', 'sms')",
-            name="ck_orders_receipt_channel",
-        ),
+        enum_check("orders", "discount_kind", DiscountKind, nullable=True),
+        enum_check("orders", "receipt_channel", Channel, nullable=True),
     )
 
     client_id: Mapped[str | None] = mapped_column(ForeignKey("clients.id"))  # null = walk-in
     staff_id: Mapped[str] = mapped_column(ForeignKey("staff.id"), nullable=False)
     number: Mapped[int | None] = mapped_column(BigInteger)  # shown as S-<number>
-    status: Mapped[str] = mapped_column(String, default="open", nullable=False)
+    status: Mapped[OrderStatus] = mapped_column(String, default="open", nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="CAD", nullable=False)
     subtotal_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     total_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     receipt_email: Mapped[str | None] = mapped_column(String)  # where a walk-in's receipt goes
     receipt_phone: Mapped[str | None] = mapped_column(String)
-    source: Mapped[str] = mapped_column(String, default="pos", nullable=False)
-    pickup_status: Mapped[str | None] = mapped_column(String)  # online orders collected in person
+    source: Mapped[OrderSource] = mapped_column(String, default="pos", nullable=False)
+    pickup_status: Mapped[PickupStatus | None] = mapped_column(
+        String
+    )  # online orders collected in person
     preparing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pickup_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pickup_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -130,7 +128,7 @@ class Order(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     approved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"))  # over-limit discount
     status_token: Mapped[str | None] = mapped_column(String, unique=True)
     receipt_token: Mapped[str | None] = mapped_column(String, unique=True)  # public receipt key
-    receipt_channel: Mapped[str | None] = mapped_column(String)
+    receipt_channel: Mapped[Channel | None] = mapped_column(String)
     receipt_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -140,11 +138,11 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
         CheckConstraint(
             "num_nonnulls(estimate_id, invoice_id, order_id) = 1", name="ck_lines_parent"
         ),
-        enum_check("lines", "tax_class", "standard", "federal_only", "exempt"),
+        enum_check("lines", "tax_class", TaxClass),
         Index("ix_lines_estimate", "estimate_id"),
         Index("ix_lines_invoice", "invoice_id"),
         Index("ix_lines_order", "order_id"),
-        discount_check("lines"),
+        enum_check("lines", "discount_kind", DiscountKind, nullable=True),
     )
 
     estimate_id: Mapped[str | None] = mapped_column(ForeignKey("estimates.id"))
@@ -157,7 +155,7 @@ class Line(PKMixin, BusinessScoped, TimestampMixin, Discounted, Base):
     unit_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
     tax_amount_cents: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
-    tax_class: Mapped[str] = mapped_column(String, default="standard", nullable=False)
+    tax_class: Mapped[TaxClass] = mapped_column(String, default="standard", nullable=False)
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     staff_id: Mapped[str | None] = mapped_column(ForeignKey("staff.id"))  # who did the work
     # amount_cents is net of both: the line's own discount and its share of the document's

@@ -10,7 +10,7 @@ from clientbridge.models.payments import Payment
 from clientbridge.services.notifications import Notifier
 from clientbridge.services.orders import run_pickup_reminders, run_reap_unpaid_orders
 from tests.conftest import FakeEmailSender, FakePaymentGateway, FakePushSender, FakeSmsSender
-from tests.helpers import enable_payments, settle
+from tests.helpers import column, enable_payments, settle
 
 
 async def place(api: httpx.AsyncClient, db: AsyncSession) -> dict[str, str]:
@@ -193,7 +193,8 @@ async def test_unpaid_order_expires_only_after_intent_cancellation(
     assert order.status == "open"
     gateway.confirmed.clear()
     assert await run_reap_unpaid_orders(db, gateway, datetime.now(UTC)) == 1
-    assert order.status == "void" and payment.status == "canceled"
+    assert await column(db, "orders", order.id, "status") == "void"
+    assert await column(db, "payments", payment.id, "status") == "canceled"
     assert payment.provider_ref in gateway.canceled_intents
 
 

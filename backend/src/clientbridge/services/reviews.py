@@ -12,7 +12,7 @@ from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
 from clientbridge.models.business import Business
 from clientbridge.models.clients import Client
-from clientbridge.models.reviews import REVIEW_OPEN, REVIEW_SUBMITTED, Review
+from clientbridge.models.reviews import REVIEW_OPEN, REVIEW_SUBMITTED, Review, ReviewStatus
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.reviews import (
     ReviewLinkOut,
@@ -118,7 +118,7 @@ class ReviewService:
             self.db, self.principal, action="review.share", run=run, response_model=ReviewShareOut
         )
 
-    async def _set_status(self, review_id: str, status: str, action: str) -> ReviewOut:
+    async def _set_status(self, review_id: str, status: ReviewStatus, action: str) -> ReviewOut:
         self._assert_admin()
         review = await self._review(review_id)
 

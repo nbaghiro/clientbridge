@@ -1,7 +1,7 @@
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.clients import Channel, Consent
 from clientbridge.schemas.public import PublicBrand
 
 
@@ -25,7 +25,7 @@ class PublicPreferencesUpdate(BaseModel):
     sms: bool
 
 
-class PublicUnsubscribe(BaseModel):
-    channel: Literal["sms", "email"] | None = Field(
-        default=None, description="One channel, or both when null"
-    )
+class PublicUnsubscribe(Mirror):
+    mirrors = Consent
+
+    channel: Channel | None = Field(default=None, description="One channel, or both when null")

@@ -3,6 +3,7 @@ import asyncio
 import json
 from collections import Counter
 from datetime import UTC, datetime, timedelta
+from typing import get_args
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
@@ -13,7 +14,7 @@ from clientbridge.models.billing import Estimate, Invoice, Line
 from clientbridge.models.business import Business
 from clientbridge.models.catalog import GiftCard, Item, StockMovement
 from clientbridge.models.clients import Subject
-from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot
+from clientbridge.models.scheduling import Booking, Hours, Recurrence, Slot, Weekday
 from scripts.demo_context import DemoContext
 
 
@@ -104,7 +105,7 @@ def validate_graph(ctx: DemoContext) -> list[str]:
         if recurrence.count and len(occurrences) != recurrence.count:
             errors.append(f"{recurrence.id}: occurrence count mismatch")
         if any(
-            ("MO", "TU", "WE", "TH", "FR", "SA", "SU")[s.starts_at.astimezone(zone).weekday()]
+            get_args(Weekday)[s.starts_at.astimezone(zone).weekday()]
             not in (recurrence.byday or [])
             for s in occurrences
         ):

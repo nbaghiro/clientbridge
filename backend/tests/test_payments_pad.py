@@ -16,7 +16,7 @@ from clientbridge.models.clients import Client
 from clientbridge.models.payments import PaymentMethod, PaymentSetupLink
 from clientbridge.services.payments import default_method_ref, resolve_saved_method_ref
 from tests.conftest import BIZ, Factory, FakePaymentGateway
-from tests.helpers import client_id, enable_payments
+from tests.helpers import client_id, column, enable_payments
 
 
 async def _link(api: httpx.AsyncClient, db: AsyncSession) -> tuple[PaymentSetupLink, str]:
@@ -189,12 +189,12 @@ async def test_attached_bank_is_pending_until_verified_setup_and_mandate(
     with pytest.raises(Conflict):
         await resolve_saved_method_ref(db, BIZ, method.id, link.client_id)
     await _event(as_owner, "setup_intent.succeeded", {"id": intent}, event="evt_verified")
-    assert method.mandate_status == "active"
+    assert await column(db, "payment_methods", method.id, "mandate_status") == "active"
     assert await resolve_saved_method_ref(db, BIZ, method.id, link.client_id) == "pm_authorized"
     context = (await as_owner.get("/payment-method", headers=_header(token))).json()
     assert context["status"] == "succeeded" and context["client_secret"] is None
     await _event(as_owner, "payment_method.attached", pm, event="evt_late_attached")
-    assert method.mandate_status == "active"
+    assert await column(db, "payment_methods", method.id, "mandate_status") == "active"
     gateway.mandates["mandate_test"] = replace(gateway.mandates["mandate_test"], status="inactive")
     await _event(
         as_owner,
@@ -202,7 +202,7 @@ async def test_attached_bank_is_pending_until_verified_setup_and_mandate(
         {"id": "mandate_test", "status": "active"},
         event="evt_old_active_payload",
     )
-    assert method.mandate_status == "revoked"
+    assert await column(db, "payment_methods", method.id, "mandate_status") == "revoked"
     with pytest.raises(Conflict):
         await resolve_saved_method_ref(db, BIZ, method.id, link.client_id)
 
@@ -219,7 +219,7 @@ async def test_setup_before_attached_is_safe_and_old_mandate_event_cannot_activa
     method = (
         await db.execute(select(PaymentMethod).where(PaymentMethod.provider_ref == "pm_authorized"))
     ).scalar_one()
-    assert method.mandate_status == "revoked"
+    assert await column(db, "payment_methods", method.id, "mandate_status") == "revoked"
     assert await default_method_ref(db, BIZ, link.client_id) != "pm_authorized"
 
 

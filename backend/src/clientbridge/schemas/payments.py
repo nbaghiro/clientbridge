@@ -3,6 +3,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.clients import Channel
+from clientbridge.models.payments import Payment, PaymentMethod, PaymentStatus, PayMethod
 from clientbridge.schemas.public import PublicBrand
 
 
@@ -54,15 +57,19 @@ class SetupIntentOut(BaseModel):
 RefundReason = Literal["service", "skipped", "duplicate", "canceled", "other"]
 
 
-class RefundIn(BaseModel):
+class RefundIn(Mirror):
+    mirrors = Payment
+
     amount_cents: int | None = Field(default=None, description="Null refunds what is left")
     reason: RefundReason | None = None
     notify: bool = Field(default=True, description="Send the client the credit note")
 
 
-class RefundOut(BaseModel):
+class RefundOut(Mirror):
+    mirrors = Payment
+
     refund_id: str
-    status: str
+    status: PaymentStatus
     credit_note: str | None = None
 
 
@@ -86,22 +93,28 @@ class RefundPreview(BaseModel):
     parts: list[RefundPart]
 
 
-class InteracRequestIn(BaseModel):
+class InteracRequestIn(Mirror):
+    mirrors = Payment
+
     amount_cents: int | None = Field(default=None, gt=0, description="Null requests the balance")
-    channel: Literal["email", "sms"] = "email"
+    channel: Channel = "email"
     expires_in_days: int = Field(default=14, ge=1, le=60)
 
 
-class InteracRequest(BaseModel):
+class InteracRequest(Mirror):
+    mirrors = Payment
+
     payment_id: str
     reference_code: str
     send_to: str | None
     amount_cents: int
-    channel: str | None = None
+    channel: Channel | None = None
     expires_at: datetime | None = None
 
 
-class PaymentMethodOut(BaseModel):
+class PaymentMethodOut(Mirror):
+    mirrors = PaymentMethod
+
     id: str
     client_id: str
     brand: str | None
@@ -114,7 +127,9 @@ class DetachResult(BaseModel):
     detached: bool
 
 
-class InteracWebhookBody(BaseModel):
+class InteracWebhookBody(Mirror):
+    mirrors = Payment
+
     reference_code: str
     amount_cents: int
 
@@ -203,14 +218,18 @@ class PublicDocTax(BaseModel):
     cents: int
 
 
-class PublicCredit(BaseModel):
+class PublicCredit(Mirror):
+    mirrors = Payment
+
     kind: Literal["payment", "deposit"]
-    method: str | None
+    method: PayMethod | None
     amount_cents: int
     at: datetime | None
 
 
-class PublicInterac(BaseModel):
+class PublicInterac(Mirror):
+    mirrors = Payment
+
     reference_code: str
     amount_cents: int
     send_to: str | None
@@ -265,7 +284,9 @@ class PublicCardIntent(BaseModel):
     stripe_account_id: str
 
 
-class InvoicePaymentIn(BaseModel):
+class InvoicePaymentIn(Mirror):
+    mirrors = Payment
+
     method: Literal["cash", "interac", "cheque", "card"] = Field(
         description="cash, an e-Transfer already received, a cheque, or the client's saved card"
     )
@@ -286,9 +307,11 @@ class InvoicePaymentIn(BaseModel):
     send_receipt: bool = True
 
 
-class InvoicePaymentOut(BaseModel):
+class InvoicePaymentOut(Mirror):
+    mirrors = Payment
+
     payment_id: str
-    status: str
+    status: PaymentStatus
     amount_cents: int
     change_cents: int
     balance_cents: int

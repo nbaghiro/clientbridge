@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from sqlalchemy import (
     Boolean,
@@ -15,9 +16,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from clientbridge.core.db import Base
 from clientbridge.models.base import BusinessScoped, PKMixin, TimestampMixin, enum_check
+from clientbridge.models.clients import Channel
 
-REVIEW_OPEN = ("requested", "opened")
-REVIEW_SUBMITTED = ("submitted", "published", "hidden")
+ReviewStatus = Literal["requested", "opened", "submitted", "published", "hidden"]
+
+
+REVIEW_OPEN: tuple[ReviewStatus, ...] = ("requested", "opened")
+REVIEW_SUBMITTED: tuple[ReviewStatus, ...] = ("submitted", "published", "hidden")
 
 
 class Review(PKMixin, BusinessScoped, TimestampMixin, Base):
@@ -30,8 +35,8 @@ class Review(PKMixin, BusinessScoped, TimestampMixin, Base):
             "status IN ('requested', 'opened') OR rating IS NOT NULL",
             name="ck_reviews_submitted_rating",
         ),
-        enum_check("reviews", "status", *REVIEW_OPEN, *REVIEW_SUBMITTED),
-        enum_check("reviews", "channel", "sms", "email"),
+        enum_check("reviews", "status", ReviewStatus),
+        enum_check("reviews", "channel", Channel),
         UniqueConstraint("token", name="uq_reviews_token"),
         Index("ix_reviews_status_created", "business_id", "status", "created_at"),
         Index(
@@ -45,9 +50,9 @@ class Review(PKMixin, BusinessScoped, TimestampMixin, Base):
 
     client_id: Mapped[str] = mapped_column(ForeignKey("clients.id"), nullable=False)
     booking_id: Mapped[str | None] = mapped_column(ForeignKey("bookings.id"))
-    channel: Mapped[str | None] = mapped_column(String)
+    channel: Mapped[Channel | None] = mapped_column(String)
     token: Mapped[str | None] = mapped_column(String)  # public review-link key (server-minted)
-    status: Mapped[str] = mapped_column(String, default="requested", nullable=False)
+    status: Mapped[ReviewStatus] = mapped_column(String, default="requested", nullable=False)
     requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     rating: Mapped[int | None] = mapped_column(SmallInteger)

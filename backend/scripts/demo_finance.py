@@ -65,7 +65,7 @@ def add_finance_scenarios(ctx: DemoContext) -> None:
 def _tax(ctx: DemoContext, lines: list[Line]) -> TaxResult:
     business = ctx.get(Business, ctx.business_id)
     result = compute_tax(
-        [TaxLine(line.amount_cents, tax_class=line.tax_class or "standard") for line in lines],
+        [TaxLine(line.amount_cents, tax_class=line.tax_class) for line in lines],
         [TaxComponent("GST", 500), TaxComponent("PST", 700)],
         registered=business.tax_registered,
     )

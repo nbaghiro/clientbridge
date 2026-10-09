@@ -158,10 +158,7 @@ async def tax_breakdown(db: AsyncSession, business_id: str, lines: list[Line]) -
     rates = await rates_for_business(db, business_id)
     registered = await business_tax_registered(db, business_id)
     return compute_tax(
-        [
-            TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class or "standard")
-            for ln in lines
-        ],
+        [TaxLine(amount_cents=ln.amount_cents, tax_class=ln.tax_class) for ln in lines],
         [TaxComponent(jurisdiction=r.jurisdiction, rate_bps=r.rate_bps) for r in rates],
         registered=registered,
     )

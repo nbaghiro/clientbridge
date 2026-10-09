@@ -1,15 +1,12 @@
 import re
 from datetime import datetime
-from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.business import Business, BusinessStatus, FilingFrequency, ProvinceCode
 from clientbridge.schemas.public import HEX_COLOR
-
-# An unknown province would silently collect no tax, so it is rejected with a 422.
-ProvinceCode = Literal["AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT"]
-FilingFrequency = Literal["monthly", "quarterly", "annual"]
 
 # CRA business number + RT program account, Revenu Quebec TQ account, BC PST registration.
 GST_HST_NUMBER = re.compile(r"^\d{9}RT\d{4}$")
@@ -17,7 +14,9 @@ QST_NUMBER = re.compile(r"^\d{10}TQ\d{4}$")
 PST_NUMBER = re.compile(r"^(PST)?\d{4}\d{4}$")
 
 
-class OnboardBody(BaseModel):
+class OnboardBody(Mirror):
+    mirrors = Business
+
     name: str
     slug: str
     province: ProvinceCode
@@ -25,22 +24,23 @@ class OnboardBody(BaseModel):
     locale: str = "en"
 
 
-class BusinessOut(BaseModel):
+class BusinessOut(Mirror):
+    mirrors = Business
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     name: str
     slug: str
-    province: str | None
+    province: ProvinceCode | None
     timezone: str
     locale: str
-    status: str
+    status: BusinessStatus
     billing_email: str | None
     gst_hst_number: str | None
     qst_number: str | None
     pst_number: str | None
     tax_registered: bool
-    filing_frequency: str = "quarterly"
+    filing_frequency: FilingFrequency
     setup_dismissed_at: datetime | None
     review_hold_at: int
     google_review_url: str | None
@@ -127,7 +127,9 @@ class BrandInput(BaseModel):
         return (v or "").strip() or None
 
 
-class BusinessSettingsUpdate(BaseModel):
+class BusinessSettingsUpdate(Mirror):
+    mirrors = Business
+
     """Partial update of account fields; tax numbers accept an empty string to clear."""
 
     name: str | None = None

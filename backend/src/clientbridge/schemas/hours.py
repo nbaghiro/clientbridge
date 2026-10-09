@@ -11,10 +11,13 @@ from pydantic import (
     model_validator,
 )
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.scheduling import Hours
 from clientbridge.schemas.receipts import OperationIdentity
 
 
-class WeekDay(BaseModel):
+class WeekDay(Mirror):
+    mirrors = Hours
     model_config = ConfigDict(extra="forbid")
     weekday: StrictInt = Field(ge=0, le=6)
     available: StrictBool

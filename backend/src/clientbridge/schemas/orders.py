@@ -3,6 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.billing import Order, OrderSource, PickupStatus
+from clientbridge.models.clients import Channel
+from clientbridge.models.payments import Payment, PaymentKind, PayMethod
 from clientbridge.schemas.billing import DiscountIn, LineInput, LineOut
 from clientbridge.schemas.payments import PublicDocLine, PublicDocTax, TipShareIn
 from clientbridge.schemas.public import PublicBrand
@@ -10,7 +14,9 @@ from clientbridge.schemas.public import PublicBrand
 _PIN = r"^[0-9]{4}$"
 
 
-class OrderCreate(BaseModel):
+class OrderCreate(Mirror):
+    mirrors = Order
+
     client_id: str | None = Field(default=None, description="Null for a walk-in")
     lines: list[LineInput] = Field(default_factory=list)
     discount: DiscountIn | None = Field(default=None, description="Off the whole sale")
@@ -24,7 +30,9 @@ class OrderCreate(BaseModel):
     receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
 
 
-class OrderUpdate(BaseModel):
+class OrderUpdate(Mirror):
+    mirrors = Order
+
     client_id: str | None = Field(
         default=None, description="Null for a walk-in; changeable until something is charged"
     )
@@ -36,7 +44,9 @@ class OrderUpdate(BaseModel):
     receipt_phone: str | None = Field(default=None, min_length=7, max_length=20)
 
 
-class TipIn(BaseModel):
+class TipIn(Mirror):
+    mirrors = Payment
+
     tip_cents: int = Field(default=0, ge=0, description="Outside tax, owed to the staff")
     tip_split: list[TipShareIn] | None = Field(
         default=None, description="Who gets the tip; by line value to each line's staff if omitted"
@@ -53,7 +63,9 @@ class OrderCashIn(TipIn):
     tendered_cents: int = Field(ge=0, description="Cash handed over")
 
 
-class OrderCashOut(BaseModel):
+class OrderCashOut(Mirror):
+    mirrors = Payment
+
     payment_id: str
     amount_cents: int
     tip_cents: int
@@ -61,7 +73,7 @@ class OrderCashOut(BaseModel):
 
 
 class OrderReceiptIn(BaseModel):
-    channel: Literal["email", "sms"]
+    channel: Channel
     to: str = Field(min_length=3, max_length=200, description="An email address or phone number")
 
 
@@ -73,7 +85,10 @@ class OrderPickupIn(BaseModel):
     status: Literal["preparing", "ready", "picked_up"]
 
 
-class OrderOut(BaseModel):
+class OrderOut(Mirror):
+    mirrors = Order
+    derived = frozenset({"status"})
+
     id: str
     business_id: str
     client_id: str | None
@@ -89,8 +104,8 @@ class OrderOut(BaseModel):
     paid_at: datetime | None
     receipt_email: str | None = None
     receipt_phone: str | None = None
-    source: str = "pos"
-    pickup_status: str | None = None
+    source: OrderSource = "pos"
+    pickup_status: PickupStatus | None = None
     ready_at: datetime | None = None
     picked_up_at: datetime | None = None
     note: str | None = None
@@ -100,14 +115,16 @@ class OrderOut(BaseModel):
     deposit_cents: int = Field(default=0, description="Visit deposits applied or still to apply")
     due_cents: int = Field(default=0, description="What is left to charge, before any tip")
     tip_cents: int = 0
-    receipt_channel: str | None = None
+    receipt_channel: Channel | None = None
     receipt_sent_at: datetime | None = None
     lines: list[LineOut]
 
 
-class PublicReceiptPayment(BaseModel):
-    kind: Literal["payment", "deposit", "refund"]
-    method: str
+class PublicReceiptPayment(Mirror):
+    mirrors = Payment
+
+    kind: PaymentKind
+    method: PayMethod
     amount_cents: int
     tip_cents: int = 0
     at: datetime | None
@@ -152,7 +169,10 @@ class ConnectionTokenOut(BaseModel):
     )
 
 
-class PublicOrderStatus(BaseModel):
+class PublicOrderStatus(Mirror):
+    mirrors = Order
+    derived = frozenset({"status"})
+
     pickup_from: datetime | None = None
     pickup_to: datetime | None = None
     address: str | None = None
@@ -161,7 +181,7 @@ class PublicOrderStatus(BaseModel):
     business_name: str
     brand: PublicBrand
     status: str
-    pickup_status: str | None
+    pickup_status: PickupStatus | None
     created_at: datetime
     preparing_at: datetime | None
     ready_at: datetime | None
@@ -178,5 +198,7 @@ class PublicOrderStatus(BaseModel):
     taxes: list[PublicDocTax]
 
 
-class PublicOrderAlerts(BaseModel):
+class PublicOrderAlerts(Mirror):
+    mirrors = Order
+
     notify_sms: bool

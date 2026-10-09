@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import get_args
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,7 +30,12 @@ class SoftDelete:
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
-def enum_check(table: str, col: str, *values: str) -> CheckConstraint:
-    """text + CHECK enum — e.g. enum_check('bookings', 'status', 'pending', 'confirmed')."""
-    allowed = ", ".join(f"'{v}'" for v in values)
-    return CheckConstraint(f"{col} IN ({allowed})", name=f"ck_{table}_{col}")
+def enum_check(
+    table: str, col: str, vocabulary: object, *, nullable: bool = False
+) -> CheckConstraint:
+    """text + CHECK enum over a Literal alias, e.g. enum_check('slots', 'status', SlotStatus)."""
+    allowed = ", ".join(f"'{v}'" for v in get_args(vocabulary))
+    check = f"{col} IN ({allowed})"
+    return CheckConstraint(
+        f"{col} IS NULL OR {check}" if nullable else check, name=f"ck_{table}_{col}"
+    )

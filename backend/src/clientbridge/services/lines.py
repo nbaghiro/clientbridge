@@ -52,7 +52,7 @@ def set_discount(target: Discounted, discount: DiscountIn | None) -> None:
 
 
 def discount_of(source: Discounted) -> DiscountIn | None:
-    if source.discount_kind not in ("percent", "amount") or not source.discount_value:
+    if source.discount_kind is None or not source.discount_value:
         return None
     return DiscountIn.model_validate(
         {

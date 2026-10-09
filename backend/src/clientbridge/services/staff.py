@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clientbridge.core.command import Command, run_command
 from clientbridge.core.deps import Principal, assert_role, is_manager
 from clientbridge.core.errors import (
-    AppError,
     Conflict,
     Forbidden,
     NotFound,
@@ -25,6 +24,7 @@ from clientbridge.models.business import Staff, User
 from clientbridge.models.platform import Audit
 from clientbridge.schemas.staff import (
     InviteOut,
+    MemberRole,
     RoleUpdate,
     StaffPayOut,
     StaffPayUpdate,
@@ -34,7 +34,6 @@ from clientbridge.schemas.staff import (
 from clientbridge.services.auth import build_user
 
 INVITE_TTL = timedelta(days=7)
-INVITABLE_ROLES = {"admin", "staff", "contractor"}  # never invite an owner
 
 
 def _fit_rate_unit(staff: Staff, data: StaffPayUpdate) -> None:
@@ -88,12 +87,10 @@ class StaffService:
         *,
         email_sender: EmailSender,
         email: str,
-        role: str,
+        role: MemberRole,
         idempotency_key: str | None = None,
     ) -> InviteOut:
         assert_role(principal, "owner", "admin", message="only an owner or admin can invite")
-        if role not in INVITABLE_ROLES:
-            raise AppError(f"cannot invite with role '{role}'", code="invalid_role")
 
         async def run(cmd: Command) -> InviteOut:
             raw = secrets.token_urlsafe(24)

@@ -1,11 +1,15 @@
 """The database refuses values outside each column's vocabulary, and the API returns 422."""
 
+from typing import Literal
+
 import httpx
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clientbridge.core.mirrors import Mirror, mirror_errors, mirrored
+from clientbridge.models.clients import Client
 from tests.conftest import BIZ
 
 REFUSED = [
@@ -55,3 +59,23 @@ async def test_file_parent_outside_the_vocabulary_is_422(as_owner: httpx.AsyncCl
     assert res.status_code == 422
 
 
+def test_api_shapes_carry_their_model_column_types() -> None:
+    assert len(mirrored()) > 50
+    assert mirror_errors(mirrored()) == ()
+
+
+def test_a_widened_or_misnamed_mirror_field_is_reported() -> None:
+    class Drifted(Mirror):
+        mirrors = Client
+        derived = frozenset({"nickname"})
+
+        status: str
+        preferred_channel: Literal["sms", "fax"]
+        email: str | None = None
+
+    assert mirror_errors([Drifted]) == (
+        "Drifted.nickname: derived but not a field named after a column",
+        "Drifted.status: <class 'str'> is wider than Client.status",
+        "Drifted.preferred_channel: typing.Literal['sms', 'fax'] is wider than "
+        "Client.preferred_channel",
+    )

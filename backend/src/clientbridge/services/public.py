@@ -1,5 +1,6 @@
 import secrets
 from datetime import UTC, date, datetime, time, timedelta
+from typing import get_args
 
 from sqlalchemy import ColumnElement, and_, func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -16,7 +17,7 @@ from clientbridge.integrations.stripe import PaymentGateway
 from clientbridge.models.billing import Estimate, Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
 from clientbridge.models.catalog import BOOKABLE_KINDS, Item
-from clientbridge.models.clients import Client, Note, Subject
+from clientbridge.models.clients import Channel, Client, Note, Subject
 from clientbridge.models.documents import Contract, Form, FormField, FormResponse, Signature
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
@@ -1483,9 +1484,9 @@ class PublicPreferencesService:
         await self.db.commit()
         return await self._out(client, business)
 
-    async def unsubscribe(self, token: str, channel: str | None) -> PublicPreferences:
+    async def unsubscribe(self, token: str, channel: Channel | None) -> PublicPreferences:
         client, business = await self._resolve(token)
-        for each in [channel] if channel is not None else ["email", "sms"]:
+        for each in (channel,) if channel is not None else get_args(Channel):
             await set_channel_consent(self.db, client, each, agreed=False, source="unsubscribe")
         await self.db.commit()
         return await self._out(client, business)

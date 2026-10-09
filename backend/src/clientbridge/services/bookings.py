@@ -30,7 +30,17 @@ from clientbridge.models.catalog import Item
 from clientbridge.models.clients import Client, Note, Subject
 from clientbridge.models.messaging import Message
 from clientbridge.models.payments import Payment
-from clientbridge.models.scheduling import Addon, Booking, Hours, Recurrence, Resource, Slot
+from clientbridge.models.scheduling import (
+    Addon,
+    Booking,
+    Hours,
+    MonthlyBy,
+    Recurrence,
+    RecurrenceFrequency,
+    Resource,
+    Slot,
+    Weekday,
+)
 from clientbridge.schemas.bookings import (
     AddonOffer,
     AddonOffersOut,
@@ -913,7 +923,7 @@ async def exceptions_between(
     ]
 
 
-_WEEKDAY_CODES = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
+_WEEKDAY_CODES: dict[Weekday, int] = {"MO": 0, "TU": 1, "WE": 2, "TH": 3, "FR": 4, "SA": 5, "SU": 6}
 _WEEKDAY_NAMES = {v: k for k, v in _WEEKDAY_CODES.items()}
 _SKIPPED = "left out when the series was booked"
 _MAX_OCCURRENCES = 60  # a full year of weekly + headroom; caps runaway/unbounded rules
@@ -939,12 +949,12 @@ def _same_weekday(start: date, months: int) -> date:
 def expand_occurrences(
     *,
     start_date: date,
-    frequency: str,
+    frequency: RecurrenceFrequency,
     interval: int,
-    byday: Sequence[str] | None,
+    byday: Sequence[Weekday] | None,
     count: int | None,
     until: date | None,
-    monthly_by: str = "date",
+    monthly_by: MonthlyBy = "date",
 ) -> list[date]:
     """Occurrence dates for a rule, bounded by count, until and a hard cap."""
     interval = max(1, interval)

@@ -26,10 +26,10 @@ from clientbridge.integrations.stripe import (
 )
 from clientbridge.models.billing import Invoice, Line, Order
 from clientbridge.models.business import Business, Staff
-from clientbridge.models.catalog import GiftCard, Item, Package, Subscription
+from clientbridge.models.catalog import GiftCard, Item, Package, Subscription, SubscriptionStatus
 from clientbridge.models.clients import Client
 from clientbridge.models.ledger import Account, Entry
-from clientbridge.models.payments import Payment, PaymentMethod, PaymentSetupLink
+from clientbridge.models.payments import Payment, PaymentMethod, PaymentSetupLink, PaymentStatus
 from clientbridge.models.platform import Webhook
 from clientbridge.models.scheduling import Booking
 from clientbridge.schemas.payments import (
@@ -1496,8 +1496,11 @@ async def _update_payment_method(
     await db.flush()
 
 
-def refund_status(status: object) -> str:
-    return str(status) if status in ("succeeded", "failed", "canceled") else "pending"
+def refund_status(status: object) -> PaymentStatus:
+    match status:
+        case "succeeded" | "failed" | "canceled":
+            return status
+    return "pending"
 
 
 async def _reconcile_refund(db: AsyncSession, data: dict[str, object]) -> str | None:
@@ -1594,10 +1597,11 @@ async def _record_dispute(db: AsyncSession, data: dict[str, object]) -> str | No
 def _track_dispute(payment: Payment, data: dict[str, object]) -> None:
     """Mirror Stripe's dispute status on the charge so the app can show the case."""
     status = data.get("status")
-    if status in ("won", "lost", "under_review"):
-        payment.dispute_status = str(status)
-    elif status == "needs_response" or payment.dispute_status is None:
-        payment.dispute_status = "needs_response"
+    match status:
+        case "won" | "lost" | "under_review":
+            payment.dispute_status = status
+        case _ if status == "needs_response" or payment.dispute_status is None:
+            payment.dispute_status = "needs_response"
 
 
 async def _update_dispute(db: AsyncSession, data: dict[str, object]) -> None:
@@ -1849,7 +1853,9 @@ def _assert_not_ours(intent: dict[str, object]) -> None:
         raise AppError("payment not recorded yet", status_code=503, code="retry_later")
 
 
-async def _fail_payment(db: AsyncSession, intent_id: str, *, status: str = "failed") -> str | None:
+async def _fail_payment(
+    db: AsyncSession, intent_id: str, *, status: PaymentStatus = "failed"
+) -> str | None:
     """Flag a pending charge failed/canceled; return its id (to notify on) when it transitioned."""
     payment = (
         await db.execute(
@@ -1974,7 +1980,7 @@ async def _record_payment_method(
     await db.flush()
 
 
-_SUB_STATUS = {
+_SUB_STATUS: dict[str, SubscriptionStatus] = {
     "active": "active",
     "trialing": "active",
     "past_due": "past_due",
@@ -1984,7 +1990,7 @@ _SUB_STATUS = {
 }
 
 
-def map_subscription_status(stripe_status: str) -> str:
+def map_subscription_status(stripe_status: str) -> SubscriptionStatus:
     """Map a Stripe subscription status to ours; unknown statuses read as past_due."""
     return _SUB_STATUS.get(stripe_status, "past_due")
 

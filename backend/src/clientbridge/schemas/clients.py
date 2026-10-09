@@ -3,24 +3,28 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from clientbridge.schemas.subjects import SubjectAttributes, SubjectKind
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.clients import Channel, Client, ClientStatus, Subject, SubjectKind
+from clientbridge.schemas.subjects import SubjectAttributes
 
-ClientStatus = Literal["active", "inactive"]
-ContactChannel = Literal["sms", "email"]
 MergeSide = Literal["kept", "other"]
 
 
-class ClientBase(BaseModel):
+class ClientBase(Mirror):
+    mirrors = Client
+
     name: str = Field(min_length=1)
     email: str | None = None
     phone: str | None = None
     tags: list[str] = Field(default_factory=list)
     status: ClientStatus = "active"
     custom_fields: dict[str, object] = Field(default_factory=dict)
-    preferred_channel: ContactChannel = "sms"
+    preferred_channel: Channel = "sms"
 
 
-class FirstSubject(BaseModel):
+class FirstSubject(Mirror):
+    mirrors = Subject
+
     kind: SubjectKind = "pet"
     name: str = Field(min_length=1)
     attributes: SubjectAttributes = Field(default_factory=SubjectAttributes)
@@ -33,14 +37,16 @@ class ClientCreate(ClientBase):
     subject: FirstSubject | None = None
 
 
-class ClientUpdate(BaseModel):
+class ClientUpdate(Mirror):
+    mirrors = Client
+
     name: str | None = Field(default=None, min_length=1)
     email: str | None = None
     phone: str | None = None
     tags: list[str] | None = None
     status: ClientStatus | None = None
     custom_fields: dict[str, object] | None = None
-    preferred_channel: ContactChannel | None = None
+    preferred_channel: Channel | None = None
     marketing_consent: bool | None = None
 
 

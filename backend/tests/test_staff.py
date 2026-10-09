@@ -43,9 +43,9 @@ async def test_staff_cannot_invite_403(as_staff: httpx.AsyncClient) -> None:
     assert res.status_code == 403
 
 
-async def test_cannot_invite_owner_role_400(as_owner: httpx.AsyncClient) -> None:
+async def test_cannot_invite_owner_role_422(as_owner: httpx.AsyncClient) -> None:
     res = await as_owner.post("/v1/staff/invites", json={"email": "x@test.ca", "role": "owner"})
-    assert res.status_code == 400
+    assert res.status_code == 422
 
 
 async def test_staff_cannot_set_pay_403(as_staff: httpx.AsyncClient) -> None:

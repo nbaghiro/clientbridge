@@ -1,11 +1,14 @@
-from typing import Literal
-
 from pydantic import BaseModel
 
+from clientbridge.core.mirrors import Mirror
+from clientbridge.models.platform import Device, DevicePlatform
 
-class DeviceRegister(BaseModel):
+
+class DeviceRegister(Mirror):
+    mirrors = Device
+
     token: str
-    platform: Literal["ios", "android", "web"]
+    platform: DevicePlatform
 
 
 class DeviceOut(BaseModel):

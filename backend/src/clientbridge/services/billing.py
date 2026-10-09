@@ -10,8 +10,8 @@ from clientbridge.core.deps import Principal, assert_role
 from clientbridge.core.errors import Conflict, NotFound, Unprocessable
 from clientbridge.core.ids import new_id
 from clientbridge.core.scoping import scoped
-from clientbridge.models.billing import Estimate, Invoice, Line
-from clientbridge.models.catalog import Item
+from clientbridge.models.billing import Estimate, EstimateStatus, Invoice, Line
+from clientbridge.models.catalog import Item, TaxClass
 from clientbridge.models.clients import Client
 from clientbridge.models.payments import Payment
 from clientbridge.models.scheduling import Addon, Booking, Slot
@@ -23,7 +23,6 @@ from clientbridge.schemas.billing import (
     InvoiceOut,
     InvoiceUpdate,
     LineInput,
-    TaxClass,
 )
 from clientbridge.services import ledger
 from clientbridge.services.bookings import apply_deposit, unapply_deposit
@@ -355,7 +354,7 @@ class BillingService:
         )
 
     async def _set_estimate_status(
-        self, estimate_id: str, status: str, reason: str | None = None
+        self, estimate_id: str, status: EstimateStatus, reason: str | None = None
     ) -> EstimateOut:
         self._assert_admin()
         estimate = await self._estimate(estimate_id)
