@@ -20,7 +20,7 @@ export function Panel({
         >
             {head ? (
                 <div
-                    className={`flex items-start justify-between gap-4 ${flush ? "border-b border-line px-4 py-3" : "mb-4"}`}
+                    className={`flex flex-wrap items-center justify-between gap-4 ${flush ? "border-b border-line px-4 py-3" : "mb-4"}`}
                 >
                     <div className="min-w-0">
                         {title !== undefined ? (
@@ -35,7 +35,9 @@ export function Panel({
                         ) : null}
                     </div>
                     {actions !== undefined ? (
-                        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+                        <div className="flex max-w-full flex-wrap items-center gap-2">
+                            {actions}
+                        </div>
                     ) : null}
                 </div>
             ) : null}

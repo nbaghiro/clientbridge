@@ -16,7 +16,6 @@ import {
     StatusPill,
     TextField,
 } from "@clientbridge/ui";
-import { tint } from "@clientbridge/tokens";
 import { useState } from "react";
 
 import { ScheduleViews } from "../components/ScheduleViews";
@@ -218,16 +217,7 @@ function RosterPanel({ roster }: { roster: ClassRoster }) {
         <section className="overflow-hidden rounded-lg border border-line bg-surface shadow-card">
             <header className="flex flex-wrap items-start justify-between gap-4 border-b border-line px-5 py-4">
                 <div className="flex min-w-0 items-center gap-3">
-                    <span
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-weak text-accent"
-                        style={
-                            x.color !== null
-                                ? { backgroundColor: tint(x.color, 12), color: x.color }
-                                : undefined
-                        }
-                    >
-                        <Icon name="users" size={20} />
-                    </span>
+                    <Icon name="users" size={24} className="shrink-0 text-ink-soft" />
                     <div className="min-w-0">
                         <h2 className="truncate font-display text-lg font-bold text-ink">
                             {x.name}

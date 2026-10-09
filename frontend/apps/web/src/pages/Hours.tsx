@@ -319,8 +319,8 @@ function AwayPanel({
                             {person ? (
                                 <Avatar name={a.who} size="sm" />
                             ) : (
-                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-danger-bg text-danger">
-                                    <Icon name="lock" size={15} />
+                                <span className="flex w-7 shrink-0 justify-center text-ink-soft">
+                                    <Icon name="lock" size={20} />
                                 </span>
                             )}
                             <span className="min-w-0 flex-1">
@@ -352,7 +352,7 @@ function AwayPanel({
 }
 
 function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () => void }) {
-    const editor = useWeekEditor(member.id);
+    const editor = useWeekEditor(api, member.id);
     return (
         <Modal onClose={onClose} size="lg">
             <div className="space-y-4">
@@ -381,7 +381,12 @@ function HoursModal({ member, onClose }: { member: TeamHoursMember; onClose: () 
                     />
                 )}
                 {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
-                {editor.saved ? <Notice tone="success">{s.saved}</Notice> : null}
+                {editor.saveMessage ? <Notice tone="info">{editor.saveMessage}</Notice> : null}
+                {editor.discardRejected ? (
+                    <Button variant="quiet" onPress={editor.discardRejected}>
+                        {s.discardChanges}
+                    </Button>
+                ) : null}
                 <div className="flex items-center justify-between gap-2 border-t border-line pt-4">
                     <span className="text-sm text-muted">
                         {s.daysOpen(editor.openDays)} · {s.weekTotal(editor.totalHours)}

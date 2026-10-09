@@ -26,11 +26,7 @@ export function ActionTile({
                     : "items-center gap-3 px-3.5 py-3"
             } ${inv ? "border-inverse/20 bg-inverse/10 text-inverse hover:bg-inverse/20" : "border-line bg-surface text-ink hover:border-accent-line hover:bg-accent-weak/40"} ${className ?? ""}`}
         >
-            <span
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${inv ? "bg-inverse/15" : "bg-accent-weak text-accent"}`}
-            >
-                <Icon name={icon} size={18} />
-            </span>
+            <Icon name={icon} size={22} className={inv ? "" : "text-ink-soft"} />
             <span className="min-w-0">
                 <span className="block text-[13px] font-semibold leading-tight">{label}</span>
                 {hint !== undefined ? (

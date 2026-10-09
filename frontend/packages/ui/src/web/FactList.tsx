@@ -8,9 +8,7 @@ export function FactList({ facts, label, className }: WebProps<FactListProps>) {
         <ul aria-label={label} className={cx("space-y-3", className)}>
             {facts.map((f: Fact) => (
                 <li key={f.key} className="flex items-start gap-3">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-bg text-ink-soft">
-                        <Icon name={f.icon} size={16} />
-                    </span>
+                    <Icon name={f.icon} size={20} className="text-ink-soft" />
                     <span className="min-w-0">
                         <span className="block text-sm font-semibold text-ink">{f.title}</span>
                         {f.detail !== undefined ? (

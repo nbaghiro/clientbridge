@@ -15,20 +15,14 @@ export function Checklist({ items, label, className }: WebProps<ChecklistProps>)
         <ul aria-label={label} className={cx("divide-y divide-line-soft", className)}>
             {items.map((item: ChecklistItem) => (
                 <li key={item.key} className="flex items-center gap-3 py-3">
-                    <span
-                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                            item.done
-                                ? "bg-ok-bg text-ok-fg"
-                                : item.attention
-                                  ? "bg-warn-bg text-warn-fg"
-                                  : "border-2 border-dashed border-line text-transparent"
-                        }`}
-                    >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center text-ink-soft">
                         {item.done ? (
-                            <Icon name="check" size={14} />
+                            <Icon name="checkCircle" size={22} />
                         ) : item.attention ? (
-                            <Icon name="alert" size={13} />
-                        ) : null}
+                            <Icon name="alert" size={22} />
+                        ) : (
+                            <span className="h-[18px] w-[18px] rounded-full border-[1.5px] border-dashed border-line" />
+                        )}
                     </span>
                     <div className="min-w-0 flex-1">
                         <p

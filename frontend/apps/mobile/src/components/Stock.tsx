@@ -7,12 +7,15 @@ import {
     stockScale,
     strings,
     useInventory,
+    useStockMoves,
     useReceiveDelivery,
     useRestockForm,
 } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
 import {
     Badge,
+    ActivityTimeline,
+    Panel,
     Button,
     Empty,
     IconButton,
@@ -165,7 +168,12 @@ function StockCard({ r, onRestock }: { r: StockRowView; onRestock: () => void })
                     </Text>
                 ) : null}
             </View>
-            <Button size="sm" variant={r.low ? "primary" : "outline"} onPress={onRestock}>
+            <Button
+                style={{ alignSelf: "center" }}
+                size="sm"
+                variant={r.low ? "primary" : "outline"}
+                onPress={onRestock}
+            >
                 {s.restock}
             </Button>
         </View>
@@ -175,6 +183,7 @@ function StockCard({ r, onRestock }: { r: StockRowView; onRestock: () => void })
 /** Tracked products, most urgent first, with one-tap restock and a way into receiving a delivery. */
 export function Inventory() {
     const inv = useInventory();
+    const moves = useStockMoves(10);
     const [restocking, setRestocking] = useState<StockRowView | null>(null);
     const [done, setDone] = useState<string | null>(null);
     const [receiving, setReceiving] = useState(false);
@@ -211,6 +220,7 @@ export function Inventory() {
             <View style={styles.head}>
                 <Text style={[styles.meta, styles.flex]}>{s.inventorySubtitle}</Text>
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     variant="outline"
                     disabled={!inv.load.ready}
@@ -267,6 +277,13 @@ export function Inventory() {
                             <View style={styles.card}>{cards(inv.others)}</View>
                         </>
                     ) : null}
+                    <Panel title={s.recentMoves}>
+                        {moves.length === 0 ? (
+                            <Text style={styles.meta}>{s.noMoves}</Text>
+                        ) : (
+                            <ActivityTimeline entries={moves} />
+                        )}
+                    </Panel>
                 </Loaded>
             )}
             {restocking !== null ? (
@@ -399,7 +416,11 @@ function ReceiveDelivery({
                                             }}
                                         />
                                         {d.stillLow(l) ? (
-                                            <Badge label={s.lowAfter} intent="warning" />
+                                            <Badge
+                                                style={{ alignSelf: "center" }}
+                                                label={s.lowAfter}
+                                                intent="warning"
+                                            />
                                         ) : (
                                             <View />
                                         )}
@@ -439,7 +460,12 @@ function ReceiveDelivery({
                     <Text style={styles.total}>
                         {s.deliveryTotal(d.units, formatMoney(d.costCents))}
                     </Text>
-                    <Button onPress={d.submit} busy={d.busy} disabled={d.lines.length === 0}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        onPress={d.submit}
+                        busy={d.busy}
+                        disabled={d.lines.length === 0}
+                    >
                         {d.busy ? s.restocking : s.receiveSave(d.lines.length)}
                     </Button>
                 </View>

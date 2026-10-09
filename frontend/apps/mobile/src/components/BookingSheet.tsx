@@ -123,6 +123,7 @@ function Addons({ event }: { event: ScheduleEvent }) {
                         </Text>
                         {addons.canEdit ? (
                             <Button
+                                style={{ alignSelf: "center" }}
                                 size="sm"
                                 variant="link"
                                 onPress={() => {
@@ -205,7 +206,12 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
     return (
         <View style={styles.body}>
             <View style={styles.statusLine}>
-                <StatusPill status={s.statusLabel(e.status)} intent={e.intent} asWritten />
+                <StatusPill
+                    style={{ alignSelf: "center" }}
+                    status={s.statusLabel(e.status)}
+                    intent={e.intent}
+                    asWritten
+                />
                 <Text style={styles.timing}>{detail.timing}</Text>
             </View>
             <View style={styles.facts}>
@@ -260,7 +266,12 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                         {client.name}
                                     </Text>
                                     {detail.tags.slice(0, 1).map((t) => (
-                                        <Badge key={t} label={t} intent="accent" />
+                                        <Badge
+                                            style={{ alignSelf: "center" }}
+                                            key={t}
+                                            label={t}
+                                            intent="accent"
+                                        />
                                     ))}
                                 </View>
                                 <Text style={styles.sub} numberOfLines={1}>
@@ -281,6 +292,7 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                 </View>
                                 {pet.temperament !== null ? (
                                     <Badge
+                                        style={{ alignSelf: "center" }}
                                         label={pet.temperament}
                                         intent={detail.petNervous ? "warning" : "neutral"}
                                     />
@@ -315,9 +327,17 @@ export function BookingBody({ detail }: { detail: BookingDetail }) {
                                     {r.pet === "" ? r.name : `${r.pet} · ${r.name}`}
                                 </Text>
                                 {r.waiting ? (
-                                    <Badge label={s.waitlist} intent="neutral" />
+                                    <Badge
+                                        style={{ alignSelf: "center" }}
+                                        label={s.waitlist}
+                                        intent="neutral"
+                                    />
                                 ) : r.unpaid ? (
-                                    <Badge label={s.unpaid} intent="warning" />
+                                    <Badge
+                                        style={{ alignSelf: "center" }}
+                                        label={s.unpaid}
+                                        intent="warning"
+                                    />
                                 ) : null}
                             </View>
                         ))}
@@ -572,6 +592,7 @@ export function BookingComposerSheet({
                             </Text>
                         </View>
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             variant="link"
                             onPress={() => {

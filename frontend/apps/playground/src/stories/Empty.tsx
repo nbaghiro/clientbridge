@@ -9,7 +9,7 @@ export default story<EmptyProps>({
         message: { type: "text" },
         body: { type: "text" },
         intent: { type: "select", options: ["neutral", "danger"] },
-        variant: { type: "select", options: ["inline", "card"] },
+        variant: { type: "select", options: ["inline", "card", "page"] },
         icon: { type: "select", options: ["calendar", "clients", "inbox", "alert", "search"] },
     },
     examples: [

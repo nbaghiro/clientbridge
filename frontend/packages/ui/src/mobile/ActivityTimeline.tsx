@@ -14,13 +14,14 @@ export function ActivityTimeline({ entries, style }: NativeProps<ActivityTimelin
             {entries.map((e, i) => {
                 const tone = INTENT_COLORS[e.intent ?? "neutral"];
                 const big = e.icon !== undefined;
+                const flagged = e.intent === "danger" || e.intent === "warning";
                 return (
                     <View key={e.key} style={styles.item}>
                         <View style={[styles.rail, big && styles.railBig]}>
                             {big ? (
-                                <View style={[styles.disc, { backgroundColor: c[tone.soft] }]}>
+                                <View style={styles.disc}>
                                     {e.icon !== undefined ? (
-                                        <Icon name={e.icon} size={14} color={c[tone.ink]} />
+                                        <Icon name={e.icon} size={15} color={c.inkSoft} />
                                     ) : null}
                                 </View>
                             ) : (
@@ -36,7 +37,14 @@ export function ActivityTimeline({ entries, style }: NativeProps<ActivityTimelin
                             ]}
                         >
                             <View style={styles.head}>
-                                <Text style={styles.label}>{e.label}</Text>
+                                <View style={styles.labelRow}>
+                                    {big && flagged ? (
+                                        <View
+                                            style={[styles.flag, { backgroundColor: c[tone.ink] }]}
+                                        />
+                                    ) : null}
+                                    <Text style={styles.label}>{e.label}</Text>
+                                </View>
                                 {e.aside !== undefined ? (
                                     <Text style={styles.aside}>{e.aside}</Text>
                                 ) : (
@@ -70,6 +78,9 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
+        borderWidth: 1,
+        borderColor: c.border,
+        backgroundColor: c.surface,
         alignItems: "center",
         justifyContent: "center",
     },
@@ -83,6 +94,8 @@ const styles = StyleSheet.create({
         alignItems: "baseline",
         gap: 12,
     },
+    labelRow: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
+    flag: { width: 7, height: 7, borderRadius: 4 },
     label: { color: c.ink, fontSize: 14, fontWeight: "600", flexShrink: 1 },
     at: { color: c.muted, fontSize: 12 },
     aside: { color: c.ink, fontSize: 14, fontWeight: "600" },

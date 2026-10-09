@@ -9,6 +9,7 @@ import {
     signedText,
     strings,
     useContractLibrary,
+    useContractDraft,
     useNewContract,
     useSignatureActions,
 } from "@clientbridge/app-core";
@@ -61,6 +62,7 @@ export function Contracts() {
             <View style={styles.top}>
                 <Text style={styles.subtitle}>{s.subtitle}</Text>
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     icon="plus"
                     onPress={() => {
@@ -125,13 +127,23 @@ function ContractDetail({
     const [sending, setSending] = useState(false);
     const [viewing, setViewing] = useState<SignatureRequest | null>(null);
     const k = summary.contract;
+    const [editing, setEditing] = useState(false);
+    const draft = useContractDraft(api, k, () => {
+        setEditing(false);
+    });
     return (
         <ScrollView contentContainerStyle={styles.body}>
             <View style={styles.nav}>
-                <Button variant="link" icon="chevronLeft" onPress={onBack}>
+                <Button
+                    style={{ alignSelf: "center" }}
+                    variant="link"
+                    icon="chevronLeft"
+                    onPress={onBack}
+                >
                     {s.templates}
                 </Button>
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     icon="send"
                     onPress={() => {
@@ -207,7 +219,49 @@ function ContractDetail({
                 meta={s.version(k.version)}
                 clauses={contractClauses(k.body)}
             />
-            <Text style={styles.meta}>{s.editOnWeb}</Text>
+            <Button
+                variant="outline"
+                icon="edit"
+                onPress={() => {
+                    setEditing(true);
+                }}
+            >
+                {s.editText}
+            </Button>
+            {editing ? (
+                <Modal
+                    open
+                    size="xl"
+                    onClose={() => {
+                        setEditing(false);
+                    }}
+                >
+                    <View style={{ gap: 16 }}>
+                        <Text style={styles.section}>{s.editText}</Text>
+                        <TextField
+                            label={s.text}
+                            multiline
+                            rows={12}
+                            value={draft.body}
+                            onChange={draft.setBody}
+                            surface="surface"
+                        />
+                        <Notice tone="info">{s.versionNotice(draft.nextVersion)}</Notice>
+                        {draft.failed ? <Notice tone="danger">{s.publishError}</Notice> : null}
+                        <Button onPress={draft.publish} busy={draft.busy} disabled={!draft.changed}>
+                            {draft.busy ? s.publishing : s.publish(draft.nextVersion)}
+                        </Button>
+                        <Button
+                            variant="quiet"
+                            onPress={() => {
+                                setEditing(false);
+                            }}
+                        >
+                            {s.cancel}
+                        </Button>
+                    </View>
+                </Modal>
+            ) : null}
             {sending ? (
                 <SendToClientSheet
                     title={s.sendTitle(k.name)}

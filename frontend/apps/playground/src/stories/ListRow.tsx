@@ -5,7 +5,7 @@ import { noop, story } from "../story";
 export default story<ListRowProps>({
     component: "ListRow",
     summary:
-        "A pressable row with an icon tile or leading slot, title, detail, meta and trailing actions.",
+        "A pressable row with a line icon or leading slot, title, detail, meta and trailing actions; danger and warning add a status dot.",
     controls: {
         title: { type: "text" },
         detail: { type: "text" },
@@ -18,7 +18,7 @@ export default story<ListRowProps>({
     examples: [
         {
             key: "icon",
-            title: "Icon tile",
+            title: "Line icon",
             props: () => ({
                 icon: "receipt",
                 intent: "accent",
@@ -30,7 +30,7 @@ export default story<ListRowProps>({
         },
         {
             key: "intent",
-            title: "Danger tint",
+            title: "Danger dot",
             props: () => ({
                 icon: "alert",
                 intent: "danger",
@@ -97,7 +97,7 @@ export default story<ListRowProps>({
         },
         {
             key: "success",
-            title: "Success tint",
+            title: "Success, no dot",
             props: () => ({
                 icon: "check",
                 intent: "success",
@@ -109,7 +109,7 @@ export default story<ListRowProps>({
         },
         {
             key: "warning",
-            title: "Warning tint, compact",
+            title: "Warning dot, compact",
             props: () => ({
                 icon: "alert",
                 intent: "warning",

@@ -29,6 +29,7 @@ import {
     confirm,
     DetailSection,
     DetailView,
+    Modal,
     Icon,
     IconButton,
     KeyValueList,
@@ -276,33 +277,45 @@ function ClientList() {
                 />
             ) : null}
 
-            {openId !== null ? (
-                <RecordPanel
-                    clientId={openId}
-                    manager={manager}
-                    onClose={() => {
-                        setOpenId(null);
-                    }}
-                    onDialog={setDialog}
-                />
-            ) : null}
-            <Dialogs
-                dialog={dialog}
-                directory={dir.all}
-                onOpenClient={(id) => {
-                    setDialog(null);
-                    setOpenId(id);
-                }}
-                onMerged={(name) => {
-                    setDialog(null);
-                    sel.clear();
-                    setSelecting(false);
-                    setMerged(name);
-                }}
+            <Modal
+                flow
+                framed={false}
+                size="lg"
+                open={openId !== null || dialog !== null}
                 onClose={() => {
-                    setDialog(null);
+                    if (dialog !== null) setDialog(null);
+                    else setOpenId(null);
                 }}
-            />
+            >
+                {openId !== null ? (
+                    <RecordPanel
+                        visible={dialog === null}
+                        clientId={openId}
+                        manager={manager}
+                        onClose={() => {
+                            setOpenId(null);
+                        }}
+                        onDialog={setDialog}
+                    />
+                ) : null}
+                <Dialogs
+                    dialog={dialog}
+                    directory={dir.all}
+                    onOpenClient={(id) => {
+                        setDialog(null);
+                        setOpenId(id);
+                    }}
+                    onMerged={(name) => {
+                        setDialog(null);
+                        sel.clear();
+                        setSelecting(false);
+                        setMerged(name);
+                    }}
+                    onClose={() => {
+                        setDialog(null);
+                    }}
+                />
+            </Modal>
             {merged !== null ? (
                 <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2">
                     <Notice tone="success" banner>
@@ -680,11 +693,13 @@ function NoteItem({ note, manager }: { note: ClientNote; manager: boolean }) {
 }
 
 function RecordPanel({
+    visible,
     clientId,
     manager,
     onClose,
     onDialog,
 }: {
+    visible: boolean;
     clientId: string;
     manager: boolean;
     onClose: () => void;
@@ -699,7 +714,7 @@ function RecordPanel({
     };
     if (record === null) {
         return (
-            <DetailView open title={strings.clients.title} onClose={onClose}>
+            <DetailView open={visible} title={strings.clients.title} onClose={onClose}>
                 {load.state === "error" ? (
                     <LoadFailed
                         message={r.loadError}
@@ -718,7 +733,7 @@ function RecordPanel({
     const now = new Date();
     return (
         <DetailView
-            open
+            open={visible}
             title={c.name}
             subtitle={[c.phoneLabel, record.pets.map((p) => p.name).join(", ")]
                 .filter(Boolean)

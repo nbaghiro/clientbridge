@@ -141,6 +141,7 @@ export function ClientEditorSheet({
                     <Text style={styles.dupBody}>{e.duplicateBody(dup.reasons.join(e.and))}</Text>
                     <View style={styles.row}>
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             onPress={() => {
                                 onOpen(dup.client.id);
@@ -148,7 +149,12 @@ export function ClientEditorSheet({
                         >
                             {e.duplicateOpen}
                         </Button>
-                        <Button size="sm" variant="quiet" onPress={editor.ignoreDuplicates}>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            size="sm"
+                            variant="quiet"
+                            onPress={editor.ignoreDuplicates}
+                        >
                             {e.duplicateKeep}
                         </Button>
                     </View>
@@ -560,7 +566,13 @@ export function TagSheet({ sel, onClose }: { sel: ClientSelection; onClose: () =
                         onSubmit={add}
                     />
                 </View>
-                <Button size="sm" variant="outline" disabled={draft.trim() === ""} onPress={add}>
+                <Button
+                    style={{ alignSelf: "center" }}
+                    size="sm"
+                    variant="outline"
+                    disabled={draft.trim() === ""}
+                    onPress={add}
+                >
                     {strings.clients.addShort}
                 </Button>
             </View>
@@ -579,7 +591,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
     },
     side: { width: 84 },
-    right: { alignItems: "flex-end" },
+    right: { flexDirection: "row", justifyContent: "flex-end" },
     title: { flex: 1, textAlign: "center", color: c.ink, fontSize: 17, fontWeight: "700" },
     archived: {
         backgroundColor: c.warnBg,

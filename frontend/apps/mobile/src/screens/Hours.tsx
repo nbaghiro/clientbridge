@@ -93,19 +93,11 @@ export function Hours() {
                         ) : null}
                         {coming.map((a, i) => (
                             <View key={a.id} style={[styles.row, i > 0 && styles.divider]}>
-                                <View
-                                    style={[
-                                        styles.tile,
-                                        {
-                                            backgroundColor:
-                                                a.staffId === null ? c.danBg : c.warnBg,
-                                        },
-                                    ]}
-                                >
+                                <View style={styles.tile}>
                                     <Icon
                                         name={a.staffId === null ? "lock" : "moon"}
-                                        size={16}
-                                        color={a.staffId === null ? c.danFg : c.warnFg}
+                                        size={20}
+                                        color={c.inkSoft}
                                     />
                                 </View>
                                 <View style={styles.whoText}>
@@ -164,7 +156,7 @@ export function Hours() {
 }
 
 function PersonHours({ staffId }: { staffId: string }) {
-    const editor = useWeekEditor(staffId);
+    const editor = useWeekEditor(api, staffId);
     return (
         <View style={styles.card}>
             <Text style={styles.cardTitle}>{s.regularHours}</Text>
@@ -185,13 +177,18 @@ function PersonHours({ staffId }: { staffId: string }) {
                 />
             )}
             {editor.error !== null ? <Notice tone="danger">{editor.error}</Notice> : null}
-            {editor.saved ? <Notice tone="success">{s.saved}</Notice> : null}
+            {editor.saveMessage ? <Notice tone="info">{editor.saveMessage}</Notice> : null}
+            {editor.discardRejected ? (
+                <Button variant="quiet" onPress={editor.discardRejected}>
+                    {s.discardChanges}
+                </Button>
+            ) : null}
             <View style={styles.saveRow}>
                 <Text style={styles.muted}>
                     {s.daysOpen(editor.openDays)} · {s.weekTotal(editor.totalHours)}
                 </Text>
-                <Button busy={editor.busy} onPress={editor.submit}>
-                    {s.saveHours}
+                <Button style={{ alignSelf: "center" }} busy={editor.busy} onPress={editor.submit}>
+                    {editor.saveLabel}
                 </Button>
             </View>
         </View>
@@ -372,13 +369,7 @@ const styles = StyleSheet.create({
     empty: { padding: 16, fontSize: 14, color: c.muted, textAlign: "center" },
     row: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
     divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.border },
-    tile: {
-        width: 32,
-        height: 32,
-        borderRadius: 6,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    tile: { width: 24, alignItems: "center" },
     rowTitle: { fontSize: 15, fontWeight: "600", color: c.ink },
     badge: { flexDirection: "row", marginTop: 6 },
     sheet: { paddingBottom: 12 },

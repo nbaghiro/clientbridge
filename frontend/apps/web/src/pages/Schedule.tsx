@@ -357,32 +357,43 @@ export function Schedule() {
                 </aside>
             ) : null}
 
-            {!wide && detail ? (
-                <DetailView
-                    open
-                    title={detail.event.headline}
-                    subtitle={`${detail.event.serviceName} · ${detail.event.timeLabel}`}
-                    onClose={closeDetail}
-                    actions={
-                        <BookingActionBar
-                            actions={actions}
-                            onReschedule={() => {
-                                setMoving(true);
-                            }}
-                        />
-                    }
-                >
-                    <BookingBody detail={detail} withStatus />
-                </DetailView>
-            ) : null}
-            {moving && detail ? (
-                <RescheduleDialog
-                    event={detail.event}
-                    onClose={() => {
-                        setMoving(false);
-                    }}
-                />
-            ) : null}
+            <Modal
+                flow
+                framed={false}
+                size="lg"
+                open={Boolean(detail) && (!wide || moving)}
+                onClose={() => {
+                    if (moving) setMoving(false);
+                    else closeDetail();
+                }}
+            >
+                {!wide && detail ? (
+                    <DetailView
+                        open={!moving}
+                        title={detail.event.headline}
+                        subtitle={`${detail.event.serviceName} · ${detail.event.timeLabel}`}
+                        onClose={closeDetail}
+                        actions={
+                            <BookingActionBar
+                                actions={actions}
+                                onReschedule={() => {
+                                    setMoving(true);
+                                }}
+                            />
+                        }
+                    >
+                        <BookingBody detail={detail} withStatus />
+                    </DetailView>
+                ) : null}
+                {moving && detail ? (
+                    <RescheduleDialog
+                        event={detail.event}
+                        onClose={() => {
+                            setMoving(false);
+                        }}
+                    />
+                ) : null}
+            </Modal>
             {!wide && composer ? (
                 <Modal
                     size="lg"

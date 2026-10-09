@@ -147,9 +147,7 @@ export function SeriesComposer({ onDone }: { onDone?: () => void }) {
                 {f.done ? (
                     <Panel>
                         <div className="py-6 text-center">
-                            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
-                                <Icon name="check" size={24} />
-                            </span>
+                            <Icon name="check" size={32} className="mx-auto block text-ink-soft" />
                             <h2 className="mt-4 font-display text-xl font-bold text-ink">
                                 {s.doneTitle}
                             </h2>

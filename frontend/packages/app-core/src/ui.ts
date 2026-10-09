@@ -90,21 +90,23 @@ export interface EmptyProps {
     // "danger" for a failed load with a retry; "neutral" for nothing-here-yet.
     intent?: "neutral" | "danger" | undefined;
     // "inline" sits inside a panel; "card" is its own bordered block.
-    variant?: "inline" | "card" | undefined;
+    variant?: "inline" | "card" | "page" | undefined;
 }
 
 // The one failed-load state: a danger Empty with a cloudOff glyph and an outline Try again.
 export interface LoadFailedProps {
+    actions?: ReactNode | undefined;
     message?: string | undefined;
     body?: string | undefined;
     // Without it the state shows no button (nothing on the screen can retry).
     onRetry?: (() => void) | undefined;
     retrying?: boolean | undefined;
     retryLabel?: string | undefined;
-    variant?: "inline" | "card" | undefined;
+    variant?: "inline" | "card" | "page" | undefined;
 }
 
 export interface ModalProps {
+    flow?: boolean | undefined;
     open?: boolean | undefined;
     onClose: () => void;
     // sm/md/lg set the web width; xl is the large panel (wide on web, a tall sheet on mobile).
@@ -679,9 +681,9 @@ export interface ListRowProps {
     // Right-aligned text inside the press target: a time, an amount, a status.
     meta?: ReactNode | undefined;
     icon?: IconName | undefined;
-    // Tints the icon tile.
+    // "danger" and "warning" put a small status dot before the title; other intents draw nothing.
     intent?: Intent | undefined;
-    // Replaces the icon tile: an avatar or a colour bar.
+    // Replaces the icon: an avatar or a colour bar.
     leading?: ReactNode | undefined;
     // Actions beside the row, outside its press target.
     trailing?: ReactNode | undefined;

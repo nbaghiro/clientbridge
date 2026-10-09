@@ -90,6 +90,7 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
                                 <View style={styles.row}>
                                     {manager ? (
                                         <Button
+                                            style={{ alignSelf: "center" }}
                                             variant="link"
                                             size="sm"
                                             onPress={() => {
@@ -102,6 +103,7 @@ export function SalesBoard({ onResume }: { onResume: (order: OrderOut) => void }
                                         <View />
                                     )}
                                     <Button
+                                        style={{ alignSelf: "center" }}
                                         size="sm"
                                         variant={card.action.tone}
                                         busy={board.busyId === card.id}

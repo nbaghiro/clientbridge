@@ -27,11 +27,11 @@ function Hero({ paid }: { paid: GettingPaidView }) {
             className={`rounded-lg border p-5 ${warn ? "border-warn-fg/25 bg-warn-bg" : "border-line bg-surface shadow-card"}`}
         >
             <div className="flex items-start gap-4">
-                <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${warn ? "bg-surface text-warn-fg" : "bg-ok-bg text-ok-fg"}`}
-                >
-                    <Icon name={warn ? "alert" : "checkCircle"} size={20} />
-                </span>
+                <Icon
+                    name={warn ? "alert" : "checkCircle"}
+                    size={22}
+                    className="mt-0.5 text-ink-soft"
+                />
                 <div className="min-w-0 flex-1">
                     <h2 className="font-display text-lg font-bold text-ink">{paid.title}</h2>
                     <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">

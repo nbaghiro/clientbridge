@@ -1,6 +1,5 @@
 import { type ClassRoster, type RosterEntry, strings, useClassBoard } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { tintHex } from "@clientbridge/tokens";
 import {
     Avatar,
     Badge,
@@ -147,14 +146,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
         <View style={styles.gap}>
             <View style={styles.card}>
                 <View style={styles.headRow}>
-                    <View
-                        style={[
-                            styles.classIcon,
-                            x.color !== null ? { backgroundColor: tintHex(x.color, 12) } : null,
-                        ]}
-                    >
-                        <Icon name="users" size={20} color={x.color ?? c.accent} />
-                    </View>
+                    <Icon name="users" size={24} color={c.inkSoft} />
                     <View style={styles.flex}>
                         <Text style={styles.className}>{x.name}</Text>
                         <Text
@@ -204,7 +196,13 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
             <View style={styles.sectionRow}>
                 <Text style={styles.section}>{s.roster}</Text>
                 {roster.started ? (
-                    <Button size="sm" variant="link" busy={roster.busy} onPress={roster.checkInAll}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        variant="link"
+                        busy={roster.busy}
+                        onPress={roster.checkInAll}
+                    >
                         {s.checkInAll}
                     </Button>
                 ) : null}
@@ -233,6 +231,7 @@ function RosterBody({ roster }: { roster: ClassRoster }) {
                             <Text style={styles.muted}>{w.clientName}</Text>
                         </View>
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             variant="outline"
                             onPress={() => {
@@ -267,6 +266,7 @@ function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; f
             {a.status === "confirmed" && roster.started ? (
                 <View style={styles.actions}>
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         variant="quiet"
                         onPress={() => {
@@ -276,6 +276,7 @@ function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; f
                         {s.noShow}
                     </Button>
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         onPress={() => {
                             roster.checkIn(a.key);
@@ -286,9 +287,15 @@ function Attendee({ a, roster, first }: { a: RosterEntry; roster: ClassRoster; f
                 </View>
             ) : (
                 <View style={styles.actions}>
-                    <StatusPill status={a.statusLabel} intent={a.intent} asWritten />
+                    <StatusPill
+                        style={{ alignSelf: "center" }}
+                        status={a.statusLabel}
+                        intent={a.intent}
+                        asWritten
+                    />
                     {a.status === "checked_in" || a.status === "no_show" ? (
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             variant="link"
                             onPress={() => {
@@ -318,14 +325,6 @@ const styles = StyleSheet.create({
         gap: 12,
     },
     headRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-    classIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: c.accentWeak,
-    },
     flex: { flex: 1, minWidth: 0 },
     className: { color: c.ink, fontSize: 17, fontWeight: "700" },
     muted: { color: c.muted, fontSize: 13 },

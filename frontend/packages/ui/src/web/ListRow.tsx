@@ -21,7 +21,7 @@ export function ListRow({
     ref,
 }: WebProps<ListRowProps> & WithRef<HTMLButtonElement>) {
     const compact = density === "compact";
-    const tone = INTENT_COLORS[intent];
+    const flagged = intent === "danger" || intent === "warning";
     const body = (
         <>
             {unread !== undefined ? (
@@ -32,18 +32,22 @@ export function ListRow({
             ) : null}
             {leading ??
                 (icon ? (
-                    <span
-                        style={{ backgroundColor: cssVar(tone.soft), color: cssVar(tone.ink) }}
-                        className={`flex shrink-0 items-center justify-center rounded-md ${compact ? "h-8 w-8" : "h-9 w-9"}`}
-                    >
-                        <Icon name={icon} size={compact ? 16 : 18} />
+                    <span className="flex w-5 shrink-0 justify-center text-ink-soft">
+                        <Icon name={icon} size={20} />
                     </span>
                 ) : null)}
             <span className="min-w-0 flex-1">
                 <span
-                    className={`block truncate text-sm text-ink ${unread ? "font-semibold" : "font-medium"}`}
+                    className={`flex items-center gap-1.5 text-sm text-ink ${unread ? "font-semibold" : "font-medium"}`}
                 >
-                    {title}
+                    {flagged ? (
+                        <span
+                            aria-hidden
+                            style={{ backgroundColor: cssVar(INTENT_COLORS[intent].ink) }}
+                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                        />
+                    ) : null}
+                    <span className="min-w-0 truncate">{title}</span>
                 </span>
                 {detail !== undefined ? (
                     <span className="mt-0.5 block truncate text-xs text-muted">{detail}</span>

@@ -143,6 +143,7 @@ function OpenVisits({
                     </Text>
                     <View style={styles.rowGap}>
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             grow
                             variant="outline"
@@ -154,6 +155,7 @@ function OpenVisits({
                             {s.noShow}
                         </Button>
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             grow
                             busy={r.closing === v.id}

@@ -59,7 +59,12 @@ export function SyncBanner({
                     ) : null}
                 </View>
                 {action !== undefined && variant === "strip" ? (
-                    <Button size="sm" variant="link" onPress={action.onPress}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        variant="link"
+                        onPress={action.onPress}
+                    >
                         {action.label}
                     </Button>
                 ) : null}

@@ -10,6 +10,7 @@ export function ActivityTimeline({ entries, className }: WebProps<ActivityTimeli
             {entries.map((e: TimelineEntry, i) => {
                 const tone = INTENT_COLORS[e.intent ?? "neutral"];
                 const big = e.icon !== undefined;
+                const flagged = e.intent === "danger" || e.intent === "warning";
                 return (
                     <li
                         key={e.key}
@@ -24,13 +25,9 @@ export function ActivityTimeline({ entries, className }: WebProps<ActivityTimeli
                         {big ? (
                             <span
                                 aria-hidden
-                                style={{
-                                    backgroundColor: cssVar(tone.soft),
-                                    color: cssVar(tone.ink),
-                                }}
-                                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-4 ring-surface"
+                                className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink-soft ring-4 ring-surface"
                             >
-                                {e.icon !== undefined ? <Icon name={e.icon} size={14} /> : null}
+                                {e.icon !== undefined ? <Icon name={e.icon} size={15} /> : null}
                             </span>
                         ) : (
                             <span
@@ -41,7 +38,16 @@ export function ActivityTimeline({ entries, className }: WebProps<ActivityTimeli
                         )}
                         <div className={`min-w-0 flex-1 ${big ? "pt-1" : ""}`}>
                             <div className="flex items-baseline justify-between gap-3">
-                                <p className="text-sm font-medium text-ink">{e.label}</p>
+                                <p className="flex items-center gap-1.5 text-sm font-medium text-ink">
+                                    {big && flagged ? (
+                                        <span
+                                            aria-hidden
+                                            style={{ backgroundColor: cssVar(tone.ink) }}
+                                            className="h-1.5 w-1.5 shrink-0 rounded-full"
+                                        />
+                                    ) : null}
+                                    {e.label}
+                                </p>
                                 {e.aside !== undefined ? (
                                     <span className="shrink-0 text-sm font-medium tabular-nums text-ink">
                                         {e.aside}

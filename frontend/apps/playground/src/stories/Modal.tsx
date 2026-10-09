@@ -13,6 +13,7 @@ export default story<ModalProps>({
     controls: {
         size: { type: "select", options: ["sm", "md", "lg", "xl"] },
         framed: { type: "boolean" },
+        flow: { type: "boolean" },
     },
     examples: [
         {

@@ -44,6 +44,7 @@ export function NotificationsScreen() {
                     ]}
                 />
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     variant="link"
                     disabled={view.unread === 0}

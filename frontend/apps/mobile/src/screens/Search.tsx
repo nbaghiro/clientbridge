@@ -144,7 +144,12 @@ export function SearchScreen() {
                             <>
                                 <View style={styles.groupHead}>
                                     <Text style={styles.head}>{s.recent}</Text>
-                                    <Button size="sm" variant="link" onPress={search.clearRecent}>
+                                    <Button
+                                        style={{ alignSelf: "center" }}
+                                        size="sm"
+                                        variant="link"
+                                        onPress={search.clearRecent}
+                                    >
                                         {s.clearRecent}
                                     </Button>
                                 </View>
@@ -196,6 +201,7 @@ export function SearchScreen() {
                                 <Text style={styles.head}>{g.label}</Text>
                                 {g.total > g.hits.length ? (
                                     <Button
+                                        style={{ alignSelf: "center" }}
                                         size="sm"
                                         variant="link"
                                         onPress={() => {

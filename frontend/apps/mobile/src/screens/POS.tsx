@@ -96,7 +96,12 @@ function VisitCard({
                     <Text style={styles.strong}>{formatTime(v.start)}</Text>{" "}
                     {d.endsAt(formatTime(v.end))}
                 </Text>
-                <StatusPill status={st.label} intent={st.intent} asWritten />
+                <StatusPill
+                    style={{ alignSelf: "center" }}
+                    status={st.label}
+                    intent={st.intent}
+                    asWritten
+                />
             </View>
             <Text style={styles.name}>{v.clientName}</Text>
             <Text style={styles.soft}>
@@ -144,7 +149,12 @@ function Register({
             <ScrollView contentContainerStyle={styles.body}>
                 <View style={styles.row}>
                     <Text style={styles.title}>{d.newSaleTitle}</Text>
-                    <Button size="sm" variant="outline" onPress={sale.newSale}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        variant="outline"
+                        onPress={sale.newSale}
+                    >
                         {d.walkInSale}
                     </Button>
                 </View>
@@ -230,6 +240,7 @@ function Register({
                         <Text style={styles.note}>{sale.client?.name ?? d.walkIn}</Text>
                     </View>
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="lg"
                         onPress={() => {
                             setTicketOpen(true);

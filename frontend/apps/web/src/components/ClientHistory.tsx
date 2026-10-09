@@ -102,6 +102,11 @@ export function NoteDialog({
                 {strings.clients.record.addNoteTitle}
             </h2>
             <NoteComposer composer={composer} pets={pets} />
+            <div className="mt-4 flex justify-end">
+                <Button variant="quiet" onPress={onClose}>
+                    {strings.common.cancel}
+                </Button>
+            </div>
         </Modal>
     );
 }

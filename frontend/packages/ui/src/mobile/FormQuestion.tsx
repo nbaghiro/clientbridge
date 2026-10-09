@@ -47,7 +47,11 @@ export function FormQuestion({
                 <Field label={f.label} hint={help} required={f.required}>
                     <View style={[styles.file, invalid && styles.invalid]}>
                         <View style={styles.fileIcon}>
-                            <Icon name={fileName ? "check" : "upload"} color={c.accent} size={18} />
+                            <Icon
+                                name={fileName ? "check" : "upload"}
+                                color={c.inkSoft}
+                                size={20}
+                            />
                         </View>
                         <Text style={styles.fileText} numberOfLines={1}>
                             {fileName ?? chooseFileLabel}
@@ -135,14 +139,7 @@ const styles = StyleSheet.create({
         backgroundColor: c.bg,
         padding: 12,
     },
-    fileIcon: {
-        width: 34,
-        height: 34,
-        borderRadius: theme.radius,
-        backgroundColor: c.accentWeak,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    fileIcon: { width: 22, alignItems: "center" },
     fileText: { flex: 1, color: c.ink, fontSize: 15, fontWeight: "600" },
     check: {
         marginTop: 14,

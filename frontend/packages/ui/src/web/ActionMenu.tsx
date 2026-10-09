@@ -104,8 +104,10 @@ export function ActionMenu({
                                 : "flex w-full items-center gap-3 px-4 py-2 text-left transition hover:bg-bg hover:text-ink focus:bg-bg focus:text-ink focus:outline-hidden"
                         }
                     >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-weak text-accent">
-                            <Icon name={item.icon} size={17} />
+                        <span
+                            className={`flex w-5 shrink-0 justify-center text-ink-soft ${layout === "grid" ? "pt-px" : ""}`}
+                        >
+                            <Icon name={item.icon} size={20} />
                         </span>
                         <span className="min-w-0 flex-1">
                             <span className="block text-sm font-semibold text-ink">

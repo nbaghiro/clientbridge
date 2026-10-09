@@ -1,8 +1,10 @@
 import { type DetailSectionProps, type DetailViewProps, strings } from "@clientbridge/app-core";
 import { theme } from "@clientbridge/tokens/native";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Keyboard, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Modal } from "./Modal";
+import { IconButton } from "./IconButton";
+import { Modal, useModalFlow } from "./Modal";
 import type { NativeProps } from "./props";
 import { StatusPill } from "./StatusPill";
 
@@ -19,9 +21,27 @@ export function DetailView({
     children,
     style,
 }: NativeProps<DetailViewProps>) {
+    const inFlow = useModalFlow();
+    const body = useRef<ScrollView>(null);
+    const scrollOffset = useRef(0);
+    const scrolling = useRef(false);
+    const restoreScroll = () =>
+        body.current?.scrollTo({ y: scrollOffset.current, animated: false });
+
+    useEffect(() => {
+        scrolling.current = false;
+        if (!open) return;
+        const frame = requestAnimationFrame(restoreScroll);
+        const keyboard = Keyboard.addListener("keyboardDidHide", restoreScroll);
+        return () => {
+            cancelAnimationFrame(frame);
+            keyboard.remove();
+        };
+    }, [open]);
+
     return (
         <Modal style={style} open={open} onClose={onClose} framed={false}>
-            <View style={styles.frame}>
+            <View style={[styles.frame, inFlow && styles.flowFrame]}>
                 <View style={styles.head}>
                     <View style={styles.headMain}>
                         {leading}
@@ -37,22 +57,42 @@ export function DetailView({
                         </View>
                     </View>
                     {status !== undefined ? (
-                        <StatusPill status={status.status} intent={status.intent} asWritten />
+                        <StatusPill
+                            style={{ alignSelf: "center" }}
+                            status={status.status}
+                            intent={status.intent}
+                            asWritten
+                        />
                     ) : null}
+                    <IconButton
+                        icon="x"
+                        label={strings.common.close}
+                        onPress={onClose}
+                        style={styles.close}
+                    />
                 </View>
                 <ScrollView
+                    ref={body}
+                    onLayout={() => {
+                        if (open) restoreScroll();
+                    }}
+                    onScrollBeginDrag={() => {
+                        scrolling.current = true;
+                    }}
+                    onScroll={(event) => {
+                        if (open && scrolling.current)
+                            scrollOffset.current = event.nativeEvent.contentOffset.y;
+                    }}
+                    scrollEventThrottle={16}
                     style={styles.body}
                     contentContainerStyle={styles.bodyContent}
                     keyboardShouldPersistTaps="handled"
                 >
                     {children}
                 </ScrollView>
-                <View style={styles.footer}>
-                    {actions}
-                    <Pressable style={styles.close} onPress={onClose} accessibilityRole="button">
-                        <Text style={styles.closeText}>{strings.common.close}</Text>
-                    </Pressable>
-                </View>
+                {actions !== undefined && actions !== null ? (
+                    <View style={styles.footer}>{actions}</View>
+                ) : null}
             </View>
         </Modal>
     );
@@ -83,6 +123,7 @@ const styles = StyleSheet.create({
         padding: 22,
         paddingBottom: 36,
     },
+    flowFrame: { flex: 1, minHeight: 0 },
     head: {
         flexDirection: "row",
         alignItems: "center",
@@ -95,20 +136,23 @@ const styles = StyleSheet.create({
     title: { color: c.ink, fontSize: 18, fontWeight: "700" },
     subtitle: { color: c.muted, fontSize: 13, marginTop: 2 },
     body: { flexGrow: 0, flexShrink: 1 },
-    bodyContent: { paddingBottom: 8 },
+    bodyContent: { paddingBottom: 20 },
     footer: {
         flexDirection: "row",
         flexWrap: "wrap",
         alignItems: "center",
         justifyContent: "flex-end",
         gap: 8,
-        marginTop: 12,
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: c.border,
+        paddingTop: 16,
     },
-    close: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: theme.radius },
-    closeText: { color: c.inkSoft, fontSize: 15, fontWeight: "600" },
+    close: { width: 44, height: 44 },
     section: { marginTop: 14 },
     sectionHead: {
         flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 8,
         alignItems: "center",
         justifyContent: "space-between",
         marginBottom: 4,

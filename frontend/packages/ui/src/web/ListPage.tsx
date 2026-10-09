@@ -33,7 +33,7 @@ export function ListPage<T, K extends string = string>({
     return (
         <div className={className}>
             {hasHeader ? (
-                <header className="flex items-center justify-between gap-4">
+                <header className="flex flex-wrap items-center justify-between gap-4">
                     <div className="min-w-0">
                         {title !== undefined ? (
                             <h1 className="break-words font-display text-2xl font-bold text-ink">
@@ -44,7 +44,7 @@ export function ListPage<T, K extends string = string>({
                             <p className="mt-0.5 text-sm text-muted">{summary}</p>
                         ) : null}
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex max-w-full flex-wrap items-center gap-3">
                         {accessory}
                         {action !== undefined ? (
                             <Button onPress={action.onPress} icon={<Icon name="plus" size={16} />}>

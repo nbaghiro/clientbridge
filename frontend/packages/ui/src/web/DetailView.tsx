@@ -5,6 +5,7 @@ import {
 } from "@clientbridge/app-core/public";
 import { useEffect } from "react";
 
+import { useModalFlow } from "./Modal";
 import { Button } from "./Button";
 import { type WebProps, cx } from "./props";
 import { StatusPill } from "./StatusPill";
@@ -20,8 +21,9 @@ export function DetailView({
     children,
     className,
 }: WebProps<DetailViewProps>) {
+    const inFlow = useModalFlow();
     useEffect(() => {
-        if (!open) return undefined;
+        if (!open || inFlow) return undefined;
         const onKey = (e: KeyboardEvent): void => {
             if (e.key === "Escape") onClose();
         };
@@ -29,23 +31,27 @@ export function DetailView({
         return () => {
             window.removeEventListener("keydown", onKey);
         };
-    }, [open, onClose]);
+    }, [open, onClose, inFlow]);
 
-    if (!open) return null;
+    if (!open && !inFlow) return null;
     return (
         <div
-            className={cx("fixed inset-0 z-20 flex justify-end bg-scrim", className)}
-            onClick={onClose}
+            className={cx(
+                inFlow ? "h-full min-h-0" : "fixed inset-0 z-20 flex justify-end bg-scrim",
+                className,
+            )}
+            hidden={!open}
+            onClick={inFlow ? undefined : onClose}
         >
             <aside
-                role="dialog"
+                role={inFlow ? undefined : "dialog"}
                 aria-label={title}
                 onClick={(e) => {
                     e.stopPropagation();
                 }}
                 className="flex h-full w-full max-w-[520px] flex-col border-l border-line bg-surface shadow-card"
             >
-                <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
+                <div className="flex items-center justify-between gap-3 border-b border-line px-6 py-4">
                     <div className="flex min-w-0 items-center gap-3">
                         {leading}
                         <div className="min-w-0">
@@ -82,7 +88,7 @@ export function DetailSection({
     return (
         <section className={className}>
             {title !== undefined || action !== undefined ? (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     {title !== undefined ? (
                         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
                             {title}

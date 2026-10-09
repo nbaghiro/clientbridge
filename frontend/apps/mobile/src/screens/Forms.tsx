@@ -69,6 +69,7 @@ function FormList({ onOpen }: { onOpen: (id: string) => void }) {
             <View style={styles.top}>
                 <Text style={styles.subtitle}>{s.subtitle}</Text>
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     icon="plus"
                     onPress={() => {
@@ -155,7 +156,12 @@ function Editor({
     return (
         <View style={styles.screen}>
             <View style={styles.nav}>
-                <Button variant="link" icon="chevronLeft" onPress={onBack}>
+                <Button
+                    style={{ alignSelf: "center" }}
+                    variant="link"
+                    icon="chevronLeft"
+                    onPress={onBack}
+                >
                     {s.library}
                 </Button>
                 <View style={styles.navActions}>
@@ -169,6 +175,7 @@ function Editor({
                         />
                     ) : null}
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         onPress={editor.save}
                         busy={editor.busy}

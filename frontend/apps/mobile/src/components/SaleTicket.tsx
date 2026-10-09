@@ -110,6 +110,7 @@ export function DiscountForm({
             <View style={styles.row}>
                 {initial !== null ? (
                     <Button
+                        style={{ alignSelf: "center" }}
                         variant="link"
                         size="sm"
                         onPress={() => {
@@ -119,11 +120,17 @@ export function DiscountForm({
                         {d.removeDiscount}
                     </Button>
                 ) : (
-                    <Button variant="quiet" size="sm" onPress={onCancel}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        variant="quiet"
+                        size="sm"
+                        onPress={onCancel}
+                    >
                         {d.cancel}
                     </Button>
                 )}
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     onPress={() => {
                         const next = editor.apply();

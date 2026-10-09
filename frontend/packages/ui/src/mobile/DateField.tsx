@@ -205,6 +205,7 @@ export function DateField({
                     <View style={styles.foot}>
                         {todayOk ? (
                             <Button
+                                style={{ alignSelf: "center" }}
                                 variant="link"
                                 size="sm"
                                 onPress={() => {
@@ -218,6 +219,7 @@ export function DateField({
                         )}
                         {optional && value !== "" ? (
                             <Button
+                                style={{ alignSelf: "center" }}
                                 variant="quiet"
                                 size="sm"
                                 onPress={() => {

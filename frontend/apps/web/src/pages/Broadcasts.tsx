@@ -378,9 +378,11 @@ function Composer({ seed, onDone }: { seed: BroadcastSeed; onDone: () => void })
     if (draft.sent !== null)
         return (
             <div className="mx-auto max-w-lg py-16 text-center">
-                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
-                    <Icon name={draft.sent.scheduled ? "clock" : "check"} size={22} />
-                </span>
+                <Icon
+                    name={draft.sent.scheduled ? "clock" : "check"}
+                    size={32}
+                    className="mx-auto block text-ink-soft"
+                />
                 <h2 className="mt-4 font-display text-2xl font-bold text-ink">
                     {draft.sent.scheduled ? s.scheduledTitle : s.sentTitle}
                 </h2>

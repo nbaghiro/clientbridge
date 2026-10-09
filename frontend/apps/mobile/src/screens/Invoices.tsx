@@ -33,6 +33,7 @@ import {
     CopyField,
     DetailSection,
     DetailView,
+    Modal,
     DocTotals,
     KeyValueList,
     ListPage,
@@ -296,18 +297,6 @@ function InvoicePanel({
         setOverlay(null);
     };
 
-    if (overlay === "record") return <RecordPayment rec={rec} onClose={closeOverlay} />;
-    if (overlay === "interac") return <InteracRequest invoice={rec.row} onClose={closeOverlay} />;
-    if (overlay === "pdf")
-        return (
-            <DocumentPreview
-                initial="invoice"
-                shareUrl={rec.payUrl}
-                docs={previewDocs(rec, estimate, letterhead)}
-                onClose={closeOverlay}
-            />
-        );
-
     const menu = [
         { key: "pdf", label: s.pdf, icon: "receipt" as const },
         ...(rec.canRecord
@@ -342,9 +331,17 @@ function InvoicePanel({
     };
 
     return (
-        <>
+        <Modal
+            flow
+            framed={false}
+            size="xl"
+            onClose={() => {
+                if (overlay !== null) closeOverlay();
+                else onClose();
+            }}
+        >
             <DetailView
-                open
+                open={overlay === null || overlay === "menu"}
                 title={rec.title}
                 subtitle={rec.row.client_name ?? undefined}
                 status={{ status: rec.statusLabel, intent: rec.intent }}
@@ -460,7 +457,19 @@ function InvoicePanel({
                 items={menu}
                 onSelect={pick}
             />
-        </>
+            {overlay === "record" ? <RecordPayment rec={rec} onClose={closeOverlay} /> : null}
+            {overlay === "interac" ? (
+                <InteracRequest invoice={rec.row} onClose={closeOverlay} />
+            ) : null}
+            {overlay === "pdf" ? (
+                <DocumentPreview
+                    initial="invoice"
+                    shareUrl={rec.payUrl}
+                    docs={previewDocs(rec, estimate, letterhead)}
+                    onClose={closeOverlay}
+                />
+            ) : null}
+        </Modal>
     );
 }
 
@@ -594,23 +603,6 @@ function EstimatePanel({
     const letterhead = useLetterhead(apiBaseUrl);
     const [overlay, setOverlay] = useState<"pdf" | "menu" | null>(null);
     if (rec === null) return null;
-    if (overlay === "pdf")
-        return (
-            <DocumentPreview
-                initial="estimate"
-                shareUrl={rec.acceptUrl}
-                docs={[
-                    {
-                        kind: "estimate",
-                        doc: printedEstimate(rec, letterhead, c.accent),
-                        missing: "",
-                    },
-                ]}
-                onClose={() => {
-                    setOverlay(null);
-                }}
-            />
-        );
     const menu = [
         { key: "pdf", label: s.pdf, icon: "receipt" as const },
         ...(rec.canEdit ? [{ key: "edit", label: s.edit, icon: "edit" as const }] : []),
@@ -637,9 +629,17 @@ function EstimatePanel({
     };
 
     return (
-        <>
+        <Modal
+            flow
+            framed={false}
+            size="xl"
+            onClose={() => {
+                if (overlay !== null) setOverlay(null);
+                else onClose();
+            }}
+        >
             <DetailView
-                open
+                open={overlay !== "pdf"}
                 title={rec.title}
                 subtitle={rec.row.client_name ?? undefined}
                 status={{ status: rec.statusLabel, intent: rec.intent }}
@@ -748,7 +748,23 @@ function EstimatePanel({
                 items={menu}
                 onSelect={pick}
             />
-        </>
+            {overlay === "pdf" ? (
+                <DocumentPreview
+                    initial="estimate"
+                    shareUrl={rec.acceptUrl}
+                    docs={[
+                        {
+                            kind: "estimate",
+                            doc: printedEstimate(rec, letterhead, c.accent),
+                            missing: "",
+                        },
+                    ]}
+                    onClose={() => {
+                        setOverlay(null);
+                    }}
+                />
+            ) : null}
+        </Modal>
     );
 }
 

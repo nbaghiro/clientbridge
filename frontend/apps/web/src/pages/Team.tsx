@@ -59,9 +59,7 @@ function InviteDialog({ form, onClose }: { form: InviteTeammatesForm; onClose: (
         <Modal onClose={onClose} size="lg">
             {first !== undefined ? (
                 <div className="space-y-4">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
-                        <Icon name="check" size={20} />
-                    </span>
+                    <Icon name="check" size={32} className="block text-ink-soft" />
                     <div>
                         <h2 className="font-display text-xl font-bold text-ink">
                             {t.sentTitle(form.sent.length)}

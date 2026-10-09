@@ -8,9 +8,9 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActionMenu, Avatar, Button, Icon } from "@clientbridge/ui";
+import { ActionMenu, Icon } from "@clientbridge/ui";
 
 import { useViewer } from "../lib/auth";
 import { useOpenLink } from "../lib/links";
@@ -34,7 +34,6 @@ const TAB_ICON: Record<DestinationKey, IconName> = {
 
 const destination = (name: string): DestinationKey => TAB_DESTINATION[name] ?? "today";
 
-/** Four tabs around a centre Create button that opens the create sheet with clients to book again. */
 export function TabBar({ state, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
     const nav = useShellNav(useViewer());
@@ -115,46 +114,6 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                     if (action === undefined) return;
                     openLink(action.target);
                 }}
-                footer={
-                    <>
-                        <Button
-                            variant="outline"
-                            icon="invoices"
-                            onPress={() => {
-                                close();
-                                openLink("payments");
-                            }}
-                        >
-                            {strings.navigation.viewPayments}
-                        </Button>
-                        {nav.recentClients.length > 0 ? (
-                            <Text style={styles.footTitle}>{strings.navigation.recentClients}</Text>
-                        ) : null}
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.chips}
-                        >
-                            {nav.recentClients.map((r) => (
-                                <Pressable
-                                    key={r.id}
-                                    style={styles.chip}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={strings.navigation.bookAgain(r.name)}
-                                    onPress={() => {
-                                        close();
-                                        openLink("booking");
-                                    }}
-                                >
-                                    <Avatar name={r.name} size="sm" />
-                                    <Text style={styles.chipText} numberOfLines={1}>
-                                        {r.name.split(" ")[0]}
-                                    </Text>
-                                </Pressable>
-                            ))}
-                        </ScrollView>
-                    </>
-                }
             />
         </View>
     );
@@ -200,27 +159,4 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         shadowOffset: { width: 0, height: 3 },
     },
-    footTitle: {
-        color: c.muted,
-        fontSize: 12,
-        fontWeight: "700",
-        letterSpacing: 0.5,
-        textTransform: "uppercase",
-        marginLeft: 4,
-        marginTop: 4,
-        marginBottom: 8,
-    },
-    chips: { gap: 8, paddingHorizontal: 2, paddingBottom: 4 },
-    chip: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-        borderWidth: 1,
-        borderColor: c.border,
-        borderRadius: 20,
-        paddingLeft: 4,
-        paddingRight: 12,
-        paddingVertical: 4,
-    },
-    chipText: { color: c.ink, fontSize: 14, fontWeight: "600" },
 });

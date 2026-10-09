@@ -32,6 +32,7 @@ import {
     CopyField,
     DetailSection,
     DetailView,
+    Modal,
     DocTotals,
     KeyValueList,
     ListPage,
@@ -331,170 +332,179 @@ function InvoicePanel({
             .catch(() => undefined);
     };
 
-    if (recording) {
-        return (
-            <RecordPayment
-                rec={rec}
-                onClose={() => {
-                    setRecording(false);
-                }}
-            />
-        );
-    }
-    if (requesting) {
-        return (
-            <InteracRequest
-                invoice={rec.row}
-                onClose={() => {
-                    setRequesting(false);
-                }}
-            />
-        );
-    }
-    if (previewing) {
-        return (
-            <DocumentPreview
-                businessName={letterhead.name}
-                initial="invoice"
-                docs={invoicePreviewDocs(rec, estimate, letterhead)}
-                onClose={() => {
-                    setPreviewing(false);
-                }}
-            />
-        );
-    }
-
     return (
-        <DetailView
-            open
-            title={rec.title}
-            subtitle={rec.row.client_name ?? undefined}
-            status={{ status: rec.statusLabel, intent: rec.intent }}
-            onClose={onClose}
-            actions={
-                <>
-                    <Button
-                        variant="outline"
-                        icon="receipt"
-                        onPress={() => {
-                            setPreviewing(true);
-                        }}
-                    >
-                        {s.pdf}
-                    </Button>
-                    {rec.canEdit ? (
-                        <Button
-                            variant="outline"
-                            icon="edit"
-                            onPress={() => {
-                                onEdit(rec.row.id);
-                            }}
-                        >
-                            {s.edit}
-                        </Button>
-                    ) : null}
-                    {rec.canVoid ? (
-                        <Button variant="quiet" busy={act.busy} onPress={voidIt}>
-                            {s.void}
-                        </Button>
-                    ) : null}
-                    {rec.canRemind ? (
-                        <Button
-                            variant="outline"
-                            icon="bell"
-                            busy={act.busy}
-                            onPress={() => {
-                                act.remind(rec);
-                            }}
-                        >
-                            {s.remind}
-                        </Button>
-                    ) : null}
-                    {rec.canSend ? (
-                        <Button
-                            icon="send"
-                            busy={act.busy}
-                            onPress={() => {
-                                act.send(rec);
-                            }}
-                        >
-                            {s.sendInvoice}
-                        </Button>
-                    ) : null}
-                    {rec.canRecord ? (
-                        <Button
-                            variant="outline"
-                            icon="send"
-                            onPress={() => {
-                                setRequesting(true);
-                            }}
-                        >
-                            {strings.payments.interac.open}
-                        </Button>
-                    ) : null}
-                    {rec.canRecord ? (
-                        <Button
-                            icon="dollar"
-                            onPress={() => {
-                                setRecording(true);
-                            }}
-                        >
-                            {s.recordPayment}
-                        </Button>
-                    ) : null}
-                </>
-            }
+        <Modal
+            flow
+            framed={false}
+            size={previewing ? "xl" : "lg"}
+            onClose={() => {
+                if (recording) setRecording(false);
+                else if (requesting) setRequesting(false);
+                else if (previewing) setPreviewing(false);
+                else onClose();
+            }}
         >
-            {act.notice !== null ? (
-                <Notice tone="success" banner>
-                    {act.notice}
-                </Notice>
-            ) : null}
-            {act.error !== null ? (
-                <Notice tone="danger" banner>
-                    {act.error}
-                </Notice>
-            ) : null}
-            <KeyValueList layout="stack" columns={3} rows={rec.facts} />
-            <DetailSection title={s.lines}>
-                <div className="divide-y divide-line-soft rounded-lg border border-line">
-                    {rec.lines.map((l) => (
-                        <div
-                            key={l.id}
-                            className="flex items-start justify-between gap-4 px-4 py-3"
+            <DetailView
+                open={!(recording || requesting || previewing)}
+                title={rec.title}
+                subtitle={rec.row.client_name ?? undefined}
+                status={{ status: rec.statusLabel, intent: rec.intent }}
+                onClose={onClose}
+                actions={
+                    <>
+                        <Button
+                            variant="outline"
+                            icon="receipt"
+                            onPress={() => {
+                                setPreviewing(true);
+                            }}
                         >
-                            <div className="min-w-0">
-                                <p className="text-sm text-ink">{l.description}</p>
-                                <p className="text-xs text-muted">{rec.lineDetail(l)}</p>
+                            {s.pdf}
+                        </Button>
+                        {rec.canEdit ? (
+                            <Button
+                                variant="outline"
+                                icon="edit"
+                                onPress={() => {
+                                    onEdit(rec.row.id);
+                                }}
+                            >
+                                {s.edit}
+                            </Button>
+                        ) : null}
+                        {rec.canVoid ? (
+                            <Button variant="quiet" busy={act.busy} onPress={voidIt}>
+                                {s.void}
+                            </Button>
+                        ) : null}
+                        {rec.canRemind ? (
+                            <Button
+                                variant="outline"
+                                icon="bell"
+                                busy={act.busy}
+                                onPress={() => {
+                                    act.remind(rec);
+                                }}
+                            >
+                                {s.remind}
+                            </Button>
+                        ) : null}
+                        {rec.canSend ? (
+                            <Button
+                                icon="send"
+                                busy={act.busy}
+                                onPress={() => {
+                                    act.send(rec);
+                                }}
+                            >
+                                {s.sendInvoice}
+                            </Button>
+                        ) : null}
+                        {rec.canRecord ? (
+                            <Button
+                                variant="outline"
+                                icon="send"
+                                onPress={() => {
+                                    setRequesting(true);
+                                }}
+                            >
+                                {strings.payments.interac.open}
+                            </Button>
+                        ) : null}
+                        {rec.canRecord ? (
+                            <Button
+                                icon="dollar"
+                                onPress={() => {
+                                    setRecording(true);
+                                }}
+                            >
+                                {s.recordPayment}
+                            </Button>
+                        ) : null}
+                    </>
+                }
+            >
+                {act.notice !== null ? (
+                    <Notice tone="success" banner>
+                        {act.notice}
+                    </Notice>
+                ) : null}
+                {act.error !== null ? (
+                    <Notice tone="danger" banner>
+                        {act.error}
+                    </Notice>
+                ) : null}
+                <KeyValueList layout="stack" columns={3} rows={rec.facts} />
+                <DetailSection title={s.lines}>
+                    <div className="divide-y divide-line-soft rounded-lg border border-line">
+                        {rec.lines.map((l) => (
+                            <div
+                                key={l.id}
+                                className="flex items-start justify-between gap-4 px-4 py-3"
+                            >
+                                <div className="min-w-0">
+                                    <p className="text-sm text-ink">{l.description}</p>
+                                    <p className="text-xs text-muted">{rec.lineDetail(l)}</p>
+                                </div>
+                                <Money cents={l.amountCents} />
                             </div>
-                            <Money cents={l.amountCents} />
-                        </div>
-                    ))}
-                </div>
-                <div className="mt-3 rounded-lg bg-bg px-4 py-3">
-                    <DocTotals lines={rec.totals} />
-                </div>
-            </DetailSection>
-            {rec.payUrl !== null ? (
-                <DetailSection title={s.payLink}>
-                    <CopyField
-                        label={s.payLink}
-                        value={rec.payUrl}
-                        copyLabel={s.copyLink}
-                        copiedLabel={s.copied}
-                    />
+                        ))}
+                    </div>
+                    <div className="mt-3 rounded-lg bg-bg px-4 py-3">
+                        <DocTotals lines={rec.totals} />
+                    </div>
                 </DetailSection>
-            ) : null}
-            <PaymentsSection invoiceId={rec.row.id} rec={rec} canRefund={canManagePayments(role)} />
-            {rec.row.notes !== null ? (
-                <DetailSection title={s.notes}>
-                    <p className="whitespace-pre-line text-sm text-ink-soft">{rec.row.notes}</p>
+                {rec.payUrl !== null ? (
+                    <DetailSection title={s.payLink}>
+                        <CopyField
+                            label={s.payLink}
+                            value={rec.payUrl}
+                            copyLabel={s.copyLink}
+                            copiedLabel={s.copied}
+                        />
+                    </DetailSection>
+                ) : null}
+                <PaymentsSection
+                    invoiceId={rec.row.id}
+                    rec={rec}
+                    canRefund={canManagePayments(role)}
+                />
+                {rec.row.notes !== null ? (
+                    <DetailSection title={s.notes}>
+                        <p className="whitespace-pre-line text-sm text-ink-soft">{rec.row.notes}</p>
+                    </DetailSection>
+                ) : null}
+                <DetailSection title={s.history}>
+                    <ActivityTimeline entries={rec.timeline} />
                 </DetailSection>
+            </DetailView>
+            {recording ? (
+                <RecordPayment
+                    rec={rec}
+                    onClose={() => {
+                        setRecording(false);
+                    }}
+                />
             ) : null}
-            <DetailSection title={s.history}>
-                <ActivityTimeline entries={rec.timeline} />
-            </DetailSection>
-        </DetailView>
+            {requesting ? (
+                <InteracRequest
+                    invoice={rec.row}
+                    onClose={() => {
+                        setRequesting(false);
+                    }}
+                />
+            ) : null}
+            {previewing ? (
+                <DocumentPreview
+                    businessName={letterhead.name}
+                    initial="invoice"
+                    docs={invoicePreviewDocs(rec, estimate, letterhead)}
+                    onClose={() => {
+                        setPreviewing(false);
+                    }}
+                />
+            ) : null}
+        </Modal>
     );
 }
 
@@ -721,169 +731,176 @@ function EstimatePanel({
             .catch(() => undefined);
     };
 
-    if (previewing) {
-        return (
-            <DocumentPreview
-                businessName={letterhead.name}
-                initial="estimate"
-                docs={[
-                    {
-                        kind: "estimate",
-                        doc: printedEstimate(rec, letterhead, cssVar("accent")),
-                        missing: "",
-                        attached:
-                            rec.row.number === null
-                                ? s.doc.notSentYet
-                                : s.doc.attachedEstimate(rec.validLabel),
-                        facts: [{ label: s.colValid, value: rec.validLabel }],
-                    },
-                ]}
-                onClose={() => {
-                    setPreviewing(false);
-                }}
-            />
-        );
-    }
-
     return (
-        <DetailView
-            open
-            title={rec.title}
-            subtitle={rec.row.client_name ?? undefined}
-            status={{ status: rec.statusLabel, intent: rec.intent }}
-            onClose={onClose}
-            actions={
-                <>
-                    <Button
-                        variant="outline"
-                        icon="receipt"
-                        onPress={() => {
-                            setPreviewing(true);
-                        }}
-                    >
-                        {s.pdf}
-                    </Button>
-                    {rec.canEdit ? (
+        <Modal
+            flow
+            framed={false}
+            size={previewing ? "xl" : "lg"}
+            onClose={() => {
+                if (previewing) setPreviewing(false);
+                else onClose();
+            }}
+        >
+            <DetailView
+                open={!previewing}
+                title={rec.title}
+                subtitle={rec.row.client_name ?? undefined}
+                status={{ status: rec.statusLabel, intent: rec.intent }}
+                onClose={onClose}
+                actions={
+                    <>
                         <Button
                             variant="outline"
-                            icon="edit"
+                            icon="receipt"
                             onPress={() => {
-                                onEdit(rec.row.id);
+                                setPreviewing(true);
                             }}
                         >
-                            {s.edit}
+                            {s.pdf}
                         </Button>
-                    ) : null}
-                    {rec.canMark ? (
-                        <>
-                            <Button
-                                variant="quiet"
-                                busy={act.busy}
-                                onPress={() => {
-                                    act.decline(rec);
-                                }}
-                            >
-                                {s.markDeclined}
-                            </Button>
+                        {rec.canEdit ? (
                             <Button
                                 variant="outline"
-                                busy={act.busy}
+                                icon="edit"
                                 onPress={() => {
-                                    act.accept(rec);
+                                    onEdit(rec.row.id);
                                 }}
                             >
-                                {s.markAccepted}
+                                {s.edit}
                             </Button>
-                        </>
-                    ) : null}
-                    {rec.canSend ? (
-                        <Button
-                            icon="send"
-                            busy={act.busy}
-                            onPress={() => {
-                                act.send(rec);
-                            }}
-                        >
-                            {s.sendEstimate}
-                        </Button>
-                    ) : null}
-                    {rec.canConvert ? (
-                        <Button busy={act.busy} onPress={convert}>
-                            {s.convert}
-                        </Button>
-                    ) : null}
-                </>
-            }
-        >
-            {act.notice !== null ? (
-                <Notice tone="success" banner>
-                    {act.notice}
-                </Notice>
-            ) : null}
-            {act.error !== null ? (
-                <Notice tone="danger" banner>
-                    {act.error}
-                </Notice>
-            ) : null}
-            <KeyValueList
-                layout="stack"
-                columns={2}
-                rows={[
-                    { label: s.total, value: formatMoney(rec.row.total_cents) },
-                    { label: s.colValid, value: rec.validLabel },
-                ]}
-            />
-            {rec.row.decline_reason !== null ? (
-                <DetailSection title={s.declineReason}>
-                    <p className="text-sm text-ink-soft">{rec.row.decline_reason}</p>
-                </DetailSection>
-            ) : null}
-            <DetailSection title={s.lines}>
-                <div className="divide-y divide-line-soft rounded-lg border border-line">
-                    {rec.lines.map((l) => (
-                        <div
-                            key={l.id}
-                            className="flex items-start justify-between gap-4 px-4 py-3"
-                        >
-                            <div className="min-w-0">
-                                <p
-                                    className={`text-sm ${l.optional && !l.selected ? "text-muted" : "text-ink"}`}
+                        ) : null}
+                        {rec.canMark ? (
+                            <>
+                                <Button
+                                    variant="quiet"
+                                    busy={act.busy}
+                                    onPress={() => {
+                                        act.decline(rec);
+                                    }}
                                 >
-                                    {l.description}
-                                </p>
-                                <p className="text-xs text-muted">
-                                    {[rec.lineDetail(l), l.note].filter(Boolean).join(" · ")}
-                                </p>
+                                    {s.markDeclined}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    busy={act.busy}
+                                    onPress={() => {
+                                        act.accept(rec);
+                                    }}
+                                >
+                                    {s.markAccepted}
+                                </Button>
+                            </>
+                        ) : null}
+                        {rec.canSend ? (
+                            <Button
+                                icon="send"
+                                busy={act.busy}
+                                onPress={() => {
+                                    act.send(rec);
+                                }}
+                            >
+                                {s.sendEstimate}
+                            </Button>
+                        ) : null}
+                        {rec.canConvert ? (
+                            <Button busy={act.busy} onPress={convert}>
+                                {s.convert}
+                            </Button>
+                        ) : null}
+                    </>
+                }
+            >
+                {act.notice !== null ? (
+                    <Notice tone="success" banner>
+                        {act.notice}
+                    </Notice>
+                ) : null}
+                {act.error !== null ? (
+                    <Notice tone="danger" banner>
+                        {act.error}
+                    </Notice>
+                ) : null}
+                <KeyValueList
+                    layout="stack"
+                    columns={2}
+                    rows={[
+                        { label: s.total, value: formatMoney(rec.row.total_cents) },
+                        { label: s.colValid, value: rec.validLabel },
+                    ]}
+                />
+                {rec.row.decline_reason !== null ? (
+                    <DetailSection title={s.declineReason}>
+                        <p className="text-sm text-ink-soft">{rec.row.decline_reason}</p>
+                    </DetailSection>
+                ) : null}
+                <DetailSection title={s.lines}>
+                    <div className="divide-y divide-line-soft rounded-lg border border-line">
+                        {rec.lines.map((l) => (
+                            <div
+                                key={l.id}
+                                className="flex items-start justify-between gap-4 px-4 py-3"
+                            >
+                                <div className="min-w-0">
+                                    <p
+                                        className={`text-sm ${l.optional && !l.selected ? "text-muted" : "text-ink"}`}
+                                    >
+                                        {l.description}
+                                    </p>
+                                    <p className="text-xs text-muted">
+                                        {[rec.lineDetail(l), l.note].filter(Boolean).join(" · ")}
+                                    </p>
+                                </div>
+                                <Money
+                                    cents={l.amountCents}
+                                    tone={l.optional && !l.selected ? "muted" : "ink"}
+                                />
                             </div>
-                            <Money
-                                cents={l.amountCents}
-                                tone={l.optional && !l.selected ? "muted" : "ink"}
-                            />
-                        </div>
-                    ))}
-                </div>
-                <div className="mt-3 rounded-lg bg-bg px-4 py-3">
-                    <DocTotals lines={rec.totals} />
-                </div>
-            </DetailSection>
-            {rec.acceptUrl !== null ? (
-                <DetailSection title={s.acceptLink}>
-                    <CopyField
-                        label={s.acceptLink}
-                        value={rec.acceptUrl}
-                        copyLabel={s.copyLink}
-                        copiedLabel={s.copied}
-                    />
+                        ))}
+                    </div>
+                    <div className="mt-3 rounded-lg bg-bg px-4 py-3">
+                        <DocTotals lines={rec.totals} />
+                    </div>
                 </DetailSection>
-            ) : null}
-            {rec.row.notes !== null ? (
-                <DetailSection title={s.notes}>
-                    <p className="whitespace-pre-line text-sm text-ink-soft">{rec.row.notes}</p>
+                {rec.acceptUrl !== null ? (
+                    <DetailSection title={s.acceptLink}>
+                        <CopyField
+                            label={s.acceptLink}
+                            value={rec.acceptUrl}
+                            copyLabel={s.copyLink}
+                            copiedLabel={s.copied}
+                        />
+                    </DetailSection>
+                ) : null}
+                {rec.row.notes !== null ? (
+                    <DetailSection title={s.notes}>
+                        <p className="whitespace-pre-line text-sm text-ink-soft">{rec.row.notes}</p>
+                    </DetailSection>
+                ) : null}
+                <DetailSection title={s.history}>
+                    <ActivityTimeline entries={rec.timeline} />
                 </DetailSection>
+            </DetailView>
+            {previewing ? (
+                <DocumentPreview
+                    businessName={letterhead.name}
+                    initial="estimate"
+                    docs={[
+                        {
+                            kind: "estimate",
+                            doc: printedEstimate(rec, letterhead, cssVar("accent")),
+                            missing: "",
+                            attached:
+                                rec.row.number === null
+                                    ? s.doc.notSentYet
+                                    : s.doc.attachedEstimate(rec.validLabel),
+                            facts: [{ label: s.colValid, value: rec.validLabel }],
+                        },
+                    ]}
+                    onClose={() => {
+                        setPreviewing(false);
+                    }}
+                />
             ) : null}
-            <DetailSection title={s.history}>
-                <ActivityTimeline entries={rec.timeline} />
-            </DetailSection>
-        </DetailView>
+        </Modal>
     );
 }

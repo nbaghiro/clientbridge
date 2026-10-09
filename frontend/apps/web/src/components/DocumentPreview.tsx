@@ -88,9 +88,7 @@ export function DocumentPreview({
                         {doc !== null ? (
                             <>
                                 <div className="flex items-center gap-3">
-                                    <span className="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-bg text-danger">
-                                        <Icon name="receipt" size={18} />
-                                    </span>
+                                    <Icon name="receipt" size={22} className="text-ink-soft" />
                                     <div className="min-w-0">
                                         <p className="truncate text-sm font-semibold text-ink">
                                             {fileName}

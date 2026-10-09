@@ -37,12 +37,6 @@ import { useOpenLink } from "../lib/links";
 const w = strings.entitlements;
 const g = strings.entitlements.giftCards;
 
-const TILE: Record<EntitlementSummary["row"]["kind"], string> = {
-    package: "bg-accent-weak text-accent",
-    membership: "bg-ok-bg text-ok-fg",
-    gift_card: "bg-warn-bg text-warn-fg",
-};
-
 export function GiftCards() {
     const wallet = useEntitlementWallet();
     const openLink = useOpenLink();
@@ -224,11 +218,11 @@ export function GiftCards() {
 
 function KindTile({ summary }: { summary: EntitlementSummary }) {
     return (
-        <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${TILE[summary.row.kind]}`}
-        >
-            <Icon name={ENTITLEMENT_ICON[summary.row.kind]} size={19} />
-        </span>
+        <Icon
+            name={ENTITLEMENT_ICON[summary.row.kind]}
+            size={22}
+            className="mt-0.5 text-ink-soft"
+        />
     );
 }
 

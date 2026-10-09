@@ -29,6 +29,7 @@ import {
     confirm,
     DetailSection,
     DetailView,
+    Modal,
     KeyValueList,
     ListPage,
     ListRow,
@@ -109,6 +110,7 @@ export function ClientsScreen() {
                     <View style={styles.accessory}>
                         {dir.load.ready ? (
                             <Button
+                                style={{ alignSelf: "center" }}
                                 size="sm"
                                 variant={selecting ? "outline" : "quiet"}
                                 onPress={() => {
@@ -265,72 +267,84 @@ export function ClientsScreen() {
                 </View>
             ) : null}
 
-            {openId !== null ? (
-                <RecordSheet
-                    clientId={openId}
-                    manager={manager}
-                    onClose={() => {
-                        setOpenId(null);
-                    }}
-                    onSheet={setSheet}
-                />
-            ) : null}
-            {sheet?.kind === "client" ? (
-                <ClientEditorSheet
-                    key={sheet.id ?? "new"}
-                    directory={dir.all}
-                    clientId={sheet.id}
-                    onOpen={(id) => {
-                        setSheet(null);
-                        setOpenId(id);
-                    }}
-                    onClose={() => {
-                        setSheet(null);
-                    }}
-                />
-            ) : null}
-            {sheet?.kind === "pet" ? (
-                <PetSheet
-                    key={sheet.pet?.id ?? "new"}
-                    clientId={sheet.clientId}
-                    pet={sheet.pet}
-                    onClose={() => {
-                        setSheet(null);
-                    }}
-                />
-            ) : null}
-            {sheet?.kind === "note" ? (
-                <NoteSheet
-                    clientId={sheet.clientId}
-                    pets={sheet.pets}
-                    onClose={() => {
-                        setSheet(null);
-                    }}
-                />
-            ) : null}
-            {sheet?.kind === "merge" ? (
-                <MergeSheet
-                    a={sheet.a}
-                    b={sheet.b}
-                    onClose={() => {
-                        setSheet(null);
-                    }}
-                    onMerged={(name) => {
-                        setSheet(null);
-                        sel.clear();
-                        setSelecting(false);
-                        setMerged(name);
-                    }}
-                />
-            ) : null}
-            {sheet?.kind === "tags" && n > 0 ? (
-                <TagSheet
-                    sel={sel}
-                    onClose={() => {
-                        setSheet(null);
-                    }}
-                />
-            ) : null}
+            <Modal
+                flow
+                framed={false}
+                size="xl"
+                open={openId !== null || sheet !== null}
+                onClose={() => {
+                    if (sheet !== null) setSheet(null);
+                    else setOpenId(null);
+                }}
+            >
+                {openId !== null ? (
+                    <RecordSheet
+                        visible={sheet === null}
+                        clientId={openId}
+                        manager={manager}
+                        onClose={() => {
+                            setOpenId(null);
+                        }}
+                        onSheet={setSheet}
+                    />
+                ) : null}
+                {sheet?.kind === "client" ? (
+                    <ClientEditorSheet
+                        key={sheet.id ?? "new"}
+                        directory={dir.all}
+                        clientId={sheet.id}
+                        onOpen={(id) => {
+                            setSheet(null);
+                            setOpenId(id);
+                        }}
+                        onClose={() => {
+                            setSheet(null);
+                        }}
+                    />
+                ) : null}
+                {sheet?.kind === "pet" ? (
+                    <PetSheet
+                        key={sheet.pet?.id ?? "new"}
+                        clientId={sheet.clientId}
+                        pet={sheet.pet}
+                        onClose={() => {
+                            setSheet(null);
+                        }}
+                    />
+                ) : null}
+                {sheet?.kind === "note" ? (
+                    <NoteSheet
+                        clientId={sheet.clientId}
+                        pets={sheet.pets}
+                        onClose={() => {
+                            setSheet(null);
+                        }}
+                    />
+                ) : null}
+                {sheet?.kind === "merge" ? (
+                    <MergeSheet
+                        a={sheet.a}
+                        b={sheet.b}
+                        onClose={() => {
+                            setSheet(null);
+                        }}
+                        onMerged={(name) => {
+                            setSheet(null);
+                            sel.clear();
+                            setSelecting(false);
+                            setMerged(name);
+                        }}
+                    />
+                ) : null}
+                {sheet?.kind === "tags" && n > 0 ? (
+                    <TagSheet
+                        sel={sel}
+                        onClose={() => {
+                            setSheet(null);
+                        }}
+                    />
+                ) : null}
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -405,11 +419,13 @@ function NoteLine({ note, manager }: { note: ClientNote; manager: boolean }) {
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 function RecordSheet({
+    visible,
     clientId,
     manager,
     onClose,
     onSheet,
 }: {
+    visible: boolean;
     clientId: string;
     manager: boolean;
     onClose: () => void;
@@ -421,7 +437,7 @@ function RecordSheet({
     const open = useOpenLink();
     if (record === null) {
         return (
-            <DetailView open title={strings.clients.title} onClose={onClose}>
+            <DetailView open={visible} title={strings.clients.title} onClose={onClose}>
                 {load.state === "error" ? (
                     <LoadFailed
                         message={r.loadError}
@@ -444,7 +460,7 @@ function RecordSheet({
     };
     return (
         <DetailView
-            open
+            open={visible}
             title={cl.name}
             subtitle={[cl.phoneLabel, record.pets.map((pet) => pet.name).join(", ")]
                 .filter(Boolean)
@@ -484,72 +500,76 @@ function RecordSheet({
                 </View>
             }
         >
-            {cl.phone !== null ? (
-                <View style={styles.actions}>
-                    <Button
-                        grow
-                        size="sm"
-                        variant="quiet"
-                        icon="phone"
-                        onPress={() => {
-                            Linking.openURL(`tel:${cl.phone ?? ""}`).catch(() => undefined);
-                        }}
-                    >
-                        {r.call}
-                    </Button>
-                    <Button
-                        grow
-                        size="sm"
-                        variant="quiet"
-                        icon="message"
-                        onPress={() => {
-                            Linking.openURL(`sms:${cl.phone ?? ""}`).catch(() => undefined);
-                        }}
-                    >
-                        {r.text}
-                    </Button>
-                    <Button
-                        grow
-                        size="sm"
-                        variant="quiet"
-                        icon="history"
-                        onPress={() => {
-                            push("ClientHistory");
-                        }}
-                    >
-                        {r.history}
-                    </Button>
+            <View style={styles.overview}>
+                {cl.phone !== null ? (
+                    <View style={styles.actions}>
+                        <Button
+                            grow
+                            size="sm"
+                            variant="quiet"
+                            icon="phone"
+                            onPress={() => {
+                                Linking.openURL(`tel:${cl.phone ?? ""}`).catch(() => undefined);
+                            }}
+                        >
+                            {r.call}
+                        </Button>
+                        <Button
+                            grow
+                            size="sm"
+                            variant="quiet"
+                            icon="message"
+                            onPress={() => {
+                                Linking.openURL(`sms:${cl.phone ?? ""}`).catch(() => undefined);
+                            }}
+                        >
+                            {r.text}
+                        </Button>
+                        <Button
+                            grow
+                            size="sm"
+                            variant="quiet"
+                            icon="history"
+                            onPress={() => {
+                                push("ClientHistory");
+                            }}
+                        >
+                            {r.history}
+                        </Button>
+                    </View>
+                ) : null}
+                {cl.tags.length > 0 ? (
+                    <View style={styles.tags}>
+                        {cl.tags.map((tag) => (
+                            <Badge key={tag} label={tag} intent="accent" />
+                        ))}
+                    </View>
+                ) : null}
+                <View style={styles.facts}>
+                    <KeyValueList
+                        layout="stack"
+                        rows={[
+                            ...(manager
+                                ? [
+                                      { label: r.lifetime, value: formatMoney(cl.lifetimeCents) },
+                                      {
+                                          label: r.balance,
+                                          value:
+                                              cl.balanceCents > 0
+                                                  ? formatMoney(cl.balanceCents)
+                                                  : r.settled,
+                                          intent:
+                                              cl.balanceCents > 0
+                                                  ? ("warning" as const)
+                                                  : undefined,
+                                      },
+                                  ]
+                                : []),
+                            { label: r.visits, value: String(record.visits) },
+                            { label: r.since, value: formatDate(cl.since) },
+                        ]}
+                    />
                 </View>
-            ) : null}
-            {cl.tags.length > 0 ? (
-                <View style={styles.tags}>
-                    {cl.tags.map((tag) => (
-                        <Badge key={tag} label={tag} intent="accent" />
-                    ))}
-                </View>
-            ) : null}
-            <View style={styles.facts}>
-                <KeyValueList
-                    layout="stack"
-                    rows={[
-                        ...(manager
-                            ? [
-                                  { label: r.lifetime, value: formatMoney(cl.lifetimeCents) },
-                                  {
-                                      label: r.balance,
-                                      value:
-                                          cl.balanceCents > 0
-                                              ? formatMoney(cl.balanceCents)
-                                              : r.settled,
-                                      intent:
-                                          cl.balanceCents > 0 ? ("warning" as const) : undefined,
-                                  },
-                              ]
-                            : []),
-                        { label: r.visits, value: String(record.visits) },
-                        { label: r.since, value: formatDate(cl.since) },
-                    ]}
-                />
             </View>
             <DetailSection
                 title={r.pets}
@@ -626,7 +646,12 @@ function RecordSheet({
                                 </Text>
                             </View>
                             {pill !== null ? (
-                                <StatusPill status={pill.label} intent={pill.intent} asWritten />
+                                <StatusPill
+                                    style={{ alignSelf: "center" }}
+                                    status={pill.label}
+                                    intent={pill.intent}
+                                    asWritten
+                                />
                             ) : null}
                         </View>
                     );
@@ -679,7 +704,11 @@ function RecordSheet({
                             <View key={m.id} style={styles.line}>
                                 <Text style={styles.lineText}>{savedCardLabel(m)}</Text>
                                 {m.preferred === 1 ? (
-                                    <Badge label={strings.clients.wallet.default} intent="accent" />
+                                    <Badge
+                                        style={{ alignSelf: "center" }}
+                                        label={strings.clients.wallet.default}
+                                        intent="accent"
+                                    />
                                 ) : null}
                             </View>
                         ))}
@@ -715,6 +744,7 @@ const styles = StyleSheet.create({
     },
     error: { paddingHorizontal: 16, paddingBottom: 8 },
     actions: { flexDirection: "row", gap: 8 },
+    overview: { gap: 12 },
     tags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
     facts: {
         backgroundColor: c.bg,

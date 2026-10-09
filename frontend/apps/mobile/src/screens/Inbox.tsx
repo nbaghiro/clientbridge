@@ -144,6 +144,7 @@ function Messages() {
                 <View style={styles.headRow}>
                     <Text style={styles.meta}>{s.unreadCount(inbox.unread)}</Text>
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         icon="edit"
                         onPress={() => {
@@ -230,13 +231,19 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
             <View style={styles.threadHead}>
-                <Button variant="link" icon="chevronLeft" onPress={onBack}>
+                <Button
+                    style={{ alignSelf: "center" }}
+                    variant="link"
+                    icon="chevronLeft"
+                    onPress={onBack}
+                >
                     {s.back}
                 </Button>
-                <Text style={styles.threadTitle} numberOfLines={1}>
+                <Text style={[styles.threadTitle, styles.flex]} numberOfLines={1}>
                     {thread.title}
                 </Text>
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     variant="outline"
                     onPress={() => {
@@ -304,6 +311,7 @@ function ThreadView({ thread, onBack }: { thread: InboxThread; onBack: () => voi
                         onChange={composer.setChannel}
                     />
                     <Button
+                        style={{ alignSelf: "center" }}
                         icon="send"
                         busy={composer.busy}
                         disabled={!composer.canSend}
@@ -396,7 +404,11 @@ function ContextPanel({
                             <Text style={styles.rowName}>{s.consentChannel[ch]}</Text>
                             {detail !== null ? <Text style={styles.meta}>{detail}</Text> : null}
                         </View>
-                        <Badge label={state.label} intent={state.intent} />
+                        <Badge
+                            style={{ alignSelf: "center" }}
+                            label={state.label}
+                            intent={state.intent}
+                        />
                     </View>
                 );
             })}
@@ -489,7 +501,7 @@ const styles = StyleSheet.create({
         borderBottomWidth: StyleSheet.hairlineWidth,
         backgroundColor: c.surface,
     },
-    threadTitle: { flex: 1, color: c.ink, fontSize: 17, fontWeight: "700" },
+    threadTitle: { color: c.ink, fontSize: 17, fontWeight: "700" },
     messages: { padding: 16, gap: 12 },
     day: { gap: 10 },
     dayLabel: {

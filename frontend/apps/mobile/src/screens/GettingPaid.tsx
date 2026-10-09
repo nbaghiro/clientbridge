@@ -120,6 +120,7 @@ export function GettingPaidScreen() {
                             <View style={styles.reqHead}>
                                 <Text style={styles.reqTitle}>{r.label}</Text>
                                 <StatusPill
+                                    style={{ alignSelf: "center" }}
                                     asWritten
                                     status={
                                         r.pastDue

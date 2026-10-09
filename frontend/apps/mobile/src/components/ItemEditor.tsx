@@ -11,6 +11,7 @@ import {
     mediaUrl,
     strings,
     usePlanEditor,
+    useAsyncAction,
     useProductEditor,
     useServiceEditor,
 } from "@clientbridge/app-core";
@@ -21,12 +22,13 @@ import {
     DetailSection,
     DetailView,
     DurationBar,
-    ItemImage,
+    ImagePicker,
     Notice,
     Select,
     TextField,
     Toggle,
 } from "@clientbridge/ui";
+import { launchImageLibraryAsync } from "expo-image-picker";
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -219,23 +221,48 @@ function ServiceFields({ ed }: { ed: ServiceEditor }) {
     );
 }
 
-function ProductFields({ ed, item }: { ed: ProductEditor; item: ItemRow | null }) {
+function ProductFields({ ed }: { ed: ProductEditor }) {
+    const picker = useAsyncAction();
+    const pick = (): void => {
+        picker.run(
+            async () => {
+                const result = await launchImageLibraryAsync({
+                    mediaTypes: ["images"],
+                    quality: 0.85,
+                });
+                const asset = result.assets?.[0];
+                if (!asset) return;
+                const blob = await (await fetch(asset.uri)).blob();
+                ed.photo.upload(blob, asset.mimeType ?? "image/jpeg", asset.fileSize);
+            },
+            { errorMessage: strings.common.fileUploadError },
+        );
+    };
     const v = ed.form.values;
     const set = ed.form.set;
     return (
         <>
             <DetailSection title={s.sectionImage}>
-                <View style={styles.photo}>
-                    <ItemImage
-                        src={mediaUrl(apiBaseUrl, ed.photo.fileId)}
-                        name={v.name || (item?.name ?? s.kindProduct)}
-                        color={item?.color ?? null}
-                        size={72}
-                    />
-                    <Text style={[styles.hint, styles.flex]}>
-                        {item === null ? s.photoAfterSave : s.photoOnWeb}
-                    </Text>
-                </View>
+                {ed.photo.canUpload ? (
+                    <View style={{ gap: 12 }}>
+                        <ImagePicker
+                            src={mediaUrl(apiBaseUrl, ed.photo.fileId)}
+                            name={v.name}
+                            label={ed.photo.fileId === null ? s.photo : s.changePhoto}
+                            hint={s.photoHint}
+                            busy={ed.photo.busy || picker.busy}
+                            onPick={pick}
+                        />
+                        {ed.photo.error || picker.error ? (
+                            <Notice tone="danger">{ed.photo.error ?? picker.error}</Notice>
+                        ) : null}
+                        {ed.photo.uploaded ? (
+                            <Notice tone="success">{s.photoUploaded}</Notice>
+                        ) : null}
+                    </View>
+                ) : (
+                    <Text style={styles.hint}>{s.photoAfterSave}</Text>
+                )}
             </DetailSection>
             <DetailSection title={s.sectionBasics}>
                 <BasicsFields form={ed.form} placeholder={s.namePlaceholderProduct} />
@@ -547,7 +574,7 @@ function ProductSheet({ item, onClose }: EditorProps) {
     const ed = useProductEditor(api, item, onClose);
     return (
         <Frame item={item} kind="product" form={ed.form} onClose={onClose}>
-            <ProductFields ed={ed} item={item} />
+            <ProductFields ed={ed} />
         </Frame>
     );
 }
@@ -573,7 +600,6 @@ const styles = StyleSheet.create({
     gap: { gap: 8, marginTop: 6 },
     pair: { flexDirection: "row", gap: 10 },
     bar: { marginTop: 12 },
-    photo: { flexDirection: "row", alignItems: "center", gap: 12 },
     name: { color: c.ink, fontSize: 15.5, fontWeight: "600" },
     facts: { color: c.inkSoft, fontSize: 14, marginTop: 2 },
     hint: { color: c.muted, fontSize: 12.5, marginTop: 6, lineHeight: 17 },

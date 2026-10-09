@@ -93,6 +93,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
             <View style={styles.top}>
                 <Text style={styles.subtitle}>{s.subtitle}</Text>
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     icon="plus"
                     onPress={() => {
@@ -146,6 +147,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                 <View style={styles.sectionHead}>
                     <Text style={styles.sectionTitle}>{s.optOutsTitle}</Text>
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         variant="outline"
                         busy={actions.busy}
@@ -166,6 +168,7 @@ function Home({ onCompose }: { onCompose: (seed: BroadcastSeed) => void }) {
                             </Text>
                         </View>
                         <StatusPill
+                            style={{ alignSelf: "center" }}
                             status={s.consentChannel[o.channel] ?? o.channel}
                             intent="danger"
                             asWritten

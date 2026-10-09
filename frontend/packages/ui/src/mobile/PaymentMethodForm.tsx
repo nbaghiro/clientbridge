@@ -22,7 +22,7 @@ export function PaymentMethodForm({ flow, allowBank, style }: NativeProps<Paymen
         );
     }
     return (
-        <View style={style}>
+        <View style={[styles.stack, style]}>
             <View style={styles.start}>
                 <Button
                     variant="outline"
@@ -67,4 +67,4 @@ export function PaymentMethodForm({ flow, allowBank, style }: NativeProps<Paymen
     );
 }
 
-const styles = StyleSheet.create({ start: { marginTop: 10 } });
+const styles = StyleSheet.create({ start: { gap: 12 }, stack: { gap: 12, paddingTop: 10 } });

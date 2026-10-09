@@ -61,6 +61,7 @@ export function GiftCards() {
                 <Text style={ui.note}>{w.subtitle}</Text>
                 <View style={styles.row}>
                     <Button
+                        style={{ alignSelf: "center" }}
                         grow
                         onPress={() => {
                             setMode("sell");
@@ -69,6 +70,7 @@ export function GiftCards() {
                         {w.sellNew}
                     </Button>
                     <Button
+                        style={{ alignSelf: "center" }}
                         variant="outline"
                         onPress={() => {
                             setMode("redeem");
@@ -227,11 +229,16 @@ function WalletCard({
                 ) : null}
                 <View style={styles.row}>
                     {usable ? (
-                        <Button size="sm" onPress={onUse}>
+                        <Button style={{ alignSelf: "center" }} size="sm" onPress={onUse}>
                             {w.action.use}
                         </Button>
                     ) : null}
-                    <Button size="sm" variant="quiet" onPress={onOpen}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        variant="quiet"
+                        onPress={onOpen}
+                    >
                         {w.history}
                     </Button>
                 </View>

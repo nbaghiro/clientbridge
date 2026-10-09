@@ -9,7 +9,7 @@ export default story<LoadFailedProps>({
         message: { type: "text" },
         body: { type: "text" },
         retrying: { type: "boolean" },
-        variant: { type: "select", options: ["inline", "card"] },
+        variant: { type: "select", options: ["inline", "card", "page"] },
     },
     examples: [
         { key: "default", title: "Default copy", props: () => ({ onRetry: noop }) },

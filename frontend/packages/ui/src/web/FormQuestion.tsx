@@ -54,9 +54,11 @@ export function FormQuestion({
                             invalid ? "border-danger" : "border-line"
                         } ${preview ? "bg-bg" : "cursor-pointer bg-bg hover:border-accent"}`}
                     >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-weak text-accent">
-                            <Icon name={fileName ? "check" : "upload"} />
-                        </span>
+                        <Icon
+                            name={fileName ? "check" : "upload"}
+                            size={20}
+                            className="text-ink-soft"
+                        />
                         <span className="min-w-0 flex-1">
                             <span className="block truncate font-medium text-ink">
                                 {fileName ?? chooseFileLabel}

@@ -291,7 +291,6 @@ export function ClientPetsScreen() {
     );
 }
 
-/** A client's saved cards and bank accounts; a card is added here, a bank account on the web. */
 export function ClientWalletScreen() {
     const { clientId } = useRoute<RouteProp<RootStackParamList, "ClientWallet">>().params;
     const manager = canManagePayments(useRole());
@@ -394,7 +393,19 @@ export function ClientWalletScreen() {
                         </Button>
                     </View>
                 ) : null}
-                <Text style={styles.hint}>{w.bankOnWebOnly}</Text>
+                {wallet.load.hasData ? (
+                    <Button
+                        full
+                        variant="outline"
+                        icon="plus"
+                        onPress={() => {
+                            setAdding(true);
+                            add.start("bank");
+                        }}
+                    >
+                        {strings.clients.addBankWeb}
+                    </Button>
+                ) : null}
                 {wallet.error !== null ? (
                     <Notice tone="danger" banner>
                         {wallet.error}
@@ -442,7 +453,9 @@ export function ClientWalletScreen() {
                         add.cancel();
                     }}
                 >
-                    <Text style={styles.sheetTitle}>{w.addCard}</Text>
+                    <Text style={styles.sheetTitle}>
+                        {add.kind === "bank" ? strings.clients.addBankWeb : w.addCard}
+                    </Text>
                     <PaymentMethodForm flow={add} allowBank />
                 </Modal>
             ) : null}

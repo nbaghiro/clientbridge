@@ -72,7 +72,7 @@ function HitRow({
             intent={hit.kind === "actions" ? "accent" : "neutral"}
             leading={
                 hit.color !== null && hit.kind !== "actions" ? (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface2">
+                    <span className="flex w-5 shrink-0 justify-center">
                         <span
                             className="h-3 w-3 rounded-full"
                             style={{ backgroundColor: hit.color }}

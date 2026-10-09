@@ -62,8 +62,8 @@ export function ActionMenu({
                                 <View style={layout === "grid" ? styles.tileIcon : styles.rowIcon}>
                                     <Icon
                                         name={item.icon}
-                                        size={layout === "grid" ? 22 : 19}
-                                        color={c.accent}
+                                        size={layout === "grid" ? 26 : 22}
+                                        color={c.inkSoft}
                                     />
                                 </View>
                                 {layout === "grid" ? (
@@ -133,14 +133,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
         borderRadius: theme.radius,
     },
-    tileIcon: {
-        width: 52,
-        height: 52,
-        borderRadius: 16,
-        backgroundColor: c.accentWeak,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    tileIcon: { height: 36, alignItems: "center", justifyContent: "center" },
     tileLabel: { color: c.ink, fontSize: 13, fontWeight: "600" },
     row: {
         flexDirection: "row",
@@ -150,14 +143,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 4,
         borderRadius: theme.radius,
     },
-    rowIcon: {
-        width: 38,
-        height: 38,
-        borderRadius: 10,
-        backgroundColor: c.accentWeak,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    rowIcon: { width: 24, alignItems: "center" },
     rowText: { flex: 1 },
     rowLabel: { color: c.ink, fontSize: 16, fontWeight: "600" },
     rowHint: { color: c.muted, fontSize: 13, marginTop: 1 },

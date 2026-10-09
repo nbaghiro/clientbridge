@@ -93,7 +93,7 @@ function AccountSession({
             <View style={[styles.screen, style]}>
                 <View style={styles.header}>
                     <Text style={styles.title}>{s[component]}</Text>
-                    <Button variant="outline" onPress={onClose}>
+                    <Button style={{ alignSelf: "center" }} variant="outline" onPress={onClose}>
                         {s.close}
                     </Button>
                 </View>

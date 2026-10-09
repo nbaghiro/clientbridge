@@ -23,6 +23,7 @@ import {
     CalendarEventCard,
     DateStrip,
     DetailView,
+    Modal,
     Empty,
     Icon,
     IconButton,
@@ -109,7 +110,7 @@ export function ScheduleScreen() {
                         nav.navigate("Recurrences");
                     }}
                 />
-                <Button size="sm" icon="plus" onPress={openNew}>
+                <Button style={{ alignSelf: "center" }} size="sm" icon="plus" onPress={openNew}>
                     {s.newShort}
                 </Button>
             </View>
@@ -316,34 +317,45 @@ export function ScheduleScreen() {
                 </ScrollView>
             )}
 
-            {detail ? (
-                <DetailView
-                    open
-                    title={detail.event.headline}
-                    subtitle={detail.event.serviceName}
-                    onClose={() => {
-                        board.select(null);
-                    }}
-                    actions={
-                        <BookingActionBar
-                            actions={actions}
-                            onReschedule={() => {
-                                setMoving(true);
-                            }}
-                        />
-                    }
-                >
-                    <BookingBody detail={detail} />
-                </DetailView>
-            ) : null}
-            {moving && detail ? (
-                <RescheduleSheet
-                    event={detail.event}
-                    onClose={() => {
-                        setMoving(false);
-                    }}
-                />
-            ) : null}
+            <Modal
+                flow
+                framed={false}
+                size="xl"
+                open={detail !== null}
+                onClose={() => {
+                    if (moving) setMoving(false);
+                    else board.select(null);
+                }}
+            >
+                {detail ? (
+                    <DetailView
+                        open={!moving}
+                        title={detail.event.headline}
+                        subtitle={detail.event.serviceName}
+                        onClose={() => {
+                            board.select(null);
+                        }}
+                        actions={
+                            <BookingActionBar
+                                actions={actions}
+                                onReschedule={() => {
+                                    setMoving(true);
+                                }}
+                            />
+                        }
+                    >
+                        <BookingBody detail={detail} />
+                    </DetailView>
+                ) : null}
+                {moving && detail ? (
+                    <RescheduleSheet
+                        event={detail.event}
+                        onClose={() => {
+                            setMoving(false);
+                        }}
+                    />
+                ) : null}
+            </Modal>
             {composer ? (
                 <BookingComposerSheet
                     slot={composer}

@@ -1,5 +1,6 @@
 import type { EmptyProps } from "@clientbridge/app-core/public";
 
+import { Logo } from "./Logo";
 import { Icon } from "./Icon";
 import { type WebProps, cx } from "./props";
 
@@ -24,24 +25,21 @@ export function Empty({
         );
     }
     const danger = intent === "danger";
-    return (
+    const Heading = variant === "page" ? "h1" : "h2";
+    const content = (
         <div
             role={danger ? "alert" : undefined}
             className={cx(
-                `flex flex-col items-center px-6 text-center ${variant === "card" ? "rounded-lg border border-dashed border-line bg-surface py-12" : "py-10"}`,
+                `flex flex-col items-center px-6 text-center ${variant === "page" ? "w-full max-w-md rounded-xl border border-line bg-surface py-10 shadow-card" : variant === "card" ? "rounded-lg border border-dashed border-line bg-surface py-12" : "py-10"}`,
                 className,
             )}
         >
-            {icon !== undefined ? (
-                <span
-                    className={`flex h-11 w-11 items-center justify-center rounded-full ${danger ? "bg-danger-bg text-danger" : "bg-accent-weak text-accent"}`}
-                >
-                    <Icon name={icon} size={20} />
-                </span>
-            ) : null}
-            <p className={`text-sm font-semibold text-ink ${icon !== undefined ? "mt-3" : ""}`}>
+            {icon !== undefined ? <Icon name={icon} size={28} className="text-muted" /> : null}
+            <Heading
+                className={`${variant === "page" ? "font-display text-xl font-bold" : "text-base font-semibold"} text-ink ${icon !== undefined ? "mt-3" : ""}`}
+            >
                 {message}
-            </p>
+            </Heading>
             {body !== undefined ? (
                 <p className="mt-1 max-w-sm text-sm leading-relaxed text-muted">{body}</p>
             ) : null}
@@ -49,5 +47,13 @@ export function Empty({
                 <div className="mt-4 flex flex-wrap justify-center gap-2">{actions}</div>
             ) : null}
         </div>
+    );
+    return variant === "page" ? (
+        <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-bg px-4 py-10">
+            <Logo className="h-8 w-auto text-accent" />
+            {content}
+        </div>
+    ) : (
+        content
     );
 }

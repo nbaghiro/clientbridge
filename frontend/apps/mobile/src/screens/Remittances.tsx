@@ -84,6 +84,7 @@ export function Remittances() {
                                         <Text style={styles.lineSub}>{p.span}</Text>
                                     </View>
                                     <StatusPill
+                                        style={{ alignSelf: "center" }}
                                         status={s.status[p.status] ?? p.status}
                                         intent={filingStatusIntent(p.status)}
                                         asWritten

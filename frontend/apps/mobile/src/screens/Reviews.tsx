@@ -56,7 +56,7 @@ export function Reviews() {
             <ScrollView contentContainerStyle={styles.body}>
                 <View style={styles.top}>
                     <Text style={styles.subtitle}>{s.subtitle}</Text>
-                    <Button size="sm" icon="send" onPress={ask}>
+                    <Button style={{ alignSelf: "center" }} size="sm" icon="send" onPress={ask}>
                         {s.ask}
                     </Button>
                 </View>
@@ -75,7 +75,11 @@ export function Reviews() {
                             <View style={styles.sectionHead}>
                                 <Text style={styles.sectionTitle}>{s.heldTitle}</Text>
                                 {queue.held.length > 0 ? (
-                                    <Badge label={queue.held.length} intent="warning" />
+                                    <Badge
+                                        style={{ alignSelf: "center" }}
+                                        label={queue.held.length}
+                                        intent="warning"
+                                    />
                                 ) : null}
                             </View>
                             {queue.held.length === 0 ? (
@@ -155,6 +159,7 @@ function ReviewSummary({ queue }: { queue: ReviewQueue }) {
                 />
                 <View style={styles.buttons}>
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         variant="outline"
                         busy={settings.busy}
@@ -245,13 +250,22 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
                     </Text>
                 </View>
                 {review.sent_to_google === 1 ? (
-                    <Badge label={s.sharedGoogle} intent="neutral" />
+                    <Badge
+                        style={{ alignSelf: "center" }}
+                        label={s.sharedGoogle}
+                        intent="neutral"
+                    />
                 ) : null}
             </View>
             <View style={styles.starsRow}>
                 <Stars value={review.rating} size="sm" />
                 {review.status === "hidden" ? (
-                    <StatusPill status={s.state.hidden} intent="neutral" asWritten />
+                    <StatusPill
+                        style={{ alignSelf: "center" }}
+                        status={s.state.hidden}
+                        intent="neutral"
+                        asWritten
+                    />
                 ) : null}
             </View>
             <Text style={[styles.text, review.body === null && styles.noComment]}>
@@ -280,11 +294,17 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
             ) : (
                 <View style={styles.buttons}>
                     {m.held || review.status === "hidden" ? (
-                        <Button size="sm" busy={m.busy} onPress={m.publish}>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            size="sm"
+                            busy={m.busy}
+                            onPress={m.publish}
+                        >
                             {s.publish}
                         </Button>
                     ) : null}
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         variant="outline"
                         onPress={() => {
@@ -295,6 +315,7 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
                     </Button>
                     {m.canShare ? (
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             variant="outline"
                             busy={m.busy}
@@ -306,6 +327,7 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
                     ) : null}
                     {m.held ? (
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             variant="outline"
                             label={s.messageClient(firstName(name))}
@@ -317,7 +339,13 @@ function ReviewCard({ review, queue }: { review: ReviewRow; queue: ReviewQueue }
                         </Button>
                     ) : null}
                     {review.status !== "hidden" ? (
-                        <Button size="sm" variant="quiet" busy={m.busy} onPress={m.hide}>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            size="sm"
+                            variant="quiet"
+                            busy={m.busy}
+                            onPress={m.hide}
+                        >
                             {s.hide}
                         </Button>
                     ) : null}
@@ -343,9 +371,10 @@ function AskList({ queue }: { queue: ReviewQueue }) {
                         <Text style={styles.meta}>{x.visit}</Text>
                     </View>
                     {req.sent.has(x.clientId) ? (
-                        <Badge label={s.asked} intent="success" />
+                        <Badge style={{ alignSelf: "center" }} label={s.asked} intent="success" />
                     ) : (
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             variant="outline"
                             busy={req.busyId === x.clientId}
@@ -368,6 +397,7 @@ function AskList({ queue }: { queue: ReviewQueue }) {
                         <Text style={styles.meta}>{s.requestedOn(dateOf(r.requested_at))}</Text>
                     </View>
                     <StatusPill
+                        style={{ alignSelf: "center" }}
                         status={s.requestState[r.status] ?? r.status}
                         intent={r.status === "opened" ? "accent" : "neutral"}
                         asWritten

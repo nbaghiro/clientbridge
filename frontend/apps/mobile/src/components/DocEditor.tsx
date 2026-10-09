@@ -76,6 +76,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                 <IconButton icon="x" label={strings.common.close} onPress={close} />
                 <Text style={styles.title}>{form.title}</Text>
                 <Button
+                    style={{ alignSelf: "center" }}
                     variant="link"
                     onPress={() => {
                         setPreview((v) => !v);
@@ -333,6 +334,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                         <Text style={styles.total}>{formatMoney(form.pricing.totalCents)}</Text>
                     </View>
                     <Button
+                        style={{ alignSelf: "center" }}
                         variant="outline"
                         busy={form.busy}
                         disabled={form.sending}
@@ -341,6 +343,7 @@ export function DocEditor({ kind, draft, onClose }: DocEditorProps) {
                         {form.busy ? s.saving : s.saveDraft}
                     </Button>
                     <Button
+                        style={{ alignSelf: "center" }}
                         icon="send"
                         busy={form.sending}
                         disabled={form.busy}

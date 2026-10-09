@@ -90,9 +90,7 @@ function FilingCard({ form }: { form: TaxSettingsForm }) {
     return (
         <Panel>
             <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-weak text-accent">
-                    <Icon name="calendar" size={18} />
-                </span>
+                <Icon name="calendar" size={20} className="mt-0.5 text-ink-soft" />
                 <div className="min-w-0 flex-1">
                     <p className="text-sm text-muted">{s.filingTitle}</p>
                     <p className="font-display text-lg font-bold text-ink">

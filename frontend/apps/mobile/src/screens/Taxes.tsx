@@ -99,7 +99,12 @@ export function TaxesScreen() {
                             <Text style={styles.value}>{form.provinceName}</Text>
                         </View>
                         {form.taxLines.map((l) => (
-                            <Badge key={l.label} label={l.label} intent="neutral" />
+                            <Badge
+                                style={{ alignSelf: "center" }}
+                                key={l.label}
+                                label={l.label}
+                                intent="neutral"
+                            />
                         ))}
                     </View>
                     <TextField
@@ -138,7 +143,7 @@ export function TaxesScreen() {
                 {registered ? (
                     <View style={[styles.card, styles.filing]}>
                         <View style={styles.icon}>
-                            <Icon name="calendar" size={18} color={c.accent} />
+                            <Icon name="calendar" size={20} color={c.inkSoft} />
                         </View>
                         <View style={styles.flex}>
                             <Text style={styles.small}>{s.filingTitle}</Text>
@@ -240,6 +245,7 @@ export function TaxesScreen() {
                                     </Text>
                                 </View>
                                 <Badge
+                                    style={{ alignSelf: "center" }}
                                     label={taxClassLabel(it.tax_class, form.province)}
                                     intent={it.tax_class === "exempt" ? "neutral" : "accent"}
                                 />
@@ -255,7 +261,12 @@ export function TaxesScreen() {
                         <Text style={styles.bulkText}>
                             {s.selected(n)} · {s.setTo}
                         </Text>
-                        <Button size="sm" variant="quiet" onPress={items.clearSelection}>
+                        <Button
+                            style={{ alignSelf: "center" }}
+                            size="sm"
+                            variant="quiet"
+                            onPress={items.clearSelection}
+                        >
                             {s.clear}
                         </Button>
                     </View>
@@ -313,14 +324,7 @@ const styles = StyleSheet.create({
     exLabel: { color: c.ink, fontSize: 14, fontWeight: "600" },
     total: { color: c.ink, fontSize: 15, fontWeight: "700", fontVariant: ["tabular-nums"] },
     filing: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
-    icon: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        backgroundColor: c.accentWeak,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    icon: { paddingTop: 2 },
     due: { color: c.ink, fontSize: 17, fontWeight: "700", marginTop: 1 },
     right: { alignItems: "flex-end" },
     link: { marginTop: 6, alignItems: "flex-start" },

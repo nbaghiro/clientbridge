@@ -1,6 +1,8 @@
 import {
     EXPORT_KINDS,
     type ExportKind,
+    type PackRequest,
+    useBookkeeperPack,
     type IconName,
     REPORT_PERIODS,
     type ReportKey,
@@ -15,6 +17,7 @@ import {
 import { theme } from "@clientbridge/tokens/native";
 import {
     BarChart,
+    Checkbox,
     Button,
     DetailSection,
     DetailView,
@@ -32,7 +35,10 @@ import {
     ui,
 } from "@clientbridge/ui";
 import { useState } from "react";
-import { ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { File, Paths } from "expo-file-system";
+import { shareAsync } from "expo-sharing";
 
 import { api } from "../lib/api";
 
@@ -47,8 +53,28 @@ const ICONS: Record<ReportKey, IconName> = {
     t4a: "user",
 };
 
+async function shareFile(
+    content: string | Uint8Array,
+    filename: string,
+    mimeType: string,
+): Promise<void> {
+    const file = new File(Paths.cache, filename);
+    file.write(content);
+    await shareAsync(file.uri, { mimeType, dialogTitle: filename });
+}
+
 async function shareCsv(csv: string, filename: string): Promise<void> {
-    await Share.share({ title: filename, message: csv });
+    await shareFile(csv, filename, "text/csv");
+}
+
+async function sharePack(request: PackRequest, filename: string): Promise<void> {
+    const response = await api.authFetch("/v1/reports/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+    });
+    if (!response.ok) throw new Error(`export → ${String(response.status)}`);
+    await shareFile(new Uint8Array(await response.arrayBuffer()), filename, "application/zip");
 }
 
 function figure(key: ReportKey, v: ReportsView): string {
@@ -69,6 +95,7 @@ function figure(key: ReportKey, v: ReportsView): string {
 export function Reports() {
     const r = useMoneyReports(api);
     const file = useReportFile(api, r.span, shareCsv);
+    const pack = useBookkeeperPack(r.span, sharePack);
     const [open, setOpen] = useState<ReportKey | null>(null);
     const [packing, setPacking] = useState(false);
     const v = r.view;
@@ -182,32 +209,27 @@ export function Reports() {
                     setPacking(false);
                 }}
             >
-                <ScrollView>
+                <View style={{ gap: 16 }}>
                     <Text style={styles.sheetTitle}>{s.packTitle}</Text>
-                    <Text style={ui.note}>{`${spanLabel(r.span)} · ${s.packMobile}`}</Text>
-                    {file.error !== null ? <Notice tone="danger">{file.error}</Notice> : null}
-                    <View style={styles.pack}>
-                        {EXPORT_KINDS.map((kind) => (
-                            <ListRow
-                                key={kind}
-                                title={name(kind)}
-                                detail={s.packRows(v?.rows[kind] ?? 0)}
-                                trailing={
-                                    <Button
-                                        size="sm"
-                                        variant="outline"
-                                        busy={file.busyKind === kind}
-                                        onPress={() => {
-                                            file.download(kind);
-                                        }}
-                                    >
-                                        {s.shareCsv}
-                                    </Button>
-                                }
-                            />
-                        ))}
-                    </View>
-                </ScrollView>
+                    <Text style={ui.note}>{`${spanLabel(r.span)} · ${s.packSubtitle}`}</Text>
+                    <Text style={ui.note}>{s.packIncluded}</Text>
+                    {EXPORT_KINDS.map((kind) => (
+                        <Checkbox
+                            key={kind}
+                            label={`${name(kind)} · ${s.packRows(v?.rows[kind] ?? 0)}`}
+                            value={pack.chosen.includes(kind)}
+                            onChange={() => {
+                                pack.toggle(kind);
+                            }}
+                        />
+                    ))}
+                    {pack.error !== null ? <Notice tone="danger">{pack.error}</Notice> : null}
+                    {pack.done ? <Notice tone="success">{s.packDone}</Notice> : null}
+                    <Text style={ui.note}>{s.packEmailLater}</Text>
+                    <Button busy={pack.busy} onPress={pack.download}>
+                        {pack.busy ? s.packWorking : s.packDownload}
+                    </Button>
+                </View>
             </Modal>
         </View>
     );
@@ -362,7 +384,6 @@ const styles = StyleSheet.create({
     screen: { flex: 1, gap: 8 },
     page: { gap: 10, padding: 16, paddingBottom: 32 },
     stack: { gap: 10 },
-    pack: { marginTop: 12 },
     caption: {
         color: c.muted,
         fontSize: 12,

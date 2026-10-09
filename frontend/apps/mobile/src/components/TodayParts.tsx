@@ -149,6 +149,7 @@ export function PaymentsSummary({ owner }: { owner?: OwnerToday }) {
                                 : t.noOverdueInvoices}
                         </Text>
                         <Button
+                            style={{ alignSelf: "center" }}
                             size="sm"
                             variant="link"
                             onPress={() => {
@@ -310,6 +311,7 @@ export function NextCard({ item, children }: { item: AgendaItem; children?: Reac
                             {item.time} – {item.endTime}
                         </Text>
                         <StatusPill
+                            style={{ alignSelf: "center" }}
                             status={
                                 item.checkedIn
                                     ? t.checkedIn
@@ -387,7 +389,6 @@ export function AttentionList({
                             intent={a.intent}
                             title={a.title}
                             detail={a.detail}
-                            density="compact"
                             onPress={() => {
                                 if (a.act === "open") openLink(a.target, a.refId);
                                 else actions.send(a);
@@ -456,7 +457,13 @@ export function AgendaRows({
                         {done ? (
                             <Icon name="check" size={17} color={c.success} label={t.stateDone} />
                         ) : null}
-                        {item.depositDue ? <Badge label={t.depositDue} intent="warning" /> : null}
+                        {item.depositDue ? (
+                            <Badge
+                                style={{ alignSelf: "center" }}
+                                label={t.depositDue}
+                                intent="warning"
+                            />
+                        ) : null}
                     </View>
                 );
             })}

@@ -193,10 +193,15 @@ function PageSettings() {
             {st.justSaved && !st.dirty ? <Notice tone="success">{s.saved}</Notice> : null}
             {st.dirty ? (
                 <View style={styles.rowGap}>
-                    <Button grow variant="outline" onPress={st.discard}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        grow
+                        variant="outline"
+                        onPress={st.discard}
+                    >
                         {s.discard}
                     </Button>
-                    <Button grow busy={st.busy} onPress={st.save}>
+                    <Button style={{ alignSelf: "center" }} grow busy={st.busy} onPress={st.save}>
                         {s.save}
                     </Button>
                 </View>
@@ -236,7 +241,13 @@ function Addons() {
                                     .join(" · ")}
                             </Text>
                         </View>
-                        {x.addon ? null : <Badge label={a.notOffered} intent="neutral" />}
+                        {x.addon ? null : (
+                            <Badge
+                                style={{ alignSelf: "center" }}
+                                label={a.notOffered}
+                                intent="neutral"
+                            />
+                        )}
                     </View>
                     <Toggle
                         label={a.offer}

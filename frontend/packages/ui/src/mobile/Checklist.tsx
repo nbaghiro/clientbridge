@@ -13,21 +13,14 @@ export function Checklist({ items, label, style }: NativeProps<ChecklistProps>) 
             {items.map((item, i) => {
                 const body = (
                     <>
-                        <View
-                            style={[
-                                styles.mark,
-                                item.done
-                                    ? styles.done
-                                    : item.attention
-                                      ? styles.attention
-                                      : styles.todo,
-                            ]}
-                        >
+                        <View style={styles.mark}>
                             {item.done ? (
-                                <Icon name="check" size={14} color={c.okFg} />
+                                <Icon name="checkCircle" size={22} color={c.inkSoft} />
                             ) : item.attention ? (
-                                <Icon name="alert" size={13} color={c.warnFg} />
-                            ) : null}
+                                <Icon name="alert" size={22} color={c.inkSoft} />
+                            ) : (
+                                <View style={styles.todo} />
+                            )}
                         </View>
                         <View style={styles.text}>
                             <Text style={[styles.label, item.done && styles.labelDone]}>
@@ -81,16 +74,15 @@ export function Checklist({ items, label, style }: NativeProps<ChecklistProps>) 
 const styles = StyleSheet.create({
     row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 },
     divider: { borderTopColor: c.borderSoft, borderTopWidth: StyleSheet.hairlineWidth },
-    mark: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        alignItems: "center",
-        justifyContent: "center",
+    mark: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
+    todo: {
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+        borderWidth: 1.5,
+        borderStyle: "dashed",
+        borderColor: c.border,
     },
-    done: { backgroundColor: c.okBg },
-    attention: { backgroundColor: c.warnBg },
-    todo: { borderWidth: 2, borderStyle: "dashed", borderColor: c.border },
     text: { flex: 1, minWidth: 0 },
     label: { color: c.ink, fontSize: 15, fontWeight: "600" },
     labelDone: { color: c.muted, fontWeight: "500" },

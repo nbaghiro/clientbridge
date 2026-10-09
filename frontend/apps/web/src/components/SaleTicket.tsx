@@ -914,9 +914,7 @@ function PaidSummary({
     return (
         <div className="space-y-5">
             <div className="flex flex-col items-center pt-2 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-ok-bg text-ok-fg">
-                    <Icon name="check" size={28} />
-                </span>
+                <Icon name="check" size={32} className="text-ink-soft" />
                 <h2 className="mt-3 font-display text-xl font-bold text-ink">{d.paidTitle}</h2>
                 <p className="mt-1 text-sm text-muted">
                     {d.paidBody(formatMoney(sale.paidCents), method)}

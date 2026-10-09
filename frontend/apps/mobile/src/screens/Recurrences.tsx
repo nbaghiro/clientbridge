@@ -71,6 +71,7 @@ export function RecurrencesScreen() {
             <View style={styles.headRow}>
                 <Text style={styles.muted}>{s.listSubtitle(list.counts.all)}</Text>
                 <Button
+                    style={{ alignSelf: "center" }}
                     size="sm"
                     icon="plus"
                     onPress={() => {

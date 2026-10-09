@@ -36,24 +36,27 @@ export function ListRow({
     ref,
 }: NativeProps<ListRowProps> & WithRef<View>) {
     const compact = density === "compact";
-    const tone = INTENT_COLORS[intent];
-    const tile = compact ? 32 : 38;
+    const flagged = intent === "danger" || intent === "warning";
     const body = (
         <>
             {unread !== undefined ? <View style={[styles.dot, unread && styles.dotOn]} /> : null}
             {leading ??
                 (icon ? (
-                    <View
-                        style={[
-                            styles.tile,
-                            { width: tile, height: tile, backgroundColor: c[tone.soft] },
-                        ]}
-                    >
-                        <Icon name={icon} size={compact ? 16 : 19} color={c[tone.ink]} />
+                    <View style={compact ? styles.icon : styles.iconRegular}>
+                        <Icon name={icon} size={compact ? 20 : 24} color={c.inkSoft} />
                     </View>
                 ) : null)}
             <View style={styles.main}>
-                {asText(title, [styles.title, unread ? styles.titleUnread : null])}
+                {flagged ? (
+                    <View style={styles.titleRow}>
+                        <View
+                            style={[styles.flag, { backgroundColor: c[INTENT_COLORS[intent].ink] }]}
+                        />
+                        {asText(title, [styles.title, styles.shrink, unread && styles.titleUnread])}
+                    </View>
+                ) : (
+                    asText(title, [styles.title, unread ? styles.titleUnread : null])
+                )}
                 {detail !== undefined ? asText(detail, styles.detail, 2) : null}
             </View>
             {meta !== undefined ? (
@@ -89,15 +92,19 @@ const styles = StyleSheet.create({
     row: { flexDirection: "row", alignItems: "center" },
     active: { backgroundColor: c.accentWeak },
     press: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 12 },
-    pad: { paddingVertical: 12, paddingHorizontal: 16 },
+    pad: { paddingVertical: 14, paddingHorizontal: 16 },
     padCompact: { paddingVertical: 9, paddingHorizontal: 14 },
     pressed: { backgroundColor: c.bg },
     dot: { width: 8, height: 8, borderRadius: 4, marginRight: -4 },
     dotOn: { backgroundColor: c.accent },
-    tile: { borderRadius: theme.radius, alignItems: "center", justifyContent: "center" },
+    icon: { width: 22, alignItems: "center" },
+    iconRegular: { width: 26, alignItems: "center", marginRight: 2 },
     main: { flex: 1, minWidth: 0 },
     title: { color: c.ink, fontSize: 15, fontWeight: "500" },
     titleUnread: { fontWeight: "700" },
+    titleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    flag: { width: 7, height: 7, borderRadius: 4 },
+    shrink: { flexShrink: 1 },
     detail: { color: c.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
     meta: { alignItems: "flex-end", alignSelf: "flex-start", paddingTop: 2 },
     metaCenter: { alignSelf: "center", paddingTop: 0 },

@@ -59,7 +59,7 @@ function InviteSheet({ form, onClose }: { form: InviteTeammatesForm; onClose: ()
             {first !== undefined ? (
                 <View>
                     <View style={styles.okIcon}>
-                        <Icon name="check" size={22} color={c.okFg} />
+                        <Icon name="check" size={32} color={c.inkSoft} />
                     </View>
                     <Text style={styles.sheetTitle}>{t.sentTitle(form.sent.length)}</Text>
                     <Text style={styles.small}>{t.sentBody}</Text>
@@ -68,6 +68,7 @@ function InviteSheet({ form, onClose }: { form: InviteTeammatesForm; onClose: ()
                             <Icon name="mail" size={14} color={c.muted} />
                             <Text style={styles.sentText}>{inv.email}</Text>
                             <Badge
+                                style={{ alignSelf: "center" }}
                                 label={roleLabel(inv.role)}
                                 intent={memberRoleIntent(inv.role)}
                             />
@@ -290,6 +291,7 @@ function InviteLine({ invite, team }: { invite: TeamInvite; team: TeamView }) {
             trailing={
                 <View style={styles.inviteActions}>
                     <Button
+                        style={{ alignSelf: "center" }}
                         size="sm"
                         variant="outline"
                         busy={team.busyId === invite.id}
@@ -299,7 +301,12 @@ function InviteLine({ invite, team }: { invite: TeamInvite; team: TeamView }) {
                     >
                         {team.resentIds.includes(invite.id) ? t.resent : t.resend}
                     </Button>
-                    <Button size="sm" variant="quiet" onPress={revoke}>
+                    <Button
+                        style={{ alignSelf: "center" }}
+                        size="sm"
+                        variant="quiet"
+                        onPress={revoke}
+                    >
                         {t.revoke}
                     </Button>
                 </View>
@@ -484,14 +491,7 @@ const styles = StyleSheet.create({
     label: { color: c.inkSoft, fontSize: 13, fontWeight: "600", marginTop: 16, marginBottom: 8 },
     gap: { marginTop: 18 },
     gapSm: { marginTop: 10 },
-    okIcon: {
-        width: 46,
-        height: 46,
-        borderRadius: 23,
-        backgroundColor: c.okBg,
-        alignItems: "center",
-        justifyContent: "center",
-    },
+    okIcon: { marginBottom: 4 },
     sentRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
     sentText: { flex: 1, color: c.inkSoft, fontSize: 14 },
     inviteActions: { flexDirection: "row", alignItems: "center", gap: 2 },
